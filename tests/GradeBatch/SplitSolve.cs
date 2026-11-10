@@ -27,7 +27,7 @@ namespace GradeBatch
         private static readonly float3 HdScale = new float3(4096f / 14336f, 16f, 4096f / 14336f);
         private static readonly float3 HdOffset = new float3(7168f, 0f, 7168f);
 
-        /// <summary>A copy of the terrain over a world box grown by <paramref name="padTexels"/>: SkiRunAutoPlanner.SnapshotRect's rectangle.</summary>
+        /// <summary>A copy of the terrain over a world box grown by <paramref name="padTexels"/>: PlanGeometry.SnapshotRect's rectangle.</summary>
         private static HeightSnapshot Crop(Func<float2, float> terrain, float2 lo, float2 hi, int padTexels)
         {
             int k0 = Math.Max(0, (int)Math.Floor((lo.x + HdOffset.x) * HdScale.x) - padTexels);
@@ -109,7 +109,7 @@ namespace GradeBatch
             public GradeProfile Prof;
         }
 
-        /// <summary>The tool's crop: the rect's world box and every entered run's outline, plus SkiRunAutoPlanner.SnapshotRect's pad
+        /// <summary>The tool's crop: the rect's world box and every entered run's outline, plus PlanGeometry.SnapshotRect's pad
         /// (LatticeMarginM 40 m in texels, + 3).</summary>
         private static HeightSnapshot ToolCrop(SplitQuick q, Func<float2, float> terrain)
         {

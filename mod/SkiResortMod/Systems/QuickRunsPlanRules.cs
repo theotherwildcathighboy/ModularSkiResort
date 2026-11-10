@@ -37,7 +37,9 @@ namespace SkiResortMod.Systems
         private const float MinSideM = 20f;
         private const float EpsM = 1f;
 
-        public const int MaxLifts = 9;
+        /// <summary>Lifts a plan may hold (plan 7.8: runs-first plans 6 to 15). The hub lists that many lift rows.
+        /// The old Lifts knob is hidden and ignored (DECISIONS 632).</summary>
+        public const int MaxLifts = 15;
 
         public enum PlanPickKind { None, Lift, Run, Pod }
 
@@ -77,7 +79,7 @@ namespace SkiResortMod.Systems
             black = Math.Max(0, rated - green - blue);
         }
 
-        /// <summary>The Lifts knob: 0 = Auto, 1..MaxLifts a cap (the hub sends ints, anything else clamps).</summary>
+        /// <summary>The Lifts knob: 0 = Auto, 1..MaxLifts a cap (the hub sends ints, anything else clamps). Runs-first ignores the knob.</summary>
         public static int ClampLifts(int v) => v < 0 ? 0 : v > MaxLifts ? MaxLifts : v;
 
         /// <summary>The Home knob: 0 Auto, 1 Green, 2 Blue (anything else is Auto).</summary>
@@ -190,7 +192,7 @@ namespace SkiResortMod.Systems
                 float d;
                 if (plan.Lifts[i].Origin == LiftOrigin.Pinned)
                 {
-                    float[] hds = SkiRunAutoPlanner.StationHalfDiagonalM;
+                    float[] hds = PlanGeometry.StationHalfDiagonalM;
                     float ring = hds[Math.Min((int)plan.Lifts[i].TypeIndex, hds.Length - 1)];   // half the drawn lot
                     d = Math.Min(math.distance(p, a), math.distance(p, b));
                     if (d > ring)

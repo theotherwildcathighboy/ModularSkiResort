@@ -166,35 +166,109 @@
 
   // The Quick runs tool (contract 17, treesCost since 18) is closed by default. The "Quick runs open" case below has a preview with trees on (every row drawn).
   const quickRuns = { available: true, active: false, reason: "", phase: "Region", corners: 0, areaM2: 0, maxAreaM2: 1000000, verticalM: 0,
-    regionState: "Open", progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0,
-    skiers: 0, variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: 4, treeLine: -1, groundMin: 0,
+    regionState: "Open", progress: 0, density: 1, kinds: 3, runs: 0, enabled: 0, tracks: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0,
+    skiers: 0, variety: false, status: "", warnings: [], unbound: 0, clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: 4, treeLine: -1, groundMin: 0,
     groundMax: 0, group: 0, species: -1, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
     buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0, rejects: [0, 0, 0, 0, 0, 0, 0, 0], sitePercent: -1, siteTier: 0,
-    // Resort Planner v2 (stage A, A7): the Lifts / Way home knobs and the plan (empty while no plan shows)
-    liftsKnob: 0, home: 0, pods: [], planLifts: [],
-    plan: { pods: 0, liftsProposed: 0, liftsPinned: 0, runKm: 0, runKmPerKm2: 0, deadEnds: 0, mountainMix: [0, 0, 0, 0, 0], sitePods: 0, siteGreenHome: 0, siteBenchHa: 0 } };
+    // The plan (empty while no plan shows). Contract 42: no Lifts / Mix / Way home knob fields, the cat tracks counted apart
+    pods: [], planLifts: [],
+    plan: { liftsProposed: 0, liftsPinned: 0, runKm: 0, trackKm: 0, runKmPerKm2: 0, deadEnds: 0, mountainMix: [0, 0, 0, 0, 0], sitePods: 0, siteGreenHome: 0, siteBenchHa: 0 },
+    // R1-d (contract 41): the plan sheet and the lift queue (empty: no plan yet)
+    sheet: { rows: [], running: false, index: 0, total: 0, stopping: false, toBuild: 0, unbuilt: 0, built: 0, cost: 0, notice: "" } };
   const quickPreview = Object.assign({}, quickRuns, { active: true, phase: "Preview", corners: 6, areaM2: 812000, verticalM: 640, regionState: "Ok",
-    runs: 12, enabled: 11, count: [0, 3, 5, 3, 0], target: [0, 3, 5, 3, 0], fee: 1840000, skiers: 2350, variety: true,
-    warnings: ["SkiResort.Tooltip.QUICK_WARN[OverWater]", "SkiResort.Tooltip.QUICK_WARN[Renumber]", "SkiResort.Tooltip.QUICK_WARN[ChecksOff]"],
+    runs: 12, enabled: 11, tracks: 5, count: [0, 3, 5, 3, 0], target: [0, 0, 0, 0, 0], fee: 1840000, skiers: 2350, variety: true,
+    warnings: ["SkiResort.Tooltip.QUICK_WARN[OverWater]", "SkiResort.Tooltip.QUICK_WARN[Renumber]", "SkiResort.Tooltip.QUICK_WARN[ChecksOff]",
+      "SkiResort.Tooltip.QUICK_WARN[NoSignSome]"], unbound: 3,
     clusters: [{ label: "SkiResort.Tooltip.QUICK_CLUSTER", runs: 7 }, { label: "SkiResort.Tooltip.QUICK_POD[Beginner]", runs: 2 },
       { label: "SkiResort.Tooltip.QUICK_POD[MidStation]", runs: 2 }], trees: true, treeLine: 1820, groundMin: 1210, groundMax: 1850,
     speciesNames: ["AlderTree01", "BirchTree01", "PineTree01", "SpruceTree01"], speciesGroups: [1, 1, 0, 0], plant: 3120, remove: 140, treesCost: 131040, rejects: [18, 15, 9, 3, 0, 0, 1, 0], sitePercent: 62, siteTier: 4 });   // the longest verdict (Beyond): the layout test's worst case
 
   // A Resort Planner plan (v2): four pods (one without a lift), two proposals and one pinned lift. It uses the longest class / verdict texts, every
   // pod's runs and bands, one lift switched off, the Lifts knob at Auto and Way home on Green.
-  const podRow = (id, letter, cls, runs, kept, count, liftId, homeKey, on) => ({ id, key: -1000 - id, letter, classKey: "SkiResort.Tooltip.QUICK_CLASS[" + cls + "]",
-    runs, enabledRuns: kept, count, skiers: kept * 210, fee: kept * 160000, on, liftId, homeKey });
-  const liftRow = (id, origin, ordinal, typeKey, pod, lengthM, riseM, serves, homeKey, wantedKey, on) => ({ id, key: 500 + id, origin, ordinal, typeKey, pod, lengthM, riseM,
-    cost: origin ? 0 : 2400000 + id * 300000, serves, startsNearTop: 3, homeKey, wantedKey, on });
-  const quickPlan = Object.assign({}, quickPreview, { clusters: [], trees: false, home: 1,
-    pods: [podRow(0, "A", "Beginner", 4, 4, [0, 2, 2, 0, 0], 0, "SkiResort.Tooltip.QUICK_VERDICT[Green]", true),
-      podRow(1, "B", "Intermediate", 5, 5, [0, 0, 3, 2, 0], 1, "SkiResort.Tooltip.QUICK_VERDICT[Download]", false),
-      podRow(2, "C", "Advanced", 3, 3, [0, 0, 1, 1, 1], 2, "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", true),
-      podRow(3, "D", "Expert", 2, 2, [0, 0, 0, 1, 1], -1, "", true)],
-    planLifts: [liftRow(0, 0, 1, "detachable", 0, 1320, 540, 7, "SkiResort.Tooltip.QUICK_VERDICT[Green]", "SkiResort.Hub.QUICK_HOME_GREEN", true),
-      liftRow(1, 0, 2, "gondola", 1, 2480, 780, 9, "SkiResort.Tooltip.QUICK_VERDICT[Download]", "SkiResort.Hub.QUICK_HOME_GREEN", false),
-      liftRow(2, 1, 1, "fixedGrip", 2, 640, 210, 4, "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", "SkiResort.Hub.QUICK_HOME_GREEN", true)],
-    plan: { pods: 4, liftsProposed: 2, liftsPinned: 1, runKm: 14.6, runKmPerKm2: 18.2, deadEnds: 0, mountainMix: [0, 22, 38, 40, 0], sitePods: 4, siteGreenHome: 1, siteBenchHa: 8 } });
+  // Contract 42 (round R2-b): a sheet row also says how its line builds (flagged / waits) and holds the flagged tower of a built line
+  const sheetRow = (key, name, typeKey, lengthM, riseM, cost, on, state, step, reasonKey, extra) => Object.assign({ key, name, typeKey, lengthM, riseM, cost, on, state, step, reasonKey,
+    flagged: false, waits: false, overLimitTowers: 0, overLimitTower: -1, overLimitAlongM: 0, overLimitBendDeg: 0, overLimitCapDeg: 0 }, extra);
+  const podRow = (id, letter, cls, runs, kept, count, liftId, homeKey, on, tracks) => ({ id, key: -1000 - id, letter, classKey: "SkiResort.Tooltip.QUICK_CLASS[" + cls + "]",
+    runs, enabledRuns: kept, tracks: tracks === undefined ? 3 : tracks, count, skiers: kept * 210, fee: kept * 160000, on, liftId, homeKey });
+  const liftRow = (id, origin, ordinal, typeKey, pod, lengthM, riseM, serves, homeKey, on, fit) => ({ id, key: 500 + id, origin, ordinal, typeKey, pod, lengthM, riseM,
+    cost: origin ? 0 : 2400000 + id * 300000, serves, startsNearTop: 3, homeKey, flagged: fit === "flagged", waits: fit === "waits", overLimitTowers: fit === "flagged" ? 1 : fit === "waits" ? 2 : 0, on });
+  const quickPlan = Object.assign({}, quickPreview, { clusters: [], trees: false,
+    pods: [podRow(0, "A", "Beginner", 4, 4, [0, 2, 2, 0, 0], 0, "SkiResort.Tooltip.QUICK_VERDICT[Green]", true, 4),
+      podRow(1, "B", "Intermediate", 5, 5, [0, 0, 3, 2, 0], 1, "SkiResort.Tooltip.QUICK_VERDICT[Download]", false, 7),
+      podRow(2, "C", "Advanced", 3, 3, [0, 0, 1, 1, 1], 2, "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", true, 2),
+      podRow(3, "D", "Expert", 2, 2, [0, 0, 0, 1, 1], -1, "", true, 6)],
+    planLifts: [liftRow(0, 0, 1, "detachable", 0, 1320, 540, 7, "SkiResort.Tooltip.QUICK_VERDICT[Green]", true),
+      liftRow(1, 0, 2, "gondola", 1, 2480, 780, 9, "SkiResort.Tooltip.QUICK_VERDICT[Download]", false, "flagged"),
+      liftRow(2, 1, 1, "fixedGrip", 2, 640, 210, 4, "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", true)],
+    plan: { liftsProposed: 2, liftsPinned: 1, runKm: 14.6, trackKm: 6.2, runKmPerKm2: 18.2, deadEnds: 0, mountainMix: [0, 22, 38, 40, 0], sitePods: 0, siteGreenHome: 0, siteBenchHa: 0 },
+    // the sheet of the fresh plan: both proposals, the second one switched off (the lifts total counts the first only)
+    sheet: { rows: [sheetRow(500, "P1", "detachable", 1320, 540, 2400000, true, "Proposed", "", ""), sheetRow(501, "P2", "gondola", 2480, 780, 2700000, false, "Proposed", "", "")],
+      running: false, index: 0, total: 0, stopping: false, toBuild: 1, unbuilt: 2, built: 0, cost: 2400000, notice: "" } });
+
+  // R1-d (contract 41): the plan sheet, with the planner closed or open in the Region step. A row is a lift the planner proposed. The WHY keys
+  // are the longest reasons (a station spot outside the city's land, a lift tool closed before the line).
+  const WHY = (g) => "SkiResort.Tooltip.QUICK_LIFT_WHY[" + g + "]";
+  const sheetOf = (rows, extra) => Object.assign({ rows, running: false, index: 0, total: 0, stopping: false,
+    toBuild: rows.filter((r) => r.on && r.state !== "Built").length, unbuilt: rows.filter((r) => r.state !== "Built").length,
+    built: rows.filter((r) => r.state === "Built").length,
+    cost: rows.filter((r) => r.on && r.state !== "Built").reduce((a, r) => a + r.cost, 0), notice: "" }, extra);
+  // Every state: built, building now, waiting for its turn, refused (the longest top reason), waiting in the lift tool, stations placed after a
+  // closed lift tool, a lift switched off. The queue is at lift 2 of 3.
+  const sheetRows = [
+    sheetRow(600, "P1", "detachable", 1320, 540, 2400000, true, "Built", "", "", { overLimitTowers: 1, overLimitTower: 7, overLimitAlongM: 640, overLimitBendDeg: 41.2, overLimitCapDeg: 32 }),
+    sheetRow(601, "P2", "gondola", 2480, 780, 5200000, true, "StationsPlaced", "building", ""),
+    sheetRow(602, "P3", "fixedGrip", 640, 210, 900000, true, "Proposed", "queued", ""),
+    sheetRow(603, "P4", "tram", 3100, 910, 8800000, true, "Refused", "", WHY("TOP_LAND")),
+    sheetRow(604, "P5", "detachable", 1800, 620, 3100000, true, "NeedsFitting", "", WHY("PLAN_CLEARANCE")),
+    sheetRow(605, "P6", "fixedGrip", 520, 140, 700000, true, "StationsPlaced", "", WHY("LINE_ABANDONED")),
+    sheetRow(606, "P7", "fixedGrip", 700, 180, 800000, false, "Proposed", "", ""),
+    sheetRow(607, "P8", "detachable", 1500, 480, 2700000, true, "Proposed", "", "", { flagged: true }),
+    sheetRow(608, "P9", "gondola", 2100, 700, 4300000, true, "Proposed", "", "", { waits: true }),
+    // Task 2c-l / 2d-l: the plan's reason and tower before the build, and a waiting row with its tower after it
+    sheetRow(609, "P10", "detachable", 1300, 500, 2900000, true, "Proposed", "", "", { flagged: true, overLimitTowers: 1, overLimitTower: 1, overLimitAlongM: 30, overLimitBendDeg: 34.5, overLimitCapDeg: 32 }),
+    sheetRow(610, "P11", "gondola", 1450, 710, 4200000, true, "Proposed", "", WHY("PLAN_TRAIN"), { waits: true, overLimitTowers: 1, overLimitTower: 8, overLimitAlongM: 1425, overLimitBendDeg: 48.9, overLimitCapDeg: 40 }),
+    sheetRow(611, "P12", "detachable", 990, 260, 2100000, true, "Proposed", "", WHY("PLAN_LOW"), { waits: true }),
+    sheetRow(612, "P13", "detachable", 1320, 500, 2900000, true, "NeedsFitting", "", WHY("PLAN_TRAIN"), { overLimitTowers: 1, overLimitTower: 7, overLimitAlongM: 1270, overLimitBendDeg: 50.9, overLimitCapDeg: 32 }),
+  ];
+  const quickSheetRunning = Object.assign({}, quickRuns, { sheet: sheetOf(sheetRows, { running: true, index: 2, total: 3 }) });
+  const quickSheetStopping = Object.assign({}, quickRuns, { active: true, phase: "Region", corners: 0, canPlanAround: true, sheet: sheetOf(sheetRows, { running: true, index: 2, total: 3, stopping: true }) });
+  const quickSheetIdle = Object.assign({}, quickRuns, { sheet: sheetOf([
+    sheetRow(610, "P1", "detachable", 1320, 540, 2400000, true, "NeedsFitting", "", WHY("PLAN_TRAINS")),
+    sheetRow(611, "P2", "gondola", 2480, 780, 5200000, true, "Refused", "", WHY("MONEY")),
+    sheetRow(612, "P3", "fixedGrip", 640, 210, 900000, true, "Proposed", "", ""),
+  ], { notice: "SkiResort.Tooltip.QUICK_LIFTS_NOTICE[RunsBusy]" }) });
+  const quickSheetBuilt = Object.assign({}, quickRuns, { sheet: sheetOf([
+    sheetRow(620, "P1", "detachable", 1320, 540, 2400000, true, "Built", "", ""),
+    sheetRow(621, "P2", "gondola", 2480, 780, 5200000, true, "Built", "", ""),
+  ], {}) });
+
+  // R2-b (contract 42): a runs-first plan at its largest. 15 lifts (each with its own group of runs, the longest class text), "Other runs", cat tracks
+  // counted apart, two lifts that build with a flagged tower and two that wait for a hand fit. The sheet of the same plan: every state again, two built
+  // lines with a flagged tower, a proposed row that builds flagged, one that waits, and a wait for two or more towers over their limit (PLAN_TRAINS).
+  const TYPES15 = ["detachable", "gondola", "fixedGrip", "tram", "detachable"];
+  const CLASS15 = ["Intermediate", "Beginner", "Advanced", "Expert", "Intermediate"];
+  const VERDICT15 = ["Green", "Blue", "Black", "DoubleBlack", "Download"];
+  const FIT15 = { 3: "flagged", 8: "flagged", 5: "waits", 12: "waits" };
+  const pods15 = Array.from({ length: 15 }, (_, i) => podRow(i, String.fromCharCode(65 + i), CLASS15[i % 5], 4 + (i % 4), 4 + (i % 4) - (i === 6 ? 1 : 0), [0, 1 + (i % 3), 1 + (i % 2), i % 3, 0], i,
+    "SkiResort.Tooltip.QUICK_VERDICT[" + VERDICT15[i % 5] + "]", i !== 9, 2 + (i % 6)));
+  pods15.push(podRow(15, "P", "Intermediate", 11, 11, [0, 3, 5, 3, 0], -1, "", true, 14));
+  const lifts15 = Array.from({ length: 15 }, (_, i) => liftRow(i, 0, i + 1, TYPES15[i % 5], i, 520 + ((i * 397) % 2600), 140 + ((i * 131) % 800), 3 + (i % 9),
+    "SkiResort.Tooltip.QUICK_VERDICT[" + VERDICT15[i % 5] + "]", i !== 9, FIT15[i]));
+  const quickPlan15 = Object.assign({}, quickPreview, { clusters: [], trees: false, runs: 73, enabled: 69, tracks: 98, count: [0, 19, 31, 19, 0], fee: 31840000, skiers: 9150,
+    pods: pods15, planLifts: lifts15, plan: { liftsProposed: 15, liftsPinned: 0, runKm: 41.8, trackKm: 22.6, runKmPerKm2: 4.6, deadEnds: 0, mountainMix: [0, 24, 41, 35, 0], sitePods: 0, siteGreenHome: 0, siteBenchHa: 0 },
+    sheet: sheetOf(lifts15.map((l) => sheetRow(700 + l.id, "P" + (l.id + 1), l.typeKey, l.lengthM, l.riseM, l.cost, l.on, "Proposed", "", "", { flagged: l.flagged, waits: l.waits })), {}) });
+  const flag = (tower, along, bend) => ({ overLimitTowers: 1, overLimitTower: tower, overLimitAlongM: along, overLimitBendDeg: bend, overLimitCapDeg: 32 });
+  const sheet15 = Array.from({ length: 15 }, (_, i) => sheetRow(700 + i, "P" + (i + 1), TYPES15[i % 5], 520 + ((i * 397) % 2600), 140 + ((i * 131) % 800), 2400000 + i * 300000, i !== 9, "Proposed", "", ""));
+  sheet15[0] = sheetRow(700, "P1", "detachable", 1320, 540, 2400000, true, "Built", "", "", flag(7, 640, 41.2));
+  sheet15[1] = sheetRow(701, "P2", "gondola", 2480, 780, 5200000, true, "Built", "", "");
+  sheet15[2] = sheetRow(702, "P3", "fixedGrip", 640, 210, 900000, true, "Built", "", "", flag(12, 1380, 38));
+  sheet15[3] = sheetRow(703, "P4", "tram", 3100, 910, 8800000, true, "Proposed", "building", "");
+  sheet15[4] = sheetRow(704, "P5", "detachable", 1800, 620, 3100000, true, "Proposed", "queued", "");
+  sheet15[5] = sheetRow(705, "P6", "gondola", 2100, 700, 4300000, true, "NeedsFitting", "", WHY("PLAN_TRAINS"));
+  sheet15[6] = sheetRow(706, "P7", "fixedGrip", 520, 140, 700000, true, "Refused", "", WHY("TOP_LAND"));
+  sheet15[7] = sheetRow(707, "P8", "detachable", 1500, 480, 2700000, true, "Proposed", "", "", { flagged: true });
+  sheet15[8] = sheetRow(708, "P9", "gondola", 2300, 650, 4100000, true, "Proposed", "", "", { waits: true });
+  const quickSheet15 = Object.assign({}, quickRuns, { sheet: sheetOf(sheet15, {}) });
 
   // contract 29: the car spaces per road lodge (Guests view, under the folds): Ash Flat two lodges, the big resort four (one not counted
   // yet reads "–"). The Hut, the Summit and off-road lodges have no row. Contract 30: the big resort's two Chalets are numbered.
@@ -221,7 +295,7 @@
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800 };
-  const base = { hubOpen: false, contract: 40, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 43, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
@@ -244,6 +318,24 @@
     // The Resort Planner with a plan (v2): the Lifts / Way home knobs, the plan line, one toggle row per lift and the pod without a lift.
     "Resort Planner plan, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive,
       lifts, problems, history, quickRuns: quickPlan, build: buildItems({ built: ["school"] }) }),
+    // The plan sheet (R1-d): the Resort Planner closed, the lifts block at the top of the Runs view. Every row state, the queue at lift 2 / 3.
+    "Resort Planner lifts, queue building (every row state), Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN,
+      runs, runLive, lifts, problems, history, quickRuns: quickSheetRunning, build: buildItems({ built: ["school"] }) }),
+    // The planner open in the Region step with the same sheet, Stop asked ("Stopping after lift 2 / 3").
+    "Resort Planner lifts, queue stopping (planner open), Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN,
+      runs, runLive, lifts, problems, history, quickRuns: quickSheetStopping, build: buildItems({ built: ["school"] }) }),
+    // Idle: lifts to build, a money refusal on one row and the notice of a refused call.
+    "Resort Planner lifts, idle with a refusal and a notice, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN,
+      runs, runLive, lifts, problems, history, quickRuns: quickSheetIdle, build: buildItems({ built: ["school"] }) }),
+    // Every lift built: the total line turns into "All 2 lifts built."
+    // R2-b (contract 42): the runs-first plan at its largest: 15 lift rows with their groups, flagged and waiting lines, "Other runs", cat tracks in the totals
+    "Resort Planner plan, 15 lifts (flagged, waiting, other runs), Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN,
+      runs, runLive, lifts, problems, history, quickRuns: quickPlan15, build: buildItems({ built: ["school"] }) }),
+    // ... and its sheet with the planner closed: 15 rows, two built lines with a flagged tower, a proposed row that builds flagged, one that waits, PLAN_TRAINS
+    "Resort Planner lifts, 15 rows (flagged tower, waiting), Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN,
+      runs, runLive, lifts, problems, history, quickRuns: quickSheet15, build: buildItems({ built: ["school"] }) }),
+    "Resort Planner lifts, all built, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN,
+      runs, runLive, lifts, problems, history, quickRuns: quickSheetBuilt, build: buildItems({ built: ["school"] }) }),
     // A staged build in flight (progress line and Stop, every knob grayed), then a planting in flight (the tree counts line turns into
     // "Planting trees 2,400 / 9,000").
     "Quick runs building, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs,

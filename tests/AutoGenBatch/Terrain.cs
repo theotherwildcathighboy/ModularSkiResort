@@ -17,10 +17,10 @@ namespace AutoGenBatch
         public static readonly float3 Scale = new float3(4096f / 14336f, 65535f / 4096f, 4096f / 14336f);
         public static readonly float3 Offset = new float3(7166.25f, 0f, 7166.25f);
 
-        /// <summary>Snapshot of the rectangle SkiRunAutoPlanner.SnapshotRect asks for, heights from f (clamped to the R16 range).</summary>
+        /// <summary>Snapshot of the rectangle PlanGeometry.SnapshotRect asks for, heights from f (clamped to the R16 range).</summary>
         public static HeightSnapshot Snapshot(HeightFn f, float2[] region, Func<double, double, bool> wet = null)
         {
-            SkiRunAutoPlanner.SnapshotRect(region, Res, Res, Scale, Offset, out int x0, out int z0, out int w, out int d);
+            PlanGeometry.SnapshotRect(region, Res, Res, Scale, Offset, out int x0, out int z0, out int w, out int d);
             HeightSnapshot s = HeightSnapshot.Allocate(x0, z0, w, d, Res, Res, Scale, Offset, wet != null);
             for (int l = 0; l < d; l++)
             {

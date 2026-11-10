@@ -1,7 +1,7 @@
 // Unpowered lifts: an unpowered lift of every type carries no guests and does nothing for the resort, but still
 // pays its full upkeep. The checks run per lift type in SkiCatalog.Lifts, with power ON, OFF and Unknown, through the pure rules that the
 // systems call (tags `unpowered/...`):
-//   UP-1 served (LiftServedRule.Assign)      UP-2 attraction (SkiResortScore.Compute)   UP-3 summit served
+//   UP-1 served (LiftServedRule.Assign), UP-1b runs in reach (CountInReach, power ignored)   UP-2 attraction (SkiResortScore.Compute)   UP-3 summit served
 //   UP-4 upkeep (LiftUpkeepBillingOf has no power input. OFF keeps the full rate while the area counts a run.
 //        Reductions only for Unfinished and NoOpenRun)
 //   UP-5 tickets (TicketGateOf)              UP-6 ski day (AreaStateOf, Capacity, ClosingEdgeOf)
@@ -117,6 +117,35 @@ namespace ResortBatch
                 Eq(on ? 1 : 0, count.Count == 1 ? count[0] : -99, w + " UP-1", "runs served (" + p + ")");
                 Eq(LiftServedRule.Carries(lifts[0].Complete, lifts[0].Power, false), lifts[0].Serves, w + " UP-1",
                    "Lift.Serves == Carries(Complete, Power, false) (" + p + ")");
+            }
+
+            // UP-1b runs in reach (the hub row's RunsServed): power ignored, geometry and completeness kept
+            foreach (LiftPower p in new[] { LiftPower.Powered, LiftPower.NoPower, LiftPower.Unknown, LiftPower.Pending })
+            {
+                var lifts = new List<LiftServedRule.Lift> { LiftOf(def, p) };
+                var chords = new List<LiftServedRule.Chord> { new LiftServedRule.Chord { A = new float2(0f, 0f), B = new float2(0f, LineLengthM) } };
+                // in reach; too high above the top (margin); too far from the line and the top (radius + 1)
+                float far = def.ServeRadiusM + 1f;
+                var tops = new List<float3>
+                {
+                    new float3(50f, 90f, 990f),
+                    new float3(50f, 100f + def.TopMarginM + 1f, 990f),
+                    new float3(far, 90f, LineLengthM + far),
+                };
+                var inReach = new List<int>();
+                LiftServedRule.CountInReach(tops, lifts, chords, inReach);
+                Eq(1, inReach.Count == 1 ? inReach[0] : -99, w + " UP-1b", "runs in reach (" + p + ")");
+                var serving = new List<int>();
+                var dist = new List<float>();
+                var count = new List<int>();
+                LiftServedRule.Assign(tops, lifts, chords, serving, dist, count);
+                Eq(LiftServedRule.IsPowered(p) ? 1 : 0, count.Count == 1 ? count[0] : -99, w + " UP-1b",
+                   "Assign's served count stays power-gated (" + p + ")");
+                LiftServedRule.Lift unfinished = lifts[0];
+                unfinished.Complete = false;
+                lifts[0] = unfinished;
+                LiftServedRule.CountInReach(tops, lifts, chords, inReach);
+                Eq(0, inReach.Count == 1 ? inReach[0] : -99, w + " UP-1b", "runs in reach of an unfinished lift (" + p + ")");
             }
 
             // UP-2 attraction

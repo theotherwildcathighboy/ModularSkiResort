@@ -262,6 +262,33 @@ aims at what the player sees and removes the section under the cursor:
     in full, then every 25th.
   - One `DELETED` line per removal.
 
+## Scripted entry (Resort Planner R1-c)
+- `TryActivateFor(why, type, baseStation, topStation, autoBuild)` and `TryActivateForGround(why, type, a, b, autoBuild)` open the tool
+  for one line. They return a `ScriptTicket`. The caller reads `Outcome` every frame.
+- The picks run in the next update of the tool (`UpdateScript`, then `RunScript`). They use the same `PickEnd` as two clicks. A
+  station end comes from the transform and the catalog row of the station, because a fresh station may not be in the census yet.
+- With auto build, the tool calls `RequestBuild` when `LiftTowerPlan.QueueRule` allows the plan and no ALONG, CROSS or BACKWARD
+  notice stands (`AutoBuildBlocker`). Otherwise the tool waits in Edit for the player.
+  - QueueRule (task R2-l, DECISIONS 637): a Sound plan builds. A plan with every span clear, exactly one tower over its sheave-train
+    limit, no tower too steep and no tower past its clearance also builds. This is the build that Enter makes.
+  - Two or more towers over the limit wait as PLAN_TRAINS. Any other fault waits on its plan key (`LiftTowerPlan.QueueWaitKey`).
+  - The ticket keeps `OverLimitTowers` and the first such tower: `OverLimitTower` (its place from the base), `OverLimitAlongM`,
+    `OverLimitBendDeg` and `OverLimitCapDeg`. The picks set them, and the apply sets them again from the plan that was built.
+  - Log: `LiftLine [script]: #N picked — ..., one tower over its sheave-train limit (tower T at A m bends B deg, its limit is C), no other
+    defect: build requested (as Enter builds it)`.
+- Outcomes:
+  - Pending: queued, or picked with a build requested.
+  - Waiting: in Edit with both ends picked. `Reason` is the plan key, the notice, or the refusal of the game.
+  - Built: the line is permanent. `Line`, `Towers`, `LengthM` and the over-limit fields are set.
+  - Refused: the tool could not open, or could not pick the ends.
+  - Abandoned: the tool closed, the ends were dropped, or another scripted line took its place.
+- A ticket that waits can still end Built when the player builds the line.
+- The tool: a scripted line that ends Built gives the tool back to the default tool (task R1-e). In the field r1c pass the tool stayed
+  open after the queue (note 4). This includes a Waiting line that the player builds. A Waiting line keeps the tool open, because the player fits it.
+  `IdleAfterScript` is true when the tool is active with no end picked, no preview and no open ticket. The build queue reads it when it
+  ends (`ResortLiftBuildSystem.HandToolBack`).
+- Logs: `LiftLine [script]` per ticket start, pick, WAITING and end.
+
 ## Logs
 Silence is impossible. The log has ARMED / patch lines per load. It has one line for each of these:
 - activation,

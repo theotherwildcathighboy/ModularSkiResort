@@ -35,10 +35,13 @@ runs in these cases:
 The building count is not in the signature. Per-array content hashes gate the revision of each array. City is a value that the hub
 dedups. The slow / live row split keeps the header, switcher and run identity from re-rendering on every snow, guest or money change.
 Strings are built only in a rebuild, so there is no per-frame allocation. Cost: one building walk, one provider walk, one
-`CopyServeLifts` (a power read per Complete row) + Assign, and one `GetServiceBudget` per service. `Stats [cost]` is written once per
+`CopyServeLifts` (a power read per Complete row) + Assign + `CountInReach`, and one `GetServiceBudget` per service. `Stats [cost]` is written once per
 load.
 
 ## Rules worth knowing
+- A lift row's `RunsServed` is `LiftServedRule.CountInReach`: run tops in the lift's reach, power ignored. A lift with no power or with
+  power pending reads its runs, and its status word gives the reason it does not run. The power-gated served count stays for service.
+  OPEN: a lift with power still pending (paused right after a load) reads "Running" with capacity while its chairs are held.
 
 - Not linked rows: -1 for every score, guest and ticket number. Its lifts still bill, runs do not.
 - Net = `HubRules.NetMonth` over what the ledger booked this month and buildings / wages x the share of the month simulated. The eight

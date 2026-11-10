@@ -53,13 +53,17 @@ namespace SkiResortMod.Systems
         public LiftTowerPlan Plan { get; private set; }
         public int Revision { get; private set; }
 
-        private readonly LiftTowerPlanner m_Planner = new LiftTowerPlanner();
+        private readonly LiftTowerPlanner m_Planner;
         private readonly List<float> m_Pins = new List<float>();   // ascending, on the StepM grid
         private readonly List<float> m_Removed = new List<float>();   // spots a free tower was removed from (planner Forbidden)
         private readonly float2 m_Dir, m_Right;
 
-        public LiftLineEdit(LiftTowerPlanConstants c, float3 a, float3 b, float ropeA, float ropeB, bool stationA = true, bool stationB = true)
+        /// <summary><paramref name="planner"/>: a planner to reuse (the planner's and the realizer's tower checks keep one per thread);
+        /// null = a new one.</summary>
+        public LiftLineEdit(LiftTowerPlanConstants c, float3 a, float3 b, float ropeA, float ropeB, bool stationA = true, bool stationB = true,
+                            LiftTowerPlanner planner = null)
         {
+            m_Planner = planner ?? new LiftTowerPlanner();
             C = c;
             A = a;
             B = b;
@@ -85,12 +89,14 @@ namespace SkiResortMod.Systems
         public float RemovedRadiusM => math.max(C.MinSpanM, 2f * C.StepM);
 
         /// <summary>No pin nearer this end of the line than this. A loose or ground end is a tower: the margin is MinSpanM, the
-        /// tower-to-tower minimum (FG / DQ / GD 10 m, tram 40 m). A station end only needs the pinned tower clear of the terminal's front
-        /// (the stub tip). The margin is 10 m for FG / DQ / GD, as before. For tram it is one step (10 m): the 11.4 m wide tower
-        /// (SkiTramTower30 m_LegSize) then stands 4 m clear of the stub tip. Field test 2 refused a tram pin five times under
-        /// the old MinSpanM (40 m), which applied at both kinds of end. The pin was at 1,737 m of a 1,756 m line (19 m from the top station).</summary>
+        /// tower-to-tower minimum (FG / DQ / GD 10 m, tram 40 m). A station end takes the game's limit, not the planner's floor: the
+        /// game joins the span of a tower nearer than StubSnapM to the stub node and refuses the line (FG / DQ 11 m, GD 12.1 m, tram
+        /// 15.5 m, task R2-l). A pin keeps StubSnapM + PinSnapMarginM (FG / DQ 11.5 m, GD 12.6 m, tram 16 m), at least one step. The
+        /// planner places its own towers no nearer than StationFloorM (20 m). A player's pin may stand nearer, where the game accepts it.
+        /// Field test 2 refused a tram pin 19 m from the top station five times under the old MinSpanM (40 m) at both kinds of end. That
+        /// pin (snapped to 16 m from the top) stays legal.</summary>
         public float PinEndMarginM(bool stationEnd) =>
-            stationEnd && C.TypeId == "tram" ? C.StepM : math.max(C.MinSpanM, C.StepM);
+            stationEnd ? math.max(C.StubSnapM + LiftTowerPlanConstants.PinSnapMarginM, C.StepM) : math.max(C.MinSpanM, C.StepM);
 
         public float PinMarginA => PinEndMarginM(StationA);
         public float PinMarginB => PinEndMarginM(StationB);
@@ -527,6 +533,38 @@ namespace SkiResortMod.Systems
     /// we close the tool instead.</summary>
     public static class LiftLineInput
     {
+        /// <summary>The line the build queue's lift tool plans between a planned lift's two stations (field r2g round 2, task 2b-l). The
+        /// stations stand where the queue places them (StationAlign.QueueLift under StationAlign.QueueHeightRule: the pose, the station
+        /// height rule, the stub tips, the pad cut). The line runs stub tip to stub tip, its end nodes at the ground under the stubs, its
+        /// ropes at the stations' own anchors, over the ground the pads leave (PadSampler), and plans as the tool plans it
+        /// (LiftLineEdit.Replan: pairs on, from the end with the lower rope). The planner's Towers pass and the realizer's lift rows call
+        /// it, so their Sound is the queue's. Not modeled: crossings with other lifts and keepouts (the tool collects them from the
+        /// city). <paramref name="ground"/> gives the terrain at a world point; the caller handles a miss. Null when the pose is invalid.</summary>
+        public static LiftTowerPlan PlanQueueLine(LiftTowerPlanConstants c, StationDef baseStation, StationDef topStation, float2 bottomXz,
+            float2 topXz, System.Func<float3, float> ground, LiftTowerPlanner planner, out StationAlign.QueueStation bottom,
+            out StationAlign.QueueStation top, out LiftLineEdit edit)
+        {
+            edit = null;
+            if (baseStation == null || topStation == null ||
+                !StationAlign.QueueLift(bottomXz, topXz, baseStation, topStation, StationAlign.QueueHeightRule, ground, out bottom, out top))
+            {
+                bottom = top = default;
+                return null;
+            }
+            float ropeA = math.isfinite(bottom.RopeY) ? bottom.RopeY : c.StationEndRope(baseStation, bottom.NodeY);
+            float ropeB = math.isfinite(top.RopeY) ? top.RopeY : c.StationEndRope(topStation, top.NodeY);
+            LiftLineEdit e = edit = new LiftLineEdit(c, bottom.Tip, top.Tip, ropeA, ropeB, true, true, planner);
+            if (e.LengthM < 1f)
+                return null;
+            LiftTerrainSampler fromA = (s, l) => ground(e.PointAt(s, l));
+            LiftTerrainSampler fromB = (s, l) => ground(e.PointFromB(s, l));
+            // A placed station's cut ends at its stub tip (field r2g round 2, r4 P3 built by hand: the ground 10 m past the base stub tip
+            // read 821.3 m in game = the bare terrain, not the 811 m plane a 12 m runway would leave): PlacedPadReachM, then the apron.
+            fromA = PadSampler(fromA, e.LengthM, false, baseStation, bottom.StationY, topStation, top.StationY, PlacedPadReachM);
+            fromB = PadSampler(fromB, e.LengthM, true, baseStation, bottom.StationY, topStation, top.StationY, PlacedPadReachM);
+            return e.Replan(fromA, fromB);
+        }
+
         public static LiftLineBack RightClick(LiftLineStep step, bool dragging, int undoDepth)
         {
             switch (step)
@@ -706,14 +744,23 @@ namespace SkiResortMod.Systems
         public static float PadReachM(StationDef station) =>
             station == null || !math.isfinite(station.PadBackLocalZ) ? float.NaN : math.max(0f, station.StubTipLocalZ - station.PadBackLocalZ);
 
+        /// <summary>How far past the stub tip a station the build queue PLACED holds its plane: 0 (task 2b-l2). The bare terrain came back
+        /// 10 m past a DQ base's stub tip in game (r2g round 2, r4 P3: Towers [plan] "lowest carrier above ground min +1.8 at 10 m" over
+        /// rope 819.21 -> 841.51 puts the ground at 821.3; the bare dump reads 821.31 there; a 12 m runway would leave 811). Whether a
+        /// ground end's coming station (PadReachM, the lift tool) cuts further is not measured.</summary>
+        public const float PlacedPadReachM = 0f;
+
         /// <summary>The ground a GROUND end's coming station leaves under the line (banks-pass 2026-11-09). A pad-cutting station cuts
         /// the ground above its plane <paramref name="stationY"/> and never fills: out to PadReachM from the stub tip the ground is
         /// min(raw, plane); over the next PadApronM it blends back to raw. A station that keeps the slope leaves raw. A built station's
         /// cut is in the terrain the samplers read already; a ground end's is not, so without this the end planned with ground the station
-        /// will cut away (a false SUNK_END on a base runway). <paramref name="distM"/> = xz distance from the end node along the line.</summary>
-        public static float PadGround(float raw, float distM, StationDef station, float stationY)
+        /// will cut away (a false SUNK_END on a base runway). <paramref name="distM"/> = xz distance from the end node along the line.
+        /// <paramref name="reachOverrideM"/> (finite) replaces PadReachM for a pad-cutting station: PlacedPadReachM for the queue line.</summary>
+        public static float PadGround(float raw, float distM, StationDef station, float stationY, float reachOverrideM = float.NaN)
         {
             float reach = PadReachM(station);
+            if (math.isfinite(reach) && math.isfinite(reachOverrideM))
+                reach = reachOverrideM;
             if (!math.isfinite(reach) || !math.isfinite(stationY) || distM >= reach + PadApronM)
                 return raw;
             float t = math.saturate((distM - reach) / PadApronM);
@@ -728,7 +775,7 @@ namespace SkiResortMod.Systems
         /// <summary><paramref name="raw"/> with PadGround applied at each GROUND end that has a station row: end A at along 0, end B at
         /// <paramref name="lengthM"/> (<paramref name="fromB"/>: the sampler's along runs from B). A null station leaves that end raw.</summary>
         public static LiftTerrainSampler PadSampler(LiftTerrainSampler raw, float lengthM, bool fromB, StationDef stationA, float stationYA,
-                                                    StationDef stationB, float stationYB)
+                                                    StationDef stationB, float stationYB, float reachOverrideM = float.NaN)
         {
             if (!math.isfinite(PadReachM(stationA)) && !math.isfinite(PadReachM(stationB)))
                 return raw;
@@ -736,8 +783,8 @@ namespace SkiResortMod.Systems
             {
                 float g = raw(along, lateral);
                 float fromA = fromB ? lengthM - along : along, fromBEnd = fromB ? along : lengthM - along;
-                g = PadGround(g, fromA, stationA, stationYA);
-                return PadGround(g, fromBEnd, stationB, stationYB);
+                g = PadGround(g, fromA, stationA, stationYA, reachOverrideM);
+                return PadGround(g, fromBEnd, stationB, stationYB, reachOverrideM);
             };
         }
 

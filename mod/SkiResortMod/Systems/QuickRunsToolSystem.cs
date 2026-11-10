@@ -1,10 +1,11 @@
 // The Resort Planner tool (code name Quick runs, experimental, DECISIONS 404). Its entry points are the hub's Resort Planner button and
 // Ctrl+Shift+Q. Click the corners of a region. With the region empty, click a lift station instead: the region becomes that lift's corridor
 // (QuickRunsToolSystem.Plan.cs).
-// Enter scans the region with the pure planner (SkiRunAutoPlanner, Resort mode) on a worker thread (Worker.cs). The Diagnostics fallback
-// slices it over frames on the main thread. The tool previews the plan as an overlay in the piste map's colors: pods, proposed lifts and
-// their runs. A click leaves a run, a pod or a lift out (or puts it back). The knobs (Lifts, Way home, Mix, Density, Kinds, Shuffle) live
-// in the hub.
+// Enter scans the region with the runs-first planner and its realizer (QuickRunsScanJob: RunsFirstPlanner, RunsFirstRealizer) on a worker
+// thread (Worker.cs). The tool previews the plan as an overlay in the piste map's colors: lift groups, proposed lifts, their pistes and
+// cat tracks. A click leaves a run, a group or a lift out (or puts it back). The knobs live in the hub. Runs-first reads Density (a new
+// plan, RunsFirstOptions.ForDensity) and Kinds (the realizer only). Lifts, Way home, Mix and Shuffle do nothing in runs-first: the tool
+// logs and ignores them (plan 7.4, DECISIONS 632).
 // Enter builds the enabled runs in one batch (emit, then Temp, then Apply, RunAreaEmit shared with the cat track tool). A refused run is
 // dropped and the rest are re-emitted once. The hub's Undo removes the batch with a refund of exactly what the binds charged (never right
 // click). The same tool fills the region with trees below a tree line (the glade compose path with a fill mask,
@@ -12,7 +13,7 @@
 // The skeleton is CatTrackGradeToolSystem's (a prefab-less ToolBaseSystem, point editing, emit then Temp then Apply, hotkey + tooltip
 // idioms).
 // Files: this (lifecycle, input, knobs), .Scan.cs (snapshot, obstacles, planner launch, warnings), .Worker.cs (the scan job on a worker
-// thread, cancel, collect, pinned lifts, access points), .Plan.cs (pod / lift toggles, picks, plan around a lift), .Build.cs (emit,
+// thread, cancel, collect, the plan cache, existing lifts, access points, the dev scan and dump), .Plan.cs (pod / lift toggles, picks, plan around a lift), .Build.cs (emit,
 // validate, apply, undo, refund), .Trees.cs (tree filler), .Draw.cs (overlay).
 // Logs (silence impossible): ARMED / NOT ARMED per load. One line per activation, scan, toggle, build step, undo, refusal. Developer probes
 // ([probe]) only with Measurement diagnostics on. An exception disables the tool until the next load.
@@ -79,14 +80,16 @@ namespace SkiResortMod.Systems
         internal bool HasPreview => m_Phase == ToolPhase.Preview && m_Published.Status == AutoPlanStatus.Ok;
         internal QuickTotals Totals => m_Totals;
         internal IReadOnlyList<string> WarningKeys => m_WarnKeys;
+        /// <summary>Enabled pistes of the preview with no Welcome Sign in range (the NoSign / NoSignSome warnings). 0 without a preview.</summary>
+        internal int UnboundPistes => m_UnboundPistes;
         internal string StatusKey => m_StatusKey;
-        internal float ScanProgress => m_Phase == ToolPhase.Scanning ? m_Planner.ProgressVolatile : 0f;
+        internal float ScanProgress => m_Phase == ToolPhase.Scanning && m_ScanJob != null ? m_ScanJob.Progress : 0f;
         internal AutoPlanResult Result => m_Published;
         internal QuickRegionReadout Readout => m_Readout;
         /// <summary>Mean grade of the outlined ground (0.25 = 25 %): the corner phase's sampled estimate, replaced by the scan's figure
         /// once a scan finishes. NaN with fewer than 3 corners. The site verdict (QuickRunsRules.SiteTierOf) reads it.</summary>
         internal float SiteGrade => m_SiteGrade;
-        internal float MaxAreaM2 => SkiRunAutoPlanner.V1MaxAreaM2;
+        internal float MaxAreaM2 => PlanGeometry.V1MaxAreaM2;
         /// <summary>Hover label key of the cluster under the cursor (tooltip), or null. HoverClusterRuns = its run count.</summary>
         internal string HoverClusterKey { get; private set; }
         internal int HoverClusterRuns { get; private set; }
@@ -179,7 +182,7 @@ namespace SkiResortMod.Systems
             int missing = ResolveRunPrefabs();
             Mod.Log.Info($"QuickRuns [tool]: ARMED — '{toolID}' (experimental, DECISIONS 404; setting {(OptionOn ? "ON" : "OFF: the tool cannot open")}): " +
                          "click the corners of a region (drag one to move it, right click steps back), Enter scans it " +
-                         $"(cap {SkiRunAutoPlanner.V1MaxAreaM2 / 1e6f:F0} km2), a click leaves a run out, Enter builds the enabled runs in one batch " +
+                         $"(cap {PlanGeometry.V1MaxAreaM2 / 1e6f:F0} km2), a click leaves a run out, Enter builds the enabled runs in one batch " +
                          $"(refused when the city cannot pay the total; a refused run is dropped and the rest re-emitted once), the hub's Undo (not right click) removes the " +
                          $"batch with a refund of what the binds charged; tree filler below a tree line (glade compose with a fill mask). Run prefabs: " +
                          $"{(missing == 0 ? "all found" : missing + " MISSING (those kinds are never proposed)")}; probes with Measurement diagnostics " +
@@ -353,6 +356,10 @@ namespace SkiResortMod.Systems
                 StopPlanting("right click");   // a Plant waiting for the tree compose job is canceled, the region stays
             else if (cancelAction.WasPressedThisFrame())
                 StepBack();
+            else if (m_DevRing != null)
+                DevScanNow();      // the dev trigger's scan (Worker.cs, Measurement diagnostics)
+            else if (m_ScanAfterUndoFrame >= 0 && m_Frame >= m_ScanAfterUndoFrame)
+                ScanAfterUndo();   // the plan comes back after the hub's Undo (Build.cs)
             else if (m_HubQueue.Count > 0)
                 DrainHub(false);   // the hub buttons and knobs take the path Enter takes
             else if (m_EnterRequested)
@@ -560,13 +567,13 @@ namespace SkiResortMod.Systems
                 TerrainHeightData terrain = hd;   // a copy: a lambda cannot capture the struct by reference
                 m_SiteGrade = QuickRunsRules.EstimateMeanGrade(corners, p => RunAreaEmit.Ground(ref terrain, p).y);
             }
-            m_Readout = QuickRunsRules.Readout(corners, lo, hi, SkiRunAutoPlanner.V1MaxAreaM2, SkiRunAutoPlanner.DefaultMinAreaM2);
+            m_Readout = QuickRunsRules.Readout(corners, lo, hi, PlanGeometry.V1MaxAreaM2, PlanGeometry.DefaultMinAreaM2);
         }
 
         private string ReadoutText() => m_Readout.State == QuickRegionState.Open
             ? "region open (under 3 corners)"
             : string.Format(CultureInfo.InvariantCulture, "region {0:F1} ha of {1:F0} ha ({2}), vertical under the corners {3:F0} m",
-                m_Readout.AreaM2 / 10000f, SkiRunAutoPlanner.V1MaxAreaM2 / 10000f, m_Readout.State, m_Readout.VerticalM);
+                m_Readout.AreaM2 / 10000f, PlanGeometry.V1MaxAreaM2 / 10000f, m_Readout.State, m_Readout.VerticalM);
 
         private float2[] CornerArray()
         {
@@ -627,25 +634,21 @@ namespace SkiResortMod.Systems
             switch (key)
             {
                 case "mix":
-                    return SetKnobs(m_Knobs.Mix = QuickRunsRules.ClampMix(value), "mix");
+                case "lifts":
+                case "home":
+                case "shuffle":
+                    // Runs-first has no mix presets, no lift cap, no way-home level and one deterministic layout (plan 7.4, DECISIONS 632)
+                    Say($"QuickRuns [knobs]: {key} -> {value} ignored: the runs-first planner does not use it; {KnobsText(m_Knobs)}");
+                    return key + " ignored (runs-first)";
                 case "density":
                     return SetKnobs(m_Knobs.Density = QuickRunsRules.ClampDensity(value), "density");
                 case "kind":
                     m_Knobs.Kinds = QuickRunsRules.ToggleKind(m_Knobs.Kinds, (AutoKinds)value);
                     return SetKnobs(m_Knobs.Kinds, "kinds");
-                case "lifts":
-                    m_Knobs.Lifts = QuickRunsPlanRules.ClampLifts(value);
-                    return SetKnobs(m_Knobs.Lifts, "lifts");
-                case "home":
-                    return SetKnobs(m_Knobs.Home = QuickRunsPlanRules.ClampHome(value), "home");
                 case "pod":
                     return TogglePlanKey(true, value);
                 case "lift":
                     return TogglePlanKey(false, value);
-                case "shuffle":
-                    m_Shuffle++;
-                    m_Knobs.Seed = SkiRunAutoPlanner.SeedOf(CornerArray(), m_Shuffle);
-                    return SetKnobs(m_Shuffle, "shuffle");
                 case "scan":
                     m_EnterRequested = false;
                     BeginScan("hub");
@@ -686,18 +689,17 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A knob changed: re-run what it touches on the cached field (Reselect), or the whole scan when nothing is cached.</summary>
+        /// <summary>A knob changed (Density or Kinds): the region scans again. The plan cache makes a Kinds change a realization only.</summary>
         private string SetKnobs<T>(T what, string name)
         {
             Say($"QuickRuns [knobs]: {name} -> {what}; {KnobsText(m_Knobs)}");
             Bump();
             if (m_Phase == ToolPhase.Preview || m_Phase == ToolPhase.Scanning)
-                RescanForKnobs(name);   // Worker.cs: Reselect on the cached field when no job runs, else cancel + a full scan
+                RescanForKnobs(name);   // Worker.cs: a running job is canceled, then the scan (a cache hit realizes only)
             return name;
         }
 
-        private static string KnobsText(AutoPlanKnobs k) =>
-            $"mix {k.Mix}, density {k.Density}, kinds {k.Kinds}, lifts {(k.Lifts == 0 ? "auto" : k.Lifts.ToString())}, home {k.Home}, seed {k.Seed:X8}";
+        private static string KnobsText(AutoPlanKnobs k) => $"density {k.Density}, kinds {k.Kinds} (mix, lifts, way home, shuffle: not used by runs-first)";
 
         private static string NoticeKey(string name) => QuickRunsRules.TipPrefix + name;
 
@@ -761,6 +763,8 @@ namespace SkiResortMod.Systems
                 m_BatchFresh = false;
                 if (why == "load")
                 {
+                    m_PlanCache.Clear();
+                    m_DoneJob = null;
                     // The knobs and the tree settings live for the load (a reopened tool keeps them)
                     m_Shuffle = 0;
                     m_Knobs = AutoPlanKnobs.Default(0);
@@ -774,7 +778,10 @@ namespace SkiResortMod.Systems
             m_Phase = ToolPhase.Region;
             m_HoverPoint = m_DragIndex = -1;
             m_EnterRequested = false;
+            m_ScanAfterUndoFrame = -1;
             m_HubQueue.Clear();
+            if (why != null)
+                m_DevRing = null;   // OnStartRunning (why null) keeps a dev scan queued by the activation that started the tool
             m_Notice = null;
             HoverClusterKey = null;
             Bump();

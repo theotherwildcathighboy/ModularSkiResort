@@ -56,8 +56,9 @@ namespace SkiResortMod.Systems
         MoneyShort = 1,       // the total fee is more than the city has (Enter refuses)
         Renumber = 2,         // default-named runs exist: the new runs renumber them (SkiRunCatalogSystem ordinals)
         OtherResort = 4,      // the enabled runs bind to more than one Welcome Sign
-        NoSign = 8,           // no Welcome Sign within the tether: the runs build and wait unbound, as drawn runs do
+        NoSign = 8,           // no enabled piste has a Welcome Sign within the tether: they build and wait unbound, as drawn runs do
         ChecksOff = 16,       // the game's own checks are off (QuickRunsRules.ChecksState). Only the planner's checks protect the build
+        NoSignSome = 32,      // some enabled pistes (not all) have no Welcome Sign within the tether. The hub and tooltip say how many
     }
 
     /// <summary>Whether the game would flag an overlapping preview run (QuickRunsRules.ChecksState). The state is read from the vanilla
@@ -118,7 +119,7 @@ namespace SkiResortMod.Systems
             var r = new QuickRegionReadout { State = QuickRegionState.Open };
             if (corners == null || corners.Length < 3)
                 return r;
-            r.AreaM2 = (float)SkiRunAutoPlanner.PolygonArea(corners);
+            r.AreaM2 = (float)PlanGeometry.PolygonArea(corners);
             r.VerticalM = math.isfinite(minY) && math.isfinite(maxY) && maxY >= minY ? maxY - minY : 0f;
             if (!(r.AreaM2 >= minAreaM2))
                 r.State = QuickRegionState.TooSmall;
@@ -156,7 +157,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Estimated mean grade of the ring before any scan. It samples a grid of at most maxSamples points inside the ring (at
         /// least 10 m apart). Each sample is the gradient magnitude of the height over a baselineM window (central differences, the same 20
-        /// m window the planner rates with), capped at SkiRunAutoPlanner.MeanGradeCap. The result is NaN when no sample falls inside (a
+        /// m window the planner rates with), capped at PlanGeometry.MeanGradeCap. The result is NaN when no sample falls inside (a
         /// sliver) or the ring has fewer than 3 corners.</summary>
         public static float EstimateMeanGrade(float2[] ring, Func<float2, float> height, int maxSamples = 300, float baselineM = 20f)
         {
@@ -168,7 +169,7 @@ namespace SkiResortMod.Systems
                 lo = math.min(lo, ring[i]);
                 hi = math.max(hi, ring[i]);
             }
-            double area = SkiRunAutoPlanner.PolygonArea(ring);
+            double area = PlanGeometry.PolygonArea(ring);
             if (!(area > 0.0))
                 return float.NaN;
             float step = math.max(10f, (float)Math.Sqrt(area / Math.Max(1, maxSamples)));
@@ -182,7 +183,7 @@ namespace SkiResortMod.Systems
                         continue;
                     float gx = (height(new float2(x + h, z)) - height(new float2(x - h, z))) / baselineM;
                     float gz = (height(new float2(x, z + h)) - height(new float2(x, z - h))) / baselineM;
-                    sum += Math.Min(Math.Sqrt(gx * gx + gz * gz), SkiRunAutoPlanner.MeanGradeCap);
+                    sum += Math.Min(Math.Sqrt(gx * gx + gz * gz), PlanGeometry.MeanGradeCap);
                     n++;
                 }
             return n > 0 ? (float)(sum / n) : float.NaN;
@@ -393,7 +394,7 @@ namespace SkiResortMod.Systems
                 AutoRun r = runs[i];
                 if (r?.Ring == null || r.Ring.Length < 3)
                     continue;
-                float d = SkiRunAutoPlanner.PointRingDistance(r.Ring, p);
+                float d = PlanGeometry.PointRingDistance(r.Ring, p);
                 if (d <= bestD)
                 {
                     bestD = d;

@@ -503,10 +503,14 @@ namespace LiftBatch
             var e = new LiftLineEdit(c, new float3(0f, yA, 0f), new float3(Ei55Len, yB, 0f), ropeA, ropeB, true, true);
             LiftTowerPlan p = e.Replan(Ei55Sampler(e, false, c), Ei55Sampler(e, true, c));
             int over = p.OverCapTowers, last = p.Nodes.Length - 2;
-            // The field shape: every span clear, the last tower right by the end and past its cap, no repair found.
-            bool shape = p.Clear && over >= 1 && last >= 1 && p.IsOverCap(last) && Ei55Len - p.Nodes[last].AlongM <= 15f &&
-                         (p.Nodes[last].Flags & LiftPlanNodeFlags.OverCap) != 0;
-            Check(shape, w + " shape", "not the field shape (spans clear, the last tower within 15 m of the end over its cap, flagged): " + Desc(p));
+            // The field shape: every span clear, the last tower right by the end and past its cap, no repair found. Since task R2-l the
+            // last tower keeps the floor next to a station stub (StationFloorM, 20 m). The field's 8 m tower would make the game join its span
+            // to the stub node and refuse it (LP-34).
+            float lastOut = last >= 1 ? Ei55Len - p.Nodes[last].AlongM : 0f;
+            bool shape = p.Clear && over >= 1 && last >= 1 && p.IsOverCap(last) && lastOut <= c.StationFloorM + 0.01f &&
+                         lastOut >= c.StationFloorM - 0.01f && (p.Nodes[last].Flags & LiftPlanNodeFlags.OverCap) != 0;
+            Check(shape, w + " shape", "not the field shape (spans clear, the last tower at the 20 m floor from the end, over its cap, flagged): " +
+                  Desc(p));
             string key = LiftLineInput.PlanKey(p, out _);
             Check(key == "PLAN_TRAIN", w + " plan key", "a tower over its cap reads " + key + ": " + Desc(p));
             string line = e.Describe();
@@ -546,8 +550,10 @@ namespace LiftBatch
             // no SUNK_END. Natural ground read -7.9 at the base end and -12.3 at the top end.
             Check(math.abs(p.EndCarrierA - 0.4f) < 0.05f && math.abs(p.EndCarrierB - 0.4f) < 0.05f && sunk == null, w + " ends",
                   "end carriers " + F(p.EndCarrierA) + " / " + F(p.EndCarrierB) + ", key " + (sunk ?? "none"));
-            // The crest still bends the last tower past its cap: the pad must not hide that.
-            Check(key == "PLAN_TRAIN" && p.OverCapTowers >= 1, w + " over cap kept", "key " + key + ": " + Desc(p));
+            // The crest still bends the last tower past its cap: the pad must not hide that. Since task R2-l no tower stands inside the
+            // 20 m floor next to the top end. Before, a tower 10 m from the end carried the rope over the crest (the game would refuse it,
+            // LP-34). Now the last span stays low over the crest: PLAN_LOW, and the over-cap tower stays.
+            Check(key == "PLAN_LOW" && !p.Sound && p.OverCapTowers >= 1, w + " over cap kept", "key " + key + ": " + Desc(p));
             // PadGround per catalog row: bases hold 12 m past the stub tip, tops and the tram base 0, the FG top and tram top keep the slope.
             foreach (LiftTypeDef def in SkiCatalog.Lifts)
                 foreach (StationRole role in new[] { StationRole.Base, StationRole.Top })

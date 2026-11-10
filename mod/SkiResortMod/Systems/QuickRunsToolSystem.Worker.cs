@@ -1,21 +1,27 @@
-// Quick runs tool: the scan job (Resort Planner v2 stage A, task A2, stage-a-spec.md section 5). The tree filler's compose job is the
-// pattern (QuickRunsToolSystem.Trees.cs: state, launch bookkeeping with a GC count, stale test, per-frame poll and cancel, private copies
-// and Task.Run, collect with IsFaulted and the stale drop, the summary fields). States, in order: Idle, Running (a worker thread, or
-// main-thread slices with the Diagnostics fallback "Resort Planner on the main thread"), collected on the main thread, then Idle again.
-// The worker touches ONLY the planner instance and the input it was given. The input is a fresh AutoPlanInput per scan, a fresh obstacle
-// list, and a snapshot buffer. The buffer is never rewritten while the planner holds it (TakeSnapshot writes the other one). No Entities,
-// no Unity API and no log on the worker. The result reaches every reader as an immutable copy (m_Published = Result.Snapshot()). So a
-// Reselect or a new scan on the worker never changes what the overlay, the hub, the tree filler or a build reads. One job at a time. A scan
-// requested while a canceled job is still stopping is queued. It is launched when that job returns (cancel latency = one planner unit).
-// Build, Undo and Plant never overlap a running job. Build needs the Preview phase. The hub refuses build / undo / plant / trees while
-// Scanning (ScanBlocks). Pinned lifts and access points are collected here on the main thread before the launch.
+// Quick runs tool: the scan job (runs-first since port round R2-a, plan 7.4). One QuickRunsScanJob per scan runs the runs-first planner
+// and the realizer on a worker thread (Task.Run). The tree filler's compose job is the pattern (QuickRunsToolSystem.Trees.cs: state,
+// launch bookkeeping with a GC count, stale test, per-frame poll and cancel, collect with IsFaulted and the stale drop, the summary fields).
+// States, in order: Idle, Running (the worker), collected on the main thread, then Idle again. There is no main-thread path: runs-first
+// cannot be sliced (plan 7.4), so the old Diagnostics fallback setting went with the v1 / v2 planner.
+// The worker touches ONLY its job: a fresh AutoPlanInput per scan, a fresh obstacle list, a snapshot buffer, the planner inputs and the
+// options. The buffer is never rewritten while a job holds it (TakeSnapshot writes the other one). No Entities, no Unity API and no log on
+// the worker. The job owns its result, and no later job writes it, so m_Published is the job's result as it is. One job at a time. A scan
+// requested while a canceled job is still stopping is queued. It is launched when that job returns (the planner's cancel returns within
+// 90 ms, R1-a). Build, Undo and Plant never overlap a running job. The hub refuses build / undo / plant / trees while Scanning (ScanBlocks).
+// The plan cache: the last two plans, keyed by snapshot, region, obstacles, existing lifts, access points, options and the bare flag
+// (QuickRunsScanJob.PlanKey). A key the cache holds only realizes again (the Kinds knob, a density switched back).
+// Existing lifts and access points are collected here on the main thread before the launch.
+// Dev path (Measurement diagnostics): DevScan (scan a given ring, optionally bare) and DevDump (the last published scan's exact input
+// and hashes to a file, replayed by the test host's rf-replay), called by QuickRunsDevUISystem.
 // Logs (silence impossible): START / DONE (Scan.cs), CANCELED (here, every cancel of a running or queued scan), `!!!` on a faulted job
-// (Fail: the tool is disabled until the next load, the v1 policy). The drop of a stale result logs only with Measurement diagnostics.
-// Engine notes: EngineNotes/QuickRunsToolSystem.md (Scan, Worker)
+// (ScanFaulted, fix round 2b-x: the scan fails, its input goes to SkiResortMod.fault-n.rfscan, the tool stays on and the next scan runs).
+// The drop of a stale result logs only with Measurement diagnostics.
+// Engine notes: EngineNotes/QuickRunsToolSystem.md (Scan, Worker), EngineNotes/ResortPlanner.md (Runs-first in the tool)
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Threading.Tasks;
 using Colossal.Collections;
 using Colossal.Entities;
@@ -37,26 +43,33 @@ namespace SkiResortMod.Systems
         /// <summary>Access points: road edges and the Welcome Sign within the region's bounds plus this (spec 2, AutoPlanInput.Access).</summary>
         private const float AccessReachM = 450f;
         private const float AccessStepM = 25f, PinnedSampleM = 10f;
+        /// <summary>Plans the cache keeps (plan 7.4: the last two).</summary>
+        private const int PlanCacheSize = 2;
 
-        // The published result: an immutable copy every reader takes (never the planner's live Result, which the worker rewrites)
+        // The published result: the collected job's own result (no later job writes it)
         private AutoPlanResult m_Published = NoResult();
         private Task m_ScanTask;                 // the worker job; null = none in flight
-        private AutoPlanCancel m_ScanCancel;     // the planner's cancel token for the current input (one per launched scan)
+        private QuickRunsScanJob m_ScanJob;      // the launched job (its progress, its result)
+        private QuickRunsScanJob m_DoneJob;      // the last published job (the DONE line, the dump)
+        private AutoPlanCancel m_ScanCancel;     // the cancel token of the launched job
         private int m_ScanGen, m_ScanLaunchGen;  // stale test: any cancel or new request bumps m_ScanGen
-        private bool m_ScanSlicing;              // a main-thread scan (fallback setting) is being stepped
-        private bool m_ScanOnMain;               // the thread of the last launched job
-        private AutoPlanInput m_PendingInput;    // a scan requested while a canceled job was still stopping
-        private bool m_PendingOnMain;
+        private QuickRunsScanJob m_PendingJob;   // a scan requested while a canceled job was still stopping
+        private ulong m_PendingKey, m_ScanKey;   // the plan cache keys of the pending and the launched job
         private string m_ScanJobWhy;             // the launched job's reason (m_ScanWhy may already name the queued one)
         private long m_ScanLaunchTicks, m_CollectTicks;
         private int m_ScanGc0, m_ScanMsFrame;
         private double m_ScanWorkerMs, m_ScanMainMs, m_ScanFrameMs, m_ScanFrameMaxMs, m_ContextMs;
+        private readonly List<(ulong Key, QuickRunsScanJob.Planned Plan)> m_PlanCache = new List<(ulong, QuickRunsScanJob.Planned)>();
         private LiftCensusSystem m_LiftCensus;
         private Game.Net.SearchSystem m_NetSearch;
         private readonly List<LiftServedRule.Lift> m_ServeLifts = new List<LiftServedRule.Lift>();
         private readonly List<LiftServedRule.Chord> m_ServeChords = new List<LiftServedRule.Chord>();
         private readonly List<LiftCensus.Row> m_CensusRows = new List<LiftCensus.Row>();
         private readonly Dictionary<EntityRef, float3> m_StubTips = new Dictionary<EntityRef, float3>();
+        // Dev path: a ring to scan (DevScan), the bare flag of the next scan, the region tag of the next scan
+        private float2[] m_DevRing;
+        private bool m_DevBare, m_NextBare;
+        private string m_DevTag, m_NextTag = "region";
 
         private static AutoPlanResult NoResult()
         {
@@ -72,111 +85,88 @@ namespace SkiResortMod.Systems
         private static bool ScanBlocks(string key) =>
             key == "build" || key == "undo" || key == "plant" || key == "treesUndo" || key == "trees";
 
+        /// <summary>The cached plan for this key, or null.</summary>
+        private QuickRunsScanJob.Planned CachedPlan(ulong key)
+        {
+            for (int i = 0; i < m_PlanCache.Count; i++)
+                if (m_PlanCache[i].Key == key)
+                    return m_PlanCache[i].Plan;
+            return null;
+        }
+
+        private void CachePlan(ulong key, QuickRunsScanJob.Planned plan)
+        {
+            for (int i = m_PlanCache.Count - 1; i >= 0; i--)
+                if (m_PlanCache[i].Key == key)
+                    m_PlanCache.RemoveAt(i);
+            m_PlanCache.Insert(0, (key, plan));
+            while (m_PlanCache.Count > PlanCacheSize)
+                m_PlanCache.RemoveAt(m_PlanCache.Count - 1);
+        }
+
 
         // ---------------------------------------------------------------- launch
 
-        /// <summary>A new scan of <paramref name="input"/> (BeginScan): launched now, or queued behind a canceled job still stopping.</summary>
-        private void StartScanJob(AutoPlanInput input, bool onMain, long t0)
+        /// <summary>A new scan (BeginScan): launched now, or queued behind a canceled job still stopping.</summary>
+        private void StartScanJob(QuickRunsScanJob job, ulong key, long t0)
         {
             m_ScanGen++;
             ResetScanCounters();
             if (ScanJobInFlight)
             {
                 m_ScanCancel?.Request();   // normally requested already (the drop that preceded this scan)
-                m_PendingInput = input;
-                m_PendingOnMain = onMain;
+                m_PendingJob = job;
+                m_PendingKey = key;
             }
             else
             {
-                m_PendingInput = null;
+                m_PendingJob = null;
                 // BeginScan polled the job before its snapshot and obstacles, which take tens of ms on a large region. A worker that
-                // finished since is collected here, so a fault is reported (Fail) instead of overwritten unseen. Its generation is already
+                // finished since is collected here, so a fault is reported (ScanFaulted) instead of overwritten unseen. Its generation is already
                 // old (m_ScanGen++ above), so a clean finish is dropped as out of date and nothing pending is launched.
                 if (!PollScanJob(true))
                     return;
-                LaunchScan(input, onMain, false);
+                LaunchScan(job, key);
             }
             AddScanMainMs(QuickRunsRules.MsSince(t0));
         }
 
-        /// <summary>The job itself. resume = the planner was Reselected on its cached field. Then the job steps it to the end instead of
-        /// Run(input).</summary>
-        private void LaunchScan(AutoPlanInput input, bool onMain, bool resume)
+        /// <summary>The job on a worker thread.</summary>
+        private void LaunchScan(QuickRunsScanJob job, ulong key)
         {
-            m_ScanSlicing = false;
-            if (!resume)
-            {
-                m_ScanCancel = new AutoPlanCancel();
-                input.Cancel = m_ScanCancel;
-                m_Input = input;
-                m_PlannerSnap = input.Snapshot;   // TakeSnapshot now writes the other buffer
-            }
+            m_ScanJob = job;
+            m_ScanKey = key;
+            m_ScanCancel = job.Input.Cancel;
+            m_Input = job.Input;
+            m_PlannerSnap = job.Input.Snapshot;   // TakeSnapshot now writes the other buffer
             m_ScanLaunchGen = m_ScanGen;
-            m_ScanOnMain = onMain;
             m_ScanJobWhy = m_ScanWhy;
             m_ScanLaunchTicks = System.Diagnostics.Stopwatch.GetTimestamp();
             m_ScanGc0 = GC.CollectionCount(0);
             m_ScanWorkerMs = 0;
-            if (onMain)
-            {
-                // The v1 path: Begin here (cheap refusals are final at once), then ScanBudgetMs per frame in StepScanJob
-                if (resume || m_Planner.Begin(input) == AutoPlanStatus.Running)
-                    m_ScanSlicing = true;
-                else
-                    CollectScanJob(false);
-                return;
-            }
-            SkiRunAutoPlanner planner = m_Planner;
             m_ScanTask = Task.Run(() =>
             {
                 long w0 = System.Diagnostics.Stopwatch.GetTimestamp();
-                if (resume)
-                {
-                    while (!planner.Step(float.PositiveInfinity))
-                    {
-                    }
-                }
-                else
-                    planner.Run(input);
+                job.Run();
                 m_ScanWorkerMs = QuickRunsRules.MsSince(w0);   // read after IsCompleted (the task's completion orders it)
             });
         }
 
         private void LaunchPending()
         {
-            AutoPlanInput input = m_PendingInput;
-            m_PendingInput = null;
+            QuickRunsScanJob job = m_PendingJob;
+            m_PendingJob = null;
             if (SkiResortSettings.DiagnosticsOn)
                 Mod.Log.Info($"QuickRuns [probe] scan ({m_ScanWhy}) launched after the canceled scan stopped");
-            LaunchScan(input, m_PendingOnMain, false);
+            LaunchScan(job, m_PendingKey);
         }
 
-        /// <summary>A knob changed in Preview or Scanning (SetKnobs). When no job is running (a worker job in flight or a main-thread scan
-        /// being stepped both count) and the planner's field is intact, the code does Reselect and resume on the worker (Reselect only sets
-        /// the restart stage). Otherwise a running job is canceled first, and the region scans again with the new knobs (a canceled planner
-        /// drops its field: Reselect refuses, SkiRunAutoPlanner.CancelScan).</summary>
+        /// <summary>A knob that changes the plan or its realization (Density, Kinds) changed in Preview or Scanning: a running job is
+        /// canceled, and the region scans again. The plan cache makes a Kinds change a realization only.</summary>
         private void RescanForKnobs(string name)
         {
             if (m_Disabled || !PollScanJob(true))
                 return;
-            if (!ScanJobInFlight && !m_ScanSlicing && m_PendingInput == null && m_ScanCancel != null && !m_ScanCancel.Requested && m_Planner.Reselect(m_Knobs))
-            {
-                long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
-                bool onMain = SkiResortSettings.PlannerOnMainThreadOn;
-                m_ScanWhy = name;
-                m_ScanT0 = t0;
-                m_ScanFrames = 0;
-                m_Refused.Clear();
-                m_Phase = ToolPhase.Scanning;
-                m_ScanGen++;
-                ResetScanCounters();
-                Say($"QuickRuns [scan]: START ({name}) — Reselect on the cached field, {KnobsText(m_Knobs)}; " +
-                    (onMain ? "main thread (fallback setting)" : "worker thread"));
-                LaunchScan(m_Input, onMain, true);
-                AddScanMainMs(QuickRunsRules.MsSince(t0));
-                Bump();
-                return;
-            }
             if (m_Phase == ToolPhase.Scanning)
             {
                 CancelScanJob(name + " changed during the scan");
@@ -202,17 +192,7 @@ namespace SkiResortMod.Systems
                 CollectScanJob(true);
                 return true;
             }
-            if (m_ScanSlicing)
-            {
-                bool done = m_Planner.Step(ScanBudgetMs);
-                AddScanMainMs(QuickRunsRules.MsSince(t0));
-                if (!done)
-                    return false;
-                m_ScanSlicing = false;
-                CollectScanJob(true);
-                return true;
-            }
-            if (m_PendingInput != null)
+            if (m_PendingJob != null)
             {
                 LaunchPending();
                 return false;
@@ -223,7 +203,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Collects a finished job outside the per-frame poll (before a new scan or a Reselect). False when it had faulted.</summary>
+        /// <summary>Collects a finished job outside the per-frame poll (before a new scan). False when it had faulted.</summary>
         private bool PollScanJob(bool canClose)
         {
             if (m_ScanTask == null || !m_ScanTask.IsCompleted)
@@ -231,68 +211,68 @@ namespace SkiResortMod.Systems
             return CollectScanJob(canClose);
         }
 
-        /// <summary>Stops the running or queued scan. The worker stops at its next unit and its result is dropped when it returns. A
-        /// main-thread scan stops now. Every cancel of something running writes one CANCELED line.</summary>
+        /// <summary>Stops the running or queued scan. The worker stops at its next poll and its result is dropped when it returns. Every
+        /// cancel of something running writes one CANCELED line.</summary>
         private void CancelScanJob(string reason)
         {
             m_ScanGen++;
-            if (m_PendingInput != null)
+            if (m_PendingJob != null)
             {
-                m_PendingInput = null;
+                m_PendingJob = null;
                 Mod.Log.Info($"QuickRuns [scan]: CANCELED ({m_ScanWhy}, queued) — {reason}; it never started");
             }
             bool worker = ScanJobInFlight && m_ScanCancel != null && !m_ScanCancel.Requested;
-            if (!worker && !m_ScanSlicing)
+            if (!worker)
                 return;
-            m_ScanCancel?.Request();
-            if (m_ScanSlicing)
-            {
-                m_Planner.Step(0f);   // sees the request before any unit: the planner is canceled and reusable now
-                m_ScanSlicing = false;
-            }
+            m_ScanCancel.Request();
             Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
-                "QuickRuns [scan]: CANCELED ({0}) — {1}; {2:F0} ms on the {3} so far, progress {4:P0}{5}",
-                m_ScanJobWhy, reason, QuickRunsRules.MsSince(m_ScanLaunchTicks), worker ? "worker" : "main thread",
-                m_Planner.ProgressVolatile, worker ? "; the worker stops at its next unit, its result is dropped" : string.Empty));
+                "QuickRuns [scan]: CANCELED ({0}) — {1}; {2:F0} ms on the worker so far, progress {3:P0}; the worker stops at its next poll, its " +
+                "result is dropped", m_ScanJobWhy, reason, QuickRunsRules.MsSince(m_ScanLaunchTicks), m_ScanJob?.Progress ?? 0f));
         }
 
-        /// <summary>Main thread, the job is done. A fault disables the tool (the v1 Fail policy). A stale or canceled result is dropped
-        /// (and a queued scan launches). Otherwise the result is published and the v1 epilogue runs (FinishScan). False after a
-        /// fault.</summary>
+        /// <summary>Main thread, the job is done. A fault is one failed scan (ScanFaulted): logged with its stack, its input dumped, the
+        /// tool stays on and the next scan runs. A stale or canceled result is dropped (and a queued scan launches). Otherwise the plan is
+        /// cached, the result published and the v1 epilogue runs (FinishScan). Always true since fix round 2b-x (a fault no longer
+        /// disables the tool); canClose is unused since then.</summary>
         private bool CollectScanJob(bool canClose)
         {
             m_CollectTicks = System.Diagnostics.Stopwatch.GetTimestamp();
             Task task = m_ScanTask;
+            QuickRunsScanJob job = m_ScanJob;
             m_ScanTask = null;
             if (task != null && task.IsFaulted)
             {
-                m_PendingInput = null;
-                m_ScanCancel?.Request();   // the planner's field is suspect: Reselect must not reuse it
-                if (m_Phase == ToolPhase.Scanning)
-                    m_Phase = ToolPhase.Region;
                 Exception e = task.Exception != null && task.Exception.InnerExceptions.Count == 1 ? task.Exception.InnerException : task.Exception;
-                Fail(e, "scan worker");
-                if (canClose)
+                bool current = m_ScanLaunchGen == m_ScanGen && m_PendingJob == null;
+                ScanFaulted(e, job, current);
+                if (m_PendingJob != null)
+                    LaunchPending();   // a newer scan waited behind this one: it runs
+                else if (current && m_Phase == ToolPhase.Scanning)
                 {
-                    applyMode = ApplyMode.Clear;
-                    try { Deactivate(); } catch (Exception) { /* logged by Fail */ }
+                    m_Phase = ToolPhase.Region;
+                    m_StatusKey = NoticeKey("STATUS[ScanFailed]");
+                    m_Notice = m_StatusKey;
+                    m_NoticeFrame = m_Frame;
+                    m_DrawDirty = true;
+                    Bump();
                 }
-                return false;
+                return true;
             }
-            AutoPlanResult live = m_Planner.Result;
             bool stale = m_ScanLaunchGen != m_ScanGen || (m_ScanCancel != null && m_ScanCancel.Requested);
-            if (stale || live.Canceled)
+            if (stale || job == null || job.Canceled || job.Result == null)
             {
                 if (SkiResortSettings.DiagnosticsOn)
                     Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
-                        "QuickRuns [probe] scan ({0}) dropped after {1:F0} ms on the {2} ({3}): out of date", m_ScanJobWhy,
-                        m_ScanOnMain ? QuickRunsRules.MsSince(m_ScanLaunchTicks) : m_ScanWorkerMs, m_ScanOnMain ? "main thread" : "worker",
-                        live.Canceled ? "canceled after " + live.Units + " unit(s)" : "ran to the end"));
-                if (m_PendingInput != null)
+                        "QuickRuns [probe] scan ({0}) dropped after {1:F0} ms on the worker ({2}): out of date", m_ScanJobWhy, m_ScanWorkerMs,
+                        job != null && job.Canceled ? "canceled at " + (job.Progress * 100f).ToString("F0", CultureInfo.InvariantCulture) + " %" : "ran to the end"));
+                if (m_PendingJob != null)
                     LaunchPending();
                 return true;
             }
-            m_Published = live.Snapshot();
+            if (job.Plan != null && !job.FromCache)
+                CachePlan(m_ScanKey, job.Plan);
+            m_DoneJob = job;
+            m_Published = job.Result;
             FinishScan();
             AddScanMainMs(QuickRunsRules.MsSince(m_CollectTicks));
             return true;
@@ -320,24 +300,25 @@ namespace SkiResortMod.Systems
             m_ScanFrameMaxMs = Math.Max(m_ScanFrameMaxMs, m_ScanFrameMs);
         }
 
-        /// <summary>"worker W ms, main M ms over F frame(s) (worst frame X ms), gc0 +G": the collect frame so far is included.</summary>
+        /// <summary>"worker W ms (checks C, plan P or cached, realize R), main M ms over F frame(s) (worst frame X ms), gc0 +G": the
+        /// collect frame so far is included.</summary>
         private string ScanJobText()
         {
             double collect = QuickRunsRules.MsSince(m_CollectTicks);
             double worst = m_ScanMsFrame == m_Frame ? m_ScanFrameMs + collect : collect;
+            QuickRunsScanJob j = m_DoneJob;
             return string.Format(CultureInfo.InvariantCulture,
-                "{0} {1}, main {2:F1} ms over {3} frame(s) (worst frame {4:F1} ms), gc0 +{5}",
-                m_ScanOnMain ? "main thread (fallback setting):" : "worker",
-                m_ScanOnMain ? "no worker" : m_ScanWorkerMs.ToString("F0", CultureInfo.InvariantCulture) + " ms",
-                m_ScanMainMs + collect, m_ScanFrames, Math.Max(m_ScanFrameMaxMs, worst), GC.CollectionCount(0) - m_ScanGc0);
+                "worker {0:F0} ms (checks {1:F0}, plan {2}, realize {3:F0}), main {4:F1} ms over {5} frame(s) (worst frame {6:F1} ms), gc0 +{7}",
+                m_ScanWorkerMs, j?.PrecheckMs ?? 0.0, j?.Plan == null ? "none" : j.FromCache ? "cached" : j.Plan.PlanMs.ToString("F0", CultureInfo.InvariantCulture),
+                j?.RealizeMs ?? 0.0, m_ScanMainMs + collect, m_ScanFrames, Math.Max(m_ScanFrameMaxMs, worst), GC.CollectionCount(0) - m_ScanGc0);
         }
 
-        /// <summary>The Resort plan in one clause (spec 7 DONE line). "plan none" in Runs mode.</summary>
+        /// <summary>The Resort plan in one clause (spec 7 DONE line). "plan none" without a plan.</summary>
         private static string PlanText(ResortPlan p)
         {
             if (p == null)
                 return "plan none";
-            int proposed = 0, pinned = 0;
+            int proposed = 0, pinned = 0, clear = 0;
             var home = new int[6];
             for (int i = 0; i < p.Lifts.Length; i++)
             {
@@ -345,16 +326,157 @@ namespace SkiResortMod.Systems
                     pinned++;
                 else
                     proposed++;
+                if (!p.Lifts[i].HandFit && !p.Lifts[i].TowersUnchecked)
+                    clear++;
                 int h = (int)p.Lifts[i].Home;
                 if (h >= 0 && h < home.Length)
                     home[h]++;
             }
             return string.Format(CultureInfo.InvariantCulture,
-                "pods {0}, lifts {1} (proposed {2}, pinned {3}), home G/B/K/DB/Download {4}/{5}/{6}/{7}/{8}, dead ends {9}, " +
+                "groups {0}, lifts {1} (proposed {2}, pinned {3}, towers clear {12}), home G/B/K/DB/Download {4}/{5}/{6}/{7}/{8}, dead ends {9}, " +
                 "run km {10:F2} ({11:F2} per km2)",
                 p.Pods.Length, p.Lifts.Length, proposed, pinned, home[(int)HomeVerdict.Green], home[(int)HomeVerdict.Blue],
                 home[(int)HomeVerdict.Black], home[(int)HomeVerdict.DoubleBlack], home[(int)HomeVerdict.Download], p.DeadEnds, p.RunKm,
-                p.RunKmPerKm2);
+                p.RunKmPerKm2, clear);
+        }
+
+
+        // ---------------------------------------------------------------- dev path (QuickRunsDevUISystem, Measurement diagnostics)
+
+        /// <summary>Scan this ring (the dev trigger). The tool must be active. bare = no planner input (the host golden's input). The scan
+        /// starts in the tool's own update (DevScanNow). Returns the reason when refused.</summary>
+        internal string DevScan(float2[] ring, bool bare, string tag)
+        {
+            if (!IsActive)
+                return "the tool is not active";
+            if (ring == null || ring.Length < 3)
+                return "fewer than three corners";
+            m_DevRing = ring;
+            m_DevBare = bare;
+            m_DevTag = tag;
+            return "queued";
+        }
+
+        /// <summary>The queued dev scan, in the tool's update: the corners replace the region, the region closes, the scan starts.</summary>
+        private void DevScanNow()
+        {
+            float2[] ring = m_DevRing;
+            m_DevRing = null;
+            if (Building || m_Planting || m_Phase == ToolPhase.Emitted || m_Phase == ToolPhase.Retry || m_Phase == ToolPhase.Applying)
+            {
+                Mod.Log.Warn("QuickRuns [dev]: scan REFUSED — a build or a planting runs");
+                return;
+            }
+            if (m_TreesOn)
+                SetTrees(false, "dev scan");
+            if (m_Phase == ToolPhase.Scanning || m_Phase == ToolPhase.Preview)
+                DropPreview("dev scan: the region is replaced");
+            m_Edit.Clear();
+            for (int i = 0; i < ring.Length; i++)
+                m_Edit.Add(ring[i]);
+            ClearPlanToggles();
+            m_RegionClosed = true;
+            m_NextBare = m_DevBare;
+            m_NextTag = string.IsNullOrEmpty(m_DevTag) ? "region" : m_DevTag;
+            UpdateReadout();
+            Say($"QuickRuns [dev]: scan {m_NextTag}{(m_NextBare ? " (bare: no planner input)" : string.Empty)} — {ring.Length} corner(s); {ReadoutText()}");
+            BeginScan("dev " + m_NextTag);
+        }
+
+        /// <summary>Writes the last published scan's exact input and its hashes to the log folder (QuickRunsScanDump), for the test host's
+        /// rf-replay. stem = a file name stem (letters, digits, dash), null = "scan". Returns the log line.</summary>
+        internal string DevDump(string stem)
+        {
+            QuickRunsScanJob job = m_DoneJob;
+            if (job == null || job.Input == null)
+                return "nothing to dump: no scan was published since the tool opened";
+            if (ScanJobInFlight)
+                return "a scan runs: dump after it ends";
+            if (string.IsNullOrEmpty(stem))
+                stem = "scan";
+            foreach (char c in stem)
+                if (!char.IsLetterOrDigit(c) && c != '-')
+                    return $"'{stem}' is not a plain file stem (letters, digits, dash)";
+            string dir = Path.GetDirectoryName(SkiDiagnostics.LogFilePath);
+            string path = Path.Combine(dir, "SkiResortMod." + stem + ".rfscan");
+            var head = new QuickRunsScanDump.Header
+            {
+                Tag = job.Id, Bare = job.PlannerInputs == null, PlanHash = job.Plan?.Hash ?? 0UL, ResultHash = job.Result?.Fingerprint ?? 0UL,
+                OptionsPrint = job.Options.Fingerprint(), Status = job.Result?.Status.ToString() ?? "none",
+                Passes = job.Plan?.Plan.Passes, Stages = job.Report.Stages, Plan = job.Plan?.Plan,
+            };
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write))
+                QuickRunsScanDump.Write(fs, head, job.Input, job.Options);
+            return string.Format(CultureInfo.InvariantCulture,
+                "dump of {0} written to {1} ({2:F1} MB, {3:F0} ms): plan {4:x16}, result {5:x16}, options {6:x16}, status {7}; replay: rf-replay <file>",
+                head.Tag, Mod.ScrubUserPath(path), new FileInfo(path).Length / 1048576.0, QuickRunsRules.MsSince(t0), head.PlanHash, head.ResultHash,
+                head.OptionsPrint, head.Status);
+        }
+
+
+        // ---------------------------------------------------------------- a failed scan (fix round 2b-x)
+
+        /// <summary>Fault dumps kept in the log folder (SkiResortMod.fault-n.rfscan, the highest n are the newest).</summary>
+        private const int FaultDumpsKept = 3;
+        /// <summary>Failed scans per session that log their full stack. Later ones log one line (the dumps still rotate).</summary>
+        private const int FaultStacksLogged = 5;
+        private int m_ScanFaults;
+
+        /// <summary>A scan whose worker threw. The job owns its input and result, so the tool's state is whole: the scan is one failed
+        /// scan, not a broken tool. Logged with its stack (silence impossible), its input dumped for rf-replay. The main-thread Fail
+        /// policy (disabled until the next load) stays for exceptions in the tool's own update, the failure that can repeat every frame.
+        /// A worker fault cannot: each scan starts on a player action, a knob or a world change.</summary>
+        private void ScanFaulted(Exception e, QuickRunsScanJob job, bool current)
+        {
+            m_ScanFaults++;
+            string dump = WriteFaultDump(job);
+            string head = string.Format(CultureInfo.InvariantCulture,
+                "!!! QuickRuns [scan]: FAILED ({0}{1}) — EXCEPTION in the scan worker after {2:F0} ms (stage: plan {3}); failed scan {4} this session; " +
+                "the tool stays on and the next scan runs; {5}", m_ScanJobWhy, current ? string.Empty : ", out of date", m_ScanWorkerMs,
+                job?.Plan == null ? "none" : job.Plan.Hash.ToString("x16", CultureInfo.InvariantCulture), m_ScanFaults, dump);
+            if (m_ScanFaults <= FaultStacksLogged)
+                Mod.Log.Error(head + ". Please report this stack:\n" + e);
+            else
+                Mod.Log.Error(head + "; " + (e?.GetType().Name ?? "no exception") + ": " + e?.Message + " (stack logged for the first " + FaultStacksLogged + ")");
+        }
+
+        /// <summary>The failed job's exact input as SkiResortMod.fault-n.rfscan beside the other dumps (DevDump's writer), n one over the
+        /// highest on disk; only the newest FaultDumpsKept stay. Returns the log clause. Never throws (a dump that fails is a clause).</summary>
+        private static string WriteFaultDump(QuickRunsScanJob job)
+        {
+            if (job?.Input == null)
+                return "no input to dump";
+            try
+            {
+                string dir = Path.GetDirectoryName(SkiDiagnostics.LogFilePath);
+                var old = new List<(int N, string Path)>();
+                foreach (string f in Directory.GetFiles(dir, "SkiResortMod.fault-*.rfscan"))
+                {
+                    string name = Path.GetFileNameWithoutExtension(f);
+                    if (int.TryParse(name.Substring("SkiResortMod.fault-".Length), NumberStyles.None, CultureInfo.InvariantCulture, out int k))
+                        old.Add((k, f));
+                }
+                int n = 1;
+                foreach (var o in old)
+                    n = Math.Max(n, o.N + 1);
+                string path = Path.Combine(dir, "SkiResortMod.fault-" + n.ToString(CultureInfo.InvariantCulture) + ".rfscan");
+                var head = new QuickRunsScanDump.Header
+                {
+                    Tag = job.Id, Bare = job.PlannerInputs == null, PlanHash = job.Plan?.Hash ?? 0UL, ResultHash = 0UL,
+                    OptionsPrint = job.Options.Fingerprint(), Status = "fault",
+                };
+                using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write))
+                    QuickRunsScanDump.Write(fs, head, job.Input, job.Options);
+                old.Sort((a, b) => b.N.CompareTo(a.N));
+                for (int i = FaultDumpsKept - 1; i < old.Count; i++)
+                    File.Delete(old[i].Path);   // the new file is the newest: keep FaultDumpsKept - 1 of the old ones
+                return $"its input is in {Mod.ScrubUserPath(path)} (replay: rf-replay <file>)";
+            }
+            catch (Exception x)
+            {
+                return "the fault dump failed: " + x.GetType().Name + ": " + Mod.ScrubUserPath(x.Message);
+            }
         }
 
 
@@ -442,7 +564,7 @@ namespace SkiResortMod.Systems
                 for (int k = 0; k <= steps; k++)
                 {
                     float2 p = math.lerp(a, b, k / (float)steps);
-                    if (GradeRaster.Inside(region, p) || SkiRunAutoPlanner.PointRingDistance(region, p) <= PinnedReachM)
+                    if (GradeRaster.Inside(region, p) || PlanGeometry.PointRingDistance(region, p) <= PinnedReachM)
                         return true;
                 }
             }
@@ -464,7 +586,7 @@ namespace SkiResortMod.Systems
         private float2[] CollectAccess(float2[] region)
         {
             const int AccessMaxSamples = 2048;   // a dense road grid by a 9 km2 region gave 6-12 k samples at 25 m (A-R AR-8)
-            if (!SkiRunAutoPlanner.BBox(region, out float2 lo, out float2 hi))
+            if (!PlanGeometry.BBox(region, out float2 lo, out float2 hi))
                 return null;
             var box = new Bounds2(lo - AccessReachM, hi + AccessReachM);
             var points = new List<float2>();

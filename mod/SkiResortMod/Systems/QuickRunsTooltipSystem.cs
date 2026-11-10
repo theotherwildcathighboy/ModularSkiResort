@@ -4,8 +4,11 @@
 // template (the SkiDaySystem.ReachRowText precedent) and go by Value. The step prompt is always shown while the tool is open, then the
 // build's or the planting's progress line. Refusals, notices and warnings follow under it. Resort Planner v2 (stage A, task A7): with a
 // plan showing, the tooltip also shows the plan line, the terrain's honest mix, the lifts-are-proposals note and the site verdict's detail
-// line (the v1 site line itself is unchanged). The pod or lift under the cursor gets its own line (and the lift its way-home verdict). The
-// empty region says a click on a lift station plans around it. Zero allocation per frame except when a value changes. A "!!!" ERROR
+// line (the v1 site line itself is unchanged). The lift under the cursor gets its own line (its way-home verdict, and how its line builds:
+// flagged, or waiting in the lift tool), the lift group's ring too ("Runs from P2", the catch-all group is "Other runs"). The empty region
+// says a click on a lift station plans around it. Round R2-b (runs-first plans): the run and mix counts are pistes only and the cat tracks
+// have their own line (QuickRunsShown), the mix line drops "of {target}" when the planner gives no target, and the Lifts / Mix / Way home
+// knobs are not mentioned anywhere. Zero allocation per frame except when a value changes. A "!!!" ERROR
 // disables the system until the next load.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Tooltip)
 
@@ -22,17 +25,21 @@ namespace SkiResortMod.Systems
     {
         private const string P = QuickRunsRules.TipPrefix;
         private const int MaxWarnings = 8;
+        private const string NoSignSomeKey = P + "WARN[NoSignSome]";   // "{N} of {M} runs": the one warning with numbers
 
         private QuickRunsToolSystem m_Tool;
         private SkiResortHubUISystem m_Hub;
         private StringTooltip m_Prompt, m_Notice, m_Status, m_Mix, m_Cluster, m_Progress, m_Site;
-        private StringTooltip m_PlanLine, m_Honest, m_Proposal, m_SiteDetail, m_Around, m_HoverPlan, m_HoverVerdict;
+        private StringTooltip m_PlanLine, m_Honest, m_Proposal, m_SiteDetail, m_Around, m_HoverPlan, m_HoverVerdict, m_HoverFit;
         private ProgressTooltip m_Scan;
-        private IntTooltip m_Region, m_RegionMax, m_Vertical, m_Runs, m_Fee, m_Skiers, m_Plant, m_Remove, m_TreeCost, m_TreeLine;
+        private IntTooltip m_Region, m_RegionMax, m_Vertical, m_Runs, m_Tracks, m_Fee, m_Skiers, m_Plant, m_Remove, m_TreeCost, m_TreeLine;
         private readonly StringTooltip[] m_Warn = new StringTooltip[MaxWarnings];
         private readonly string[] m_LastWarn = new string[MaxWarnings];
         private string m_LastPrompt, m_LastNotice, m_LastStatus, m_LastMix, m_LastCluster, m_LastProgress, m_LastSite, m_LoggedPrompt;
-        private string m_LastPlanLine, m_LastHonest, m_LastProposal, m_LastSiteDetail, m_LastAround, m_LastHoverPlan, m_LastHoverVerdict;
+        private string m_LastPlanLine, m_LastHonest, m_LastProposal, m_LastSiteDetail, m_LastAround, m_LastHoverPlan, m_LastHoverVerdict, m_LastHoverFit;
+        private QuickRunsShown m_Shown;              // the counts of the published result (pistes and cat tracks apart), per hub revision
+        private int m_ShownRevision = -1;
+        private AutoPlanResult m_ShownFor;
         private bool m_Disabled;
 
         protected override void OnCreate()
@@ -54,6 +61,7 @@ namespace SkiResortMod.Systems
             m_Around = new StringTooltip { path = "skiQuickAround", color = TooltipColor.Info };
             m_HoverPlan = new StringTooltip { path = "skiQuickHoverPlan", color = TooltipColor.Info };
             m_HoverVerdict = new StringTooltip { path = "skiQuickHoverVerdict", color = TooltipColor.Info };
+            m_HoverFit = new StringTooltip { path = "skiQuickHoverFit", color = TooltipColor.Warning };
             // IntTooltip unit "area" like the game's area tool (AreaToolTooltipSystem.cs:78-83): the game formats m2 / km2 / acres itself. A
             // ProgressTooltip printed the raw "2658641.75 / 9000000 <area>" (its fraction formatter has no area entry).
             m_Region = new IntTooltip { path = "skiQuickRegion", label = LocalizedString.Id(P + "REGION"), unit = "area" };
@@ -61,6 +69,7 @@ namespace SkiResortMod.Systems
             m_Scan = new ProgressTooltip { path = "skiQuickScan", label = LocalizedString.Id(P + "SCANNING"), unit = "percentage", max = 100f };
             m_Vertical = new IntTooltip { path = "skiQuickVertical", label = LocalizedString.Id(P + "VERTICAL"), unit = "length" };
             m_Runs = new IntTooltip { path = "skiQuickRuns", label = LocalizedString.Id(P + "RUNS"), unit = "integer" };
+            m_Tracks = new IntTooltip { path = "skiQuickTracks", label = LocalizedString.Id(P + "TRACKS"), unit = "integer" };
             m_Fee = new IntTooltip { path = "skiQuickFee", label = LocalizedString.Id(P + "FEE"), unit = "money" };
             m_Skiers = new IntTooltip { path = "skiQuickSkiers", label = LocalizedString.Id(P + "SKIERS"), unit = "integer" };
             m_Plant = new IntTooltip { path = "skiQuickPlant", label = LocalizedString.Id(P + "TREES_PLANT"), unit = "integer" };
@@ -142,7 +151,13 @@ namespace SkiResortMod.Systems
                     ShowTrees();
                 IReadOnlyList<string> warnings = m_Tool.WarningKeys;
                 for (int i = 0; detail && i < warnings.Count && i < MaxWarnings; i++)
-                    Show(m_Warn[i], ref m_LastWarn[i], warnings[i]);
+                {
+                    if (warnings[i] == NoSignSomeKey)
+                        ShowValue(m_Warn[i], ref m_LastWarn[i], Template(NoSignSomeKey).Replace("{N}", m_Tool.UnboundPistes.ToString())
+                            .Replace("{M}", Shown().PistesOn.ToString()));
+                    else
+                        Show(m_Warn[i], ref m_LastWarn[i], warnings[i]);
+                }
                 string clusterKey = m_Tool.HoverClusterKey;
                 if (plan != null && (m_Tool.HoverPod >= 0 || m_Tool.HoverLift >= 0))
                     ShowHoverPlan(plan);
@@ -188,14 +203,22 @@ namespace SkiResortMod.Systems
         private void ShowTotals()
         {
             QuickTotals t = m_Tool.Totals;
-            m_Runs.value = t.Enabled;
+            QuickRunsShown sh = Shown();
+            m_Runs.value = sh.PistesOn;
             AddMouseTooltip(m_Runs);
-            string mix = Template(P + "MIX")
-                .Replace("{G}", t.Count[1].ToString()).Replace("{B}", t.Count[2].ToString())
-                .Replace("{K}", t.Count[3].ToString()).Replace("{D}", t.Count[4].ToString())
+            if (sh.Tracks > 0)
+            {
+                m_Tracks.value = sh.TracksOn;
+                AddMouseTooltip(m_Tracks);
+            }
+            // The runs-first planner gives no target mix (all zeros): the line then shows the counts alone
+            bool targets = t.Target[1] + t.Target[2] + t.Target[3] + t.Target[4] > 0;
+            string mix = Template(P + (targets ? "MIX" : "MIX_COUNTS"))
+                .Replace("{G}", sh.Count[1].ToString()).Replace("{B}", sh.Count[2].ToString())
+                .Replace("{K}", sh.Count[3].ToString()).Replace("{D}", sh.Count[4].ToString())
                 .Replace("{TG}", t.Target[1].ToString()).Replace("{TB}", t.Target[2].ToString())
                 .Replace("{TK}", t.Target[3].ToString()).Replace("{TD}", t.Target[4].ToString());
-            m_Mix.color = t.Variety ? TooltipColor.Success : TooltipColor.Info;
+            m_Mix.color = sh.Variety ? TooltipColor.Success : TooltipColor.Info;
             ShowValue(m_Mix, ref m_LastMix, mix);
             m_Fee.value = (int)Math.Min(t.Fee, int.MaxValue);
             AddMouseTooltip(m_Fee);
@@ -211,9 +234,9 @@ namespace SkiResortMod.Systems
                 if (plan.Lifts[i].Origin == LiftOrigin.Proposed)
                     proposed++;
             ShowValue(m_PlanLine, ref m_LastPlanLine, Template(P + "PLAN_LINE")
-                .Replace("{PODS}", plan.Pods.Length.ToString(CultureInfo.InvariantCulture))
                 .Replace("{LIFTS}", proposed.ToString(CultureInfo.InvariantCulture))
-                .Replace("{KM}", plan.RunKm.ToString("F1", CultureInfo.InvariantCulture)));
+                .Replace("{KM}", plan.RunKm.ToString("F1", CultureInfo.InvariantCulture))
+                .Replace("{TKM}", Shown().TrackKm.ToString("F1", CultureInfo.InvariantCulture)));
             float[] mix = plan.MountainMix;
             if (mix[1] + mix[2] + mix[3] + mix[4] > 0f)
             {
@@ -251,19 +274,46 @@ namespace SkiResortMod.Systems
                     .Replace("{RUNS}", l.Serves.ToString(CultureInfo.InvariantCulture)));
                 if (l.Home != HomeVerdict.None)
                     Show(m_HoverVerdict, ref m_LastHoverVerdict, P + "VERDICT[" + l.Home + "]");
+                // How the line builds: one tower over its limit (the queue builds it and flags the row), or it waits for the player
+                if (l.BuildsFlagged)
+                    Show(m_HoverFit, ref m_LastHoverFit, P + "LIFT_FIT[Flagged]");
+                else if (l.HandFit)
+                    Show(m_HoverFit, ref m_LastHoverFit, P + "LIFT_FIT[Waits]");
                 return;
             }
             if (pod < 0 || pod >= plan.Pods.Length)
                 return;
             PlanPod p = plan.Pods[pod];
-            QuickPodRow[] rows = m_Tool.PodRows;
-            int runs = pod < rows.Length ? rows[pod].Runs : 0;
-            string verdict = p.Lift >= 0 && p.Lift < plan.Lifts.Length && plan.Lifts[p.Lift].Home != HomeVerdict.None
-                ? Template(P + "VERDICT[" + plan.Lifts[p.Lift].Home + "]") : p.Lift < 0 ? Template(P + "POD_UNSERVED") : string.Empty;
-            string line = Template(P + "POD_LINE")
-                .Replace("{ID}", QuickRunsPlanRules.Letter(p.Id)).Replace("{CLASS}", Template(P + "CLASS[" + p.PrimaryClass + "]"))
-                .Replace("{RUNS}", runs.ToString(CultureInfo.InvariantCulture)).Replace("{VERDICT}", verdict);
+            QuickRunsShown sh = Shown();
+            string runs = (pod < sh.PodPistes.Length ? sh.PodPistes[pod] : 0).ToString(CultureInfo.InvariantCulture);
+            string tracks = (pod < sh.PodTracks.Length ? sh.PodTracks[pod] : 0).ToString(CultureInfo.InvariantCulture);
+            string line;
+            if (p.Lift >= 0 && p.Lift < plan.Lifts.Length)
+            {
+                // A lift's group: "Runs from P2: Intermediate, 5 run(s), 3 cat track(s), Green way home"
+                PlanLift l = plan.Lifts[p.Lift];
+                string id = l.Origin == LiftOrigin.Pinned ? Template(P + "LIFT_ID_PINNED") : "P" + QuickRunsPlanRules.Ordinal(plan, p.Lift).ToString(CultureInfo.InvariantCulture);
+                line = Template(P + "POD_LINE")
+                    .Replace("{ID}", id).Replace("{CLASS}", Template(P + "CLASS[" + p.PrimaryClass + "]"))
+                    .Replace("{RUNS}", runs).Replace("{TRACKS}", tracks)
+                    .Replace("{VERDICT}", l.Home != HomeVerdict.None ? Template(P + "VERDICT[" + l.Home + "]") : string.Empty);
+            }
+            else
+                line = Template(P + "OTHER_LINE").Replace("{RUNS}", runs).Replace("{TRACKS}", tracks);
             ShowValue(m_HoverPlan, ref m_LastHoverPlan, line.TrimEnd(' ', ','));
+        }
+
+        /// <summary>The counts of the published result with the pistes and the cat tracks apart (the hub's too), rebuilt when the hub
+        /// revision or the result moves.</summary>
+        private QuickRunsShown Shown()
+        {
+            if (m_Shown == null || m_ShownRevision != m_Tool.HubRevision || !ReferenceEquals(m_ShownFor, m_Tool.Result))
+            {
+                m_Shown = QuickRunsShown.Of(m_Tool);
+                m_ShownRevision = m_Tool.HubRevision;
+                m_ShownFor = m_Tool.Result;
+            }
+            return m_Shown;
         }
 
         private void ShowTrees()

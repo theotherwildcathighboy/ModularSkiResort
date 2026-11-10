@@ -7,7 +7,7 @@
 // - Click pick.
 // - Locale keys.
 // - Knob clamps and tree-line clamp.
-// - The LinkMeters alias.
+// - The mean grade the scan ladder reports.
 
 using System.Collections.Generic;
 using SkiResortMod.Systems;
@@ -23,9 +23,6 @@ namespace AutoGenBatch
         private static void QuickRunsTests()
         {
             const string W = "quick";
-
-            // LinkMeters is one constant (DECISIONS 405 follow-up)
-            Check(SkiRunAutoPlanner.LinkMeters == LiftServedRule.LinkMeters, W, "planner LinkMeters must alias LiftServedRule.LinkMeters");
 
             // A click on the region: the first corner closes it, and once closed a click past it adds nothing
             {
@@ -66,7 +63,7 @@ namespace AutoGenBatch
                     float est = QuickRunsRules.EstimateMeanGrade(km, p => g * p.x);
                     Check(System.Math.Abs(est - g) < 0.002f, W, $"site estimate on a {g:P0} plane: {est:P1}");
                 }
-                Check(System.Math.Abs(QuickRunsRules.EstimateMeanGrade(km, p => 5f * p.x) - SkiRunAutoPlanner.MeanGradeCap) < 1e-4f, W, "site estimate caps each sample at MeanGradeCap");
+                Check(System.Math.Abs(QuickRunsRules.EstimateMeanGrade(km, p => 5f * p.x) - PlanGeometry.MeanGradeCap) < 1e-4f, W, "site estimate caps each sample at MeanGradeCap");
                 Check(float.IsNaN(QuickRunsRules.EstimateMeanGrade(Square(0f, 0f, 5f), p => p.x)) && float.IsNaN(QuickRunsRules.EstimateMeanGrade(new[] { new float2(0f, 0f), new float2(9f, 9f) }, p => p.x)) &&
                     float.IsNaN(QuickRunsRules.EstimateMeanGrade(null, p => p.x)), W, "site estimate: NaN for a sliver, two corners or no ring");
                 // The sample count stays bounded (a 9 km2 square stays near 300 samples)
@@ -74,10 +71,13 @@ namespace AutoGenBatch
                 QuickRunsRules.EstimateMeanGrade(Square(-1500f, -1500f, 3000f), p => { calls++; return 0.3f * p.x; });
                 Check(calls > 0 && calls <= 5 * 400, W, $"site estimate sampled {calls} heights on 9 km2 (about 5 per point, 300 points)");
 
-                // The scan's figure: the planner's mean over the open ground (set even when the planner refuses the scan later)
+                // The scan's figure: the refusal ladder's mean over the open ground (the scan job's step 1, the realizer with no plan.
+                // It is set even when the ladder refuses the scan)
                 foreach (double g in new[] { 0.15, 0.30, 0.50 })
                 {
-                    AutoPlanResult scan = Plan(Input(Terrain.Plane(g), Terrain.Square(0f, 0f, 400f)));
+                    float2[] plane = Terrain.Square(0f, 0f, 400f);
+                    var input = new AutoPlanInput { Snapshot = Terrain.Snapshot(Terrain.Plane(g), plane), Region = plane, Knobs = AutoPlanKnobs.Default(PlanGeometry.SeedOf(plane, 0)), Mode = AutoPlanMode.Resort };
+                    AutoPlanResult scan = RunsFirstRealizer.Realize(null, input, null);
                     Check(System.Math.Abs(scan.MeanGrade - g) < 0.02, W, $"scan mean grade on a {g:P0} plane: {scan.MeanGrade:P1} (status {scan.Status})");
                 }
             }
@@ -272,7 +272,8 @@ namespace AutoGenBatch
         {
             const string W = "quick-plan";
             Check(QuickRunsPlanRules.ClampLifts(-3) == 0 && QuickRunsPlanRules.ClampLifts(0) == 0 && QuickRunsPlanRules.ClampLifts(4) == 4 &&
-                  QuickRunsPlanRules.ClampLifts(9) == 9 && QuickRunsPlanRules.ClampLifts(10) == 9, W, "Lifts knob clamps to 0 (Auto) .. 9");
+                  QuickRunsPlanRules.ClampLifts(15) == 15 && QuickRunsPlanRules.ClampLifts(16) == 15 && QuickRunsPlanRules.MaxLifts == 15, W,
+                  "Lifts knob clamps to 0 (Auto) .. 15 (plan 7.8: runs-first plans 6 to 15 lifts)");
             Check(QuickRunsPlanRules.ClampHome(0) == HomeLevel.Auto && QuickRunsPlanRules.ClampHome(1) == HomeLevel.Green &&
                   QuickRunsPlanRules.ClampHome(2) == HomeLevel.Blue && QuickRunsPlanRules.ClampHome(3) == HomeLevel.Auto &&
                   QuickRunsPlanRules.ClampHome(-1) == HomeLevel.Auto, W, "Home knob: 0 Auto, 1 Green, 2 Blue, anything else Auto");

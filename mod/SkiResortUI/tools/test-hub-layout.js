@@ -32,7 +32,7 @@
 *            --height=1080|1440|2160   one size     --scenario=<regex>   only the scenarios it matches (case-insensitive; a partial run)
 *            --workers=<n>   browsers in parallel  --no-wait   fail (exit 3) when another run holds the lock, instead of waiting
 *            --fixed-settle   the old fixed waits in settle(), to cross-check a doubt about the quiet condition
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish | --list=r1f | --list=r2b]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -263,6 +263,9 @@ const SHOTS = [
   ["quick-runs-open-1080", 1080, { scenario: "Quick runs open, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
   ["resort-planner-plan-1080", 1080, { scenario: "Resort Planner plan, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
   ["resort-planner-plan-1440-fs125", 1440, { scenario: "Resort Planner plan, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs", fs: 1.25 }],
+  ["resort-planner-lifts-building-1080", 1080, { scenario: "Resort Planner lifts, queue building (every row state), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],   // R1-d
+  ["resort-planner-lifts-stopping-1080", 1080, { scenario: "Resort Planner lifts, queue stopping (planner open), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+  ["resort-planner-lifts-idle-1080", 1080, { scenario: "Resort Planner lifts, idle with a refusal and a notice, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
   ["quick-runs-building-1080", 1080, { scenario: "Quick runs building, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
   ["quick-runs-planting-1080", 1080, { scenario: "Quick runs planting, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
   ["start-card-1080", 1080, { scenario: "connected, empty city" }],
@@ -450,13 +453,29 @@ for (const [scale, tag] of [[1, ""], [1.25, "-fs125"]]) {
   );
 }
 
+// R1-f: the sheet rows with a refusal (warning color) and a wait in the lift tool (its own reason). `--list=r1f` picks this list.
+const R1F = [
+  ["r1f-lifts-refused-and-waiting-1080", 1080, { scenario: "Resort Planner lifts, idle with a refusal and a notice, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+];
+
+// R2-b: the runs-first plan at its largest (15 lifts, groups, flagged and waiting lines, cat tracks in the totals), its sheet with the planner closed, and the knob
+// rows without the hidden knobs. `--list=r2b` picks this list.
+const R2B = [
+  ["r2b-plan-15-lifts-top-1080", 1080, { scenario: "Resort Planner plan, 15 lifts (flagged, waiting, other runs), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+  ["r2b-sheet-15-rows-flagged-1080", 1080, { scenario: "Resort Planner lifts, 15 rows (flagged tower, waiting), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+  ["r2b-plan-15-lifts-rows-1080", 1080, { scenario: "Resort Planner plan, 15 lifts (flagged, waiting, other runs), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs", scrollY: 1000, scrollIn: "planList", scrollInY: 1000 }],
+  ["r2b-sheet-15-rows-flagged-lower-1080", 1080, { scenario: "Resort Planner lifts, 15 rows (flagged tower, waiting), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs", scrollY: 1000 }],
+  ["r2b-sheet-flagged-tooltip-1080", 1080, { scenario: "Resort Planner lifts, 15 rows (flagged tower, waiting), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs", hover: "Built. Tower 7", hoverIn: "div" }],
+  ["r2b-knob-row-1080", 1080, { scenario: "Resort Planner plan, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+];
+
 async function shots(b, base, dir, list) {
   fs.mkdirSync(dir, { recursive: true });
   for (const [file, h, p0] of list) {
     const w = Math.round(h * 16 / 9);
     const p = Object.assign({}, p0);
-    const { hover, hoverIn, hoverSel, click, clickRange, hoverPlot, whole, iconMode } = p;
-    delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode;
+    const { hover, hoverIn, hoverSel, click, clickRange, hoverPlot, whole, iconMode, scrollY, scrollIn, scrollInY } = p;
+    delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode; delete p.scrollY; delete p.scrollIn; delete p.scrollInY;
     await open(b, base, w, h);
     if (iconMode) await evalAsync(b, `(() => { window.skiResortIconMode = ${JSON.stringify(iconMode)}; return true; })()`, 10000);
     const m = await evalAsync(b, `(async () => { const p = new URLSearchParams(${JSON.stringify(new URLSearchParams(Object.assign({ clean: 1 }, p)).toString())});
@@ -467,6 +486,16 @@ async function shots(b, base, dir, list) {
         const el = Array.from(document.querySelectorAll('.h-panel button')).find((e) => (e.textContent || '').trim() === want);
         if (!el) return false; el.click(); await new Promise((r) => setTimeout(r, 300)); return true; })()`, 10000);
       if (!ok) console.log(`shot ${file}: button "${want}" not found`);
+    }
+    if (scrollY) {   // scroll the panel's content (a long Runs view: the lower rows) by this many px
+      const n = await evalAsync(b, `(() => { const e = document.querySelector('.h-panel [class*="panelContent"]'); if (!e) return 0; e.scrollTop = ${Number(scrollY)}; return 1; })()`, 10000);
+      if (!n) console.log(`shot ${file}: no panel content to scroll`);
+      await sleep(300);
+    }
+    if (scrollIn) {   // then one named box inside the panel (a class name part, as the plan list's)
+      const n = await evalAsync(b, `(() => { const e = document.querySelector('.h-panel [class*="${scrollIn}"]'); if (!e) return 0; e.scrollTop = ${Number(scrollInY || 0)}; return 1; })()`, 10000);
+      if (!n) console.log(`shot ${file}: no box named ${scrollIn}`);
+      await sleep(300);
     }
     if (hoverPlot !== undefined) {
       const at = await evalAsync(b, `(() => { const ps = Array.from(document.querySelectorAll('.h-panel [class*="sr-histPlot_"]'));
@@ -503,7 +532,7 @@ async function shots(b, base, dir, list) {
       const left = Math.min(r.left, tr ? tr.left : r.left), right = Math.max(r.right, tr ? tr.right : r.right);
       const top = Math.min(r.top, tr ? tr.top : r.top), bottom = Math.max(r.bottom, tr ? tr.bottom : r.bottom);
       return { x: Math.max(0, left - 20), y: Math.max(0, top - 20), width: Math.min(innerWidth, right + 20) - Math.max(0, left - 20), height: Math.min(innerHeight, bottom + 20) - Math.max(0, top - 20) }; })()`, 10000);
-    const shot = await b.send("Page.captureScreenshot", { format: "png", clip: Object.assign({ scale: 1 }, rect), captureBeyondViewport: !hover && !hoverSel && hoverPlot === undefined });   // a pointer shot stays in the viewport. Growing it re-lays the page under the pointer, and the bucket hover drops
+    const shot = await b.send("Page.captureScreenshot", { format: "png", clip: Object.assign({ scale: 1 }, rect), captureBeyondViewport: !hover && !hoverSel && hoverPlot === undefined && !scrollY && !scrollIn });   // a pointer shot stays in the viewport. Growing it re-lays the page under the pointer, and the bucket hover drops
     const out = path.join(dir, file + ".png");
     fs.writeFileSync(out, Buffer.from(shot.data, "base64"));
     console.log(`shot ${out} (${w}x${h}) ${m}`);
@@ -602,7 +631,7 @@ async function main() {
     const b = browsers[0];
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg),
-        process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

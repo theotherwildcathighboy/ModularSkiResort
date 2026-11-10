@@ -103,6 +103,30 @@ namespace SkiResortMod.Systems
         /// run (StationRunM: bullwheel or dock to the stub tip, the longest of the type's stations), at least MinSpanM. The planner keeps
         /// seeds (pins, a line's own nodes in PlanFixed) wherever they are.</summary>
         public readonly float StationClearM;
+
+        /// <summary>The floor next to a station stub (task R2-l, DECISIONS 637): no planner tower nearer a station end than this, also where
+        /// the station clearance yields (the NoClearance retry). Why: the game joins a course to an existing node within the course's half
+        /// width plus the node's half width (CourseSplitSystem.CheckNodeGeometry, CourseSplitSystem.cs:587-627, test :600). The stub tip
+        /// node is a SkiLiftMarker node (SkiLiftMarkerPiece m_Width 16). So the span that ends at a tower nearer than StubSnapM to the stub
+        /// ends on the stub node instead. It runs past that tower, and the tower then overlaps it: OverlapExisting (Game.Objects
+        /// ValidationHelpers.cs NetIterator.CheckOverlap3D, :1035-1182). Field cases refused at 6 to 10 m, built at 12 m and more
+        /// (research/field r1c note 1, r1e note 5).</summary>
+        public const float StationTowerFloorM = 20f;
+
+        /// <summary>Half the width of the stub tip's marker node (SkiLiftMarkerPiece m_Width 16 m, gamedata-mirror).</summary>
+        public const float StubMarkerHalfWidthM = 8f;
+
+        /// <summary>The game joins a course to the stub node within this distance: the line's half width plus the marker's
+        /// (CourseSplitSystem.cs:600). FG / DQ 11 m, GD 12.1 m, tram 15.5 m.</summary>
+        public float StubSnapM => HalfWidthM + StubMarkerHalfWidthM;
+
+        /// <summary>A player's hand pin keeps this much more than StubSnapM from a station stub (LiftLineEdit.PinEndMarginM). 0.5 m,
+        /// not 1 m: the tram pin of field test 2 (1,737 m on a 1,756 m line) snaps to 16 m from the top, 0.5 m over the 15.5 m snap.</summary>
+        public const float PinSnapMarginM = 0.5f;
+
+        /// <summary>The floor in use at a station end: StationTowerFloorM, but never more than StationClearM. So FG keeps its 12.2 m
+        /// clearance (over its 11 m StubSnapM), and DQ, GD and tram get 20 m when their clearance yields.</summary>
+        public float StationFloorM => math.min(StationTowerFloorM, StationClearM);
         /// <summary>The line prefab's NetGeometryPrefab m_MaxSlopeSteepness (gamedata-mirror Ski*HV: FG 0.8, DQ 0.9, GD 1.2, tram 2.5). A
         /// value of 0 means no rule. The engine refuses a Temp edge whose node-to-node |dy| / xz length reaches that value + 0.0005
         /// (SteepSlope, Game.Net/ValidationHelpers.cs:1435-1490, test :1462). A tall tower a few meters from a station is such an edge.
@@ -681,6 +705,9 @@ namespace SkiResortMod.Systems
         public LiftCrossRefusal Refusal;
     }
 
+    /// <summary>What the lift queue does with a scripted line's plan (LiftTowerPlan.QueueRule).</summary>
+    public enum LiftQueueBuild { Build, BuildFlagged, Wait }
+
     public sealed class LiftTowerPlan
     {
         public LiftTowerPlanConstants Constants;
@@ -1005,6 +1032,85 @@ namespace SkiResortMod.Systems
         /// <summary>Every span clear, no tower over its cap, none too steep (IsTooSteep) and none past its carrier clearance
         /// (IsOverClearance).</summary>
         public bool Sound => Clear && OverCapTowers == 0 && TooSteepTowers == 0 && ClearanceTowers == 0;
+
+        /// <summary>Towers past their sheave-train limit: OverCapTowers on a type with trains. The tram's saddle is no train: 0 there.</summary>
+        public int OverLimitTowers => Constants != null && Constants.HasTrains ? OverCapTowers : 0;
+
+        /// <summary>A line tower inside a station's clearance (NearStation) on a type with sheave trains: the plan stands only because the
+        /// station clearance yielded or a pair tower sits there (task 2c-l). The queue plans the same line on the built ground and did NOT
+        /// take that way in field r2b-g2 (r4 P1, r2 P3, r2 P4, r2 P6: host first tower at 20 m, game at 30 m, bent past its cap, "station
+        /// clearance" refusals in its repair). The clear DQ lines of that pass had none. So a plan that leans on it is no prediction.</summary>
+        public bool LeansOnStationClearance
+        {
+            get
+            {
+                if (Constants == null || !Constants.HasTrains || Nodes == null)
+                    return false;
+                for (int i = 1; i < Nodes.Length - 1; i++)
+                    if (!Nodes[i].IsStation && (Nodes[i].Flags & LiftPlanNodeFlags.NearStation) != 0)
+                        return true;
+                return false;
+            }
+        }
+
+        /// <summary>The plan's own verdict on a line it has not built (the Towers pass and the realizer, task 2c-l): QueueBuild, but Wait
+        /// when the plan leans on the station clearance (LeansOnStationClearance). The queue itself keeps QueueBuild.</summary>
+        public LiftQueueBuild PlanBuild => LeansOnStationClearance ? LiftQueueBuild.Wait : QueueBuild;
+
+        /// <summary>What the planner's lift queue does with this plan (QueueRule).</summary>
+        public LiftQueueBuild QueueBuild =>
+            QueueRule(Clear, Constants != null && Constants.HasTrains, OverCapTowers, TooSteepTowers, ClearanceTowers, MaxOverCapExcessDeg);
+
+        /// <summary>The flag cap (task 2b-l): the most the one tower of a flagged build may bend past its sheave-train limit, degrees.
+        /// Field r2g round 2 built a DQ tower at 34 against 32 (a small, plausible overrun) and a gondola tower at 47.5 against 40 (a
+        /// visible kink the player has to fit by hand).</summary>
+        public const float FlagMaxExcessDeg = 5.0f;
+
+        /// <summary>The largest bend past its cap among the towers over their cap (IsOverCap): |deflection| - cap, degrees. 0 when no tower
+        /// is over.</summary>
+        public float MaxOverCapExcessDeg
+        {
+            get
+            {
+                float worst = 0f;
+                for (int i = 0; Nodes != null && i < Nodes.Length; i++)
+                    if (IsOverCap(i))
+                        worst = math.max(worst, math.abs(Nodes[i].DeflectionDeg) - Nodes[i].CapDeg);
+                return worst;
+            }
+        }
+
+        /// <summary>The lift queue's rule for a scripted line (task R2-l, DECISIONS 637; the flag cap, task 2b-l). Build: the plan is
+        /// Sound. BuildFlagged: every span clear, exactly one tower over its sheave-train limit and by at most FlagMaxExcessDeg
+        /// (<paramref name="overExcessDeg"/>: MaxOverCapExcessDeg), none too steep, none past its carrier clearance. The queue builds it
+        /// the way Enter builds it and flags its row. Wait: anything else (one tower further over, two or more such towers, a tram saddle
+        /// past its cap, any other defect). The line waits for the player in the lift tool. The planner's Towers pass and the realizer's
+        /// lift rows read the same rule (QueueBuild).</summary>
+        public static LiftQueueBuild QueueRule(bool clear, bool trains, int overCap, int tooSteep, int clearance, float overExcessDeg) =>
+            !clear || tooSteep > 0 || clearance > 0 ? LiftQueueBuild.Wait
+            : overCap == 0 ? LiftQueueBuild.Build
+            : trains && overCap == 1 && overExcessDeg <= FlagMaxExcessDeg + 1e-3f ? LiftQueueBuild.BuildFlagged : LiftQueueBuild.Wait;
+
+        /// <summary>The reason key of a line that waits under QueueRule. A span fault keeps <paramref name="planKey"/>
+        /// (LiftLineInput.PlanKey: PLAN_LOW, PLAN_STEEP, PLAN_HIGH). Two or more towers over their sheave-train limit read PLAN_TRAINS.
+        /// Otherwise the tower fault that blocks the build: PLAN_PITCH, then PLAN_CLEARANCE, then PLAN_TRAIN (one tower further over its
+        /// limit than the flag cap allows).</summary>
+        public static string QueueWaitKey(string planKey, bool clear, bool trains, int overCap, int tooSteep, int clearance) =>
+            !clear ? planKey
+            : trains && overCap >= 2 ? "PLAN_TRAINS"
+            : tooSteep > 0 ? "PLAN_PITCH"
+            : clearance > 0 ? "PLAN_CLEARANCE"
+            : trains && overCap == 1 ? "PLAN_TRAIN"
+            : planKey;
+
+        /// <summary>The first node over its cap (IsOverCap), or -1. Node 0 is end A, so node i is tower i counted from end A.</summary>
+        public int FirstOverCapTower()
+        {
+            for (int i = 0; i < Nodes.Length; i++)
+                if (IsOverCap(i))
+                    return i;
+            return -1;
+        }
 
         /// <summary>Null when <paramref name="plan"/> is no worse than <paramref name="built"/> on any axis (floor margin, violated spans,
         /// towers over their cap, the worst excess over a cap). Otherwise the result names the axes it is worse on (FIX-LIST 52).</summary>
@@ -1515,6 +1621,9 @@ namespace SkiResortMod.Systems
         /// <summary>Trade a tower for shorter towers beside the stations (LiftTowerPlanConstants.TowerWorthM). Fit turns it off for its
         /// free plan, whose tower count says how many nodes the line needs.</summary>
         public bool StationRule = true;
+        /// <summary>Keep the floor next to a station stub (LiftTowerPlanConstants.StationFloorM) also where the clearance yields. On in every
+        /// mod caller. LiftBatch LP-34 turns it off once to show that its case fails without the floor.</summary>
+        public bool StationFloor = true;
         public float EndNodeYA = float.NaN, EndNodeYB = float.NaN;
 
         /// <summary>Phase (d) breakover / hold-down pairs (breakover-holddown-plan-2026-11-03, section 2.3): a tower whose rope deflection
@@ -1927,7 +2036,8 @@ namespace SkiResortMod.Systems
                 {
                     // the station clearance yields only where the ground leaves no clear plan without a tower inside it. The 1,408 m
                     // gondola's top station is such a case: it sits on a crest, and the ground 8 m in front of it is at station level
-                    // (LP-22). Such a tower is flagged NearStation.
+                    // (LP-22). Such a tower is flagged NearStation. It still stands StationFloorM (20 m) or more from a station stub (task
+                    // R2-l): NearStation keeps the floor in the retry.
                     m_IgnoreForbidden = true;
                     m_NoClearance = true;
                     added = MinTowers(i, i + 1);
@@ -3284,9 +3394,12 @@ namespace SkiResortMod.Systems
 
         /// <summary>Sample k is inside a station's clearance (StationClearM from either end, in meters: the grid's last step is short, so a
         /// sample count alone let a tower stand 8 m from a 10 m-MinSpan station). Also true inside a crossed lift's corridor (InCrossBand).
-        /// The NoClearance retry never lifts this part. The angle pass counts those refusals as "station".</summary>
+        /// The NoClearance retry never lifts this part. It never lifts the floor at a station end either (StationFloorM, task R2-l: the
+        /// game joins a nearer tower's span to the stub node and refuses the tower). The angle pass counts those refusals as
+        /// "station".</summary>
         private bool NearStation(int k) =>
             (m_XN > 0 && InCrossBand(k)) ||
+            (StationFloor && ((StationA && m_S[k] < m_C.StationFloorM - Tol) || (StationB && m_Length - m_S[k] < m_C.StationFloorM - Tol))) ||
             (!m_NoClearance && (m_S[k] < m_C.StationClearM - Tol || m_Length - m_S[k] < m_C.StationClearM - Tol));
 
         private bool m_NoClearance;

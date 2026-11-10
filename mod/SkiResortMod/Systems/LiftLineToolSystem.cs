@@ -4,6 +4,9 @@
 // re-emits them only when the plan changes (the vanilla net tool's pattern), and hides them while a tower is dragged.
 // The vanilla net tool stays the fallback (LiftTowerFitSystem fits whatever it builds). The hub's lift-line tiles open THIS tool with their
 // lift type (TryActivate(why, type)). The line prefabs have UIObject m_Group null, so the hub is the only way in.
+// The Resort Planner's lift build queue opens it through the scripted entry (TryActivateFor two stations, TryActivateForGround two
+// points): the same PickEnd as two clicks, then RequestBuild when the plan is sound. Its ScriptTicket reads Built, Refused, Waiting (the
+// tool stays open in Edit for the player) or Abandoned. A built scripted line hands the tool back to the default tool.
 // While open, the tool raises the line prefabs' span limits and sets PlacementFlags.ShoreLine (restored on close). Right click is the
 // Cancel action only. Secondary Apply stays off. LiftLineEdit holds the model, LiftLineInput the input rules. Logs: silence is impossible.
 // An exception disables the tool until the next load.
@@ -461,6 +464,8 @@ namespace SkiResortMod.Systems
             {
                 if (m_State != ToolState.PickBase)
                     Mod.Log.Info($"LiftLine [tool]: stopped with a {m_State} line — dropped (nothing built)");
+                if (m_Script != null && !m_Script.Picked && !m_Script.Final)
+                    EndScript(ScriptOutcome.Abandoned, "the tool was closed before the scripted picks ran");
                 bool temps = m_Ghost || m_State == ToolState.Emitted || m_DelEdge != Entity.Null || m_DelPending != Entity.Null;
                 Reset("stopped");
                 ResetSections(false);
@@ -600,6 +605,290 @@ namespace SkiResortMod.Systems
         }
 
 
+        // ---------------------------------------------------------------- scripted entry (the Resort Planner's lift build queue)
+
+        /// <summary>Where a scripted line stands. Pending: queued for the tool's next update, or picked with a build requested. Waiting:
+        /// both ends picked, the tool open in Edit for the player (no auto build, the plan is not sound, a standing ALONG / CROSS refusal,
+        /// or the game refused the build). Built: the line is permanent (Line is its tool-line record). Refused: the picks were refused,
+        /// or an end is gone. Abandoned: the tool was closed, the ends were dropped, or another scripted line replaced it.</summary>
+        internal enum ScriptOutcome : byte { Pending, Waiting, Built, Refused, Abandoned }
+
+        /// <summary>One scripted line (TryActivateFor / TryActivateForGround). The caller keeps the reference and reads Outcome every frame.
+        /// The tool updates it until it is final (Built, Refused, Abandoned), also when the player finishes a Waiting line by hand.</summary>
+        internal sealed class ScriptTicket
+        {
+            public int Serial;
+            public string Why;
+            public LiftTypeDef Type;
+            public bool AutoBuild;
+            public bool Ground;
+            public Entity StationA, StationB;   // base, top (station ends)
+            public float3 PointA, PointB;       // ground ends (y NaN = the terrain)
+            public ScriptOutcome Outcome;
+            /// <summary>Why it waits, was refused or abandoned: a plan key (PLAN_LOW ...), ALONG, CROSS_*, BACKWARD, a game refusal summary,
+            /// or the pick refusal's log line.</summary>
+            public string Reason;
+            public bool Picked;
+            public int Towers;
+            public float LengthM;
+            public LiftToolLines.Line Line;
+            /// <summary>The plan's towers past their sheave-train limit (LiftTowerPlan.OverLimitTowers, task R2-l). A line with exactly
+            /// one and no other defect builds (LiftTowerPlan.QueueRule BuildFlagged). Set at the picks and again at the apply (the plan
+            /// built).</summary>
+            public int OverLimitTowers;
+            /// <summary>The first such tower: its place counted from the base end (1 = the first tower; 0 = the base end node), its
+            /// distance along the line from the base, its bend (|deflection|) and its train's limit, degrees. -1 / 0 with none.</summary>
+            public int OverLimitTower = -1;
+            public float OverLimitAlongM, OverLimitBendDeg, OverLimitCapDeg;
+            public bool Final => Outcome == ScriptOutcome.Built || Outcome == ScriptOutcome.Refused || Outcome == ScriptOutcome.Abandoned;
+        }
+
+        private ScriptTicket m_Script;
+        private int m_ScriptSerial;
+
+        /// <summary>The last scripted line (null before the first).</summary>
+        internal ScriptTicket Script => m_Script;
+
+        /// <summary>The tool is active with nothing in hand: no end picked, no preview, and no scripted line that waits for the player or
+        /// still has to run. The build queue hands such a tool back to the default tool when it ends.</summary>
+        internal bool IdleAfterScript => IsActive && m_State == ToolState.PickBase && !m_Ghost && (m_Script == null || m_Script.Final);
+
+        /// <summary>A line between two placed stations, as if the player clicked the base station's stub and then the top's: the same pick
+        /// code (PickEnd), the same plan, the same emission. With <paramref name="autoBuild"/> the tool requests the build itself when
+        /// LiftTowerPlan.QueueRule allows it (Sound, or one tower over its sheave-train limit and no other defect) and no
+        /// ALONG / CROSS / BACKWARD notice stands. Otherwise the tool waits in Edit for the player. The picks run in
+        /// the tool's next update (OnStartRunning resets the tool first). Returns the ticket, already Refused when the tool cannot open.</summary>
+        internal ScriptTicket TryActivateFor(string why, LiftTypeDef type, Entity baseStation, Entity topStation, bool autoBuild)
+        {
+            var t = new ScriptTicket
+            {
+                Serial = ++m_ScriptSerial, Why = why, Type = type, AutoBuild = autoBuild, StationA = baseStation, StationB = topStation,
+                PointA = new float3(float.NaN), PointB = new float3(float.NaN),
+            };
+            return StartScript(t, $"station {Fmt(baseStation)} -> station {Fmt(topStation)}");
+        }
+
+        /// <summary>The ground-end variant: both ends are open ground at two world points (y NaN = the terrain there), the line-first path
+        /// of a click on open ground with a type chosen. The stations come later and snap onto the line ends (the vanilla snap).</summary>
+        internal ScriptTicket TryActivateForGround(string why, LiftTypeDef type, float3 a, float3 b, bool autoBuild)
+        {
+            var t = new ScriptTicket
+            {
+                Serial = ++m_ScriptSerial, Why = why, Type = type, AutoBuild = autoBuild, Ground = true, PointA = a, PointB = b,
+            };
+            return StartScript(t, $"ground ({a.x:F0}, {a.z:F0}) -> ground ({b.x:F0}, {b.z:F0})");
+        }
+
+        private ScriptTicket StartScript(ScriptTicket t, string ends)
+        {
+            string refusal = m_Disabled ? "disabled after an exception until the next load" : !m_Armed ? "not armed (not in a game)"
+                : t.Type == null ? "no lift type" : null;
+            if (refusal != null)
+            {
+                t.Outcome = ScriptOutcome.Refused;
+                t.Reason = refusal;
+                Mod.Log.Warn($"LiftLine [script]: #{t.Serial} REFUSED ({t.Why}) — {refusal}");
+                return t;
+            }
+            if (m_Script != null && !m_Script.Final)
+                EndScript(ScriptOutcome.Abandoned, $"replaced by scripted line #{t.Serial}");
+            m_Script = t;
+            Mod.Log.Info($"LiftLine [script]: #{t.Serial} ({t.Why}) — {t.Type.Id} {ends}, auto build {(t.AutoBuild ? "on" : "off")}; the picks " +
+                         "run in the tool's next update (the click path)");
+            if (IsActive)
+                m_Preset = t.Type;   // the tool's own update drops a line in progress first (UpdateScript)
+            else
+            {
+                m_Preset = t.Type;
+                m_ToolSystem.activeTool = this;
+                Mod.Log.Info($"LiftLine [tool]: activated ({t.Why}; type {t.Type.Id}; scripted line #{t.Serial})");
+            }
+            return t;
+        }
+
+        /// <summary>The picks of a queued scripted line, in the tool's update (state PickBase). The same PickEnd two clicks run. Then the
+        /// auto build check. Station ends come from the stations' own transforms and catalog rows (a fresh station may not be in the census
+        /// yet).</summary>
+        private void RunScript()
+        {
+            ScriptTicket t = m_Script;
+            t.Picked = true;
+            LineEnd a, b;
+            LiftTypeDef da = t.Type, db = t.Type;
+            if (t.Ground)
+            {
+                a = new LineEnd { Kind = LiftLineEndKind.Ground, Pos = GroundPoint(t.PointA) };
+                b = new LineEnd { Kind = LiftLineEndKind.Ground, Pos = GroundPoint(t.PointB) };
+                if (!math.all(math.isfinite(a.Pos)) || !math.all(math.isfinite(b.Pos)))
+                {
+                    ScriptRefused("a ground point is not finite or the terrain is not ready");
+                    return;
+                }
+            }
+            else
+            {
+                if (!ScriptStationEnd(t.StationA, out a, out da) || !ScriptStationEnd(t.StationB, out b, out db))
+                {
+                    ScriptRefused(LastMessage);
+                    return;
+                }
+                if (da != t.Type || db != t.Type)
+                {
+                    ScriptRefused($"station type {da?.Id ?? "?"} / {db?.Id ?? "?"} is not the line's type {t.Type.Id}");
+                    return;
+                }
+            }
+            if (!PickEnd(a, da) || !PickEnd(b, db))
+            {
+                ScriptRefused(LastMessage);
+                return;
+            }
+            t.LengthM = m_Edit.LengthM;
+            t.Towers = m_Edit.Plan != null ? m_Edit.Plan.Nodes.Length - 2 : 0;
+            NoteOverLimit(t, m_Edit.Plan);
+            string blocker = AutoBuildBlocker();
+            if (t.AutoBuild && blocker == null)
+            {
+                RequestBuild();
+                if (m_BuildRequested)
+                {
+                    t.Reason = "building";
+                    string verdict = t.OverLimitTowers == 0 ? "plan sound"
+                        : $"one tower over its sheave-train limit (tower {t.OverLimitTower} at {t.OverLimitAlongM:F0} m bends " +
+                          $"{t.OverLimitBendDeg:F1} deg, its limit is {t.OverLimitCapDeg:F0}), no other defect";
+                    Mod.Log.Info($"LiftLine [script]: #{t.Serial} picked — {Describe(m_Base)} -> {Describe(m_Top)}, {t.LengthM:F0} m, {t.Towers} " +
+                                 $"tower(s), {verdict}: build requested (as Enter builds it)");
+                    return;
+                }
+                blocker = "the build request was refused (see the line above)";
+            }
+            ScriptWaiting(t.AutoBuild ? blocker : "auto build off");
+        }
+
+        /// <summary>Null when the plan may be built without the player: LiftTowerPlan.QueueRule says Build (Sound) or BuildFlagged (every
+        /// span clear, exactly one tower over its sheave-train limit, no other tower fault; task R2-l), and no ALONG, CROSS or BACKWARD
+        /// notice stands. Otherwise the reason key (LiftTowerPlan.QueueWaitKey: a plan key, or PLAN_TRAINS for two or more towers over
+        /// their sheave-train limit).</summary>
+        private string AutoBuildBlocker()
+        {
+            LiftTowerPlan plan = m_Edit?.Plan;
+            if (plan == null)
+                return "no plan";
+            if (plan.QueueBuild == LiftQueueBuild.Wait)
+                return LiftTowerPlan.QueueWaitKey(LiftLineInput.PlanKey(plan, out _), plan.Clear, plan.Constants.HasTrains,
+                    plan.OverCapTowers, plan.TooSteepTowers, plan.ClearanceTowers);
+            if (m_AlongStanding)
+                return "ALONG";
+            if (m_CrossRefused)
+                return m_CrossKey ?? "CROSS";
+            if (m_BackwardStanding)
+                return "BACKWARD";
+            return null;
+        }
+
+        /// <summary>A placed station as a line end: its transform and catalog row give the stub tip, then StationEndOf (the click's own
+        /// checks: line prefab, stub node, a line already there).</summary>
+        private bool ScriptStationEnd(Entity station, out LineEnd end, out LiftTypeDef def)
+        {
+            end = default;
+            def = null;
+            if (station == Entity.Null || !EntityManager.Exists(station) || EntityManager.HasComponent<Deleted>(station) ||
+                !EntityManager.TryGetComponent(station, out PrefabRef pr) || !EntityManager.TryGetComponent(station, out Game.Objects.Transform tr))
+            {
+                Say($"LiftLine [script]: station {Fmt(station)} does not exist (bulldozed?)");
+                return false;
+            }
+            if (!m_Census.TryGetStationDef(pr.m_Prefab, out StationDef sd))
+            {
+                Say($"LiftLine [script]: {Fmt(station)} is not one of our lift stations");
+                return false;
+            }
+            def = SkiCatalog.LiftByIndex(sd.LiftTypeIndex);
+            float3 tip = StationAlign.StubTip(tr.m_Position, tr.m_Rotation, sd.StubTipLocalZ, sd.StubTipLocalX);
+            return StationEndOf(station, tip, def, out end);
+        }
+
+        /// <summary>Copies the plan's over-limit towers onto the ticket (OverLimitTowers and the first one's place, bend and limit).</summary>
+        private static void NoteOverLimit(ScriptTicket t, LiftTowerPlan plan)
+        {
+            t.OverLimitTowers = plan != null ? plan.OverLimitTowers : 0;
+            int i = t.OverLimitTowers > 0 ? plan.FirstOverCapTower() : -1;
+            t.OverLimitTower = i;
+            t.OverLimitAlongM = i >= 0 ? plan.Nodes[i].AlongM : 0f;
+            t.OverLimitBendDeg = i >= 0 ? math.abs(plan.Nodes[i].DeflectionDeg) : 0f;
+            t.OverLimitCapDeg = i >= 0 ? plan.Nodes[i].CapDeg : 0f;
+        }
+
+        private float3 GroundPoint(float3 p)
+        {
+            if (math.isfinite(p.y))
+                return p;
+            TerrainHeightData hd = m_TerrainSystem.GetHeightData();
+            return hd.isCreated ? new float3(p.x, TerrainUtils.SampleHeight(ref hd, p), p.z) : new float3(float.NaN);
+        }
+
+        private void ScriptRefused(string why)
+        {
+            EndScript(ScriptOutcome.Refused, why);
+            Reset("scripted line refused");
+            Deactivate();
+        }
+
+        private void ScriptWaiting(string why)
+        {
+            ScriptTicket t = m_Script;
+            if (t == null || t.Final)
+                return;
+            t.Outcome = ScriptOutcome.Waiting;
+            t.Reason = why;
+            Mod.Log.Info($"LiftLine [script]: #{t.Serial} WAITING for the player — {why}; the tool stays open in Edit with both ends picked " +
+                         $"({Describe(m_Base)} -> {Describe(m_Top)})");
+        }
+
+        /// <summary>The scripted line ends (Built, Refused, Abandoned). Logged once.</summary>
+        private void EndScript(ScriptOutcome outcome, string why)
+        {
+            ScriptTicket t = m_Script;
+            if (t == null || t.Final)
+                return;
+            t.Outcome = outcome;
+            t.Reason = why;
+            string line = $"LiftLine [script]: #{t.Serial} {outcome.ToString().ToUpperInvariant()} — {why}";
+            if (outcome == ScriptOutcome.Built)
+                Mod.Log.Info(line);
+            else
+                Mod.Log.Warn(line);
+        }
+
+        /// <summary>Every update: a queued scripted line runs its picks (true: this frame is used), and a picked line whose ends were dropped
+        /// by the player (right click) is abandoned.</summary>
+        private bool UpdateScript()
+        {
+            ScriptTicket t = m_Script;
+            if (t == null || t.Final)
+                return false;
+            if (!t.Picked)
+            {
+                if (m_State == ToolState.Emitted || m_State == ToolState.Applying)
+                    return false;   // the player's build in flight finishes first
+                if (m_State != ToolState.PickBase || m_Ghost)
+                {
+                    if (m_State != ToolState.PickBase)
+                        Mod.Log.Info($"LiftLine [tool]: the {m_State} line is dropped for scripted line #{t.Serial}");
+                    ClearGhost(null);
+                    Reset("scripted line");
+                }
+                RunScript();
+                if (m_State == ToolState.Edit)
+                    DrawPlan();
+                return true;
+            }
+            if (m_State == ToolState.PickBase || m_State == ToolState.PickTop)
+                EndScript(ScriptOutcome.Abandoned, "the ends were dropped (right click)");
+            return false;
+        }
+
+
         private void UpdateCore()
         {
             m_Frame++;
@@ -617,13 +906,22 @@ namespace SkiResortMod.Systems
                     SetActions(false, false, false);
                     applyMode = ApplyMode.None;
                     ReportFelled();
+                    ScriptTicket scripted = m_Script != null && m_Script.Picked && !m_Script.Final ? m_Script : null;
                     Reset("built");
+                    if (scripted != null && scripted.Outcome == ScriptOutcome.Built)
+                    {
+                        // A scripted line that is built hands the tool back (a Waiting line keeps it: the player fits it)
+                        Mod.Log.Info($"LiftLine [script]: #{scripted.Serial} built — the tool goes back to the default tool");
+                        Deactivate();
+                    }
                     return;
             }
 
             applyMode = ApplyMode.None;
             // Right click is the tool's Cancel action only (step back). Secondary Apply stays off
             SetActions(live, false, live);
+            if (UpdateScript())
+                return;   // a scripted line ran its picks this frame (the click path, no player input on top)
 
             if (cancelAction.WasPressedThisFrame())
             {
@@ -801,7 +1099,14 @@ namespace SkiResortMod.Systems
                     "not offered)", T("NO_START"));
                 return;
             }
+            PickEnd(end, def);
+        }
 
+        /// <summary>One end is picked: a click (UpdatePick) or the scripted entry (RunScript), the same code for both. In PickBase it is the
+        /// first end (the type, its constants and line prefab). In PickTop it is the second end: the refusals (same end, same station, too
+        /// short), the end ropes, the edit model and the first plan. False when it refused (the refusal is said and shown).</summary>
+        private bool PickEnd(LineEnd end, LiftTypeDef def)
+        {
             if (m_State == ToolState.PickBase)
             {
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(def);
@@ -810,7 +1115,7 @@ namespace SkiResortMod.Systems
                 {
                     Say($"LiftLine [pick]: lift type {(def != null ? def.Id : "?")} has no line prefab or planner constants — not usable",
                         T("TYPE_UNUSABLE"));
-                    return;
+                    return false;
                 }
                 // The engine's edge slope rule is the line prefab's own (NetInitializeSystem copies m_MaxSlopeSteepness as is):
                 // plan with the live value, the For() default only when the prefab has none.
@@ -822,18 +1127,18 @@ namespace SkiResortMod.Systems
                 m_Base = end;
                 m_State = ToolState.PickTop;
                 Say($"LiftLine [pick]: first end = {Describe(end)} ({def.Id}); click the other end");
-                return;
+                return true;
             }
 
             if (end.Kind != LiftLineEndKind.Ground && end.Node == m_Base.Node)
             {
                 Say("LiftLine [pick]: that is the first end — click the other one", T("SAME_END"));
-                return;
+                return false;
             }
             if (end.Kind == LiftLineEndKind.Station && m_Base.Kind == LiftLineEndKind.Station && end.Station == m_Base.Station)
             {
                 Say("LiftLine [pick]: same station as the first end", T("SAME_STATION"));
-                return;
+                return false;
             }
             float3 a = EndPos(m_Base), b = EndPos(end);
             bool bothStations = m_Base.Kind == LiftLineEndKind.Station && end.Kind == LiftLineEndKind.Station;
@@ -842,7 +1147,7 @@ namespace SkiResortMod.Systems
             {
                 Say($"LiftLine [pick]: the ends are {math.distance(a.xz, b.xz):F0} m apart — under {min:F0} m, too short for a line",
                     T("TOO_SHORT", ("MIN", N(min))));
-                return;
+                return false;
             }
             m_Top = end;
             if (end.Kind == LiftLineEndKind.Ground)
@@ -864,6 +1169,7 @@ namespace SkiResortMod.Systems
             m_State = ToolState.Edit;
             Replan($"line {m_Type.Id} {Describe(m_Base)} -> {Describe(m_Top)}, {m_Edit.LengthM:F0} m, end ropes {ropeA:F2} ({srcA}) / " +
                    $"{ropeB:F2} ({srcB}){outerA}{outerB}");
+            return true;
         }
 
         /// <summary>The built neighbor's rope point beyond a loose end (the far node of its one built lift-line edge): xz distance from the
@@ -936,17 +1242,24 @@ namespace SkiResortMod.Systems
         /// a placed line read as editing it).</summary>
         private bool StationEnd(int index, out LineEnd end, out LiftTypeDef def)
         {
-            end = default;
             LiftCensus.Station st = m_Census.StationAt(index);
             Entity station = m_Census.StationEntityAt(index);
             def = st.Type < SkiCatalog.Lifts.Count ? SkiCatalog.Lifts[st.Type] : null;
+            return StationEndOf(station, st.StubTip, def, out end);
+        }
+
+        /// <summary>StationEnd's body for a station, its stub tip and its lift type: the census row (a click) or the station's own
+        /// transform and catalog row (the scripted entry, ScriptStationEnd).</summary>
+        private bool StationEndOf(Entity station, float3 stubTip, LiftTypeDef def, out LineEnd end)
+        {
+            end = default;
             Entity line = def != null ? m_Catalog.LineEntity(def) : Entity.Null;
             if (def == null || line == Entity.Null)
             {
                 Say($"LiftLine [pick]: station {Fmt(station)} has no lift type with a line prefab — not usable", T("STATION_UNUSABLE"));
                 return false;
             }
-            if (!TryStubNode(station, st.StubTip, out Entity node))
+            if (!TryStubNode(station, stubTip, out Entity node))
                 return false;
             int lines = LineEdgesAt(node);
             if (lines > 0)
@@ -1752,6 +2065,7 @@ namespace SkiResortMod.Systems
                     applyMode = ApplyMode.Clear;
                     m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
                     m_State = ToolState.Edit;
+                    ScriptWaiting($"no Temp edges {TempTimeoutFrames} frames after the emission");
                 }
                 return;
             }
@@ -1768,12 +2082,20 @@ namespace SkiResortMod.Systems
                 applyMode = ApplyMode.Clear;
                 m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
                 m_State = ToolState.Edit;   // the ghost comes back next frame, the game's error icons on it
+                ScriptWaiting($"the game refused the build ({errors} error(s): {summary})");
                 return;
             }
             applyMode = ApplyMode.Apply;   // ToolOutputSystem.cs:22-29 leads to ApplyNetSystem
             m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
             LiftToolLines.Line reg = ToolLines.Register(m_Type.Id, m_Emitted);
             m_State = ToolState.Applying;
+            if (m_Script != null && m_Script.Picked && !m_Script.Final)
+            {
+                m_Script.Line = reg;
+                m_Script.Towers = m_Emitted.Count - 2;
+                m_Script.LengthM = m_Edit.LengthM;
+                NoteOverLimit(m_Script, m_Edit.Plan);   // the plan built (the player may have edited a waiting line)
+            }
             Say($"LiftLine [build]: APPLIED — {temps} new Temp edge(s) (planned {expected}{(temps == expected ? string.Empty : "; MISMATCH: the fit still matches the line when every planned node is built (R-6)")}" +
                 $"{(touched > 0 ? $"; {touched} existing edge(s) at an end touched" : string.Empty)}), " +
                 $"{m_Emitted.Count - 2} tower(s), {reg.Pins} pinned; registered as a tool line (the fit keeps its nodes and members); " +
@@ -2047,6 +2369,11 @@ namespace SkiResortMod.Systems
 
         private void Reset(string why)
         {
+            // A picked scripted line ends with the tool's line: built, an end gone (refused), or dropped (abandoned)
+            bool applied = why == "built" || m_State == ToolState.Applying;   // closed in the frame after Apply: the line stands
+            if (m_Script != null && m_Script.Picked && !m_Script.Final)
+                EndScript(applied ? ScriptOutcome.Built : why == "end gone" ? ScriptOutcome.Refused : ScriptOutcome.Abandoned,
+                          applied ? $"the line is permanent ({m_Script.Towers} tower(s), {m_Script.LengthM:F0} m)" : "the line was dropped: " + why);
             m_State = ToolState.PickBase;
             m_Edit = null;
             m_Draw = null;

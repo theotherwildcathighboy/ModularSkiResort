@@ -445,6 +445,13 @@ Appended fields and bindings by contract:
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan). `quickRunsSet` gains `lifts`,
   `home`, `pod`, `lift`. The integration branch carries this bump from the A7 merge, so its gates stay green. Re-bump if main takes
   22 first.
+- 42: the runs-first plans (Resort Planner round, task R2-b). `QuickRunsState` loses `mix`, `liftsKnob` and `home`. `QuickRunsLift` loses
+  `wantedKey` and gains `flagged`, `waits`, `overLimitTowers`. `QuickRunsPlan` loses `pods` and gains `trackKm`. `QuickRunsState` gains `tracks`
+  and `QuickRunsPod` gains `tracks`. `runs`, `enabled`, `count` and `variety` count pistes only. `QuickRunsSheetRow` gains `flagged`, `waits`,
+  `overLimitTowers`, `overLimitTower`, `overLimitAlongM`, `overLimitBendDeg` and `overLimitCapDeg`. See "Runs-first plans (contract 42)" below.
+- 41: the plan sheet's lifts (Resort Planner round, task R1-d). `QuickRunsState` appends `sheet` (`QuickRunsSheet`: rows, running,
+  index, total, stopping, toBuild, unbuilt, built, cost, notice, with `QuickRunsSheetRow` rows). The trigger `quickLiftsAct(action, key)`
+  is new (QuickLiftsAction: buildAll, build, stop, clear). See "Plan sheet lifts (contract 41)" below.
 - 40: the receipt's missing lines (icon scheme). `ResortLive` appends `varietyBands` (int: bits 1 green, 2 blue, 4 black or harder of
   `SkiResortScore.Result.VarietyBands`, the counted Rated runs) and `verticalShortM` (float: `HubRules.VerticalShortM`, meters to the full
   vertical bonus). Both are -1 without a score (no Result, Not linked). The Variety row's "Missing:" line and flag name the cleared bits.
@@ -505,6 +512,40 @@ Appended fields and bindings by contract:
   (QuickRunsPlanRules.MixPercents, same numbers as the tooltip). `plan.siteBenchHa` is a float (one decimal). A lift row's `on` means
   the lift AND its pod are on. Unshipped, like 22: renumber at the main merge.
 
+## Plan sheet lifts (contract 41)
+The Resort Planner's plan sheet (ResortPlanSheet, StationPlaceToolSystem.md) reaches the hub in two parts.
+
+**The `sheet` field.** `WriteQuickRuns` writes it at the end of the state, inside the same function (rule R2). It does not depend on the
+preview. The rows come from `ResortLiftBuildSystem.Sheet`, so they stay after the run build and with the planner closed.
+- `rows` (QuickRunsSheetRow) have these fields:
+  - key (the row key as a signed int), name ("P1"), typeKey (catalog id).
+  - lengthM (horizontal chord of the two spots), riseM, cost (the estimate, clamped to int).
+  - on, state (SheetLiftState name), step, reasonKey.
+  - `step` is "building" for the lift in flight, "queued" for a key waiting in the queue, else "".
+  - `reasonKey` is "" or `SkiResort.Tooltip.QUICK_LIFT_WHY[group]`. The group comes from `ResortPlanSheet.ReasonGroup`. A waiting row carries its
+    own group (PLAN_TRAIN ..., BUILD_REFUSED, WAIT: `ResortPlanSheet.WaitingKey`), never GAME.
+  - `total` is the run's total and a Stop does not shrink it (R1-f). `index` is `ResortPlanSheet.QueueIndexOf`.
+- `running`, `index`, `total`, `stopping`: the queue. `index` and `total` give "Building lift N / M" and are 0 when idle. `stopping`
+  is true after Stop while a lift is still in flight.
+- `toBuild` (on and not built), `unbuilt`, `built`, `cost` (the estimate of the `toBuild` lifts): the lifts total.
+- `notice`: a locale key for the latest refused lift call, "" when none. It ends after 420 frames.
+
+**The push.** `PushQuickRuns` also compares the sheet's `Revision`, the queue's `QueueRevision` and whether a notice stands. Any change
+pushes the binding. The queue revision moves with every start, step, end, stop and notice, because none of those change a sheet row.
+
+**The trigger `quickLiftsAct(action, key)`.** The hub queues it like every trigger. `ApplyQuickLiftsAct` calls
+`ResortLiftBuildSystem.HubAct`, which calls the queue's entry points (`BuildAll`, `BuildOne`, `Stop`, `ClearSheet`). They only queue keys
+or empty the sheet, so they are safe in the hub's update (no command buffer). A call the queue cannot take gets a notice and a log line
+`ResortLifts [hub]`, and the hub adds `Hub [quickLifts]`:
+- Not armed or disabled: notice Off.
+- `plannerBusy` (the planner has a phase other than Region, or plants trees): notice RunsBusy. Reason: a lift build takes the tool from the
+  planner and drops the preview. Applies to buildAll, build and clear.
+- buildAll with no lift on and unbuilt: Nothing. buildAll or build when every such lift is queued: Queued. build of an unknown or built row: Nothing.
+- clear while the queue runs: Busy.
+- stop is never refused (idle is a log line).
+
+The DUMP gains a `planSheet:` line (rows, revision, queue state, lifts to build and their estimate).
+
 ## Safety net fence tile (no contract change)
 The Runs tab's sixth tile is `safetyFence` (SkiCatalog item kind Fence, prefab SkiSafetyFence, PrefabID type NetFencePrefab,
 CatalogKind.Fence). Both enums are append-only. It launches through the generic path: ApplyLaunch -> ToolSystem.ActivatePrefabTool
@@ -525,10 +566,11 @@ treesTotal with planting false). The `stop` key ends either one at its next boun
 the counts line shows before Plant.
 
 ### Resort Planner v2 fields (task A7; the contract number is bumped by the parent at the merge to main)
-`WriteQuickRuns` appends `liftsKnob` and `home`. While a Resort preview shows (`QuickRunsToolSystem.Plan` non-null), it also appends:
-- `pods` (QuickRunsPod: id, key, letter, classKey, runs, enabledRuns, count[5], skiers, fee, on, liftId, homeKey)
-- `planLifts` (QuickRunsLift: id, key, origin, ordinal, typeKey, pod, lengthM, riseM, cost, serves, startsNearTop, homeKey, wantedKey, on)
-- `plan` (QuickRunsPlan: pods, liftsProposed, liftsPinned, runKm, runKmPerKm2, deadEnds, mountainMix[5], sitePods, siteGreenHome,
+Contract 42 removed `liftsKnob` and `home`. While a Resort preview shows (`QuickRunsToolSystem.Plan` non-null), it also appends:
+- `pods` (QuickRunsPod: id, key, letter, classKey, runs, enabledRuns, tracks, count[5], skiers, fee, on, liftId, homeKey)
+- `planLifts` (QuickRunsLift: id, key, origin, ordinal, typeKey, pod, lengthM, riseM, cost, serves, startsNearTop, homeKey, flagged, waits,
+  overLimitTowers, on)
+- `plan` (QuickRunsPlan: liftsProposed, liftsPinned, runKm, trackKm, runKmPerKm2, deadEnds, mountainMix[5], sitePods, siteGreenHome,
   siteBenchHa)
 
 All are empty / zero otherwise, so the tool closed or a Region step writes the old fields plus those empty ones. They
@@ -536,12 +578,29 @@ sit in the same function as the state's other fields (rule R2 only follows one f
 FNV key written as a signed int (JSON numbers must fit `quickRunsSet`'s int). Class and verdict texts go as locale keys
 (QUICK_CLASS[*], QUICK_VERDICT[*]). The hub has them in SENT_KEYS. The lift type goes as the catalog id for `LIFT_TYPE`. The pod
 rows come from `QuickRunsToolSystem.PodRows` (pure `QuickRunsPlanRules.PodRows`, cached per `HubRevision`). The new `quickRunsSet`
-keys are:
+keys are (the tool still accepts `mix`, `lifts`, `home` and `shuffle` and ignores them since R2-a, the hub does not send them):
 
-- `lifts` (0 Auto, 1-9)
-- `home` (0 Auto, 1 Green, 2 Blue)
 - `pod` (value = the plan key; a toggle, refused while scanning or without a preview)
 - `lift` (value = the plan key; a toggle, refused while scanning or without a preview)
 
 The site verdict keeps `sitePercent` / `siteTier` (contract 21). The detail numbers (sitePods, siteGreenHome, siteBenchHa) come from
 `ResortPlan.Site` (A6 fills them; zero pods = no detail line).
+
+## Runs-first plans (contract 42)
+Task R2-b changed what `WriteQuickRuns` writes for the runs-first planner. Every row object still writes every field in every branch.
+
+- `QuickRunsShown.Of(tool)` (same file) counts again. `QuickTotals` counts a cat track as a green run, because a cat track rates Green by rule.
+  `QuickRunsShown` splits the published runs into pistes and cat tracks (`RunFeatures.FromKind(kind).IsCatTrack`), in total and per group, and
+  sums the cat track km. The tooltip system uses the same class (`QuickRunsTooltipSystem.Shown`, cached per hub revision and result).
+- State: `runs`, `enabled`, `count[5]` and `variety` are pistes only. `tracks` is the enabled cat tracks. `fee` and `skiers` still come from the totals and
+  include the tracks. `target` is all zeros with runs-first. The hub then prints the counts without a target.
+- Pod rows: `runs` and `enabledRuns` are pistes. `count` is enabled pistes by band. `tracks` is all cat tracks of the group.
+- Lift rows: `flagged` is `PlanLift.BuildsFlagged`. `waits` is `HandFit` without `BuildsFlagged`. `overLimitTowers` is `PlanLift.OverLimitTowers`.
+- Sheet rows: `flagged` and `waits` come from the plan of the same key (`t.Result.Resort`, `FindPlanLift`), because the sheet does not hold them.
+  They are false once the tool drops the plan. The over-limit fields come from `ResortPlanSheet.Row`. They are the count and the tower counted
+  from the base (-1 with none). They also give the distance along the line, the bend and the limit of its sheave train. The row state stays Built.
+- The hub reads `PLAN_TRAINS` through the existing `ReasonGroup` path. The lift engine already groups it. Only the locale key was missing.
+
+## Unbound pistes (contract 43)
+`unbound` is `QuickRunsToolSystem.UnboundPistes` while a preview shows, else 0. It is the N of QUICK_WARN[NoSignSome] ("N of M runs",
+M = `enabled`). The warnings array holds keys only, so the number needs its own field.

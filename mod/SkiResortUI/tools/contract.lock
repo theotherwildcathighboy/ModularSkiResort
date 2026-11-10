@@ -2,7 +2,7 @@
 # Written by `npm run contract:lock` (tools/check-bundle.js --write-lock); checked on every build
 # (rule R3, docs/research/hub-u2-spec.md section 4.7). Do not edit by hand: change src/bindings.ts,
 # bump HUB_CONTRACT (and C#'s HubContract), run `npm run contract:lock`, review this file's diff.
-contract 40
+contract 43
 core build
 core buildStamp
 core contract
@@ -59,6 +59,7 @@ trigger hoverRun (Entity)
 trigger launch (BuildItemId)
 trigger liftLineToggle ()
 trigger mergeBuilding (Entity, number)
+trigger quickLiftsAct (QuickLiftsAction, number)
 trigger quickRunsSet (QuickRunsKey, number)
 trigger quickRunsToggle ()
 trigger rename (Entity, string)
@@ -224,6 +225,7 @@ shape ProblemRow.subjectTop : Entity
 shape QuickRunsCluster.label : string
 shape QuickRunsCluster.runs : number
 shape QuickRunsLift.cost : number
+shape QuickRunsLift.flagged : boolean
 shape QuickRunsLift.homeKey : string
 shape QuickRunsLift.id : number
 shape QuickRunsLift.key : number
@@ -231,22 +233,23 @@ shape QuickRunsLift.lengthM : number
 shape QuickRunsLift.on : boolean
 shape QuickRunsLift.ordinal : number
 shape QuickRunsLift.origin : number
+shape QuickRunsLift.overLimitTowers : number
 shape QuickRunsLift.pod : number
 shape QuickRunsLift.riseM : number
 shape QuickRunsLift.serves : number
 shape QuickRunsLift.startsNearTop : number
 shape QuickRunsLift.typeKey : string
-shape QuickRunsLift.wantedKey : string
+shape QuickRunsLift.waits : boolean
 shape QuickRunsPlan.deadEnds : number
 shape QuickRunsPlan.liftsPinned : number
 shape QuickRunsPlan.liftsProposed : number
 shape QuickRunsPlan.mountainMix : number[]
-shape QuickRunsPlan.pods : number
 shape QuickRunsPlan.runKm : number
 shape QuickRunsPlan.runKmPerKm2 : number
 shape QuickRunsPlan.siteBenchHa : number
 shape QuickRunsPlan.siteGreenHome : number
 shape QuickRunsPlan.sitePods : number
+shape QuickRunsPlan.trackKm : number
 shape QuickRunsPod.classKey : string
 shape QuickRunsPod.count : number[]
 shape QuickRunsPod.enabledRuns : number
@@ -259,6 +262,34 @@ shape QuickRunsPod.liftId : number
 shape QuickRunsPod.on : boolean
 shape QuickRunsPod.runs : number
 shape QuickRunsPod.skiers : number
+shape QuickRunsPod.tracks : number
+shape QuickRunsSheet.built : number
+shape QuickRunsSheet.cost : number
+shape QuickRunsSheet.index : number
+shape QuickRunsSheet.notice : string
+shape QuickRunsSheet.rows : QuickRunsSheetRow[]
+shape QuickRunsSheet.running : boolean
+shape QuickRunsSheet.stopping : boolean
+shape QuickRunsSheet.toBuild : number
+shape QuickRunsSheet.total : number
+shape QuickRunsSheet.unbuilt : number
+shape QuickRunsSheetRow.cost : number
+shape QuickRunsSheetRow.flagged : boolean
+shape QuickRunsSheetRow.key : number
+shape QuickRunsSheetRow.lengthM : number
+shape QuickRunsSheetRow.name : string
+shape QuickRunsSheetRow.on : boolean
+shape QuickRunsSheetRow.overLimitAlongM : number
+shape QuickRunsSheetRow.overLimitBendDeg : number
+shape QuickRunsSheetRow.overLimitCapDeg : number
+shape QuickRunsSheetRow.overLimitTower : number
+shape QuickRunsSheetRow.overLimitTowers : number
+shape QuickRunsSheetRow.reasonKey : string
+shape QuickRunsSheetRow.riseM : number
+shape QuickRunsSheetRow.state : string
+shape QuickRunsSheetRow.step : string
+shape QuickRunsSheetRow.typeKey : string
+shape QuickRunsSheetRow.waits : boolean
 shape QuickRunsState.active : boolean
 shape QuickRunsState.areaM2 : number
 shape QuickRunsState.available : boolean
@@ -275,11 +306,8 @@ shape QuickRunsState.fee : number
 shape QuickRunsState.groundMax : number
 shape QuickRunsState.groundMin : number
 shape QuickRunsState.group : number
-shape QuickRunsState.home : number
 shape QuickRunsState.kinds : number
-shape QuickRunsState.liftsKnob : number
 shape QuickRunsState.maxAreaM2 : number
-shape QuickRunsState.mix : number
 shape QuickRunsState.notice : string
 shape QuickRunsState.phase : string
 shape QuickRunsState.plan : QuickRunsPlan
@@ -293,6 +321,7 @@ shape QuickRunsState.regionState : string
 shape QuickRunsState.rejects : number[]
 shape QuickRunsState.remove : number
 shape QuickRunsState.runs : number
+shape QuickRunsState.sheet : QuickRunsSheet
 shape QuickRunsState.sitePercent : number
 shape QuickRunsState.siteTier : number
 shape QuickRunsState.skiers : number
@@ -301,6 +330,7 @@ shape QuickRunsState.speciesGroups : number[]
 shape QuickRunsState.speciesNames : string[]
 shape QuickRunsState.status : string
 shape QuickRunsState.target : number[]
+shape QuickRunsState.tracks : number
 shape QuickRunsState.treeLevel : number
 shape QuickRunsState.treeLine : number
 shape QuickRunsState.trees : boolean
@@ -308,6 +338,7 @@ shape QuickRunsState.treesCost : number
 shape QuickRunsState.treesDone : number
 shape QuickRunsState.treesTotal : number
 shape QuickRunsState.treesUndo : number
+shape QuickRunsState.unbound : number
 shape QuickRunsState.variety : boolean
 shape QuickRunsState.verticalM : number
 shape QuickRunsState.warnings : string[]

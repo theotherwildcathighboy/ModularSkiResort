@@ -381,7 +381,22 @@ namespace SkiResortMod
             // SkiGladeTagSystem reads ApplyingNow in ApplyTool. The hotkey poller also runs the bind line after a build.
             updateSystem.UpdateAt<QuickRunsToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<QuickRunsHotkeySystem>(SystemUpdatePhase.UIUpdate);
+            // Its dev trigger (scan a ring, dump the last scan for the host replay; Measurement diagnostics only) runs at UIUpdate and only
+            // queues for the tool's own update (the hub's idiom).
+            updateSystem.UpdateAt<QuickRunsDevUISystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.UpdateAfter<QuickRunsTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
+
+            // Station placer (P0 probe of the Resort Planner round): a scripted ObjectToolBaseSystem subclass. ToolUpdate is load-bearing:
+            // its CreationDefinitions must exist before Modification1 of the same frame (GenerateObjectsSystem), and ToolSystem enables only
+            // the active tool (ToolSystem.cs:312-327). Its dev trigger runs at UIUpdate (every frame, paused included), queues the call for
+            // its own OnUpdate and ticks the placer's follow-up line while the tool is closed.
+            updateSystem.UpdateAt<StationPlaceToolSystem>(SystemUpdatePhase.ToolUpdate);
+            updateSystem.UpdateAt<StationPlaceProbeUISystem>(SystemUpdatePhase.UIUpdate);
+
+            // Resort Planner lift side (R1-c): the plan sheet's owner and the lift build queue. UIUpdate is load-bearing: it runs every frame,
+            // paused included, whatever tool is active, so the queue steps while the station placer or the lift-line tool is the active
+            // tool (an inactive tool never ticks, ToolSystem.cs:312-327). It only queues work for those tools: their own ToolUpdate emits.
+            updateSystem.UpdateAt<ResortLiftBuildSystem>(SystemUpdatePhase.UIUpdate);
 
             // Lift park emitter. EndFrameBarrier.CreateCommandBuffer throws at Modification4B (Game/SafeCommandBufferSystem.cs:16-23), so
             // the {Event, SubObjectsUpdated} entities are created at UIUpdate (after SystemOrder.cs:62). Without this line nothing is parked.
@@ -391,6 +406,10 @@ namespace SkiResortMod
             // Gated by the LiftBuildAids setting inside the system.
             updateSystem.UpdateBefore<SkiStationAlignSystem, Game.Rendering.OverlayRenderSystem>(
                 SystemUpdatePhase.Rendering);
+
+            // The plan sheet's lifts not built yet, while a lift tool is in hand (Resort Planner R1-c). Before OverlayRenderSystem (same
+            // reason as SkiStationAlignSystem above). Reads the sheet ResortLiftBuildSystem writes at UIUpdate earlier in the frame.
+            updateSystem.UpdateBefore<ResortPlanMarksSystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
 
             // Piste-map overlay. Before OverlayRenderSystem (it completes every registered writer, then clears the lists, so the job must
             // be scheduled first). Reads the hub's state written at UIUpdate earlier in the frame (SystemOrder.cs:67-68).
@@ -499,7 +518,7 @@ namespace SkiResortMod
             try
             {
                 bool bundled = BuildStamp.UiBundled;
-                string stamp = BuildStamp.Value;
+                string stamp = BuildStamp.Value + ", commit " + BuildStamp.Commit;
                 if (ModRootPath == null)
                 {
                     Log.Error($"!!! UI module present: unknown — ModRootPath is null (TryGetExecutableAsset failed), " +

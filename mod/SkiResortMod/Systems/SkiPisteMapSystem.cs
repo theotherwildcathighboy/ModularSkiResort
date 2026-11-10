@@ -35,10 +35,13 @@ namespace SkiResortMod.Systems
             public const float OutlineBlackM = 0.6f;         // white edge of black runs (× width scale)
             public const float OutlineDoubleBlackM = 1.0f;   // white edge of double-black runs
             public const float BackstopS = 5f;               // rebuild the cache at least this often while drawn (a pure move keeps the catalog hash)
-            public const int MaxSegments = 4096;
+            // 2026-11-10 (r2b-m): 4096 cut 89 of 245 planner runs (about 37 segments per run measured: 3967 for 106 runs). 32768 holds
+            // ~880 such runs (about 3x the tested resort). Memory: 64 B per segment, 2 MB native + 2 MB managed stage. This is the overlay
+            // draw list, not a UI binding: no Gameface payload. A build of 4000 segments took 0.45 ms, so ~28000 take ~3 ms (every BackstopS).
+            public const int MaxSegments = 32768;
             public const int CostLogAfterDraws = 600;
             public const float SlowDrawWarnMs = 0.5f;        // main-thread part of one draw
-            public const float SlowBuildWarnMs = 2f;         // one cache build
+            public const float SlowBuildWarnMs = 6f;         // one cache build (a full list of MaxSegments takes about 3.7 ms)
         }
 
         private struct PisteSegment
@@ -415,7 +418,7 @@ namespace SkiResortMod.Systems
             {
                 m_TruncLogged = true;
                 Mod.Log.Warn($"PisteMap [build]: '{m_BuiltArea}' needs more than MaxSegments={Tuning.MaxSegments} segment(s) — " +
-                             $"{dropped} run outline(s) cut short (warned once per load)");
+                             $"{dropped} run outline(s) cut short, {m_Count} segment(s) kept for {m_Runs} run(s) of {rows} catalog row(s) (warned once per load)");
             }
             if (ms > Tuning.SlowBuildWarnMs && !m_SlowBuildLogged)
             {

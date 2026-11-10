@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 40;
+        public const int HubContract = 43;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -493,7 +493,7 @@ namespace SkiResortMod.Systems
             SelectResort, Rename, FocusLift, FocusBuilding, Layout,
             SetPisteMap, TogglePisteMap,   // TogglePisteMap is the dev tab's only
             LiftLineToggle,
-            QuickRunsToggle, QuickRunsSet,   // SkiResortHubUISystem.QuickRuns.cs
+            QuickRunsToggle, QuickRunsSet, QuickLiftsAct,   // SkiResortHubUISystem.QuickRuns.cs (QuickLiftsAct: contract 41, the plan sheet buttons)
             DeleteCatTrack,                  // contract 18: the cat track row's trash button
             SetCatTrackDeleteMode,           // contract 19: the Runs tab's Delete cat tracks chip
             SetRunPropSpacing,               // contract 28: the Runs view's prop rows (Bool = lights, Int = meters)
@@ -842,6 +842,7 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding(Group, "liftLineToggle", OnLiftLineToggle));
             AddBinding(new TriggerBinding(Group, "quickRunsToggle", OnQuickRunsToggle));
             AddBinding(new TriggerBinding<string, int>(Group, "quickRunsSet", OnQuickRunsSet));
+            AddBinding(new TriggerBinding<string, int>(Group, "quickLiftsAct", OnQuickLiftsAct));   // contract 41
             AddBinding(new TriggerBinding<bool>(Group, "setCatTrackDeleteMode", OnSetCatTrackDeleteMode));
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunGunSpacing", OnSetRunGunSpacing));
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunLightSpacing", OnSetRunLightSpacing));
@@ -1352,6 +1353,9 @@ namespace SkiResortMod.Systems
                     break;
                 case RequestKind.QuickRunsSet:
                     ApplyQuickRunsSet(r.Text, r.Int, r.Source);
+                    break;
+                case RequestKind.QuickLiftsAct:
+                    ApplyQuickLiftsAct(r.Text, r.Int, r.Source);
                     break;
                 case RequestKind.DeleteCatTrack:
                     // Queued for PostTool: a Deleted tag added here, in UIUpdate, would never reach vanilla's area search tree

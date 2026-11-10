@@ -1,5 +1,7 @@
 // Quick runs tool: the build. Enter refuses a stale plan (re-scan) and a batch the city cannot pay. Otherwise the enabled candidates are
-// built in chunks of BuildChunkRuns (smoothness over speed: no long single-frame hitch, "Building runs 4 / 11"). The tool emits each chunk
+// built in chunks of BuildChunkRuns (smoothness over speed: no long single-frame hitch, "Building runs 4 / 11"). Order (plan 7.6): the cat
+// tracks first, then the pistes, then the lifts switched on (ResortLiftBuildSystem's queue, after the last chunk). Round 2 paints the cat
+// tracks as cat track areas (no grading yet). A runs-first plan has up to about 170 areas. The tool emits each chunk
 // in one frame (RunAreaEmit.Emit, the cat track tool's definition). It validates and applies each chunk before the next. The game's Temp
 // areas are mapped back to candidates by geometry (QuickRunsRules.MatchRing: the engine recycles Temps, an entity never identifies a
 // candidate). Apply is all-or-nothing per emission (ToolBaseSystem.cs:533-540), so a refused run is dropped and the chunk's survivors
@@ -31,9 +33,15 @@ namespace SkiResortMod.Systems
     public sealed partial class QuickRunsToolSystem
     {
         private const int TempTimeoutFrames = 30;   // the cat track tool's (and LiftLineToolSystem's) value
+        private const int ScanAfterUndoFrames = 2;  // margin only: the scan's area query already skips the runs the Undo marked Deleted
+        private int m_ScanAfterUndoFrame = -1;     // the frame of the scan after an Undo, -1 = none
         private const int BindCheckFrames = 150;    // the bind line: ownership binds new runs within its sweep (64 frames) + margin
-        /// <summary>Runs per emission. Smoothness over speed: a validation and a binding wave per chunk, never the whole batch in one frame.</summary>
-        internal const int BuildChunkRuns = 2;   // first field value (CRITIQUE F6: each chunk's Apply is a full sweep + ratings in one frame)
+        /// <summary>Areas (pistes and cat tracks) per emission. Smoothness over speed: a validation and a binding wave per chunk, never the
+        /// whole batch in one frame. First field value (CRITIQUE F6: each chunk's Apply is a full sweep + ratings in one frame). A runs-first
+        /// plan of about 170 areas takes about 85 chunks. To measure (Measurement diagnostics, the bridge sheet): build a full plan and read
+        /// the [probe] build chunk lines and the [probe] build summary line (frames and wall ms per chunk, the worst chunk). The value may
+        /// rise while the worst chunk stays under one long frame (about 50 ms).</summary>
+        internal const int BuildChunkRuns = 2;
 
         private struct BatchRun
         {
@@ -48,7 +56,9 @@ namespace SkiResortMod.Systems
         private readonly List<BatchRun> m_Batch = new List<BatchRun>();
         private readonly List<BatchRun> m_BindCheck = new List<BatchRun>();
         private readonly List<int> m_BuildQueue = new List<int>();          // result indices not emitted yet
-        private int m_EmitFrame, m_BindCheckFrame = -1, m_BuildTotal, m_BuildDone, m_BuildChunk, m_ChunkFrame;
+        private int m_EmitFrame, m_BindCheckFrame = -1, m_BuildTotal, m_BuildDone, m_BuildChunk, m_ChunkFrame, m_BuildTracks, m_ChunkMaxFrames;
+        private double m_ChunkMaxMs;
+        private int m_BuildStartFrame;
         private bool m_Retried, m_BatchFresh, m_BuildNextFrame, m_StopBuild, m_BuildPartial;
         private long m_BatchPaidSeen, m_BuildFee, m_BuildStartTicks, m_ChunkStartTicks;
         private string m_EmitWhy = "retry";
@@ -87,9 +97,10 @@ namespace SkiResortMod.Systems
                 return;
             }
             long money = CityMoney();
-            if (!QuickRunsRules.CanPay(money, m_Totals.Fee))
+            long lifts = LiftCostOn();   // plan 3.3: the city must pay the runs and the lifts switched on before anything is built
+            if (!QuickRunsRules.CanPay(money, m_Totals.Fee + lifts))
             {
-                Say($"QuickRuns [build]: REFUSED — the batch costs {m_Totals.Fee}, the city has {money} ({why})",
+                Say($"QuickRuns [build]: REFUSED — the batch costs {m_Totals.Fee} (runs) + {lifts} (lifts), the city has {money} ({why})",
                     QuickRunsRules.TipPrefix + "WARN[" + QuickToolWarning.MoneyShort + "]");
                 return;
             }
@@ -107,6 +118,18 @@ namespace SkiResortMod.Systems
                 }
                 m_BuildQueue.Add(i);
             }
+            // Plan 7.6: the cat tracks first (a piste may lie over a cat track, the game checks them apart: SkiRunAreaTypeSystem), then the
+            // pistes, each in the result's order
+            int tracksFirst = 0;
+            for (int q = 0; q < m_BuildQueue.Count; q++)
+            {
+                int i = m_BuildQueue[q];
+                if (RunFeatures.FromKind((int)r.Runs[i].Kind).Base != RunBase.CatTrack)
+                    continue;
+                m_BuildQueue.RemoveAt(q);
+                m_BuildQueue.Insert(tracksFirst++, i);
+            }
+            m_BuildTracks = tracksFirst;
             if (m_BuildQueue.Count == 0)
             {
                 Say($"QuickRuns [build]: REFUSED — the run prefabs of every enabled run are missing this load ({noPrefab})",
@@ -121,7 +144,10 @@ namespace SkiResortMod.Systems
             m_BuildDone = m_BuildChunk = 0;
             m_StopBuild = m_BuildPartial = false;
             m_BuildStartTicks = System.Diagnostics.Stopwatch.GetTimestamp();
-            Say($"QuickRuns [build]: START — {m_BuildTotal} run(s) in chunks of {BuildChunkRuns} ({why}" +
+            m_BuildStartFrame = m_Frame;
+            m_ChunkMaxMs = 0.0;
+            m_ChunkMaxFrames = 0;
+            Say($"QuickRuns [build]: START — {m_BuildTotal} area(s) ({m_BuildTracks} cat track(s) first, then {m_BuildTotal - m_BuildTracks} piste(s)) in chunks of {BuildChunkRuns} ({why}" +
                 $"{(noPrefab > 0 ? $", {noPrefab} run(s) skipped: prefab missing" : string.Empty)}), fee {m_BuildFee}");
             TakeChunk();
             EmitBatch(m_EmitWhy);
@@ -349,10 +375,13 @@ namespace SkiResortMod.Systems
             m_BatchFresh = m_Batch.Count > 0;   // undoable from the first chunk on
             if (lost > 0)
                 Mod.Log.Warn($"QuickRuns [build]: chunk {m_BuildChunk}: {lost} run(s) NOT permanent the frame after Apply (please send the log)");
+            double chunkMs = QuickRunsRules.MsSince(m_ChunkStartTicks);
+            m_ChunkMaxMs = Math.Max(m_ChunkMaxMs, chunkMs);
+            m_ChunkMaxFrames = Math.Max(m_ChunkMaxFrames, m_Frame - m_ChunkFrame);
             if (SkiResortSettings.DiagnosticsOn)
                 Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
                     "QuickRuns [probe] build chunk {0}: {1} run(s) applied, {2} of {3} built; {4:F0} ms wall over {5} frame(s)",
-                    m_BuildChunk, m_Batch.Count - before, m_BuildDone, m_BuildTotal, QuickRunsRules.MsSince(m_ChunkStartTicks), m_Frame - m_ChunkFrame));
+                    m_BuildChunk, m_Batch.Count - before, m_BuildDone, m_BuildTotal, chunkMs, m_Frame - m_ChunkFrame));
             Bump();
             if (m_BuildQueue.Count > 0 && !m_StopBuild)
             {
@@ -385,8 +414,16 @@ namespace SkiResortMod.Systems
             Say($"QuickRuns [build]: {(stopped ? "STOPPED" : m_BuildPartial ? "PARTLY BUILT" : "BUILT")} — {m_Batch.Count} of {m_BuildTotal} " +
                 $"run(s) permanent in {m_BuildChunk} chunk(s), {wall} (they bind to the nearest Ski Area Welcome Sign and pay their fees like " +
                 $"drawn runs; bind line in {BindCheckFrames} frames); the hub's Undo removes the batch with a refund (right click does not)", notice);
+            if (SkiResortSettings.DiagnosticsOn && m_BuildChunk > 0)
+                Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
+                    "QuickRuns [probe] build summary: {0} chunk(s) of {1}, {2} cat track(s) and {3} piste(s) queued, {4:F0} ms wall ({5:F0} ms and " +
+                    "{6:F1} frame(s) per chunk on average), worst chunk {7:F0} ms wall, most frames {8}", m_BuildChunk, BuildChunkRuns, m_BuildTracks,
+                    m_BuildTotal - m_BuildTracks, QuickRunsRules.MsSince(m_BuildStartTicks), QuickRunsRules.MsSince(m_BuildStartTicks) / m_BuildChunk,
+                    (m_Frame - m_BuildStartFrame) / (double)m_BuildChunk, m_ChunkMaxMs, m_ChunkMaxFrames));
             m_StopBuild = m_BuildPartial = false;
             Bump();
+            // The lifts do not follow on their own: the hub's "Build lifts" starts the queue (the strings say so). The queue makes the station
+            // placer the active tool, which closes this tool and ends its Undo, so a chained start would take the Undo of every run build.
         }
 
         /// <summary>Every frame (QuickRunsHotkeySystem): the tool's frame counter while closed, and the bind line of the last batch.</summary>
@@ -485,10 +522,45 @@ namespace SkiResortMod.Systems
             m_BindCheck.Clear();
             m_BindCheckFrame = -1;
             m_BatchFresh = false;
+            // The build dropped the plan (FinishBuild), so Build stayed gray after an Undo until the player scanned again (field pass
+            // 2026-11-10). The region is still there: scan it again on its own. The obstacles then match the scan before the build, so the
+            // scan job's plan cache gives that plan back (realize only). The scan replaces the lift sheet, as a hand scan does.
+            bool rescan = ScanAfterUndoPossible(out string noScan);
+            if (rescan)
+                m_ScanAfterUndoFrame = m_Frame + ScanAfterUndoFrames;
             Say($"QuickRuns [undo]: UNDONE ({why}) — {deleted} of {count} run(s) deleted, {skipped} already gone, {unbound} not bound yet " +
-                $"(never charged); refund {refund}{(paidBack ? string.Empty : " NOT PAID: the city has no PlayerMoney")}",
-                NoticeKey("UNDONE"));
+                $"(never charged); refund {refund}{(paidBack ? string.Empty : " NOT PAID: the city has no PlayerMoney")}; " +
+                (rescan ? $"the region is scanned again in {ScanAfterUndoFrames} frame(s)" : "no scan: " + noScan),
+                NoticeKey(rescan ? "UNDONE_RESCAN" : "UNDONE"));
             Bump();
+        }
+
+        /// <summary>Whether an Undo can bring the plan back with a scan of the same region: corners closed, no tree filler (a scan turns it
+        /// off), no build or tree cycle in flight. A scan in flight is restarted (it read the undone runs as obstacles).</summary>
+        private bool ScanAfterUndoPossible(out string why)
+        {
+            why = !RegionClosed ? "the region is not closed"
+                : m_TreesOn ? "the tree filler is on"
+                : Building ? "a build runs"
+                : m_Planting || RemovingTrees ? "trees are planted or removed"
+                : m_Phase != ToolPhase.Region && m_Phase != ToolPhase.Preview && m_Phase != ToolPhase.Scanning ? "phase " + m_Phase
+                : null;
+            return why == null;
+        }
+
+        /// <summary>ScanAfterUndoFrames after the hub's Undo: scan the region again. The state is checked again (the player may have
+        /// cleared the corners or turned the tree filler on in between).</summary>
+        private void ScanAfterUndo()
+        {
+            m_ScanAfterUndoFrame = -1;
+            if (!ScanAfterUndoPossible(out string why))
+            {
+                Say($"QuickRuns [undo]: no scan after the undo — {why}");
+                return;
+            }
+            if (m_Phase == ToolPhase.Scanning)
+                DropPreview(null);   // that scan read the undone runs as obstacles
+            BeginScan("undo");
         }
 
         /// <summary>PlayerMoney.Add on the City entity (SkiRunOwnershipSystem.Charge's mirror). False without a city / money.</summary>
@@ -549,9 +621,30 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- probes (Measurement diagnostics only)
 
-        /// <summary>Snapshot parity (the planner's sampler vs TerrainUtils.SampleHeight at 64 points of the region) and the stage costs.</summary>
-        private void ProbeScan(AutoPlanResult r, double ms)
+        /// <summary>The scan's proof lines (round 2's cross-runtime gate): the plan hash, the options and inputs prints, the planner's
+        /// per-pass ms, the realizer's ms by stage, the total, the blocked cells, what the realizer kept. Then the snapshot parity (the
+        /// planner's sampler vs TerrainUtils.SampleHeight at 64 points of the region).</summary>
+        private void ProbeScan(QuickRunsScanJob job, double ms)
         {
+            if (job != null)
+            {
+                RealizeReport rep = job.Report;
+                QuickRunsScanJob.Planned p = job.Plan;
+                Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
+                    "QuickRuns [probe] runs-first {0}: plan {1}, result {2:x16}, options {3:x16} (density {4}), inputs {5}; planner {6} ms " +
+                    "[{7}]; blocked cells {8} of {9}; realizer {10:F0} ms (lattice {11:F0}, lifts {12:F0}, pistes {13:F0}, tracks {14:F0}, graph {15:F0}), " +
+                    "checks {16:F0} ms, job {17:F0} ms, scan {18:F0} ms wall; kept piste km {19:F2} of {20:F2}, track km {21:F2} of {22:F2}, " +
+                    "unserved {23}, lifts clear {24} of {25}, layers {26:F1} MB",
+                    job.Id, p == null ? "none" : p.Hash.ToString("x16", CultureInfo.InvariantCulture) + (job.FromCache ? " (cached)" : string.Empty),
+                    job.Result?.Fingerprint ?? 0UL, job.Options.Fingerprint(), m_Knobs.Density,
+                    job.PlannerInputs == null ? "none (bare)" : job.PlannerInputs.Fingerprint().ToString("x16", CultureInfo.InvariantCulture),
+                    p == null ? "-" : p.PlanMs.ToString("F0", CultureInfo.InvariantCulture), job.PassText(), p?.BlockedCells ?? 0,
+                    p == null ? 0 : p.BlockedCells + p.OpenCells, job.RealizeMs, rep.LatticeMs, rep.LiftMs, rep.PisteMs, rep.TrackMs, rep.GraphMs,
+                    job.PrecheckMs, job.TotalMs, ms, rep.PisteKmKept + rep.GradedKmKept, rep.PisteKmPlanned + rep.GradedKmPlanned, rep.TrackKmKept,
+                    rep.TrackKmPlanned, rep.UnservedAreas, rep.LiftsClear, rep.Lifts, rep.LayerBytes / 1048576.0));
+                // the cross-runtime prints (port round 2b-f): rf-replay on a dump of this scan names the first pass that differs from the host
+                Mod.Log.Info($"QuickRuns [probe] runs-first prints {job.Id}: plan {(p == null ? "none" : p.Hash.ToString("x16", CultureInfo.InvariantCulture))}; {job.PrintsText()}");
+            }
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
             float worst = 0f;
             int n = 0;
@@ -563,8 +656,8 @@ namespace SkiResortMod.Systems
                 {
                     for (int i = 1; i <= 8; i++)
                     {
-                        var p = new float3(b.min.x + size.x * i / 9f, 0f, b.min.y + size.y * j / 9f);
-                        float a = m_Snap.Sample(p), g = TerrainUtils.SampleHeight(ref hd, p);
+                        var pt = new float3(b.min.x + size.x * i / 9f, 0f, b.min.y + size.y * j / 9f);
+                        float a = m_Snap.Sample(pt), g = TerrainUtils.SampleHeight(ref hd, pt);
                         if (!math.isfinite(a))
                             continue;
                         worst = math.max(worst, math.abs(a - g));
@@ -572,17 +665,9 @@ namespace SkiResortMod.Systems
                     }
                 }
             }
-            var sb = new StringBuilder();
-            for (int s = 0; s < r.StageMs.Length; s++)
-            {
-                if (s > 0)
-                    sb.Append(", ");
-                sb.Append(s).Append(' ').Append(r.StageMs[s].ToString("F1", CultureInfo.InvariantCulture));
-            }
             Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
                 "QuickRuns [probe] scan: snapshot parity max |snapshot - SampleHeight| {0:G3} m over {1} point(s) (0 expected: same float ops); " +
-                "stage ms [{2}], {3} unit(s), longest {4:F2} ms, {5:F0} ms wall over {6} frame(s) at {7} ms/frame (Mono)",
-                worst, n, sb, r.Units, r.MaxUnitMs, ms, m_ScanFrames, ScanBudgetMs));
+                "{2:F0} ms wall over {3} frame(s) (Mono)", worst, n, ms, m_ScanFrames));
         }
 
         private void ProbeEmission(int temps, int waited, int errors, int unmatched, int missing, Entity[] tempOf)

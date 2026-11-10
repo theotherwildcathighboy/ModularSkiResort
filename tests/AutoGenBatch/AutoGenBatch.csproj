@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Headless test host for the Quick runs planner: mod/SkiResortMod/Systems/SkiRunAutoPlanner*.cs (field, routing, selection,
-    junctions, kinds, refusal ladder) on synthetic terrains and the SlopeBatch field captures. Run from the ModularSkiResort root:
+    Headless test host for the Resort Planner: the runs-first planner (RunsFirstPlanner*.cs), its realizer (RunsFirstRealizer*.cs),
+    the tool scan job and the shared plan types, on synthetic terrains and the real heightmap fixtures. Run from the ModularSkiResort root:
     see the one-line command in the Program.cs header (XML comments cannot hold a double dash).
     Clone of tests/GradeBatch/GradeBatch.csproj: lives OUTSIDE mod/SkiResortMod (the mod csproj globs **/*.cs), LangVersion pinned
     to the mod's 9.0, UnityMathematics.NoDeps 1.3.2 = the toolchain's com.unity.mathematics@1.3.2.
@@ -20,51 +20,64 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Terrain.cs" />
-    <Compile Include="Captures.cs" />
     <Compile Include="QuickRunsTests.cs" />
-    <Compile Include="Fill.cs" />
-    <Compile Include="Field.cs" />
-    <Compile Include="V1Golden.cs" />
-    <Compile Include="PlanTypes.cs" />
     <Compile Include="Heightmap.cs" />
     <Compile Include="V2Fixtures.cs" />
     <Compile Include="V2Metrics.cs" />
-    <Compile Include="V2Tests.cs" />
     <Compile Include="WorkerTests.cs" />
-    <Compile Include="TerrainTests.cs" />
-    <Compile Include="LiftTests.cs" />
-    <Compile Include="FanTests.cs" />
-    <Compile Include="FlowTests.cs" />
-    <Compile Include="RunsFirst.cs" />
-    <Compile Include="RunsFirst.Lifts.cs" />
+    <Compile Include="RunsFirst.Host.cs" />
+    <Compile Include="RunsFirst.Render.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.cs" Link="RunsFirstPlanner.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Lifts.cs" Link="RunsFirstPlanner.Lifts.cs" />
     <Compile Include="RunsFirst.Score.cs" />
-    <Compile Include="RunsFirst.Plan.cs" />
-    <Compile Include="RunsFirst.Graph.cs" />
-    <Compile Include="RunsFirst.Beginner.cs" />
-    <Compile Include="RunsFirst.Network.cs" />
-    <Compile Include="RunsFirst.Fill.cs" />
-    <Compile Include="RunsFirst.Cover.cs" />
-    <Compile Include="RunsFirst.Bridge.cs" />
-    <Compile Include="RunsFirst.Chords.cs" />
-    <Compile Include="RunsFirst.Junctions.cs" />
-    <Compile Include="RunsFirst.Heads.cs" />
-    <Compile Include="RunsFirst.Heap.cs" />
-    <Compile Include="RunsFirst.Graded.cs" />
-    <Compile Include="RunsFirst.WayHome.cs" />
-    <Compile Include="RunsFirst.Regrade.cs" />
-    <Compile Include="RunsFirst.Layout.cs" />
-    <Compile Include="RunsFirst.Learning.cs" />
-    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.cs" Link="SkiRunAutoPlanner.cs" />
-    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Select.cs" Link="SkiRunAutoPlanner.Select.cs" />
-    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Kernels.cs" Link="SkiRunAutoPlanner.Kernels.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Plan.cs" Link="RunsFirstPlanner.Plan.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Graph.cs" Link="RunsFirstPlanner.Graph.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Beginner.cs" Link="RunsFirstPlanner.Beginner.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Network.cs" Link="RunsFirstPlanner.Network.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Fill.cs" Link="RunsFirstPlanner.Fill.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Cover.cs" Link="RunsFirstPlanner.Cover.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Bridge.cs" Link="RunsFirstPlanner.Bridge.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Chords.cs" Link="RunsFirstPlanner.Chords.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Junctions.cs" Link="RunsFirstPlanner.Junctions.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Heads.cs" Link="RunsFirstPlanner.Heads.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Heap.cs" Link="RunsFirstPlanner.Heap.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Order.cs" Link="RunsFirstPlanner.Order.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Prints.cs" Link="RunsFirstPlanner.Prints.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Compat.cs" Link="RunsFirstPlanner.Compat.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstOptions.cs" Link="RunsFirstOptions.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Result.cs" Link="RunsFirstPlanner.Result.cs" />
+    <Compile Include="RunsFirstGolden.cs" />
+    <Compile Include="RunsFirstPlannerTests.cs" />
+    <Compile Include="RunsFirstScoreTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Graded.cs" Link="RunsFirstPlanner.Graded.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.WayHome.cs" Link="RunsFirstPlanner.WayHome.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Rater.cs" Link="RunsFirstPlanner.Rater.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Towers.cs" Link="RunsFirstPlanner.Towers.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Bottom.cs" Link="RunsFirstPlanner.Bottom.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Regrade.cs" Link="RunsFirstPlanner.Regrade.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Layout.cs" Link="RunsFirstPlanner.Layout.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Learning.cs" Link="RunsFirstPlanner.Learning.cs" />
+    <Compile Include="RealizerTests.cs" />
+    <Compile Include="RealizerHost.cs" />
+    <Compile Include="GamePlans.cs" />
+    <Compile Include="ScanHost.cs" />
+    <!-- The tool's scan job (planner + realizer in one call), its dump, and the planner's inputs from the game (port round R2-a) -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\QuickRunsScanJob.cs" Link="QuickRunsScanJob.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\QuickRunsScanDump.cs" Link="QuickRunsScanDump.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Inputs.cs" Link="RunsFirstPlanner.Inputs.cs" />
+    <!-- The contract types and the shared geometry helpers (they outlived the v1 / v2 planner) -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\PlanContract.cs" Link="PlanContract.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\PlanGeometry.cs" Link="PlanGeometry.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstResult.cs" Link="RunsFirstResult.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.cs" Link="RunsFirstRealizer.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Lattice.cs" Link="RunsFirstRealizer.Lattice.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Pistes.cs" Link="RunsFirstRealizer.Pistes.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Tracks.cs" Link="RunsFirstRealizer.Tracks.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Lifts.cs" Link="RunsFirstRealizer.Lifts.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Graph.cs" Link="RunsFirstRealizer.Graph.cs" />
+    <!-- The resort plan types (the realizer fills them) and the height snapshot -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Snapshot.cs" Link="SkiRunAutoPlanner.Snapshot.cs" />
-    <!-- Resort Planner (v2) files: the types and one file per stage-A task (A0 wrote the stubs) -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Plan.cs" Link="SkiRunAutoPlanner.Plan.cs" />
-    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Terrain.cs" Link="SkiRunAutoPlanner.Terrain.cs" />
-    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Pods.cs" Link="SkiRunAutoPlanner.Pods.cs" />
-    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Lifts.cs" Link="SkiRunAutoPlanner.Lifts.cs" />
-    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Fans.cs" Link="SkiRunAutoPlanner.Fans.cs" />
-    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Flow.cs" Link="SkiRunAutoPlanner.Flow.cs" />
     <!-- The rater and classifier the labels come from; GradePath / GradeRibbon for centerlines and outlines -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSlopeClassifier.cs" Link="SkiSlopeClassifier.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunRater.cs" Link="SkiRunRater.cs" />
@@ -80,8 +93,11 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\QuickRunsRules.cs" Link="QuickRunsRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\QuickRunsPlanRules.cs" Link="QuickRunsPlanRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftServedRule.cs" Link="LiftServedRule.cs" />
-    <!-- The tower planner the Lifts stage (A4) calls; its only dependency is SkiCatalog (linked above) -->
+    <!-- The lift tool tower planner the realizer and the runs-first planner call; its only dependency is SkiCatalog (linked above) -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftTowerPlanner.cs" Link="LiftTowerPlanner.cs" />
+    <!-- The queue station height rule and the queue line the tower checks plan (LiftLineInput.PlanQueueLine, task 2b-l) -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\StationAlign.cs" Link="StationAlign.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLineEdit.cs" Link="LiftLineEdit.cs" />
     <!-- the planner's phase (d) rope angles (LiftAlignMath.RopeAngles, the train kinds) -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftAlignMath.cs" Link="LiftAlignMath.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiMoneyRules.cs" Link="SkiMoneyRules.cs" />

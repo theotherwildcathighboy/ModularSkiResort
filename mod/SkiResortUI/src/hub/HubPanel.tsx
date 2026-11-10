@@ -56,17 +56,18 @@ function OverlayBackdrop(): JSX.Element | null {
 
 /** The active tool CHANGING to a run tool (run drawing, cat track, Quick runs) selects the Runs view. A change to a lift tool (a lift
  *  line item, the lift tool) selects the Lifts view, where its info shows (hubRules.toolTabFollow). The same tool staying active
- *  selects nothing. This component renders nothing. It subscribes only here, so the panel body does not re-render on build updates. */
+ *  selects nothing. While the lift build queue runs, the lift tool the queue opens selects nothing (the lift block is in the Runs view). This component renders nothing. It subscribes only here, so the panel body does not re-render on build updates. */
 function RunsTabFollow(): null {
   const items = useValue(build$);
   const quick = useValue(quickRuns$);
   const lift = useValue(liftLine$);
   const key = activeToolKey(items, quick?.active, lift?.active);
+  const hold = quick?.sheet?.running === true;
   useEffect(() => {
-    const step = toolTabFollow(runToolSeen.value, key);
+    const step = toolTabFollow(runToolSeen.value, key, hold);
     runToolSeen.value = step.seen;
     if (step.select && view$.value !== step.select) view$.update(step.select);
-  }, [key]);
+  }, [key, hold]);
   useEffect(() => () => { runToolSeen.value = ""; }, []);
   return null;
 }

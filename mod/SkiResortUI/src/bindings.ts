@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 40;
+export const HUB_CONTRACT = 43;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -361,7 +361,7 @@ export interface QuickRunsCluster {
   runs: number;
 }
 
-/** One pod of the Resort Planner's plan (SkiRunAutoPlanner.Plan.cs PlanPod + the hub's totals over its runs). Empty list unless a plan shows. */
+/** One group of the Resort Planner's plan (PlanPod: the runs one lift starts, or the last group "Other runs" with liftId -1) + the hub's totals over its runs. Empty list unless a plan shows. */
 export interface QuickRunsPod {
   /** Index in the plan. The UI letter is `letter` (A, B, ...). */
   id: number;
@@ -370,10 +370,12 @@ export interface QuickRunsPod {
   letter: string;
   /** A locale key: the pod's Ecosign class (SkiResort.Tooltip.QUICK_CLASS[*]). */
   classKey: string;
-  /** Runs in the pod, and how many are switched on (the pod, its lift and single runs count). */
+  /** Pistes in the group (cat tracks not counted), and how many are switched on (the group, its lift and single runs count). */
   runs: number;
   enabledRuns: number;
-  /** Enabled runs by SlopeBand (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
+  /** Cat tracks in the group (switched on or not; contract 42). */
+  tracks: number;
+  /** Enabled pistes by SlopeBand (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
   count: number[];
   skiers: number;
   fee: number;
@@ -406,18 +408,23 @@ export interface QuickRunsLift {
   startsNearTop: number;
   /** Locale key of the way-home verdict (SkiResort.Tooltip.QUICK_VERDICT[*]), "" = none. */
   homeKey: string;
-  /** Locale key of the level the Way home knob asked for here (SkiResort.Hub.QUICK_HOME_GREEN / BLUE), "" = unresolved. */
-  wantedKey: string;
-  /** The lift is switched on (off = it and the runs of its pod are left out). */
+  /** The queue builds the line, with one tower over its sheave-train limit (PlanLift.BuildsFlagged, contract 42). The sheet row will be flagged. */
+  flagged: boolean;
+  /** The line waits in the lift tool for the player (PlanLift.HandFit and not flagged, contract 42). */
+  waits: boolean;
+  /** Towers over their sheave-train limit in the planned line (PlanLift.OverLimitTowers), 0 when the line is not planned. */
+  overLimitTowers: number;
+  /** The lift is switched on (off = it and the runs of its group are left out). */
   on: boolean;
 }
 
 /** The plan's summary line numbers. All 0 without a plan. */
 export interface QuickRunsPlan {
-  pods: number;
   liftsProposed: number;
   liftsPinned: number;
   runKm: number;
+  /** Km of cat tracks in the plan (contract 42). */
+  trackKm: number;
   runKmPerKm2: number;
   deadEnds: number;
   /** The terrain's honest mix in whole percents of the run km. [0] Flat, [1] Green, [2] Blue, [3] Black and Double black together,
@@ -429,6 +436,60 @@ export interface QuickRunsPlan {
   sitePods: number;
   siteGreenHome: number;
   siteBenchHa: number;
+}
+
+/** One row of the plan sheet (contract 41): a lift the Resort Planner proposed, with its build state. The rows come from the sheet, not
+ *  from the preview, so they stay after the run build and with the planner closed. */
+export interface QuickRunsSheetRow {
+  /** The stable key (signed int, as QuickRunsLift.key). Sent in quickLiftsAct("build", key). */
+  key: number;
+  /** "P1", "P2" ... */
+  name: string;
+  /** The lift type id (SkiCatalog LiftTypeDef.Id) for LIFT_TYPE. "" when unknown. */
+  typeKey: string;
+  lengthM: number;
+  riseM: number;
+  /** Both stations and the line (SkiCatalog), an estimate. */
+  cost: number;
+  /** Switched on in the plan: Build lifts builds only these. */
+  on: boolean;
+  /** SheetLiftState name: Proposed, StationsPlaced, Built, Refused, NeedsFitting. */
+  state: string;
+  /** "" idle, "queued" (waiting for its turn), "building" (the lift in flight). */
+  step: string;
+  /** A locale key (SkiResort.Tooltip.QUICK_LIFT_WHY[*]) for why the row is Refused, NeedsFitting or a stopped StationsPlaced. "" otherwise. */
+  reasonKey: string;
+  /** The planned line builds with one tower over its limit (PlanLift.BuildsFlagged), from the plan of the same key. False when the tool no longer holds the plan (contract 42). */
+  flagged: boolean;
+  /** The planned line waits in the lift tool (PlanLift.HandFit and not flagged). False when the tool no longer holds the plan (contract 42). */
+  waits: boolean;
+  /** A Built row whose line has towers past their sheave-train limit (task R2-l): how many (the queue builds a line with exactly one), 0 = none. */
+  overLimitTowers: number;
+  /** The first such tower: its place counted from the base (1 = the first tower), -1 = none. */
+  overLimitTower: number;
+  /** That tower's distance along the line from the base (m), its bend (deg) and its sheave train's limit (deg). 0 with none. */
+  overLimitAlongM: number;
+  overLimitBendDeg: number;
+  overLimitCapDeg: number;
+}
+
+/** The plan sheet and the lift build queue (contract 41). Empty and zero while the sheet is empty. */
+export interface QuickRunsSheet {
+  rows: QuickRunsSheetRow[];
+  /** The queue is on (a lift in flight or lifts waiting). */
+  running: boolean;
+  /** "Building lift N / M": the 1-based place of the lift in flight (or next), and the lifts asked in this run. 0 / 0 when idle. */
+  index: number;
+  total: number;
+  /** Stop was asked: the lift in flight finishes, nothing starts after it. */
+  stopping: boolean;
+  /** The lifts total, apart from the runs total: lifts switched on and not built, lifts not built, lifts built, and the estimated cost of the first group. */
+  toBuild: number;
+  unbuilt: number;
+  built: number;
+  cost: number;
+  /** A locale key (SkiResort.Tooltip.QUICK_LIFTS_NOTICE[*]) for the latest refusal of a lift call, or "". */
+  notice: string;
 }
 
 /** `quickRuns`: the Resort Planner tool (code name Quick runs, QuickRunsToolSystem). Experimental, Ctrl+Shift+Q. Panel only. Every count,
@@ -447,7 +508,7 @@ export interface QuickRunsState {
   /** The census knows a lift station: a click on one plans runs around it (the Region step's hint is true only then). */
   canPlanAround: boolean;
   areaM2: number;
-  /** The area cap (9 km2, SkiRunAutoPlanner.V1MaxAreaM2). */
+  /** The area cap (9 km2, PlanGeometry.V1MaxAreaM2). */
   maxAreaM2: number;
   /** Top to bottom of the region. */
   verticalM: number;
@@ -455,19 +516,19 @@ export interface QuickRunsState {
   regionState: string;
   /** Scan progress 0..1 while Scanning. */
   progress: number;
-  /** AutoMix: 0 Balanced, 1 Beginner, 2 Expert, 3 As the terrain allows. */
-  mix: number;
   /** AutoDensity: 0 Sparse, 1 Normal, 2 Dense. */
   density: number;
   /** AutoKinds flags: 1 Groomed, 2 Natural, 4 Snowmaking, 8 Night. */
   kinds: number;
-  /** Candidates in the plan. */
+  /** Pistes in the plan (the cat tracks are counted apart in `tracks`, contract 42). */
   runs: number;
-  /** Candidates switched on. */
+  /** Pistes switched on. */
   enabled: number;
-  /** Enabled runs by SlopeBand (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
+  /** Cat tracks switched on (contract 42). */
+  tracks: number;
+  /** Enabled pistes by SlopeBand (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
   count: number[];
-  /** The mix target by SlopeBand. */
+  /** The mix target by SlopeBand. All zeros with the runs-first planner: the hub then prints the counts alone. */
   target: number[];
   /** Total construction fee of the enabled runs. */
   fee: number;
@@ -479,6 +540,8 @@ export interface QuickRunsState {
   status: string;
   /** Locale keys (QUICK_WARN[*]). */
   warnings: string[];
+  /** Enabled pistes with no Welcome Sign in range: the N of QUICK_WARN[NoSignSome] ("N of M runs", M = `enabled`). Contract 43. */
+  unbound: number;
   clusters: QuickRunsCluster[];
   /** Runs of the last build that Undo removes (with a refund). */
   batchRuns: number;
@@ -526,24 +589,25 @@ export interface QuickRunsState {
    *  figure), -1 = unknown. `siteTier` is its tier (QuickRunsRules.SiteTier: 0 unknown, 1 Gentle, 2 Steep, 3 Very steep, 4 Beyond any real area). */
   sitePercent: number;
   siteTier: number;
-  /** The Lifts knob: 0 Auto, 1-9 a cap on the proposed lifts. */
-  liftsKnob: number;
-  /** The Way home knob (HomeLevel): 0 Auto (green at the base, blue above), 1 Green, 2 Blue. */
-  home: number;
   /** The plan, only while a Resort preview shows. */
   pods: QuickRunsPod[];
   planLifts: QuickRunsLift[];
   plan: QuickRunsPlan;
+  /** The plan sheet and the lift queue (contract 41). Not tied to the preview. */
+  sheet: QuickRunsSheet;
 }
 
 /** The length of QuickRunsState.rejects (QuickRunsRules.RejectBuckets). */
 export const QUICK_REJECT_BUCKETS = 8;
 
+/** The quickLiftsAct actions (ResortLiftBuildSystem.HubAct): buildAll, build (key = the row's key), stop, clear. */
+export type QuickLiftsAction = "buildAll" | "build" | "stop" | "clear";
+
 /** The quickRunsSet keys (QuickRunsToolSystem.HubSet). */
 export type QuickRunsKey =
-  | "mix" | "density" | "kind" | "shuffle" | "scan" | "build" | "undo"
+  | "density" | "kind" | "scan" | "build" | "undo"
   | "trees" | "plant" | "treesUndo" | "treeLine" | "group" | "species" | "level" | "stop"
-  | "lifts" | "home" | "pod" | "lift";
+  | "pod" | "lift";
 
 /** RunPropPlacerRules: the Runs view's prop rows, 0 = off, then min..max (tools/check-run-props.js compares them). */
 export const RUN_PROP_SPACING_OFF = 0;
@@ -1067,6 +1131,7 @@ export const TRIGGER = {
   liftLineToggle: "liftLineToggle",  // the lift-line generator
   quickRunsToggle: "quickRunsToggle",  // the Quick runs tool
   quickRunsSet: "quickRunsSet",
+  quickLiftsAct: "quickLiftsAct",  // contract 41: the plan sheet's buttons (action, key)
   setCatTrackDeleteMode: "setCatTrackDeleteMode",  // contract 19: the Runs tab's Delete cat tracks chip
   setRunGunSpacing: "setRunGunSpacing",  // contract 28: the Runs view's prop rows
   setRunLightSpacing: "setRunLightSpacing",
@@ -1107,12 +1172,13 @@ const EMPTY_LODGE_PARKING: readonly LodgeParkingRow[] = [];
 const EMPTY_MERGED: readonly MergedLodgeRow[] = [];
 const EMPTY_QUICK_RUNS: QuickRunsState = {
   available: false, active: false, reason: "", phase: "", corners: 0, canPlanAround: false, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
-  progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
-  variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
+  progress: 0, density: 1, kinds: 3, runs: 0, enabled: 0, tracks: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
+  variety: false, status: "", warnings: [], unbound: 0, clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
   treeLine: -1, groundMin: 0, groundMax: 0, group: 0, species: 0, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
   buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0, rejects: [0, 0, 0, 0, 0, 0, 0, 0],
-  sitePercent: -1, siteTier: 0, liftsKnob: 0, home: 0, pods: [], planLifts: [],
-  plan: { pods: 0, liftsProposed: 0, liftsPinned: 0, runKm: 0, runKmPerKm2: 0, deadEnds: 0, mountainMix: [0, 0, 0, 0, 0], sitePods: 0, siteGreenHome: 0, siteBenchHa: 0 },
+  sitePercent: -1, siteTier: 0, pods: [], planLifts: [],
+  plan: { liftsProposed: 0, liftsPinned: 0, runKm: 0, trackKm: 0, runKmPerKm2: 0, deadEnds: 0, mountainMix: [0, 0, 0, 0, 0], sitePods: 0, siteGreenHome: 0, siteBenchHa: 0 },
+  sheet: { rows: [], running: false, index: 0, total: 0, stopping: false, toBuild: 0, unbuilt: 0, built: 0, cost: 0, notice: "" },
 };
 
 export const FALLBACK = {
@@ -1248,6 +1314,8 @@ export const hubTriggers = {
   quickRunsToggle: (): void => fire(TRIGGER.quickRunsToggle),
   /** A Quick runs knob, button or tree setting (QuickRunsToolSystem.HubSet). C# clamps every value. */
   quickRunsSet: (key: QuickRunsKey, value: number): void => fire(TRIGGER.quickRunsSet, key, Math.round(value)),
+  /** A plan sheet button (contract 41): buildAll, build (key = QuickRunsSheetRow.key), stop, clear. C# refuses a call it cannot take with a notice. */
+  quickLiftsAct: (action: QuickLiftsAction, key: number): void => fire(TRIGGER.quickLiftsAct, action, Math.round(key)),
   /** The cat track tool's Delete mode. On: opens the tool if needed (C# TryActivate, then SetDeleteMode). Off: leaves the tool open. */
   setCatTrackDeleteMode: (on: boolean): void => fire(TRIGGER.setCatTrackDeleteMode, on),
   /** A run's prop spacing in meters. C# clamps to Off or 20..200 and re-places after its settle. Look only. */

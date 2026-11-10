@@ -4,6 +4,9 @@
 // host passes SkiRunRater.Rate over the snapshot, the unit tests pass run => run.Band). A gate with nothing to measure (no lift, no pod)
 // is NOT a pass. It returns pass false with "n/a" text, so a stubbed planner can never turn a HARD gate green by emptiness.
 // Suite V2MetricsTests: hand-made plans with known answers, one passing and one failing case per metric.
+// Port round R2-d deleted the v1 / v2 planner. The functions over AutoPlanResult + ResortPlan stay (B-1 runs on realized plans). The
+// planner constants they used are copied below with their v2 values. The time, memory and determinism gates of the v2 planner run
+// (P-1 to P-4, D-1) went with it.
 
 using System;
 using System.Collections.Generic;
@@ -36,7 +39,18 @@ namespace AutoGenBatch
         public static readonly float[] LengthMin = { 300f, 600f, 800f, 800f }, LengthMax = { 1500f, 2200f, 2700f, 3000f };
         public static readonly float[] RiseMin = { 95f, 95f, 96f, 220f }, RiseMax = { 512f, 512f, 781f, 888f };
         public static readonly float[] EdgeSlopeCap = { 0.8f, 0.9f, 1.2f, 2.5f };
-        public const float EdgeSlopeShare = 0.97f, PadMinAreaM2 = 2000f, PadMaxGrade = 0.25f, NearM = 100f, LinkM = SkiRunAutoPlanner.LinkMeters;
+        public const float EdgeSlopeShare = 0.97f, PadMinAreaM2 = 2000f, PadMaxGrade = 0.25f, NearM = 100f, LinkM = LiftServedRule.LinkMeters;
+        // The v2 planner's constants these metrics read (SkiRunAutoPlanner .cs / .Fans.cs / .Flow.cs before port round R2-d), same values
+        public const float MinHalfWidthM = 7.5f, MergeTaperM = 30f, JunctionReachM = 20f, MergeLinkReachM = JunctionReachM + 2f * MinHalfWidthM;
+        public const float FanNearGapM = 30f, BranchTaperM = 60f, SinkPadM = 90f, HomeAccessWalkM = 100f;
+        public const byte EdgeLift = RunsFirstRealizer.EdgeLift, EdgeLink = RunsFirstRealizer.EdgeLink;   // PlanEdge.Kind (as v2)
+
+        /// <summary>A pad's radius: its inscribed circle or the disc of its area, the larger.</summary>
+        public static float PadRadiusM(in PlanPad pad) => Math.Max(pad.InscribedM, (float)Math.Sqrt(pad.AreaM2 / Math.PI));
+
+        /// <summary>A base pad that is a way out by itself: it touches the base band and an access point lies within its radius plus
+        /// HomeAccessWalkM. AccessM is +inf without access points, so a plan without roads has no such pad.</summary>
+        public static bool PadIsWayOut(in PlanPad pad) => pad.TouchesBase && pad.AccessM <= PadRadiusM(pad) + HomeAccessWalkM;
 
         private static string F(double v, string fmt = "0.##") => v.ToString(fmt, CultureInfo.InvariantCulture);
 
@@ -308,7 +322,7 @@ namespace AutoGenBatch
         }
 
         private static bool OnRun(AutoRun run, float2 pt) =>
-            GradeRaster.Inside(run.Ring, pt) || SkiRunAutoPlanner.PointRingDistance(run.Ring, pt) <= LinkM;
+            GradeRaster.Inside(run.Ring, pt) || PlanGeometry.PointRingDistance(run.Ring, pt) <= LinkM;
 
         /// <summary>F-4: share of run tops that start on (inside or within 25 m of) another run: 30-65 % (SOFT target 40-60 %).</summary>
         public static Gate F4Branching(AutoPlanResult r)
@@ -331,10 +345,10 @@ namespace AutoGenBatch
         /// merge and split zones. The metric does not count samples within 60 m of a junction of the pair, or within SplitZoneM of a run end
         /// that lies on the other run.</summary>
         /// The planner keeps the gap on the distance lattice, so one heightmap texel (3.5 m) of raster tolerance comes off (34 m at the 30 m gap).
-        public static readonly double F5FloorM = Math.Floor(SkiRunAutoPlanner.FanNearGapM + SkiRunAutoPlanner.MinHalfWidthM - 3.5f);
+        public static readonly double F5FloorM = Math.Floor(FanNearGapM + MinHalfWidthM - 3.5f);
 
         /// <summary>F-5 merge / split zone around a run end that lies on the other run: a branch's taper plus a merge taper.</summary>
-        public const float SplitZoneM = SkiRunAutoPlanner.BranchTaperM + SkiRunAutoPlanner.MergeTaperM;
+        public const float SplitZoneM = BranchTaperM + MergeTaperM;
         public static Gate F5Spacing(AutoPlanResult r, ResortPlan p)
         {
             Spacing(r, p, out double med, out double minPair);
@@ -401,8 +415,8 @@ namespace AutoGenBatch
             if (cl == null || cl.Length == 0)
                 return false;
             float2 top = cl[0], bottom = cl[cl.Length - 1];
-            return (math.distance(s, top) <= SplitZoneM && PolylineDistance(top, other.Centerline) <= SkiRunAutoPlanner.MergeLinkReachM) ||
-                   (math.distance(s, bottom) <= SplitZoneM && PolylineDistance(bottom, other.Centerline) <= SkiRunAutoPlanner.MergeLinkReachM);
+            return (math.distance(s, top) <= SplitZoneM && PolylineDistance(top, other.Centerline) <= MergeLinkReachM) ||
+                   (math.distance(s, bottom) <= SplitZoneM && PolylineDistance(bottom, other.Centerline) <= MergeLinkReachM);
         }
 
         private static bool NearJunction(AutoPlanResult r, int a, int b, float2 s)
@@ -658,8 +672,8 @@ namespace AutoGenBatch
             {
                 if (j == i)
                     continue;
-                float d = SkiRunAutoPlanner.PointRingDistance(r.Runs[j].Ring, b);
-                if (d <= SkiRunAutoPlanner.MergeLinkReachM && d < bestD && LiftServedRule.OutlinesLinked(run.Ring, r.Runs[j].Ring))
+                float d = PlanGeometry.PointRingDistance(r.Runs[j].Ring, b);
+                if (d <= MergeLinkReachM && d < bestD && LiftServedRule.OutlinesLinked(run.Ring, r.Runs[j].Ring))
                 {
                     bestD = d;
                     best = j;
@@ -670,7 +684,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>A way out at the bottom of run i (DECISIONS 451 c, AR-2): within 25 m of a lift bottom station, or touching
-        /// (BottomTouchesPad) a pad that holds a lift bottom or is a base pad with access (SkiRunAutoPlanner.PadIsWayOut). Ground alone
+        /// (BottomTouchesPad) a pad that holds a lift bottom or is a base pad with access (PadIsWayOut). Ground alone
         /// never is.</summary>
         public static bool HostWayOut(AutoPlanResult r, ResortPlan p, int i)
         {
@@ -693,14 +707,14 @@ namespace AutoGenBatch
                 return true;
             int from = p.Pads.Length + 2 * i + 1;
             foreach (PlanEdge e in p.Graph ?? Array.Empty<PlanEdge>())
-                if (e.From == from && e.To == k && e.Kind == SkiRunAutoPlanner.EdgeLink)
+                if (e.From == from && e.To == k && e.Kind == EdgeLink)
                     return true;
             return false;
         }
 
         private static bool WayOutPad(ResortPlan p, int k)
         {
-            if (SkiRunAutoPlanner.PadIsWayOut(p.Pads[k]))
+            if (PadIsWayOut(p.Pads[k]))
                 return true;
             foreach (PlanLift l in p.Lifts)
                 if (l.BottomPad == k && math.all(math.isfinite(l.Bottom)))
@@ -776,7 +790,7 @@ namespace AutoGenBatch
             var reach = new bool[n];
             var rev = new List<int>[n];
             foreach (PlanEdge e in p.Graph)
-                if (e.Kind != SkiRunAutoPlanner.EdgeLift)
+                if (e.Kind != EdgeLift)
                     (rev[e.To] ??= new List<int>()).Add(e.From);
             var queue = new Queue<int>();
             for (int k = 0; k < pads; k++)
@@ -819,13 +833,13 @@ namespace AutoGenBatch
                 double ring = double.PositiveInfinity, pad = double.PositiveInfinity, station = double.PositiveInfinity;
                 for (int j = 0; j < r.Runs.Count; j++)
                     if (j != i)
-                        ring = Math.Min(ring, GradeRaster.Inside(r.Runs[j].Ring, b) ? 0.0 : SkiRunAutoPlanner.PointRingDistance(r.Runs[j].Ring, b));
+                        ring = Math.Min(ring, GradeRaster.Inside(r.Runs[j].Ring, b) ? 0.0 : PlanGeometry.PointRingDistance(r.Runs[j].Ring, b));
                 foreach (PlanPad d in p.Pads)
-                    pad = Math.Min(pad, Math.Max(0.0, math.distance(b, d.Center) - SkiRunAutoPlanner.PadRadiusM(d)));
+                    pad = Math.Min(pad, Math.Max(0.0, math.distance(b, d.Center) - PadRadiusM(d)));
                 foreach (PlanLift l in p.Lifts)
                     if (math.all(math.isfinite(l.Bottom)))
                         station = Math.Min(station, math.distance(b, l.Bottom.xz));
-                string why = run.Merge && run.MergeInto < 0 ? "merge dropped" : run.Merge ? "merge" : station <= SkiRunAutoPlanner.SinkPadM ? "near a station" : "free end";
+                string why = run.Merge && run.MergeInto < 0 ? "merge dropped" : run.Merge ? "merge" : station <= SinkPadM ? "near a station" : "free end";
                 lines.Add($"run {i} {run.Band} {F(run.LengthM, "0")} m, {why} (Merge {run.Merge}, MergeInto {run.MergeInto}), nearest run {D(ring)}, pad edge {D(pad)}, lift bottom {D(station)}");
             }
             return lines;
@@ -844,7 +858,7 @@ namespace AutoGenBatch
             foreach (PlanPad d in p.Pads)
                 anyAccess |= !float.IsInfinity(d.AccessM) && !float.IsNaN(d.AccessM);
             for (int i = 0; i < p.Pads.Length; i++)
-                padOk[i] = anyAccess ? SkiRunAutoPlanner.PadIsWayOut(p.Pads[i]) : p.Pads[i].TouchesBase;
+                padOk[i] = anyAccess ? PadIsWayOut(p.Pads[i]) : p.Pads[i].TouchesBase;
             var liftOk = new bool[p.Lifts.Length];
             var liftHit = new bool[p.Lifts.Length];
             var next = new List<int>();
@@ -934,26 +948,117 @@ namespace AutoGenBatch
             return s[3];
         }
 
-        // ---------------------------------------------------------------- 2.5 time, memory, determinism
-
-        /// <summary>P-1: the longest planner unit under 4 ms (CoreCLR Release).</summary>
-        public static Gate P1LongestUnit(AutoPlanResult r) => P1LongestUnit(r.MaxUnitMs);
-
-        public static Gate P1LongestUnit(double ms) => G("P-1", ms < 4.0, ms, $"longest unit {F(ms)} ms (want under 4)");
-
-        /// <summary>P-2 (about 4 km2: under 0.8 s) / P-3 (about 9 km2: under 1.5 s): the whole plan on one thread.</summary>
-        public static Gate PWorkerTime(float areaKm2, double seconds)
+        /// <summary>B-1 (REPORT, the baseline of the planner round of 2026-11-09): the way to the bottom. The bottom is the set of pads
+        /// that touch the base band (the lowest 15 % of the region's relief, 10 to 60 m). A lift reaches the bottom when a skier leaving
+        /// its top gets there on runs alone, with no lift ride. The walk: the runs the lift serves, then every run they continue into
+        /// (HostRunNext). A run bottom that touches a pad puts the skier on that pad. From a pad the skier starts every run whose highest
+        /// node lies on it, and every run served by a lift whose top station stands on it (the same bench).
+        /// Value = the lifts that do not reach the bottom. The text adds the lifts whose own bottom is in the base band and how far the
+        /// lowest lift bottom stands above the lowest pod bottom.</summary>
+        public static Gate B1WayToBottom(AutoPlanResult r, ResortPlan p)
         {
-            bool big = areaKm2 >= 6.5f;
-            double lim = big ? 1.5 : 0.8;
-            return G(big ? "P-3" : "P-2", seconds < lim, seconds, $"plan of {F(areaKm2)} km2 took {F(seconds, "0.00")} s (want under {lim})");
+            if (p.Lifts.Length == 0)
+                return NA("B-1", "no lifts");
+            int pads = p.Pads.Length, basePads = 0;
+            for (int k = 0; k < pads; k++)
+                if (p.Pads[k].TouchesBase)
+                    basePads++;
+            float low = float.MaxValue, lowLift = float.MaxValue;
+            foreach (PlanPod pod in p.Pods)
+                low = Math.Min(low, pod.BottomY);
+            int atBase = 0;
+            foreach (PlanLift l in p.Lifts)
+            {
+                if (!math.all(math.isfinite(l.Bottom)))
+                    continue;
+                lowLift = Math.Min(lowLift, l.Bottom.y);
+                bool onBase = l.BottomPad >= 0 && l.BottomPad < pads && p.Pads[l.BottomPad].TouchesBase;
+                for (int k = 0; k < pads && !onBase; k++)
+                    onBase = p.Pads[k].TouchesBase && InPad(p.Pads[k], l.Bottom.xz);
+                if (onBase)
+                    atBase++;
+            }
+            double above = low < float.MaxValue && lowLift < float.MaxValue ? lowLift - low : double.NaN;
+            int stranded = 0;
+            var next = new List<int>();
+            for (int i = 0; i < p.Lifts.Length; i++)
+            {
+                PlanLift l = p.Lifts[i];
+                if (!math.all(math.isfinite(l.Top)) || !math.all(math.isfinite(l.Bottom)))
+                    continue;
+                var seenRun = new bool[r.Runs.Count];
+                var seenPad = new bool[pads];
+                var runs = new Queue<int>();
+                var padQueue = new Queue<int>();
+                bool reached = false;
+                for (int j = 0; j < r.Runs.Count; j++)
+                    if (HostServes(l, r.Runs[j]))
+                    {
+                        seenRun[j] = true;
+                        runs.Enqueue(j);
+                    }
+                while (!reached && (runs.Count > 0 || padQueue.Count > 0))
+                {
+                    if (runs.Count > 0)
+                    {
+                        int j = runs.Dequeue();
+                        for (int k = 0; k < pads; k++)
+                            if (!seenPad[k] && BottomTouchesPad(r, p, j, k))
+                            {
+                                seenPad[k] = true;
+                                padQueue.Enqueue(k);
+                            }
+                        // a run that ends at a lift bottom puts the skier on that lift's pad
+                        for (int m = 0; m < p.Lifts.Length; m++)
+                        {
+                            int bp = p.Lifts[m].BottomPad;
+                            if (bp >= 0 && bp < pads && !seenPad[bp] && math.all(math.isfinite(p.Lifts[m].Bottom)) &&
+                                math.distance(Bottom(r.Runs[j]), p.Lifts[m].Bottom.xz) <= LinkM)
+                            {
+                                seenPad[bp] = true;
+                                padQueue.Enqueue(bp);
+                            }
+                        }
+                        HostRunNext(r, j, next);
+                        foreach (int m in next)
+                            if (!seenRun[m])
+                            {
+                                seenRun[m] = true;
+                                runs.Enqueue(m);
+                            }
+                        continue;
+                    }
+                    int pad = padQueue.Dequeue();
+                    if (p.Pads[pad].TouchesBase)
+                    {
+                        reached = true;
+                        break;
+                    }
+                    for (int j = 0; j < r.Runs.Count; j++)
+                    {
+                        if (seenRun[j] || r.Runs[j].Nodes == null || r.Runs[j].Nodes.Length == 0)
+                            continue;
+                        float3 top = r.Runs[j].Nodes[0];
+                        foreach (float3 n in r.Runs[j].Nodes)
+                            if (n.y > top.y)
+                                top = n;
+                        bool from = InPad(p.Pads[pad], top.xz);
+                        for (int m = 0; m < p.Lifts.Length && !from; m++)
+                            from = p.Lifts[m].TopPad == pad && HostServes(p.Lifts[m], r.Runs[j]);
+                        if (from)
+                        {
+                            seenRun[j] = true;
+                            runs.Enqueue(j);
+                        }
+                    }
+                }
+                if (!reached)
+                    stranded++;
+            }
+            string where = basePads == 0 ? "no pad touches the base band" : $"{atBase} of {p.Lifts.Length} lift bottoms in the base band";
+            return G("B-1", stranded == 0 && atBase > 0, stranded,
+                $"{stranded} of {p.Lifts.Length} lifts cannot ski to the bottom (want 0); {where}; lowest lift bottom {F(above, "0")} m above the lowest pod bottom");
         }
-
-        /// <summary>P-4: planner buffers under 80 MB (the host sees the Resort layers exactly, and the caller estimates the v1 layers).</summary>
-        public static Gate P4Memory(long bytes, string what) => G("P-4", bytes < 80L * 1000 * 1000, bytes / 1.0e6, $"{F(bytes / 1.0e6, "0.0")} MB {what} (want under 80)");
-
-        public static Gate DEqual(string id, string what, ulong want, ulong got) =>
-            G(id, want == got, got == want ? 0 : 1, got == want ? what + " equal" : $"{what}: fingerprint {got:X16} differs from {want:X16}");
 
         // ---------------------------------------------------------------- helpers
 
@@ -1158,20 +1263,6 @@ namespace AutoGenBatch
 
             FanMetricTests();
             FlowMetricTests();
-
-            // ---- P / D
-            var pr = new AutoPlanResult { MaxUnitMs = 3.9f };
-            Gate_(V2Metrics.P1LongestUnit(pr), true, "P-1 3.9 ms");
-            pr.MaxUnitMs = 4.2f;
-            Gate_(V2Metrics.P1LongestUnit(pr), false, "P-1 4.2 ms");
-            Gate g = V2Metrics.PWorkerTime(4f, 0.5);
-            Check(g.Id == "P-2" && g.Pass, "V2Metrics P-2", g.ToString());
-            g = V2Metrics.PWorkerTime(9f, 1.6);
-            Check(g.Id == "P-3" && !g.Pass, "V2Metrics P-3", g.ToString());
-            Gate_(V2Metrics.P4Memory(79_000_000L, "layers"), true, "P-4 79 MB");
-            Gate_(V2Metrics.P4Memory(81_000_000L, "layers"), false, "P-4 81 MB");
-            Gate_(V2Metrics.DEqual("D-1", "rerun", 5UL, 5UL), true, "D-1 equal");
-            Gate_(V2Metrics.DEqual("D-1", "rerun", 5UL, 6UL), false, "D-1 differs");
 
             // ---- helpers with known answers
             Check(Math.Abs(V2Metrics.Median(new List<double> { 3, 1, 2 }) - 2) < 1e-9 && Math.Abs(V2Metrics.Median(new List<double> { 4, 1, 2, 3 }) - 2.5) < 1e-9,

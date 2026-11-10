@@ -1,8 +1,8 @@
 # QuickRunsToolSystem: the Quick runs tool (scan, preview, batch build, refund, tree filler)
 
 Experimental (DECISIONS 404-415). A prefab-less `ToolBaseSystem` on the skeleton of the cat track tool. It has point editing (`GradeEdit`),
-an overlay, a mouse tooltip, emit -> Temp -> Apply, and one hotkey system. The planner is pure (`SkiRunAutoPlanner`,
-SkiRunAutoPlanner.md). This tool feeds it a snapshot and turns its result into runs. Files:
+an overlay, a mouse tooltip, emit -> Temp -> Apply, and one hotkey system. The planner and its realizer are pure
+(`RunsFirstPlanner.md`, `RunsFirstRealizer.md`, index `ResortPlanner.md`). This tool feeds them a snapshot and turns the result into runs. Files:
 
 - `QuickRunsToolSystem.cs` (lifecycle, input, knobs, `HubSet`), `.Scan.cs`, `.Build.cs`, `.Trees.cs`, `.Draw.cs`
 - `QuickRunsRules.cs` (pure, AutoGenBatch QuickRunsTests)
@@ -40,79 +40,72 @@ It holds no state: each tool keeps its own phases, queries and logs.
   (ValidationHelpers.cs:555-582).
 - Double buffer: two `HeightSnapshot`s (`m_SnapBuf`). `TakeSnapshot` always writes the one the planner does NOT hold
   (`m_PlannerSnap`, set at each launch). `m_Snap` = the latest taken (Draw, Trees, the probes and `WorldUnchanged` read it). The code
-  never rewrites the buffer of a running worker, nor the buffer that a later `Reselect` reads again. `CollectObstacles` builds a fresh
+  never rewrites the buffer of a running worker. `CollectObstacles` builds a fresh
   list per call for the same reason. Each scan gets a fresh `AutoPlanInput` (`m_Input` = the last launched one).
-- The tool always plans in Resort mode (`Mode = Resort`, DECISIONS 444). Runs mode is reachable from the test host only.
-- `BeginScan` adds the plan context before the launch (main thread, `CollectPlanContext`, measured as `m_ContextMs`): pinned lifts,
-  access points, the tree line (Worker section). Then the scan job runs (Worker section). The tooltip and the hub show
-  `ProgressVolatile`.
-- Every reader takes `m_Published` (Build, Draw, Trees' run holes, toggles, warnings, hover, `HasPreview`, the hub's `Result`), never
-  `m_Planner.Result`.
+- The tool sets `Mode = Resort` (DECISIONS 444). Runs mode was the v1 planner, deleted in port round R2-d.
+- `BeginScan` adds the plan context before the launch (main thread, `CollectPlanContext`, measured as `m_ContextMs`): existing lifts,
+  access points, the tree line (Worker section). Then the scan job runs (Worker section). The tooltip and the hub show the job's
+  progress.
+- Every reader takes `m_Published` (Build, Draw, Trees' run holes, toggles, warnings, hover, `HasPreview`, the hub's `Result`): the result of the last collected job.
 - The code fingerprints both inputs (FNV over the floats). On Enter, `WorldUnchanged` re-reads them. A changed world scans again instead
   of building a stale plan (notice RESCANNED).
 - Warnings: the flags of the planner, then these of the tool. Only our own results feed them. No other mod is read.
   - MoneyShort (fee > city money).
   - Renumber (default-named runs exist: the new runs renumber them, SkiRunCatalogSystem ordinals).
   - OtherResort / NoSign (the gate nearest each enabled run's ring center, the tether rule).
+  - The NoSign flag means that no enabled piste has a sign in range. NoSignSome means that some pistes have no sign and other pistes have a sign.
+    `UnboundPistes` gives the count (the hub field `unbound`, the tooltip "N of M runs"). Cat tracks are not counted. Before the change, one
+    unbound run set NoSign. The field pass of 2026-11-10 then showed "the runs will not count" with 22 of 213 runs unbound.
   - ChecksOff (`ToolSystem.ignoreErrors`, ToolSystem.cs:159: Anarchy).
-- Mix / Density / Kinds re-select from the same scan (`Reselect`) when the field allows it and no job runs. Otherwise they re-scan. The
-  code cancels a running job first (a canceled planner drops its field). Shuffle changes the seed.
+- Knobs: a Density change scans again. Kinds realizes the cached plan again. Lifts, Mix, Shuffle and Way home have no effect
+  (`ResortPlanner.md`, the knobs). A knob change cancels a running job first.
 
-## Worker (Resort Planner v2 A2; stage-a-spec.md section 5)
+## Worker
+- Port round R2-a replaced the v2 job, and round R2-d deleted the v2 planner with its main-thread fallback setting. One job
+  (`QuickRunsScanJob`) runs the runs-first planner and the realizer on a worker thread (`Task.Run`). Runs-first cannot be sliced over
+  frames, so the tool has no main-thread path. `ResortPlanner.md` (Runs-first in the tool) has the job, the inputs, the knobs and the
+  proof lines.
 - `QuickRunsToolSystem.Worker.cs` follows the pattern of the tree compose job (Trees.cs: launch with a GC count, stale test, poll + cancel,
-  `Task.Run`, collect with `IsFaulted` and the stale drop, the summary fields). The worker touches only the planner instance and its
-  input. It uses no Entities, no Unity API, and no log off the main thread.
-- States: Idle -> Running (worker, or main-thread slices of `ScanBudgetMs` with the fallback) -> collected on the main thread. Collect:
+  `Task.Run`, collect with `IsFaulted` and the stale drop, the summary fields). The worker touches only its job. It uses no Entities, no
+  Unity API, and no log off the main thread.
+- States: Idle -> Running (the worker) -> collected on the main thread. Collect:
   - `IsFaulted` -> `Fail(e, "scan worker")` (`!!!` line, tool disabled until the next load, closed when collected in the frame update).
   - Stale (a cancel or a newer request bumped `m_ScanGen`) or `Canceled` -> dropped.
-  - Else `m_Published = Result.Snapshot()` and the v1 epilogue (`FinishScan`).
-- Cancel (`CancelScanJob`): `DropPreview` during Scanning (right click, region edit, close, load, a knob while scanning). The worker
-  stops at its next unit (`AutoPlanCancel`, polled before every unit). A main-thread scan stops at once (`Step(0)` sees the request
-  before any unit). Only one job runs at a time. A scan requested while a canceled job is still stopping is queued (`m_PendingInput`,
-  START says "queued"). It launches when that job returns.
-- Knobs (`RescanForKnobs`, the one SetKnobs line):
-  - If no job is in flight, no scan is queued and the token is not requested: `Reselect` runs on the main thread. Then the Step loop
-    resumes on the worker (Reselect only sets the restart stage).
-  - Otherwise: cancel, then run a full scan with the new knobs.
+  - Else `m_Published` = the job's result as it is (no later job writes it).
+- Cancel (`CancelScanJob`): `DropPreview` during Scanning (right click, region edit, close, load, a knob while scanning). The planner and
+  the realizer poll one `AutoPlanCancel`. Only one job runs at a time. A scan requested while a canceled job is still stopping is queued
+  (START says "queued"). It launches when that job returns.
 - Phase machine: Build needs Preview (Build.cs). While Scanning, the hub refuses build / undo / plant / treesUndo / trees
   (`ScanBlocks`, one HubApply line). A canceled job may still be stopping in Region. Undo / Plant there are race-free (the worker
   reads only its own input, and the tree job reads `m_Published` and its own snapshot copy).
 - Plan context (main thread, sorted, spec 4.7):
-  - Pinned lifts = `LiftCensusSystem.CopyServeLifts` rows (order = `CopyRows`) with a chord sample (10 m) inside the region or within
-    150 m of it.
+  - Existing lifts = `LiftCensusSystem.CopyServeLifts` rows (order = `CopyRows`) with a chord sample (10 m) inside the region or within
+    150 m of it. The job blocks their stations and a corridor (`ResortPlanner.md`, the inputs).
   - Bottom / Top = the stub tips of the census stations (`StationAt`). NaN when not in the last build.
   - Key = FNV of the EntityRef of the row. TypeIndex = the type of the row.
   - Access = every live road edge in the net search tree within the bounds + 450 m, sampled about every 25 m along its curve.
     It also holds the Welcome Sign nearest the bounds center when within reach. The list is sorted by x then z, with duplicates removed.
   - Tree line = the current estimate of the tree tool unless stale or None, else NaN.
-- Fallback: Options > Diagnostics "Resort Planner on the main thread" (`PlannerOnMainThread`, default off). The code reads it at each
-  launch. It uses the v1 `Step(ScanBudgetMs)` slicing with the same planner and the same result (gate D-2).
 - Logs:
-  - START (+ pinned lifts, access points with their ms, worker / main thread, "queued").
-  - DONE (+ worker ms, main ms over frames, worst frame, gc0, then pods / lifts / home verdicts / dead ends / run km from the ResortPlan).
+  - START (+ existing lifts, access points with their ms, the inputs, cached plan or a new plan, "queued").
+  - DONE (+ worker ms, main ms over frames, worst frame, gc0, then the plan and realize summary).
   - CANCELED (every cancel of a running or queued scan, with the reason, ms so far and progress): always, not only with Diagnostics.
   - `!!!` on a fault.
   - The stale drop (`[probe] scan ... dropped`) and a queued launch: only with Measurement diagnostics.
-- Host gates (AutoGenBatch `WorkerTests.cs`):
-  - D-4 (Task.Run == calling thread in both modes, the same instance across threads, a Reselect resumed on a worker == a fresh run).
-  - D-5 (cancel at unit 1 / 10 / 100 / last), with these checks:
-    - Canceled.
-    - No unit after the request.
-    - Reselect refused.
-    - The next fresh run equals the uncanceled one.
-    - The latency of a cross-thread cancel.
-  - ProgressVolatile monotonic across threads.
-  - Snapshot() copy independence.
-- Spec deviations (A2):
-  - The snapshot buffers swap at launch, not at publish. The planner holds its buffer from launch on, so the swap must happen then.
-  - CANCELED is logged always (spec: Diagnostics only).
-  - The access collection is not sliced over frames (its ms is in the START line: slice it if the field shows it over 2 ms).
-  - Only the nearest Welcome Sign is an access point (the sign set is private to SkiRunOwnershipSystem).
-  - Two lines outside the reader lines in QuickRunsToolSystem.cs (SetKnobs -> `RescanForKnobs`, the HubApply `ScanBlocks` guard). The old
-    SetKnobs called `m_Planner.Reselect` on the main thread, a race with the worker.
+- Host gates in AutoGenBatch:
+  - `WorkerTests.cs`: a job in `Task.Run` equals one on the calling thread. Also a cross-thread cancel, progress and the snapshot contract.
+  - `WorkerTests.cs`: the Kinds re-realize, the planner inputs and the dump round trip.
+  - `RunsFirstPlannerTests.cs`: the planner object.
+- The snapshot buffers swap at launch, not at publish. The planner holds its buffer from launch on, so the swap must happen then.
+- The access collection is not sliced over frames (its ms is in the START line: slice it if the field shows it over 2 ms).
+- Only the nearest Welcome Sign is an access point (the sign set is private to SkiRunOwnershipSystem).
 
 ## Build
 - Build refuses when the city cannot pay the preview total (`QuickRunsRules.CanPay`, unlimited money reads 2e9, PlayerMoney.kMaxMoney).
+  With a Resort plan, the total is the fee of the runs plus the estimate of the proposed lifts that are on (`LiftCostOn`, plan 3.3).
+  The MoneyShort warning uses the same sum.
+- After the build (`FinishBuild`), the lift build queue builds the proposed lifts that are on (`ResortLiftBuildSystem.BuildAll`, plan
+  3.2: runs first, then lifts). A stopped build does not start it. The plan sheet stays (StationPlaceToolSystem.md).
 - Trees and run definitions never share a frame: a build with the tree filler on clears the tree preview and builds on the next frame.
 - The build is staged. Smoothness wins over speed. A large area may take tens of seconds, like Parking Lot Tool and ParkManager.
   - The enabled candidates queue up. The tool builds them in chunks of `BuildChunkRuns` (4). It emits, validates and applies one chunk
@@ -143,6 +136,14 @@ Undo works from the hub's Undo button only. Right click never undoes a built bat
 The code clears the batch list on load and when the tool closes. The bind check line survives a close. UNVERIFIED: an undo inside the
 150-frame bind window (a run not bound yet refunds 0, and binds after its delete is queued).
 
+Scan after Undo (2026-11-10): the build drops the plan (`FinishBuild`, phase Region). Before this change, Build stayed gray after an Undo
+until a new scan. Now Undo starts `ScanAfterUndo` 2 frames later (`ScanAfterUndoFrames`). This occurs when the region is closed, the tree filler
+is off, and no build or tree cycle runs (`ScanAfterUndoPossible`, checked again at the scan). A scan in flight starts again. The notice is UNDONE_RESCAN, or
+UNDONE when there is no scan. The obstacles are again those of the scan before the build (`m_AreaQuery` skips the Deleted runs). Thus the
+plan cache usually gives that plan back. The scan replaces the lift sheet (`PublishSheet`), as a scan by hand does. While Undo is possible, the
+lift queue has not run, because the queue closes the tool, and the close ends the Undo. Thus no sheet row of this build is Built.
+The player's left-out runs (`m_OffIds`) do not come back, because the build clears them.
+
 ## Tree filler
 - The filler uses the compose path of the glade tool with a fill mask (DECISIONS 412). It calls `SkiGladeCompose.Compose` with
   `ComposeInput.Fill = GladeMask` (holes = our runs and the enabled candidates plus 3 m, ground = the snapshot, ceiling = the tree line).
@@ -170,6 +171,13 @@ top cluster (hover: "beginner lift", "mid-station", "one lift here serves N runs
 is white, amber near the 9 km2 cap, and red over it. The tree-line contour is green. The code caches the pieces when the preview changes.
 Widths follow the camera zoom like the map. The piste map hides itself while this tool is open (`SkiPisteMapSystem.ToolHidesMap`).
 
+Runs-first plans (task R2-b) have up to about 170 areas, and 60 to 100 of them are cat tracks:
+- A cat track draws as its center line in yellow (`CatTrackColor`, 2.4 m wide). A ring of 10 m is two lines next to the pistes, and the two would not read apart.
+- A graded piste draws as a piste. Round 2 paints it, and the overlay says nothing about grading.
+- `Thin` cuts each ring to 1.5 m (a track line to 3 m) with Douglas-Peucker before it becomes pieces. A realized ring has a vertex each meter.
+- The piece budget `MaxPieces` went from 4096 to 12288. An area that does not fit is skipped whole and counted. One WARN line per published
+  plan names the count (`QuickRuns [overlay]`). The plan marks have their own cap (half the budget) and one WARN line too.
+
 ## Tooltip
 `QuickRunsTooltipSystem` (the pattern of the cat track tooltip, UpdateAfter TempCostTooltipSystem) shows these lines:
 
@@ -177,11 +185,11 @@ Widths follow the camera zoom like the map. The piste map hides itself while thi
 - Region size as a ProgressTooltip against the cap plus vertical.
 - Scan progress.
 - The refusal status.
-- Totals (runs, the mix template, fee, skiers a day).
+- Totals: the pistes, the cat tracks (a line of their own), the mix counts, fee, skiers a day. The mix line drops "of {target}" when the planner gives no target.
 - Tree counts and the tree line.
 - The progress line of the build or the planting (QUICK_BUILDING_PROGRESS / QUICK_PLANTING_PROGRESS, the same templates the hub uses).
 - Up to 8 warnings.
-- The line of the hovered cluster.
+- The line of the hovered cluster, or of the hovered lift group ("Runs from P2: ...", "Other runs: ..."). A hovered lift also shows how its line builds.
 
 The site verdict (DECISIONS 443) is one line (`QUICK_SITE[Gentle|Steep|VerySteep|Beyond]`, "average N %") in the Region step and the preview.
 The mean grade comes from two sources:
@@ -201,7 +209,7 @@ undo, trees, plant, treesUndo, treeLine, group, species, level, stop). C# clamps
 planting is in flight, it refuses every key but stop ("busy"). Progress fields: buildDone / buildTotal, planting, treesDone / treesTotal.
 
 ## Resort Planner hub side (task A7; `QuickRunsToolSystem.Plan.cs`, `QuickRunsPlanRules.cs`)
-- **Toggles**: `m_OffPods` / `m_OffLifts` hold plan keys (`PlanPod.Key`, `PlanLift.Key`), so they survive a Reselect. A new region and
+- **Toggles**: `m_OffPods` / `m_OffLifts` hold plan keys (`PlanPod.Key`, `PlanLift.Key`), so they survive a new realize of the same plan. A new region and
   `ResetAll` clear them. `RefreshEnabled` (Scan.cs, one added test: `&& !PlanLeftOut(r, i)`) leaves a run out in these cases:
   - Its pod is off.
   - The lift of its pod is off.
@@ -222,14 +230,16 @@ planting is in flight, it refuses every key but stop ("busy"). Progress fields: 
   area fits 9 km2. Right click clears those corners at once. The click does NOT scan: the player presses Scan or Enter. The lift becomes
   pinned the usual way (`CollectPinned` takes every census lift with a chord within 150 m of the region). A station without a line yet
   logs `[around]`, and the click places a corner as before.
-- **Knobs**: `lifts` / `home` are `HubApply` cases beside mix and density. They set `m_Knobs.Lifts / Home`, log through `SetKnobs`
-  (`KnobsText` names them) and take the `RescanForKnobs` path that A2 wrote (Reselect on the cached field with no job running, else
-  cancel + a full scan). The `ScanBlocks` guard that A2 added in HubApply is unchanged.
+- **Knobs** (stage A, now ignored: R2-a made `mix`, `lifts`, `home` and `shuffle` no-ops and R2-b removed their buttons): `lifts` / `home` were `HubApply` cases beside mix and density. They set `m_Knobs.Lifts / Home`, log through `SetKnobs`
+  (`KnobsText` names them) and take the `RescanForKnobs` path (a running job is canceled, then the scan: a cached plan realizes only). The `ScanBlocks` guard that A2 added in HubApply is unchanged.
 - **Tooltip** (`QuickRunsTooltipSystem`): with a plan, it shows the plan line (QUICK_PLAN_LINE), the honest mix, the proposal note and the
-  site detail line. The pod or lift under the cursor gets one line (QUICK_POD_LINE / QUICK_LIFT_LINE), and the lift also gets its verdict.
+  site detail line. The pod or lift under the cursor gets one line (QUICK_POD_LINE / QUICK_OTHER_LINE / QUICK_LIFT_LINE), and the lift also gets its verdict.
   The empty Region step shows QUICK_AROUND_LIFT when the census has a station. Texts: the keys of A0 plus three that A7 added
-  (`QUICK_SITE_DETAIL`, `QUICK_LIFT_ID_PINNED` = "Existing lift", `QUICK_POD_UNSERVED` = "no lift planned"). The hub mirrors them in
+  (`QUICK_SITE_DETAIL`, `QUICK_LIFT_ID_PINNED` = "Existing lift", `QUICK_POD_UNSERVED` = "no lift planned", replaced in R2-b by `QUICK_OTHER_LINE`). The hub mirrors them in
   hubText.ts.
+- **Plan sheet** (task R1-c): `FinishScan` gives the proposed lifts of the published plan to `ResortLiftBuildSystem.LoadFromPlan`
+  (`PublishSheet`). `TogglePlanKey` keeps the `On` flag of the rows in step (`SyncSheetToggles`). StationPlaceToolSystem.md has the
+  sheet, the queue and the marks outside the planner.
 - **Logs**:
   - `QuickRuns [toggle]: pod B OFF / lift P1 ON - N of M run(s) enabled, fee F`
   - `QuickRuns [around]: ...`
