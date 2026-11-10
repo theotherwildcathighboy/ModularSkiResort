@@ -101,6 +101,16 @@ namespace AutoGenBatch
                         if (p1.Spans[i].MinFloorMarginM < p1.Spans[ws].MinFloorMarginM)
                             ws = i;
                     Console.WriteLine(string.Format(ci, "  after: worst span {0} of {1} (from {2:F0} m), margin {3:+0.00;-0.00} m at {4:F0} m into it; end carriers {5:+0.0;-0.0} / {6:+0.0;-0.0} m", ws + 1, p1.Spans.Length, p1.Nodes[ws].AlongM, p1.Spans[ws].MinFloorMarginM, p1.Spans[ws].MinFloorMarginAtM, p1.EndCarrierA, p1.EndCarrierB));
+                    // RF_ALONG="0,30,245": the dump's ground on the queue line (from the base stub tip) and the high side (+-3 m), for a
+                    // comparison with a game log's Towers [plan] ground column
+                    string alongs = Environment.GetEnvironmentVariable("RF_ALONG");
+                    if (!string.IsNullOrEmpty(alongs))
+                        foreach (string s in alongs.Split(','))
+                        {
+                            float al = float.Parse(s, ci);
+                            float g0 = snap.Sample(e.PointAt(al)), gl = snap.Sample(e.PointAt(al, -3f)), gr = snap.Sample(e.PointAt(al, 3f));
+                            Console.WriteLine(string.Format(ci, "  ground at {0:F0} m: {1:F2} (high side {2:+0.0;-0.0})", al, g0, math.max(gl, gr) - g0));
+                        }
                     Console.WriteLine(string.Format(ci, "  after: {0}; over cap {1} (worst +{2:F1} deg{3}); queue {4}", e.Describe(), p1.OverCapTowers,
                         p1.MaxOverCapExcessDeg, first >= 0 ? string.Format(ci, ", tower {0} at {1:F0} m bends {2:F1}, limit {3:F0}", first,
                             p1.Nodes[first].AlongM, math.abs(p1.Nodes[first].DeflectionDeg), p1.Nodes[first].CapDeg) : "", p1.QueueBuild));
