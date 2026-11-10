@@ -140,23 +140,24 @@ namespace AutoGenBatch
         public static ScorePlan ScoreOfRealized(AutoPlanResult res, RunsFirstResult plan, bool skied)
         {
             var sp = new ScorePlan();
-            var lines = new List<(AutoRun Run, List<float2> Pts)>();
+            var lines = new List<(AutoRun Run, List<float2> Pts, List<float2[]> Rings)>();
             foreach (AutoRun r in res.Runs)
             {
                 if (skied && r.Kind != RunKind.CatTrack && r.Source >= 0 && lines.Count > 0)
                 {
-                    var (prev, prevPts) = lines[lines.Count - 1];
+                    var (prev, prevPts, prevRings) = lines[lines.Count - 1];
                     if (prev.Kind != RunKind.CatTrack && prev.Source == r.Source && r.Segment == prev.Segment + 1 &&
                         math.distance(prevPts[prevPts.Count - 1], r.Centerline[0]) <= SkiedJoinM)
                     {
                         prevPts.AddRange(r.Centerline);
-                        lines[lines.Count - 1] = (r, prevPts);
+                        prevRings.Add(r.Ring);
+                        lines[lines.Count - 1] = (r, prevPts, prevRings);
                         continue;
                     }
                 }
-                lines.Add((r, new List<float2>(r.Centerline)));
+                lines.Add((r, new List<float2>(r.Centerline), new List<float2[]> { r.Ring }));
             }
-            foreach (var (r, raw) in lines)
+            foreach (var (r, raw, rings) in lines)
             {
                 // the scorecard's windows count samples and assume the planner's 10 m step: a realized centerline (4 m) is fed at 10 m
                 List<float2> pts = Resample(raw, FeedStepM);
@@ -164,6 +165,9 @@ namespace AutoGenBatch
                     sp.Connectors.Add(pts);
                 else
                     sp.Runs.Add((pts, r.Kind == RunKind.Natural ? RunKind.Natural : RunKind.Groomed));
+                // scorecard v7: the built outline(s) are rated, no ribbon (a joined run takes its hardest piece's band). A track's outline
+                // is read only when its own grade makes it a graded diagonal (its ground band, grade mix)
+                sp.Rings[pts] = rings.ToArray();
             }
             foreach (RunsFirstResult.Lift l in plan.Lifts)
                 sp.Lifts.Add((l.Type, l.Bottom.xz, l.Top.xz));
@@ -219,7 +223,11 @@ namespace AutoGenBatch
             AutoPlanResult res = RunsFirstRealizer.Realize(plan, input, rep);
             ulong h1 = RunsFirstRealizer.Hash(res);
             ulong h2 = RunsFirstRealizer.Hash(RunsFirstRealizer.Realize(plan, InputOf(snap, ring), null));
+            if (Environment.GetEnvironmentVariable("RF_RIBBONCMP") == "1")
+                RibbonCompare(id, snap, plan, res, outDir);
+            var scoreSw = System.Diagnostics.Stopwatch.StartNew();
             RunsFirstScore.Result raw = RunsFirstScore.Evaluate(snap, ring, ScoreOfRaw(plan));
+            double scoreMs = scoreSw.Elapsed.TotalMilliseconds;
             RunsFirstScore.Result real = RunsFirstScore.Evaluate(snap, ring, ScoreOfRealized(res, plan));
             RunsFirstScore.Result skied = RunsFirstScore.Evaluate(snap, ring, ScoreOfRealized(res, plan, true));
             // the realized pistes with the raw plan connectors: which half of the plan the score loses
@@ -275,7 +283,9 @@ namespace AutoGenBatch
                 $"  graph: unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, bottom reach {rep.BottomReach}/{rep.Lifts}, no way to bottom {rep.NoWayToBottom}",
                 $"  lifts: {rep.Lifts}, tower plan sound {rep.LiftsClear}, hand fit chair/detachable/gondola/tram {rep.HandFitByType[0]}/{rep.HandFitByType[1]}/{rep.HandFitByType[2]}/{rep.HandFitByType[3]} " +
                     $"(spans {rep.HandFitSpans}, over cap {rep.HandFitOverCap}, too steep {rep.HandFitSteep}, clearance {rep.HandFitClearance}, edge slope {rep.HandFitEdge}, miss {rep.HandFitMiss}), sunk ends {rep.SunkEnds}, lot conflicts {rep.LotConflicts}",
-                $"  score: raw {rawT:F1}, as built {realT:F1} ({realT - rawT:+0.0;-0.0}), as skied {skiedT:F1} ({skiedT - rawT:+0.0;-0.0}), realized pistes with the raw connectors {mixT:F1}",
+                $"  score: raw {rawT:F1}, as built {realT:F1} ({realT - rawT:+0.0;-0.0}), as skied {skiedT:F1} ({skiedT - rawT:+0.0;-0.0}), realized pistes with the raw connectors {mixT:F1}; " +
+                    $"scorecard v{RunsFirstScore.Version}, raw scored in {scoreMs:F0} ms",
+                "  " + RunsFirstScore.ShapeLine(id + " raw", raw),
                 $"  time: plan {planMs:F0} ms, realize {rep.Ms:F0} ms (lattice {rep.LatticeMs:F0}, lifts {rep.LiftMs:F0}, pistes {rep.PisteMs:F0}, tracks {rep.TrackMs:F0}, graph {rep.GraphMs:F0}); " +
                     $"layers {rep.LayerBytes / 1048576.0:F1} MB; hash {h1:x16}{(h1 == h2 ? "" : " NOT DETERMINISTIC " + h2.ToString("x16"))}",
             };
@@ -291,7 +301,7 @@ namespace AutoGenBatch
                         $"line y {snap.Sample(new float3(a.x, 0, a.y)):F0} -> {snap.Sample(new float3(b.x, 0, b.y)):F0}");
                 }
             File.WriteAllLines(Path.Combine(outDir, id + ".txt"), lines.Concat(rep.Lines.Select(s => "  | " + s))
-                .Concat(new[] { "", RunsFirstScore.Line(id + " raw", raw), "", RunsFirstScore.Line(id + " realized", real), "", RunsFirstScore.Line(id + " skied", skied) })
+                .Concat(new[] { "", RunsFirstScore.Line(id + " raw", raw), RunsFirstScore.ShapeLine(id + " raw", raw), "", RunsFirstScore.Line(id + " realized", real), "", RunsFirstScore.Line(id + " skied", skied) })
                 .Concat(raw.Notes.Select(s => "  raw note: " + s)).Concat(real.Notes.Select(s => "  realized note: " + s)));
             string tsv = Path.Combine(outDir, "realize.tsv");
             if (!File.Exists(tsv))
@@ -318,6 +328,104 @@ namespace AutoGenBatch
                 KeptShare = kmPlan > 0 ? kmKept / kmPlan : 1.0, UnlinkedShare = ends > 0 ? (double)rep.UnlinkedEnds / ends : 0.0, Raw = rawT, Realized = realT, Skied = skiedT,
                 PlanMs = planMs, RealizeMs = rep.Ms, LayerMB = rep.LayerBytes / 1048576.0, Same = h1 == h2,
             };
+        }
+
+        // Scorecard v7's ribbon choice (RF_RIBBONCMP=1): the half widths measured against the realized outlines
+        private static readonly float[] CmpHalfWidths = { 7.5f, 10f, 12.5f, 15f, 17.5f, 20f };
+        private const byte NotRated = 255;
+
+        /// <summary>RF_RIBBONCMP=1: for every realized piste area, the band the rater gives its built outline (what the game shows)
+        /// against the band each candidate rule gives the RAW plan's run it came from: the planner's own band, the v6 rule, a ribbon of
+        /// each half width in CmpHalfWidths, and a ribbon at the half target width of the planner's band (PlanGeometry.TargetWidthM).
+        /// The same half widths are also built on the area's own realized centerline (same extent, width only). Km of the areas,
+        /// agreeing / candidate harder / candidate easier / not rated. Graded pistes: the v6 rule and GradedHalfWidthM ribbons on the
+        /// raw run and on the realized centerline. Writes one row per region to ribbon.tsv and prints one line.</summary>
+        private static void RibbonCompare(string id, HeightSnapshot snap, RunsFirstResult plan, AutoPlanResult res, string outDir)
+        {
+            var grid = new SlopeGrid();
+            var rr = new SlopeResult();
+            byte Rate(float2[] ring) => RunsFirstScore.RateRing(snap, ring, grid, rr, out SlopeBand b) ? (byte)b : NotRated;
+            byte Shown(SlopeBand b) => (byte)(b == SlopeBand.Flat ? SlopeBand.Green : b);
+            int nw = CmpHalfWidths.Length, nc = 3 + nw;   // planner, v6, widths..., target width
+            var names = new List<string> { "planner", "v6" };
+            names.AddRange(CmpHalfWidths.Select(w => "w" + w.ToString("0.#", CultureInfo.InvariantCulture)));
+            names.Add("target");
+            names.AddRange(CmpHalfWidths.Select(w => "local-w" + w.ToString("0.#", CultureInfo.InvariantCulture)));
+            names.AddRange(new[] { "graded-v6", "graded-w7.5", "graded-local-w7.5" });
+            int all = names.Count, g0 = nc + nw;
+            var agree = new double[all];
+            var harder = new double[all];
+            var easier = new double[all];
+            var unrated = new double[all];
+            double km = 0.0, gkm = 0.0;
+            int rerated = 0, rerateDiffers = 0;   // the scorecard's RateRing on the built ring against the realizer's AutoRun.Band
+            var memo = new Dictionary<int, byte[]>();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            void Count(int c, byte cand, byte shown, double k)
+            {
+                if (cand == NotRated)
+                    unrated[c] += k;
+                else if (cand == shown)
+                    agree[c] += k;
+                else if (cand > shown)
+                    harder[c] += k;
+                else
+                    easier[c] += k;
+            }
+            foreach (AutoRun a in res.Runs)
+            {
+                if (a.Kind == RunKind.CatTrack || a.Source < 0 || a.Source >= plan.Runs.Count)
+                    continue;
+                RunsFirstResult.Run src = plan.Runs[a.Source];
+                byte shown = Shown(a.Band);
+                rerated++;
+                if (Rate(a.Ring) != shown)
+                    rerateDiffers++;
+                double k = a.LengthM / 1000.0;
+                if (!memo.TryGetValue(a.Source, out byte[] bands))
+                {
+                    byte v6 = Shown(RunsFirstScore.GroundBandV6(snap, RunsFirstScore.SamplesOf(snap, src.Pts)));
+                    if (a.Graded)
+                        bands = new[] { v6, Rate(RunsFirstScore.RibbonOf(src.Pts, RunsFirstScore.GradedHalfWidthM)) };
+                    else
+                    {
+                        bands = new byte[nc];
+                        bands[0] = Shown(src.Band);
+                        bands[1] = v6;
+                        for (int w = 0; w < nw; w++)
+                            bands[2 + w] = Rate(RunsFirstScore.RibbonOf(src.Pts, CmpHalfWidths[w]));
+                        int tb = Math.Max(0, Math.Min(3, (int)src.Band - 1));
+                        bands[nc - 1] = Rate(RunsFirstScore.RibbonOf(src.Pts, 0.5f * PlanGeometry.TargetWidthM[tb]));
+                    }
+                    memo[a.Source] = bands;
+                }
+                if (a.Graded)
+                {
+                    gkm += k;
+                    Count(g0, bands[0], shown, k);
+                    Count(g0 + 1, bands[1], shown, k);
+                    Count(g0 + 2, Rate(RunsFirstScore.RibbonOf(a.Centerline, RunsFirstScore.GradedHalfWidthM)), shown, k);
+                    continue;
+                }
+                km += k;
+                for (int c = 0; c < nc; c++)
+                    Count(c, bands[c], shown, k);
+                for (int w = 0; w < nw; w++)
+                    Count(nc + w, Rate(RunsFirstScore.RibbonOf(a.Centerline, CmpHalfWidths[w])), shown, k);
+            }
+            string F(double v) => v.ToString("F3", CultureInfo.InvariantCulture);
+            var parts = new List<string>();
+            for (int c = 0; c < all; c++)
+            {
+                double tot = c >= g0 ? gkm : km;
+                parts.Add($"{names[c]} {(tot > 0 ? 100 * agree[c] / tot : 0):F0} %");
+            }
+            Console.WriteLine($"RIBBON {id}: {km:F2} km plain, {gkm:F2} km graded, agree {string.Join(", ", parts)}; " +
+                $"built rings re-rated by the scorecard {rerated}, band differs {rerateDiffers}; {sw.Elapsed.TotalMilliseconds:F0} ms");
+            string tsv = Path.Combine(outDir, "ribbon.tsv");
+            if (!File.Exists(tsv))
+                File.WriteAllText(tsv, "region\tplainKm\tgradedKm\t" + string.Join("\t", names.Select(n => $"{n}.agree\t{n}.harder\t{n}.easier\t{n}.unrated")) + "\n");
+            File.AppendAllText(tsv, string.Join("\t", new[] { id, F(km), F(gkm) }.Concat(Enumerable.Range(0, all).Select(c => $"{F(agree[c])}\t{F(harder[c])}\t{F(easier[c])}\t{F(unrated[c])}"))) + "\n");
         }
 
         private static string BandTable(RealizeReport rep)
