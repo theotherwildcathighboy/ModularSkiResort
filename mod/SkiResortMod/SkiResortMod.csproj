@@ -188,7 +188,11 @@
 	  SkiBuildStamp (before CoreCompile; every build, design-time builds included): compiles the stamp of the GATED bundle in
 	                build\ into SkiResortMod.BuildStamp.Value (obj\...\SkiBuildStamp.g.cs, rewritten only when the value changes,
 	                so an unchanged UI forces no recompile). The C# hub compares it with the bundle's uiHello. No UI: "no-ui"
-	                (also in a design-time build that finds an ungated bundle: no error there).
+	                (also in a design-time build that finds an ungated bundle: no error there). The same file also holds
+	                SkiResortMod.BuildStamp.Commit: the git short hash of HEAD, "+" appended when git reports changes under mod/
+	                is not empty, "nogit" when git fails (works in a worktree, where .git is a file).
+	                The stamp pairs the DLL with its bundle; the commit names the source. A commit change recompiles (the file
+	                is rewritten only when the value changes). tools/deploy-check.ps1 reads CommitTag from the DLL.
 	  SkiUiDeploy   (after DeployWIP, which deletes the deploy folder first, Mod.targets:106-113): copies build\ (minus
 	                .ui-stamp and .gate-pass) beside the DLL, after re-checking the marker and that build\ still holds the stamp
 	                compiled into the DLL. An error here leaves the new DLL deployed WITHOUT a bundle (logged in game as "UI
@@ -270,6 +274,25 @@
 			<SkiStampUi>false</SkiStampUi>
 			<SkiStampRead></SkiStampRead>
 		</PropertyGroup>
+		<!-- The commit this DLL is built from. 2>nul keeps git's errors out of ConsoleOutput; anything that is not a hex hash means "nogit". -->
+		<Exec Command="git rev-parse --short HEAD 2&gt;nul" WorkingDirectory="$(MSBuildProjectDirectory)" ConsoleToMSBuild="true" IgnoreExitCode="true"
+		      StandardOutputImportance="low" StandardErrorImportance="low" IgnoreStandardErrorWarningFormat="true">
+			<Output TaskParameter="ConsoleOutput" PropertyName="SkiGitHead" />
+			<Output TaskParameter="ExitCode" PropertyName="SkiGitHeadExit" />
+		</Exec>
+		<PropertyGroup>
+			<SkiCommitValue>nogit</SkiCommitValue>
+			<SkiGitHeadOk>false</SkiGitHeadOk>
+			<SkiGitHeadOk Condition="'$(SkiGitHeadExit)' == '0' And $([System.Text.RegularExpressions.Regex]::IsMatch('$(SkiGitHead)', '^[0-9a-f]{7,40}$'))">true</SkiGitHeadOk>
+		</PropertyGroup>
+		<Exec Condition="'$(SkiGitHeadOk)' == 'true'" Command="git status --porcelain -- .. 2&gt;nul" WorkingDirectory="$(MSBuildProjectDirectory)" ConsoleToMSBuild="true" IgnoreExitCode="true"
+		      StandardOutputImportance="low" StandardErrorImportance="low" IgnoreStandardErrorWarningFormat="true">
+			<Output TaskParameter="ConsoleOutput" ItemName="SkiGitDirty" />
+		</Exec>
+		<PropertyGroup Condition="'$(SkiGitHeadOk)' == 'true'">
+			<SkiCommitValue>$(SkiGitHead)</SkiCommitValue>
+			<SkiCommitValue Condition="'@(SkiGitDirty)' != ''">$(SkiGitHead)+</SkiCommitValue>
+		</PropertyGroup>
 		<ReadLinesFromFile File="$(SkiUiStampFile)" Condition="'$(SkiUiEnabled)' == 'true' And Exists('$(SkiUiStampFile)') And Exists('$(SkiUiBuildDir)\SkiResortMod.mjs')">
 			<Output TaskParameter="Lines" PropertyName="SkiStampRead" />
 		</ReadLinesFromFile>
@@ -303,6 +326,10 @@
 			<SkiStampLine Include="public const string Value = &quot;$(SkiStampValue)&quot;%3B" />
 			<SkiStampLine Include="/// &lt;summary&gt;True when this build deployed a UI bundle beside the DLL.&lt;/summary&gt;" />
 			<SkiStampLine Include="public static readonly bool UiBundled = $(SkiStampUi)%3B" />
+			<SkiStampLine Include="/// &lt;summary&gt;The git short hash of HEAD at build time, &quot;+&quot; appended when mod/ had uncommitted changes, &quot;nogit&quot; when git failed.&lt;/summary&gt;" />
+			<SkiStampLine Include="public const string Commit = &quot;$(SkiCommitValue)&quot;%3B" />
+			<SkiStampLine Include="/// &lt;summary&gt;Commit with a fixed prefix: what tools/deploy-check.ps1 finds when it scans the DLL bytes.&lt;/summary&gt;" />
+			<SkiStampLine Include="public const string CommitTag = &quot;ski-commit:$(SkiCommitValue)&quot;%3B" />
 			<SkiStampLine Include="}" />
 			<SkiStampLine Include="}" />
 		</ItemGroup>
@@ -311,7 +338,7 @@
 			<Compile Include="$(SkiBuildStampFile)" />
 			<FileWrites Include="$(SkiBuildStampFile)" />
 		</ItemGroup>
-		<Message Importance="high" Text="SkiResortMod: build stamp $(SkiStampValue) compiled into the DLL as SkiResortMod.BuildStamp.Value (UI bundle: $(SkiStampUi))" />
+		<Message Importance="high" Text="SkiResortMod: build stamp $(SkiStampValue) compiled into the DLL as SkiResortMod.BuildStamp.Value (UI bundle: $(SkiStampUi)), commit $(SkiCommitValue)" />
 	</Target>
 
 	<Target Name="SkiUiDeploy" AfterTargets="DeployWIP" Condition="'$(NeedBuild)' == 'true'">
