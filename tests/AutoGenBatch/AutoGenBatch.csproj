@@ -62,6 +62,7 @@
     <!-- The contract types and the shared geometry helpers that outlive the v1 / v2 planner -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\PlanContract.cs" Link="PlanContract.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\PlanGeometry.cs" Link="PlanGeometry.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstResult.cs" Link="RunsFirstResult.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.cs" Link="SkiRunAutoPlanner.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Select.cs" Link="SkiRunAutoPlanner.Select.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Kernels.cs" Link="SkiRunAutoPlanner.Kernels.cs" />

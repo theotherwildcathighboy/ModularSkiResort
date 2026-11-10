@@ -490,7 +490,7 @@ namespace AutoGenBatch
             for (int i = 0; i < lifts.Count; i++)
                 lifts[i].Id = i + 1;
             long ms = sw.ElapsedMilliseconds;
-            return new Planned { G = g, Acc = acc, AccR = accR, Lines = lines, Lifts = lifts, Built = built, Ms = ms, Result = MakeResult(built, lifts) };
+            return new Planned { G = g, Acc = acc, AccR = accR, Lines = lines, Lifts = lifts, Built = built, Ms = ms, Result = MakeResult(g, built, lifts) };
         }
 
         private static void RunRegion(string id, float2[] ring, HeightmapFile file, string outDir)
