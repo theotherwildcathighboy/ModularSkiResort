@@ -52,6 +52,8 @@ namespace SkiResortMod.Systems
         public readonly List<List<float2>> Links = new List<List<float2>>();
         public readonly List<Lift> Lifts = new List<Lift>();
         public readonly List<string> Log = new List<string>();
+        /// <summary>The planner's per-pass prints in pass order (RunsFirstPrint): the cross-runtime diagnosis. Not in the hash.</summary>
+        public readonly List<RunsFirstPrint> Passes = new List<RunsFirstPrint>();
 
         /// <summary>FNV-1a 64 over the plan: counts, then each run (kind, band, graded, surface, lift, points), connector, link and
         /// lift (type, kind, ends, rides down, way to the bottom). Coordinates are quantized to 0.01 m, so the hash is the same on any runtime that
@@ -118,6 +120,99 @@ namespace SkiResortMod.Systems
                 Long((long)lf.ToBottom);
             }
             return h;
+        }
+    }
+
+    /// <summary>A 64-bit print of the plan state after one planner pass or one realizer stage (port round 2b-f): the pass name, the
+    /// whole print, and one print and one count per part (planner: grid, flow, lines, lifts, runs, connectors, links; realizer: input,
+    /// elements, lifts, pistes, tracks, result). The prints read the float bits (no quantizing), so the first pass whose print differs
+    /// between two runtimes is the first pass whose state differs. A report only: no pass reads it.</summary>
+    public sealed class RunsFirstPrint
+    {
+        public string Pass;
+        public ulong Print;
+        public ulong[] Parts;
+        public int[] Counts;
+        public ulong[][] Items;   // per part: null, or one print per element (see Of)
+
+        public const ulong Seed = 14695981039346656037UL;
+
+        /// <summary>One 64-bit word into a running print (FNV-1a on whole words, plus a shift: cheap, not cryptographic).</summary>
+        public static ulong Mix(ulong h, ulong v)
+        {
+            h ^= v;
+            h *= 1099511628211UL;
+            return h ^ (h >> 29);
+        }
+
+        public static ulong Mix(ulong h, float v) => Mix(h, (ulong)math.asuint(v));
+
+        public static ulong Mix(ulong h, float2 p) => Mix(h, ((ulong)math.asuint(p.x) << 32) | math.asuint(p.y));
+
+        public static ulong Mix(ulong h, float3 p) => Mix(Mix(h, p.xz), p.y);
+
+        public static ulong Mix(ulong h, string s)
+        {
+            h = Mix(h, (ulong)(s?.Length ?? -1));
+            if (s != null)
+                foreach (char c in s)
+                    h = Mix(h, c);
+            return h;
+        }
+
+        public static ulong Mix(ulong h, List<float2> pts)
+        {
+            if (pts == null)
+                return Mix(h, ulong.MaxValue);
+            h = Mix(h, (ulong)pts.Count);
+            for (int i = 0; i < pts.Count; i++)
+                h = Mix(h, pts[i]);
+            return h;
+        }
+
+        public static ulong Mix(ulong h, float2[] pts)
+        {
+            if (pts == null)
+                return Mix(h, ulong.MaxValue);
+            h = Mix(h, (ulong)pts.Length);
+            for (int i = 0; i < pts.Length; i++)
+                h = Mix(h, pts[i]);
+            return h;
+        }
+
+        /// <summary>The print of the parts with their counts. items: per part, null or one print per element (lines, lifts, runs ...): the
+        /// part's print and count then come from them, and rf-replay names the first element that differs.</summary>
+        public static RunsFirstPrint Of(string pass, ulong[] parts, int[] counts, ulong[][] items = null)
+        {
+            if (items != null)
+                for (int i = 0; i < parts.Length; i++)
+                    if (items[i] != null)
+                    {
+                        ulong p = Seed;
+                        foreach (ulong e in items[i])
+                            p = Mix(p, e);
+                        parts[i] = p;
+                        counts[i] = items[i].Length;
+                    }
+            ulong h = Seed;
+            for (int i = 0; i < parts.Length; i++)
+                h = Mix(Mix(h, parts[i]), (ulong)counts[i]);
+            return new RunsFirstPrint { Pass = pass, Print = h, Parts = parts, Counts = counts, Items = items ?? new ulong[parts.Length][] };
+        }
+
+        /// <summary>"grid=89abcdef flow=..." (each print's low 32 bits), the log line's form.</summary>
+        public static string Text(IReadOnlyList<RunsFirstPrint> prints)
+        {
+            if (prints == null || prints.Count == 0)
+                return "none";
+            var sb = new System.Text.StringBuilder();
+            foreach (RunsFirstPrint p in prints)
+            {
+                if (sb.Length > 0)
+                    sb.Append(' ');
+                sb.Append(p.Pass.Replace(' ', '_')).Append('=').Append(((uint)p.Print).ToString("x8", System.Globalization.CultureInfo.InvariantCulture));
+            }
+            return sb.ToString();
         }
     }
 }

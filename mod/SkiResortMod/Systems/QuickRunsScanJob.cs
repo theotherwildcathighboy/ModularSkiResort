@@ -174,6 +174,11 @@ namespace SkiResortMod.Systems
             return sb.ToString();
         }
 
+        /// <summary>"planner [grid=89abcdef ...] realizer [lattice=...]": the low 32 bits of each pass print and stage print (port round
+        /// 2b-f), the scan's log line. rf-replay compares the full prints from a dump.</summary>
+        public string PrintsText() =>
+            "planner [" + RunsFirstPrint.Text(Plan?.Plan.Passes) + "] realizer [" + RunsFirstPrint.Text(Report.Stages) + "]";
+
         // ---------------------------------------------------------------- the planner's inputs from the tool's input
 
         /// <summary>What the planner must leave alone (plan 7.5), from the tool's input. bare = no input (the host's golden plans with none).

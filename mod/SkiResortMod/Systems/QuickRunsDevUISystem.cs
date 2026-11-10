@@ -6,6 +6,8 @@
 //       (no blocked ground, as the host's golden plans), so its plan hash must equal the golden line of that region.
 //     "dump [stem]": writes the last published scan's exact input and hashes to <user data>\Logs\SkiResortMod.<stem>.rfscan (stem:
 //       letters, digits, dash, default "scan"). The test host replays it: dotnet run ... -- rf-replay <file>.
+//       Version 2 (port round 2b-f) also holds the game's per-pass prints and its own plan: rf-replay names the first planner pass
+//       that differs from the host, rf-game-plans <dir> checks and scores the game's plans.
 // It acts only with Options > Diagnostics > Measurement diagnostics on. Otherwise every call is refused with a log line.
 // The trigger body only queues; OnUpdate (UIUpdate, main thread) parses and calls the tool (the hub's idiom: the tool acts in its own
 // update, QuickRunsToolSystem.DevScan / DevDump).
