@@ -53,6 +53,7 @@ type Game.Buildings.InitializeSystem class ffb44dbd08
 type Game.Buildings.InstalledUpgrade struct 5d1a6d280e m_Upgrade:Entity m_OptionMask:uint
 type Game.Buildings.LeisureProvider struct 57433bc5a2 burst:r:SkiDaySystem,SkiLodgeParkingSystem
 type Game.Buildings.Lot struct 158f58fe20 m_FrontHeights:float3 m_RightHeights:float3 m_BackHeights:float3 m_LeftHeights:float3
+type Game.Buildings.LotHeightSystem class a6e50b59ff
 type Game.Buildings.MailProducer struct 08e38ddd48 m_MailRequest:Entity m_SendingMail:ushort m_ReceivingMail:ushort m_DispatchIndex:byte m_LastUpdateTotalMail:ushort
 type Game.Buildings.Park struct 5aeb9bf4b2 m_Maintenance:short
 type Game.Buildings.ParkingFacility struct b29c555896 m_ComfortFactor:float m_Flags:ParkingFacilityFlags
