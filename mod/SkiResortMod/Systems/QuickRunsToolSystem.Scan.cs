@@ -128,6 +128,7 @@ namespace SkiResortMod.Systems
             m_StatusKey = QuickRunsRules.StatusKey(r.Status, m_Obstacles != null && m_Obstacles.Exists(o => o.Kind == AutoObstacleKind.Unowned));
             m_Phase = r.Status == AutoPlanStatus.Ok ? ToolPhase.Preview : ToolPhase.Region;
             RefreshEnabled();
+            PublishSheet($"scan ({m_ScanWhy})");   // the plan sheet takes the proposed lifts (Plan.cs)
             int slow = 0;   // the stage of the longest unit (StageMaxMs, P2): names what to slice next
             for (int s = 1; s < r.StageMaxMs.Length; s++)
                 if (r.StageMaxMs[s] > r.StageMaxMs[slow])
@@ -433,7 +434,7 @@ namespace SkiResortMod.Systems
             bool shown = m_Phase == ToolPhase.Preview && r.Status == AutoPlanStatus.Ok;
             if (shown)
             {
-                if (!QuickRunsRules.CanPay(CityMoney(), m_Totals.Fee))
+                if (!QuickRunsRules.CanPay(CityMoney(), m_Totals.Fee + LiftCostOn()))
                     m_ToolWarn |= QuickToolWarning.MoneyShort;
                 // Anarchy sets DisableInGame at Modification5 and clears it at ModificationEnd every frame, so GameChecks in ToolUpdate never sees it.
                 if (QuickRunsRules.ChecksOff(GameChecks()) || SkiOtherMods.AnarchyDetected)

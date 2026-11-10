@@ -390,6 +390,11 @@ namespace SkiResortMod
             updateSystem.UpdateAt<StationPlaceToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<StationPlaceProbeUISystem>(SystemUpdatePhase.UIUpdate);
 
+            // Resort Planner lift side (R1-c): the plan sheet's owner and the lift build queue. UIUpdate is load-bearing: it runs every frame,
+            // paused included, whatever tool is active, so the queue steps while the station placer or the lift-line tool is the active
+            // tool (an inactive tool never ticks, ToolSystem.cs:312-327). It only queues work for those tools: their own ToolUpdate emits.
+            updateSystem.UpdateAt<ResortLiftBuildSystem>(SystemUpdatePhase.UIUpdate);
+
             // Lift park emitter. EndFrameBarrier.CreateCommandBuffer throws at Modification4B (Game/SafeCommandBufferSystem.cs:16-23), so
             // the {Event, SubObjectsUpdated} entities are created at UIUpdate (after SystemOrder.cs:62). Without this line nothing is parked.
             updateSystem.UpdateAt<LiftParkSystem>(SystemUpdatePhase.UIUpdate);
@@ -398,6 +403,10 @@ namespace SkiResortMod
             // Gated by the LiftBuildAids setting inside the system.
             updateSystem.UpdateBefore<SkiStationAlignSystem, Game.Rendering.OverlayRenderSystem>(
                 SystemUpdatePhase.Rendering);
+
+            // The plan sheet's lifts not built yet, while a lift tool is in hand (Resort Planner R1-c). Before OverlayRenderSystem (same
+            // reason as SkiStationAlignSystem above). Reads the sheet ResortLiftBuildSystem writes at UIUpdate earlier in the frame.
+            updateSystem.UpdateBefore<ResortPlanMarksSystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
 
             // Piste-map overlay. Before OverlayRenderSystem (it completes every registered writer, then clears the lists, so the job must
             // be scheduled first). Reads the hub's state written at UIUpdate earlier in the frame (SystemOrder.cs:67-68).

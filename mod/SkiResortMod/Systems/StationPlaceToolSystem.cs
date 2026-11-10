@@ -1,7 +1,11 @@
-// The station placer: a scripted, prefab-less subclass of the vanilla ObjectToolBaseSystem that places ONE lift station from code. It is
-// the P0 probe of the Resort Planner round (option A: the planner builds the lifts) and the seed of the later placer (a queue, undo and the
-// hub come later). Entry: TryPlace(why, prefab, position, rotation), today only from the dev trigger (StationPlaceProbeUISystem,
-// Measurement diagnostics only).
+// The station placer: a scripted, prefab-less subclass of the vanilla ObjectToolBaseSystem that places lift stations from code, one at a
+// time from a queue. It was the P0 probe of the Resort Planner round (option A: the planner builds the lifts, DECISIONS 630). Entries:
+// Enqueue(why, request) (the lift build queue, ResortLiftBuildSystem) and TryPlace(why, prefab, position, rotation) (the dev trigger,
+// StationPlaceProbeUISystem, Measurement diagnostics only). Each request ends in one outcome: Placed (the permanent station), Refused (the
+// game's error types on the preview), or Canceled (dropped before its emission). TryGetOutcome reads it by serial. The tool stays active
+// while the queue holds requests and hands the tool back to the default tool when the queue is empty.
+// Own Temp: the Temp building count can include a selected building's Temp copy (P0 note 1), so FindTemp takes a Create Temp of the
+// request's prefab within OwnTempM (xz) of the requested position, the nearest one.
 // Why a subclass: vanilla builds no object definitions outside ObjectToolBaseSystem.CreateDefinitions, which is protected
 // (DC/Game.Tools/ObjectToolBaseSystem.cs:2363; 1.6.2f1 :2382 adds a PlacementOverrides argument). With one ControlPoint and distance 0 its
 // job emits the building at the point's position and rotation (:633 UpdateObject), with its sub-objects, SUB-NETS (the line and LV stubs)
@@ -23,6 +27,7 @@
 // Logs (silence impossible): ARMED / NOT ARMED per load. One line per request, activation, emission, Temp, verdict, APPLIED (entity,
 // Transform, Lot, sub-net nodes, sub-objects, sub-areas, money), follow-up and deactivation. An exception disables the tool until the next
 // load.
+// Engine notes: EngineNotes/StationPlaceToolSystem.md
 
 using System;
 using System.Collections.Generic;
@@ -49,8 +54,38 @@ namespace SkiResortMod.Systems
         private const int SettleFrames = 1;         // frames between the first sight of the Temp and the verdict (validation lands)
         private const int FollowUpFrames = 120;     // the follow-up line after Apply: the lot cut and LotHeightSystem have run by then
         private const int ApplyWaitFrames = 5;      // frames the Applying phase waits for the Temp tag to go before it searches by pose
+        private const float OwnTempM = 1f;          // our Temp stands at the requested xz (one control point, distance 0)
+        private const int MaxOutcomes = 64;         // outcomes kept for TryGetOutcome (the oldest go first)
+        private const int MaxQueued = 32;
 
         internal enum PlacePhase : byte { Idle, Pending, Emitted, Applying }
+
+        /// <summary>The state of one request. Pending covers queued and in flight.</summary>
+        internal enum PlaceStatus : byte { Pending, Placed, Refused, Canceled }
+
+        /// <summary>One station to place. Position y NaN = the vanilla height. Tag is the caller's (the build queue names the lift and the
+        /// role, CancelPending matches it).</summary>
+        internal struct PlaceRequest
+        {
+            public Entity Prefab;
+            public float3 Position;
+            public quaternion Rotation;
+            public string Tag;
+        }
+
+        /// <summary>The outcome of one request. Placed is the permanent station. ErrorTypes counts the game's error types on a refused
+        /// preview ("OverlapExisting x2, InWater x1"). FirstError is the first typed one (the sheet's reason key), else null.</summary>
+        internal sealed class PlaceOutcome
+        {
+            public int Serial;
+            public string Tag;
+            public PlaceStatus Status;
+            public Entity Placed;
+            public string Summary;
+            public string ErrorTypes;
+            public string FirstError;
+            public long Paid;
+        }
 
         /// <summary>The outcome of the last request. Placed is the permanent station (Entity.Null on a refusal). Summary is one line for a
         /// caller (the planner's lift row later).</summary>
@@ -77,6 +112,10 @@ namespace SkiResortMod.Systems
         internal bool IsDisabled => m_Disabled;
         internal PlacePhase Phase => m_Phase;
         internal PlaceResult LastResult => m_Result;
+        /// <summary>Requests waiting behind the one in flight.</summary>
+        internal int QueuedCount => m_Queue.Count;
+        /// <summary>A request is in flight or waiting.</summary>
+        internal bool Busy => m_Phase != PlacePhase.Idle || m_Queue.Count > 0;
 
         private CityConfigurationSystem m_CityConfig;
         private CitySystem m_CitySystem;
@@ -97,10 +136,16 @@ namespace SkiResortMod.Systems
         private int m_EmitFrame, m_SeenFrame = -1, m_ApplyFrame;
         private long m_MoneyBefore;
         private Entity m_Temp;
+        private PlaceOutcome m_Current;
 
-        // The follow-up after Apply
-        private Entity m_Watch;
-        private int m_WatchFrame = -1;
+        // The queue behind the request in flight, and the outcomes by serial
+        private readonly List<PlaceOutcome> m_Queue = new List<PlaceOutcome>();
+        private readonly List<PlaceRequest> m_QueueReq = new List<PlaceRequest>();
+        private readonly Dictionary<int, PlaceOutcome> m_Outcomes = new Dictionary<int, PlaceOutcome>();
+        private readonly Queue<int> m_OutcomeOrder = new Queue<int>();
+
+        // The follow-up after Apply (one per placed station)
+        private readonly List<(Entity station, int frame)> m_Watches = new List<(Entity station, int frame)>();
 
 
         protected override void OnCreate()
@@ -136,13 +181,19 @@ namespace SkiResortMod.Systems
             base.OnGameLoadingComplete(purpose, mode);
             m_Disabled = m_ErrorLogged = false;
             m_Phase = PlacePhase.Idle;
-            m_Temp = m_Watch = Entity.Null;
-            m_WatchFrame = -1;
+            m_Temp = Entity.Null;
+            m_Current = null;
+            m_Watches.Clear();
+            m_Queue.Clear();
+            m_QueueReq.Clear();
+            m_Outcomes.Clear();
+            m_OutcomeOrder.Clear();
             m_Result = default;
             m_Armed = mode == GameMode.Game;
             Mod.Log.Info(m_Armed
-                ? $"StationPlace [tool]: ARMED — '{toolID}' places one station from code (CreateDefinitions, one control point); the dev " +
-                  "trigger skiResortDev.probePlaceStation reaches it only with Measurement diagnostics on"
+                ? $"StationPlace [tool]: ARMED — '{toolID}' places stations from code, one at a time from a queue (CreateDefinitions, one " +
+                  "control point each); callers: the lift build queue, and the dev trigger skiResortDev.probePlaceStation (Measurement " +
+                  "diagnostics only)"
                 : $"StationPlace [tool]: NOT ARMED (mode {mode})");
         }
 
@@ -150,7 +201,7 @@ namespace SkiResortMod.Systems
         {
             base.OnStartRunning();
             applyMode = ApplyMode.None;
-            Mod.Log.Info($"StationPlace [tool]: running (phase {m_Phase}, request #{m_Serial})");
+            Mod.Log.Info($"StationPlace [tool]: running (phase {m_Phase}, request #{CurSerial}, {m_Queue.Count} queued)");
         }
 
         protected override void OnStopRunning()
@@ -163,12 +214,19 @@ namespace SkiResortMod.Systems
                     // (ToolSystem reads the new tool's applyMode on a switch, ToolSystem.cs:147-156).
                     if (!m_DefinitionQuery.IsEmptyIgnoreFilter)
                         EntityManager.DestroyEntity(m_DefinitionQuery);
-                    Finish(Entity.Null, $"closed by another tool in phase {m_Phase}: nothing placed");
+                    Finish(Entity.Null, PlaceStatus.Canceled, $"closed by another tool in phase {m_Phase}: nothing placed", null, null);
                 }
                 else if (m_Phase == PlacePhase.Applying)
-                    Mod.Log.Info("StationPlace [tool]: closed in the frame after Apply; the station is read by the follow-up line");
+                {
+                    // Apply ran: the station stands. Find it by pose now (the Temp entity is the station, ApplyObjectsSystem.cs:670)
+                    Entity found = EntityManager.Exists(m_Temp) && !EntityManager.HasComponent<Temp>(m_Temp) ? m_Temp : FindPermanent();
+                    Mod.Log.Info($"StationPlace [tool]: closed in the frame after Apply; station {(found == Entity.Null ? "not found yet" : Fmt(found))}");
+                    Finish(found, found != Entity.Null ? PlaceStatus.Placed : PlaceStatus.Refused,
+                           found != Entity.Null ? $"placed {Fmt(found)} (tool closed after Apply)" : "Apply ran, the tool closed, no station found", null, null);
+                }
+                CancelQueued("the tool was closed by another tool");
                 m_Phase = PlacePhase.Idle;
-                Mod.Log.Info($"StationPlace [tool]: stopped (request #{m_Serial})");
+                Mod.Log.Info($"StationPlace [tool]: stopped (request #{CurSerial})");
             }
             catch (Exception e)
             {
@@ -192,44 +250,116 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Place one station. position.y NaN = the vanilla height (terrain at the lot's front edge + placement offset). Activates
-        /// this tool; the emission runs in its next update. False (logged) when the tool is not armed, disabled, busy or the prefab is not
-        /// a building. Main thread, outside a job.</summary>
-        internal bool TryPlace(string why, Entity prefab, float3 position, quaternion rotation)
+        /// <summary>Place one station (the dev trigger's entry): Enqueue with no tag. True when the request was queued.</summary>
+        internal bool TryPlace(string why, Entity prefab, float3 position, quaternion rotation) =>
+            Enqueue(why, new PlaceRequest { Prefab = prefab, Position = position, Rotation = rotation, Tag = null }) > 0;
+
+        /// <summary>Queue one station. position.y NaN = the vanilla height (terrain at the lot's front edge + placement offset). Activates
+        /// this tool when it is idle; the emission runs in its next update. Returns the request's serial (read the outcome with
+        /// TryGetOutcome), or 0 (logged, an outcome Refused under the next serial is NOT kept) when the tool is not armed, disabled, the
+        /// queue is full or the request is malformed. Main thread, outside a job.</summary>
+        internal int Enqueue(string why, PlaceRequest request)
         {
             int serial = ++m_Serial;
+            Entity prefab = request.Prefab;
+            float3 position = request.Position;
             string refusal = !m_Armed ? "not armed (not in a game)"
                 : m_Disabled ? "disabled after an exception until the next load"
-                : m_Phase != PlacePhase.Idle ? $"busy with request in phase {m_Phase}"
+                : m_Queue.Count >= MaxQueued ? $"the queue is full ({MaxQueued})"
                 : prefab == Entity.Null ? "no prefab"
                 : !EntityManager.HasComponent<BuildingData>(prefab) ? $"prefab {PrefabNameOf(prefab)} is not a building"
                 : !math.isfinite(position.x) || !math.isfinite(position.z) ? "position x / z not finite"
                 : null;
             if (refusal != null)
             {
-                Mod.Log.Warn($"StationPlace [request]: #{serial} REFUSED ({why}) — {refusal}");
+                Mod.Log.Warn($"StationPlace [request]: #{serial} REFUSED ({why}{TagText(request.Tag)}) — {refusal}");
                 m_Result = new PlaceResult(Entity.Null, "refused: " + refusal, serial);
-                return false;
+                return 0;
             }
-            m_Why = why;
-            m_Prefab = prefab;
-            m_Rotation = math.normalizesafe(rotation, quaternion.identity);
-            m_Position = position;
-            m_Phase = PlacePhase.Pending;
-            m_Temp = Entity.Null;
-            m_SeenFrame = -1;
-            m_Result = new PlaceResult(Entity.Null, "pending", serial);
+            request.Rotation = math.normalizesafe(request.Rotation, quaternion.identity);
+            var outcome = new PlaceOutcome { Serial = serial, Tag = request.Tag, Status = PlaceStatus.Pending, Summary = "queued" };
+            Remember(outcome);
+            m_Queue.Add(outcome);
+            m_QueueReq.Add(request);
             Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
-                "StationPlace [request]: #{0} ({1}) — {2} at x {3:F2}, z {4:F2}, y {5}, yaw {6:F1} deg; active tool before: {7}",
-                serial, why, PrefabNameOf(prefab), position.x, position.z, math.isfinite(position.y) ? position.y.ToString("F2", CultureInfo.InvariantCulture) : "vanilla",
-                YawDeg(m_Rotation), m_ToolSystem.activeTool?.toolID ?? "none"));
+                "StationPlace [request]: #{0} ({1}{2}) — {3} at x {4:F2}, z {5:F2}, y {6}, yaw {7:F1} deg; {8} in the queue, phase {9}; active tool: {10}",
+                serial, why, TagText(request.Tag), PrefabNameOf(prefab), position.x, position.z,
+                math.isfinite(position.y) ? position.y.ToString("F2", CultureInfo.InvariantCulture) : "vanilla",
+                YawDeg(request.Rotation), m_Queue.Count, m_Phase, m_ToolSystem.activeTool?.toolID ?? "none"));
+            m_Why = why;
+            if (m_Phase == PlacePhase.Idle)
+                StartNext();
             if (!IsActive)
             {
                 m_ToolSystem.activeTool = this;
                 Mod.Log.Info($"StationPlace [tool]: activated ({why})");
             }
-            return true;
+            return serial;
         }
+
+        /// <summary>The outcome of a request by its serial (Pending while queued or in flight). False when the serial is unknown or too old
+        /// (the last MaxOutcomes are kept).</summary>
+        internal bool TryGetOutcome(int serial, out PlaceOutcome outcome) => m_Outcomes.TryGetValue(serial, out outcome);
+
+        /// <summary>Drop the queued requests with this tag (never the one in flight). Their outcome is Canceled. Returns the count.</summary>
+        internal int CancelPending(string tag, string why)
+        {
+            int n = 0;
+            for (int i = m_Queue.Count - 1; i >= 0; i--)
+            {
+                if (!string.Equals(m_Queue[i].Tag, tag, StringComparison.Ordinal))
+                    continue;
+                PlaceOutcome o = m_Queue[i];
+                o.Status = PlaceStatus.Canceled;
+                o.Summary = "canceled before its emission: " + why;
+                m_Queue.RemoveAt(i);
+                m_QueueReq.RemoveAt(i);
+                Mod.Log.Info($"StationPlace [request]: #{o.Serial}{TagText(tag)} CANCELED — {why}");
+                n++;
+            }
+            return n;
+        }
+
+        /// <summary>The next queued request becomes the one in flight (phase Pending). The caller keeps the tool active.</summary>
+        private void StartNext()
+        {
+            if (m_Queue.Count == 0)
+                return;
+            m_Current = m_Queue[0];
+            PlaceRequest r = m_QueueReq[0];
+            m_Queue.RemoveAt(0);
+            m_QueueReq.RemoveAt(0);
+            m_Prefab = r.Prefab;
+            m_Rotation = r.Rotation;
+            m_Position = r.Position;
+            m_Phase = PlacePhase.Pending;
+            m_Temp = Entity.Null;
+            m_SeenFrame = -1;
+            m_Current.Summary = "in flight";
+            m_Result = new PlaceResult(Entity.Null, "pending", m_Current.Serial);
+        }
+
+        private void CancelQueued(string why)
+        {
+            for (int i = 0; i < m_Queue.Count; i++)
+            {
+                m_Queue[i].Status = PlaceStatus.Canceled;
+                m_Queue[i].Summary = "canceled before its emission: " + why;
+                Mod.Log.Info($"StationPlace [request]: #{m_Queue[i].Serial}{TagText(m_Queue[i].Tag)} CANCELED — {why}");
+            }
+            m_Queue.Clear();
+            m_QueueReq.Clear();
+        }
+
+        private void Remember(PlaceOutcome o)
+        {
+            m_Outcomes[o.Serial] = o;
+            m_OutcomeOrder.Enqueue(o.Serial);
+            while (m_OutcomeOrder.Count > MaxOutcomes)
+                m_Outcomes.Remove(m_OutcomeOrder.Dequeue());
+        }
+
+        private static string TagText(string tag) => string.IsNullOrEmpty(tag) ? string.Empty : ", " + tag;
 
         /// <summary>Every frame (StationPlaceProbeUISystem): the follow-up line after an Apply, also while the tool is closed.</summary>
         internal void TickWatch()
@@ -238,13 +368,12 @@ namespace SkiResortMod.Systems
                 return;
             if (!IsActive)
                 m_Frame++;
-            if (m_WatchFrame < 0 || m_Frame < m_WatchFrame)
+            if (m_Watches.Count == 0 || m_Frame < m_Watches[0].frame)
                 return;
-            m_WatchFrame = -1;
             try
             {
-                Entity e = m_Watch;
-                m_Watch = Entity.Null;
+                Entity e = m_Watches[0].station;
+                m_Watches.RemoveAt(0);
                 if (!EntityManager.Exists(e) || EntityManager.HasComponent<Deleted>(e))
                 {
                     Mod.Log.Warn($"StationPlace [after]: the station {Fmt(e)} is gone {FollowUpFrames} frames after Apply");
@@ -275,6 +404,11 @@ namespace SkiResortMod.Systems
                         FinishApplied();
                         return inputDeps;
                     default:
+                        if (m_Queue.Count > 0)
+                        {
+                            StartNext();   // a request queued while idle and active: emit on the next update
+                            return inputDeps;
+                        }
                         Deactivate("idle");   // opened with nothing to place (never by the player: TrySetPrefab refuses every prefab)
                         return inputDeps;
                 }
@@ -284,7 +418,14 @@ namespace SkiResortMod.Systems
                 Fail(e, "OnUpdate");
                 applyMode = ApplyMode.Clear;
                 m_Phase = PlacePhase.Idle;
-                try { Deactivate("exception"); } catch (Exception) { /* logged */ }
+                try
+                {
+                    if (m_Current != null && m_Current.Status == PlaceStatus.Pending)
+                        Finish(Entity.Null, PlaceStatus.Refused, "the placer failed (exception, see the log)", null, null);
+                    CancelQueued("the placer failed (exception)");
+                    Deactivate("exception");
+                }
+                catch (Exception) { /* logged */ }
                 return inputDeps;
             }
         }
@@ -323,7 +464,7 @@ namespace SkiResortMod.Systems
             Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
                 "StationPlace [emit]: #{0} {1} definitions scheduled at ({2:F2}, {3:F2}, {4:F2}) yaw {5:F1} deg (line leaves toward {6}); money {7}; " +
                 "waiting for the game's Temp building (timeout {8} frames)",
-                m_Serial, PrefabNameOf(m_Prefab), p.x, p.y, p.z, YawDeg(m_Rotation), Dir(math.rotate(m_Rotation, new float3(0f, 0f, -1f))),
+                CurSerial, PrefabNameOf(m_Prefab), p.x, p.y, p.z, YawDeg(m_Rotation), Dir(math.rotate(m_Rotation, new float3(0f, 0f, -1f))),
                 m_MoneyBefore, TempTimeoutFrames));
             return JobHandle.CombineDependencies(destroy, create);
         }
@@ -339,10 +480,10 @@ namespace SkiResortMod.Systems
                     return inputDeps;
                 applyMode = ApplyMode.Clear;
                 JobHandle h = DestroyDefinitions(m_DefinitionQuery, m_ToolOutputBarrier, inputDeps);
-                Finish(Entity.Null, $"no Temp building {TempTimeoutFrames} frames after the emission");
-                Mod.Log.Warn($"StationPlace [verdict]: #{m_Serial} NOTHING PLACED — no Temp building of {PrefabNameOf(m_Prefab)} " +
+                Mod.Log.Warn($"StationPlace [verdict]: #{CurSerial} NOTHING PLACED — no Temp building of {PrefabNameOf(m_Prefab)} " +
                              $"{TempTimeoutFrames} frames after the emission (please send the log)");
-                Deactivate("no Temp");
+                Finish(Entity.Null, PlaceStatus.Refused, $"no Temp building {TempTimeoutFrames} frames after the emission", "no Temp", "NoTemp");
+                NextOrDeactivate("no Temp");
                 return h;
             }
             if (m_SeenFrame < 0)
@@ -351,7 +492,7 @@ namespace SkiResortMod.Systems
                 Temp t0 = EntityManager.GetComponentData<Temp>(m_Temp);
                 Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
                     "StationPlace [temp]: #{0} Temp building {1} after {2} frame(s): flags {3}, cost {4}, at {5}; {6} Temp building(s) in the world",
-                    m_Serial, Fmt(m_Temp), waited, t0.m_Flags, t0.m_Cost, PosOf(m_Temp), m_TempBuildingQuery.CalculateEntityCount()));
+                    CurSerial, Fmt(m_Temp), waited, t0.m_Flags, t0.m_Cost, PosOf(m_Temp), m_TempBuildingQuery.CalculateEntityCount()));
             }
             if (m_Frame - m_SeenFrame < SettleFrames)
                 return inputDeps;
@@ -365,18 +506,18 @@ namespace SkiResortMod.Systems
             if (!GetAllowApply())
             {
                 int errors = m_ErrorQuery.CalculateEntityCount();
-                string detail = DescribeErrors(out string summary);
+                string detail = DescribeErrors(out string summary, out string first);
                 applyMode = ApplyMode.Clear;   // ToolClearSystem deletes the Temps (ToolClearSystem.cs:63-113)
-                Finish(Entity.Null, $"refused by the game: {summary}");
-                Mod.Log.Warn($"StationPlace [verdict]: #{m_Serial} REFUSED — {errors} error(s) on the preview: {summary}; nothing placed{detail}");
-                Deactivate("refused");
+                Mod.Log.Warn($"StationPlace [verdict]: #{CurSerial} REFUSED — {errors} error(s) on the preview: {summary}; nothing placed{detail}");
+                Finish(Entity.Null, PlaceStatus.Refused, $"refused by the game: {summary}", summary, first);
+                NextOrDeactivate("refused");
                 return deps;
             }
             Temp t = EntityManager.GetComponentData<Temp>(m_Temp);
             applyMode = ApplyMode.Apply;   // ToolOutputSystem.cs:22-28 leads to ApplyObjectsSystem / ApplyNetSystem / ApplyAreasSystem
             m_Phase = PlacePhase.Applying;
             m_ApplyFrame = m_Frame;
-            Mod.Log.Info($"StationPlace [verdict]: #{m_Serial} APPLY — Temp {Fmt(m_Temp)} validated (flags {t.m_Flags}, cost {t.m_Cost}), " +
+            Mod.Log.Info($"StationPlace [verdict]: #{CurSerial} APPLY — Temp {Fmt(m_Temp)} validated (flags {t.m_Flags}, cost {t.m_Cost}), " +
                          $"{waited} frame(s) after the emission");
             return deps;
         }
@@ -391,32 +532,59 @@ namespace SkiResortMod.Systems
             {
                 // Fall back to the newest permanent building of the prefab at the pose (the Temp entity was not kept)
                 Entity found = FindPermanent();
-                Mod.Log.Warn($"StationPlace [applied]: #{m_Serial} the Temp {Fmt(e)} is not the permanent station the frame after Apply " +
+                Mod.Log.Warn($"StationPlace [applied]: #{CurSerial} the Temp {Fmt(e)} is not the permanent station the frame after Apply " +
                              $"(exists {EntityManager.Exists(e)}); by pose: {(found == Entity.Null ? "none" : Fmt(found))}");
                 e = found;
             }
             if (e == Entity.Null)
             {
-                Finish(Entity.Null, "Apply ran but no permanent station was found");
-                Deactivate("applied, not found");
+                Finish(Entity.Null, PlaceStatus.Refused, "Apply ran but no permanent station was found", "not found", "NotFound");
+                NextOrDeactivate("applied, not found");
                 return;
             }
             long after = CityMoney();
-            Mod.Log.Info($"StationPlace [applied]: #{m_Serial} APPLIED — {DescribeStation(e)}; money {m_MoneyBefore} -> {after} " +
+            Mod.Log.Info($"StationPlace [applied]: #{CurSerial} APPLIED — {DescribeStation(e)}; money {m_MoneyBefore} -> {after} " +
                          $"(paid {m_MoneyBefore - after}, prefab cost {CostOf(m_Prefab)})");
-            m_Watch = e;
-            m_WatchFrame = m_Frame + FollowUpFrames;
-            Finish(e, $"placed {Fmt(e)}");
-            Deactivate("applied");
+            m_Watches.Add((e, m_Frame + FollowUpFrames));
+            if (m_Current != null)
+                m_Current.Paid = m_MoneyBefore - after;
+            Finish(e, PlaceStatus.Placed, $"placed {Fmt(e)}", null, null);
+            NextOrDeactivate("applied");
         }
 
 
-        private void Finish(Entity placed, string summary)
+        private int CurSerial => m_Current != null ? m_Current.Serial : m_Serial;
+
+        /// <summary>The request in flight ends: its outcome, LastResult, phase Idle.</summary>
+        private void Finish(Entity placed, PlaceStatus status, string summary, string errorTypes, string firstError)
         {
-            m_Result = new PlaceResult(placed, summary, m_Serial);
+            m_Result = new PlaceResult(placed, summary, CurSerial);
+            if (m_Current != null)
+            {
+                m_Current.Status = status;
+                m_Current.Placed = placed;
+                m_Current.Summary = summary;
+                m_Current.ErrorTypes = errorTypes;
+                m_Current.FirstError = firstError;
+                Mod.Log.Info($"StationPlace [outcome]: #{m_Current.Serial}{TagText(m_Current.Tag)} {status} — {summary}; {m_Queue.Count} request(s) still queued");
+            }
+            m_Current = null;
             m_Phase = PlacePhase.Idle;
             m_Temp = Entity.Null;
             m_SeenFrame = -1;
+        }
+
+        /// <summary>After a verdict: the next queued request starts in the next update (the tool stays active), else the tool goes back to
+        /// the default tool.</summary>
+        private void NextOrDeactivate(string why)
+        {
+            if (m_Queue.Count > 0)
+            {
+                StartNext();
+                Mod.Log.Info($"StationPlace [tool]: next request #{CurSerial}{TagText(m_Current?.Tag)} ({why} before it); the tool stays active");
+                return;
+            }
+            Deactivate(why);
         }
 
         private void Deactivate(string why)
@@ -463,6 +631,7 @@ namespace SkiResortMod.Systems
         {
             count = 0;
             Entity best = Entity.Null;
+            float bestD = OwnTempM;
             using (NativeArray<Entity> temps = m_TempBuildingQuery.ToEntityArray(Allocator.Temp))
             {
                 count = temps.Length;
@@ -474,7 +643,15 @@ namespace SkiResortMod.Systems
                     Temp t = EntityManager.GetComponentData<Temp>(e);
                     if (t.m_Original != Entity.Null || (t.m_Flags & TempFlags.Create) == 0)
                         continue;
-                    best = e;
+                    // A selected building's Temp copy carries Select / an original (P0 note 1): only ours stands at the requested xz
+                    if (!EntityManager.TryGetComponent(e, out Game.Objects.Transform tr))
+                        continue;
+                    float d = math.distance(tr.m_Position.xz, m_Position.xz);
+                    if (d <= bestD)
+                    {
+                        bestD = d;
+                        best = e;
+                    }
                 }
             }
             return best;
@@ -549,9 +726,10 @@ namespace SkiResortMod.Systems
 
         /// <summary>Every entity the game flagged (the Error query of GetAllowApply, ToolBaseSystem.cs:313, 533-540): kind, prefab, Temp
         /// flags and the error types of its icons (IconElement → icon PrefabRef → ToolErrorData.m_Error, as LiftLineToolSystem reads them).
-        /// <paramref name="summary"/> counts per type.</summary>
-        private string DescribeErrors(out string summary)
+        /// <paramref name="summary"/> counts per type. <paramref name="first"/> is the first typed error met (null when none is typed).</summary>
+        private string DescribeErrors(out string summary, out string first)
         {
+            first = null;
             var counts = new SortedDictionary<string, int>();
             var sb = new StringBuilder();
             using (NativeArray<Entity> flagged = m_ErrorQuery.ToEntityArray(Allocator.Temp))
@@ -578,6 +756,8 @@ namespace SkiResortMod.Systems
                         if (EntityManager.TryGetComponent(icons[k].m_Icon, out PrefabRef ipr) &&
                             EntityManager.TryGetComponent(ipr.m_Prefab, out ToolErrorData ted))
                             type = ted.m_Error.ToString();
+                        if (first == null && type != "untyped")
+                            first = type;
                         Count(counts, type);
                         sb.Append(' ').Append(type);
                         if (EntityManager.TryGetComponent(icons[k].m_Icon, out Target target) && target.m_Target != Entity.Null)
