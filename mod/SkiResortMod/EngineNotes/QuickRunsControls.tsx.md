@@ -37,7 +37,7 @@
   scanning line with its progress stays, and the buttons gray.
 - `PlanRows` draw between the Way home row and the tree filler, only in the Preview with pods or lifts. In order:
   1. The plan line (QUICK_PLAN_LINE).
-  2. The lifts-are-proposals note.
+  2. The proposal note ("Build also builds each lift that is not grayed out") and, since R1-d, the lifts total line.
   3. The terrain's honest mix (QUICK_MIX_HONEST, whole percents). Black includes double black.
   4. One toggle row per lift: a check box, the lift line "P1: Detachable, 1.3 km, 540 m up, serves 7 runs", its way-home verdict, and its
      pod's enabled runs by color as the map's band markers with a number. A pinned lift reads "Existing lift".
@@ -56,3 +56,43 @@
   task's gates ran with a local, uncommitted bump to 22 (bindings.ts, SkiResortHubUISystem.cs, harness/scenarios.js `base.contract`).
 - Harness scenario "Resort Planner plan, Ash Flat (runs, lifts, problems)": 4 pods, 2 proposals + 1 pinned lift, one lift off, Way home
   Green. Shots `resort-planner-plan-1080` and `resort-planner-plan-1440-fs125` are in test-hub-layout's SHOTS.
+
+## The plan sheet's lifts block (task R1-d, contract 41)
+The planner proposes lifts and the engine builds them (StationPlaceToolSystem.md). The hub shows that work in one block. The block reads
+`quickRuns.sheet`, so it does not depend on the preview. It stays after the run build and with the planner closed.
+
+- Where it draws:
+  - With the planner closed, `RunsView` draws `LiftSheetRows` at the top of the Runs view when `sheetShows(q)` is true. It sits above
+    the rows of any other tool and a Divider separates them.
+  - With the planner open, `QuickRunsRows` draws the same block (`LiftSheetBlock`) after the tree filler and before the plan list.
+  - `sheetShows` is true when the sheet has rows and the phase is not Preview and not Scanning. A preview has its own lift rows. A new scan
+    replaces the sheet, so old rows are hidden while it runs.
+- In the preview only the lifts total shows (`LiftsTotalLine`, under the plan line). Reason: a Build lifts button in a preview would hand
+  the tool to the station placer. That closes the planner and drops the preview. C# refuses the lift calls then too (`plannerBusy`: a phase other than
+  Region, or planting). The UI disables the buttons in the same cases.
+- Block, top to bottom:
+  1. Build lifts (Stop while the queue runs, disabled once Stop was asked) and Clear list (disabled while the queue runs).
+  2. "Building lift N / M" or "Stopping after lift N / M" while the queue runs.
+  3. The notice of a refused call (`sheet.notice`, a locale key, it ends by itself after about 7 seconds).
+  4. The lifts total: "N of M lifts to build, about COST" (N = switched on and not built, M = not built), or "All N lifts built".
+  5. One row per lift (`SheetRow`): the lift line with its cost, the state line, and a Build button while the lift can be built.
+- State line, in priority order: building now, waiting for its turn (queued), then by `state`:
+  - Built. Not built yet (Proposed). Switched off in the plan (Proposed and off).
+  - Stations placed, no line yet (StationsPlaced). With a reason: "Stations placed, no line: WHY".
+  - Not built: WHY (Refused). Waiting in the lift tool: WHY (NeedsFitting).
+  - WHY is `reasonKey`, a `QUICK_LIFT_WHY[group]` key in SENT_KEYS. C# maps the queue's reason keys to a group (`ResortPlanSheet.ReasonGroup`).
+    An empty key on a Refused or Waiting row falls back to the GAME text. The warning color marks Refused, Waiting and a stopped row.
+- A row is not a toggle. The plan's on and off switches are the toggle rows in the preview (`PlanRows`). Here a left-out lift only dims.
+- Every action is `quickLiftsAct(action, key)`: buildAll, build (key = the row key), stop, clear. The calls only queue keys in C#.
+  C# answers a call it cannot take with a notice and a log line (ResortLiftBuildSystem.HubAct).
+- Layout: `.sheetRow` is a flex row with the text block on the left and the button on the right. `.sheetList` has no height cap and no inner
+  scroll. The Runs view scrolls as a whole (up to 15 lifts).
+- Harness scenarios (names end with "Ash Flat (runs, lifts, problems)" so the layout test checks them):
+  - "Resort Planner lifts, queue building (every row state)": planner closed, lift 2 / 3. It has 7 rows: built, building, queued,
+    refused (the longest reason), waiting in the lift tool, stations placed after a closed tool, and switched off.
+  - "Resort Planner lifts, queue stopping (planner open)": the same rows under the open planner, Stop asked.
+  - "Resort Planner lifts, idle with a refusal and a notice": a money refusal and the RunsBusy notice.
+  - "Resort Planner lifts, all built": the "All 2 lifts built" total.
+  - "Resort Planner plan" (the preview) gained a sheet: the lifts total line shows.
+- Shots in test-hub-layout's SHOTS list: `resort-planner-lifts-building-1080`, `resort-planner-lifts-stopping-1080`,
+  `resort-planner-lifts-idle-1080`.

@@ -3273,6 +3273,28 @@
   opacity: 0.55;
 }
 
+// The plan sheet's rows: no height cap and no inner scroll (up to 15 lifts), the Runs view scrolls as a whole.
+.sheetList {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+// The plan sheet's lift row (QuickRunsControls.tsx SheetRow, R1-d): the text block and, while the lift can be built, its Build button on the right.
+.sheetRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 2rem 10rem 2rem 10rem;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: var(--normalTextColor);
+}
+
 .planRowText {
   display: flex;
   flex-direction: column;

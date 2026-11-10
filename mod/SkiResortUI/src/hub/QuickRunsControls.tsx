@@ -10,6 +10,9 @@
  *    - The tree filler (on / off, density, tree line, species group chips and the single-species stepper, Plant / Undo trees).
  * A build runs a few runs per frame, and Plant plants a slice of trees per apply. The progress lines ("Building runs 4 / 11",
  * "Planting trees 2,400 / 9,000") show while either is in flight. Stop sits beside Undo (building) or in place of Plant (planting).
+ * The plan sheet's lifts block (R1-d, contract 41, LiftSheetBlock) shows the lifts the planner proposed with their build state, a Build button
+ * per lift, Build lifts / Stop, the lifts total and Clear list. It reads `quickRuns.sheet`, so it stays after the run build and with the tool
+ * closed (RunsView mounts LiftSheetRows then). Every action there is quickLiftsAct(action, key) and C# refuses a call it cannot take with a notice.
  * Every knob is a button here, so nothing needs a hotkey.
  * It reads only the non-CORE quickRuns binding (ok panel only). Every action is quickRunsSet(key, value) and C# clamps it. Each Button sits
  * in its own Tip (one focusable child per Tooltip FocusBoundary, TreeControls.tsx).
@@ -21,7 +24,7 @@ import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { GLADE_LEVEL_MAX, GLADE_LEVEL_MIN, clampGladeLevel, hubTriggers, quickRuns$ } from "../bindings";
 import { BAND } from "../bindings";
-import type { QuickRunsKey, QuickRunsLift, QuickRunsPod, QuickRunsState } from "../bindings";
+import type { QuickLiftsAction, QuickRunsKey, QuickRunsLift, QuickRunsPod, QuickRunsSheetRow, QuickRunsState } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
 import { rejectSummary } from "./hubRules";
@@ -50,10 +53,13 @@ const GROUPS: readonly LocEntry[] = [HUB_LOC.quickGroup0, HUB_LOC.quickGroup1, H
 const treeNameEntry = (prefab: string): LocEntry => ["Assets.NAME[" + prefab + "]", prefab];
 
 const set = (key: QuickRunsKey, value = 0): void => hubTriggers.quickRunsSet(key, value);
+const liftsAct = (action: QuickLiftsAction, key = 0): void => hubTriggers.quickLiftsAct(action, key);
 
 /* C# QuickRunsToolSystem.ClusterKey's pod keys (the rest is QUICK_CLUSTER). */
 const POD_BEGINNER = "SkiResort.Tooltip.QUICK_POD[Beginner]";
 const POD_MID = "SkiResort.Tooltip.QUICK_POD[MidStation]";
+/* The reason a plan sheet row falls back to when C# sends none (the text is in SENT_KEYS). */
+const LIFT_WHY_GAME = "SkiResort.Tooltip.QUICK_LIFT_WHY[GAME]";
 
 /* A build in flight (QuickRunsToolSystem.Building): the tool builds runs a chunk at a time until the build is done or stopped. */
 function building(q: QuickRunsState): boolean {
@@ -241,7 +247,7 @@ function PodPlanRow({ p, t, wait }: { p: QuickRunsPod; t: Translate; wait: boole
   return <PlanRow on={p.on} tip={t(HUB_LOC.quickPodTip)} wait={wait} onSelect={() => set("pod", p.key)} first={first} second={<BandCounts count={p.count} />} />;
 }
 
-/* The plan (Resort Planner v2), top to bottom: the plan line, the proposal note, the honest mix. Then one row per lift (with its
+/* The plan (Resort Planner v2), top to bottom: the plan line, the lifts total (R1-d), the honest mix, the proposal note. Then one row per lift (with its
    pod's band counts and way home). Then the pods without a lift. Nothing is drawn without a plan. */
 function PlanRows({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: boolean }): JSX.Element | null {
   if (q.phase !== "Preview" || (q.pods.length === 0 && q.planLifts.length === 0)) return null;
@@ -255,6 +261,7 @@ function PlanRows({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: boole
           PODS: numArg(p.pods, Unit.Integer), LIFTS: numArg(p.liftsProposed, Unit.Integer), KM: numArg(p.runKm, Unit.FloatSingleFraction),
         }} />
       </div>
+      <LiftsTotalLine q={q} />
       {mixSum > 0 && (
         <div className={styles.quickLine}>
           <LocText entry={HUB_FMT.quickMixHonest} args={{
@@ -338,6 +345,108 @@ function TreeRowsQuick({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: 
   );
 }
 
+/* ---- the plan sheet's lifts block (contract 41) ---------------------------------------------------------------------------------------- */
+
+/* The planner has a scan, a preview or a build in progress (C# ResortLiftBuildSystem.HubAct refuses the lift calls then too): building a lift
+   would take the tool from the planner and drop its preview. */
+function plannerBusy(q: QuickRunsState): boolean {
+  return q.phase !== "Region" || q.planting;
+}
+
+/* The block shows when the sheet has rows, except while the planner scans or previews: a preview has its own lift rows and a new scan replaces
+   the sheet. The lifts total still shows in the preview (LiftsTotalLine, PlanRows). */
+export function sheetShows(q: QuickRunsState | undefined): boolean {
+  return !!q && q.sheet.rows.length > 0 && q.phase !== "Preview" && q.phase !== "Scanning";
+}
+
+/* The lifts total, apart from the runs total: the lifts switched on and not built out of those not built, and what they cost. */
+function LiftsTotalLine({ q }: { q: QuickRunsState }): JSX.Element | null {
+  const s = q.sheet;
+  if (s.unbuilt > 0)
+    return (
+      <div className={styles.quickLine}>
+        <LocText entry={HUB_FMT.quickLiftsTotal} args={{ N: numArg(s.toBuild, Unit.Integer), M: numArg(s.unbuilt, Unit.Integer), COST: numArg(s.cost, Unit.Money) }} />
+      </div>
+    );
+  if (s.built > 0)
+    return <div className={styles.quickLine}><LocText entry={HUB_FMT.quickLiftsAllBuilt} args={{ N: numArg(s.built, Unit.Integer) }} /></div>;
+  return null;
+}
+
+/* A row's state as a line, and whether it is a caution (a refusal, or a lift waiting for the player). */
+function sheetState(r: QuickRunsSheetRow, t: Translate): { text: JSX.Element | string; warn: boolean } {
+  const why = (): string => t(sentKeyEntry(r.reasonKey || LIFT_WHY_GAME, HUB_LOC.quickUnavailable));
+  if (r.step === "building") return { text: t(HUB_LOC.quickLiftBuilding), warn: false };
+  if (r.step === "queued") return { text: t(HUB_LOC.quickLiftQueued), warn: false };
+  switch (r.state) {
+    case "Built": return { text: t(HUB_LOC.quickLiftBuilt), warn: false };
+    case "Refused": return { text: <LocText entry={HUB_FMT.quickLiftRefused} args={{ WHY: why() }} />, warn: true };
+    case "NeedsFitting": return { text: <LocText entry={HUB_FMT.quickLiftFitting} args={{ WHY: why() }} />, warn: true };
+    case "StationsPlaced":
+      return r.reasonKey ? { text: <LocText entry={HUB_FMT.quickLiftPlacedWhy} args={{ WHY: why() }} />, warn: true }
+        : { text: t(HUB_LOC.quickLiftPlaced), warn: false };
+    default: return { text: t(r.on ? HUB_LOC.quickLiftProposed : HUB_LOC.quickLiftOff), warn: false };
+  }
+}
+
+/* One lift of the sheet: the lift line with its cost, its state (and the reason), and its Build button while it can be built. A lift left out
+   of the plan dims. The row is not a toggle: the plan's switches are in the preview (PlanRows). */
+function SheetRow({ r, t, blocked }: { r: QuickRunsSheetRow; t: Translate; blocked: boolean }): JSX.Element {
+  const type = LIFT_TYPE[r.typeKey];
+  const state = sheetState(r, t);
+  const canBuild = r.state !== "Built" && !r.step;
+  return (
+    <div className={cx(styles.sheetRow, !r.on && r.state !== "Built" && styles.planRowOff)}>
+      <div className={styles.planRowText}>
+        <div>
+          <LocText entry={HUB_FMT.quickSheetLine} args={{
+            ID: r.name, TYPE: type ? t(type) : r.typeKey, LENGTH: numArg(r.lengthM / 1000, Unit.FloatSingleFraction),
+            RISE: numArg(Math.round(r.riseM), Unit.Integer), COST: numArg(r.cost, Unit.Money),
+          }} />
+        </div>
+        <div className={cx(styles.planRowSub, state.warn && styles.warnText)}>{state.text}</div>
+      </div>
+      {canBuild && <Act label={t(HUB_LOC.quickLiftBuild)} tip={t(HUB_LOC.quickLiftBuildTip)} next disabled={blocked} onSelect={() => liftsAct("build", r.key)} />}
+    </div>
+  );
+}
+
+/* The block: Build lifts (Stop while the queue runs) and Clear list, the progress, the notice of a refused call, the lifts total, the rows. */
+function LiftSheetBlock({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element | null {
+  if (!sheetShows(q)) return null;
+  const s = q.sheet;
+  const blocked = plannerBusy(q);
+  return (
+    <>
+      <div className={styles.quickRow}>
+        {s.running
+          ? <Act label={t(HUB_LOC.quickStop)} tip={t(HUB_LOC.quickLiftsStopTip)} disabled={s.stopping} onSelect={() => liftsAct("stop")} />
+          : <Act label={t(HUB_LOC.quickLiftsBuild)} tip={t(HUB_LOC.quickLiftsBuildTip)} disabled={blocked || s.toBuild <= 0} onSelect={() => liftsAct("buildAll")} />}
+        <Act label={t(HUB_LOC.quickLiftsClear)} tip={t(HUB_LOC.quickLiftsClearTip)} next disabled={blocked || s.running} onSelect={() => liftsAct("clear")} />
+      </div>
+      {s.running && s.total > 0 && (
+        <div className={styles.quickLine}>
+          {s.stopping
+            ? <LocText entry={HUB_FMT.quickStoppingLift} args={{ N: numArg(s.index, Unit.Integer), M: numArg(s.total, Unit.Integer) }} />
+            : <LocText entry={HUB_FMT.quickBuildingLift} args={{ N: numArg(s.index, Unit.Integer), M: numArg(s.total, Unit.Integer) }} />}
+        </div>
+      )}
+      {s.notice && <div className={styles.quickLine}>{t(sentKeyEntry(s.notice, HUB_LOC.quickUnavailable))}</div>}
+      <LiftsTotalLine q={q} />
+      <div className={styles.sheetList}>
+        {s.rows.map((r) => <SheetRow key={"s" + r.key} r={r} t={t} blocked={blocked} />)}
+      </div>
+    </>
+  );
+}
+
+/* The block with the planner closed (RunsView draws it at the top of the Runs view when sheetShows). */
+export function LiftSheetRows(): JSX.Element | null {
+  const t = useT();
+  const q = useValue(quickRuns$);
+  return <LiftSheetBlock q={q} t={t} />;
+}
+
 /* The Runs view's top rows while the Quick runs tool is open (RunsView draws TreeRows otherwise). */
 export function QuickRunsRows(): JSX.Element {
   const t = useT();
@@ -394,6 +503,7 @@ export function QuickRunsRows(): JSX.Element {
         <Act label={t(HOME[q.home] ?? HOME[0])} tip={t(HUB_LOC.quickHomeTip)} disabled={wait} onSelect={() => set("home", (q.home + 1) % HOME.length)} />
       </div>
       <TreeRowsQuick q={q} t={t} wait={wait} />
+      <LiftSheetBlock q={q} t={t} />
       <div className={styles.planList}>
         <PlanRows q={q} t={t} wait={wait} />
       </div>

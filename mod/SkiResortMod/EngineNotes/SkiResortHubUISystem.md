@@ -445,6 +445,9 @@ Appended fields and bindings by contract:
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan). `quickRunsSet` gains `lifts`,
   `home`, `pod`, `lift`. The integration branch carries this bump from the A7 merge, so its gates stay green. Re-bump if main takes
   22 first.
+- 41: the plan sheet's lifts (Resort Planner round, task R1-d). `QuickRunsState` appends `sheet` (`QuickRunsSheet`: rows, running,
+  index, total, stopping, toBuild, unbuilt, built, cost, notice, with `QuickRunsSheetRow` rows). The trigger `quickLiftsAct(action, key)`
+  is new (QuickLiftsAction: buildAll, build, stop, clear). See "Plan sheet lifts (contract 41)" below.
 - 40: the receipt's missing lines (icon scheme). `ResortLive` appends `varietyBands` (int: bits 1 green, 2 blue, 4 black or harder of
   `SkiResortScore.Result.VarietyBands`, the counted Rated runs) and `verticalShortM` (float: `HubRules.VerticalShortM`, meters to the full
   vertical bonus). Both are -1 without a score (no Result, Not linked). The Variety row's "Missing:" line and flag name the cleared bits.
@@ -504,6 +507,38 @@ Appended fields and bindings by contract:
   Region step's "click a lift station" hint). `plan.mountainMix` is [flat, green, blue, black + double black, 0]
   (QuickRunsPlanRules.MixPercents, same numbers as the tooltip). `plan.siteBenchHa` is a float (one decimal). A lift row's `on` means
   the lift AND its pod are on. Unshipped, like 22: renumber at the main merge.
+
+## Plan sheet lifts (contract 41)
+The Resort Planner's plan sheet (ResortPlanSheet, StationPlaceToolSystem.md) reaches the hub in two parts.
+
+**The `sheet` field.** `WriteQuickRuns` writes it at the end of the state, inside the same function (rule R2). It does not depend on the
+preview. The rows come from `ResortLiftBuildSystem.Sheet`, so they stay after the run build and with the planner closed.
+- `rows` (QuickRunsSheetRow) have these fields:
+  - key (the row key as a signed int), name ("P1"), typeKey (catalog id).
+  - lengthM (horizontal chord of the two spots), riseM, cost (the estimate, clamped to int).
+  - on, state (SheetLiftState name), step, reasonKey.
+  - `step` is "building" for the lift in flight, "queued" for a key waiting in the queue, else "".
+  - `reasonKey` is "" or `SkiResort.Tooltip.QUICK_LIFT_WHY[group]`. The group comes from `ResortPlanSheet.ReasonGroup`.
+- `running`, `index`, `total`, `stopping`: the queue. `index` and `total` give "Building lift N / M" and are 0 when idle. `stopping`
+  is true after Stop while a lift is still in flight.
+- `toBuild` (on and not built), `unbuilt`, `built`, `cost` (the estimate of the `toBuild` lifts): the lifts total.
+- `notice`: a locale key for the latest refused lift call, "" when none. It ends after 420 frames.
+
+**The push.** `PushQuickRuns` also compares the sheet's `Revision`, the queue's `QueueRevision` and whether a notice stands. Any change
+pushes the binding. The queue revision moves with every start, step, end, stop and notice, because none of those change a sheet row.
+
+**The trigger `quickLiftsAct(action, key)`.** The hub queues it like every trigger. `ApplyQuickLiftsAct` calls
+`ResortLiftBuildSystem.HubAct`, which calls the queue's entry points (`BuildAll`, `BuildOne`, `Stop`, `ClearSheet`). They only queue keys
+or empty the sheet, so they are safe in the hub's update (no command buffer). A call the queue cannot take gets a notice and a log line
+`ResortLifts [hub]`, and the hub adds `Hub [quickLifts]`:
+- Not armed or disabled: notice Off.
+- `plannerBusy` (the planner has a phase other than Region, or plants trees): notice RunsBusy. Reason: a lift build takes the tool from the
+  planner and drops the preview. Applies to buildAll, build and clear.
+- buildAll with no lift on and unbuilt: Nothing. buildAll or build when every such lift is queued: Queued. build of an unknown or built row: Nothing.
+- clear while the queue runs: Busy.
+- stop is never refused (idle is a log line).
+
+The DUMP gains a `planSheet:` line (rows, revision, queue state, lifts to build and their estimate).
 
 ## Safety net fence tile (no contract change)
 The Runs tab's sixth tile is `safetyFence` (SkiCatalog item kind Fence, prefab SkiSafetyFence, PrefabID type NetFencePrefab,

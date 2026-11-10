@@ -6,6 +6,9 @@
 // Resort Planner v2 (stage A, task A7): the Lifts / Way home knobs (liftsKnob, home) and, while a plan is showing, its pods, lifts and
 // summary (pods, planLifts, plan). Every one is empty or zero without a plan, so a Region step writes the same binding as before plus
 // those empty fields.
+// Contract 41 (Resort Planner round, task R1-d): the `sheet` field of the binding (written inside WriteQuickRuns, rule R2: the plan sheet's rows, the lift queue's
+// progress, the lifts total, a notice) and the quickLiftsAct(action, key) trigger (buildAll, build, stop, clear: ResortLiftBuildSystem.HubAct).
+// The rows come from the sheet, not from the planner's preview, so they stay after the run build and with the tool closed.
 // Engine notes: EngineNotes/SkiResortHubUISystem.md (Quick runs)
 
 using System.Collections.Generic;
@@ -18,14 +21,47 @@ namespace SkiResortMod.Systems
     public sealed partial class SkiResortHubUISystem
     {
         private QuickRunsToolSystem m_QuickRunsTool;
+        private ResortLiftBuildSystem m_LiftBuild;   // the plan sheet and the lift build queue (resolved lazily, GetExisting)
         private RawValueBinding m_QuickRuns;
         private int m_QuickRunsKey = int.MinValue;
+        private int m_LiftsSheetRev = -1, m_LiftsQueueRev = -1;
+        private bool m_LiftsNotice;
         private bool m_QuickRunsWasActive;
 
         private void OnQuickRunsToggle() => Trigger("quickRunsToggle", new Request { Kind = RequestKind.QuickRunsToggle });
 
         private void OnQuickRunsSet(string key, int value) =>
             Trigger("quickRunsSet", new Request { Kind = RequestKind.QuickRunsSet, Text = key, Int = value });
+
+        /// <summary>Contract 41: the plan sheet's buttons. key: "buildAll", "build" (value = the row's key, a signed int), "stop", "clear".</summary>
+        private void OnQuickLiftsAct(string action, int value) =>
+            Trigger("quickLiftsAct", new Request { Kind = RequestKind.QuickLiftsAct, Text = action, Int = value });
+
+        private ResortLiftBuildSystem LiftBuildSys()
+        {
+            if (m_LiftBuild == null)
+                m_LiftBuild = World.GetExistingSystemManaged<ResortLiftBuildSystem>();
+            return m_LiftBuild;
+        }
+
+        /// <summary>The plan sheet's four calls go to the lift build queue (ResortLiftBuildSystem.HubAct), which refuses with a notice and a
+        /// log line when it cannot take the call. The Resort Planner tool with a scan, a preview or a build in progress blocks them (a lift
+        /// build would take the tool from the planner and drop its preview).</summary>
+        private void ApplyQuickLiftsAct(string action, int value, string source)
+        {
+            ResortLiftBuildSystem lb = LiftBuildSys();
+            string what;
+            if (lb == null)
+                what = "refused: the lift build system does not exist";
+            else
+            {
+                QuickRunsToolSystem t = m_QuickRunsTool;
+                bool plannerBusy = t.Phase != QuickRunsToolSystem.ToolPhase.Region || t.Planting;
+                what = lb.HubAct(action ?? "", unchecked((uint)value), plannerBusy);
+            }
+            Mod.Log.Info($"Hub [quickLifts] {action} {value} — {what} ({source})");
+            LastTriggerText = $"quickLiftsAct({action}, {value}) → {what}";
+        }
 
         /// <summary>The glade toggle's pattern: Deactivate when active, else TryActivate (which owns the gating and logs its refusal: the
         /// option off, not armed, disabled).</summary>
@@ -55,9 +91,16 @@ namespace SkiResortMod.Systems
         {
             QuickRunsToolSystem t = m_QuickRunsTool;
             int key = t.HubRevision * 8 + (t.UnavailableReasonKey == null ? 1 : 0) + (t.IsActive ? 2 : 0) + (t.CanPlanAround ? 4 : 0);
-            if (!resubscribed && key == m_QuickRunsKey)
+            // The plan sheet and the lift queue (contract 41) move on their own revisions, and a notice ends by time.
+            ResortLiftBuildSystem lb = LiftBuildSys();
+            int sheetRev = lb != null ? lb.Sheet.Revision : -1, queueRev = lb != null ? lb.QueueRevision : -1;
+            bool notice = lb != null && lb.Notice != null;
+            if (!resubscribed && key == m_QuickRunsKey && sheetRev == m_LiftsSheetRev && queueRev == m_LiftsQueueRev && notice == m_LiftsNotice)
                 return;
             m_QuickRunsKey = key;
+            m_LiftsSheetRev = sheetRev;
+            m_LiftsQueueRev = queueRev;
+            m_LiftsNotice = notice;
             m_QuickRuns.Update();
         }
 
@@ -324,7 +367,81 @@ namespace SkiResortMod.Systems
             writer.PropertyName("siteBenchHa");
             writer.Write(plan != null ? (float)System.Math.Round(Finite(plan.Site.LargestBenchHa), 1) : 0f);
             writer.TypeEnd();
+            // Contract 41: the plan sheet and the lift queue (the rows come from the sheet, not from the preview; same function as the state, rule R2)
+            ResortLiftBuildSystem lb = LiftBuildSys();
+            ResortPlanSheet sheet = lb?.Sheet;
+            int n = sheet != null ? sheet.Count : 0;
+            writer.PropertyName("sheet");
+            writer.TypeBegin("SkiResortMod.QuickRunsSheet");
+            writer.PropertyName("rows");
+            writer.ArrayBegin((uint)n);
+            uint inFlight = lb != null ? lb.InFlightKey : 0u;
+            IReadOnlyList<uint> pending = lb != null ? lb.PendingKeys : null;
+            for (int i = 0; i < n; i++)
+            {
+                ResortPlanSheet.Row row = sheet.Rows[i];
+                string step = row.Key == inFlight && lb.QueueRunning ? "building" : IsPending(pending, row.Key) ? "queued" : "";
+                string group = ResortPlanSheet.ReasonGroup(row.ReasonKey);
+                writer.TypeBegin("SkiResortMod.QuickRunsSheetRow");
+                writer.PropertyName("key");
+                writer.Write(unchecked((int)row.Key));
+                writer.PropertyName("name");
+                writer.Write(row.Name ?? "");
+                writer.PropertyName("typeKey");
+                writer.Write(row.TypeIndex < SkiCatalog.Lifts.Count ? SkiCatalog.Lifts[row.TypeIndex].Id : "");
+                writer.PropertyName("lengthM");
+                writer.Write(Finite(Unity.Mathematics.math.distance(row.Bottom.xz, row.Top.xz)));
+                writer.PropertyName("riseM");
+                writer.Write(Finite(row.Top.y - row.Bottom.y));
+                writer.PropertyName("cost");
+                writer.Write((int)System.Math.Min(System.Math.Max(row.Cost, 0L), int.MaxValue));
+                writer.PropertyName("on");
+                writer.Write(row.On);
+                writer.PropertyName("state");
+                writer.Write(s_SheetStateNames[(int)row.State]);
+                writer.PropertyName("step");
+                writer.Write(step);
+                writer.PropertyName("reasonKey");
+                writer.Write(group.Length == 0 ? "" : LiftWhyPrefix + group + "]");
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
+            bool running = lb != null && lb.QueueRunning;
+            writer.PropertyName("running");
+            writer.Write(running);
+            writer.PropertyName("index");
+            writer.Write(lb != null ? lb.QueueIndex : 0);
+            writer.PropertyName("total");
+            writer.Write(running ? lb.QueueTotal : 0);
+            writer.PropertyName("stopping");
+            writer.Write(lb != null && lb.QueueStopping);
+            // The lifts total (apart from the runs total): the lifts switched on and not built, the lifts not built, the built ones and the
+            // estimate of the first group (stations plus line, SkiCatalog; stations a row already has are not taken off)
+            writer.PropertyName("toBuild");
+            writer.Write(sheet != null ? sheet.CountToBuild() : 0);
+            writer.PropertyName("unbuilt");
+            writer.Write(sheet != null ? sheet.CountUnbuilt() : 0);
+            writer.PropertyName("built");
+            writer.Write(sheet != null ? sheet.CountIn(SheetLiftState.Built) : 0);
+            writer.PropertyName("cost");
+            writer.Write(sheet != null ? (int)System.Math.Min(sheet.CostToBuild(), int.MaxValue) : 0);
+            writer.PropertyName("notice");
+            writer.Write(lb?.Notice ?? "");
             writer.TypeEnd();
+            writer.TypeEnd();
+        }
+
+        private static readonly string[] s_SheetStateNames = System.Enum.GetNames(typeof(SheetLiftState));
+        private const string LiftWhyPrefix = "SkiResort.Tooltip.QUICK_LIFT_WHY[";
+
+        private static bool IsPending(IReadOnlyList<uint> pending, uint key)
+        {
+            if (pending == null)
+                return false;
+            for (int i = 0; i < pending.Count; i++)
+                if (pending[i] == key)
+                    return true;
+            return false;
         }
 
         private static readonly string[] s_TerrainBandNames = System.Enum.GetNames(typeof(TerrainBand));
@@ -359,6 +476,12 @@ namespace SkiResortMod.Systems
               .Append(t.LastBuildText).Append("', batch ").Append(t.BatchRuns).Append(" run(s), trees ").Append(t.TreesOn ? "on" : "off")
               .Append(" (").Append(t.TreeBatchCount).Append(" undoable), hub revision ")
               .Append(t.HubRevision.ToString(CultureInfo.InvariantCulture)).Append('\n');
+            ResortLiftBuildSystem lb = LiftBuildSys();
+            if (lb != null)
+                sb.Append("  planSheet: ").Append(lb.Sheet.Count).Append(" lift(s), revision ").Append(lb.Sheet.Revision.ToString(CultureInfo.InvariantCulture))
+                  .Append(", queue ").Append(lb.QueueRunning ? $"running {lb.QueueIndex} / {lb.QueueTotal}{(lb.QueueStopping ? ", stopping" : "")}" : "idle")
+                  .Append(", to build ").Append(lb.Sheet.CountToBuild()).Append(" (about ").Append(lb.Sheet.CostToBuild().ToString(CultureInfo.InvariantCulture))
+                  .Append(")\n");
         }
     }
 }
