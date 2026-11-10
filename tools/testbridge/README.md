@@ -353,16 +353,20 @@ these steps and returns the height before and after. Measured (Move It 0.5.16): 
 center: on a slope its uphill side is still in the ground, and that part is a `terrain` job (Level strokes along the uphill wall).
 Move It is a staging tool. Nothing in Modular Ski Resort needs it.
 
-### Fitting a building: the rules (owner, 2026-11-10)
+### Fitting a building: the goal (owner, 2026-11-10)
 
-- No air under any building, and no foundation exposed beyond a thin sliver. On the downhill side, fill: raise the ground up to the
-  foundation's top edge and blend it outward with small strokes. Do not cut the uphill side to compensate.
+- Goal: every building reads as built into its slope. Each level's doors, decks and stairs meet the ground where a person would
+  step out. Nothing hangs in the air. Raw foundation or concrete shows only where the design means it to (a walk-out lower level,
+  a deck on posts), never as a big bare block.
+- Method: level both sides as each building needs. Cut a little on the uphill side and fill on the downhill side, in small blended
+  strokes. For multi-level huts with decks, fit each level to its own ground line: the upper entry flush uphill, the lower deck or
+  walk-out meeting the downhill ground. This is a goal with judgment, not a fixed rule.
 - "To Terrain Height" fits the center, so on a slope the downhill side floats after it (the proof above left the lodge's downhill
-  foundation block fully exposed, with air under its outer corner). If needed, set the building a little lower (slightly into the
-  uphill slope: that side looks natural) and fill downhill, rather than lifting it.
-- After each fit, check all four sides from a low camera (2 to 4 m up, about 30 m out) and keep a four-side contact sheet. A side
-  that shows foundation or a gap is not done.
+  foundation block fully exposed, with air under its outer corner).
+- After each fit, check all four sides from a low camera (2 to 4 m up, about 30 m out) and keep a four-side contact sheet. Judge it
+  against the goal. When unsure, list the building for the owner's touch-up rather than force it.
 - The same holds for station pads and lots: an edge meets the ground, it never stands out of it as a wall.
+- Kept: brush size 1 to 10, strength 0.35 or less, a snapshot and a log row per edit, no shelves and no wall-like cuts.
 
 ### `wind`
 
