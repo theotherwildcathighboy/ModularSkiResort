@@ -34,6 +34,12 @@ namespace SkiResortMod.Systems
         public int TrackSources, TrackChains, TrackAreas, TrackPiecesLost, TrackPitches, TrackPitchesOver;
         public readonly int[] TrackDrops = new int[(int)AutoReject.Count];
         public double TrackKmPlanned, TrackKmKept;
+        // R2-r (DECISIONS 637): two chains in one corridor are one track. A chain with no own piece in the corridor of accepted tracks merges
+        // into them (TrackMerged chains, TrackKmMerged their length). TrackKmShared: every chain's stretches in the gap of an accepted
+        // track, which that track carries (built once). MergedRelations / MergedLinks: the merged chains' own planner relations and how
+        // many of them are game links on the hosts
+        public int TrackMerged, MergedRelations, MergedLinks, TrackSelfSplits, TrackSpurs;   // TrackSelfSplits: pieces split where the ribbon crosses itself (SelfSplit). TrackSpurs: MergedSpurs
+        public double TrackKmShared, TrackKmMerged, TrackKmOwn;   // TrackKmOwn: the planned stretches of the kept pieces (TrackKmKept adds the reached ends)
         // Junctions
         public int ConvergeJunctions;   // pistes met in a converging line's path and made its partners (iteration 3, item 1)
         // Iteration 3, item 4 (plain pistes, by planned band): km that kept the band at full width, at 75 %, at 50 %, and that did not;
@@ -91,6 +97,9 @@ namespace SkiResortMod.Systems
         public const float CliffGrade = 1.0f;
         public const float RelationM = 40f, RelationRiseM = 5f;   // the planner's contact (RF/.Graph.cs:66-70)
         public const float JoinM = 1f, TreeLiftM = 150f;          // connector pieces that share an end form a tree, owned by the nearest lift top
+        public const float MergeShare = 0.5f;   // R2-r: a chain with no own piece merges when at least this share of it lies in a corridor
+        public const int SpurSegment = 1000;    // R2-r: a merged chain's spurs are segments 1000, 1001, ... (their stable ids)
+        public const int MaxSelfSplits = 8;     // R2-r: a chain that crosses itself is split at most this often (SelfSplit)
         public const float DeliverM = 60f, DeliverDropM = 15f, RideDownM = 60f, NearTopM = 100f;
         public const float BottomShare = 0.15f, BottomMinM = 10f, BottomMaxM = 60f;   // the bottom band (plan 5.1, the v1 base band)
         public const float BlockedShare = 0.30f, PartlyBlockedShare = 0.60f;
@@ -120,6 +129,8 @@ namespace SkiResortMod.Systems
             public bool Groomed;
             public int Lift = -1;         // the group's lift (0-based), -1 = the last group
             public bool Link;             // a link or way home (no parent, last group)
+            public bool Merged;           // R2-r: a chain in the corridor of accepted tracks. Areas holds those tracks (its hosts), not its own
+            public int Spurs;             // R2-r: spurs built for a merged chain (MergedSpurs). They are its own areas
             public int Parent = -1;       // a chain's parent chain (element id)
             public string Kind;
             public float LengthM;

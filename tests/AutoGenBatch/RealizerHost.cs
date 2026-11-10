@@ -267,7 +267,9 @@ namespace AutoGenBatch
                     $"{rep.GradedShown[1]}/{rep.GradedShown[2]}/{rep.GradedShown[3]}/{rep.GradedShown[4]}; natural to groomed {rep.NaturalToGroomed}; rated by the fallback {rep.FallbackRated}; constant-width after Crosses {rep.CrossesFallback}; table {BandTable(rep)}",
                 $"  widths: {KeepLine(rep)}",
                 $"  tracks: {rep.TrackSources} sources, {rep.TrackChains} chains, {rep.TrackAreas} areas, {rep.TrackPiecesLost} pieces lost, dropped " +
-                    $"({(tdrops.Count > 0 ? string.Join(", ", tdrops) : "none")}), km {rep.TrackKmKept:F2} / {rep.TrackKmPlanned:F2}, 30 m pitches over 25 % {rep.TrackPitchesOver}/{rep.TrackPitches}",
+                    $"({(tdrops.Count > 0 ? string.Join(", ", tdrops) : "none")}), km {rep.TrackKmKept:F2} / {rep.TrackKmPlanned:F2}, 30 m pitches over 25 % {rep.TrackPitchesOver}/{rep.TrackPitches}; " +
+                    $"merged {rep.TrackMerged} chains ({rep.TrackKmMerged:F2} km), planned km built {rep.TrackKmOwn:F2} + carried by another track {rep.TrackKmShared:F2} " +
+                    $"({(rep.TrackKmPlanned > 0 ? 100 * (rep.TrackKmOwn + rep.TrackKmShared) / rep.TrackKmPlanned : 100):F1} %), merged chain relations linked {rep.MergedLinks}/{rep.MergedRelations}, self-splits {rep.TrackSelfSplits}, spurs {rep.TrackSpurs}",
                 $"  junctions: relations {rep.Relations}, linked {rep.RelationLinks} ({rep.RelationVia} through the area that cut the end), missed {rep.RelationMisses}; extensions {rep.Extensions}, track ends reached {rep.TrackReaches}, piste ends reached {rep.PisteReaches}, remnants kept {rep.RemnantsKept} dropped {rep.RemnantsDropped}, converging junctions {rep.ConvergeJunctions}; unlinked ends " +
                     $"{rep.UnlinkedEnds} ({rep.UnlinkedBlocked} blocked) of {ends} ({(ends > 0 ? 100.0 * rep.UnlinkedEnds / ends : 0):F2} %)",
                 $"  graph: unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, bottom reach {rep.BottomReach}/{rep.Lifts}, no way to bottom {rep.NoWayToBottom}",
@@ -296,7 +298,7 @@ namespace AutoGenBatch
                 File.WriteAllText(tsv, "region\tsources\tdropped\tdrops\tareas\tpiecesLost\tkmPlan\tkmKept\tgradedKmPlan\tgradedKmKept\trelations\tlinks\tvia\tmisses\textensions\t" +
                     "unlinked\tunlinkedBlocked\tends\tunserved\tdeadEnds\tbandAgree\tbandRated\tbandAgreeKm\tbandRatedKm\ttrackSources\ttrackChains\ttrackAreas\t" +
                     "trackPiecesLost\ttrackKmPlan\ttrackKmKept\ttrackDrops\tlifts\tliftsClear\tbottomReach\traw\trealized\tplanMs\trealizeMs\tlayerMB\tdeterministic\tfallback\tskied\tcrossesFallback\ttrackReaches\tpisteReaches\tremnantsKept\tremnantsDropped\tconverging\tagreeKmFull\tagreeKmKept\tplainKm\t" +
-                    "greenKeep\tblueKeep\tblackKeep\tdbKeep\tgreenWidth\tblueWidth\tgreenFullWidth\tblueFullWidth\thandFitChair\thandFitDetachable\thandFitGondola\thandFitTram\thandFitSpans\thandFitOverCap\thandFitSteep\thandFitClearance\thandFitEdge\thandFitMiss\n");
+                    "greenKeep\tblueKeep\tblackKeep\tdbKeep\tgreenWidth\tblueWidth\tgreenFullWidth\tblueFullWidth\thandFitChair\thandFitDetachable\thandFitGondola\thandFitTram\thandFitSpans\thandFitOverCap\thandFitSteep\thandFitClearance\thandFitEdge\thandFitMiss\ttrackMerged\ttrackKmMerged\ttrackKmShared\tmergedRelations\tmergedLinks\ttrackKmOwn\tselfSplits\tspurs\n");
             File.AppendAllText(tsv, string.Join("\t", new object[]
             {
                 id, sources, dropped, drops.Count > 0 ? string.Join(",", drops) : "-", res.Runs.Count, rep.PiecesLost, kmPlan.ToString("F2"), kmKept.ToString("F2"),
@@ -308,7 +310,8 @@ namespace AutoGenBatch
                 rep.PisteReaches, rep.RemnantsKept, rep.RemnantsDropped, rep.ConvergeJunctions, rep.AgreeKmFull.ToString("F2"), rep.AgreeKmKept.ToString("F2"), rep.PlainKm.ToString("F2"),
                 Keep(rep, 1), Keep(rep, 2), Keep(rep, 3), Keep(rep, 4), Width(rep, 1, false), Width(rep, 2, false), Width(rep, 1, true), Width(rep, 2, true),
                 rep.HandFitByType[0], rep.HandFitByType[1], rep.HandFitByType[2], rep.HandFitByType[3], rep.HandFitSpans, rep.HandFitOverCap, rep.HandFitSteep,
-                rep.HandFitClearance, rep.HandFitEdge, rep.HandFitMiss,
+                rep.HandFitClearance, rep.HandFitEdge, rep.HandFitMiss, rep.TrackMerged, rep.TrackKmMerged.ToString("F2"), rep.TrackKmShared.ToString("F2"),
+                rep.MergedRelations, rep.MergedLinks, rep.TrackKmOwn.ToString("F2"), rep.TrackSelfSplits, rep.TrackSpurs,
             }.Select(o => Convert.ToString(o, CultureInfo.InvariantCulture))) + "\n");
             return new Row
             {

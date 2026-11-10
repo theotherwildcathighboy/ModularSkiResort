@@ -98,7 +98,11 @@ namespace AutoGenBatch
                 double kmP = rep.PisteKmPlanned + rep.GradedKmPlanned, kmK = rep.PisteKmKept + rep.GradedKmKept;
                 Console.WriteLine($"REPORT realizer {id}: {res.Runs.Count} areas, piste km {kmK:F2}/{kmP:F2}, track km {rep.TrackKmKept:F2}/{rep.TrackKmPlanned:F2}, " +
                     $"relations {rep.RelationLinks}/{rep.Relations}, unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, {rep.Ms:F0} ms, hash {a:x16}" +
-                    string.Concat(rep.Lines.Where(l => l.StartsWith("relation not linked") || l.Contains("cannot reach")).Select(l => "\n  " + l)));
+                    string.Concat(rep.Lines.Where(l => l.StartsWith("relation not linked") || l.Contains("cannot reach") || l.Contains(": spur ") || l.Contains(" merged into ")).Select(l => "\n  " + l)));
+                string only = Environment.GetEnvironmentVariable("RZ_LINES");   // debugging: every report line that contains this text
+                if (!string.IsNullOrEmpty(only))
+                    foreach (string l in rep.Lines.Where(l => l.Contains(only)))
+                        Console.WriteLine("  RZ " + l);
             }
         }
 
@@ -293,6 +297,79 @@ namespace AutoGenBatch
                 Check(t.Count == 3, w, "want three track areas: " + Areas(h));
                 AutoRun first = t.OrderByDescending(r => r.LengthM).FirstOrDefault();
                 Check(t.Where(r => r != first).All(r => Linked(r, first)), w, "a piece of the second track does not link to the first");
+            }
+            // R2-r (DECISIONS 637): two chains in one corridor are one track. A is a 700 m traverse from the lift top.
+            // 8a. B runs 8 m beside A over its whole length: B merges into A (no area, no drop), and a piste that starts off B's end links
+            //     to A. B's own planner relations are game links on A.
+            {
+                const string w = "Realizer hand: two chains in one corridor over their whole length";
+                Hand h = NewHand(0.1f).Lift(-400f, 300f, -400f, -400f);
+                h.Plan.Connectors.Add(Line(-400f, -380f, 300f, -380f));
+                h.Plan.Connectors.Add(Line(-300f, -372f, 200f, -372f));
+                h.Run(Line(210f, -352f, 210f, 400f), SlopeBand.Blue, lift: 1);
+                h.Realize();
+                RealizerInvariants(w, h.Res, h.Input, h.Rep);
+                List<AutoRun> t = h.Tracks;
+                Check(t.Count == 1 && t[0].Source == -1, w, "want one track area (A): " + Areas(h));
+                Check(h.Rep.TrackMerged == 1 && h.Rep.TrackDrops.Sum() == 0, w, $"want B merged and no drop, have {h.Rep.TrackMerged} merged, {h.Rep.TrackDrops.Sum()} dropped");
+                Check(h.Rep.MergedRelations > 0 && h.Rep.MergedLinks == h.Rep.MergedRelations, w, $"B's relations linked {h.Rep.MergedLinks}/{h.Rep.MergedRelations}");
+                Check(h.Rep.TrackKmOwn + h.Rep.TrackKmShared >= 0.95 * h.Rep.TrackKmPlanned, w,
+                    $"built {h.Rep.TrackKmOwn:F2} + carried {h.Rep.TrackKmShared:F2} of {h.Rep.TrackKmPlanned:F2} km");
+                Check(t.Count == 1 && h.Of(0).Count == 1 && Linked(h.Of(0)[0], t[0]), w, "the piste that starts off B does not link to A");
+            }
+            // 8b. B runs beside A for 300 m, then turns downhill for 670 m: B keeps its own part, butted onto A at the split and linked to it
+            {
+                const string w = "Realizer hand: two chains in one corridor over a part";
+                Hand h = NewHand(0.1f).Lift(-400f, 300f, -400f, -400f);
+                h.Plan.Connectors.Add(Line(-400f, -380f, 300f, -380f));
+                h.Plan.Connectors.Add(Bent(-300f, -372f, 0f, -372f, 0f, 300f));
+                h.Realize();
+                RealizerInvariants(w, h.Res, h.Input, h.Rep);
+                List<AutoRun> a = h.Of(-1), b = h.Of(-2);
+                Check(a.Count == 1 && b.Count == 1 && h.Tracks.Count == 2, w, "want A and B's own part, one area each: " + Areas(h));
+                if (a.Count == 1 && b.Count == 1)
+                {
+                    Check(b[0].LengthM > 600f && b[0].LengthM < 700f, w, $"B's own part is {b[0].LengthM:F0} m (want its 670 m downhill leg)");
+                    Check(Linked(a[0], b[0]), w, "B does not link to A at the split");
+                }
+                Check(h.Rep.TrackMerged == 0 && h.Rep.TrackDrops.Sum() == 0 && h.Rep.TrackKmShared > 0.25, w,
+                    $"merged {h.Rep.TrackMerged}, dropped {h.Rep.TrackDrops.Sum()}, carried {h.Rep.TrackKmShared:F2} km (want about 0.3)");
+            }
+            // 8c. Three chains in one corridor (B 8 m on one side of A, C 8 m on the other): one track, B and C merged into it
+            {
+                const string w = "Realizer hand: three chains in one corridor";
+                Hand h = NewHand(0.1f).Lift(-400f, 300f, -400f, -400f);
+                h.Plan.Connectors.Add(Line(-400f, -380f, 300f, -380f));
+                h.Plan.Connectors.Add(Line(-300f, -372f, 200f, -372f));
+                h.Plan.Connectors.Add(Line(-250f, -388f, 250f, -388f));
+                h.Realize();
+                RealizerInvariants(w, h.Res, h.Input, h.Rep);
+                Check(h.Tracks.Count == 1 && h.Of(-1).Count == 1, w, "want one track area (A): " + Areas(h));
+                Check(h.Rep.TrackMerged == 2 && h.Rep.TrackDrops.Sum() == 0, w, $"want B and C merged, have {h.Rep.TrackMerged} merged, {h.Rep.TrackDrops.Sum()} dropped");
+                Check(h.Rep.MergedLinks == h.Rep.MergedRelations, w, $"merged relations linked {h.Rep.MergedLinks}/{h.Rep.MergedRelations}");
+            }
+            // 8d. B leaves A's corridor for a 70 m detour and rejoins it: the detour is B's own part, butted onto A at both ends
+            {
+                const string w = "Realizer hand: a chain that leaves the corridor and rejoins it";
+                Hand h = NewHand(0.1f).Lift(-400f, 300f, -400f, -400f);
+                h.Plan.Connectors.Add(Line(-400f, -380f, 300f, -380f));
+                List<float2> b = Line(-300f, -372f, -100f, -372f);
+                b.AddRange(Line(-100f, -372f, -50f, -300f).Skip(1));
+                b.AddRange(Line(-50f, -300f, 50f, -300f).Skip(1));
+                b.AddRange(Line(50f, -300f, 100f, -372f).Skip(1));
+                b.AddRange(Line(100f, -372f, 200f, -372f).Skip(1));
+                h.Plan.Connectors.Add(b);
+                h.Realize();
+                RealizerInvariants(w, h.Res, h.Input, h.Rep);
+                List<AutoRun> a = h.Of(-1), d = h.Of(-2);
+                Check(a.Count == 1 && d.Count == 1, w, "want A whole and B's detour as one area: " + Areas(h));
+                if (a.Count == 1 && d.Count == 1)
+                {
+                    Check(d[0].LengthM > 180f, w, $"the detour is {d[0].LengthM:F0} m");
+                    float2 s = d[0].Centerline[0], e = d[0].Centerline[d[0].Centerline.Length - 1];
+                    Check(Linked(a[0], d[0]) && s.x < -60f && e.x > 60f, w, $"the detour is not butted onto A at both ends (it runs from x {s.x:F0} to x {e.x:F0})");
+                }
+                Check(h.Rep.UnlinkedEnds == 0 && h.Rep.TrackMerged == 0, w, $"{h.Rep.UnlinkedEnds} unlinked end(s), {h.Rep.TrackMerged} merged");
             }
             // 9. A run through an obstacle (an unowned tile across its middle): two pieces, both clear of it
             {
