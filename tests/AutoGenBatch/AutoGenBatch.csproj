@@ -64,6 +64,11 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Learning.cs" Link="RunsFirstPlanner.Learning.cs" />
     <Compile Include="RealizerTests.cs" />
     <Compile Include="RealizerHost.cs" />
+    <Compile Include="ScanHost.cs" />
+    <!-- The tool's scan job (planner + realizer in one call), its dump, and the planner's inputs from the game (port round R2-a) -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\QuickRunsScanJob.cs" Link="QuickRunsScanJob.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\QuickRunsScanDump.cs" Link="QuickRunsScanDump.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Inputs.cs" Link="RunsFirstPlanner.Inputs.cs" />
     <!-- The contract types and the shared geometry helpers that outlive the v1 / v2 planner -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\PlanContract.cs" Link="PlanContract.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\PlanGeometry.cs" Link="PlanGeometry.cs" />

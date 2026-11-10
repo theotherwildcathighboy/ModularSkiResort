@@ -1,9 +1,10 @@
 // Quick runs tool: the scan. It copies the region's texel rectangle of the CPU heights (plus a wet layer from the water surface) into the
-// back buffer of two HeightSnapshots once. It collects the obstacles (every Surface area, our runs, unowned map tiles), the pinned lifts
-// and the access points. It gives a fresh input to the scan job (QuickRunsToolSystem.Worker.cs: a worker thread, or the planner stepped a
-// fixed budget per frame with the Diagnostics fallback). Every reader takes the published copy (m_Published), never the planner's live
-// result. On Enter the snapshot and the obstacles are read again: a changed world re-scans instead of building a stale plan. Warnings: the
-// planner's, then the tool's (money, renumbering, other resort, no sign, game checks off).
+// back buffer of two HeightSnapshots once. It collects the obstacles (every Surface area, our runs, unowned map tiles), the existing lifts
+// and the access points. It gives a fresh input to the scan job (QuickRunsToolSystem.Worker.cs, QuickRunsScanJob: the runs-first planner
+// and the realizer on a worker thread). The planner options come from the Density knob (RunsFirstOptions.ForDensity). The planner's
+// blocked ground comes from the same input (QuickRunsScanJob.InputsFrom). Every reader takes the published result (m_Published). On Enter
+// the snapshot and the obstacles are read again: a changed world re-scans instead of building a stale plan. Warnings: the realizer's, then
+// the tool's (money, renumbering, other resort, no sign, game checks off).
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Scan)
 
 using System;
@@ -25,11 +26,8 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class QuickRunsToolSystem
     {
-        /// <summary>Planner work per frame (ms). The planner's longest unit is one SkiRunRater.Rate (~1-1.5 ms CoreCLR).</summary>
-        private const float ScanBudgetMs = 4f;
         private const float WetDepthM = 0.1f;   // the cat track tool's threshold
 
-        private readonly SkiRunAutoPlanner m_Planner = new SkiRunAutoPlanner();
         private AutoPlanInput m_Input = new AutoPlanInput();                // the last launched scan's input (fresh per launch)
         private List<AutoObstacle> m_Obstacles = new List<AutoObstacle>();    // fresh per collect: a running job reads the old list
         private HeightSnapshot m_Snap;                                        // the latest snapshot taken (one of m_SnapBuf)
@@ -85,7 +83,7 @@ namespace SkiResortMod.Systems
             }
             CollectObstacles(region);
             m_Knobs.Seed = PlanGeometry.SeedOf(region, m_Shuffle);
-            // A fresh input per scan (the planner holds it until the next launch): the tool always plans in Resort mode (DECISIONS 444)
+            // A fresh input per scan (the job holds it until the next launch): Resort mode, the realizer's input contract
             var input = new AutoPlanInput
             {
                 Snapshot = m_Snap,
@@ -93,26 +91,38 @@ namespace SkiResortMod.Systems
                 Obstacles = m_Obstacles,
                 Knobs = m_Knobs,
                 Mode = AutoPlanMode.Resort,
-                MainThread = SkiResortSettings.PlannerOnMainThreadOn,   // no tower plans in a frame (AR-7)
+                Cancel = new AutoPlanCancel(),
             };
             CollectPlanContext(input, region);
+            bool bare = m_NextBare;
+            string tag = m_NextTag;
+            m_NextBare = false;
+            m_NextTag = "region";
+            RunsFirstOptions options = RunsFirstOptions.ForDensity(m_Knobs.Density);
+            RunsFirstInputs inputs = QuickRunsScanJob.InputsFrom(input, bare);
+            ulong key = QuickRunsScanJob.PlanKey(m_SnapPrint, m_ObstaclePrint, region, input.Pinned, input.Access, options, bare);
+            QuickRunsScanJob.Planned cached = CachedPlan(key);
+            var job = new QuickRunsScanJob(input, options, inputs, cached, tag);
             m_Refused.Clear();
             m_ScanWhy = why;
             m_ScanT0 = t0;
             m_ScanFrames = 0;
-            bool onMain = SkiResortSettings.PlannerOnMainThreadOn;
             Say(string.Format(CultureInfo.InvariantCulture,
                 "QuickRuns [scan]: START ({0}) — {1}; snapshot {2} x {3} texels ({4:F1} ms), {5} obstacle(s) ({6:F1} ms), {7}; " +
-                "{8} pinned lift(s), {9} access point(s) ({10:F1} ms); {11}{12}",
+                "{8} existing lift(s), {9} access point(s) ({10:F1} ms); runs-first on the worker thread, {11}, {12}{13}{14}",
                 why, ReadoutText(), m_Snap.Width, m_Snap.Depth, m_SnapMs, m_Obstacles.Count, m_ObstacleMs, KnobsText(m_Knobs),
-                input.Pinned?.Count ?? 0, input.Access?.Length ?? 0, m_ContextMs, onMain ? "main thread (fallback setting)" : "worker thread",
+                input.Pinned?.Count ?? 0, input.Access?.Length ?? 0, m_ContextMs, QuickRunsScanJob.InputsText(input, inputs),
+                cached != null ? "cached plan " + cached.Hash.ToString("x16", CultureInfo.InvariantCulture) + ": realize only" : "a new plan",
+                SkiResortSettings.PlannerOnMainThreadOn ? " (the setting 'Resort Planner on the main thread' is ignored: runs-first has no main-thread path)" : string.Empty,
                 ScanJobInFlight ? " (queued: the canceled scan is still stopping)" : string.Empty));
+            if (input.Pinned != null && input.Pinned.Count > 0)
+                Say($"QuickRuns [scan]: {input.Pinned.Count} existing lift(s) are blocked ground for the planner (stations and a {QuickRunsScanJob.ExistingLiftCorridorM:F0} m corridor each): runs-first has no fixed lifts, so it plans around them");
             m_Phase = ToolPhase.Scanning;
             Bump();
-            StartScanJob(input, onMain, t0);
+            StartScanJob(job, key, t0);
         }
 
-        /// <summary>Per frame while Scanning: the worker poll, or one main-thread slice with the fallback setting.</summary>
+        /// <summary>Per frame while Scanning: the worker poll.</summary>
         private void StepScan()
         {
             m_ScanFrames++;
@@ -120,33 +130,45 @@ namespace SkiResortMod.Systems
                 Bump();   // the hub's progress bar
         }
 
-        /// <summary>The published result's v1 epilogue: phase, enabled flags, the DONE line. The caller has just set m_Published.</summary>
+        /// <summary>The published result's epilogue: phase, enabled flags, the plan sheet, the DONE line (and the [probe] lines). The caller
+        /// has just set m_Published and m_DoneJob.</summary>
         private void FinishScan()
         {
             AutoPlanResult r = m_Published;
+            QuickRunsScanJob job = m_DoneJob;
             double ms = QuickRunsRules.MsSince(m_ScanT0);
             m_StatusKey = QuickRunsRules.StatusKey(r.Status, m_Obstacles != null && m_Obstacles.Exists(o => o.Kind == AutoObstacleKind.Unowned));
             m_Phase = r.Status == AutoPlanStatus.Ok ? ToolPhase.Preview : ToolPhase.Region;
             RefreshEnabled();
             PublishSheet($"scan ({m_ScanWhy})");   // the plan sheet takes the proposed lifts (Plan.cs)
-            int slow = 0;   // the stage of the longest unit (StageMaxMs, P2): names what to slice next
-            for (int s = 1; s < r.StageMaxMs.Length; s++)
-                if (r.StageMaxMs[s] > r.StageMaxMs[slow])
-                    slow = s;
             if (r.OpenShare > 0f)
-                m_SiteGrade = r.MeanGrade;   // the scan's figure (20 m cells over the open ground) replaces the corner phase's estimate
+                m_SiteGrade = r.MeanGrade;   // the scan's figure (the realizer's lattice over the open ground) replaces the corner phase's estimate
+            int tracks = 0;
+            double pisteKm = 0.0, trackKm = 0.0;
+            foreach (AutoRun run in r.Runs)
+            {
+                if (RunFeatures.FromKind((int)run.Kind).Base == RunBase.CatTrack)
+                {
+                    tracks++;
+                    trackKm += run.LengthM / 1000.0;
+                }
+                else
+                    pisteKm += run.LengthM / 1000.0;
+            }
+            string plan = job?.Plan == null ? "no plan (" + (job != null && job.Refused ? "region refused before planning" : "none") + ")"
+                : string.Format(CultureInfo.InvariantCulture, "plan {0:x16} {1}", job.Plan.Hash, job.FromCache ? "(cached)" : "(new)");
             LastScanText = string.Format(CultureInfo.InvariantCulture,
-                "{0}: {1} run(s) in {2} cluster(s), bands G/B/K/DB {3}/{4}/{5}/{6} (target {7}/{8}/{9}/{10}), {11} candidate(s), {12} rated; " +
-                "open {13:P0}, usable {14:P0}, cliff {15:P0}, vertical {16:F0} m, mean grade {24:P0}; {17:F0} ms over {18} frame(s), longest unit {19:F2} ms " +
-                "(stage {20}), area {21:F2} km2, select max ms pick/A*/build/rate/chamfer {22}, rejects {{{23}}}",
-                r.Status, r.Runs.Count, r.Clusters.Count, r.BandCount[1], r.BandCount[2], r.BandCount[3], r.BandCount[4], r.BandTarget[1],
-                r.BandTarget[2], r.BandTarget[3], r.BandTarget[4], r.Candidates, r.Rated, r.OpenShare, r.UsableShare, r.CliffShare,
-                r.VerticalM, ms, m_ScanFrames, r.MaxUnitMs, slow, r.RegionAreaM2 / 1e6f, r.SelectPhaseText(), r.RejectText(), r.MeanGrade);
+                "{0}: {1} area(s) ({2} piste(s) {3:F1} km, {4} cat track(s) {5:F1} km) in {6} group(s), bands G/B/K/DB {7}/{8}/{9}/{10}, " +
+                "{11} planner element(s); open {12:P0}, usable {13:P0}, cliff {14:P0}, vertical {15:F0} m, mean grade {16:P0}; {17}; " +
+                "{18:F0} ms over {19} frame(s), area {20:F2} km2, rejects {{{21}}}",
+                r.Status, r.Runs.Count, r.Runs.Count - tracks, pisteKm, tracks, trackKm, r.Clusters.Count, r.BandCount[1], r.BandCount[2], r.BandCount[3],
+                r.BandCount[4], r.Candidates, r.OpenShare, r.UsableShare, r.CliffShare, r.VerticalM, r.MeanGrade, plan, ms, m_ScanFrames,
+                r.RegionAreaM2 / 1e6f, r.RejectText());
             Say($"QuickRuns [scan]: DONE ({m_ScanWhy}) — {LastScanText}; warnings {r.Warnings}; tool warnings {m_ToolWarn}; " +
                 $"{ScanJobText()}; {PlanText(r.Resort)}",
                 m_StatusKey);
             if (SkiResortSettings.DiagnosticsOn)
-                ProbeScan(r, ms);
+                ProbeScan(job, ms);
             Bump();
         }
 

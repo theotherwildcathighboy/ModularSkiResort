@@ -59,6 +59,8 @@ It holds no state: each tool keeps its own phases, queries and logs.
   code cancels a running job first (a canceled planner drops its field). Shuffle changes the seed.
 
 ## Worker (Resort Planner v2 A2; stage-a-spec.md section 5)
+- Port round R2-a replaced the v2 job. The scan now runs the runs-first planner and the realizer in one job. The tool has no main-thread
+  slicing and no Reselect. `ResortPlanner.md` (Runs-first in the tool) is the current text. The bullets below are the v2 history.
 - `QuickRunsToolSystem.Worker.cs` follows the pattern of the tree compose job (Trees.cs: launch with a GC count, stale test, poll + cancel,
   `Task.Run`, collect with `IsFaulted` and the stale drop, the summary fields). The worker touches only the planner instance and its
   input. It uses no Entities, no Unity API, and no log off the main thread.

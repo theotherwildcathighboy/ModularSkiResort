@@ -1,7 +1,12 @@
 // RunsFirst options: every knob of the planner in one plain object, with today's defaults. The planner reads only this object
 // (RunsFirstPlanner.O, set by Plan); it never reads the environment. The test host fills it from the RF_* environment switches
 // (RunsFirst.HostOptions in tests/AutoGenBatch/RunsFirst.Host.cs), so experiments still work there; the mod will pass its own. The comment after each field names its switch.
-// Pure C# 9, net48-clean.
+// Density presets (port round R2-a, plan 7.4): ForDensity sets the pick's lines per km2 and the serve cap; Normal is the default. The
+// tool plans with ForDensity(knob) and logs Fingerprint() per scan. Pure C# 9, net48-clean.
+
+using System;
+using System.Globalization;
+using System.Reflection;
 
 namespace SkiResortMod.Systems
 {
@@ -137,5 +142,60 @@ namespace SkiResortMod.Systems
         public bool DebugTurns;                   // RF_TURNDBG
 
         public RunsFirstOptions Clone() => (RunsFirstOptions)MemberwiseClone();
+
+        // ---- density presets (the hub's Density knob). Normal = the scored defaults above
+        public const float SparsePicksPerKm2 = 3.5f, SparseServeCapPerKm2 = 5.5f;
+        public const float DensePicksPerKm2 = 7f, DenseServeCapPerKm2 = 11f;
+
+        /// <summary>The defaults with the density's line cap and serve cap. Normal: exactly the defaults (the scored plan).</summary>
+        public static RunsFirstOptions ForDensity(AutoDensity density)
+        {
+            var o = new RunsFirstOptions();
+            switch (density)
+            {
+                case AutoDensity.Sparse:
+                    o.PicksPerKm2 = SparsePicksPerKm2;
+                    o.ServeCapPerKm2 = SparseServeCapPerKm2;
+                    break;
+                case AutoDensity.Dense:
+                    o.PicksPerKm2 = DensePicksPerKm2;
+                    o.ServeCapPerKm2 = DenseServeCapPerKm2;
+                    break;
+            }
+            return o;
+        }
+
+        /// <summary>FNV-1a 64 over every public field by name (ordinal order), so a new option changes the print without a list to
+        /// keep. Floats by their bits. The tool logs it per scan and keys its plan cache with it.</summary>
+        public ulong Fingerprint()
+        {
+            ulong h = 14695981039346656037UL;
+            void U(uint v)
+            {
+                for (int b = 0; b < 4; b++)
+                {
+                    h ^= (v >> (8 * b)) & 0xFFu;
+                    h *= 1099511628211UL;
+                }
+            }
+            FieldInfo[] fields = typeof(RunsFirstOptions).GetFields(BindingFlags.Public | BindingFlags.Instance);
+            Array.Sort(fields, (a, b) => string.CompareOrdinal(a.Name, b.Name));
+            foreach (FieldInfo f in fields)
+            {
+                foreach (char c in f.Name)
+                    U(c);
+                object v = f.GetValue(this);
+                if (v is float fl)
+                    U(BitConverter.ToUInt32(BitConverter.GetBytes(fl), 0));
+                else if (v is int i)
+                    U((uint)i);
+                else if (v is bool bo)
+                    U(bo ? 1u : 0u);
+                else
+                    foreach (char c in Convert.ToString(v, CultureInfo.InvariantCulture) ?? string.Empty)
+                        U(c);
+            }
+            return h;
+        }
     }
 }

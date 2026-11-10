@@ -10,6 +10,46 @@ Where the shared pieces live (the planner files hold none of them, so a planner 
 - `SkiRunAutoPlanner` keeps one-line forwarders under the old names (v2 and the tests compile unchanged). The tool layer calls `PlanGeometry` directly. Only the planner instance (`m_Planner`) names `SkiRunAutoPlanner`.
 - The v2 result types (`ResortPlan`, `PlanLift`, ...) stay in `SkiRunAutoPlanner.Plan.cs`, `HeightSnapshot` in `SkiRunAutoPlanner.Snapshot.cs`.
 
+## Runs-first in the tool (port round R2-a)
+
+The tool no longer calls v2. The scan runs the runs-first planner (`RunsFirstPlanner.md`) and the realizer (`RunsFirstRealizer.md`).
+The v2 files and their tests stay in the tree, unused by the tool. The planner still calls `SkiRunAutoPlanner.PolygonArea`.
+The round that removes v2 must point that call at `PlanGeometry`.
+
+The job:
+- `Systems/QuickRunsScanJob.cs` is one scan as a pure job. The tool runs it on a worker (`Task.Run`). The test host runs the same class.
+- Step 1 is the refusal ladder. The realizer runs with no plan. A refused region is never planned.
+- Step 2 is the plan. The tool keeps the last two plans. The key is the snapshot, the region, the obstacles, the lifts, the access points, the options and the bare flag.
+- Step 3 is the realizer. It makes the `AutoPlanResult` and the `ResortPlan` that all readers use. Their types did not change.
+- One cancel token stops both. The planner returns within 250 ms. The job then has no result.
+- The progress is the planner progress times 0.85. The realizer gives no progress, so the bar shows 0.925 while it works.
+- The job owns its result. The tool publishes it as it is. No later job writes it.
+
+The inputs (`QuickRunsScanJob.InputsFrom`):
+- Other areas and unowned tiles are blocked with the clearance of the realizer (`PlanGeometry.ClearanceOf`).
+- Existing runs are blocked with the gap of the density.
+- Existing cat tracks stay open. A new run can cross them.
+- Water is blocked (the wet layer of the snapshot).
+- Each existing lift blocks its two stations and a corridor of 10 m on each side of its line. The planner has no fixed lift. The START line says so once.
+- The access points go to the planner, but no pass reads them yet.
+
+The knobs:
+- Density picks one of three option presets (`RunsFirstOptions.ForDensity`). Normal is the scored default. A change starts a new scan.
+- Kinds is read by the realizer only. A change uses the cached plan and runs the realizer again.
+- Lifts, Mix, Shuffle and Way home have no effect. The tool logs one line and keeps the plan.
+- The lift toggles work as before. `QuickRunsPlanRules.MaxLifts` is 15.
+
+Build order: cat tracks, then pistes, then lifts. Cat tracks are Space areas, so no piste refuses them. They are not graded.
+`BuildChunkRuns` (2) is the count of areas per frame. To measure it, build a full plan with Measurement diagnostics on.
+Read the `[probe] build summary` line. It gives the worst chunk in ms and the frames. Raise the constant while the worst chunk stays under one long frame (about 50 ms).
+
+The proof (Measurement diagnostics on):
+- `[probe] runs-first` gives the plan hash, the result hash, the options and inputs prints, the planner ms per pass, the realizer ms per stage and the total.
+- The dev trigger `skiResortDev.quickRuns` takes `scan <region> [bare]` and `dump [stem]` (`Systems/QuickRunsDevUISystem.cs`).
+- `scan ft5-r1 bare` must give the plan hash of the golden line of ft5-r1.
+- `dump` writes the exact input to `Logs/SkiResortMod.<stem>.rfscan`. The host mode `rf-replay <file>` runs it again and prints MATCH or DIFF.
+- The host mode `rf-scan <out>` scans the field test regions at the three densities. It prints runs, lifts, km, score, time and memory.
+
 ## Modes
 
 `AutoPlanInput.Mode` is `Runs` or `Resort`. `Runs` is the default: v1 exactly, test host only. `Resort` is v2, and the tool always sets it. Every v2 hook in a v1 file
