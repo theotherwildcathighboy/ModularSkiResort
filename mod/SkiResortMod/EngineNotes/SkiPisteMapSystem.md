@@ -22,7 +22,7 @@ The system cuts outlines once into a managed stage of straight segments (`PisteM
 - Every `BackstopS` while drawn (a pure move of a run keeps the catalog hash).
 
 A build reads the Node buffers with `EntityManager.TryGetBuffer`, which completes the jobs that write Node. This is a sync point on a
-build only, never per frame. The cache holds at most `MaxSegments` segments. A run cut short is counted and warned once per load. A
+build only, never per frame. The cache holds at most `MaxSegments` segments (32768 since r2b-m: 4096 cut 89 of 245 planner runs). A run cut short is counted and warned once per load. A
 hover never rebuilds the cache: it maps `HoveredRun` to a slot, one job parameter.
 
 ## Draw
