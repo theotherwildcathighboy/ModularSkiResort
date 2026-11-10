@@ -40,26 +40,44 @@ The tool works the same way for every lift type. The prompt beside the cursor na
 
 - **Start:** click a station, a loose line end or open ground. Then click the other end.
 - **Add a tower:** click the line. A tower you add is pinned.
-- **Move a tower:** drag it. It is pinned where you drop it (snapped to a 5 m step, tram 10 m). Every pinned tower stays exactly where it is. The planner refits only the unpinned towers between them and still sets every tower's height. A pin too close to a station is refused: under **11.5 m**, gondola **12.6 m**, tram **16 m**. So is a pin under **10 m** (tram **40 m**) from another pin. Pinned towers show a blue inner ring.
+- **Move a tower:** drag it. It is pinned where you drop it and shows a blue inner ring. Every pinned tower stays exactly where it is. The planner refits only the unpinned towers between them and still sets every tower's height. A pin too close to a station or to another pin is refused (distances in [Limits per Lift Type](#limits-per-lift-type)).
 - **Remove a tower:** drag it off the line and release. A pinned tower becomes unpinned. The planner puts a tower back near it only if the line needs one there.
 - **Step back:** right click or **Esc** undoes one action. With nothing left to undo it closes the tool.
 - **Build:** **Enter**.
-- **Preview:** the rope is colored by how far its lowest carrier clears the ground beyond the required minimum (**3 m**, tram **5 m**). A bad line shows before it is built:
+- **Preview:** the rope is colored by how far its lowest carrier clears the ground beyond the required minimum (see the table below). A bad line shows before it is built:
   - **Green:** at least **2 m** to spare.
   - **Amber:** 0 to 2 m to spare. Clear, but tight.
   - **Red:** below the minimum. The carriers would be too low. The tower ring is red too (*short*).
-  - **Violet:** the rope is more than **30 m** above the ground. This applies to chairlifts and gondolas. The tram has no limit. The tower ring is violet.
+  - **Violet:** the rope is higher above the ground than the lift type allows. The tram has no limit. The tower ring is violet.
   - **Tooltip:** span lengths and the lowest carrier height. It turns to a warning while any span is red or violet. Add or move a tower to fix it. The tool does not block building a line flagged red or violet for clearance.
 - **Planner:** fits tower heights to the terrain with few towers. Next to a station it prefers the shortest tower, and may add one tower to get shorter ones there. It plans within the steepest span the line allows. Option *Plan lift towers*, default on.
 - **Too steep:** a span steeper than the line type allows is drawn in red and the tower ring turns red. The game refuses to build that line. Move the tower next to the red part, add a tower, or change the route.
 - **Red tower:** the planner first moves towers, picks other heights, adds a pair or drops a tower. A tower it cannot fix turns red, and its tooltip names the reason. The line still builds and runs:
-  - *Too steep for this lift type:* the rope runs through one tower steeper than fixed-grip **38°**, detachable **40°**, gondola **40°**, aerial tram **55°**.
+  - *Too steep for this lift type:* the rope runs through one tower steeper than the type allows.
   - *Past what its wheels can follow:* the rope bends at the tower more than its sheave train follows.
   - *Past what tram saddles are built for:* the rope bends over a tram tower's saddle by more than **40°** (**20°** each side).
   - *Past where chairs or cabins clear the tower:* the rope leaves the tower so steeply that a hanging chair or cabin would swing into the tower head.
-- **Trees:** a built line fells the trees in its corridor: **11.4 m** wide on a fixed-grip, **13.6 m** detachable, **14.2 m** gondola, **20.8 m** tram, plus any tree whose crown reaches the carriers. The preview shows the cut. A refused build keeps every tree.
+- **Trees:** a built line fells the trees in its corridor, plus any tree whose crown reaches the carriers. The preview shows the cut. A refused build keeps every tree.
 - **Tower numbers:** every tower shows its number, counted up the line from the base station, 1 to 200, then back to 1. All chairs show the same number.
 - **Station that already has a line:** refused. In the lift tool, click a section's rope to remove that section, then click its two loose ends.
+
+## Limits per Lift Type
+
+| | Fixed-grip | Detachable | Gondola | Aerial tram |
+|---|---|---|---|---|
+| Steepest slope | 80 % | 90 % | 120 % | 250 % |
+| Longest span between towers | 90 m | 245 m | 245 m | 3,000 m |
+| Steepest rope through one tower | 38° | 40° | 40° | 55° |
+| Tower starts to lean at a rope slope of | 12° | 20° | 20° | 30° |
+| Most a tower leans | 25° | 20° | 20° | 25° |
+| Lowest carrier above the ground | 3 m | 3 m | 3 m | 5 m |
+| Highest rope above the ground | 30 m | 30 m | 30 m | no limit |
+| Tree corridor width | 11.4 m | 13.6 m | 14.2 m | 20.8 m |
+| Dragged tower snaps to | 5 m | 5 m | 5 m | 10 m |
+| Closest pin to a station | 11.5 m | 11.5 m | 12.6 m | 16 m |
+| Closest pin to another pin | 10 m | 10 m | 10 m | 40 m |
+
+The tram's 3,000 m span is about the longest free span on a real lift, Whistler's Peak 2 Peak gondola. Prices, speeds and tower heights: [Lift Types](/reference/lifts/).
 
 ## Section Redo
 
@@ -75,13 +93,12 @@ Option **Lift building aids** (default on): the bulldozer warns what a click on 
 
 ## Terrain
 
-Limits per lift type:
+Numbers per lift type: [Limits per Lift Type](#limits-per-lift-type).
 
-- **Steepest slope:** fixed-grip **80 %**, detachable **90 %**, gondola **120 %**, aerial tram **250 %**.
-- **Longest tower span:** fixed-grip **90 m**, detachable **245 m**, gondola **245 m**, tram **3,000 m** (about the longest free span on a real lift, Whistler's Peak 2 Peak gondola). The planner adds towers to stay under it, and also wherever the sagging rope would come too close to the ground.
+- **Longest span:** the planner adds towers to stay under it, and also wherever the sagging rope would come too close to the ground.
 - **Towers:** height follows the terrain, in steps. See [Lift Types](/reference/lifts/).
-- **Steep lines:** where the rope runs steeply through a tower, the whole tower leans downhill from its foot, as on real steep lifts: from **12°** of rope slope on a fixed-grip, **20°** on a detachable or gondola, **30°** on a tram, by at most **25°** (detachable and gondola **20°**). The head and wheels tilt with the rope on top of that. Every tower's padded side faces uphill, whichever way the line was drawn. Tram towers stand on concrete pedestals. Where the ground does not fall away with the lean, a leaning tram tower stands higher on them so its steel stays clear of the ground.
-- **Canyons and cliffs:** the planner puts towers where the ground rises toward the rope. It uses tall towers where they let a span reach farther, so crossings take fewer towers. Carriers stay at least **3 m** above the ground (tram **5 m**). Chairlift and gondola rope stays at most **30 m** above it. If no mix of tower heights clears a span, the preview shows red or violet (see Preview above). Add or move a tower, or route the line elsewhere.
+- **Steep lines:** where the rope runs steeply through a tower, the whole tower leans downhill from its foot, as on real steep lifts. The head and wheels tilt with the rope on top of that. Every tower's padded side faces uphill, whichever way the line was drawn. Tram towers stand on concrete pedestals. Where the ground does not fall away with the lean, a leaning tram tower stands higher on them so its steel stays clear of the ground.
+- **Canyons and cliffs:** the planner puts towers where the ground rises toward the rope. It uses tall towers where they let a span reach farther, so crossings take fewer towers. Carriers keep the type's clearance above the ground, and chairlift and gondola rope stays under the type's highest rope. If no mix of tower heights clears a span, the preview shows red or violet (see Preview above). Add or move a tower, or route the line elsewhere.
 - **Stations:** the detachable quad and gondola stations and the fixed-grip base station cut a level pad into the slope where you place them. They cut the ground above the pad and fill nothing, so on the downhill side the slope stays below the station. A base station cuts its pad 12 m past its lot on the line side, so the chairs leave it over level ground. The aerial tram's base terminal levels its pad (cut and fill). The fixed-grip top station and the aerial tram's top terminal keep the slope as placed. Where the ground past the pad rises faster than the chairs climb, the chairs leave below the ground. The tool then shows a notice and still builds. Build on flatter ground, adjust the ground with the game's terraforming, or reposition a station with Move It.
 - **Crossing another lift:** another lift is passed over, or under when the other lift runs high there. The towers beside the crossing are made tall enough for the clearance the game requires. Where that is not possible, the line is not built. The notice says why: no tower arrangement reaches the clearance, the crossing is too close to a station or to one of the other lift's towers, or the two meet at an angle under **20°**. Two lifts of the same type cannot cross: the game cannot keep them apart there, so that line is not built either.
 - **Roads:** the planner keeps towers off roads, rail and tram tracks, and paths under the line. Roads and paths that belong to a building (a parking lot, a park's paths) are not kept free. Where the line has no clear plan without a tower on a road, the tower stands there. The game reports it as overlapping: move the road or the tower.

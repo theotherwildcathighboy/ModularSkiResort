@@ -82,14 +82,22 @@ Lay out the track and press **Enter**. The tool cuts and fills the ground so the
 - **Delete mode:** hub **Runs** tab > **Delete cat tracks**, or **Ctrl+Shift+D** while the tool is open. Hover a track to outline it, click it once to arm it (red), click again to delete it. A click elsewhere disarms it. Right click or **Esc** leaves Delete mode without deleting. With the mode off, a click on an existing cat track starts a new track there (a branch).
 - **Delete from the list:** the trash button on the cat track's row in the hub's **Runs** list: click it, then click again within 4 seconds.
 - **After a delete:** the ground stays as graded and the fee is not refunded, like the bulldozer on a run. The bulldozer itself cannot pick a cat track.
-- **Defaults:** max grade **25 %**, width **20 m**, cut slope **1:1.5**, fill slope **1:2**. Grading is free, like vanilla terraforming. The track pays the cat track fee.
+- **Settings** (Options > Modular Ski Resort > Runs):
+
+  | Setting | Default | Range |
+  |---|---|---|
+  | Max grade | 25 % | 5 to 25 % |
+  | Width | 20 m | 8 to 32 m |
+  | Cut slope | 1:1.5 | 1 to 3 |
+  | Fill slope | 1:2 | 1 to 4 |
+
+- **Cost:** grading is free, like vanilla terraforming. The track pays the cat track fee.
 - **Switchbacks:** legs closer than the track width are refused: spread them apart or make the track narrower.
 - **Mode:** with *Cat track: constant grade* off, the track follows the ground and moves as little earth as the max grade allows. On: one even slope from end to end.
 - **Too steep:** a path that cannot stay under the max grade is refused, with the missing length in meters. Add a switchback.
 - **Crossing runs:** a cat track crosses groomed and natural runs, with or without snow guns or lights, and keeps their difficulty. Inside a run there is no flat bench. The run's ground keeps its own slope and is graded at most **2 m** along the track, fading out toward the run's edges. Outside, the grading fades in over the **15 m** before the run. If a crossed run would change its difficulty, the tool grades less inside it (down to none), or refuses the crossing. Where 2 m is not enough the plan turns red: cross it more level, not down the fall line. Trees in the 15 m before a run are cleared with the rest of the corridor. A run the track only runs beside is left alone and the track keeps its full width. Two cat tracks cannot overlap.
 - **Terrain:** trees in the corridor are removed (not inside a crossed run). Runs are rated again after the terrain changes. A track whose graded strip reaches under a building or station, into water, or within **6 m** of a lift line is refused.
 - **Plan cat tracks before lifts:** grading changes the ground, so a cat track can never pass under a lift that is already built. Build the track first, then draw the lift over it.
-- **Options:** Options > Modular Ski Resort > Runs. Max grade **5 to 25 %**, width **8 to 32 m**, cut **1 to 3**, fill **1 to 4**.
 
 ## Resort Planner (Experimental)
 
