@@ -94,6 +94,10 @@ namespace SkiResortMod.Systems
         public float EasyUpTol = 0.10f;           // RF_UPTOL
         public float EasyBudget = 3.0e6f;         // RF_EBUDGET: cells the easy-ground searches may settle per region
         public float LinkBudget = 1.8e6f;         // RF_LBUDGET
+        // cells the way-home pass may settle, a budget of its own (0: it spends the shared EasyBudget, the plans before R2-p2). With
+        // the rater on the ski graph more lifts read without a way home, and on big-4 the way home spent all of the shared budget:
+        // the regrade and the learning ways then found nothing (69 legs past the budget, -11.2)
+        public float WayHomeBudget = 3.0e6f;      // RF_WBUDGET
         public float TrackTurnM = 40f;            // RF_TURNM
         public float LearnGround = 0.235f;        // RF_LGROUND
         public float LearnMinRise = 32f;          // RF_LMINRISE

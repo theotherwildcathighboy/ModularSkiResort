@@ -328,7 +328,21 @@ namespace SkiResortMod.Systems
             Tick("learning pods");
             // an easy way home from every lift's top (green cat tracks to a base or a gondola top)
             if (O.WayHome)
+            {
+                // the way home spends a budget of its own, so the regrade and the learning ways after it keep what the shared one has left
+                long shared = EasyWork;
+                if (O.WayHomeBudget > 0f)
+                {
+                    m_OwnBudget = O.WayHomeBudget;
+                    EasyWork = 0;
+                }
                 AddWaysHome(g, plan, lifts);
+                if (O.WayHomeBudget > 0f)
+                {
+                    m_OwnBudget = 0f;
+                    EasyWork = shared;
+                }
+            }
             Tick("way home");
             // a lift still without a way home is a download lift: a gondola or tram
             if (O.Downloads)
