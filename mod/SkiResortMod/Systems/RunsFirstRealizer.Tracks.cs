@@ -413,6 +413,7 @@ namespace SkiResortMod.Systems
                     return;
                 RealizeTrack(e);
             }
+            MergedSpurs();
             ReachPisteEnds();
             // A piste a new track crosses (informational, AutoRun.CrossesCatTrack)
             foreach (Area p in m_P)
@@ -459,26 +460,66 @@ namespace SkiResortMod.Systems
             var owner = new int[n];
             for (int i = 0; i < n; i++)
                 cause[i] = FreeTrack(path.Xz[i], out owner[i]);
-            AutoReject last = AutoReject.TooShort;
-            bool anyTrack = false, anyRegion = false, any = false;
-            int segment = 0;
+            bool anyTrack = false, anyRegion = false;
             for (int i = 0; i < n; i++)
             {
                 anyTrack |= cause[i] == CTrack;
                 anyRegion |= cause[i] == CRegion;
-                if (cause[i] != CFree || (i > 0 && cause[i - 1] == CFree))
+            }
+            var st = new RangeState();
+            int segment = 0;
+            RealizeRange(e, path, cause, owner, 0, n - 1, true, true, null, null, ref segment, st);
+            if (e.Areas.Count > 0)
+            {
+                m_Rep.TrackKmShared += st.Shared / 1000.0;
+                return;
+            }
+            // No own piece: a chain that lies in the corridor of accepted tracks over most of its length, and whose own stretches were
+            // only lost as too short (none failed), merges into them (MergeChain). Anything else is a drop
+            if (anyTrack && !st.Failed && st.Shared >= MergeShare * path.LengthM && MergeChain(e, path, cause, owner, st.Shared))
+                return;
+            DropElem(e, st.Any ? st.Last : anyTrack ? AutoReject.Overlap : anyRegion ? AutoReject.Region : AutoReject.Obstacle,
+                (st.Any ? "every piece failed" : "no free stretch") + $", {path.LengthM:F0} m" + CorridorNote(e, path, cause, owner));
+        }
+
+        /// <summary>What one chain's pieces did (RealizeRange).</summary>
+        private sealed class RangeState
+        {
+            public bool Any, Failed;
+            public AutoReject Last = AutoReject.TooShort;
+            public float Shared;       // m of the chain in the gap of accepted tracks (carried by them)
+            public int SelfSplits;
+        }
+
+        /// <summary>The free stretches of the samples lo..hi become pieces (6.2). A stretch in the gap of an accepted track is that track's
+        /// corridor (R2-r): two tracks in one corridor are one track in the game, so the accepted track carries the stretch, built once,
+        /// and the pieces on both sides butt onto it. orig0 / orig1: the range holds the chain's start / end. j0 / j1: the junction
+        /// partners at lo / hi (a range after a self-split starts at the piece that holds the stretch before it).</summary>
+        private void RealizeRange(Elem e, GradePath path, byte[] cause, int[] owner, int lo, int hi, bool orig0, bool orig1, List<int> j0, List<int> j1,
+            ref int segment, RangeState st)
+        {
+            for (int i = lo; i < hi; i++)
+                if (cause[i] == CTrack && cause[i + 1] == CTrack && m_T[owner[i]].Elem != e.Id)
+                    st.Shared += path.S[i + 1] - path.S[i];   // the chain's own corridor after a self-split is lost, not carried
+            for (int i = lo; i <= hi; i++)
+            {
+                if (cause[i] != CFree || (i > lo && cause[i - 1] == CFree))
                     continue;
                 int j = i;
-                while (j + 1 < n && cause[j + 1] == CFree)
+                while (j + 1 <= hi && cause[j + 1] == CFree)
                     j++;
-                any = true;
+                st.Any = true;
                 var pc = new Piece { S = i, E = j };
-                pc.Orig0 = i == 0 || AllTrack(cause, 0, i - 1);
-                pc.Orig1 = j == n - 1 || AllTrack(cause, j + 1, n - 1);
-                if (i > 0 && cause[i - 1] == CTrack)
+                pc.Orig0 = orig0 && (i == lo || AllTrack(cause, lo, i - 1));
+                pc.Orig1 = orig1 && (j == hi || AllTrack(cause, j + 1, hi));
+                if (i > lo && cause[i - 1] == CTrack)
                     pc.J0.Add(owner[i - 1]);
-                if (j < n - 1 && cause[j + 1] == CTrack)
+                else if (i == lo && j0 != null)
+                    pc.J0.AddRange(j0);
+                if (j < hi && cause[j + 1] == CTrack)
                     pc.J1.Add(owner[j + 1]);
+                else if (j == hi && j1 != null)
+                    pc.J1.AddRange(j1);
                 float len = path.S[j] - path.S[i];
                 bool joined = (pc.Orig0 || pc.J0.Count > 0) && (pc.Orig1 || pc.J1.Count > 0);
                 if (j - i < 1 || len < TrackStubM || (!joined && len < TrackMinPieceM))
@@ -489,16 +530,320 @@ namespace SkiResortMod.Systems
                     continue;
                 }
                 AutoReject why = BuildTrackPiece(e, path, pc, ref segment, out float2 at);
-                if (why != AutoReject.Kept)
+                if (why == AutoReject.Kept)
+                    m_Rep.TrackKmOwn += len / 1000.0;
+                else if (why == AutoReject.Crosses && SelfSplit(e, path, pc, ref segment, st))
+                    continue;
+                else
                 {
-                    last = why;
+                    st.Last = why;
+                    st.Failed = true;
                     m_Res.Rejects[(int)why]++;
                     m_Rep.Lines.Add($"track {e.Source} ({e.Kind}): piece at ({at.x:F0}, {at.y:F0}) dropped ({why})");
                 }
             }
-            if (e.Areas.Count == 0)
-                DropElem(e, any ? last : anyTrack ? AutoReject.Overlap : anyRegion ? AutoReject.Region : AutoReject.Obstacle,
-                    any ? "every piece failed" : "no free stretch");
+        }
+
+        /// <summary>R2-r: a piece whose ribbon still crosses itself after the bend split (switchback legs closer than the track width plus
+        /// the gap) is one track in its own corridor. Its longest clean prefix is accepted. The rest is tested against the lattice that now
+        /// holds that prefix: the stretch beside the prefix is the prefix's corridor (carried by it), and the free stretches after it are
+        /// pieces butted onto it (RealizeRange, again with this fallback). At most MaxSelfSplits per chain.</summary>
+        private bool SelfSplit(Elem e, GradePath path, Piece pc, ref int segment, RangeState st)
+        {
+            if (st.SelfSplits >= MaxSelfSplits)
+                return false;
+            // The longest prefix [pc.S, m] whose 10 m ribbon is clear and passes the checks (binary search: a prefix that crosses itself
+            // stays crossed when it grows)
+            int first = pc.S + 1;
+            while (first < pc.E && path.S[first] - path.S[pc.S] < TrackStubM)
+                first++;
+            int a = first, b = pc.E - 1, best = -1;
+            float2[] bestRing = null;
+            while (a <= b)
+            {
+                int m = (a + b) >> 1;
+                float2[] ring = GradeRibbon.Build(SubPath(path, pc.S, m), TrackHalfWidthM, out GradeRibbonFail fail);
+                if (fail == GradeRibbonFail.None && CheckTrack(ring) == AutoReject.Kept)
+                {
+                    best = m;
+                    bestRing = ring;
+                    a = m + 1;
+                }
+                else
+                    b = m - 1;
+            }
+            if (best < 0)
+                return false;
+            st.SelfSplits++;
+            GradePath pre = SubPath(path, pc.S, best), line = pre;
+            if (pc.Orig0)
+            {
+                // the chain's start keeps its reach to a related element when the reached prefix is still clear
+                int reaches = m_Rep.TrackReaches;
+                GradePath ext = ReachEnds(e, pre, true, false);
+                GradeRibbonFail fail = GradeRibbonFail.TooShort;
+                float2[] ring = ext != pre ? GradeRibbon.Build(ext, TrackHalfWidthM, out fail) : null;
+                if (ring != null && fail == GradeRibbonFail.None && CheckTrack(ring) == AutoReject.Kept)
+                {
+                    line = ext;
+                    bestRing = ring;
+                }
+                else
+                    m_Rep.TrackReaches = reaches;
+            }
+            int idx = AcceptTrack(e, line, bestRing, TrackHalfWidthM, pc.J0, new List<int>(), pc.Orig0, false, segment++);
+            m_Rep.TrackKmOwn += pre.LengthM / 1000.0;
+            m_Rep.TrackSelfSplits++;
+            m_Rep.Lines.Add($"track {e.Source} ({e.Kind}): crosses itself, split at ({path.Xz[best].x:F0}, {path.Xz[best].y:F0}) after {pre.LengthM:F0} m, the rest butts onto it");
+            // The rest against the lattice that now holds the prefix
+            int n = path.Count;
+            var cause = new byte[n];
+            var owner = new int[n];
+            for (int i = best + 1; i <= pc.E; i++)
+                cause[i] = FreeTrack(path.Xz[i], out owner[i]);
+            RealizeRange(e, path, cause, owner, best + 1, pc.E, false, pc.Orig1, new List<int> { idx }, pc.J1, ref segment, st);
+            return true;
+        }
+
+        /// <summary>R2-r (DECISIONS 637): a chain with no own piece that runs in the corridor of accepted tracks merges into them. The tracks
+        /// that hold its corridor (its hosts) carry the shared stretch, so the chain adds no area. Its element takes the hosts' areas as its
+        /// own: a later track or piste that the planner relates to this chain reaches and links to the hosts, and the relation gate tests
+        /// the chain's own relations on the hosts (RelationGate). A chain held only by existing tracks merges into them with no area.</summary>
+        private bool MergeChain(Elem e, GradePath path, byte[] cause, int[] owner, float shared)
+        {
+            var hosts = new List<int>();
+            bool existing = false;
+            for (int i = 0; i < path.Count; i++)
+            {
+                if (cause[i] != CTrack || owner[i] < 0)
+                    continue;
+                if (m_T[owner[i]].Existing)
+                    existing = true;
+                else if (!hosts.Contains(owner[i]))
+                    hosts.Add(owner[i]);
+            }
+            if (hosts.Count == 0 && !existing)
+                return false;
+            e.Merged = true;
+            e.Areas.AddRange(hosts);
+            m_Rep.TrackMerged++;
+            m_Rep.TrackKmShared += shared / 1000.0;
+            m_Rep.TrackKmMerged += path.LengthM / 1000.0;
+            m_Rep.Lines.Add($"track {e.Source} ({e.Kind}) at ({path.Xz[0].x:F0}, {path.Xz[0].y:F0}) merged into {HostNames(e)}{CorridorNote(e, path, cause, owner)}");
+            return true;
+        }
+
+        /// <summary>R2-r: after the track pass, every planner relation of a merged chain that its hosts do not link gets a spur: a short
+        /// straight track that leaves the corridor it starts in and stops at the game link to the other side. Two kinds: (1) the merged
+        /// chain's own end (it starts off or ends onto an element) toward that element's nearest kept area, (2) the source end of a kept
+        /// track that starts off or ends onto the merged chain toward the nearest host. A spur is an area of the merged chain. Pistes
+        /// that relate to a merged chain reach its hosts in ReachPisteEnds, which runs after this pass.</summary>
+        private void MergedSpurs()
+        {
+            foreach (Elem b in m_E)
+            {
+                if (!b.Merged || b.Areas.Count == 0 || Canceled)
+                    continue;
+                var hosts = new List<int>(b.Areas);
+                for (int s = 0; s < 2; s++)
+                {
+                    float2 endPt = s == 0 ? b.Pts[0] : b.Pts[b.Pts.Count - 1];
+                    foreach (Elem c in m_E)
+                    {
+                        if (c == b || c.Areas.Count == 0 || !(s == 0 ? StartsOff(b, c) : EndsOnto(b, c)))
+                            continue;
+                        Area near = NearArea(c, endPt, out bool linked, b.Areas);
+                        if (near != null && !linked)
+                            Spur(b, endPt, hosts, near);
+                    }
+                }
+                for (int x = 0; x < m_T.Count; x++)
+                {
+                    Area xa = m_T[x];
+                    if (xa.Existing || xa.Elem == b.Id || m_E[xa.Elem].Merged)
+                        continue;
+                    Elem a = m_E[xa.Elem];
+                    for (int s = 0; s < 2; s++)
+                    {
+                        if (!(s == 0 ? xa.Orig0 : xa.Orig1) || !(s == 0 ? StartsOff(a, b) : EndsOnto(a, b)))
+                            continue;
+                        float2 endPt = s == 0 ? a.Pts[0] : a.Pts[a.Pts.Count - 1];
+                        Area near = NearArea(b, endPt, out bool linked, new List<int> { x });
+                        if (near != null && !linked)
+                            Spur(b, s == 0 ? xa.Line[0] : xa.Line[xa.Line.Length - 1], new List<int> { x }, near);
+                    }
+                }
+            }
+        }
+
+        /// <summary>The kept area of c nearest to p within RelationM + JunctionReachM (the relation gate's reach), and whether any area of c
+        /// is already a game link to one of the given track areas.</summary>
+        private Area NearArea(Elem c, float2 p, out bool linked, List<int> tracks)
+        {
+            linked = false;
+            Area best = null;
+            float bd = RelationM + JunctionReachM;
+            foreach (int k in c.Areas)
+            {
+                Area y = AreaOf(c, k);
+                if (y.Existing)
+                    continue;
+                foreach (int t in tracks)
+                    linked |= (c.Type == ElemType.Track && k == t) || LiftServedRule.OutlinesLinked(m_T[t].Ring, y.Ring);
+                float d = GradeRaster.Inside(y.Ring, p) ? 0f : PlanGeometry.PointRingDistance(y.Ring, p);
+                if (d <= bd)
+                {
+                    bd = d;
+                    best = y;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>One spur (MergedSpurs): from p straight toward the nearest point of the target's centerline, in SampleM steps. The
+        /// first samples in the gap of a start track are skipped (the spur butts onto it). It stops at the first sample within
+        /// TrackReachM of the target's outline or in the target's gap. Any other blocked sample ends it without a spur. The ring must
+        /// pass the track checks and be a game link at both ends.</summary>
+        private void Spur(Elem b, float2 p, List<int> start, Area target)
+        {
+            if (target.Line == null)
+                return;
+            float2 aim = target.Line[0];
+            float bd = float.PositiveInfinity;
+            for (int k = 0; k + 1 < target.Line.Length; k++)
+            {
+                float2 a = target.Line[k], d = target.Line[k + 1] - a;
+                float len2 = math.lengthsq(d);
+                float2 c = a + d * (len2 > 0f ? math.saturate(math.dot(p - a, d) / len2) : 0f);
+                float dd = math.distancesq(p, c);
+                if (dd < bd)
+                {
+                    bd = dd;
+                    aim = c;
+                }
+            }
+            float dist = math.distance(p, aim);
+            if (dist < SampleM)
+                return;
+            float2 dir = (aim - p) / dist;
+            int tIdx = target.Track ? m_T.IndexOf(target) : -1;
+            var pts = new List<float2>();
+            bool reached = false;
+            string block = "the target is out of reach";
+            for (float t = 0f; t <= dist + 0.01f; t += SampleM)
+            {
+                float2 q = p + dir * t;
+                byte cause = FreeTrack(q, out int own);
+                if (cause == CTrack && pts.Count == 0 && start.Contains(own))
+                    continue;   // still in the gap of the track it starts from
+                if (cause == CTrack && own == tIdx)
+                {
+                    reached = true;   // in the target's gap: the butt joint is the link
+                    break;
+                }
+                if (cause != CFree)
+                {
+                    block = (cause == CTrack ? $"the gap of track {(m_T[own].Existing ? "(existing)" : m_E[m_T[own].Elem].Source.ToString())}" : $"cause {cause}") + $" after {t:F0} m";
+                    break;
+                }
+                pts.Add(q);
+                if (Linked(q, target))
+                {
+                    reached = true;
+                    break;
+                }
+            }
+            string what = $"track {b.Source} ({b.Kind}): spur from ({p.x:F0}, {p.y:F0}) to {(target.Track ? "track" : "piste")} {m_E[target.Elem].Source}";
+            GradePath path = reached && pts.Count >= 3 ? GradePath.Build(pts, SampleM) : null;
+            GradeRibbonFail fail = GradeRibbonFail.TooShort;
+            float2[] ring = path != null ? GradeRibbon.Build(path, TrackHalfWidthM, out fail) : null;
+            bool ok = ring != null && fail == GradeRibbonFail.None && CheckTrack(ring) == AutoReject.Kept &&
+                LiftServedRule.OutlinesLinked(ring, target.Ring);
+            if (ok)
+            {
+                bool startLinked = false;
+                foreach (int s in start)
+                    startLinked |= LiftServedRule.OutlinesLinked(ring, m_T[s].Ring);
+                ok = startLinked;
+            }
+            if (!ok)
+            {
+                m_Rep.Lines.Add(what + (reached ? " not built (its ring fails a check)" : $" not built ({block})"));
+                return;
+            }
+            var j1 = new List<int>();
+            if (tIdx >= 0)
+                j1.Add(tIdx);
+            AcceptTrack(b, path, ring, TrackHalfWidthM, start, j1, false, false, SpurSegment + b.Spurs++);
+            m_Rep.TrackSpurs++;
+            m_Rep.Lines.Add($"{what}, {path.LengthM:F0} m");
+        }
+
+        /// <summary>Report only: the sources of a merged chain's hosts.</summary>
+        private string HostNames(Elem e)
+        {
+            var names = new List<string>();
+            foreach (int k in e.Areas)
+            {
+                string s = $"track {m_E[m_T[k].Elem].Source}";
+                if (!names.Contains(s))
+                    names.Add(s);
+            }
+            return names.Count > 0 ? string.Join(", ", names) : "an existing track";
+        }
+
+        /// <summary>Report only: the share of a chain's centerline that lies in the gap of accepted tracks, which tracks hold it (parent,
+        /// same tree, other tree, link), and how far the chain strays from their centerlines.</summary>
+        private string CorridorNote(Elem e, GradePath path, byte[] cause, int[] owner)
+        {
+            int n = path.Count, inGap = 0;
+            float far = 0f;
+            var who = new List<int>();
+            for (int i = 0; i < n; i++)
+            {
+                if (cause[i] != CTrack || owner[i] < 0)
+                    continue;
+                inGap++;
+                Area o = m_T[owner[i]];
+                if (!who.Contains(owner[i]))
+                    who.Add(owner[i]);
+                if (o.Line != null)
+                    far = Math.Max(far, LineDistance(o.Line, path.Xz[i]));
+            }
+            if (inGap == 0)
+                return "";
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"; corridor {100f * inGap / n:F0} % of {path.LengthM:F0} m, at most {far:F0} m from the centerline of");
+            var seen = new List<int>();
+            foreach (int k in who)
+            {
+                Area o = m_T[k];
+                if (o.Existing)
+                {
+                    sb.Append(" an existing track");
+                    continue;
+                }
+                if (seen.Contains(o.Elem))
+                    continue;
+                seen.Add(o.Elem);
+                Elem b = m_E[o.Elem];
+                string rel = b.Id == e.Parent ? "parent" : b.Link || e.Link ? "link" : b.Lift == e.Lift && b.Kind == "tree" && e.Kind == "tree" ? "same lift" : "other tree";
+                sb.Append($" track {b.Source} ({rel})");
+            }
+            return sb.ToString();
+        }
+
+        private static float LineDistance(float2[] line, float2 p)
+        {
+            float bd = float.PositiveInfinity;
+            for (int k = 0; k + 1 < line.Length; k++)
+            {
+                float2 a = line[k], d = line[k + 1] - a;
+                float len2 = math.lengthsq(d);
+                float2 c = a + d * (len2 > 0f ? math.saturate(math.dot(p - a, d) / len2) : 0f);
+                bd = Math.Min(bd, math.distancesq(p, c));
+            }
+            return line.Length == 1 ? math.distance(line[0], p) : (float)Math.Sqrt(bd);
         }
 
         private static bool AllTrack(byte[] cause, int a, int b)
@@ -532,8 +877,25 @@ namespace SkiResortMod.Systems
             AutoReject why = BuildTrackRing(e, path, pc, sub, ref segment, out at);
             if (why != AutoReject.Kept && sub != plain)
             {
-                // the piece with its reached ends fails: it goes without them (iteration 3), the reach is not counted
                 m_Rep.TrackReaches = reaches;
+                // R2-r: both ends reached and the piece fails: it keeps one reached end, its end first (a track mostly ends onto what
+                // it serves), then its start
+                for (int k = 0; k < 2 && pc.Orig0 && pc.Orig1; k++)
+                {
+                    GradePath one = ReachEnds(e, plain, k == 1, k == 0);
+                    if (one == plain || one.Count == sub.Count)
+                    {
+                        m_Rep.TrackReaches = reaches;
+                        continue;   // that end was not reached, or it was the only one reached
+                    }
+                    if (BuildTrackRing(e, path, pc, one, ref segment, out at) == AutoReject.Kept)
+                    {
+                        m_Rep.Lines.Add($"track {e.Source} ({e.Kind}): the piece failed with both reached ends ({why}), kept with its reached {(k == 0 ? "end" : "start")}");
+                        return AutoReject.Kept;
+                    }
+                    m_Rep.TrackReaches = reaches;
+                }
+                // the piece with its reached ends fails: it goes without them (iteration 3), the reach is not counted
                 m_Rep.Lines.Add($"track {e.Source} ({e.Kind}): reached ends dropped, the piece failed with them ({why})");
                 why = BuildTrackRing(e, path, pc, plain, ref segment, out at);
             }

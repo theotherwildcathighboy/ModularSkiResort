@@ -68,6 +68,23 @@ straight extension toward the related track or piste. The extension is at most 4
 change. The extended ring gets the exact check and the rating again. If the extension comes near a piste with no relation, that
 piste becomes a partner.
 
+## Two tracks in one corridor
+
+The game does not let two cat tracks overlap. So two chains in one corridor are one track. The corridor of an accepted track is
+its outline plus 7 m. A stretch of a later chain in that corridor belongs to the accepted track. The realizer builds the stretch
+once, as part of the accepted track. The report counts its length as carried. The later chain keeps its own stretches. Each own
+stretch butts onto the accepted track at the split.
+
+A chain with no own piece merges into the tracks that hold its corridor. These are its hosts. At least half of the chain must be
+in a corridor, and no own piece can have failed. A merged chain adds no area and is not a drop. Its element takes the areas of its
+hosts. Thus a piste or a track that the planner relates to the merged chain reaches the hosts and links to them. The relation
+gate also tests the relations of the merged chain itself. Each one must be a game link between a host and the related element.
+
+A piece can still cross itself after the split at its sharpest bend. Then the legs of a switchback are closer than the track
+width plus the gap. The realizer accepts the longest prefix that is clear. The rest of the piece is tested against the lattice
+with that prefix in it. The stretch beside the prefix is lost. The free stretches after it become pieces that butt onto the
+prefix. A chain gets at most eight of these splits.
+
 ## Determinism
 
 No clock and no random number has an effect on a decision. Every order is the list order, then the index. `RunsFirstRealizer.Hash`
@@ -75,6 +92,6 @@ covers every output bit. The host gate compares two runs.
 
 ## Test host
 
-- `RealizerTests.cs` runs in the default host run. It checks the synthetic regions and eleven hand fixtures.
+- `RealizerTests.cs` runs in the default host run. It checks the synthetic regions and fifteen hand fixtures.
 - `rf-realize <out dir> [regions file]` prints the report for each region. It also prints the score of the raw plan and of the
   realized plan.

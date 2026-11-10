@@ -237,7 +237,7 @@ namespace SkiResortMod.Systems
                     continue;
                 res.Runs[i].Unserved = true;
                 m_Rep.UnservedAreas++;
-                m_Rep.Lines.Add("unserved: " + LostRelation(m_Out[i], tops[i]));
+                m_Rep.Lines.Add("unserved: " + LostRelation(m_Out[i], tops[i], root));
             }
             // Per lift: Serves (Reaches on each area's highest node), StartsNearTop, EndsAtBottom
             for (int l = 0; l < L; l++)
@@ -358,8 +358,9 @@ namespace SkiResortMod.Systems
         private static bool Aerial(byte type) => type == 2 || type == 3;
 
         /// <summary>The planner relation an unserved area lost: its nearest lift top (distance, height over it), and the planner contacts
-        /// into its source with their state.</summary>
-        private string LostRelation(Area a, float3 top)
+        /// into its source with their state (R2-r: the outline gap of a kept contact that is not a link, whether a linked contact is
+        /// served itself, and for a later segment whether the segment before it is a link).</summary>
+        private string LostRelation(Area a, float3 top, List<int> root)
         {
             Elem e = m_E[a.Elem];
             float best = float.PositiveInfinity, dy = 0f;
@@ -383,17 +384,36 @@ namespace SkiResortMod.Systems
             {
                 if (b == e || !(EndsOnto(b, e) || StartsOff(e, b)) || shown >= 3)
                     continue;
-                bool kept = b.Areas.Count > 0, linked = false;
+                bool kept = b.Areas.Count > 0, linked = false, served = false;
                 foreach (int k in b.Areas)
                 {
                     Area o = b.Type == ElemType.Track ? m_T[k] : m_P[k];
-                    linked |= LiftServedRule.OutlinesLinked(a.Ring, o.Ring);
+                    if (LiftServedRule.OutlinesLinked(a.Ring, o.Ring))
+                    {
+                        linked = true;
+                        served |= o.Out >= 0 && root[o.Out] >= 0;
+                    }
                 }
-                sb.Append($"; planner contact from {(b.Type == ElemType.Track ? "track" : "piste")} {b.Source} ({b.Kind}): {(kept ? linked ? "linked" : "kept, not linked" : "dropped")}");
+                string link = linked ? served ? "linked" : "linked, unserved itself" : $"not linked ({Gap(a, b):F0} m apart)";
+                string state = b.Merged ? $"merged into {HostNames(b)}, {link}" : kept ? linked ? link : "kept, " + link : "dropped";
+                sb.Append($"; planner contact from {(b.Type == ElemType.Track ? "track" : "piste")} {b.Source} ({b.Kind}): {state}");
                 shown++;
             }
             if (shown == 0)
                 sb.Append("; no planner contact into it (the planner served it from a lift top within 150 m)");
+            if (a.Segment > 0 && a.Segment < SpurSegment)
+            {
+                // a later segment is entered from the segment before it (the same source)
+                Area prev = null;
+                foreach (int k in e.Areas)
+                {
+                    Area o = e.Type == ElemType.Track ? m_T[k] : m_P[k];
+                    if (o.Segment == a.Segment - 1)
+                        prev = o;
+                }
+                sb.Append(prev == null ? "; the segment before it is lost" : LiftServedRule.OutlinesLinked(a.Ring, prev.Ring)
+                    ? $"; linked to the segment before it{(prev.Out >= 0 && root[prev.Out] >= 0 ? "" : ", unserved itself")}" : $"; not linked to the segment before it ({PlanGeometry.RingDistance(a.Ring, prev.Ring, 500f, out _, out _, out _, out _):F0} m apart)");
+            }
             return sb.ToString();
         }
 
@@ -471,22 +491,28 @@ namespace SkiResortMod.Systems
                 {
                     var byElem = new Dictionary<int, bool>();   // element -> linked
                     var order = new List<int>();
-                    void Consider(Area y)
+                    var through = new Dictionary<int, string>();   // element -> how the relation came (report only)
+                    // key: the element the relation is with. A merged chain is one relation over all its areas (its hosts and spurs)
+                    void Consider(Area y, string how, int key)
                     {
                         if (y.Existing || y.Elem < 0 || y.Elem == x.Elem && y.Segment == x.Segment)
                             return;
                         bool linked = LiftServedRule.OutlinesLinked(x.Ring, y.Ring);
-                        if (!byElem.TryGetValue(y.Elem, out bool was))
+                        if (!byElem.TryGetValue(key, out bool was))
                         {
-                            order.Add(y.Elem);
-                            byElem[y.Elem] = linked;
+                            order.Add(key);
+                            byElem[key] = linked;
+                            through[key] = how;
                         }
                         else if (linked && !was)
-                            byElem[y.Elem] = true;
+                            byElem[key] = true;
                     }
                     List<int> js = s == 0 ? x.J0 : x.J1;
                     foreach (int j in js)
-                        Consider(x.Track ? m_T[j] : m_P[j]);
+                    {
+                        Area y = x.Track ? m_T[j] : m_P[j];
+                        Consider(y, "a junction", y.Elem);
+                    }
                     if (s == 0 ? x.Orig0 : x.Orig1)
                     {
                         float2 endPt = s == 0 ? a.Pts[0] : a.Pts[a.Pts.Count - 1];
@@ -498,7 +524,7 @@ namespace SkiResortMod.Systems
                             {
                                 Area y = b.Type == ElemType.Track ? m_T[k] : m_P[k];
                                 if (PlanGeometry.PointRingDistance(y.Ring, endPt) <= RelationM + JunctionReachM)
-                                    Consider(y);
+                                    Consider(y, b.Merged ? $"merged track {b.Source}" : "a contact", b.Merged ? b.Id : y.Elem);
                             }
                         }
                     }
@@ -522,10 +548,89 @@ namespace SkiResortMod.Systems
                         m_Rep.RelationMisses++;
                         Elem be = m_E[b];
                         float2 p = s == 0 ? x.Line[0] : x.Line[x.Line.Length - 1];
-                        m_Rep.Lines.Add($"relation not linked: {(x.Track ? "track" : "piste")} {a.Source} ({a.Kind}) segment {x.Segment} {(s == 0 ? "start" : "end")} at ({p.x:F0}, {p.y:F0}) and {(be.Type == ElemType.Track ? "track" : "piste")} {be.Source} ({be.Kind}){(unl == 1 ? " (end marked unlinked)" : "")}, outlines {Gap(x, be):F0} m apart");
+                        m_Rep.Lines.Add($"relation not linked: {(x.Track ? "track" : "piste")} {a.Source} ({a.Kind}) segment {x.Segment} {(s == 0 ? "start" : "end")} at ({p.x:F0}, {p.y:F0}) and {(be.Type == ElemType.Track ? "track" : "piste")} {be.Source} ({be.Kind}){(unl == 1 ? " (end marked unlinked)" : "")}, outlines {Gap(x, be):F0} m apart, through {through[b]}");
                     }
                 }
             }
+            MergedRelationGate();
+        }
+
+        /// <summary>R2-r: the planner relations of a merged chain's own ends (it starts off b, it ends onto b, b has a kept area within
+        /// RelationM + JunctionReachM of that end). The chain is its hosts in the game, so each relation must be a game link between a host
+        /// and a kept area of b. A host that is an area of b is the link (the chain merged into the element it relates to).</summary>
+        private void MergedRelationGate()
+        {
+            foreach (Elem a in m_E)
+            {
+                if (!a.Merged || a.Areas.Count == 0)
+                    continue;
+                for (int s = 0; s < 2; s++)
+                {
+                    float2 endPt = s == 0 ? a.Pts[0] : a.Pts[a.Pts.Count - 1];
+                    var seen = new List<int>();   // host elements already counted at this end
+                    foreach (Elem b in m_E)
+                    {
+                        if (b == a || b.Areas.Count == 0 || !(s == 0 ? StartsOff(a, b) : EndsOnto(a, b)))
+                            continue;
+                        bool near = false, linked = false;
+                        int key = -1;
+                        foreach (int k in b.Areas)
+                        {
+                            Area y = AreaOf(b, k);
+                            if (y.Existing || PlanGeometry.PointRingDistance(y.Ring, endPt) > RelationM + JunctionReachM)
+                                continue;
+                            near = true;
+                            key = key < 0 ? y.Elem : key;
+                            if (b.Type == ElemType.Track && a.Areas.Contains(k))
+                                linked = true;
+                            foreach (int h in a.Areas)
+                                linked |= LiftServedRule.OutlinesLinked(m_T[h].Ring, y.Ring);
+                        }
+                        if (!near || seen.Contains(key))
+                            continue;   // the same area element again (b merged into it too): counted once
+                        seen.Add(key);
+                        m_Rep.Relations++;
+                        m_Rep.MergedRelations++;
+                        bool through = !linked && MergedVia(a, b, endPt);
+                        if (linked || through)
+                        {
+                            m_Rep.RelationLinks++;
+                            m_Rep.MergedLinks++;
+                            if (through)
+                                m_Rep.RelationVia++;
+                            continue;
+                        }
+                        m_Rep.RelationMisses++;
+                        m_Rep.Lines.Add($"relation not linked: merged track {a.Source} ({a.Kind}) {(s == 0 ? "start" : "end")} at ({endPt.x:F0}, {endPt.y:F0}) " +
+                            $"and {(b.Type == ElemType.Track ? "track" : "piste")} {b.Source} ({b.Kind}), hosts {HostNames(a)}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>R2-r: a merged chain's relation to b also holds through one track that lies between them: a track area within RelationM
+        /// of the chain's end that is a game link to a host of the chain and to a kept area of b (the merged form of Via).</summary>
+        private bool MergedVia(Elem a, Elem b, float2 endPt)
+        {
+            foreach (Area z in m_T)
+            {
+                if (z.Existing || z.Elem == a.Id || z.Elem == b.Id || a.Areas.Contains(m_T.IndexOf(z)) ||
+                    PlanGeometry.PointRingDistance(z.Ring, endPt) > RelationM)
+                    continue;
+                bool toHost = false, toB = false;
+                foreach (int h in a.Areas)
+                    toHost |= LiftServedRule.OutlinesLinked(z.Ring, m_T[h].Ring);
+                if (!toHost)
+                    continue;
+                foreach (int k in b.Areas)
+                {
+                    Area y = AreaOf(b, k);
+                    toB |= !y.Existing && LiftServedRule.OutlinesLinked(z.Ring, y.Ring);
+                }
+                if (toB)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>True when an area that cut this end (a junction partner at it) is a game link to a kept area of b.</summary>
