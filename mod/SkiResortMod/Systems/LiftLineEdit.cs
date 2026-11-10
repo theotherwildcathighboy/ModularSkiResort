@@ -558,8 +558,10 @@ namespace SkiResortMod.Systems
                 return null;
             LiftTerrainSampler fromA = (s, l) => ground(e.PointAt(s, l));
             LiftTerrainSampler fromB = (s, l) => ground(e.PointFromB(s, l));
-            fromA = PadSampler(fromA, e.LengthM, false, baseStation, bottom.StationY, topStation, top.StationY);
-            fromB = PadSampler(fromB, e.LengthM, true, baseStation, bottom.StationY, topStation, top.StationY);
+            // A placed station's cut ends at its stub tip (field r2g round 2, r4 P3 built by hand: the ground 10 m past the base stub tip
+            // read 821.3 m in game = the bare terrain, not the 811 m plane a 12 m runway would leave): PlacedPadReachM, then the apron.
+            fromA = PadSampler(fromA, e.LengthM, false, baseStation, bottom.StationY, topStation, top.StationY, PlacedPadReachM);
+            fromB = PadSampler(fromB, e.LengthM, true, baseStation, bottom.StationY, topStation, top.StationY, PlacedPadReachM);
             return e.Replan(fromA, fromB);
         }
 
@@ -742,14 +744,23 @@ namespace SkiResortMod.Systems
         public static float PadReachM(StationDef station) =>
             station == null || !math.isfinite(station.PadBackLocalZ) ? float.NaN : math.max(0f, station.StubTipLocalZ - station.PadBackLocalZ);
 
+        /// <summary>How far past the stub tip a station the build queue PLACED holds its plane: 0 (task 2b-l2). The bare terrain came back
+        /// 10 m past a DQ base's stub tip in game (r2g round 2, r4 P3: Towers [plan] "lowest carrier above ground min +1.8 at 10 m" over
+        /// rope 819.21 -> 841.51 puts the ground at 821.3; the bare dump reads 821.31 there; a 12 m runway would leave 811). Whether a
+        /// ground end's coming station (PadReachM, the lift tool) cuts further is not measured.</summary>
+        public const float PlacedPadReachM = 0f;
+
         /// <summary>The ground a GROUND end's coming station leaves under the line (banks-pass 2026-11-09). A pad-cutting station cuts
         /// the ground above its plane <paramref name="stationY"/> and never fills: out to PadReachM from the stub tip the ground is
         /// min(raw, plane); over the next PadApronM it blends back to raw. A station that keeps the slope leaves raw. A built station's
         /// cut is in the terrain the samplers read already; a ground end's is not, so without this the end planned with ground the station
-        /// will cut away (a false SUNK_END on a base runway). <paramref name="distM"/> = xz distance from the end node along the line.</summary>
-        public static float PadGround(float raw, float distM, StationDef station, float stationY)
+        /// will cut away (a false SUNK_END on a base runway). <paramref name="distM"/> = xz distance from the end node along the line.
+        /// <paramref name="reachOverrideM"/> (finite) replaces PadReachM for a pad-cutting station: PlacedPadReachM for the queue line.</summary>
+        public static float PadGround(float raw, float distM, StationDef station, float stationY, float reachOverrideM = float.NaN)
         {
             float reach = PadReachM(station);
+            if (math.isfinite(reach) && math.isfinite(reachOverrideM))
+                reach = reachOverrideM;
             if (!math.isfinite(reach) || !math.isfinite(stationY) || distM >= reach + PadApronM)
                 return raw;
             float t = math.saturate((distM - reach) / PadApronM);
@@ -764,7 +775,7 @@ namespace SkiResortMod.Systems
         /// <summary><paramref name="raw"/> with PadGround applied at each GROUND end that has a station row: end A at along 0, end B at
         /// <paramref name="lengthM"/> (<paramref name="fromB"/>: the sampler's along runs from B). A null station leaves that end raw.</summary>
         public static LiftTerrainSampler PadSampler(LiftTerrainSampler raw, float lengthM, bool fromB, StationDef stationA, float stationYA,
-                                                    StationDef stationB, float stationYB)
+                                                    StationDef stationB, float stationYB, float reachOverrideM = float.NaN)
         {
             if (!math.isfinite(PadReachM(stationA)) && !math.isfinite(PadReachM(stationB)))
                 return raw;
@@ -772,8 +783,8 @@ namespace SkiResortMod.Systems
             {
                 float g = raw(along, lateral);
                 float fromA = fromB ? lengthM - along : along, fromBEnd = fromB ? along : lengthM - along;
-                g = PadGround(g, fromA, stationA, stationYA);
-                return PadGround(g, fromBEnd, stationB, stationYB);
+                g = PadGround(g, fromA, stationA, stationYA, reachOverrideM);
+                return PadGround(g, fromBEnd, stationB, stationYB, reachOverrideM);
             };
         }
 
