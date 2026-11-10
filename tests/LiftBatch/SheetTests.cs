@@ -225,10 +225,13 @@ namespace LiftBatch
             Check(s.CostToBuild() == 400000, W, "cost to build " + s.CostToBuild());
             s.SetState(9, SheetLiftState.Built, null);
             s.SetState(5, SheetLiftState.NeedsFitting, "PLAN_LOW");
-            Check(string.Join(",", s.BuildAllKeys()) == "2,5,3", W, "after a build " + string.Join(",", s.BuildAllKeys()) + " (want 2,5,3)");
+            // task 2b-l: a row that waits for a hand fit goes after every other row (it never blocks a row that may build)
+            Check(string.Join(",", s.BuildAllKeys()) == "2,3,5", W, "after a build " + string.Join(",", s.BuildAllKeys()) + " (want 2,3,5: 5 waits)");
             Check(s.CostToBuild() == 300000, W, "cost to build after a build " + s.CostToBuild());
             s.SetOn(7, true);
-            Check(string.Join(",", s.BuildAllKeys()) == "2,7,5,3", W, "7 switched on: " + string.Join(",", s.BuildAllKeys()));
+            Check(string.Join(",", s.BuildAllKeys()) == "2,7,3,5", W, "7 switched on: " + string.Join(",", s.BuildAllKeys()));
+            s.SetState(2, SheetLiftState.NeedsFitting, "PLAN_TRAIN");
+            Check(string.Join(",", s.BuildAllKeys()) == "7,3,2,5", W, "two waiting rows keep their order, last: " + string.Join(",", s.BuildAllKeys()));
         }
 
         private static void Ps4StatesAndStations()

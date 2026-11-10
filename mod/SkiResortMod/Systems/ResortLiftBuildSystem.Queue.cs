@@ -11,8 +11,12 @@
 //    tips every SettleEveryFrames and goes on when two samples agree within SettleToleranceM (at least SettleMinFrames, at most
 //    SettleMaxFrames with a warning).
 // 5. Line: LiftLineToolSystem.TryActivateFor with auto build. Built: the row is Built, the next lift starts. Waiting (the plan is not
-//    sound, a notice stands, or the game refused the line): NeedsFitting, the queue stops with the tool open in Edit. Refused (the ends
-//    could not be picked): Refused LINE[PICK], the next lift starts. Abandoned (the player took another tool): the queue stops.
+//    sound, a notice stands, or the game refused the line): NeedsFitting with the row's own reason, and the next lift starts (task 2b-l:
+//    the queue never stops on a waiting line; the next lift's tools drop the line from the lift tool). Refused (the ends could not be
+//    picked): Refused LINE[PICK], the next lift starts. Abandoned (the player took another tool): the queue stops.
+// 6. Hand-over: when the last lift of the run did not leave a waiting line in the lift tool, the first row that waited in this run runs
+//    once more (its stations stand: settle, then line). It waits again with the tool open in Edit for the player's hand fit. It never
+//    starts another hand-over. "Build lifts" puts NeedsFitting rows after every other row (ResortPlanSheet.BuildAllKeys).
 // A row that waits in the lift tool stays watched after the queue ends: a later build by the player makes it Built.
 // The tool: a built scripted line hands the lift tool back to the default tool (LiftLineToolSystem). When the queue ends, HandToolBack
 // gives an idle placer or an idle lift tool back too. A line that waits for the player keeps the lift tool open.
@@ -225,12 +229,22 @@ namespace SkiResortMod.Systems
             }
         }
 
+        // Task 2b-l: the rows that waited in this run (in order), whether the hand-over ran, whether the lift tool holds a waiting line
+        // of this run, and the built lines that carry a flag.
+        private readonly List<uint> m_RunWaiting = new List<uint>();
+        private readonly List<string> m_RunWaitingText = new List<string>();
+        private bool m_HandOver, m_ToolHoldsWaiting;
+        private int m_QueueFlagged;
+
         private void StartQueue(string why, int added, int asked)
         {
             if (!m_Running && m_Pending.Count > 0)
             {
                 m_Running = true;
-                m_QueueBuilt = m_QueueFitting = m_QueueRefused = 0;
+                m_QueueBuilt = m_QueueFitting = m_QueueRefused = m_QueueFlagged = 0;
+                m_RunWaiting.Clear();
+                m_RunWaitingText.Clear();
+                m_HandOver = m_ToolHoldsWaiting = false;
                 m_QueueWhy = why;
                 m_StartFrame = m_Frame + StartDelayFrames;
                 m_QueueRev++;
@@ -258,6 +272,16 @@ namespace SkiResortMod.Systems
                 m_Pending.RemoveAt(0);
                 BeginJob(key);
             }
+            if (m_Job == null && !m_HandOver && !m_StopAsked && !m_ToolHoldsWaiting && m_RunWaiting.Count > 0)
+            {
+                // the hand-over: the first row that waited opens in the lift tool for the player, after every other row
+                m_HandOver = true;
+                ResortPlanSheet.Row r = m_Sheet.Find(m_RunWaiting[0]);
+                Mod.Log.Info($"ResortLifts [queue]: HAND-OVER — {r?.Name ?? m_RunWaiting[0].ToString("X8", CultureInfo.InvariantCulture)} opens in the lift tool " +
+                             $"for a hand fit ({m_RunWaiting.Count} row(s) wait in this run)");
+                m_QueueTotal++;
+                BeginJob(m_RunWaiting[0]);
+            }
             if (m_Job == null)
                 EndQueue("done");
         }
@@ -269,7 +293,8 @@ namespace SkiResortMod.Systems
             m_Running = false;
             m_StopAsked = false;
             m_QueueRev++;
-            Mod.Log.Info($"ResortLifts [queue]: END ({how}; {m_QueueWhy}) — this run: {m_QueueBuilt} built, {m_QueueFitting} needs fitting, " +
+            Mod.Log.Info($"ResortLifts [queue]: END ({how}; {m_QueueWhy}) — this run: {m_QueueBuilt} built ({m_QueueFlagged} flagged), " +
+                         $"{m_QueueFitting} waiting{(m_RunWaitingText.Count > 0 ? " [" + string.Join(", ", m_RunWaitingText) + "]" : string.Empty)}, " +
                          $"{m_QueueRefused} refused; {m_Watches.Count} watched; sheet {m_Sheet.Dump()}");
             HandToolBack();
         }
@@ -335,6 +360,7 @@ namespace SkiResortMod.Systems
                 return;
             }
             DropWatch(key);
+            m_ToolHoldsWaiting = false;   // the next tools drop a waiting line of an earlier row from the lift tool
             Entity baseSt = Alive(r.BaseStation), topSt = Alive(r.TopStation);
             long need = Math.Max(0L, r.Cost - (baseSt != Entity.Null ? type.StationCostBase : 0) - (topSt != Entity.Null ? type.StationCostTop : 0));
             long money = CityMoney();
@@ -532,6 +558,10 @@ namespace SkiResortMod.Systems
             {
                 case ScriptOutcome.Built:
                     m_QueueBuilt++;
+                    if (t.OverLimitTowers > 0)
+                        m_QueueFlagged++;
+                    if (m_HandOver && m_RunWaiting.Count > 0 && m_RunWaiting[0] == job.Key)
+                        m_QueueFitting--;   // the hand-over built it after all
                     // Task R2-l: a line with exactly one tower over its sheave-train limit and no other defect builds (LiftTowerPlan.QueueRule
                     // BuildFlagged). The row stays Built and carries the flag. The BUILT line says FLAGGED.
                     if (r != null && job.PlanSerial == m_Sheet.PlanSerial)
@@ -544,11 +574,28 @@ namespace SkiResortMod.Systems
                     EndJob(job, r, SheetLiftState.Refused, "LINE[PICK]", "the lift tool could not pick the ends: " + t.Reason);
                     return;
                 case ScriptOutcome.Waiting:
-                    m_QueueFitting++;
-                    AddWatch(job, t);
-                    EndJob(job, r, SheetLiftState.NeedsFitting, ResortPlanSheet.WaitingKey(t.Reason), "the lift tool waits in Edit for the player: " + t.Reason);
-                    StopAfterJob($"{job.Name} needs fitting");
+                {
+                    // Task 2b-l: a waiting line never stops the queue. The row keeps NeedsFitting and its own reason. With rows still to
+                    // build, the next lift's tools drop the line from the lift tool (not watched); the last waiting line stays in the tool.
+                    bool handOver = m_HandOver && m_RunWaiting.Count > 0 && m_RunWaiting[0] == job.Key;
+                    string key = ResortPlanSheet.WaitingKey(t.Reason);
+                    if (!handOver)
+                    {
+                        m_QueueFitting++;
+                        m_RunWaiting.Add(job.Key);
+                        m_RunWaitingText.Add(job.Name + " " + key);
+                    }
+                    bool more = m_Pending.Count > 0 && !m_StopAsked;
+                    if (!more)
+                    {
+                        AddWatch(job, t);
+                        m_ToolHoldsWaiting = true;
+                    }
+                    EndJob(job, r, SheetLiftState.NeedsFitting, key, more
+                        ? "the line waits for a hand fit on its row; the queue goes on: " + t.Reason
+                        : "the lift tool waits in Edit for the player: " + t.Reason);
                     return;
+                }
                 case ScriptOutcome.Abandoned:
                     EndJob(job, r, SheetLiftState.StationsPlaced, "STOPPED", "the lift tool was closed before the line was built: " + t.Reason);
                     StopAfterJob("the lift tool was closed");

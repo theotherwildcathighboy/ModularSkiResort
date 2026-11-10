@@ -69,7 +69,7 @@ The planner proposes lifts and the engine builds them (StationPlaceToolSystem.md
 - State line, in priority order: building now, waiting for its turn (queued), then by `state`:
   - Built. Not built yet (Proposed). Switched off in the plan (Proposed and off).
   - Stations placed, no line yet (StationsPlaced). With a reason: "Stations placed, no line: WHY".
-  - Not built: WHY (Refused). Waiting in the lift tool: WHY (NeedsFitting).
+  - Not built: WHY (Refused). Waits for a hand fit: WHY (NeedsFitting).
   - WHY is `reasonKey`, a `QUICK_LIFT_WHY[group]` key in SENT_KEYS. C# maps the queue's reason keys to a group (`ResortPlanSheet.ReasonGroup`).
     An empty key on a Refused or Waiting row falls back to the GAME text. The warning color marks Refused, Waiting and a stopped row.
     The color is `.planRowSub.warnText` (R1-f): `.planRowSub` sets the dim color after `.warnText` with the same weight, so `.warnText` alone

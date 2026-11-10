@@ -900,9 +900,9 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_SITE_DETAIL", "Pods with their way home: {G} of {PODS}. Largest bench: {HA} ha" },
                 { "SkiResort.Tooltip.QUICK_LIFT_ID_PINNED", "Existing lift" },
                 // R1-d (contract 41): the plan sheet's lifts block (rows, states, reasons, buttons, the lifts total, the notices). Hub and Tooltip keys are
-                // mirrored in hubText.ts (HUB_LOC / HUB_FMT / SENT_KEYS). The WHY texts read after "Not built: ", "Waiting in the lift tool: ".
+                // mirrored in hubText.ts (HUB_LOC / HUB_FMT / SENT_KEYS). The WHY texts read after "Not built: ", "Waits for a hand fit: ".
                 { "SkiResort.Hub.QUICK_LIFTS_BUILD", "Build lifts" },
-                { "SkiResort.Hub.QUICK_LIFTS_BUILD_TIP", "Build every lift that is switched on and not built, lowest first. A lift the city cannot pay for is skipped." },
+                { "SkiResort.Hub.QUICK_LIFTS_BUILD_TIP", "Build every lift switched on and not built, lowest first. Unaffordable lifts are skipped, lines needing a hand fit wait, the rest still build." },
                 { "SkiResort.Hub.QUICK_LIFT_BUILD", "Build" },
                 { "SkiResort.Hub.QUICK_LIFT_BUILD_TIP", "Place both stations and build the line of this lift." },
                 { "SkiResort.Hub.QUICK_LIFTS_STOP_TIP", "Stop after the lift in progress. Lifts built so far stay." },
@@ -923,7 +923,7 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_LIFT_STATE[BuiltFlagged]", "Built. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}." },
                 { "SkiResort.Hub.QUICK_LIFT_FLAG_TIP", "Tower {TOWER} stands {ALONG} m from the base station. The rope bends more there than its wheels can follow." },
                 { "SkiResort.Tooltip.QUICK_LIFT_STATE[Refused]", "Not built: {WHY}" },
-                { "SkiResort.Tooltip.QUICK_LIFT_STATE[NeedsFitting]", "Waiting in the lift tool: {WHY}" },
+                { "SkiResort.Tooltip.QUICK_LIFT_STATE[NeedsFitting]", "Waits for a hand fit: {WHY}" },
                 { "SkiResort.Tooltip.QUICK_LIFT_WHY[MONEY]", "the city cannot pay for it" },
                 { "SkiResort.Tooltip.QUICK_LIFT_WHY[POSE]", "the two spots are too close together" },
                 { "SkiResort.Tooltip.QUICK_LIFT_WHY[PREFAB]", "a station asset did not load" },
