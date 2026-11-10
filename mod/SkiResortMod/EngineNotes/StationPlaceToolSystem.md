@@ -145,8 +145,10 @@ SkiResortHubUISystem.md (Plan sheet lifts) has the binding. The engine side give
 - `HubAct(action, key, plannerBusy)`: buildAll, build, stop, clear. It refuses with a notice (Off, RunsBusy, Nothing, Queued, Busy) and a
   `ResortLifts [hub]` line. `plannerBusy` is the hub's test of the Resort Planner tool (a phase other than Region, or planting).
 - Queue count: `QueueTotal` counts the keys asked in one run. A call while the queue runs adds to it. Stop and a stopped lift take the waiting
-  keys out. `QueueIndex` is the 1-based place of the lift in flight (or next), capped at the total. A run starts counting from zero when the
-  queue was idle. `QueueStopping` is true after Stop while a lift is in flight.
+  keys out of the queue but NOT out of the total. Pass r1e row B3 read "Stopping after lift 1 / 1" for a queue of three (fixed in R1-f).
+  The hub reads the place in the build that was asked for until the queue ends. `QueueIndex` (pure: `ResortPlanSheet.QueueIndexOf`, LiftBatch PS-12) is the
+  1-based place of the lift in flight (or next), capped at the total. Between a lift's end and the queue's end after a Stop it stays on the
+  lift that finished. A run starts counting from zero when the queue was idle. `QueueStopping` is true after Stop while a lift is in flight.
 - `QueueRevision` moves with every start, step, end, stop and notice. The hub pushes on it, because none of those change a sheet row.
 - `ResortPlanSheet.ReasonGroup(reasonKey)` (pure, LiftBatch PS-8) maps a reason key to a player-text group of the hub. An unknown key is
   GAME, so the hub never shows a raw key. The groups are:
@@ -154,6 +156,14 @@ SkiResortHubUISystem.md (Plan sheet lifts) has the binding. The engine side give
   - BASE_* and TOP_* (OVERLAP, WATER, LAND, OTHER), by the error type of the game.
   - LINE_PICK, LINE_ABANDONED, LINE_REFUSED.
   - PLAN_LOW, PLAN_STEEP, PLAN_HIGH, ALONG, CROSS, BACKWARD.
+  - PLAN_TRAIN, PLAN_SADDLE, PLAN_PITCH, PLAN_CLEARANCE (R1-f): the other plan keys of `LiftLineInput.PlanKey`.
+    A line waits on them because the tool's auto build needs a Sound plan. A tower over its cap is not Sound.
+    Nothing refused the line, so these keys have their own texts.
+  - BUILD_REFUSED: the game refused the build while the tool waited.
+  - WAIT: any other waiting text (no plan, auto build off, the build request refused, no Temp edges).
+- `ResortPlanSheet.WaitingKey(reason)` (pure, LiftBatch PS-11) turns the Reason of a waiting ScriptTicket into the row's key.
+  A plan or notice key stays as it is. "the game refused the build ..." is BUILD_REFUSED. Any other text is WAIT.
+  Before R1-f the result was GAME. A PLAN_TRAIN row read "the game or the lift tool refused it" (pass r1e note 4).
 
 ## A line the player draws by hand (task R1-d)
 The queue and the watch list only see lines that the scripted lift tool builds. A player can also draw the line between two placed stations

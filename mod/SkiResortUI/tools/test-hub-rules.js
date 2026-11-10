@@ -411,10 +411,15 @@ function run(srcDir) {
     [R.toolTabFollow("runGroomed", "runGroomed"), R.toolTabFollow("lift", "lift"), R.toolTabFollow("lift", "baseStation"), R.toolTabFollow("runGroomed", ""),
       R.toolTabFollow("", "")],
     [{ select: null, seen: "runGroomed" }, { select: null, seen: "lift" }, { select: null, seen: "baseStation" }, { select: null, seen: "" }, { select: null, seen: "" }]);
+  eq("T17.6e toolTabFollow held (the lift build queue runs): the lift tool or a line item selects nothing and is not remembered; a tool without a view is remembered; the hold ending then follows",
+    [R.toolTabFollow("", "lift", true), R.toolTabFollow("quick", "liftGondola", true), R.toolTabFollow("quick", "", true), R.toolTabFollow("", "quick", true),
+      R.toolTabFollow("", "lift", false), R.toolTabFollow("lift", "lift", true)],
+    [{ select: null, seen: "" }, { select: null, seen: "quick" }, { select: null, seen: "" }, { select: "runs", seen: "quick" }, { select: "lifts", seen: "lift" },
+      { select: null, seen: "lift" }]);
   const panelSrc = fs.readFileSync(path.join(srcDir, "hub", "HubPanel.tsx"), "utf8");
   eq("T17.7 the panel mounts the follow once, keys it on the three tool bindings and resets its memory on unmount",
     [(panelSrc.match(/<RunsTabFollow [/]>/g) || []).length, panelSrc.includes("activeToolKey(items, quick?.active, lift?.active)"),
-      panelSrc.includes("toolTabFollow(runToolSeen.value, key)"), panelSrc.includes('runToolSeen.value = ""')],
+      panelSrc.includes("toolTabFollow(runToolSeen.value, key, hold)"), panelSrc.includes('runToolSeen.value = ""')],
     [1, true, true, true]);
   // T33 (contract 20) the Quick runs "N lines dropped: A, B, C" line: the top three of the scan's reject buckets.
   eq("T33.1 rejectSummary: top three by count, ties by bucket order, total of all",

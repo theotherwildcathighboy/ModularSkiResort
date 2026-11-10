@@ -82,6 +82,11 @@ The planner proposes lifts and the engine builds them (StationPlaceToolSystem.md
   - Not built: WHY (Refused). Waiting in the lift tool: WHY (NeedsFitting).
   - WHY is `reasonKey`, a `QUICK_LIFT_WHY[group]` key in SENT_KEYS. C# maps the queue's reason keys to a group (`ResortPlanSheet.ReasonGroup`).
     An empty key on a Refused or Waiting row falls back to the GAME text. The warning color marks Refused, Waiting and a stopped row.
+    The color is `.planRowSub.warnText` (R1-f): `.planRowSub` sets the dim color after `.warnText` with the same weight, so `.warnText` alone
+    never showed on a sheet row (pass r1e note 3). The Waiting reasons have their own texts (PLAN_TRAIN: "one tower bends the rope more than its
+    wheels can follow").
+  - The progress line reads the run's total ("Building lift 2 / 3", "Stopping after lift 1 / 3"). It stays on screen while the queue opens the
+    lift tool: `RunsTabFollow` (HubPanel.tsx) holds the Lifts view switch while `sheet.running` (`toolTabFollow(seen, key, hold)`).
 - A row is not a toggle. The plan's on and off switches are the toggle rows in the preview (`PlanRows`). Here a left-out lift only dims.
 - Every action is `quickLiftsAct(action, key)`: buildAll, build (key = the row key), stop, clear. The calls only queue keys in C#.
   C# answers a call it cannot take with a notice and a log line (ResortLiftBuildSystem.HubAct).

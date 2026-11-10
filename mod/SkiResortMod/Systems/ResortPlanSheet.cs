@@ -250,6 +250,33 @@ namespace SkiResortMod.Systems
                 : topOutcome == StationOutcome.Canceled ? StationStep.PlayerStop : StationStep.RefuseTop;
         }
 
+        /// <summary>The 1-based place of the lift in flight or next, as the hub reads it ("Building lift N / M"), 0 while the queue is idle.
+        /// <paramref name="total"/> is the run's total: the lifts asked, which a Stop does not shrink (R1-f: "Stopping after lift 1 / 3").
+        /// Between a lift's end and the queue's end after a Stop, no lift is next: the place stays on the lift that finished.</summary>
+        public static int QueueIndexOf(bool running, int total, int done, bool stopAsked, bool jobInFlight)
+        {
+            if (!running)
+                return 0;
+            int next = stopAsked && !jobInFlight ? done : done + 1;
+            return Math.Max(1, Math.Min(total, next));
+        }
+
+        /// <summary>The row key of a line that waits in the lift tool (LiftLineToolSystem ScriptTicket.Reason). A plan key or a notice key (PLAN_LOW,
+        /// PLAN_TRAIN, ALONG, CROSS_*, BACKWARD) stays as it is. The game's refusal of the build is BUILD_REFUSED. Any other text (no plan, auto
+        /// build off, the build request refused, no Temp edges) is WAIT: the line did not build on its own. Never GAME, because nothing refused
+        /// a waiting line unless the game did (R1-f).</summary>
+        public static string WaitingKey(string reason)
+        {
+            if (string.IsNullOrEmpty(reason))
+                return "WAIT";
+            if (reason.StartsWith("the game refused the build", StringComparison.Ordinal))
+                return "BUILD_REFUSED";
+            foreach (char c in reason)
+                if (!(c == '_' || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')))
+                    return "WAIT";
+            return reason;
+        }
+
         /// <summary>The player-text group of a row's reason key: the suffix of SkiResort.Tooltip.QUICK_LIFT_WHY[*]. "" for no reason. A
         /// station refusal groups by the game's error type (overlap, water, land the city does not own, anything else). An unknown key is
         /// GAME, so the hub never shows a raw key.</summary>
@@ -260,7 +287,8 @@ namespace SkiResortMod.Systems
             switch (reasonKey)
             {
                 case "MONEY": case "POSE": case "PREFAB": case "STOPPED": case "GAME": case "ALONG": case "BACKWARD":
-                case "PLAN_LOW": case "PLAN_STEEP": case "PLAN_HIGH":
+                case "PLAN_LOW": case "PLAN_STEEP": case "PLAN_HIGH": case "PLAN_TRAIN": case "PLAN_SADDLE": case "PLAN_PITCH": case "PLAN_CLEARANCE":
+                case "BUILD_REFUSED": case "WAIT":
                     return reasonKey;
                 case "BASE[GONE]": case "TOP[GONE]":
                     return "GONE";

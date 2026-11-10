@@ -32,7 +32,7 @@
 *            --height=1080|1440|2160   one size     --scenario=<regex>   only the scenarios it matches (case-insensitive; a partial run)
 *            --workers=<n>   browsers in parallel  --no-wait   fail (exit 3) when another run holds the lock, instead of waiting
 *            --fixed-settle   the old fixed waits in settle(), to cross-check a doubt about the quiet condition
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish | --list=r1f]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -453,6 +453,11 @@ for (const [scale, tag] of [[1, ""], [1.25, "-fs125"]]) {
   );
 }
 
+// R1-f: the sheet rows with a refusal (warning color) and a wait in the lift tool (its own reason). `--list=r1f` picks this list.
+const R1F = [
+  ["r1f-lifts-refused-and-waiting-1080", 1080, { scenario: "Resort Planner lifts, idle with a refusal and a notice, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+];
+
 async function shots(b, base, dir, list) {
   fs.mkdirSync(dir, { recursive: true });
   for (const [file, h, p0] of list) {
@@ -605,7 +610,7 @@ async function main() {
     const b = browsers[0];
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg),
-        process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

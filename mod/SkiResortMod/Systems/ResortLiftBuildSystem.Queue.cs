@@ -107,9 +107,9 @@ namespace SkiResortMod.Systems
         /// <summary>Stop was asked while a lift was in flight: it finishes, nothing starts after it.</summary>
         internal bool QueueStopping => m_Running && m_StopAsked;
 
-        /// <summary>Lifts asked in this run (stopped keys leave it) and the 1-based place of the lift in flight or next, 0 when idle.</summary>
+        /// <summary>Lifts asked in this run (stopped keys stay in it until the run ends) and the 1-based place of the lift in flight or next, 0 when idle.</summary>
         internal int QueueTotal => m_QueueTotal;
-        internal int QueueIndex => m_Running ? Math.Min(m_QueueTotal, m_QueueDone + 1) : 0;
+        internal int QueueIndex => ResortPlanSheet.QueueIndexOf(m_Running, m_QueueTotal, m_QueueDone, m_StopAsked, m_Job != null);
 
         /// <summary>Moves with every change of the queue the hub shows (start, step, end, stop, a notice).</summary>
         internal int QueueRevision => m_QueueRev;
@@ -204,12 +204,12 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>The keys waiting leave the queue and its total. Returns how many.</summary>
+        /// <summary>The keys waiting leave the queue. The run keeps its total, so the hub reads the place in the build that was asked for
+        /// ("Stopping after lift 1 / 3"); the total resets when the next run starts (BeginRunAccounting). Returns how many.</summary>
         private int DropPending()
         {
             int dropped = m_Pending.Count;
             m_Pending.Clear();
-            m_QueueTotal -= dropped;
             if (dropped > 0)
                 m_QueueRev++;
             return dropped;
@@ -541,7 +541,7 @@ namespace SkiResortMod.Systems
                 case ScriptOutcome.Waiting:
                     m_QueueFitting++;
                     AddWatch(job, t);
-                    EndJob(job, r, SheetLiftState.NeedsFitting, ReasonKey(t.Reason), "the lift tool waits in Edit for the player: " + t.Reason);
+                    EndJob(job, r, SheetLiftState.NeedsFitting, ResortPlanSheet.WaitingKey(t.Reason), "the lift tool waits in Edit for the player: " + t.Reason);
                     StopAfterJob($"{job.Name} needs fitting");
                     return;
                 case ScriptOutcome.Abandoned:
@@ -644,17 +644,6 @@ namespace SkiResortMod.Systems
         }
 
         // ---------------------------------------------------------------- helpers
-
-        /// <summary>The lift tool's Waiting reason as a sheet key: a key as is (PLAN_LOW, ALONG, CROSS_*, BACKWARD), anything else GAME.</summary>
-        private static string ReasonKey(string reason)
-        {
-            if (string.IsNullOrEmpty(reason))
-                return "GAME";
-            foreach (char c in reason)
-                if (!(c == '_' || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')))
-                    return "GAME";
-            return reason;
-        }
 
         /// <summary>The terrain under a station's stub tip (catalog row and live transform). False when the station is gone.</summary>
         private bool TipGround(Entity station, out float y)

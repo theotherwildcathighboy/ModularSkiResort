@@ -518,7 +518,9 @@ preview. The rows come from `ResortLiftBuildSystem.Sheet`, so they stay after th
   - lengthM (horizontal chord of the two spots), riseM, cost (the estimate, clamped to int).
   - on, state (SheetLiftState name), step, reasonKey.
   - `step` is "building" for the lift in flight, "queued" for a key waiting in the queue, else "".
-  - `reasonKey` is "" or `SkiResort.Tooltip.QUICK_LIFT_WHY[group]`. The group comes from `ResortPlanSheet.ReasonGroup`.
+  - `reasonKey` is "" or `SkiResort.Tooltip.QUICK_LIFT_WHY[group]`. The group comes from `ResortPlanSheet.ReasonGroup`. A waiting row carries its
+    own group (PLAN_TRAIN ..., BUILD_REFUSED, WAIT: `ResortPlanSheet.WaitingKey`), never GAME.
+  - `total` is the run's total and a Stop does not shrink it (R1-f). `index` is `ResortPlanSheet.QueueIndexOf`.
 - `running`, `index`, `total`, `stopping`: the queue. `index` and `total` give "Building lift N / M" and are 0 when idle. `stopping`
   is true after Stop while a lift is still in flight.
 - `toBuild` (on and not built), `unbuilt`, `built`, `cost` (the estimate of the `toBuild` lifts): the lifts total.

@@ -30,6 +30,9 @@
 
 ## Near the dim text colors
 
+A caution color on a dim sub line needs a two-class rule. `.planRowSub` (dim) comes after `.warnText` with the same weight, so
+`.planRowSub.warnText` sets `--hubCaution` (the pattern of `.areaNameText.warnText`). Pass r1e note 3: the refused sheet row looked like a built one.
+
 Dim text colors are LITERAL: `rgba(240, 251, 255, 0.7)` dim and `rgba(240, 251, 255, 0.5)` dimmer. The game's `--textColorDim` /
 `--textColorDimmer` are white in `:root` (installed `index.css@2587`, `@3184`. Dimmer is white in the dark-gray-orange style too,
 `@12464`, also `@11454`). Precedent for a literal text color: `.listRowUnbound`.

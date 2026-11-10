@@ -397,8 +397,12 @@ export function toolView(key: string): "runs" | "lifts" | null {
 
 /** The tab follow selects the active tool's view only when the tool key CHANGES to one with a view. Examples: run tool -> other run tool,
  *  run tool -> lift tool. The same tool staying active selects nothing (the player may have left the view on purpose). `seen` = the key last
- *  seen. The caller keeps it. */
-export function toolTabFollow(seen: string, key: string): { select: "runs" | "lifts" | null; seen: string } {
+ *  seen. The caller keeps it.
+ *  `hold` (the lift build queue runs, R1-f): the queue opens the lift tool for each line itself, and the Resort Planner's lift block (progress
+ *  line, Stop) is in the Runs view, so a change to the lift tool selects nothing and is NOT remembered. When the hold ends and that tool
+ *  is still active (a line waits for the player), the follow runs then. A change to a tool without a view or to none is remembered as ever. */
+export function toolTabFollow(seen: string, key: string, hold = false): { select: "runs" | "lifts" | null; seen: string } {
+  if (hold && key !== seen && toolView(key) === "lifts") return { select: null, seen };
   return { select: key !== seen ? toolView(key) : null, seen: key };
 }
 

@@ -45,5 +45,11 @@ that the Scrollable is the content div's direct child].
 - Placement: draggable, opening on the right (`initialPosition {0.98, 0.15}`). A dragged position resets when the panel remounts
   (`index.js@720659`). `uiLayout` (`src/hub/layoutReport.ts`) holds refs on the header, content, footer, the rem probe (out of flow,
   never drawn), the status row, the problems band, the tile row, the view slot and the shown list.
+- `RunsTabFollow` (R1-f): a change of the active tool to a lift tool selects the Lifts view. It does not while the lift build queue
+  runs (`quickRuns.sheet.running`).
+  - The queue opens the lift tool for each line itself. The lift block with its progress line and Stop is in the Runs view.
+  - So the follow would hide the block (pass r1e note 2).
+  - The held change is not remembered. When the queue ends with the lift tool still open (a line waits), the follow runs then.
+  - A lift tool the player opens is not held (`hubRules.toolTabFollow`, test-hub-rules T17.6e).
 - `hoverRun`: mount forgets the last hover without sending. Unmount sends Null. An area switch drops a focused row of the old area and
   sends Null. The view is kept across an area switch.

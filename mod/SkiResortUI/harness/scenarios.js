@@ -216,14 +216,14 @@
     sheetRow(601, "P2", "gondola", 2480, 780, 5200000, true, "StationsPlaced", "building", ""),
     sheetRow(602, "P3", "fixedGrip", 640, 210, 900000, true, "Proposed", "queued", ""),
     sheetRow(603, "P4", "tram", 3100, 910, 8800000, true, "Refused", "", WHY("TOP_LAND")),
-    sheetRow(604, "P5", "detachable", 1800, 620, 3100000, true, "NeedsFitting", "", WHY("CROSS")),
+    sheetRow(604, "P5", "detachable", 1800, 620, 3100000, true, "NeedsFitting", "", WHY("PLAN_CLEARANCE")),
     sheetRow(605, "P6", "fixedGrip", 520, 140, 700000, true, "StationsPlaced", "", WHY("LINE_ABANDONED")),
     sheetRow(606, "P7", "fixedGrip", 700, 180, 800000, false, "Proposed", "", ""),
   ];
   const quickSheetRunning = Object.assign({}, quickRuns, { sheet: sheetOf(sheetRows, { running: true, index: 2, total: 3 }) });
   const quickSheetStopping = Object.assign({}, quickRuns, { active: true, phase: "Region", corners: 0, canPlanAround: true, sheet: sheetOf(sheetRows, { running: true, index: 2, total: 3, stopping: true }) });
   const quickSheetIdle = Object.assign({}, quickRuns, { sheet: sheetOf([
-    sheetRow(610, "P1", "detachable", 1320, 540, 2400000, true, "Proposed", "", ""),
+    sheetRow(610, "P1", "detachable", 1320, 540, 2400000, true, "NeedsFitting", "", WHY("PLAN_TRAIN")),
     sheetRow(611, "P2", "gondola", 2480, 780, 5200000, true, "Refused", "", WHY("MONEY")),
     sheetRow(612, "P3", "fixedGrip", 640, 210, 900000, true, "Proposed", "", ""),
   ], { notice: "SkiResort.Tooltip.QUICK_LIFTS_NOTICE[RunsBusy]" }) });
