@@ -605,6 +605,8 @@ namespace SkiResortMod.Systems
                     p == null ? 0 : p.BlockedCells + p.OpenCells, job.RealizeMs, rep.LatticeMs, rep.LiftMs, rep.PisteMs, rep.TrackMs, rep.GraphMs,
                     job.PrecheckMs, job.TotalMs, ms, rep.PisteKmKept + rep.GradedKmKept, rep.PisteKmPlanned + rep.GradedKmPlanned, rep.TrackKmKept,
                     rep.TrackKmPlanned, rep.UnservedAreas, rep.LiftsClear, rep.Lifts, rep.LayerBytes / 1048576.0));
+                // the cross-runtime prints (port round 2b-f): rf-replay on a dump of this scan names the first pass that differs from the host
+                Mod.Log.Info($"QuickRuns [probe] runs-first prints {job.Id}: plan {(p == null ? "none" : p.Hash.ToString("x16", CultureInfo.InvariantCulture))}; {job.PrintsText()}");
             }
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
             float worst = 0f;

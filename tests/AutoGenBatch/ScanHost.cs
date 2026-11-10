@@ -3,6 +3,9 @@
 //   rf-replay <dump file>: reads a dump the tool wrote (QuickRunsScanDump, the dev trigger's "dump"), runs the same job on the same input
 //     and prints the game's and the host's plan hash and result hash. Exit 0 when both match, 2 when one differs (the round's
 //     cross-runtime gate).
+//     Version 2 dumps (port round 2b-f) also give game against host per planner pass and per realizer stage (RunsFirstPrint), name the
+//     FIRST pass that differs with its parts (grid, flow, lines, lifts, runs, connectors, links), and the first plan element that differs.
+//     "--redump <out>" writes the host's plan and prints as a version 2 dump (a test input for rf-game-plans, GamePlans.cs).
 //   rf-scan <out file> [regions file]: each region at the three density presets (RunsFirstOptions.ForDensity) through the job, with no
 //     planner input (the host has no obstacles): plan hash, runs, lifts, km, the scorecard (raw plan, realized as skied), time and the
 //     peak managed memory of the scan. No regions file = the field test 5 regions plus one 3 x 3 km square (the 9 km2 cap). The Normal
@@ -41,13 +44,13 @@ namespace AutoGenBatch
         public static int Run(string[] args)
         {
             if (args[0] == "rf-replay")
-                return Replay(args.Length > 1 ? args[1] : null);
+                return Replay(args.Length > 1 ? args[1] : null, args);
             return Scan(args.Length > 1 ? args[1] : "rf-scan.txt", args.Length > 2 ? args[2] : null);
         }
 
         // ---------------------------------------------------------------- rf-replay
 
-        private static int Replay(string path)
+        private static int Replay(string path, string[] args)
         {
             if (path == null || !File.Exists(path))
             {
@@ -79,7 +82,116 @@ namespace AutoGenBatch
                 "realize {9:F0} ms, job {10:F0} ms; passes [{11}]", head.Tag, job.Plan?.Plan.Runs.Count ?? 0, job.Plan?.Plan.Lifts.Count ?? 0,
                 job.Plan?.Plan.Connectors.Count ?? 0, job.Result?.Runs.Count ?? 0, job.Result?.Status.ToString() ?? "none", job.Plan?.BlockedCells ?? 0,
                 (job.Plan?.BlockedCells ?? 0) + (job.Plan?.OpenCells ?? 0), job.Plan?.PlanMs ?? 0, job.RealizeMs, sw.Elapsed.TotalMilliseconds, job.PassText()));
+            if (head.Version < 2)
+                Console.WriteLine($"REPLAY prints: a version {head.Version} dump holds no game prints and no game plan (the host's prints only)");
+            ComparePrints("pass", head.Passes, job.Plan?.Plan.Passes, RunsFirstPlanner.PrintParts);
+            ComparePrints("stage", head.Stages, job.Report.Stages, StageParts);
+            if (head.Plan != null && job.Plan != null)
+                ComparePlans(head.Plan, job.Plan.Plan);
+            int redump = Array.IndexOf(args, "--redump");
+            if (redump > 0 && redump + 1 < args.Length && job.Plan != null)
+            {
+                // a version 2 dump with the HOST's plan and prints in the game's slots: a test input for rf-replay and rf-game-plans
+                var h2 = new QuickRunsScanDump.Header
+                {
+                    Tag = head.Tag, Bare = head.Bare, PlanHash = plan, ResultHash = result, OptionsPrint = optPrint, Status = job.Result?.Status.ToString() ?? "none",
+                    Passes = job.Plan.Plan.Passes, Stages = job.Report.Stages, Plan = job.Plan.Plan,
+                };
+                using (FileStream fs = File.Create(args[redump + 1]))
+                    QuickRunsScanDump.Write(fs, h2, input, options);
+                Console.WriteLine($"REPLAY redump: the host's plan and prints written as a version 2 dump to {args[redump + 1]}");
+            }
             return planOk && resultOk ? 0 : 2;
+        }
+
+        /// <summary>The part names of a realizer stage print (RunsFirstRealizer.Stage).</summary>
+        internal static readonly string[] StageParts = { "region", "elements", "lifts", "pistes", "tracks", "result" };
+
+        /// <summary>Game against host per pass (or stage): one row each, then the parts of the FIRST pass that differs (print and count
+        /// per part). game null: the host's prints only. Returns the index of the first differing row (-1: none, or no game prints).</summary>
+        internal static int ComparePrints(string what, List<RunsFirstPrint> game, IReadOnlyList<RunsFirstPrint> host, string[] partNames)
+        {
+            if (host == null)
+                host = new List<RunsFirstPrint>();
+            int first = -1, n = Math.Max(game?.Count ?? 0, host.Count);
+            for (int i = 0; i < n; i++)
+            {
+                RunsFirstPrint g = game != null && i < game.Count ? game[i] : null, h = i < host.Count ? host[i] : null;
+                bool same = g != null && h != null && g.Pass == h.Pass && g.Print == h.Print;
+                if (game != null && !same && first < 0)
+                    first = i;
+                Console.WriteLine($"REPLAY {what} {i,2} {(h ?? g).Pass,-16} game {(g == null ? "-" : g.Print.ToString("x16"))} host " +
+                    $"{(h == null ? "-" : h.Print.ToString("x16"))} {(game == null ? "" : same ? "MATCH" : "DIFF")}{(i == first ? "  <-- first difference" : "")}");
+            }
+            if (game == null)
+                return -1;
+            if (first < 0)
+            {
+                Console.WriteLine($"REPLAY {what}: every print matches ({n})");
+                return -1;
+            }
+            RunsFirstPrint fg = first < game.Count ? game[first] : null, fh = first < host.Count ? host[first] : null;
+            Console.WriteLine($"REPLAY {what}: FIRST DIFFERENCE after {what} {first} '{(fh ?? fg).Pass}'" + (fg != null && fh != null && fg.Pass != fh.Pass ? $" (game pass '{fg.Pass}')" : ""));
+            if (fg != null && fh != null)
+                for (int k = 0; k < partNames.Length && k < fg.Parts.Length && k < fh.Parts.Length; k++)
+                {
+                    bool same = fg.Parts[k] == fh.Parts[k] && fg.Counts[k] == fh.Counts[k];
+                    bool before = first > 0 && game[first - 1].Parts.Length > k && host[first - 1].Parts.Length > k && game[first - 1].Parts[k] == host[first - 1].Parts[k];
+                    Console.WriteLine($"REPLAY {what}   part {partNames[k],-11} game {fg.Parts[k]:x16} n {fg.Counts[k],6}  host {fh.Parts[k]:x16} n {fh.Counts[k],6}  " +
+                        $"{(same ? "same" : "DIFF")}{(!same && (first == 0 || before) ? " (new in this " + what + ")" : "")}{(same ? "" : FirstItem(fg, fh, k))}");
+                }
+            return first;
+        }
+
+        /// <summary>", first differing element 17 of 741 (5 differ)" from the per-element prints, or "" when the prints have none.</summary>
+        private static string FirstItem(RunsFirstPrint g, RunsFirstPrint h, int k)
+        {
+            ulong[] a = g.Items != null && k < g.Items.Length ? g.Items[k] : null, b = h.Items != null && k < h.Items.Length ? h.Items[k] : null;
+            if (a == null || b == null)
+                return "";
+            int first = -1, differ = Math.Abs(a.Length - b.Length);
+            for (int i = 0; i < Math.Min(a.Length, b.Length); i++)
+                if (a[i] != b[i])
+                {
+                    differ++;
+                    if (first < 0)
+                        first = i;
+                }
+            if (first < 0)
+                first = Math.Min(a.Length, b.Length);
+            return $"; first differing element {first} ({differ} differ by index)";
+        }
+
+        /// <summary>Game plan against host plan, element by element: per list the counts, then the first element that differs and its
+        /// first differing point (the float bits and the distance).</summary>
+        internal static void ComparePlans(RunsFirstResult game, RunsFirstResult host)
+        {
+            string P(float2 p) => string.Format(CultureInfo.InvariantCulture, "({0:F3}, {1:F3})", p.x, p.y);
+            void Lines(string what, IList<List<float2>> g, IList<List<float2>> h, Func<int, string> gTag, Func<int, string> hTag)
+            {
+                int n = Math.Min(g.Count, h.Count);
+                for (int i = 0; i < n; i++)
+                {
+                    string tg = gTag(i), th = hTag(i);
+                    int k = 0, m = Math.Min(g[i].Count, h[i].Count);
+                    while (k < m && math.asuint(g[i][k]).Equals(math.asuint(h[i][k])))
+                        k++;
+                    if (tg == th && k == m && g[i].Count == h[i].Count)
+                        continue;
+                    string pt = k < m ? $", first point {k} game {P(g[i][k])} host {P(h[i][k])} ({math.distance(g[i][k], h[i][k]):G3} m apart)" : "";
+                    Console.WriteLine($"REPLAY plan {what}: {g.Count} game, {h.Count} host; first difference at {what} {i}: game [{tg}] {g[i].Count} pts, " +
+                        $"host [{th}] {h[i].Count} pts{pt}");
+                    return;
+                }
+                Console.WriteLine($"REPLAY plan {what}: {g.Count} game, {h.Count} host; {(g.Count == h.Count ? "all equal" : $"the first {n} equal")}");
+            }
+            string RunTag(RunsFirstResult.Run r) => $"{r.Kind} {r.Band}{(r.Graded ? " graded" : "")}{(r.Groomed ? "" : " natural")} L{r.Lift}";
+            Lines("run", game.Runs.Select(r => r.Pts).ToList(), host.Runs.Select(r => r.Pts).ToList(), i => RunTag(game.Runs[i]), i => RunTag(host.Runs[i]));
+            Lines("connector", game.Connectors, host.Connectors, i => "", i => "");
+            Lines("link", game.Links, host.Links, i => "", i => "");
+            string LiftTag(RunsFirstResult.Lift l) => $"L{l.Id} {l.Type} {l.Kind} {l.ToBottom}{(l.RidesDown ? " down" : "")}";
+            Lines("lift", game.Lifts.Select(l => new List<float2> { l.Bottom.xz, l.Top.xz }).ToList(), host.Lifts.Select(l => new List<float2> { l.Bottom.xz, l.Top.xz }).ToList(),
+                i => LiftTag(game.Lifts[i]), i => LiftTag(host.Lifts[i]));
         }
 
         // ---------------------------------------------------------------- rf-scan

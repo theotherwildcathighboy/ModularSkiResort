@@ -66,6 +66,8 @@ namespace SkiResortMod.Systems
         private PlanDraft BuildPlan(Grid g, int[] rec, List<Line> lines, List<Lift> lifts, float km2)
         {
             var plan = new PlanDraft();
+            m_PrPlan = plan;
+            m_PrLifts = lifts;
             WayDbg = O.DebugWayHome ? (g, plan, lifts) : null;
             plan.Dots.AddRange(DebugDots);
             DebugDots.Clear();

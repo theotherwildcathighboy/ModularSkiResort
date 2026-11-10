@@ -27,6 +27,12 @@ namespace AutoGenBatch
         private static int Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            // RF_TIES=reverse|sorts|queue (debug, host only): equal keys in the planner's sorts and queues go in reverse order (RunsFirstPlanner.Order.cs).
+            // A plan hash that changes proves a tie that matters (port round 2b-f).
+            string ties = Environment.GetEnvironmentVariable("RF_TIES");
+            RunsFirstPlanner.ReverseTies = ties == "reverse" ? 3 : ties == "sorts" ? 1 : ties == "queue" ? 2 : 0;
+            if (args.Length > 0 && args[0] == "rf-game-plans")
+                return GamePlans(args);   // the gate on the game's own dumped plans (GamePlans.cs)
             if (args.Length > 0 && (args[0] == "rf" || args[0] == "rf-holdout" || args[0] == "rf-golden" || args[0] == "rf-cancel"))
                 return RunsFirst.Run(args);   // the runs-first planner on the field test regions: renders, no checks
             if (args.Length > 0 && (args[0] == "rf-replay" || args[0] == "rf-scan")) return ScanHost.Run(args);   // the tool's scan job: replay a game dump, density presets (ScanHost.cs)

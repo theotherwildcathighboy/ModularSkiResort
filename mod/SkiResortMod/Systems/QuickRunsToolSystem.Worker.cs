@@ -397,6 +397,7 @@ namespace SkiResortMod.Systems
             {
                 Tag = job.Id, Bare = job.PlannerInputs == null, PlanHash = job.Plan?.Hash ?? 0UL, ResultHash = job.Result?.Fingerprint ?? 0UL,
                 OptionsPrint = job.Options.Fingerprint(), Status = job.Result?.Status.ToString() ?? "none",
+                Passes = job.Plan?.Plan.Passes, Stages = job.Report.Stages, Plan = job.Plan?.Plan,
             };
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write))

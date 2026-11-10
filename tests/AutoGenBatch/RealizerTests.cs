@@ -150,7 +150,8 @@ namespace AutoGenBatch
         // ---------------------------------------------------------------- invariants on a realized plan
 
         /// <summary>The HARD invariants of one realized plan. Returns the relation misses not excused by a blocked extension.</summary>
-        private static void RealizerInvariants(string where, AutoPlanResult res, AutoPlanInput input, RealizeReport rep)
+        // relationHard false (rf-game-plans on real regions, which rf-realize reports and never gates): the relation gate is a REPORT line.
+        private static void RealizerInvariants(string where, AutoPlanResult res, AutoPlanInput input, RealizeReport rep, bool relationHard = true)
         {
             HeightSnapshot snap = input.Snapshot;
             var grid = new SlopeGrid();
@@ -196,6 +197,12 @@ namespace AutoGenBatch
                     Check(d >= 1.6f - 1e-3f && !inside, where, $"areas {i} and {j} ({a.Kind}, {b.Kind}) {d:F2} m apart{(inside ? ", a node inside the other" : "")}");
                 }
             // The relation gate: every planner relation between two kept areas is a game link (spec 10)
+            if (!relationHard)
+            {
+                if (rep.RelationMisses > 0)
+                    Console.WriteLine($"REPORT {where}: {rep.RelationMisses} of {rep.Relations} planner relations are not game links");
+                return;
+            }
             Check(rep.RelationMisses == 0, where, $"{rep.RelationMisses} of {rep.Relations} planner relations are not game links: " +
                 string.Join("; ", rep.Lines.Where(s => s.StartsWith("relation not linked")).Take(4)));
         }

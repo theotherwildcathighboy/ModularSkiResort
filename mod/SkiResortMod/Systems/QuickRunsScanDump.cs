@@ -4,6 +4,9 @@
 // hashes prove that the game plans what the host scores.
 // Binary, little endian (BinaryWriter): floats keep their bits. Options by field name, so a file stays readable when an option is
 // added (a field the file lacks keeps its default, a field the build lacks is reported and skipped).
+// Version 2 (port round 2b-f) appends the game's per-pass prints (RunsFirstPrint), the realizer's stage prints and the game's own plan
+// (every RunsFirstResult field), so rf-replay names the first pass where the runtimes split and rf-game-plans scores the game's plan.
+// Read accepts version 1 (no prints, no plan).
 // Pure: System, System.IO streams (the caller opens the file), Unity.Mathematics.
 
 using System;
@@ -17,7 +20,7 @@ namespace SkiResortMod.Systems
 {
     public static class QuickRunsScanDump
     {
-        private const string Magic = "RFSCAN01";
+        private const string MagicV1 = "RFSCAN01", Magic = "RFSCAN02";
 
         /// <summary>What a dump holds besides the input: the game's results and how it planned.</summary>
         public sealed class Header
@@ -27,6 +30,10 @@ namespace SkiResortMod.Systems
             public ulong PlanHash, ResultHash, OptionsPrint;
             public string Status = string.Empty;
             public readonly List<string> UnknownOptions = new List<string>();
+            // version 2 (port round 2b-f): the game's per-pass prints, realizer stage prints and its own plan. Null in a version 1 file.
+            public int Version = 2;
+            public List<RunsFirstPrint> Passes, Stages;
+            public RunsFirstResult Plan;
         }
 
         public static void Write(Stream stream, Header head, AutoPlanInput input, RunsFirstOptions options)
@@ -112,6 +119,11 @@ namespace SkiResortMod.Systems
                     else
                         throw new InvalidOperationException($"RunsFirstOptions.{f.Name}: type {f.FieldType.Name} has no dump code");
                 }
+                Prints(w, head.Passes);
+                Prints(w, head.Stages);
+                w.Write(head.Plan != null);
+                if (head.Plan != null)
+                    WritePlan(w, head.Plan);
             }
         }
 
@@ -119,13 +131,15 @@ namespace SkiResortMod.Systems
         {
             using (var r = new BinaryReader(stream, Encoding.UTF8, true))
             {
-                if (r.ReadString() != Magic)
+                string magic = r.ReadString();
+                if (magic != Magic && magic != MagicV1)
                     throw new InvalidDataException("not a scan dump (magic)");
                 head = new Header
                 {
                     Tag = r.ReadString(), Bare = r.ReadBoolean(), PlanHash = r.ReadUInt64(), ResultHash = r.ReadUInt64(), OptionsPrint = r.ReadUInt64(),
                     Status = r.ReadString(),
                 };
+                head.Version = magic == Magic ? 2 : 1;
                 int x0 = r.ReadInt32(), z0 = r.ReadInt32(), w = r.ReadInt32(), d = r.ReadInt32(), resX = r.ReadInt32(), resZ = r.ReadInt32();
                 float3 scale = F3(r), offset = F3(r);
                 HeightSnapshot s = HeightSnapshot.Allocate(x0, z0, w, d, resX, resZ, scale, offset, false);
@@ -179,8 +193,154 @@ namespace SkiResortMod.Systems
                     else
                         head.UnknownOptions.Add(name);
                 }
+                if (head.Version >= 2)
+                {
+                    head.Passes = Prints(r);
+                    head.Stages = Prints(r);
+                    if (r.ReadBoolean())
+                        head.Plan = ReadPlan(r);
+                }
                 return input;
             }
+        }
+
+        private static void Prints(BinaryWriter w, List<RunsFirstPrint> prints)
+        {
+            w.Write(prints?.Count ?? -1);
+            if (prints == null)
+                return;
+            foreach (RunsFirstPrint p in prints)
+            {
+                w.Write(p.Pass ?? string.Empty);
+                w.Write(p.Print);
+                w.Write(p.Parts.Length);
+                for (int i = 0; i < p.Parts.Length; i++)
+                {
+                    w.Write(p.Parts[i]);
+                    w.Write(p.Counts[i]);
+                    ulong[] it = p.Items != null && i < p.Items.Length ? p.Items[i] : null;
+                    w.Write(it?.Length ?? -1);
+                    if (it != null)
+                        foreach (ulong e in it)
+                            w.Write(e);
+                }
+            }
+        }
+
+        private static List<RunsFirstPrint> Prints(BinaryReader r)
+        {
+            int n = r.ReadInt32();
+            if (n < 0)
+                return null;
+            var l = new List<RunsFirstPrint>(n);
+            for (int i = 0; i < n; i++)
+            {
+                var p = new RunsFirstPrint { Pass = r.ReadString(), Print = r.ReadUInt64() };
+                int k = r.ReadInt32();
+                p.Parts = new ulong[k];
+                p.Counts = new int[k];
+                p.Items = new ulong[k][];
+                for (int j = 0; j < k; j++)
+                {
+                    p.Parts[j] = r.ReadUInt64();
+                    p.Counts[j] = r.ReadInt32();
+                    int ni = r.ReadInt32();
+                    if (ni >= 0)
+                    {
+                        p.Items[j] = new ulong[ni];
+                        for (int e = 0; e < ni; e++)
+                            p.Items[j][e] = r.ReadUInt64();
+                    }
+                }
+                l.Add(p);
+            }
+            return l;
+        }
+
+        private static void Line(BinaryWriter w, List<float2> p)
+        {
+            w.Write(p?.Count ?? -1);
+            if (p != null)
+                foreach (float2 q in p)
+                {
+                    w.Write(q.x);
+                    w.Write(q.y);
+                }
+        }
+
+        private static List<float2> Line(BinaryReader r)
+        {
+            int n = r.ReadInt32();
+            if (n < 0)
+                return null;
+            var p = new List<float2>(n);
+            for (int i = 0; i < n; i++)
+                p.Add(new float2(r.ReadSingle(), r.ReadSingle()));
+            return p;
+        }
+
+        /// <summary>The game's plan, every field of RunsFirstResult (floats keep their bits), so the host can check and score it.</summary>
+        private static void WritePlan(BinaryWriter w, RunsFirstResult p)
+        {
+            w.Write(p.Runs.Count);
+            foreach (RunsFirstResult.Run run in p.Runs)
+            {
+                Line(w, run.Pts);
+                w.Write((byte)run.Band);
+                w.Write(run.Kind ?? string.Empty);
+                w.Write(run.Graded);
+                w.Write(run.Groomed);
+                w.Write(run.Lift);
+            }
+            w.Write(p.Connectors.Count);
+            foreach (List<float2> c in p.Connectors)
+                Line(w, c);
+            w.Write(p.Links.Count);
+            foreach (List<float2> c in p.Links)
+                Line(w, c);
+            w.Write(p.Lifts.Count);
+            foreach (RunsFirstResult.Lift l in p.Lifts)
+            {
+                w.Write(l.Id);
+                w.Write(l.Type ?? string.Empty);
+                w.Write(l.Kind ?? string.Empty);
+                F3(w, l.Bottom);
+                F3(w, l.Top);
+                w.Write(l.RidesDown);
+                w.Write((byte)l.ToBottom);
+                w.Write(l.Base);
+            }
+            w.Write(p.Log.Count);
+            foreach (string s in p.Log)
+                w.Write(s ?? string.Empty);
+        }
+
+        private static RunsFirstResult ReadPlan(BinaryReader r)
+        {
+            var p = new RunsFirstResult();
+            int n = r.ReadInt32();
+            for (int i = 0; i < n; i++)
+                p.Runs.Add(new RunsFirstResult.Run
+                {
+                    Pts = Line(r), Band = (SlopeBand)r.ReadByte(), Kind = r.ReadString(), Graded = r.ReadBoolean(), Groomed = r.ReadBoolean(), Lift = r.ReadInt32(),
+                });
+            n = r.ReadInt32();
+            for (int i = 0; i < n; i++)
+                p.Connectors.Add(Line(r));
+            n = r.ReadInt32();
+            for (int i = 0; i < n; i++)
+                p.Links.Add(Line(r));
+            n = r.ReadInt32();
+            for (int i = 0; i < n; i++)
+                p.Lifts.Add(new RunsFirstResult.Lift
+                {
+                    Id = r.ReadInt32(), Type = r.ReadString(), Kind = r.ReadString(), Bottom = F3(r), Top = F3(r), RidesDown = r.ReadBoolean(),
+                    ToBottom = (RunsFirstBottom)r.ReadByte(), Base = r.ReadBoolean(),
+                });
+            n = r.ReadInt32();
+            for (int i = 0; i < n; i++)
+                p.Log.Add(r.ReadString());
+            return p;
         }
 
         private static FieldInfo[] OptionFields()

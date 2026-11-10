@@ -202,6 +202,7 @@ namespace SkiResortMod.Systems
         private void Tick(string what)
         {
             Poll();
+            PrintPass(what);
             m_Ticks.Add((what, Clock.ElapsedMilliseconds));
             m_PassesDone++;
             SetProgress(Math.Min(999, m_PassesDone * 1000 / PassCount));
@@ -285,6 +286,7 @@ namespace SkiResortMod.Systems
             m_Ticks.Clear();
             EasyWork = LinkWork = 0;
             Grid g = BuildGrid(snap, ring);
+            m_PrGrid = g;
             g.Rater = new BandRater { Cancel = m_Cancel, Bits = O.RaterBands };
             Tick("grid");
             int n = g.W * g.D;
@@ -297,9 +299,12 @@ namespace SkiResortMod.Systems
                 inv[c] = -g.H[c];
             Poll();
             int[] recR = Receivers(g, inv, out float[] accR);
+            m_PrAcc = acc;
+            m_PrAccR = accR;
             Tick("flow");
 
             var lines = new List<Line>();
+            m_PrLines = lines;
             foreach (List<int> path in Stems(g, rec, acc, cellsPerChannel))
             {
                 Poll();
@@ -370,6 +375,7 @@ namespace SkiResortMod.Systems
             Tick("bottom");
             RunsFirstResult result = MakeResult(g, built, lifts, bottom);
             Tick("result");
+            result.Passes.AddRange(m_Prints);
             long ms = sw.ElapsedMilliseconds;
             m_Log.AddRange(built.Log);
             return new Planned { G = g, Acc = acc, AccR = accR, Lines = lines, Lifts = lifts, Built = built, Ms = ms, Result = result };
