@@ -109,11 +109,10 @@ namespace SkiResortMod.Systems
             m_ScanFrames = 0;
             Say(string.Format(CultureInfo.InvariantCulture,
                 "QuickRuns [scan]: START ({0}) — {1}; snapshot {2} x {3} texels ({4:F1} ms), {5} obstacle(s) ({6:F1} ms), {7}; " +
-                "{8} existing lift(s), {9} access point(s) ({10:F1} ms); runs-first on the worker thread, {11}, {12}{13}{14}",
+                "{8} existing lift(s), {9} access point(s) ({10:F1} ms); runs-first on the worker thread, {11}, {12}{13}",
                 why, ReadoutText(), m_Snap.Width, m_Snap.Depth, m_SnapMs, m_Obstacles.Count, m_ObstacleMs, KnobsText(m_Knobs),
                 input.Pinned?.Count ?? 0, input.Access?.Length ?? 0, m_ContextMs, QuickRunsScanJob.InputsText(input, inputs),
                 cached != null ? "cached plan " + cached.Hash.ToString("x16", CultureInfo.InvariantCulture) + ": realize only" : "a new plan",
-                SkiResortSettings.PlannerOnMainThreadOn ? " (the setting 'Resort Planner on the main thread' is ignored: runs-first has no main-thread path)" : string.Empty,
                 ScanJobInFlight ? " (queued: the canceled scan is still stopping)" : string.Empty));
             if (input.Pinned != null && input.Pinned.Count > 0)
                 Say($"QuickRuns [scan]: {input.Pinned.Count} existing lift(s) are blocked ground for the planner (stations and a {QuickRunsScanJob.ExistingLiftCorridorM:F0} m corridor each): runs-first has no fixed lifts, so it plans around them");
