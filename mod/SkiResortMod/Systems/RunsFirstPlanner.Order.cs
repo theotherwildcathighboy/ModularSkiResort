@@ -6,9 +6,9 @@
 using System;
 using System.Collections.Generic;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         /// <summary>A stable sort: equal keys keep their order in the list. The comparison plus the list index is a total order, so
         /// any correct sort gives this one result.</summary>

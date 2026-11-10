@@ -7,12 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private const float ChordOnRunM = 20f, ChordShareMax = 0.3f;   // the scorecard's chord-on-run test
         private const float ChordClearM = 26f;                          // a moved stretch's distance off the chord

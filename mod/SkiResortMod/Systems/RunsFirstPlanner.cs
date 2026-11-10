@@ -13,12 +13,12 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
-using SkiResortMod.Systems;
+using AutoGenBatch;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         // the field test 5 regions, corners as the mod log printed them (docs/research/field/2026-10-28/ft5/logs)
         private static readonly (string Id, float2[] Ring)[] Regions =

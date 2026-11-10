@@ -7,12 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private const float BridgeMinM = 250f, BridgeMaxM = 1500f;   // bridge chord in plan
         private const float BridgeStartM = 140f;                     // skiers ski an element that starts this close to the top from the top

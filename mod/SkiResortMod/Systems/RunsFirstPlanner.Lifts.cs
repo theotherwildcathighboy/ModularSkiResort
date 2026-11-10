@@ -18,9 +18,9 @@ using System.Text;
 using System.Threading.Tasks;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private const float AccessRadiusM = 1500f, AccessMaxDown = 0.35f, AccessMaxUp = 0.07f, AccessCliff = 0.75f;
         private const float AccessRawPitch = 0.42f, AccessRawRise = 3.5f;   // on the raw terrain: 30 m pitch, rise within 55 m

@@ -7,9 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
 #if NETCOREAPP
         private const MethodImplOptions Hot = MethodImplOptions.AggressiveOptimization;

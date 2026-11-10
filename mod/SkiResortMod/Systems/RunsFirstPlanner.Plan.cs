@@ -10,12 +10,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private const float ConnPitchMax = 0.46f, ConnRiseMax = 4.0f;   // connector rules (no 30 m pitch over 0.50, no 4.5 m rise in 50 m)
         private const float RunClimbMax = 9.5f, RunPitchMax = 0.97f;    // run rules (no 10 m climb, no 30 m pitch over 1.0)

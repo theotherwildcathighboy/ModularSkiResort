@@ -11,9 +11,9 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private static bool NoNewBase => !O.CoverNewBase;
         // a coverage lift opens at least this share of the region's skiable ground. 0.015 against 0.02, once lifts without a way home

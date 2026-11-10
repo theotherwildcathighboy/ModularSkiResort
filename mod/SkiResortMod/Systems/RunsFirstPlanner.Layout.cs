@@ -9,9 +9,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         // scorecard v4's layout rules
         private const float LaySameSpotM = 40f, LayHubM = 300f, LayParallelDeg = 20f, LayParallelM = 250f, LayParallelShare = 0.4f;

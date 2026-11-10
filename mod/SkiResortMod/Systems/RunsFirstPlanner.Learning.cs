@@ -11,12 +11,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private static float LearnMinRise => O.LearnMinRise;
         private static float LearnMaxRise => O.LearnMaxRise;

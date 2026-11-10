@@ -3,9 +3,9 @@
 // RunsFirst.cs), so experiments still work there; the mod will pass its own. The comment after each field names its switch.
 // Pure C# 9, net48-clean.
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal sealed class RunsFirstOptions
+    public sealed class RunsFirstOptions
     {
         // ---- lines and the pick
         public float PicksPerKm2 = 5f;            // RF_PPK: line cap per km2 (12-80), the Normal density

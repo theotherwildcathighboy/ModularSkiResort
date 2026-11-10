@@ -3,12 +3,11 @@
 
 using System;
 using System.Collections.Generic;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         /// <summary>The plain plan object of a finished plan (copies: the planner's own types stay inside).</summary>
         private static RunsFirstResult MakeResult(Grid g, Plan built, List<Lift> lifts)

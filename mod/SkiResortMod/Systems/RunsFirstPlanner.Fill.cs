@@ -8,12 +8,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private const float FillCoverM = 50f;       // ground within this of a run counts as opened (the scorecard's coverage radius)
         private const float FillNewPerM = 0.08f;    // new 20 m lattice points per meter of trail a fill run must open (a third of its band)

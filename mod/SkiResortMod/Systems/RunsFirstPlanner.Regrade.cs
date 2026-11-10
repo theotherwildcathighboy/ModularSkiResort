@@ -13,12 +13,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private static float RegradeStretch => O.RegradeStretch;   // a bench at most this many times the piece's length (plus 100 m)
         private const float RegradeShare = 0.33f;    // connector km kept under this share of the run km (the scorecard's 0.35, less a margin)

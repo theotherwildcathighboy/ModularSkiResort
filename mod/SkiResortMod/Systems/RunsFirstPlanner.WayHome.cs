@@ -15,12 +15,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         // a green cat track (the connector rules, the along-path grade under the blue line but for short pitches), and a blue one
         // (pitches along the path, so a track may zigzag down a face)
