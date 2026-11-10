@@ -526,8 +526,23 @@ namespace SkiResortMod.Systems
         /// 8 m; still, drop with the place.</summary>
         private AutoReject BuildTrackPiece(Elem e, GradePath path, Piece pc, ref int segment, out float2 at)
         {
+            GradePath plain = SubPath(path, pc.S, pc.E);
+            int reaches = m_Rep.TrackReaches;
+            GradePath sub = ReachEnds(e, plain, pc.Orig0, pc.Orig1);
+            AutoReject why = BuildTrackRing(e, path, pc, sub, ref segment, out at);
+            if (why != AutoReject.Kept && sub != plain)
+            {
+                // the piece with its reached ends fails: it goes without them (iteration 3), the reach is not counted
+                m_Rep.TrackReaches = reaches;
+                m_Rep.Lines.Add($"track {e.Source} ({e.Kind}): reached ends dropped, the piece failed with them ({why})");
+                why = BuildTrackRing(e, path, pc, plain, ref segment, out at);
+            }
+            return why;
+        }
+
+        private AutoReject BuildTrackRing(Elem e, GradePath path, Piece pc, GradePath sub, ref int segment, out float2 at)
+        {
             at = path.Xz[pc.S];
-            GradePath sub = ReachEnds(e, SubPath(path, pc.S, pc.E), pc.Orig0, pc.Orig1);
             AutoReject why = AutoReject.Crosses;
             foreach (float hw in new[] { TrackHalfWidthM, TrackNarrowHalfWidthM })
             {
