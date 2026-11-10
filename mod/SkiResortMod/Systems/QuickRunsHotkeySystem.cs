@@ -7,6 +7,8 @@
 // while the Quick runs option is off (TryActivate refuses and logs).
 // The Build key (BuildLiftLine, default Enter) is shared with the lift tool. LiftLineHotkeySystem keeps it live while any of our build
 // tools is open (one writer of shouldBeEnabled). This system reads the press while the Quick runs tool is active and calls RequestEnter.
+// The planner has no key for its knobs. The hub hides the Lifts, Mix, Shuffle and Way home knobs (round R2-b, DECISIONS 632), so there is
+// no key or key hint to remove here. The Build key builds the cat tracks and runs. The lifts have their own hub button.
 // Every frame, the system also calls the tool's TickWatch. The bind line after a build also runs while the tool is closed.
 // The system runs in UIUpdate (SystemOrder.cs:67), every frame, paused or not.
 // Logs: one ARMED / INERT line per load. One line if the toggle is not live 120 frames after the load.
