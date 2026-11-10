@@ -49,7 +49,7 @@ Lifts are power-line networks, so they follow power-line rules.
 - Mix green, blue and black runs. A resort with all three scores more.
 - **Cat tracks** link runs across the hill and are always green. Use the cat track tool (the **Cat track** tile on the Runs tab, or Ctrl+Shift+K). Click points up the hill and press Enter. In one action the tool cuts and fills the ground so the track never climbs steeper than the max grade (25 percent by default). Then it builds the cat track on the graded strip. Delete mode (Ctrl+Shift+D while the tool is open, then click the track twice) removes a built track. The ground stays graded.
 - The **tree tool** plans glades on and around runs. Ctrl+Shift+G toggles it.
-- The **Resort Planner** (experimental, off until you turn it on in Options) takes an outlined region and proposes linked runs, cat tracks and lifts. Build makes the cat tracks and runs. Build lifts builds the lifts. A lift line that needs a hand fit waits in the lift tool.
+- The **Resort Planner** (experimental, off until you turn it on in Options) takes an outlined region and proposes linked runs, cat tracks and lifts. Build makes the cat tracks and runs. Build lifts builds the lifts. A lift line that needs a hand fit waits for you.
 
 ## Ski School
 
