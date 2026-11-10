@@ -1149,6 +1149,10 @@ namespace SkiResortMod.Systems
                     continue;
                 Area acc = m_P[a];
                 float need = ctx.Partners.Contains(a) ? ExactGapShare * MergeGapM : ExactGapShare * PairGap(ctx.Gap, a);
+                // R2-x: a re-check of an accepted area (self) tests each later area by the rule that accepted the pair: the partners
+                // and the gap of the later area. The later area can converge on self as a partner. The rule of self calls that an overlap.
+                if (self >= 0 && a > self && acc.Ctx != null)
+                    need = acc.Ctx.Partners.Contains(self) ? ExactGapShare * MergeGapM : ExactGapShare * PairGap(acc.Ctx.Gap, self);
                 if (math.any(acc.Hi < lo - need) || math.any(acc.Lo > hi + need))
                     continue;
                 if (PlanGeometry.RingDistance(ring, acc.Ring, need, out _, out _, out _, out _) < need)
