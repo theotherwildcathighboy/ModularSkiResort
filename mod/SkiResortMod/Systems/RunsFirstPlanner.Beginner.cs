@@ -899,6 +899,8 @@ namespace SkiResortMod.Systems
             float2 goalP = goal >= 0 ? g.World(goal) : 0f;
             while (settled < cap && pq.TryDequeue(out int c, out float _))
             {
+                if ((settled & 4095) == 4095)
+                    Poll();
                 if (er.Done[c])
                     continue;
                 er.Done[c] = true;

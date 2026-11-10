@@ -35,7 +35,7 @@ namespace SkiResortMod.Systems
         /// <summary>Moves the runs' stretches under a lift line out beside it where the line's middle still runs along runs. Returns
         /// the lifts cleared.</summary>
         [MethodImpl(Hot)]
-        private static int RepairChords(Grid g, PlanDraft plan, List<Lift> lifts)
+        private int RepairChords(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int cleared = 0;
             List<List<float2>> dense = plan.Runs.Select(r => Densify(r.Pts)).ToList();
@@ -52,6 +52,7 @@ namespace SkiResortMod.Systems
                 float2 dir = (t - b) / plan2, nrm = new float2(-dir.y, dir.x);
                 for (int ri = 0; ri < plan.Runs.Count; ri++)
                 {
+                    Poll();
                     List<float2> pts = dense[ri];
                     var off = new float[pts.Count];
                     var near = new bool[pts.Count];
@@ -118,6 +119,7 @@ namespace SkiResortMod.Systems
                 // kept when the line clears, no other line takes its place, and every start, join and delivery the plan had stays
                 bool SameSkiing()
                 {
+                    Poll();
                     SkiGraph sg = Ski(g, plan, lifts);
                     for (int i = 0; i < before.P.Count; i++)
                         if (!before.Next[i].All(sg.Next[i].Contains) || !before.Delivers[i].All(sg.Delivers[i].Contains) ||
@@ -263,6 +265,7 @@ namespace SkiResortMod.Systems
                 before ??= SkiRead.Of(g, plan, lifts);
                 foreach (var (cost, nb, nt) in moves)
                 {
+                    Poll();
                     int cb = CellOf(g, nb), ct = CellOf(g, nt);
                     if (cb < 0 || ct < 0 || !LineFits(g, lifts, lf, cb, ct))
                         continue;

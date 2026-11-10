@@ -167,12 +167,40 @@ namespace SkiResortMod.Systems
                     m_Progress = perMille;
         }
 
-        /// <summary>The share done of the pass in work (0 to 1): progress inside a long pass.</summary>
-        private void Inner(float share) =>
+        /// <summary>The share done of the pass in work (0 to 1): progress inside a long pass. Also a cancel poll.</summary>
+        private void Inner(float share)
+        {
+            Poll();
             SetProgress(Math.Min(999, (int)((m_PassesDone + Clamp(share, 0f, 1f)) * 1000f / PassCount)));
+        }
+
+        // Cancel: the token is polled at every pass boundary (Tick), at every inner progress step and every few thousand steps of the
+        // long loops. A request ends the plan at the next poll: Plan returns null and the instance is dropped with its half-made state.
+        private AutoPlanCancel m_Cancel;
+
+        private sealed class PlanCanceled : Exception
+        {
+        }
+
+        private bool CancelRequested => m_Cancel != null && m_Cancel.Requested;
+
+        private void Poll()
+        {
+            if (m_Cancel != null && m_Cancel.Requested)
+                throw new PlanCanceled();
+        }
+
+        private static bool IsCanceled(AggregateException e)
+        {
+            foreach (Exception x in e.Flatten().InnerExceptions)
+                if (!(x is PlanCanceled))
+                    return false;
+            return true;
+        }
 
         private void Tick(string what)
         {
+            Poll();
             m_Ticks.Add((what, Clock.ElapsedMilliseconds));
             m_PassesDone++;
             SetProgress(Math.Min(999, m_PassesDone * 1000 / PassCount));
@@ -221,15 +249,30 @@ namespace SkiResortMod.Systems
         internal string Id = "region";
         private bool m_Used;
 
-        /// <summary>Plans one region and returns the plain plan object. One instance plans once: a planner holds the state of its
-        /// plan (no static state), so two instances may plan at the same time on two threads. Options null: the defaults.</summary>
+        /// <summary>Plans one region and returns the plain plan object, or null when the cancel token was set (it returns within a
+        /// fraction of a second of the request). One instance plans once: a planner holds the state of its plan (no static state), so
+        /// two instances may plan at the same time on two threads. Options null: the defaults.</summary>
         public RunsFirstResult Plan(HeightSnapshot snapshot, float2[] ring, RunsFirstOptions options, AutoPlanCancel cancel = null)
         {
             if (m_Used)
                 throw new InvalidOperationException("RunsFirstPlanner plans once: use a new instance for each plan");
             m_Used = true;
             O = options ?? new RunsFirstOptions();
-            RunsFirstResult result = PlanCore(Id, snapshot, ring).Result;
+            m_Cancel = cancel;
+            RunsFirstResult result;
+            try
+            {
+                Poll();
+                result = PlanCore(Id, snapshot, ring).Result;
+            }
+            catch (PlanCanceled)
+            {
+                return null;
+            }
+            catch (AggregateException e) when (IsCanceled(e))
+            {
+                return null;   // a poll inside the reach scan's Parallel.For
+            }
             SetProgress(1000);
             return result;
         }
@@ -250,14 +293,19 @@ namespace SkiResortMod.Systems
             var inv = new float[n];
             for (int c = 0; c < n; c++)
                 inv[c] = -g.H[c];
+            Poll();
             int[] recR = Receivers(g, inv, out float[] accR);
             Tick("flow");
 
             var lines = new List<Line>();
             foreach (List<int> path in Stems(g, rec, acc, cellsPerChannel))
+            {
+                Poll();
                 AddLine(lines, g, path, "drain");
+            }
             foreach (List<int> path in Stems(g, recR, accR, cellsPerChannel))
             {
+                Poll();
                 path.Reverse();   // inverted paths run low to high
                 AddLine(lines, g, path, "spur");
             }
@@ -275,6 +323,7 @@ namespace SkiResortMod.Systems
             SortStable(seeds, (a, b) => g.H[b].CompareTo(g.H[a]));
             foreach (int s0 in seeds)
             {
+                Poll();
                 var path = new List<int>();
                 for (int c = s0; c >= 0; c = rec[c])
                     path.Add(c);
@@ -314,7 +363,7 @@ namespace SkiResortMod.Systems
 
 
         [MethodImpl(Hot)]
-        private static Grid BuildGrid(HeightSnapshot s, float2[] ring)
+        private Grid BuildGrid(HeightSnapshot s, float2[] ring)
         {
             var g = new Grid { W = s.Width / F, D = s.Depth / F, CellM = s.TexelM * F, S = s };
             g.OX = s.Origin.x + (s.X0 + (F - 1) * 0.5) * s.TexelM;
@@ -335,6 +384,8 @@ namespace SkiResortMod.Systems
             g.Hr = new float[n];
             for (int c = 0; c < n; c++)
             {
+                if ((c & 32767) == 32767)
+                    Poll();
                 g.In[c] = Inside(ring, g.World(c));
                 g.Hr[c] = RawH(g, g.World(c));
             }

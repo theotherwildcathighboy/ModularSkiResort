@@ -159,10 +159,13 @@ namespace SkiResortMod.Systems
             }
             SortByKey(hs, order);
             var passes = new ulong[n * wb];
+            int polled = 0;
             foreach (int c in order)
             {
                 if (!g.In[c])
                     break;
+                if ((++polled & 16383) == 0)
+                    Poll();
                 float2 p = g.World(c);
                 int cx = (int)Math.Floor(p.x / 150f), cz = (int)Math.Floor(p.y / 150f);
                 for (int dz = -1; dz <= 1; dz++)
@@ -182,6 +185,8 @@ namespace SkiResortMod.Systems
                 catchOf[b] = new ulong[wl];
             for (int c = 0; c < n; c++)
             {
+                if ((c & 65535) == 65535)
+                    Poll();
                 int i = latIdx[c];
                 if (i < 0)
                     continue;
@@ -240,6 +245,7 @@ namespace SkiResortMod.Systems
                     openPts += PopCount(open[w]);
                 for (int ti = 0; ti < tops.Count; ti++)
                 {
+                    Poll();
                     // the top must lead back to the placed lifts (its reach takes in a placed bottom) or drain past one
                     bool back = false;
                     foreach (Lift lf in lifts)

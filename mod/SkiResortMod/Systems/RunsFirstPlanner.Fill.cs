@@ -220,6 +220,8 @@ namespace SkiResortMod.Systems
             var latAt = new Dictionary<long, List<int>>();
             for (int i = 0; i < lat.Count; i++)
             {
+                if ((i & 1023) == 1023)
+                    Poll();
                 if (!latAt.TryGetValue(Key(lat[i]), out List<int> l))
                     latAt[Key(lat[i])] = l = new List<int>();
                 l.Add(i);
@@ -489,8 +491,11 @@ namespace SkiResortMod.Systems
             // best new ground first (lazy: a line's new ground only shrinks as the fill adds runs)
             var queue = new StableHeap<Cand, int>();
             foreach (Cand cd in cands)
+            {
+                Poll();
                 if (!cd.L.Picked && Eval(cd, out int f0, out _) != null)
                     queue.Enqueue(cd, -f0);
+            }
             Tick("fill setup");
             int faceLines = 0;
             if (O.FaceLines)

@@ -170,7 +170,9 @@ namespace AutoGenBatch
                 return 0;
             }
             // "rf-golden <out file> [regions file]": plans only (no v2, render or score) and writes "<region> <hash> <runs> <lifts> <connectors>"
-            bool golden = args[0] == "rf-golden";
+            // "rf-cancel <out file> [regions file]": per region, the cancel latency at 19 points of a plan (CancelRegion)
+            bool cancelMode = args[0] == "rf-cancel";
+            bool golden = args[0] == "rf-golden" || cancelMode;
             string outDir = args.Length > 1 ? args[1] : golden ? "rf-golden.txt" : "rf-out";
             if (!golden)
                 Directory.CreateDirectory(outDir);
@@ -247,6 +249,11 @@ namespace AutoGenBatch
                     continue;
                 }
                 HeightSnapshot snap = Heightmap.Snapshot(hf, ring);
+                if (cancelMode)
+                {
+                    goldenRows.Add(CancelRegion(id, snap, ring, opts));
+                    continue;
+                }
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 RunsFirstResult res = PlanRegion(snap, ring, opts, id);
                 string row = $"{id} {res.Hash():x16} {res.Runs.Count} {res.Lifts.Count} {res.Connectors.Count}";
@@ -256,6 +263,39 @@ namespace AutoGenBatch
             if (golden)
                 File.WriteAllLines(outDir, goldenRows);
             return 0;
+        }
+
+        /// <summary>rf-cancel: plans the region once (its time T and hash), then 19 times with a cancel request at T/20 ... 19 T/20 from
+        /// another thread, then once more (the hash must equal the first). The row: "<region> <T ms> <max latency ms> <hash ok> <latencies>"
+        /// (a latency of -1: the plan finished before the request).</summary>
+        private static string CancelRegion(string id, HeightSnapshot snap, float2[] ring, RunsFirstOptions opts)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var first = new RunsFirstPlanner { Id = id };
+            ulong want = first.Plan(snap, ring, opts).Hash();
+            sw.Restart();
+            var second = new RunsFirstPlanner { Id = id };
+            if (second.Plan(snap, ring, opts).Hash() != want) Console.WriteLine("HASH-DIFF on the second plan");
+            long t = sw.ElapsedMilliseconds;   // the second plan: the code is warm
+            var lat = new List<double>();
+            for (int k = 1; k <= 19; k++)
+            {
+                var cancel = new AutoPlanCancel();
+                var planner = new RunsFirstPlanner { Id = id };
+                RunsFirstResult res = null;
+                var worker = new System.Threading.Thread(() => res = planner.Plan(snap, ring, opts, cancel));
+                worker.Start();
+                System.Threading.Thread.Sleep((int)(t * k / 20));
+                var w = System.Diagnostics.Stopwatch.StartNew();
+                cancel.Request();
+                worker.Join();
+                lat.Add(res == null ? w.Elapsed.TotalMilliseconds : -1.0);
+            }
+            bool same = new RunsFirstPlanner { Id = id }.Plan(snap, ring, opts).Hash() == want;
+            string row = string.Format(CultureInfo.InvariantCulture, "{0} {1} {2:F1} {3} {4}", id, t, lat.Max(), same ? "hash-ok" : "HASH-DIFF",
+                string.Join(",", lat.Select(x => x.ToString("F1", CultureInfo.InvariantCulture))));
+            Console.WriteLine("CANCEL " + row);
+            return row;
         }
 
         /// <summary>Plans one region with the given options (null: the defaults) and returns the plain plan object. The options hold

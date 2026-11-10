@@ -245,6 +245,8 @@ namespace SkiResortMod.Systems
                     () => buffers.TryTake(out var b) ? b : NewBuffers(),
                     (i, _, buf) =>
                     {
+                        if (CancelRequested)
+                            return buf;   // canceled: the rest of the level is skipped, Poll below ends the plan
                         float[] reached = buf.Dist;
                         List<int> touched = Reach(g, slope, at[i].T, reached, buf.Parent);
                         var e = new int[lines.Count];
@@ -284,6 +286,7 @@ namespace SkiResortMod.Systems
                         return buf;
                     },
                     buf => buffers.Add(buf));
+                Poll();
                 for (int i = 0; i < at.Count; i++)
                 {
                     work += found[i].Work;
@@ -343,6 +346,8 @@ namespace SkiResortMod.Systems
                 for (int ti = 0; ti < tops.Count; ti++)
                     for (int b = 0; b < B; b++)
                     {
+                        if (b == 0)
+                            Poll();
                         if (excluded.Contains(b) || bans.Contains((long)ti * B + b))
                             continue;
                         int t = tops[ti], bc = bottoms[b];

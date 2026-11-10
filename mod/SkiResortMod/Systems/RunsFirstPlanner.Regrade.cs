@@ -580,7 +580,7 @@ namespace SkiResortMod.Systems
         /// <summary>A diagonal piece with a stub's drop joined end to start with the piece it runs into (or that runs into it) as one
         /// graded track: the same line on the ground, read by the scorecard as one run (a run may branch off anywhere along it). Kept
         /// where the score gains (the model), the ski graph loses nothing and no more lift lines lie on runs. Returns the pieces merged.</summary>
-        private static int MergeStubPieces(Grid g, PlanDraft plan, List<Lift> lifts)
+        private int MergeStubPieces(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int merged = 0, tried = 0;
             float now = new CutModel(g, plan).Total();
@@ -598,6 +598,7 @@ namespace SkiResortMod.Systems
                 again = false;
                 for (int a = 0; a < plan.Connectors.Count && !again && tried < MergeTries; a++)
                 {
+                    Poll();
                     List<float2> A = plan.Connectors[a];
                     if (Drop(A) >= 50f || !TrackClass(g, A).Run)
                         continue;
@@ -731,6 +732,7 @@ namespace SkiResortMod.Systems
                 float now = share;
                 foreach (int ci in under)
                 {
+                    Poll();
                     List<float2> old = plan.Connectors[ci];
                     var (direct, _, routed) = Benches(g, old, jp, new int[2]);
                     foreach (List<float2> tr in new[] { direct, routed })
@@ -764,6 +766,7 @@ namespace SkiResortMod.Systems
                         .OrderByDescending(i => hits[i]).Select(i => els[i].Run).ToList();
                     foreach (PlanRun r in runsUnder)
                     {
+                        Poll();
                         int e = model.Run.IndexOf(r);
                         if (e < 0)
                             continue;
