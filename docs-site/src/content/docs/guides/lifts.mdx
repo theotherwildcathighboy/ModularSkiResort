@@ -19,7 +19,7 @@ Which runs a lift serves, and the distances: [Runs and Snow, Lift Service](/guid
 
 <Steps>
 
-1. **Lift type:** hub Lifts tab. Line and both stations share one type.
+1. **Lift type:** hub Lifts tab, the chips Fixed-grip, Detachable, Gondola and Tram. Line and both stations share one type.
    <Icon name="lift-fixed-grip" alt="Fixed-grip lift icon" /> Fixed-grip triple chairlift.
    <Icon name="lift-detachable" alt="Detachable lift icon" /> Detachable quad chairlift.
    <Icon name="lift-gondola" alt="Gondola icon" /> Gondola.
@@ -32,7 +32,7 @@ Which runs a lift serves, and the distances: [Runs and Snow, Lift Service](/guid
 
 </Steps>
 
-<Shot src="lifts-tab.jpg" label="The three tiles of the hub's Lifts tab (base, top, line), with a top station being placed." />
+<Shot src="lifts-tab.jpg" label="The hub's Lifts tab: the type chips and the three tiles, with a top station being placed." />
 
 ## Lift Tool
 
@@ -40,7 +40,7 @@ One input model for every lift type. The prompt at the top of the screen names w
 
 - **Start:** click a station, a loose line end or open ground. Then click the other end.
 - **Add a tower:** click the line. A tower you add is pinned.
-- **Move a tower:** drag it. It is pinned where you drop it (snapped to a 5 m step, tram 10 m). Every pinned tower stays exactly where it is. The planner refits only the unpinned towers between them and still sets every tower's height. A pin closer than 10 m to a station, or closer than 10 m (tram 40 m) to another pin, is refused. Pinned towers show a blue inner ring.
+- **Move a tower:** drag it. It is pinned where you drop it (snapped to a 5 m step, tram 10 m). Every pinned tower stays exactly where it is. The planner refits only the unpinned towers between them and still sets every tower's height. A pin too close to a station is refused: under **11.5 m**, gondola **12.6 m**, tram **16 m**. So is a pin under **10 m** (tram **40 m**) from another pin. Pinned towers show a blue inner ring.
 - **Remove a tower:** drag it off the line and release. A pinned tower becomes unpinned. The planner puts a tower back near it only if the line needs one there.
 - **Step back:** right click undoes one action. With nothing left to undo it closes the tool.
 - **Build:** **Enter**. **Esc** closes the tool without building.
@@ -49,9 +49,9 @@ One input model for every lift type. The prompt at the top of the screen names w
   - **Amber:** 0 to 2 m to spare. Clear, but tight.
   - **Red:** below the minimum. The carriers would be too low. The tower ring is red too (*short*).
   - **Violet:** the rope is more than **30 m** above the ground. This applies to chairlifts and gondolas. The tram has no limit. The tower ring is violet.
-  - **Tooltip:** span lengths and the lowest carrier height. It turns to a warning while any span is red or violet. Add or move a tower to fix it. The tool does not block building a flagged line.
+  - **Tooltip:** span lengths and the lowest carrier height. It turns to a warning while any span is red or violet. Add or move a tower to fix it. The tool does not block building a line flagged red or violet for clearance.
 - **Planner:** fits tower heights to the terrain with few towers. Next to a station it prefers the shortest tower, and may add one tower to get shorter ones there. It plans within the steepest span the line allows. Option *Plan lift towers*, default on.
-- **Too steep:** a span steeper than the line type allows is drawn in red and the tower ring turns red. Add or move a tower, or change the route.
+- **Too steep:** a span steeper than the line type allows is drawn in red and the tower ring turns red. The game refuses to build that line. Move the tower next to the red part, add a tower, or change the route.
 - **Red tower:** the planner first moves towers, picks other heights, adds a pair or drops a tower. A tower it cannot fix turns red, and its tooltip names the reason. The line still builds and runs:
   - *Too steep for this lift type:* the rope runs through one tower steeper than fixed-grip **38°**, detachable **40°**, gondola **40°**, aerial tram **55°**.
   - *Past what its wheels can follow:* the rope bends at the tower more than its sheave train follows.
@@ -59,14 +59,14 @@ One input model for every lift type. The prompt at the top of the screen names w
   - *Past where chairs or cabins clear the tower:* the rope leaves the tower so steeply that a hanging chair or cabin would swing into the tower head.
 - **Trees:** a built line fells the trees in its corridor: **11.4 m** wide on a fixed-grip, **13.6 m** detachable, **14.2 m** gondola, **20.8 m** tram, plus any tree whose crown reaches the carriers. The preview shows the cut. A refused build keeps every tree.
 - **Tower numbers:** every tower shows its number, counted up the line from the base station, 1 to 200, then back to 1. All chairs show the same number.
-- **Station that already has a line:** refused. Bulldoze a section first, then click its two loose ends.
+- **Station that already has a line:** refused. In the lift tool, click a section's rope to remove that section, then click its two loose ends.
 
 ## Section Redo
 
 The line consists of sections. Each section is an independent edit.
 
 - **Steep or uneven ground:** draw one section at a time.
-- **Wrong section:** bulldoze or redraw that section. Remaining sections keep towers, rope and carriers.
+- **Wrong section:** remove it (a click on its rope in the lift tool, or the bulldozer) and redraw it. Remaining sections keep towers, rope and carriers.
 - **Missing section:** problem *"Lift X: section missing"*. The lift counts **0** and pays **a quarter** of its upkeep until the line is complete. Click the problem to fly to the gap.
 
 <Aside type="tip" title="Bulldozer Warning">
@@ -97,7 +97,7 @@ A lift line is a power-line network, so it behaves like one.
 - **Info panel and asset menu:** a station's info panel has the game's Transformer section. The asset menu lists transformer and power line capacities for stations and lift lines (engine limit: the game reads them from the parts that power the lift).
 - **Experience:** drawing a lift line earns the game's experience for power lines, and the experience note says so (engine limit).
 - **Base station = transformer:** wire a low-voltage line into the base station's low-voltage stub. Only the base station needs power. The top station has no consumer, and a lift counts as powered from its base. The base joins its stub to the lift line like a vanilla transformer. But the line ends at the top station, so a lift carries no city power anywhere and does not add grid capacity.
-- **Stub marker:** a ring marks the base station's low-voltage stub. It is orange with no wire and green once wired. It shows during placement, with the low-voltage power line tool or the electricity overlay, and on a selected base station. The option is Settings > Lifts > Lift building aids. The road never powers a lift station.
+- **Stub marker:** a ring marks the base station's low-voltage stub. It is orange with no wire and green once wired. It shows during placement, with the low-voltage power line tool or the electricity overlay, and on a selected base station. The option is *Lift building aids* in Options > Modular Ski Resort > Lifts. The road never powers a lift station.
 - **City high-voltage lines:** they cannot join a lift tower, stub or lift line. The game refuses them with a red preview.
 
 ## Uninstall
