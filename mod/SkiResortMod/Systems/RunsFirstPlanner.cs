@@ -133,10 +133,49 @@ namespace SkiResortMod.Systems
         // search's RF_ABOVEMS went in the port round R0-c). Tick records the end of each pass; the host prints the table.
         private System.Diagnostics.Stopwatch Clock = new System.Diagnostics.Stopwatch();
         private bool Timing => O.Timing;
-        private readonly List<(string Pass, long Ms)> PassTimes = new List<(string, long)>();
+        private readonly List<(string Pass, long Ms)> m_Ticks = new List<(string, long)>();   // each pass's end, ms since the start
+
+        /// <summary>The per-pass time table of the last plan, in plan order: each pass's own milliseconds (a report only, never read
+        /// by a pass). See EngineNotes/RunsFirstPlanner.md for the pass list.</summary>
+        public IReadOnlyList<(string Pass, long Ms)> PassTimes
+        {
+            get
+            {
+                var t = new List<(string, long)>(m_Ticks.Count);
+                for (int i = 0; i < m_Ticks.Count; i++)
+                    t.Add((m_Ticks[i].Pass, m_Ticks[i].Ms - (i > 0 ? m_Ticks[i - 1].Ms : 0L)));
+                return t;
+            }
+        }
+
+        // Progress: the passes done out of PassCount (each Tick is one), plus an inner fraction in the three longest passes (the
+        // lift-top reach scan, the serve pick, the regrade). A pass an option turns off still ticks. It never goes back.
+        private const int PassCount = 34;
+        private volatile int m_Progress;   // per-mille, written by the planning thread (and the reach scan's workers), read by any thread
+        private readonly object m_ProgressLock = new object();
+        private int m_PassesDone;
+
+        /// <summary>Progress of the plan in per-mille (0 to 1000), safe to read from any thread while Plan runs. It never goes back and
+        /// ends at 1000 when Plan returns a plan.</summary>
+        public int ProgressVolatile => m_Progress;
+
+        private void SetProgress(int perMille)
+        {
+            perMille = Clamp(perMille, 0, 1000);
+            lock (m_ProgressLock)
+                if (perMille > m_Progress)
+                    m_Progress = perMille;
+        }
+
+        /// <summary>The share done of the pass in work (0 to 1): progress inside a long pass.</summary>
+        private void Inner(float share) =>
+            SetProgress(Math.Min(999, (int)((m_PassesDone + Clamp(share, 0f, 1f)) * 1000f / PassCount)));
+
         private void Tick(string what)
         {
-            PassTimes.Add((what, Clock.ElapsedMilliseconds));
+            m_Ticks.Add((what, Clock.ElapsedMilliseconds));
+            m_PassesDone++;
+            SetProgress(Math.Min(999, m_PassesDone * 1000 / PassCount));
             if (Timing)
                 Trace($"TIME {what} {Clock.ElapsedMilliseconds} ms (easy {EasyWork}, links {LinkWork})");
             // RF_WHDBG: the lifts without a way home after each stage of the plan
@@ -190,16 +229,19 @@ namespace SkiResortMod.Systems
                 throw new InvalidOperationException("RunsFirstPlanner plans once: use a new instance for each plan");
             m_Used = true;
             O = options ?? new RunsFirstOptions();
-            return PlanCore(Id, snapshot, ring).Result;
+            RunsFirstResult result = PlanCore(Id, snapshot, ring).Result;
+            SetProgress(1000);
+            return result;
         }
 
         private Planned PlanCore(string id, HeightSnapshot snap, float2[] ring)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             Clock = sw;
-            PassTimes.Clear();
+            m_Ticks.Clear();
             EasyWork = LinkWork = 0;
             Grid g = BuildGrid(snap, ring);
+            Tick("grid");
             int n = g.W * g.D;
             float cellsPerChannel = ChannelM2 / (g.CellM * g.CellM);
 
@@ -209,6 +251,7 @@ namespace SkiResortMod.Systems
             for (int c = 0; c < n; c++)
                 inv[c] = -g.H[c];
             int[] recR = Receivers(g, inv, out float[] accR);
+            Tick("flow");
 
             var lines = new List<Line>();
             foreach (List<int> path in Stems(g, rec, acc, cellsPerChannel))
@@ -241,6 +284,7 @@ namespace SkiResortMod.Systems
             Tick("lines");
             SetMixWeights(id, g, ring, lines);
             PointHash taken = Pick(lines, g, km2r);
+            Tick("pick");
             List<Lift> lifts = PlaceLifts(g, rec, lines, km2r, taken);
             Tick("lifts");
             PlanDraft built = BuildPlan(g, rec, lines, lifts, km2r);
@@ -261,9 +305,11 @@ namespace SkiResortMod.Systems
             // the drawn numbers follow the list, as the scorecard's notes count the lifts (passes take lifts out and add new ones)
             for (int i = 0; i < lifts.Count; i++)
                 lifts[i].Id = i + 1;
+            RunsFirstResult result = MakeResult(g, built, lifts);
+            Tick("result");
             long ms = sw.ElapsedMilliseconds;
             m_Log.AddRange(built.Log);
-            return new Planned { G = g, Acc = acc, AccR = accR, Lines = lines, Lifts = lifts, Built = built, Ms = ms, Result = MakeResult(g, built, lifts) };
+            return new Planned { G = g, Acc = acc, AccR = accR, Lines = lines, Lifts = lifts, Built = built, Ms = ms, Result = result };
         }
 
 

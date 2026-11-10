@@ -14,6 +14,7 @@ using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Unity.Mathematics;
 
@@ -230,6 +231,7 @@ namespace SkiResortMod.Systems
                 FillAll(d, float.PositiveInfinity);
                 return (d, new int[n], flow?.NewMark());
             }
+            int topsDone = 0;   // progress only
             for (; levels < 5; levels++)
             {
                 var at = lattice.FindAll(p => p.Level == levels);
@@ -278,6 +280,7 @@ namespace SkiResortMod.Systems
                         foreach (int c in touched)
                             reached[c] = float.PositiveInfinity;
                         found[i] = (e, any, rb, bits, touched.Count);
+                        Inner((float)Interlocked.Increment(ref topsDone) / lattice.Count);
                         return buf;
                     },
                     buf => buffers.Add(buf));

@@ -446,8 +446,10 @@ namespace SkiResortMod.Systems
             var tally = new int[2];
             int failed = 0, joined = 0;
             var jp = new JoinPoints(plan, lifts);
+            int benched = 0;   // progress only
             foreach (int e in diag)
             {
+                Inner(0.6f * benched++ / diag.Count);
                 var (direct, keeps, routed) = Benches(g, plan.Connectors[model.Conn[e]], jp, tally);
                 if (direct == null && routed == null)
                     failed++;
@@ -462,6 +464,7 @@ namespace SkiResortMod.Systems
             SkiRead before = null;
             while (open.Count > 0)
             {
+                Inner(0.6f + 0.4f * (benches - open.Count) / Math.Max(1, benches));
                 int bi = -1;
                 float best = RegradeMinGain;
                 for (int i = 0; i < open.Count; i++)

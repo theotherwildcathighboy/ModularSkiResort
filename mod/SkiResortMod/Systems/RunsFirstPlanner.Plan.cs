@@ -84,6 +84,7 @@ namespace SkiResortMod.Systems
             var reachOf = new Dictionary<int, int>[lifts.Count];
             for (int L = 0; L < lifts.Count; L++)
             {
+                Inner(0.3f * L / lifts.Count);
                 List<int> touched = Reach(g, slope, lifts[L].TopCell, dist, parent);
                 var d = new Dictionary<int, int>(touched.Count);
                 foreach (int c in touched)
@@ -97,8 +98,10 @@ namespace SkiResortMod.Systems
 
             // 2. candidates: every line with a lift entry, trimmed and ended where it delivers
             var cands = new List<Cand>();
+            int candsSeen = 0;   // progress only
             foreach (Line l in lines)
             {
+                Inner(0.3f + 0.5f * candsSeen++ / lines.Count);
                 if (l.Flow == null)
                 {
                     l.Flow = new List<float2>();
@@ -200,6 +203,7 @@ namespace SkiResortMod.Systems
                 queue.Enqueue((cd, false), -cd.Value);
             while (picks < cap && queue.TryDequeue(out var item, out float negValue))
             {
+                Inner(0.8f + 0.2f * picks / cap);
                 Cand cd = item.C;
                 int end = cd.End, run = 0;
                 for (int i = cd.Entry + 3; i <= Math.Min(cd.ValidEnd, end >= 0 ? end : cd.ValidEnd); i++)

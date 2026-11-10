@@ -29,8 +29,7 @@ namespace SkiResortMod.Systems
             PlanDraft built = pl.Built;
             long ms = pl.Ms;
             // the per-pass time table (report only): each pass's own milliseconds, in plan order
-            long prevMs = 0;
-            Console.WriteLine($"REPORT rf time {id}: " + string.Join(", ", PassTimes.Select(t => { long d = t.Ms - prevMs; prevMs = t.Ms; return $"{t.Pass} {d}"; })) + $", total {ms} ms");
+            Console.WriteLine($"REPORT rf time {id}: " + string.Join(", ", PassTimes.Select(t => $"{t.Pass} {t.Ms}")) + $", total {ms} ms");
             Console.WriteLine($"REPORT rf hash {id}: {pl.Result.Hash():x16}, {pl.Result.Runs.Count} runs, {pl.Result.Lifts.Count} lifts, {pl.Result.Connectors.Count} connectors");
 
             // the v2 plan of the same region, as the host replays it
