@@ -48,32 +48,62 @@ namespace LiftBatch
             Ps11WaitingKeys();
             Ps12QueueIndex();
             Ps13QueueRule();
+            Ps14QueueStation();
+        }
+
+        /// <summary>PS-14 (task 2b-l): the queue's station height rule, shared by the placer, the planner and the realizer
+        /// (StationAlign.PlaceStation). Ground falling 0.3 m per meter of local +z (the lot front is downhill, the line side uphill).</summary>
+        private static void Ps14QueueStation()
+        {
+            const string W = "sheet/PS-14";
+            System.Func<float3, float> ground = p => 1743.67f - 0.3f * p.z;
+            StationDef dqBase = SkiCatalog.StationOf(1, StationRole.Base), fgTop = SkiCatalog.StationOf(0, StationRole.Top);
+            Check(StationAlign.CatalogKindOf(dqBase) == StationAlign.StationTerrainKind.Pad && StationAlign.CatalogKindOf(fgTop) ==
+                  StationAlign.StationTerrainKind.Slope, W, "the catalog kinds: DQ base pad, FG top slope");
+            // a pad station cuts down to the lowest of front, origin, line side; its stub node sits on that plane; the rope at y + anchor
+            StationAlign.QueueStation a = StationAlign.PlaceStation(StationAlign.QueueHeightRule, dqBase, float3.zero, quaternion.identity, ground);
+            float front = ground(new float3(0f, 0f, dqBase.FrontLocalZ));
+            Check(math.abs(a.StationY - front) < 1e-3f && math.abs(a.NodeY - a.StationY) < 1e-3f, W, $"pad: y {a.StationY:F2} (front {front:F2}), node {a.NodeY:F2}");
+            Check(math.abs(a.RopeY - (a.StationY + dqBase.RopeAnchorLocalY)) < 1e-3f && math.abs(a.Tip.z - dqBase.StubTipLocalZ) < 1e-3f, W,
+                  $"pad: rope {a.RopeY:F2}, tip z {a.Tip.z:F2}");
+            Check(a.OriginGround - a.StationY > 4f, W, $"the pad station sits {a.OriginGround - a.StationY:F2} m under its origin ground (field r1 P3: 5.77)");
+            // a slope station keeps the ground: y at its origin, its stub node on the terrain at the tip
+            StationAlign.QueueStation s = StationAlign.PlaceStation(StationAlign.QueueHeightRule, fgTop, float3.zero, quaternion.identity, ground);
+            float tipG = ground(new float3(0f, 0f, fgTop.StubTipLocalZ));
+            Check(math.abs(s.StationY - 1743.67f) < 1e-3f && math.abs(s.NodeY - tipG) < 1e-3f && math.abs(s.RopeY - (1743.67f + fgTop.RopeAnchorLocalY)) < 1e-3f,
+                  W, $"slope: y {s.StationY:F2}, node {s.NodeY:F2} (tip ground {tipG:F2}), rope {s.RopeY:F2}");
         }
 
         private static void Ps13QueueRule()
         {
             const string W = "sheet/PS-13";
             const LiftQueueBuild B = LiftQueueBuild.Build, F = LiftQueueBuild.BuildFlagged, Wt = LiftQueueBuild.Wait;
-            // (clear, trains, over cap, too steep, clearance) -> the queue's choice, and the waiting key for plan key k.
-            var cases = new (bool clear, bool trains, int over, int steep, int clr, LiftQueueBuild want, string planKey, string wantKey)[]
+            // (clear, trains, over cap, the worst bend past a cap, too steep, clearance) -> the queue's choice, and the waiting key for plan
+            // key k. The flag cap (task 2b-l): one tower over by at most LiftTowerPlan.FlagMaxExcessDeg builds flagged; further over waits.
+            // Field r2g round 2: DQ tower 1 at 34.0 against 32 (builds flagged), gondola tower 8 at 47.5 against 40 (waits).
+            Check(LiftTowerPlan.FlagMaxExcessDeg == 5.0f, W, "the flag cap is " + LiftTowerPlan.FlagMaxExcessDeg);
+            var cases = new (bool clear, bool trains, int over, float ex, int steep, int clr, LiftQueueBuild want, string planKey, string wantKey)[]
             {
-                (true, true, 0, 0, 0, B, "PLAN_CLEAR", null),
-                (true, true, 1, 0, 0, F, "PLAN_TRAIN", null),             // the one case R2-l builds
-                (true, true, 2, 0, 0, Wt, "PLAN_TRAIN", "PLAN_TRAINS"),
-                (true, true, 3, 0, 0, Wt, "PLAN_TRAIN", "PLAN_TRAINS"),
-                (true, true, 1, 1, 0, Wt, "PLAN_TRAIN", "PLAN_PITCH"),    // one over the limit, one too steep: waits on the pitch
-                (true, true, 1, 0, 1, Wt, "PLAN_TRAIN", "PLAN_CLEARANCE"),
-                (true, true, 0, 1, 0, Wt, "PLAN_PITCH", "PLAN_PITCH"),
-                (true, true, 0, 0, 2, Wt, "PLAN_CLEARANCE", "PLAN_CLEARANCE"),
-                (false, true, 1, 0, 0, Wt, "PLAN_LOW", "PLAN_LOW"),      // an unclear span with one tower over: waits on the span
-                (false, true, 0, 0, 0, Wt, "PLAN_STEEP", "PLAN_STEEP"),
-                (true, false, 1, 0, 0, Wt, "PLAN_SADDLE", "PLAN_SADDLE"), // the tram saddle is no sheave train
-                (true, false, 0, 0, 0, B, "PLAN_CLEAR", null),
+                (true, true, 0, 0f, 0, 0, B, "PLAN_CLEAR", null),
+                (true, true, 1, 34.0f - 32f, 0, 0, F, "PLAN_TRAIN", null),    // r2 P1 detachable: 34 against 32 builds flagged
+                (true, true, 1, 5.0f, 0, 0, F, "PLAN_TRAIN", null),           // at the cap
+                (true, true, 1, 47.5f - 40f, 0, 0, Wt, "PLAN_TRAIN", "PLAN_TRAIN"),   // r4 P1 gondola: 47.5 against 40 waits
+                (true, true, 1, 5.1f, 0, 0, Wt, "PLAN_TRAIN", "PLAN_TRAIN"),
+                (true, true, 2, 1.0f, 0, 0, Wt, "PLAN_TRAIN", "PLAN_TRAINS"),  // two towers over waits, however small
+                (true, true, 3, 1.0f, 0, 0, Wt, "PLAN_TRAIN", "PLAN_TRAINS"),
+                (true, true, 1, 2f, 1, 0, Wt, "PLAN_TRAIN", "PLAN_PITCH"),    // one over the limit, one too steep: waits on the pitch
+                (true, true, 1, 2f, 0, 1, Wt, "PLAN_TRAIN", "PLAN_CLEARANCE"),
+                (true, true, 0, 0f, 1, 0, Wt, "PLAN_PITCH", "PLAN_PITCH"),
+                (true, true, 0, 0f, 0, 2, Wt, "PLAN_CLEARANCE", "PLAN_CLEARANCE"),
+                (false, true, 1, 2f, 0, 0, Wt, "PLAN_LOW", "PLAN_LOW"),      // an unclear span with one tower over: waits on the span
+                (false, true, 0, 0f, 0, 0, Wt, "PLAN_STEEP", "PLAN_STEEP"),
+                (true, false, 1, 2f, 0, 0, Wt, "PLAN_SADDLE", "PLAN_SADDLE"), // the tram saddle is no sheave train
+                (true, false, 0, 0f, 0, 0, B, "PLAN_CLEAR", null),
             };
             foreach (var c in cases)
             {
-                string at = $"clear {c.clear}, trains {c.trains}, over {c.over}, steep {c.steep}, clearance {c.clr}";
-                LiftQueueBuild got = LiftTowerPlan.QueueRule(c.clear, c.trains, c.over, c.steep, c.clr);
+                string at = $"clear {c.clear}, trains {c.trains}, over {c.over} by {c.ex:F1} deg, steep {c.steep}, clearance {c.clr}";
+                LiftQueueBuild got = LiftTowerPlan.QueueRule(c.clear, c.trains, c.over, c.steep, c.clr, c.ex);
                 Check(got == c.want, W, at + ": queue " + got + " (want " + c.want + ")");
                 if (c.wantKey == null)
                     continue;

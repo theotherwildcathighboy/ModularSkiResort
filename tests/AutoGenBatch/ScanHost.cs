@@ -1,5 +1,8 @@
 // Host modes of the tool's scan job (port round R2-a): QuickRunsScanJob is the code the tool runs on its worker (the runs-first planner
 // and the realizer), so these modes measure and replay exactly that.
+//   rf-liftcheck <dump file> <type> <bx> <bz> <tx> <tz> [...]: on the dump's terrain, the tower check of each line (bottom and top spot,
+//   world xz) as the planner made it before task 2b-l (spot to spot, ground at the spots) and as the queue builds it (LiftLineInput.
+//   PlanQueueLine: stations placed by the queue's height rule, stub tip to stub tip). Report only.
 //   rf-replay <dump file>: reads a dump the tool wrote (QuickRunsScanDump, the dev trigger's "dump"), runs the same job on the same input
 //     and prints the game's and the host's plan hash and result hash. Exit 0 when both match, 2 when one differs (the round's
 //     cross-runtime gate).
@@ -42,7 +45,65 @@ namespace AutoGenBatch
         {
             if (args[0] == "rf-replay")
                 return Replay(args.Length > 1 ? args[1] : null);
+            if (args[0] == "rf-liftcheck")
+                return LiftCheck(args);
             return Scan(args.Length > 1 ? args[1] : "rf-scan.txt", args.Length > 2 ? args[2] : null);
+        }
+
+        // ---------------------------------------------------------------- rf-liftcheck
+
+        private static int LiftCheck(string[] args)
+        {
+            if (args.Length < 7 || !File.Exists(args[1]))
+            {
+                Console.WriteLine("rf-liftcheck <dump file> <type> <bx> <bz> <tx> <tz> [<type> <bx> <bz> <tx> <tz> ...]");
+                return 1;
+            }
+            AutoPlanInput input;
+            using (FileStream fs = File.OpenRead(args[1]))
+                input = QuickRunsScanDump.Read(fs, out _, out _);
+            HeightSnapshot snap = input.Snapshot;
+            var ci = CultureInfo.InvariantCulture;
+            for (int a = 2; a + 4 < args.Length; a += 5)
+            {
+                byte t = RunsFirstRealizer.TypeIndexOf(args[a]);
+                float2 b = new float2(float.Parse(args[a + 1], ci), float.Parse(args[a + 2], ci));
+                float2 tp = new float2(float.Parse(args[a + 3], ci), float.Parse(args[a + 4], ci));
+                LiftTowerPlanConstants k = LiftTowerPlanConstants.For(SkiCatalog.Lifts[t]);
+                StationDef sb = SkiCatalog.StationOf(t, StationRole.Base), st = SkiCatalog.StationOf(t, StationRole.Top);
+                float H(float2 p) => snap.Sample(new float3(p.x, 0f, p.y));
+                // before 2b-l: spot to spot, end nodes at the ground at the spots, ropes StationEndRope there
+                float hb = H(b), ht = H(tp), len = math.distance(b, tp);
+                float2 dir = (tp - b) / len, right = new float2(dir.y, -dir.x);
+                var old = new LiftTowerPlanner { StationA = true, StationB = true, CheckEdgeSlope = true, EndNodeYA = hb, EndNodeYB = ht };
+                float ropeA0 = k.StationEndRope(sb, hb), ropeB0 = k.StationEndRope(st, ht);
+                LiftTowerPlan p0 = old.Plan((s, l) => H(b + dir * s + right * l), len, ropeA0, ropeB0, k);
+                // after: the queue's stations and line
+                LiftTowerPlan p1 = LiftLineInput.PlanQueueLine(k, sb, st, b, tp, q => snap.Sample(new float3(q.x, 0f, q.z)), new LiftTowerPlanner(),
+                    out StationAlign.QueueStation qb, out StationAlign.QueueStation qt, out LiftLineEdit e);
+                Console.WriteLine(string.Format(ci, "LIFTCHECK {0} ({1:F0}, {2:F0}) -> ({3:F0}, {4:F0})", args[a], b.x, b.y, tp.x, tp.y));
+                Console.WriteLine(string.Format(ci, "  before: spots {0:F0} m, nodes {1:F2} / {2:F2}, ropes {3:F2} / {4:F2}; min floor margin {5:+0.0;-0.0} m; {6}; " +
+                    "over cap {7} (worst +{8:F1} deg); queue {9}", len, hb, ht, ropeA0, ropeB0, p0.MinFloorMarginM, p0.Verdict, p0.OverCapTowers,
+                    p0.MaxOverCapExcessDeg, p0.QueueBuild));
+                Console.WriteLine(string.Format(ci, "  queue stations: base {0} front {1:F2} origin {2:F2} line side {3:F2} -> y {4:F2}, node {5:F2}, rope {6:F2}; " +
+                    "top {7} front {8:F2} origin {9:F2} line side {10:F2} -> y {11:F2}, node {12:F2}, rope {13:F2}", qb.Kind, qb.FrontGround, qb.OriginGround,
+                    qb.LineSideGround, qb.StationY, qb.NodeY, qb.RopeY, qt.Kind, qt.FrontGround, qt.OriginGround, qt.LineSideGround, qt.StationY, qt.NodeY, qt.RopeY));
+                if (p1 == null)
+                    Console.WriteLine("  after: no plan");
+                else
+                {
+                    int first = p1.FirstOverCapTower();
+                    int ws = 0;
+                    for (int i = 1; i < p1.Spans.Length; i++)
+                        if (p1.Spans[i].MinFloorMarginM < p1.Spans[ws].MinFloorMarginM)
+                            ws = i;
+                    Console.WriteLine(string.Format(ci, "  after: worst span {0} of {1} (from {2:F0} m), margin {3:+0.00;-0.00} m at {4:F0} m into it; end carriers {5:+0.0;-0.0} / {6:+0.0;-0.0} m", ws + 1, p1.Spans.Length, p1.Nodes[ws].AlongM, p1.Spans[ws].MinFloorMarginM, p1.Spans[ws].MinFloorMarginAtM, p1.EndCarrierA, p1.EndCarrierB));
+                    Console.WriteLine(string.Format(ci, "  after: {0}; over cap {1} (worst +{2:F1} deg{3}); queue {4}", e.Describe(), p1.OverCapTowers,
+                        p1.MaxOverCapExcessDeg, first >= 0 ? string.Format(ci, ", tower {0} at {1:F0} m bends {2:F1}, limit {3:F0}", first,
+                            p1.Nodes[first].AlongM, math.abs(p1.Nodes[first].DeflectionDeg), p1.Nodes[first].CapDeg) : "", p1.QueueBuild));
+                }
+            }
+            return 0;
         }
 
         // ---------------------------------------------------------------- rf-replay

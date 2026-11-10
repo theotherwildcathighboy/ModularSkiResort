@@ -53,13 +53,17 @@ namespace SkiResortMod.Systems
         public LiftTowerPlan Plan { get; private set; }
         public int Revision { get; private set; }
 
-        private readonly LiftTowerPlanner m_Planner = new LiftTowerPlanner();
+        private readonly LiftTowerPlanner m_Planner;
         private readonly List<float> m_Pins = new List<float>();   // ascending, on the StepM grid
         private readonly List<float> m_Removed = new List<float>();   // spots a free tower was removed from (planner Forbidden)
         private readonly float2 m_Dir, m_Right;
 
-        public LiftLineEdit(LiftTowerPlanConstants c, float3 a, float3 b, float ropeA, float ropeB, bool stationA = true, bool stationB = true)
+        /// <summary><paramref name="planner"/>: a planner to reuse (the planner's and the realizer's tower checks keep one per thread);
+        /// null = a new one.</summary>
+        public LiftLineEdit(LiftTowerPlanConstants c, float3 a, float3 b, float ropeA, float ropeB, bool stationA = true, bool stationB = true,
+                            LiftTowerPlanner planner = null)
         {
+            m_Planner = planner ?? new LiftTowerPlanner();
             C = c;
             A = a;
             B = b;
@@ -529,6 +533,36 @@ namespace SkiResortMod.Systems
     /// we close the tool instead.</summary>
     public static class LiftLineInput
     {
+        /// <summary>The line the build queue's lift tool plans between a planned lift's two stations (field r2g round 2, task 2b-l). The
+        /// stations stand where the queue places them (StationAlign.QueueLift under StationAlign.QueueHeightRule: the pose, the station
+        /// height rule, the stub tips, the pad cut). The line runs stub tip to stub tip, its end nodes at the ground under the stubs, its
+        /// ropes at the stations' own anchors, over the ground the pads leave (PadSampler), and plans as the tool plans it
+        /// (LiftLineEdit.Replan: pairs on, from the end with the lower rope). The planner's Towers pass and the realizer's lift rows call
+        /// it, so their Sound is the queue's. Not modeled: crossings with other lifts and keepouts (the tool collects them from the
+        /// city). <paramref name="ground"/> gives the terrain at a world point; the caller handles a miss. Null when the pose is invalid.</summary>
+        public static LiftTowerPlan PlanQueueLine(LiftTowerPlanConstants c, StationDef baseStation, StationDef topStation, float2 bottomXz,
+            float2 topXz, System.Func<float3, float> ground, LiftTowerPlanner planner, out StationAlign.QueueStation bottom,
+            out StationAlign.QueueStation top, out LiftLineEdit edit)
+        {
+            edit = null;
+            if (baseStation == null || topStation == null ||
+                !StationAlign.QueueLift(bottomXz, topXz, baseStation, topStation, StationAlign.QueueHeightRule, ground, out bottom, out top))
+            {
+                bottom = top = default;
+                return null;
+            }
+            float ropeA = math.isfinite(bottom.RopeY) ? bottom.RopeY : c.StationEndRope(baseStation, bottom.NodeY);
+            float ropeB = math.isfinite(top.RopeY) ? top.RopeY : c.StationEndRope(topStation, top.NodeY);
+            LiftLineEdit e = edit = new LiftLineEdit(c, bottom.Tip, top.Tip, ropeA, ropeB, true, true, planner);
+            if (e.LengthM < 1f)
+                return null;
+            LiftTerrainSampler fromA = (s, l) => ground(e.PointAt(s, l));
+            LiftTerrainSampler fromB = (s, l) => ground(e.PointFromB(s, l));
+            fromA = PadSampler(fromA, e.LengthM, false, baseStation, bottom.StationY, topStation, top.StationY);
+            fromB = PadSampler(fromB, e.LengthM, true, baseStation, bottom.StationY, topStation, top.StationY);
+            return e.Replan(fromA, fromB);
+        }
+
         public static LiftLineBack RightClick(LiftLineStep step, bool dragging, int undoDepth)
         {
             switch (step)

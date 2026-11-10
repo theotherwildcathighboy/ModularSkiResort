@@ -301,7 +301,7 @@ namespace SkiResortMod.Systems
         /// <summary>The default height rule of the stations the queue places: Fit (StationAlign.StationY). A pad station takes the lowest
         /// terrain of the lot's front edge, its origin and its line-side edge, so it never floats (DECISIONS 625, 626). A slope station
         /// (DontRaise and DontLower) takes the terrain at its origin, because it does not cut.</summary>
-        internal const StationAlign.StationHeightRule DefaultStationHeight = StationAlign.StationHeightRule.Fit;
+        internal const StationAlign.StationHeightRule DefaultStationHeight = StationAlign.QueueHeightRule;   // the planner and the realizer plan with it too
 
         /// <summary>The height rule of the stations the queue places. The dev trigger "height vanilla|lowest|fit" switches it so the three
         /// rules can be compared in game. A load resets it to DefaultStationHeight. The dev probe and an explicit y keep the vanilla rule.</summary>

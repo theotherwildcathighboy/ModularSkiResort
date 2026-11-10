@@ -610,16 +610,13 @@ namespace SkiResortMod.Systems
         private float ResolveY(Entity prefab, float3 p, quaternion rotation, StationAlign.StationHeightRule rule)
         {
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
-            float originGround = TerrainUtils.SampleHeight(ref hd, p);
-            float frontGround = originGround, lineGround = originGround;
+            float lotDepthM = float.NaN;
             string lot = "no BuildingData: origin only";
             if (EntityManager.TryGetComponent(prefab, out BuildingData bd))
             {
-                var t = new Game.Objects.Transform(p, rotation);
-                float3 front = Game.Buildings.BuildingUtils.CalculateFrontPosition(t, bd.m_LotSize.y);
-                float3 back = Game.Objects.ObjectUtils.LocalToWorld(t, new float3(0f, 0f, -bd.m_LotSize.y * 4f));
-                frontGround = TerrainUtils.SampleHeight(ref hd, front);
-                lineGround = TerrainUtils.SampleHeight(ref hd, back);
+                // the lot front = BuildingUtils.CalculateFrontPosition (local z +depth x 4), the line side = local z -depth x 4
+                lotDepthM = bd.m_LotSize.y * 4f;
+                float3 front = p + math.mul(rotation, new float3(0f, 0f, lotDepthM)), back = p + math.mul(rotation, new float3(0f, 0f, -lotDepthM));
                 lot = string.Format(CultureInfo.InvariantCulture, "lot {0}x{1}, front edge ({2:F1}, {3:F1}), line-side edge ({4:F1}, {5:F1})",
                     bd.m_LotSize.x, bd.m_LotSize.y, front.x, front.z, back.x, back.z);
             }
@@ -637,10 +634,14 @@ namespace SkiResortMod.Systems
             // BuildingInitializeSystem.cs:1364-1365; every BuildingPrefab has the component, BuildingPrefab.cs:36). No override = Pad.
             StationAlign.StationTerrainKind kind = EntityManager.TryGetComponent(prefab, out BuildingTerraformData td)
                 ? StationAlign.TerrainKindOf(td.m_DontRaise, td.m_DontLower) : StationAlign.StationTerrainKind.Pad;
+            // The queue's station height rule is one pure function, shared with the planner's and the realizer's tower checks
+            // (StationAlign.PlaceStation, LiftLineInput.PlanQueueLine), so a line they call sound is the line the queue plans.
+            TerrainHeightData h = hd;
+            StationAlign.QueueStation qs = StationAlign.PlaceStation(rule, kind, p, rotation, lotDepthM, float.NaN, 0f, float.NaN, offset,
+                q => TerrainUtils.SampleHeight(ref h, q));
+            float originGround = qs.OriginGround, frontGround = qs.FrontGround, lineGround = qs.LineSideGround;
             float vanilla = StationAlign.StationY(StationAlign.StationHeightRule.VanillaFront, kind, frontGround, originGround, lineGround, offset);
-            float y = StationAlign.StationY(rule, kind, frontGround, originGround, lineGround, offset);
-            if (!math.isfinite(y))
-                y = math.isfinite(vanilla) ? vanilla : originGround + offset;
+            float y = qs.StationY;
             Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
                 "StationPlace [height]: #{0}{1} rule {2}, {12} station: terrain front {3:F2}, origin {4:F2}, line side {5:F2}; placement offset {6:F2} -> y {7:F2} " +
                 "(vanilla y {8:F2}, {9:F2} m lower; y minus the origin terrain {10:F2}); {11}",
