@@ -92,12 +92,12 @@ One action: lay out the track. **Enter** cuts and fills the ground so it never c
 
 ## Resort Planner (Experimental)
 
-Outline a region and the planner proposes lifts and a set of linked runs around them. You review and change the plan. You build the proposed lifts yourself on the marked spots. You build the runs together.
+Outline a region and the planner proposes lifts and a set of linked runs around them. You review and change the plan. The runs are built together. The lifts are built from the ski-area hub, one after the other.
 
 <Aside type="caution" title="Experimental">
 The Resort Planner is new and may change. It is off by default: turn it on in Options > Modular Ski Resort > Runs > **Resort Planner (experimental)**. While it is off, the tool cannot open and its hub button is grayed with the reason.
 
-**Limits:** it builds runs only. You build the lifts it proposes with the lift tool. On steep ground expect mostly black runs and few greens. Roads, buildings and lift stations inside the outline are not avoided. **Undo** and **Undo trees** end when the tool closes.
+**Limits:** **Build** builds runs only. The lifts have their own button. A lift line the planner cannot finish waits in the lift tool for you. On steep ground expect mostly black runs and few greens. Roads, buildings and lift stations inside the outline are not avoided. **Undo** and **Undo trees** end when the tool closes.
 </Aside>
 
 - **Open:** hub **Runs** tab > **Resort Planner (experimental)**, or **Ctrl+Shift+Q**. While it is open, the Runs tab shows every control as a button.
@@ -113,7 +113,7 @@ The Resort Planner is new and may change. It is off by default: turn it on in Op
 - **Knobs:** **Lifts** (auto, or 1 to 9, and changing it plans again), **Way home** (green at the base and blue above by default, or green, or blue: the easiest run each lift top should offer), **Mix** (Balanced, Beginner, Expert, As the slope allows), **How many** (Few, Normal, Many, and the count scales with the region), **Features** (every run groomed by default, and the options *Leave black runs natural*, *Snowmaking near the base* for green runs that reach the base, *Light the two lowest* for up to two base runs, blue or easier, which also get snow guns), **Shuffle** for another layout of the same region.
 - **Totals:** runs kept, the mix against its target, the total fee, and skiers a day once a lift serves them.
 - **Build:** **Build** or **Enter**. Refused when the city cannot pay the total. Only the runs are built: they are linked and pay like runs you draw. A run the game refuses turns red and is left out. The rest are built.
-- **Lifts:** the proposals stay proposals. Build each one with the lift tool: place the stations on the marked spots, then draw the line. Until a lift serves them, its runs count as backcountry (see [Lift Service](#lift-service)).
+- **Lifts:** after a scan the ski-area hub lists the planned lifts with their cost. **Build lifts** builds the ones switched on, lowest first, one after the other, and each row shows its state (*Waiting for its turn*, *Building now*, *Built*, *Not built: the city cannot pay for it*). A row's own **Build** builds that one lift. A line the planner cannot finish waits in the lift tool for you (*Waiting in the lift tool*, with the reason). Until a lift serves them, its runs count as backcountry (see [Lift Service](#lift-service)).
 - **Wait:** the runs are built a few at a time so the game keeps running smoothly, with progress in the hub and the tooltip (*Building runs 4 / 11*). A large region can take a few seconds to a minute. **Stop** or right click stops after the runs in progress. What is built so far stays, and **Undo** removes it. Closing the tool also stops the build. What is built stays, without Undo.
 - **Undo:** the hub's **Undo** removes the whole build and refunds exactly what it cost. Right click never removes built runs.
 - **Warnings:** no lift fits the region, lift tops with no way down on skis, a run that ends where nothing continues, a lift top with no green way down, a run over water, runs that will be renumbered, runs in more than one ski area, no Welcome Sign nearby, a mix the slope cannot give, and the game's checks being off (Anarchy).
