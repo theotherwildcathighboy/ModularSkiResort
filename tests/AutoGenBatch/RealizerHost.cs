@@ -145,8 +145,10 @@ namespace AutoGenBatch
                 }
                 lines.Add((r, new List<float2>(r.Centerline)));
             }
-            foreach (var (r, pts) in lines)
+            foreach (var (r, raw) in lines)
             {
+                // the scorecard's windows count samples and assume the planner's 10 m step: a realized centerline (4 m) is fed at 10 m
+                List<float2> pts = Resample(raw, FeedStepM);
                 if (r.Graded)
                     sp.Connectors.Add(pts);
                 else
@@ -172,7 +174,29 @@ namespace AutoGenBatch
             return sp;
         }
 
-        private const float SkiedJoinM = 60f;
+        private const float SkiedJoinM = 60f, FeedStepM = 10f;
+
+        /// <summary>A polyline at a fixed step along its length (first and last point kept).</summary>
+        private static List<float2> Resample(List<float2> p, float step)
+        {
+            var o = new List<float2> { p[0] };
+            float carry = 0f;
+            for (int i = 1; i < p.Count; i++)
+            {
+                float2 a = p[i - 1], b = p[i];
+                float len = math.distance(a, b);
+                float t = step - carry;
+                while (t <= len)
+                {
+                    o.Add(math.lerp(a, b, t / len));
+                    t += step;
+                }
+                carry = len - (t - step);
+            }
+            if (math.distance(o[o.Count - 1], p[p.Count - 1]) > 0.5f)
+                o.Add(p[p.Count - 1]);
+            return o;
+        }
 
         private static Row RunRegion(string id, float2[] ring, HeightSnapshot snap, RunsFirstOptions options, string outDir)
         {
@@ -253,7 +277,7 @@ namespace AutoGenBatch
                 }
             File.WriteAllLines(Path.Combine(outDir, id + ".txt"), lines.Concat(rep.Lines.Select(s => "  | " + s))
                 .Concat(new[] { "", RunsFirstScore.Line(id + " raw", raw), "", RunsFirstScore.Line(id + " realized", real), "", RunsFirstScore.Line(id + " skied", skied) })
-                .Concat(real.Notes.Select(s => "  realized note: " + s)));
+                .Concat(raw.Notes.Select(s => "  raw note: " + s)).Concat(real.Notes.Select(s => "  realized note: " + s)));
             string tsv = Path.Combine(outDir, "realize.tsv");
             if (!File.Exists(tsv))
                 File.WriteAllText(tsv, "region\tsources\tdropped\tdrops\tareas\tpiecesLost\tkmPlan\tkmKept\tgradedKmPlan\tgradedKmKept\trelations\tlinks\tvia\tmisses\textensions\t" +

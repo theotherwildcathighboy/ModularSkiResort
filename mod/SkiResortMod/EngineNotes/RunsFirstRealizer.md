@@ -29,6 +29,15 @@ The files are pure C# 9 for net48. They use no part of the `SkiRunAutoPlanner` c
 ## Element types
 
 - A plain piste uses the width of its planned band. The march stops each side at the gap to other areas.
+- Fair share applies where another run goes alongside: under 45 degrees, with no crossing within 60 m. There, each side stops at
+  half the distance between the two centerlines, minus half the gap. The floor is 7.5 m. At a crossing, the earlier run keeps its width.
+- The grade does not cut a centerline. The planner already checked the line. The grade ceiling only limits the lateral march, and
+  never under 7.5 m.
+- Near the region edge and the map margin, the free tests use the exact edge, not the 3.5 m cells. So the realizer clips a stretch
+  and does not drop a ring that goes outside.
+- A ring that crosses itself gets one more try at a constant 7.5 m each side.
+- The rater can answer with a mask that is not connected. Then it uses its P90 band, and the game shows that band. The realizer
+  keeps the piece.
 - A graded run is a graded piste when its grade along the path is 25 % or more and it drops. It is 15 m wide.
   The rater can answer `ShortRun` for it, because a diagonal has few full 20 m windows. The realizer accepts that answer for a graded
   piste. The game shows that band.
@@ -39,7 +48,8 @@ The files are pure C# 9 for net48. They use no part of the `SkiRunAutoPlanner` c
 A piste end that is more than 20 m from its partner gets a straight extension toward it. The extension is at most 40 m. A blocked
 cell or the gap of another area stops it. Then the report marks the end as unlinked.
 
-Tracks butt against tracks. Tracks cross pistes. A new piste crosses an existing cat track and gets the flag `CrossesCatTrack`.
+Tracks butt against tracks. Tracks cross pistes. The planner can relate an original track end to a piste or a track. If that end
+is not a game link, it gets a straight extension toward that element. It can go into a piste. It stops at the link. A new piste crosses an existing cat track and gets the flag `CrossesCatTrack`.
 
 ## Determinism
 

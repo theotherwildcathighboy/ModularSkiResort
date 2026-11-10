@@ -151,7 +151,7 @@ namespace SkiResortMod.Systems
                 float len = path.S[pc.E] - path.S[pc.S];
                 float drop = H(path.Xz[pc.S]) - H(path.Xz[pc.E]);
                 bool joined = pc.J0.Count > 0 && pc.J1.Count > 0;
-                if (pc.E - pc.S < 1 || (joined ? len < MinJoinedPieceM : len < MinPieceM || drop < MinPieceDropM))
+                if (pc.E - pc.S < 1 || (joined ? len < MinJoinedPieceM : len < MinPieceM || (drop < MinPieceDropM && e.Kind != "learning")))
                 {
                     m_Rep.PiecesLost++;
                     m_Res.Rejects[(int)AutoReject.TooShort]++;
