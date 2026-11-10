@@ -12,7 +12,7 @@ namespace SkiResortMod.Systems
         /// <summary>The plain plan object of a finished plan (copies: the planner's own types stay inside). A plain run's band is the
         /// mod rater's band of its ribbon (RaterBands bit RaterResult): the band scorecard v7 reads and the game shows. A graded run keeps
         /// its band along the path.</summary>
-        private static RunsFirstResult MakeResult(Grid g, PlanDraft built, List<Lift> lifts)
+        private static RunsFirstResult MakeResult(Grid g, PlanDraft built, List<Lift> lifts, RunsFirstBottom[] bottom)
         {
             var res = new RunsFirstResult();
             foreach (PlanRun r in built.Runs)
@@ -30,6 +30,7 @@ namespace SkiResortMod.Systems
                 res.Lifts.Add(new RunsFirstResult.Lift
                 {
                     Id = i + 1, Type = lifts[i].Type, Kind = lifts[i].Kind, Bottom = lifts[i].Bottom, Top = lifts[i].Top, RidesDown = lifts[i].RidesDown,
+                    ToBottom = bottom != null && i < bottom.Length ? bottom[i] : RunsFirstBottom.Reaches,
                     Base = bases.Contains(root[i]),
                 });
             res.Log.AddRange(built.Log);

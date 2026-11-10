@@ -26,7 +26,8 @@ The files are pure C# 9 for net48. They use no part of the `SkiRunAutoPlanner` c
    clear stays in the plan. It gets the flags `TowersUnchecked` and `HandFit`. The lift tool does not build it without the player.
 3. Pistes. A run goes before the runs that start off it or end onto it. A cycle uses the list order.
 4. Cat tracks. First the tree chains of each lift, then the graded runs under the blue line, then the links.
-5. Groups and the graph.
+5. Groups and the graph. The planner sets `ToBottom` on each lift (the way to the bottom). When a lift has a value other than `Reaches`
+   or `NoSkiing`, the realizer sets the warning `NoWayToBottom`. The report adds one line for each such lift.
 
 ## Element types
 
@@ -102,5 +103,8 @@ covers every output bit. The host gate compares two runs.
 ## Test host
 
 - `RealizerTests.cs` runs in the default host run. It checks the synthetic regions and sixteen hand fixtures.
+  It also checks six fixtures of the way to the bottom (`BottomFixtures`, through `RunsFirstPlanner.BottomProbe`). For the synthetic
+  regions, B-1 on the realized plan must agree with the planner when the landing is a lift bottom. B-1 sees only pads, so it
+  cannot see a landing of class 2 to 4.
 - `rf-realize <out dir> [regions file]` prints the report for each region. It also prints the score of the raw plan and of the
   realized plan.

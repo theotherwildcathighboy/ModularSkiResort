@@ -532,7 +532,8 @@ namespace SkiResortMod.Systems
         private int PruneRuns(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             var model = new CutModel(g, plan);
-            var open = Enumerable.Range(0, model.Run.Count).Where(e => model.Run[e] != null).ToList();
+            // a fall-line run to the bottom (Bottom.cs) stays: the ski graph read below does not see the way to the bottom
+            var open = Enumerable.Range(0, model.Run.Count).Where(e => model.Run[e] != null && model.Run[e].Kind != "bottom").ToList();
             SkiRead before = SkiRead.Of(g, plan, lifts);
             int removed = 0, refused = 0, reads = 1;
             float gained = 0f, km = 0f;

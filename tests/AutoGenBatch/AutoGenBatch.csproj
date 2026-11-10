@@ -62,6 +62,7 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.WayHome.cs" Link="RunsFirstPlanner.WayHome.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Rater.cs" Link="RunsFirstPlanner.Rater.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Towers.cs" Link="RunsFirstPlanner.Towers.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Bottom.cs" Link="RunsFirstPlanner.Bottom.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Regrade.cs" Link="RunsFirstPlanner.Regrade.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Layout.cs" Link="RunsFirstPlanner.Layout.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Learning.cs" Link="RunsFirstPlanner.Learning.cs" />

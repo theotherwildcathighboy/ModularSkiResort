@@ -46,6 +46,7 @@ namespace SkiResortMod.Systems
         NoLiftSite = 1024,    // Resort: no pod could hold a feasible lift chord (proposals empty, runs still planned for pinned lifts)
         Download = 2048,      // Resort: at least one lift top has only a Download verdict (honest, not an error)
         DeadEnd = 4096,       // Resort: a run bottom reaches nothing (gate: 0 expected)
+        NoWayToBottom = 8192, // Resort: a lift with skiing has no run or cat track to the base band (the result names what is in the way)
     }
 
     /// <summary>Why a candidate did not become a run (histogram index in AutoPlanResult.Rejects).</summary>

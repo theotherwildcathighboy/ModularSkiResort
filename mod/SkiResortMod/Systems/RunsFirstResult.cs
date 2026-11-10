@@ -10,6 +10,20 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
+    /// <summary>Whether a skier leaving a lift's top gets to the bottom of the region (the base band) on runs and cat tracks alone, and
+    /// what is in the way when not (the way-to-the-bottom pass, RunsFirstPlanner.Bottom.cs). In the plan hash.</summary>
+    public enum RunsFirstBottom : byte
+    {
+        Reaches = 0,     // runs and cat tracks lead from the top to the base band
+        NoSkiing = 1,    // nothing leaves the top (no way down to judge)
+        Cliff = 2,       // the fall line below the skiing has a pitch over the run rules
+        Water = 3,       // the fall line runs into water the plan may not use
+        Hole = 4,        // the fall line runs into a hole in the region (ground the plan may not use, with region below it)
+        Edge = 5,        // the fall line leaves the region above the base band
+        Other = 6,       // no route and none of the above (a search past its budget)
+        Basin = 7,       // the drainage climbs out of a basin, more than the run rules allow
+    }
+
     public sealed class RunsFirstResult
     {
         public sealed class Run
@@ -29,6 +43,7 @@ namespace SkiResortMod.Systems
             public string Kind;                  // main / beginner
             public float3 Bottom, Top;
             public bool RidesDown;               // a download lift (no ski-out)
+            public RunsFirstBottom ToBottom;     // the way to the bottom from its top (R2-c, in the hash)
             public bool Base;                    // its bottom is in one of the planner's base clusters (not in the hash)
         }
 
@@ -39,7 +54,7 @@ namespace SkiResortMod.Systems
         public readonly List<string> Log = new List<string>();
 
         /// <summary>FNV-1a 64 over the plan: counts, then each run (kind, band, graded, surface, lift, points), connector, link and
-        /// lift (type, kind, ends, rides down). Coordinates are quantized to 0.01 m, so the hash is the same on any runtime that
+        /// lift (type, kind, ends, rides down, way to the bottom). Coordinates are quantized to 0.01 m, so the hash is the same on any runtime that
         /// gives the same plan to the centimeter.</summary>
         public ulong Hash()
         {
@@ -100,6 +115,7 @@ namespace SkiResortMod.Systems
                 Q(lf.Top.y);
                 Q(lf.Top.z);
                 Long(lf.RidesDown ? 1 : 0);
+                Long((long)lf.ToBottom);
             }
             return h;
         }
