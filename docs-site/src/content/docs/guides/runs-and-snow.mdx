@@ -140,9 +140,14 @@ The Resort Planner is new and may change. It is off by default: turn it on in Op
 
 Snow is measured per run from the game's snow simulation.
 
-- **Open:** at least **91 cm** of snow on **60 %** of the run. One bar for every run: natural or made, every rating.
-- **Patchy:** between open and closed. Counts part of its value.
-- **Closed:** an open run stays open while **30 cm** of snow covers **40 %** of it, then closes. A closed run opens again at **91 cm**.
+| State | Snow on the run |
+|---|---|
+| Open | at least 91 cm on 60 % of the run |
+| Patchy | between open and closed. Counts part of its value. |
+| Closed | an open run closes once less than 30 cm covers 40 % of it. It opens again at 91 cm. |
+
+One bar for every run: natural or made snow, every rating.
+
 - **Snow guns:** runs and cat tracks with snow guns on, where air temperature is at most **3.3 °C** above freezing (option *Snowmaking margin*). Higher margin: longer season, higher snowmaking bill.
 - **Edge props:** guns, hydrants and floodlights stand along a run's edge at a set distance, however its outline was drawn: Off or **20** to **200 m**, per run, in the Runs view for the run selected in the list. A new run starts with the values of the **New run** rows. A cat track starts with snow guns at **60 m** and lights Off. Snow guns Off: no guns, no made snow, no snowmaking upkeep (snow already made stays until it melts). Lights Off: no lights, no lighting upkeep. On a cat track the lights change only the look and the bill: **300** per ha of its plan area per month in its snow season, guns on or off. Each one is a separate object you can bulldoze. It stays gone until the outline or a value changes.
 - **Gun depth:** the guns start when the run falls under **91 cm** and stop at **96 cm**, so the run stays open between restarts.

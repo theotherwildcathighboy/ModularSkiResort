@@ -28,21 +28,24 @@ The ski area. Runs, lifts and buildings within its radius (**5 km** by default, 
 
 Guest entry points. Source of skier room and score.
 
-| Lodge | Build | Upkeep / month | Staff | Base / extra | Holds at once | Ticket tolerance | Spend |
-|---|---|---|---|---|---|---|---|
-| <Icon name="lodge-hut" alt="Mountain Hut icon" /> Mountain Hut | 50,000 | 3,000 | 4 | 16 / 4 | 200 | +0 | ×1 |
-| <Icon name="lodge-a-frame" alt="A-Frame Day Lodge icon" /> A-Frame Day Lodge | 40,000 | 3,000 | 4 | 20 / 4 | 360 | +0 | ×1 |
-| <Icon name="lodge-chalet" alt="Chalet Lodge icon" /> Chalet Lodge | 200,000 | 8,000 | 12 | 30 / 8 | 720 | +20 | ×1.5 |
-| <Icon name="lodge-summit" alt="Swanky Summit Lodge icon" /> Swanky Summit Lodge | 1,500,000 | 18,000 | 8 | 40 / 12 | 480 | +40 | ×3 |
-| <Icon name="lodge-grand" alt="Swanky Grand Lodge icon" /> Swanky Grand Lodge | 1,200,000 | 20,000 | 18 | 40 / 12 | 1,080 | +40 | ×3 |
+| | <Icon name="lodge-hut" alt="Mountain Hut icon" /> Mountain Hut | <Icon name="lodge-a-frame" alt="A-Frame Day Lodge icon" /> A-Frame Day Lodge | <Icon name="lodge-chalet" alt="Chalet Lodge icon" /> Chalet Lodge | <Icon name="lodge-summit" alt="Swanky Summit Lodge icon" /> Swanky Summit Lodge | <Icon name="lodge-grand" alt="Swanky Grand Lodge icon" /> Swanky Grand Lodge |
+|---|---|---|---|---|---|
+| Build | 50,000 | 40,000 | 200,000 | 1,500,000 | 1,200,000 |
+| Upkeep / month | 3,000 | 3,000 | 8,000 | 18,000 | 20,000 |
+| Staff | 4 | 4 | 12 | 8 | 18 |
+| Base / extra | 16 / 4 | 20 / 4 | 30 / 8 | 40 / 12 | 40 / 12 |
+| Holds at once | 200 | 360 | 720 | 480 | 1,080 |
+| Ticket tolerance | +0 | +0 | +20 | +40 | +40 |
+| Spend per guest | 15 | 15 | 23 | 45 | 45 |
+| Summer share | 0.5, near a lift 0.75 | 0.5 | 0.5 | 0.5, near a lift 1.0 | 0.6 |
 
 - **Base / extra:** score points when best lodge (base) or any other lodge (extra). Extras capped at **24**. See [Attraction Formula](/reference/attraction/#lodge-base).
 - **Holds at once:** ski-day skiers accepted at once (more on a powder day).
 - **Ticket tolerance:** ski days stay full up to a lift ticket price of **40** plus this.
-- **Spend:** multiplies *Lodge spend per guest* (default **15**): **15**, **23** or **45** per paying guest.
+- **Spend per guest:** what each paying guest spends at the lodge at the default *Lodge spend per guest* of **15**. The option scales every lodge: a chalet ×1.5, a summit or grand lodge ×3.
 - **Road:** not required for Mountain Hut and Swanky Summit Lodge. A-Frame, Chalet and Grand work off-road with a cat track within **25 m** chained to a lodge with a road or the Ski Bus Depot. They get no city utilities, no guests by road and no parking count. Those off-road lodges, the Hut, the Summit and both patrol buildings have no staff of their own. Their staff (Hut 4, Summit 8, patrol 2 each, an off-road lodge its own) sit on the job host. The job host is the area's active lodge with a road nearest the Welcome Sign, else the sign.
 - **Off-season:** with no open run for 12 game hours, lodges and the Ski School keep half their staff (rounded up) until a run opens. Upkeep is not reduced. Option *Half staff off-season*.
-- **Summer share of score:** **0.5** (Grand **0.6**). Hut **0.75** and Summit **1.0** when a working lift top station is within **300 m**, or a lift-served run within **100 m**.
+- **Summer share:** the part of the lodge's score it keeps in summer. *Near a lift:* a working lift top station within **300 m**, or a lift-served run within **100 m**.
 
 ## Ski Bus Depot
 
