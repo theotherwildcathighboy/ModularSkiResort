@@ -36,6 +36,11 @@ namespace SkiResortMod.Systems
         public double TrackKmPlanned, TrackKmKept;
         // Junctions
         public int ConvergeJunctions;   // pistes met in a converging line's path and made its partners (iteration 3, item 1)
+        // Iteration 3, item 4 (plain pistes, by planned band): km that kept the band at full width, at 75 %, at 50 %, and that did not;
+        // ring area and centerline length for the mean width as kept and at full width; km that agree with the planned band at full width
+        public readonly double[,] KeepKm = new double[5, 4];
+        public readonly double[] WidthM2 = new double[5], FullWidthM2 = new double[5], WidthLenM = new double[5];
+        public double AgreeKmFull, AgreeKmKept, PlainKm;
         public int RemnantsKept, RemnantsDropped;   // cut pieces under 50 m down: kept (both ends connect), dropped (a free end) (iteration 3, item 3)
         public int PisteReaches;    // piste ends extended after the track pass to reach a related track or piste (iteration 3, item 2)
         public int TrackReaches;    // track ends extended to reach a related piste or track (iteration 2, item 6)
@@ -70,6 +75,7 @@ namespace SkiResortMod.Systems
         public const float MinHalfWidthM = 7.5f;             // half the 15 m pinch width
         public const float MergeGapM = PlanGeometry.MergeGapM, MergeTaperM = 30f, JunctionReachM = 20f, ExtendMaxM = 40f;
         public const float MinPieceM = 60f, MinPieceDropM = 15f, MinJoinedPieceM = 30f;
+        public static readonly float[] NarrowShares = { 0.75f, 0.5f };   // band-keeping widths (iteration 3, item 4)
         public const float RemnantDropM = 50f;   // a cut piece under this drop is a remnant (iteration 3, item 3)
         public const float PinchWidthM = 15f, PinchShare = 0.30f, RetryShare = 0.7f, ExactGapShare = 0.8f;
         public const float GradedHalfWidthM = 7.5f;          // a graded piste is 15 m (its bench)
@@ -138,6 +144,9 @@ namespace SkiResortMod.Systems
             public float PitchShare;      // tracks: share of 30 m pitches over 25 % on the raw ground
             public float[] Hl, Hr;        // pistes: the half widths per Line sample (iteration 3, item 2 extends an end with them)
             public PisteCtx Ctx;          // pistes: the context the area was built in
+            public SlopeBand FullBand;    // plain pistes: the band at full width (iteration 3, item 4)
+            public float FullAreaM2;      // plain pistes: the ring area at full width
+            public int Keep;              // plain pistes: 0 the planned band at full width, 1 at 75 %, 2 at 50 %, 3 not kept
         }
 
         // ---------------------------------------------------------------- state (one realizer per call)

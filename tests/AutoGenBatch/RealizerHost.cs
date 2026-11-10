@@ -28,6 +28,17 @@ namespace AutoGenBatch
             ("ft5-r4", new[] { P(-2941, -4929), P(-978, -5499), P(-339, -4233), P(-1945, -3261), P(-2580, -3672) }),
         };
 
+        // Iteration 3, item 4: km by planned band kept at full / 75 % / 50 % / not, and the mean widths (m) as kept and at full width
+        private static string Keep(RealizeReport r, int p) => $"{r.KeepKm[p, 0]:F2}/{r.KeepKm[p, 1]:F2}/{r.KeepKm[p, 2]:F2}/{r.KeepKm[p, 3]:F2}";
+
+        private static string Width(RealizeReport r, int p, bool full) =>
+            r.WidthLenM[p] > 0 ? ((full ? r.FullWidthM2[p] : r.WidthM2[p]) / r.WidthLenM[p]).ToString("F1", CultureInfo.InvariantCulture) : "-";
+
+        private static string KeepLine(RealizeReport r) =>
+            $"planned band kept at full/75/50 %/not (km) G {Keep(r, 1)} B {Keep(r, 2)} K {Keep(r, 3)} DB {Keep(r, 4)}; mean width G {Width(r, 1, false)} m " +
+            $"(full {Width(r, 1, true)}), B {Width(r, 2, false)} m (full {Width(r, 2, true)}); band agreement {(r.PlainKm > 0 ? 100 * r.AgreeKmFull / r.PlainKm : 100):F0} % of km " +
+            $"at full width, {(r.PlainKm > 0 ? 100 * r.AgreeKmKept / r.PlainKm : 100):F0} % as kept";
+
         public static int Run(string[] args)
         {
             string outDir = args.Length > 1 ? args[1] : "rf-realize";
@@ -254,6 +265,7 @@ namespace AutoGenBatch
                     $"km {kmKept:F2} / {kmPlan:F2} ({(kmPlan > 0 ? kmKept / kmPlan * 100 : 100):F1} %), graded km {rep.GradedKmKept:F2} / {rep.GradedKmPlanned:F2}",
                 $"  bands: planned = shown {agree}/{rated} areas ({(rated > 0 ? 100.0 * agree / rated : 100):F0} %), {agreeKm:F2}/{ratedKm:F2} km; graded shown G/B/K/DB " +
                     $"{rep.GradedShown[1]}/{rep.GradedShown[2]}/{rep.GradedShown[3]}/{rep.GradedShown[4]}; natural to groomed {rep.NaturalToGroomed}; rated by the fallback {rep.FallbackRated}; constant-width after Crosses {rep.CrossesFallback}; table {BandTable(rep)}",
+                $"  widths: {KeepLine(rep)}",
                 $"  tracks: {rep.TrackSources} sources, {rep.TrackChains} chains, {rep.TrackAreas} areas, {rep.TrackPiecesLost} pieces lost, dropped " +
                     $"({(tdrops.Count > 0 ? string.Join(", ", tdrops) : "none")}), km {rep.TrackKmKept:F2} / {rep.TrackKmPlanned:F2}, 30 m pitches over 25 % {rep.TrackPitchesOver}/{rep.TrackPitches}",
                 $"  junctions: relations {rep.Relations}, linked {rep.RelationLinks} ({rep.RelationVia} through the area that cut the end), missed {rep.RelationMisses}; extensions {rep.Extensions}, track ends reached {rep.TrackReaches}, piste ends reached {rep.PisteReaches}, remnants kept {rep.RemnantsKept} dropped {rep.RemnantsDropped}, converging junctions {rep.ConvergeJunctions}; unlinked ends " +
@@ -282,7 +294,8 @@ namespace AutoGenBatch
             if (!File.Exists(tsv))
                 File.WriteAllText(tsv, "region\tsources\tdropped\tdrops\tareas\tpiecesLost\tkmPlan\tkmKept\tgradedKmPlan\tgradedKmKept\trelations\tlinks\tvia\tmisses\textensions\t" +
                     "unlinked\tunlinkedBlocked\tends\tunserved\tdeadEnds\tbandAgree\tbandRated\tbandAgreeKm\tbandRatedKm\ttrackSources\ttrackChains\ttrackAreas\t" +
-                    "trackPiecesLost\ttrackKmPlan\ttrackKmKept\ttrackDrops\tlifts\tliftsClear\tbottomReach\traw\trealized\tplanMs\trealizeMs\tlayerMB\tdeterministic\tfallback\tskied\tcrossesFallback\ttrackReaches\n");
+                    "trackPiecesLost\ttrackKmPlan\ttrackKmKept\ttrackDrops\tlifts\tliftsClear\tbottomReach\traw\trealized\tplanMs\trealizeMs\tlayerMB\tdeterministic\tfallback\tskied\tcrossesFallback\ttrackReaches\tpisteReaches\tremnantsKept\tremnantsDropped\tconverging\tagreeKmFull\tagreeKmKept\tplainKm\t" +
+                    "greenKeep\tblueKeep\tblackKeep\tdbKeep\tgreenWidth\tblueWidth\tgreenFullWidth\tblueFullWidth\n");
             File.AppendAllText(tsv, string.Join("\t", new object[]
             {
                 id, sources, dropped, drops.Count > 0 ? string.Join(",", drops) : "-", res.Runs.Count, rep.PiecesLost, kmPlan.ToString("F2"), kmKept.ToString("F2"),
@@ -291,6 +304,8 @@ namespace AutoGenBatch
                 rep.TrackSources, rep.TrackChains, rep.TrackAreas, rep.TrackPiecesLost, rep.TrackKmPlanned.ToString("F2"), rep.TrackKmKept.ToString("F2"),
                 tdrops.Count > 0 ? string.Join(",", tdrops) : "-", rep.Lifts, rep.LiftsClear, rep.BottomReach, rawT.ToString("F1"), realT.ToString("F1"),
                 planMs.ToString("F0"), rep.Ms.ToString("F0"), (rep.LayerBytes / 1048576.0).ToString("F1"), h1 == h2 ? "yes" : "NO", rep.FallbackRated, skiedT.ToString("F1"), rep.CrossesFallback, rep.TrackReaches,
+                rep.PisteReaches, rep.RemnantsKept, rep.RemnantsDropped, rep.ConvergeJunctions, rep.AgreeKmFull.ToString("F2"), rep.AgreeKmKept.ToString("F2"), rep.PlainKm.ToString("F2"),
+                Keep(rep, 1), Keep(rep, 2), Keep(rep, 3), Keep(rep, 4), Width(rep, 1, false), Width(rep, 2, false), Width(rep, 1, true), Width(rep, 2, true),
             }.Select(o => Convert.ToString(o, CultureInfo.InvariantCulture))) + "\n");
             return new Row
             {

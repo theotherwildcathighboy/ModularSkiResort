@@ -29,6 +29,9 @@ The files are pure C# 9 for net48. They use no part of the `SkiRunAutoPlanner` c
 ## Element types
 
 - A plain piste uses the width of its planned band. The march stops each side at the gap to other areas.
+- The rater can give a plain piste a band that is harder than the planned band. Then the realizer tries the ring again at 75 %
+  and at 50 % of its half widths, but never under 7.5 m. It keeps the widest ring with the planned band. If no ring has the planned
+  band, the full-width ring stays with its own band. The stored band is always the band from the rater. The centerline does not move.
 - Fair share applies where another run goes alongside: under 45 degrees, with no crossing within 60 m. There, each side stops at
   half the distance between the two centerlines, minus half the gap. The floor is 7.5 m. At a crossing, the earlier run keeps its width.
 - The grade does not cut a centerline. The planner already checked the line. The grade ceiling only limits the lateral march, and
@@ -42,8 +45,8 @@ The files are pure C# 9 for net48. They use no part of the `SkiRunAutoPlanner` c
   The rater can answer `ShortRun` for it, because a diagonal has few full 20 m windows. The realizer accepts that answer for a graded
   piste. The game shows that band.
 - A cut piece with a drop of less than 50 m is a remnant. The realizer keeps a remnant when both ends connect to something. An
-  end connects at a junction, at the end of the source, near a lift bottom, in the bottom band, or within 20 m of the next piece
-  of the same line. A remnant with a free end is a stub. The realizer drops it. The report counts the two cases.
+  end connects at a junction, at the end of the source, near a lift bottom, or in the bottom band. An end within 20 m
+  of the next piece of the same line also connects. A remnant with a free end is a stub. The realizer drops it. The report counts the two cases.
 - All other connectors are cat tracks: 10 m wide, then 8 m when the ribbon crosses itself.
 
 ## Junctions

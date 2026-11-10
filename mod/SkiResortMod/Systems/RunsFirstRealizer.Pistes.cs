@@ -596,8 +596,31 @@ namespace SkiResortMod.Systems
                     blocked0 = blocked1 = false;
                 }
             }
+            // Iteration 3, item 4: a plain piste rated harder than its planned band retries at 75 % and 50 % of its half widths (never under
+            // MinHalfWidthM) and keeps the widest ring rated in the planned band. Else the full-width ring stays with its honest band.
+            SlopeBand fullBand = use.Band;
+            float fullArea = (float)PlanGeometry.PolygonArea(use.Ring);
+            int keep = 0;
+            if (!ctx.Graded && !SameBand(use.Band, e.Planned))
+            {
+                keep = 3;
+                if (Harder(use.Band, e.Planned))
+                    for (int k = 0; k < NarrowShares.Length; k++)
+                    {
+                        Built nb = Narrow(ctx, use, NarrowShares[k]);
+                        if (nb != null && SameBand(nb.Band, e.Planned))
+                        {
+                            use = nb;
+                            keep = k + 1;
+                            break;
+                        }
+                    }
+            }
             int idx = Accept(ctx, use, segment);
             Area a = m_P[idx];
+            a.FullBand = fullBand;
+            a.FullAreaM2 = fullArea;
+            a.Keep = keep;
             // The same piste continues past a cut: its kept segments are partners of its later pieces (merge gap, not the pair gap)
             ctx.Partners.Add(idx);
             // The ends that still miss are unlinked, with the reason
@@ -853,6 +876,52 @@ namespace SkiResortMod.Systems
                 m_Rep.PisteKmKept += sign * a.LengthM / 1000.0;
                 m_Rep.BandTable[(int)a.Planned, (int)a.Band] += sign;
                 m_Rep.BandKm[(int)a.Planned, (int)a.Band] += sign * a.LengthM / 1000.0;
+            }
+        }
+
+        private static bool SameBand(SlopeBand shown, SlopeBand planned) => (shown == SlopeBand.Flat ? SlopeBand.Green : shown) == planned;
+
+        private static bool Harder(SlopeBand shown, SlopeBand planned) => (int)shown > (int)planned;
+
+        /// <summary>The ring of b at share of its half widths (never under MinHalfWidthM, never wider than b), on the same centerline,
+        /// checked and rated. Null when it fails.</summary>
+        private Built Narrow(PisteCtx ctx, Built b, float share)
+        {
+            if (b.Hl == null || b.Hr == null)
+                return null;
+            int n = b.Line.Length;
+            var hl = new float[n];
+            var hr = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                hl[i] = Math.Max(Math.Min(b.Hl[i], MinHalfWidthM), b.Hl[i] * share);
+                hr[i] = Math.Max(Math.Min(b.Hr[i], MinHalfWidthM), b.Hr[i] * share);
+            }
+            var xz = new List<float2>(b.Line);
+            var nb = new Built { Line = b.Line, Hl = hl, Hr = hr };
+            if (!MakeRing(xz, hl, hr, nb) || CheckPiste(ctx, nb.Ring, out nb.Blocker, -1) != AutoReject.Kept || !RateRing(nb, false))
+                return null;
+            return nb;
+        }
+
+        /// <summary>Item 4 of iteration 3: the band-keeping table and the mean widths of the kept plain pistes, by planned band.</summary>
+        private void BandKeepReport()
+        {
+            foreach (Area a in m_P)
+            {
+                if (a.Graded)
+                    continue;
+                int p = (int)a.Planned;
+                double km = a.LengthM / 1000.0;
+                m_Rep.KeepKm[p, a.Keep] += km;
+                m_Rep.WidthM2[p] += a.AreaM2;
+                m_Rep.FullWidthM2[p] += a.FullAreaM2;
+                m_Rep.WidthLenM[p] += a.LengthM;
+                m_Rep.PlainKm += km;
+                if (SameBand(a.FullBand, a.Planned))
+                    m_Rep.AgreeKmFull += km;
+                if (SameBand(a.Band, a.Planned))
+                    m_Rep.AgreeKmKept += km;
             }
         }
 

@@ -76,6 +76,7 @@ namespace SkiResortMod.Systems
                 if (s != null && s.IndexOf("to the bottom", StringComparison.Ordinal) >= 0 && s.IndexOf("no ", StringComparison.Ordinal) >= 0)
                     m_Rep.NoWayToBottom = true;
             RelationGate();
+            BandKeepReport();
             plan.Fingerprint = Hash(res);
         }
 
