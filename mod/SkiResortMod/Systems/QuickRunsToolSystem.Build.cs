@@ -33,6 +33,8 @@ namespace SkiResortMod.Systems
     public sealed partial class QuickRunsToolSystem
     {
         private const int TempTimeoutFrames = 30;   // the cat track tool's (and LiftLineToolSystem's) value
+        private const int ScanAfterUndoFrames = 2;  // margin only: the scan's area query already skips the runs the Undo marked Deleted
+        private int m_ScanAfterUndoFrame = -1;     // the frame of the scan after an Undo, -1 = none
         private const int BindCheckFrames = 150;    // the bind line: ownership binds new runs within its sweep (64 frames) + margin
         /// <summary>Areas (pistes and cat tracks) per emission. Smoothness over speed: a validation and a binding wave per chunk, never the
         /// whole batch in one frame. First field value (CRITIQUE F6: each chunk's Apply is a full sweep + ratings in one frame). A runs-first
@@ -520,10 +522,45 @@ namespace SkiResortMod.Systems
             m_BindCheck.Clear();
             m_BindCheckFrame = -1;
             m_BatchFresh = false;
+            // The build dropped the plan (FinishBuild), so Build stayed gray after an Undo until the player scanned again (field pass
+            // 2026-11-10). The region is still there: scan it again on its own. The obstacles then match the scan before the build, so the
+            // scan job's plan cache gives that plan back (realize only). The scan replaces the lift sheet, as a hand scan does.
+            bool rescan = ScanAfterUndoPossible(out string noScan);
+            if (rescan)
+                m_ScanAfterUndoFrame = m_Frame + ScanAfterUndoFrames;
             Say($"QuickRuns [undo]: UNDONE ({why}) — {deleted} of {count} run(s) deleted, {skipped} already gone, {unbound} not bound yet " +
-                $"(never charged); refund {refund}{(paidBack ? string.Empty : " NOT PAID: the city has no PlayerMoney")}",
-                NoticeKey("UNDONE"));
+                $"(never charged); refund {refund}{(paidBack ? string.Empty : " NOT PAID: the city has no PlayerMoney")}; " +
+                (rescan ? $"the region is scanned again in {ScanAfterUndoFrames} frame(s)" : "no scan: " + noScan),
+                NoticeKey(rescan ? "UNDONE_RESCAN" : "UNDONE"));
             Bump();
+        }
+
+        /// <summary>Whether an Undo can bring the plan back with a scan of the same region: corners closed, no tree filler (a scan turns it
+        /// off), no build or tree cycle in flight. A scan in flight is restarted (it read the undone runs as obstacles).</summary>
+        private bool ScanAfterUndoPossible(out string why)
+        {
+            why = !RegionClosed ? "the region is not closed"
+                : m_TreesOn ? "the tree filler is on"
+                : Building ? "a build runs"
+                : m_Planting || RemovingTrees ? "trees are planted or removed"
+                : m_Phase != ToolPhase.Region && m_Phase != ToolPhase.Preview && m_Phase != ToolPhase.Scanning ? "phase " + m_Phase
+                : null;
+            return why == null;
+        }
+
+        /// <summary>ScanAfterUndoFrames after the hub's Undo: scan the region again. The state is checked again (the player may have
+        /// cleared the corners or turned the tree filler on in between).</summary>
+        private void ScanAfterUndo()
+        {
+            m_ScanAfterUndoFrame = -1;
+            if (!ScanAfterUndoPossible(out string why))
+            {
+                Say($"QuickRuns [undo]: no scan after the undo — {why}");
+                return;
+            }
+            if (m_Phase == ToolPhase.Scanning)
+                DropPreview(null);   // that scan read the undone runs as obstacles
+            BeginScan("undo");
         }
 
         /// <summary>PlayerMoney.Add on the City entity (SkiRunOwnershipSystem.Charge's mirror). False without a city / money.</summary>

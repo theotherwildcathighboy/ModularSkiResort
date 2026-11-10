@@ -80,6 +80,8 @@ namespace SkiResortMod.Systems
         internal bool HasPreview => m_Phase == ToolPhase.Preview && m_Published.Status == AutoPlanStatus.Ok;
         internal QuickTotals Totals => m_Totals;
         internal IReadOnlyList<string> WarningKeys => m_WarnKeys;
+        /// <summary>Enabled pistes of the preview with no Welcome Sign in range (the NoSign / NoSignSome warnings). 0 without a preview.</summary>
+        internal int UnboundPistes => m_UnboundPistes;
         internal string StatusKey => m_StatusKey;
         internal float ScanProgress => m_Phase == ToolPhase.Scanning && m_ScanJob != null ? m_ScanJob.Progress : 0f;
         internal AutoPlanResult Result => m_Published;
@@ -356,6 +358,8 @@ namespace SkiResortMod.Systems
                 StepBack();
             else if (m_DevRing != null)
                 DevScanNow();      // the dev trigger's scan (Worker.cs, Measurement diagnostics)
+            else if (m_ScanAfterUndoFrame >= 0 && m_Frame >= m_ScanAfterUndoFrame)
+                ScanAfterUndo();   // the plan comes back after the hub's Undo (Build.cs)
             else if (m_HubQueue.Count > 0)
                 DrainHub(false);   // the hub buttons and knobs take the path Enter takes
             else if (m_EnterRequested)
@@ -774,6 +778,7 @@ namespace SkiResortMod.Systems
             m_Phase = ToolPhase.Region;
             m_HoverPoint = m_DragIndex = -1;
             m_EnterRequested = false;
+            m_ScanAfterUndoFrame = -1;
             m_HubQueue.Clear();
             if (why != null)
                 m_DevRing = null;   // OnStartRunning (why null) keeps a dev scan queued by the activation that started the tool

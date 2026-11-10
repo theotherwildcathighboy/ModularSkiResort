@@ -790,6 +790,8 @@ export const HUB_FMT = {
   quickRejects: ["SkiResort.Hub.QUICK_REJECTS_LINE", "{N} lines dropped: {LIST}."],
   quickTotals: ["SkiResort.Hub.QUICK_TOTALS_LINE", "{N} of {M} runs · cat tracks {T} · {FEE} · {SKIERS} skiers a day"],
   quickBatch: ["SkiResort.Hub.QUICK_BATCH_LINE", "Last build: {N} runs and cat tracks. Undo removes them and refunds the fee."],
+  /** QUICK_WARN[NoSignSome] with its numbers (the warnings list holds only the key; N = quickRuns.unbound, M = quickRuns.enabled). */
+  quickNoSignSome: ["SkiResort.Tooltip.QUICK_WARN[NoSignSome]", "{N} of {M} runs have no Welcome Sign in range: they will not count until one is placed nearby."],
   quickTreeCounts: ["SkiResort.Hub.QUICK_TREE_COUNTS", "{P} to plant · {R} to remove"],
   quickTreeCountsCost: ["SkiResort.Hub.QUICK_TREE_COUNTS_COST", "{P} to plant · {R} to remove · costs {FEE}"],
   quickMixLine: ["SkiResort.Tooltip.QUICK_MIX", "Green {G} of {TG} · Blue {B} of {TB} · Black {K} of {TK} · Double black {D} of {TD}"],
@@ -1106,6 +1108,7 @@ export const SENT_KEYS: readonly LocEntry[] = [
   ["SkiResort.Tooltip.QUICK_STOPPED", "Build stopped. The runs built so far stay. Undo removes them."],
   ["SkiResort.Tooltip.QUICK_PARTIAL", "Only some of the runs were built: the game refused the rest. Undo removes what was built."],
   ["SkiResort.Tooltip.QUICK_UNDONE", "The build was undone and its fee refunded."],
+  ["SkiResort.Tooltip.QUICK_UNDONE_RESCAN", "The build was undone and its fee refunded. The region is scanned again for its plan."],
   ["SkiResort.Tooltip.QUICK_NOTHING_TO_UNDO", "Nothing to undo."],
   ["SkiResort.Tooltip.QUICK_RUNS_MISSING", "The ski run assets did not load: check that the mod is installed completely."],
   ["SkiResort.Tooltip.QUICK_TREES_OFF", "Turn the tree filler on first."],
