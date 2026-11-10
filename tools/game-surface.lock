@@ -1,8 +1,8 @@
 # tools/game-surface.lock - the mod's dependency surface on Game.dll, as of the last reviewed game version. Written by
 # `node tools/game-surface-check.js --write --decompile=<tree>`; never by hand. Rows: type <full name> <kind> <file hash> [burst:r|w:<our systems>] [fields...];
 # anchor <our system> <before|after> <vanilla system> <phase> [cadence]; guid <ref> <prefab fields>; burstsystem <our class with a Burst job>. Header: tools/game-surface-check.js. Patch-day steps: docs/PIPELINE.md section 7.
-version 1.6.2f1
-tree 1.6.2f1
+version 1.6.4f1
+tree 1.6.4f1
 type Game.Agents.LeisureType enum 97575437ef burst:r:SkiDaySystem Meals=0 Entertainment=1 Commercial=2 CityIndoors=3 Travel=4 CityPark=5 CityBeach=6 Attractions=7 Relaxation=8 Sightseeing=9 Count=10
 type Game.Agents.MoveAwayReason enum 53d02692af burst:r:SkiDaySystem None=0 NoSuitableProperty=1 NotHappy=2 NoAdults=3 NoMoney=4 TouristNoTarget=5 TouristNoHotel=6 TouristNoMoney=7 TripNeedNotMovedIn=8 Count=9
 type Game.Agents.MovingAway struct f3f68b57c3 burst:r:SkiDaySystem m_Target:Entity m_Reason:MoveAwayReason
@@ -327,7 +327,7 @@ type Game.Prefabs.BuildingInitializeSystem class 2004b3279b
 type Game.Prefabs.BuildingPrefab class 3fe8512563
 type Game.Prefabs.BuildingTerraformData struct 8181fae786 m_FlatX0:float3 m_FlatZ0:float3 m_FlatX1:float3 m_FlatZ1:float3 m_Smooth:float4 m_HeightOffset:float m_DontRaise:bool m_DontLower:bool
 type Game.Prefabs.CarData struct 17e6a1fbf0 m_SizeClass:SizeClass m_EnergyType:EnergyTypes m_MaxSpeed:float m_Acceleration:float m_Braking:float m_PivotOffset:float m_Turning:float2
-type Game.Prefabs.Climate.ClimatePrefab class b32f2a4d8f
+type Game.Prefabs.Climate.ClimatePrefab class 6da5d2a125
 type Game.Prefabs.CompositionFlags struct 831e987f91 m_General:General m_Left:Side m_Right:Side
 type Game.Prefabs.CompositionState enum 19c5de181b BlockUTurn=1 ExclusiveGround=2 HasSurface=4 HasForwardRoadLanes=8 SeparatedCarriageways=16 HasPedestrianLanes=32 HasBackwardRoadLanes=64 HasForwardTrackLanes=128 HasBackwardTrackLanes=256 Asymmetric=512 Marker=1024 BlockZone=2048 Multilane=4096 LowerToTerrain=8192 RaiseToTerrain=16384 NoSubCollisions=32768 Airspace=65536 HalfLength=131072 Hidden=262144
 type Game.Prefabs.ConsumptionData struct ec7135f74c m_Upkeep:int m_ElectricityConsumption:float m_WaterConsumption:float m_GarbageAccumulation:float m_TelecomNeed:float
@@ -484,7 +484,7 @@ type Game.Routes.ValidationHelpers class af5b9ecfa4
 type Game.Routes.WaitingPassengers struct f391506c5a burst:r:SkiDaySystem m_Count:int m_OngoingAccumulation:int m_ConcludedAccumulation:int m_SuccessAccumulation:ushort m_AverageWaitingTime:ushort
 type Game.SafeCommandBufferSystem class 06f3efeef7
 type Game.SceneFlow.AsyncHelpers class b5aa18ef13
-type Game.SceneFlow.GameManager class 37b2353261
+type Game.SceneFlow.GameManager class 58802f3fc3
 type Game.SceneFlow.UserInterface class 1616cc85c1
 type Game.Serialization.ClearSystem class a188a4d32a
 type Game.Serialization.PrimaryPrefabReferencesSystem class ef29316faf
@@ -494,7 +494,7 @@ type Game.Serialization.SubAreaSystem class cf724c8604
 type Game.Serialization.SubObjectSystem class d2ea38d94d
 type Game.Settings.GameplaySettings class 06d8571ad3
 type Game.Settings.GeneralSettings class fa89f80ed7
-type Game.Settings.GraphicsSettings class 77dc6462ae
+type Game.Settings.GraphicsSettings class ecde9d6d5f
 type Game.Settings.SettingsUIInputActionAttribute class 8474df4309
 type Game.Settings.SettingsUIKeyboardActionAttribute class bb4c15364d
 type Game.Settings.SettingsUIKeyboardBindingAttribute class e9c35a3a28
@@ -562,13 +562,13 @@ type Game.Simulation.TouristLeaveSystem class c64bf37678
 type Game.Simulation.TouristSpawnSystem class 0c1830a00d
 type Game.Simulation.TrafficSpawnerAISystem class e3b9ccf2bc
 type Game.Simulation.TransportCarAISystem class 16935f854e
-type Game.Simulation.TreeGrowthSystem class 32a8aa13d0
+type Game.Simulation.TreeGrowthSystem class 1d04529e50
 type Game.Simulation.TripNeededSystem class bb768bdebb
 type Game.Simulation.UpdateFrame struct 8832b52d2e burst:w:SkiDaySystem m_Index:uint
 type Game.Simulation.UpdateGroupSystem class 2ca474491e
 type Game.Simulation.WaitingPassengersSystem class 13c3c41b8b
 type Game.Simulation.WaterSurfaceData struct e664cfb3eb depths:NativeArray<T> resolution:int3 scale:float3 offset:float3 hasDepths:bool
-type Game.Simulation.WaterSystem class b930a1b540
+type Game.Simulation.WaterSystem class 99007e86ce
 type Game.Simulation.WaterUtils class 58852ffedf
 type Game.Simulation.WetnessSystem class 962fba1342
 type Game.Simulation.Wind struct 54368f3ccd m_Wind:float2
@@ -700,7 +700,7 @@ type Game.Vehicles.Taxi struct 83654b4638 burst:r:SkiDaySystem m_TargetRequest:E
 type Game.Vehicles.TaxiFlags enum 1707de1aab burst:r:SkiDaySystem Returning=1 Requested=2 Arriving=4 Boarding=8 Disembarking=16 Transporting=32 RequiresMaintenance=64 Dispatched=128 FromOutside=256 Disabled=512
 type Game.Vehicles.Vehicle struct d4d4700b27 burst:r:SkiCoachSystem
 type Game.Vehicles.VehicleUtils class 5930ace5f0
-type Game.Version class b5a0a70fa1
+type Game.Version class e110c4470b
 type Game.Zones.AreaType enum 0020e2eadd None=0 Residential=1 Commercial=2 Industrial=3
 type Game.Zones.RaycastJobs class 7e0eac0191
 type Game.Zones.SearchSystem class 8b4292c96c

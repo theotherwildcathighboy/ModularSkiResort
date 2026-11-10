@@ -1475,6 +1475,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.STATUS_SNOW_IN", "{DEPTH} in · {PCT}" },  // US customary units
                 { "SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges deactivated: {N}" },
                 { "SkiResort.Hub.PROBLEM[Efficiency]", "Efficiency {PCT}: {REASON}" },
+                { "SkiResort.Hub.PROBLEM[EfficiencyBare]", "Efficiency {PCT}" },  // no factor to name (folded lodge staffing)
                 { "SkiResort.Hub.PROBLEM[NotRunning]", "Welcome Sign stopped: {REASON}" },
                 { "SkiResort.Hub.PROBLEM[LiftNoPower]", "{NAME}: no power" },
                 { "SkiResort.Hub.PROBLEM[LiftSectionMissing]", "{NAME}: section missing" },
