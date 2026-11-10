@@ -929,6 +929,7 @@
   "SkiResort.Tooltip.QUICK_WARN[NoLiftSite]": "No lift fits this region: the ground is too steep or too rough for a lift line, or has no flat spot for a station.",
   "SkiResort.Tooltip.QUICK_WARN[Download]": "Some lift tops have no way down on skis, so guests ride the lift down.",
   "SkiResort.Tooltip.QUICK_WARN[DeadEnd]": "A run ends where nothing continues: no lift, run, track or flat ground at its bottom.",
+  "SkiResort.Tooltip.QUICK_WARN[NoWayToBottom]": "Some lifts have no run or cat track to the bottom of the region: cliffs, basins, water, gaps or the region's edge block the way.",
   "SkiResort.Label.PLAN_LIFT": "{ID}: {TYPE}, {LENGTH} km, {RISE} m up, reaches {RUNS} run(s)",
   "SkiResort.Label.PLAN_POD": "Runs from {ID}: {CLASS}",
   "SkiResort.Label.PLAN_OTHER": "Other runs",

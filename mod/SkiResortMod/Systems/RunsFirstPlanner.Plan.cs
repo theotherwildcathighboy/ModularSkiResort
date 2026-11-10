@@ -344,6 +344,23 @@ namespace SkiResortMod.Systems
                 }
             }
             Tick("way home");
+            // a trail of any rating or a cat track from every lift's skiing to the bottom of the region (Bottom.cs), on a budget of its own
+            if (O.WayToBottom)
+            {
+                long shared = EasyWork;
+                if (O.BottomBudget > 0f)
+                {
+                    m_OwnBudget = O.BottomBudget;
+                    EasyWork = 0;
+                }
+                AddWayToBottom(g, plan, lifts, rec);
+                if (O.BottomBudget > 0f)
+                {
+                    m_OwnBudget = 0f;
+                    EasyWork = shared;
+                }
+            }
+            Tick("way to bottom");
             // a lift still without a way home is a download lift: a gondola or tram
             if (O.Downloads)
                 DownloadLifts(g, plan, lifts);

@@ -22,6 +22,104 @@ namespace AutoGenBatch
             RealizerSynthetic();
             RealizerDescent();
             RealizerHandFixtures();
+            BottomFixtures();
+        }
+
+        // ---------------------------------------------------------------- the way to the bottom (R2-c, plan 5.1 to 5.4)
+
+        /// <summary>Planned lifts with skiing that reach the base band, and those with skiing (the planner's own read).</summary>
+        private static (int Reach, int Skiing) PlannerBottom(RunsFirstResult plan) =>
+            (plan.Lifts.Count(l => l.ToBottom == RunsFirstBottom.Reaches), plan.Lifts.Count(l => l.ToBottom != RunsFirstBottom.NoSkiing));
+
+        /// <summary>The landing class the pass logged (0: no pass line).</summary>
+        private static int LandingClass(RunsFirstResult plan)
+        {
+            string l = plan.Log.FirstOrDefault(s => s.StartsWith("way to the bottom: ", StringComparison.Ordinal));
+            int at = l?.IndexOf("landing class ", StringComparison.Ordinal) ?? -1;
+            return at >= 0 ? l[at + 14] - '0' : 0;
+        }
+
+        /// <summary>A height function of z alone, piecewise linear through (z, h) knots (flat past the ends).</summary>
+        private static HeightFn Profile(params double[] zh) => (x, z) =>
+        {
+            if (z <= zh[0])
+                return zh[1];
+            for (int i = 2; i + 1 < zh.Length; i += 2)
+                if (z <= zh[i])
+                    return zh[i - 1] + (zh[i + 1] - zh[i - 1]) * (z - zh[i - 2]) / (zh[i] - zh[i - 2]);
+            return zh[zh.Length - 1];
+        };
+
+        /// <summary>Six hand fixtures: one lift falling toward +z on a 1 x 2 km region, its run ending above the base band.</summary>
+        private static void BottomFixtures()
+        {
+            float2[] region = Terrain.Rect(-500f, -1000f, 500f, 1000f);
+            RunsFirstResult Probe(string name, HeightFn f, float bottomZ, Func<double, double, bool> wet = null, RunsFirstInputs inputs = null)
+            {
+                HeightSnapshot snap = Terrain.Snapshot(f, region, wet);
+                var planner = new RunsFirstPlanner { Id = "bottom " + name, Inputs = inputs };
+                RunsFirstResult plan = planner.BottomProbe(snap, region, new List<(float2, float2)> { (new float2(0f, bottomZ), new float2(0f, -950f)) },
+                    new List<List<float2>> { Line(0f, -930f, 0f, bottomZ - 10f) }, new RunsFirstOptions { ScanThreads = 2 });
+                // the realized plan and B-1 (pad-based: it sees a landing at a lift bottom only, so landings of class 2 to 4 read stranded)
+                AutoPlanInput input = RealizerHost.InputOf(snap, region);
+                AutoPlanResult res = RunsFirstRealizer.Realize(plan, input, new RealizeReport());
+                Gate b1 = res.Resort != null ? V2Metrics.B1WayToBottom(res, res.Resort) : default;
+                var (reach, skiing) = PlannerBottom(plan);
+                Console.WriteLine($"REPORT bottom fixture {name}: {plan.Lifts[0].ToBottom}, landing class {LandingClass(plan)}, {plan.Connectors.Count} track(s), " +
+                    $"{plan.Runs.Count(r => r.Kind == "bottom")} run(s) to the bottom; planner {reach}/{skiing}, realized B-1 {plan.Lifts.Count - (int)b1.Value}/{plan.Lifts.Count}" +
+                    $" ({res.Warnings}); " + string.Join("; ", plan.Log.Where(s => s.Contains("to the bottom"))));
+                Check(res.Warnings.HasFlag(AutoPlanWarning.NoWayToBottom) == (reach < skiing), "Bottom fixture " + name,
+                    $"NoWayToBottom warning {res.Warnings.HasFlag(AutoPlanWarning.NoWayToBottom)}, {reach}/{skiing} lifts reach the bottom");
+                return plan;
+            }
+            // 1. a bench above the base: the run ends on the bench, a trail goes on down the gentle slope below it
+            {
+                const string w = "Bottom fixture: bench above a base";
+                RunsFirstResult p = Probe("bench", Profile(-1000, 1800, -200, 1520, 100, 1514, 1000, 1334), -220f);
+                Check(p.Lifts.Count == 1 && p.Lifts[0].ToBottom == RunsFirstBottom.Reaches, w, $"the lift does not reach the bottom: {p.Lifts[0].ToBottom}");
+                Check(p.Connectors.Count + p.Runs.Count(r => r.Kind == "bottom") >= 1, w, "no trail added");
+                Check(p.Log.Any(s => s.Contains("0 reached the bottom before")), w, "the lift reached the bottom before the pass (the fixture tests nothing)");
+            }
+            // 2. a cliff band across the whole region: no trail, the lift stays, the result names the cliff
+            {
+                const string w = "Bottom fixture: cliff band";
+                RunsFirstResult p = Probe("cliff", Profile(-1000, 1800, 0, 1500, 40, 1440, 1000, 1152), -50f);
+                Check(p.Lifts.Count == 1 && p.Lifts[0].ToBottom == RunsFirstBottom.Cliff, w, $"want Cliff, got {p.Lifts[0].ToBottom}");
+                Check(p.Connectors.Count == 0 && p.Runs.Count == 1, w, $"{p.Connectors.Count} track(s), {p.Runs.Count} run(s): want none added");
+            }
+            // 3. a lake across the foot of the lift's skiing (water the plan may not use)
+            {
+                const string w = "Bottom fixture: lake at the foot";
+                RunsFirstResult p = Probe("lake", Terrain.Plane(0.25), 180f, (x, z) => z >= 200 && z <= 320, new RunsFirstInputs { Water = true });
+                Check(p.Lifts.Count == 1 && p.Lifts[0].ToBottom == RunsFirstBottom.Water, w, $"want Water, got {p.Lifts[0].ToBottom}");
+                Check(p.Connectors.Count == 0 && p.Runs.Count == 1, w, $"{p.Connectors.Count} track(s), {p.Runs.Count} run(s): want none added");
+            }
+            // 4. a hole in the region across the way (blocked ground, region below it)
+            {
+                const string w = "Bottom fixture: hole across the way";
+                var inputs = new RunsFirstInputs();
+                inputs.Blocked.Add(new RunsFirstInputs.Shape { Pts = Terrain.Rect(-600f, 200f, 600f, 320f), ClearM = 0f });
+                RunsFirstResult p = Probe("hole", Terrain.Plane(0.25), 180f, null, inputs);
+                Check(p.Lifts.Count == 1 && p.Lifts[0].ToBottom == RunsFirstBottom.Hole, w, $"want Hole, got {p.Lifts[0].ToBottom}");
+                Check(p.Connectors.Count == 0 && p.Runs.Count == 1, w, $"{p.Connectors.Count} track(s), {p.Runs.Count} run(s): want none added");
+            }
+            // 5. a steep bottom band (no flat ground, no lift bottom in it): the landing is the band itself (class 4)
+            {
+                const string w = "Bottom fixture: steep bottom band";
+                RunsFirstResult p = Probe("steep", Terrain.Plane(0.30), 300f);
+                Check(LandingClass(p) == 4, w, $"landing class {LandingClass(p)}, want 4");
+                Check(p.Lifts.Count == 1 && p.Lifts[0].ToBottom == RunsFirstBottom.Reaches, w, $"the lift does not reach the bottom: {p.Lifts[0].ToBottom}");
+            }
+            // 6. one access point at a flat foot (class 2): the trail ends in reach of it
+            {
+                const string w = "Bottom fixture: access point at the foot";
+                var access = new float2(300f, 950f);
+                RunsFirstResult p = Probe("access", Profile(-1000, 1750, 700, 1325, 1000, 1316), 100f, null, new RunsFirstInputs { Access = new[] { access } });
+                Check(LandingClass(p) == 2, w, $"landing class {LandingClass(p)}, want 2");
+                Check(p.Lifts.Count == 1 && p.Lifts[0].ToBottom == RunsFirstBottom.Reaches, w, $"the lift does not reach the bottom: {p.Lifts[0].ToBottom}");
+                float d = p.Connectors.Concat(p.Runs.Where(r => r.Kind == "bottom").Select(r => r.Pts)).Select(c => math.distance(c[c.Count - 1], access)).DefaultIfEmpty(float.MaxValue).Min();
+                Check(d < 170f, w, $"the trail ends {d:F0} m from the access point (want within 150 m and a cell)");
+            }
         }
 
         // ---------------------------------------------------------------- invariants on a realized plan
@@ -96,6 +194,16 @@ namespace AutoGenBatch
                 Check(a == b, where, $"second run {b:x16} != first {a:x16}");
                 Check(res.Resort != null && res.Resort.Lifts.Length == plan.Lifts.Count, where, "the plan does not carry one PlanLift per planner lift");
                 RealizerInvariants(where, res, input, rep);
+                // the way to the bottom: the planner's read and B-1 on the realized plan (pad-based, so a landing of class 1 only)
+                var (reach, skiing) = PlannerBottom(plan);
+                Gate b1 = V2Metrics.B1WayToBottom(res, res.Resort);
+                int b1Reach = plan.Lifts.Count - (int)b1.Value;
+                Console.WriteLine($"REPORT realizer {id} way to the bottom: planner {reach}/{skiing}, landing class {LandingClass(plan)}, realized B-1 {b1Reach}/{plan.Lifts.Count}" +
+                    $" ({b1.Text}); " + string.Join(", ", plan.Lifts.Where(l => l.ToBottom != RunsFirstBottom.Reaches).Select(l => $"L{l.Id} {l.ToBottom}")));
+                if (LandingClass(plan) == 1)
+                    Check(b1Reach == reach, where,
+                        $"way to the bottom: the planner reads {reach} lift(s) reaching the base band, B-1 on the realized plan {b1Reach}");
+                Check(res.Warnings.HasFlag(AutoPlanWarning.NoWayToBottom) == (reach < skiing), where, $"NoWayToBottom warning {res.Warnings.HasFlag(AutoPlanWarning.NoWayToBottom)}, {reach}/{skiing} lifts reach the bottom");
                 double kmP = rep.PisteKmPlanned + rep.GradedKmPlanned, kmK = rep.PisteKmKept + rep.GradedKmKept;
                 Console.WriteLine($"REPORT realizer {id}: {res.Runs.Count} areas, piste km {kmK:F2}/{kmP:F2}, track km {rep.TrackKmKept:F2}/{rep.TrackKmPlanned:F2}, " +
                     $"relations {rep.RelationLinks}/{rep.Relations}, unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, {rep.Ms:F0} ms, hash {a:x16}" +

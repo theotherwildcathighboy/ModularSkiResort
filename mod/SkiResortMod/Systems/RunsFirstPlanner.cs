@@ -151,7 +151,7 @@ namespace SkiResortMod.Systems
 
         // Progress: the passes done out of PassCount (each Tick is one), plus an inner fraction in the three longest passes (the
         // lift-top reach scan, the serve pick, the regrade). A pass an option turns off still ticks. It never goes back.
-        private const int PassCount = 35;
+        private const int PassCount = 37;
         private volatile int m_Progress;   // per-mille, written by the planning thread (and the reach scan's workers), read by any thread
         private readonly object m_ProgressLock = new object();
         private int m_PassesDone;
@@ -360,7 +360,15 @@ namespace SkiResortMod.Systems
             if (O.Towers)
                 FitTowers(g, built, lifts, km2r);
             Tick("towers");
-            RunsFirstResult result = MakeResult(g, built, lifts);
+            // the way to the bottom of every lift on the finished plan (the result field; the realizer warns from it)
+            float bandTop = BottomBandTop(g);
+            RunsFirstBottom[] bottom = BottomStatus(g, built, lifts, rec, bandTop, out int atLift);
+            int skiing = bottom.Count(b => b != RunsFirstBottom.NoSkiing), reach = bottom.Count(b => b == RunsFirstBottom.Reaches);
+            built.Log.Add($"bottom: {reach} of {skiing} lift(s) with skiing reach the base band, {atLift} at a lift bottom in it" + (reach == skiing ? "" : " (" +
+                string.Join(", ", Enumerable.Range(0, lifts.Count).Where(L => bottom[L] != RunsFirstBottom.Reaches && bottom[L] != RunsFirstBottom.NoSkiing)
+                    .Select(L => $"L{lifts[L].Id} {bottom[L]}")) + ")"));
+            Tick("bottom");
+            RunsFirstResult result = MakeResult(g, built, lifts, bottom);
             Tick("result");
             long ms = sw.ElapsedMilliseconds;
             m_Log.AddRange(built.Log);

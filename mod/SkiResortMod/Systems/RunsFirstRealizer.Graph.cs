@@ -71,10 +71,14 @@ namespace SkiResortMod.Systems
                 res.Warnings |= AutoPlanWarning.NoBlue;
             if (res.BandCount[3] == 0)
                 res.Warnings |= AutoPlanWarning.NoBlack;
-            // NoWayToBottom (spec 8.3) has no AutoPlanWarning value yet (round 1 adds no enum value): the report carries it
-            foreach (string s in m_Plan.Log)
-                if (s != null && s.IndexOf("to the bottom", StringComparison.Ordinal) >= 0 && s.IndexOf("no ", StringComparison.Ordinal) >= 0)
+            // NoWayToBottom (spec 8.3, plan 5.4): the planner names each lift whose skiing does not get to the base band and why
+            foreach (RunsFirstResult.Lift lf in m_Plan.Lifts)
+                if (lf.ToBottom != RunsFirstBottom.Reaches && lf.ToBottom != RunsFirstBottom.NoSkiing)
+                {
+                    res.Warnings |= AutoPlanWarning.NoWayToBottom;
                     m_Rep.NoWayToBottom = true;
+                    m_Rep.Lines.Add($"lift L{lf.Id}: no way to the bottom ({lf.ToBottom})");
+                }
             RelationGate();
             BandKeepReport();
             plan.Fingerprint = Hash(res);

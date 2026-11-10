@@ -104,6 +104,8 @@ namespace AutoGenBatch
             o.LinkBudget = Env("RF_LBUDGET", 1.8e6f);
             o.WayHomeBudget = Env("RF_WBUDGET", o.WayHomeBudget);
             o.Towers = Environment.GetEnvironmentVariable("RF_NOTOWERS") != "1";
+            o.WayToBottom = Environment.GetEnvironmentVariable("RF_NOBOTTOM") != "1";
+            o.BottomBudget = Env("RF_BBUDGET", o.BottomBudget);
             o.TrackTurnM = Env("RF_TURNM", 40f);
             o.LearnGround = Env("RF_LGROUND", 0.235f);
             o.LearnMinRise = Env("RF_LMINRISE", 32f);

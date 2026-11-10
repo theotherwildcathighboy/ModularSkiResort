@@ -100,6 +100,10 @@ namespace SkiResortMod.Systems
         public float WayHomeBudget = 3.0e6f;      // RF_WBUDGET
         // lifts the lift tool can build (R2-p2): a lift whose tower plan is not Sound is shifted, retyped or kept flagged
         public bool Towers = true;                // RF_NOTOWERS=1 turns off
+        // the way to the bottom (R2-c): from the top of every lift with skiing, a trail of any rating or a cat track to the bottom of
+        // the region (RunsFirstPlanner.Bottom.cs). It spends a budget of its own
+        public bool WayToBottom = true;           // RF_NOBOTTOM=1 turns off
+        public float BottomBudget = 3.0e6f;       // RF_BBUDGET
         public float TrackTurnM = 40f;            // RF_TURNM
         public float LearnGround = 0.235f;        // RF_LGROUND
         public float LearnMinRise = 32f;          // RF_LMINRISE

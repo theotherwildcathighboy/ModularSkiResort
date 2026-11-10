@@ -264,6 +264,7 @@ namespace AutoGenBatch
             for (int k = 1; k < (int)AutoReject.Count; k++)
                 if (rep.TrackDrops[k] > 0)
                     tdrops.Add($"{(AutoReject)k} {rep.TrackDrops[k]}");
+            Gate b1 = res.Resort != null && res.Resort.Lifts != null ? V2Metrics.B1WayToBottom(res, res.Resort) : default;   // the way to the bottom, realized (plan 5.4)
             float rawT = raw.Total, realT = real.Total, skiedT = skied.Total;
             var lines = new List<string>
             {
@@ -280,7 +281,10 @@ namespace AutoGenBatch
                     $"({(rep.TrackKmPlanned > 0 ? 100 * (rep.TrackKmOwn + rep.TrackKmShared) / rep.TrackKmPlanned : 100):F1} %), merged chain relations linked {rep.MergedLinks}/{rep.MergedRelations}, self-splits {rep.TrackSelfSplits}, spurs {rep.TrackSpurs}",
                 $"  junctions: relations {rep.Relations}, linked {rep.RelationLinks} ({rep.RelationVia} through the area that cut the end), missed {rep.RelationMisses}; extensions {rep.Extensions}, track ends reached {rep.TrackReaches}, piste ends reached {rep.PisteReaches}, remnants kept {rep.RemnantsKept} dropped {rep.RemnantsDropped}, converging junctions {rep.ConvergeJunctions}; unlinked ends " +
                     $"{rep.UnlinkedEnds} ({rep.UnlinkedBlocked} blocked) of {ends} ({(ends > 0 ? 100.0 * rep.UnlinkedEnds / ends : 0):F2} %)",
-                $"  graph: unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, bottom reach {rep.BottomReach}/{rep.Lifts}, no way to bottom {rep.NoWayToBottom}",
+                $"  graph: unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, bottom reach {rep.BottomReach}/{rep.Lifts}, no way to bottom {rep.NoWayToBottom}; " +
+                    $"way to the bottom: planner {plan.Lifts.Count(l => l.ToBottom == RunsFirstBottom.Reaches)}/{plan.Lifts.Count(l => l.ToBottom != RunsFirstBottom.NoSkiing)} " +
+                    $"({string.Join(", ", plan.Lifts.Where(l => l.ToBottom != RunsFirstBottom.Reaches).Select(l => $"L{l.Id} {l.ToBottom}"))}), " +
+                    $"realized B-1 {(b1.Id == null ? "n/a" : $"{plan.Lifts.Count - (int)b1.Value}/{plan.Lifts.Count}")} ({b1.Text})",
                 $"  lifts: {rep.Lifts}, tower plan sound {rep.LiftsClear}, hand fit chair/detachable/gondola/tram {rep.HandFitByType[0]}/{rep.HandFitByType[1]}/{rep.HandFitByType[2]}/{rep.HandFitByType[3]} " +
                     $"(spans {rep.HandFitSpans}, over cap {rep.HandFitOverCap}, too steep {rep.HandFitSteep}, clearance {rep.HandFitClearance}, edge slope {rep.HandFitEdge}, miss {rep.HandFitMiss}), sunk ends {rep.SunkEnds}, lot conflicts {rep.LotConflicts}",
                 $"  score: raw {rawT:F1}, as built {realT:F1} ({realT - rawT:+0.0;-0.0}), as skied {skiedT:F1} ({skiedT - rawT:+0.0;-0.0}), realized pistes with the raw connectors {mixT:F1}; " +

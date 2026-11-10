@@ -1130,6 +1130,7 @@ export const SENT_KEYS: readonly LocEntry[] = [
   ["SkiResort.Tooltip.QUICK_WARN[NoLiftSite]", "No lift fits this region: the ground is too steep or too rough for a lift line, or has no flat spot for a station."],
   ["SkiResort.Tooltip.QUICK_WARN[Download]", "Some lift tops have no way down on skis, so guests ride the lift down."],
   ["SkiResort.Tooltip.QUICK_WARN[DeadEnd]", "A run ends where nothing continues: no lift, run, track or flat ground at its bottom."],
+  ["SkiResort.Tooltip.QUICK_WARN[NoWayToBottom]", "Some lifts have no run or cat track to the bottom of the region: cliffs, basins, water, gaps or the region's edge block the way."],
   // R1-d (contract 41): the plan sheet's reasons (QuickRunsSheetRow.reasonKey) and the notices of a refused lift call (QuickRunsSheet.notice)
   ["SkiResort.Tooltip.QUICK_LIFT_WHY[MONEY]", "the city cannot pay for it"],
   ["SkiResort.Tooltip.QUICK_LIFT_WHY[POSE]", "the two spots are too close together"],

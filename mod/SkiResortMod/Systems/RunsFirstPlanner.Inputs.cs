@@ -5,7 +5,7 @@
 // hooks are two lines in RunsFirstPlanner.cs (ApplyInputs at the end of BuildGrid, BlockedKm2 off the region's km2).
 // What the tool passes (QuickRunsScanJob.InputsFrom): other areas and unowned tiles with the realizer's clearances, existing runs with
 // the density's gap, the wet texels of the snapshot, and each existing lift as its stations and a corridor along its line. Existing
-// cat tracks are passable (no shape). Access points are carried for the bottom landing class (plan 5.1). No pass reads them yet.
+// cat tracks are passable (no shape). Access points are the bottom landing class 2 of the way to the bottom (plan 5.1, Bottom.cs).
 // Pure C# 9 on System and Unity.Mathematics, net48-clean. See EngineNotes/RunsFirstPlanner.md (Inputs).
 
 using System;
@@ -28,8 +28,8 @@ namespace SkiResortMod.Systems
         public readonly List<Shape> Blocked = new List<Shape>();
         /// <summary>The wet texels of the snapshot (HeightSnapshot.Wet) block their cells: a cell is wet when any of its texels is.</summary>
         public bool Water;
-        /// <summary>Road samples and the Welcome Sign near the region, sorted (AutoPlanInput.Access). Read by no pass yet: the bottom landing
-        /// class of the way-to-the-bottom pass (plan 5.1) will read it.</summary>
+        /// <summary>Road samples and the Welcome Sign near the region, sorted (AutoPlanInput.Access). The way-to-the-bottom pass reads them: flat
+        /// base-band ground in reach of one is its landing class 2 (plan 5.1, Bottom.cs).</summary>
         public float2[] Access;
 
         /// <summary>True when the inputs change nothing in the plan.</summary>
