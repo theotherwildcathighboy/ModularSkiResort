@@ -31,6 +31,9 @@ namespace SkiResortMod.Systems
             // the per-pass time table (report only): each pass's own milliseconds, in plan order
             Console.WriteLine($"REPORT rf time {id}: " + string.Join(", ", PassTimes.Select(t => $"{t.Pass} {t.Ms}")) + $", total {ms} ms");
             Console.WriteLine($"REPORT rf hash {id}: {pl.Result.Hash():x16}, {pl.Result.Runs.Count} runs, {pl.Result.Lifts.Count} lifts, {pl.Result.Connectors.Count} connectors");
+            int differ = RunsFirst.BandDiffers(snap, pl.Result, out int plain, out double dkm);
+            Console.WriteLine($"REPORT rf bands {id}: the plan's band differs from the scorecard's on {differ} of {plain} plain run(s) ({dkm:F2} km); " +
+                $"rater {g.Rater.Rated} rated, {g.Rater.Hits} cached, {g.Rater.Unrated} unrated, {g.Rater.NotConnected} not connected");
 
             // the v2 plan of the same region, as the host replays it
             AutoPlanKnobs knobs = AutoPlanKnobs.Default(SkiRunAutoPlanner.SeedOf(ring, 0));
@@ -286,7 +289,7 @@ namespace SkiResortMod.Systems
                     Stroke(right, pl, 2f, (150, 150, 150));
                     continue;
                 }
-                SlopeBand band = GroundBand(g, r.Pts);
+                SlopeBand band = SeenBand(g, r.Pts, RaterResult);   // the band the game shows (the rater), unless RF_RATER turns it off
                 if (!r.Groomed)
                 {
                     // a natural (ungroomed) run: dashed

@@ -272,7 +272,7 @@ namespace SkiResortMod.Systems
                         List<float2> ok = SanitizeRun(g, route);
                         if (ok == null || ok.Count < Densify(route).Count || RawH(g, ok[0]) - RawH(g, ok[ok.Count - 1]) < MinRunDropM)
                             continue;
-                        SlopeBand band = RunBand(g, ok);
+                        SlopeBand band = SeenRunBand(g, ok, RaterLink);
                         if (band == SlopeBand.DoubleBlack || (mode == 1 && band == SlopeBand.Black) || !guard.FitsAdding(ok, 0, ok.Count - 1))
                             continue;
                         plan.Runs.Add(new PlanRun { Pts = ok, Band = band, By = lifts[froms[0]], Kind = "link" });

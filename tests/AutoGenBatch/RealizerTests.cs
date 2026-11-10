@@ -99,9 +99,9 @@ namespace AutoGenBatch
                 Console.WriteLine($"REPORT realizer {id}: {res.Runs.Count} areas, piste km {kmK:F2}/{kmP:F2}, track km {rep.TrackKmKept:F2}/{rep.TrackKmPlanned:F2}, " +
                     $"relations {rep.RelationLinks}/{rep.Relations}, unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, {rep.Ms:F0} ms, hash {a:x16}" +
                     string.Concat(rep.Lines.Where(l => l.StartsWith("relation not linked") || l.Contains("cannot reach") || l.Contains(": spur ") || l.Contains(" merged into ")).Select(l => "\n  " + l)));
-                string only = Environment.GetEnvironmentVariable("RZ_LINES");   // debugging: every report line that contains this text
+                string only = Environment.GetEnvironmentVariable("RZ_LINES");   // debugging: every report line that contains one of these texts (| separates them)
                 if (!string.IsNullOrEmpty(only))
-                    foreach (string l in rep.Lines.Where(l => l.Contains(only)))
+                    foreach (string l in rep.Lines.Where(l => only.Split('|').Any(o => l.Contains(o))))
                         Console.WriteLine("  RZ " + l);
             }
         }
@@ -370,6 +370,25 @@ namespace AutoGenBatch
                     Check(Linked(a[0], d[0]) && s.x < -60f && e.x > 60f, w, $"the detour is not butted onto A at both ends (it runs from x {s.x:F0} to x {e.x:F0})");
                 }
                 Check(h.Rep.UnlinkedEnds == 0 && h.Rep.TrackMerged == 0, w, $"{h.Rep.UnlinkedEnds} unlinked end(s), {h.Rep.TrackMerged} merged");
+            }
+            // 8e. R2-x: run 0 starts 38 m below a track (a planner contact, outlines about 30 m apart), so its start is extended after the
+            //     track pass. Runs 1 and 2 end onto run 0 at the base, 2 m from its centerline: they come later and keep only the merge gap.
+            //     The extension re-checks the ring of run 0. Each later run is tested by the rule that accepted it, so the start links.
+            {
+                const string w = "Realizer hand: start extension with two runs that converge at the base";
+                Hand h = NewHand();
+                h.Plan.Connectors.Add(Line(-300f, -400f, 300f, -400f));
+                h.Run(Line(0f, -362f, 0f, 450f), SlopeBand.Blue);
+                h.Run(Bent(-300f, -100f, -150f, 300f, -2f, 440f), SlopeBand.Blue);
+                h.Run(Bent(300f, -100f, 150f, 300f, 2f, 440f), SlopeBand.Blue);
+                h.Realize();
+                RealizerInvariants(w, h.Res, h.Input, h.Rep);
+                List<AutoRun> r0 = h.Of(0), t = h.Tracks;
+                Check(r0.Count == 1 && t.Count == 1 && Linked(r0[0], t[0]), w, "the start of run 0 does not link to the track: " + Areas(h));
+                Check(h.Of(1).Count >= 1 && h.Of(2).Count >= 1 && r0.Count == 1 && Linked(h.Of(1).Last(), r0[0]) && Linked(h.Of(2).Last(), r0[0]), w,
+                    "a converging run does not link to run 0: " + Areas(h));
+                Check(h.Rep.Lines.Any(l => l.StartsWith("piste 0 (line) segment 0: start extended")), w,
+                    "the start of run 0 is not extended (the case is not reproduced): " + string.Join("; ", h.Rep.Lines.Where(l => l.StartsWith("piste 0 "))));
             }
             // 9. A run through an obstacle (an unowned tile across its middle): two pieces, both clear of it
             {

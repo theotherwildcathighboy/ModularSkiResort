@@ -16,6 +16,11 @@ namespace SkiResortMod.Systems
         public float PicksPerKm2 = 5f;            // RF_PPK: line cap per km2 (12-80), the Normal density
         public int MixMode;                       // RF_MIXW: 0 fixed band weights, 1 / 2 the region's ground mix
         public float MixGreenMin = 1.5f;          // RF_MIXGREEN
+        // RF_RATER: which band decisions read the mod rater's band of a run (the band scorecard v7 reads and the game shows), one bit
+        // each (RunsFirstPlanner.Rater.cs). Default 131: 1 the result's band, 2 the ski graph (way home, beginner, learning km), 128 a
+        // learning chair's further green runs. Measured and left off (each lowered a set mean, port step R2-p1): 4 green ways down and pods,
+        // 8 the serve value, 16 link runs, 32 chords, 64 the line pick, 256 a learning chair's own run. 0: the planner's own predictors
+        public int RaterBands = 131;
 
         // ---- lifts
         public float TopLatticeM = 100f;          // RF_LAT

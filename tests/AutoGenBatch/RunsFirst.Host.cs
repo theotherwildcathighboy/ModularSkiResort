@@ -36,6 +36,7 @@ namespace AutoGenBatch
             o.PicksPerKm2 = Env("RF_PPK", 5f);
             o.MixMode = (int)Env("RF_MIXW", 0f);
             o.MixGreenMin = Env("RF_MIXGREEN", 1.5f);
+            o.RaterBands = (int)Env("RF_RATER", o.RaterBands);
             o.TopLatticeM = Env("RF_LAT", 100f);
             o.ReturnM = Env("RF_RET", 150f);
             o.ReachBudget = Env("RF_RBUDGET", 15e6f);
@@ -257,6 +258,8 @@ namespace AutoGenBatch
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 RunsFirstResult res = PlanRegion(snap, ring, opts, id);
                 string row = $"{id} {res.Hash():x16} {res.Runs.Count} {res.Lifts.Count} {res.Connectors.Count}";
+                int differ = BandDiffers(snap, res, out int plain, out double dkm);
+                Console.WriteLine($"REPORT rf bands {id}: the plan's band differs from the scorecard's on {differ} of {plain} plain run(s) ({dkm:F2} km)");
                 goldenRows.Add(row);
                 Console.WriteLine($"GOLDEN {row} ({sw.ElapsedMilliseconds} ms)");
             }
@@ -296,6 +299,30 @@ namespace AutoGenBatch
                 string.Join(",", lat.Select(x => x.ToString("F1", CultureInfo.InvariantCulture))));
             Console.WriteLine("CANCEL " + row);
             return row;
+        }
+
+        /// <summary>The plain runs (not graded) whose band in the plan differs from the band scorecard v7 gives them (the rater on the
+        /// run's ribbon, RunsFirstScore.RibbonBand): the count, the plain runs and the km that differ.</summary>
+        internal static int BandDiffers(HeightSnapshot snap, RunsFirstResult plan, out int plain, out double km)
+        {
+            var grid = new SlopeGrid();
+            var res = new SlopeResult();
+            int differ = 0;
+            plain = 0;
+            km = 0.0;
+            foreach (RunsFirstResult.Run r in plan.Runs)
+            {
+                if (r.Graded)
+                    continue;
+                plain++;
+                SlopeBand want = RunsFirstScore.RibbonBand(snap, r.Pts, RunsFirstScore.RibbonHalfWidthM, grid, res, out RunsFirstScore.RaterOutcome _);
+                if (r.Band == want)
+                    continue;
+                differ++;
+                for (int i = 1; i < r.Pts.Count; i++)
+                    km += math.distance(r.Pts[i - 1], r.Pts[i]) / 1000.0;
+            }
+            return differ;
         }
 
         /// <summary>Plans one region with the given options (null: the defaults) and returns the plain plan object. The options hold

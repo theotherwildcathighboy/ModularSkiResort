@@ -10,7 +10,7 @@ The code is pure C# 9 on `System` and `Unity.Mathematics`. It has no `Game.*` ty
 The mod compiles it for net48. The test host links the same files for net8.0.
 
 Files: `Systems/RunsFirstPlanner.cs` (entry, grid, lines, the pick) and one part file per topic.
-The parts are Lifts, Plan, Graph, Beginner, Network, Fill, Cover, Bridge, Chords, Junctions, Heads, Heap, Graded, WayHome, Regrade, Layout, Learning, Order, Compat and Result.
+The parts are Lifts, Plan, Graph, Beginner, Network, Fill, Cover, Bridge, Chords, Junctions, Heads, Heap, Graded, WayHome, Regrade, Layout, Learning, Order, Compat, Rater and Result.
 `Systems/RunsFirstOptions.cs` holds the options. `Systems/RunsFirstResult.cs` holds the plain plan object and its hash.
 
 ## The entry
@@ -58,6 +58,26 @@ On the largest test region (big-3, 25 km2) the test host measured the poll gaps 
 The planner reads only this object. The test host fills it from the `RF_*` environment switches (`RunsFirst.HostOptions`).
 The mod must pass its own object and never read the environment.
 
+## Bands
+
+The game shows the band that the mod's rater gives the outline of a run. Scorecard v7 reads the same band.
+`Systems/RunsFirstPlanner.Rater.cs` holds `RaterBand`. It builds a ribbon around the points of a run and rates the ribbon with `SkiRunRater`.
+The ribbon is the scorecard's ribbon. It follows the path at a 4 m step and has a constant half width of 15 m.
+A ribbon that the rater cannot rate is double black. A ribbon with a mask that is not connected is double black too.
+`RaterBand` copies the rule of the scorecard line for line. So the planner and the scorecard give the same band to the same points.
+`RaterBand` keeps each band in a cache, by the points of the run. Each new rating polls the cancel token.
+
+The option `RaterBands` tells which decisions read the rater. Each decision has one bit. The value 0 gives the plans from before the rater.
+The default is 131. It has three bits:
+
+- 1: the band of each plain run in the result. The realizer plans the width of a run for this band.
+- 2: the ski graph. The way home, the beginner terrain, the learning km and the checks of each cut read it.
+- 128: the more green runs of a learning chair.
+
+The other bits lowered a set mean, so they stay off. They are green ways down and pods (4), the serve value (8) and link runs (16).
+They are also chords (32), the line pick (64) and the first run of a learning chair (256).
+Graded tracks and diagonals keep their band along the path. Natural marks keep the ground band, because the rater's double black would mark about twice the km natural.
+
 ## Inputs from the game
 
 `Systems/RunsFirstPlanner.Inputs.cs` holds `RunsFirstInputs`. The tool sets it on the instance before `Plan` (`planner.Inputs`).
@@ -76,8 +96,8 @@ Null inputs or empty inputs change nothing. The golden hashes stay the same (`te
 
 `RunsFirstResult.Hash()` is the hash of a plan. The test host checks two sets of hashes:
 
-- `tests/AutoGenBatch/RunsFirstGolden.cs`: three synthetic regions in the default run. Each plan must give the same hash on a second run, on 1 and on 4 scan threads, and the recorded constant.
-- `rf-golden`: the 29 real regions of the seven region sets. The recorded hashes are in the private docs (`port/r0c/step4/golden.txt`).
+- `tests/AutoGenBatch/RunsFirstGolden.cs`: three synthetic regions in the default run. Each plan must give the same hash on a second run, on 1 and on 4 scan threads, and the recorded constant. Each plain run of the plan must also carry the band that the scorecard gives it.
+- `rf-golden`: the 29 real regions of the seven region sets. The recorded hashes are in the private docs (`port/r2p1/golden.txt`).
 
 `tests/AutoGenBatch/RunsFirstPlannerTests.cs` checks the planner object. Two planners plan at the same time on two threads. A canceled plan returns null within the bound. The progress never decreases and ends at 1000.
 

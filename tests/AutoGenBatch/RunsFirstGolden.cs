@@ -2,7 +2,8 @@
 // heightmaps) and each plan's hash (RunsFirstResult.Hash) must be:
 // - the same on a second run in the same process (no state leaks from one region into the next, the input is not changed),
 // - the same with 1 reach-scan thread as with 4 (the Parallel.For writes its results by index),
-// - the recorded constant below.
+// - the recorded constant below,
+// - and every plain run carries the band scorecard v7 gives it (port step R2-p1: the rater's band of its ribbon).
 // A planner change that moves a plan changes the constant on purpose: run the host, review the change on the real sets
 // (rf / rf-golden), then record the new value printed in the FAIL line.
 
@@ -16,9 +17,9 @@ namespace AutoGenBatch
     {
         private static readonly (string Id, ulong Hash)[] RfGolden =
         {
-            ("Alpine1 full", 0xdb1d573fd7c6e8daUL),
-            ("Benched1 full", 0x1963f453c11432efUL),
-            ("Steep1 full", 0x8af2f1bb129881c6UL),
+            ("Alpine1 full", 0x8173d68525a131e5UL),
+            ("Benched1 full", 0x1b765e35a18bdbd2UL),
+            ("Steep1 full", 0x430b195ac273f795UL),
         };
 
         private static void RunsFirstGoldenTests()
@@ -41,6 +42,9 @@ namespace AutoGenBatch
                 Check(a == b, where, $"second run {b:x16} != first {a:x16}");
                 Check(a == s, where, $"1 thread {s:x16} != 4 threads {a:x16}");
                 Check(a == want, where, $"hash {a:x16} != recorded {want:x16}");
+                // port step R2-p1: a plain run's band in the plan is the band scorecard v7 gives it (the rater on its ribbon)
+                int differ = RunsFirst.BandDiffers(snap, first, out int plain, out double dkm);
+                Check(differ == 0, where, $"the plan's band differs from the scorecard's on {differ} of {plain} plain run(s) ({dkm:F2} km)");
                 Console.WriteLine($"REPORT rf golden {id}: {a:x16}, {first.Runs.Count} runs, {first.Lifts.Count} lifts, {first.Connectors.Count} connectors, {ms} ms");
             }
             RunsFirstPlannerTests();   // the planner object: two threads, cancel, progress (RunsFirstPlannerTests.cs)

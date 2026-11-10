@@ -9,14 +9,16 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class RunsFirstPlanner
     {
-        /// <summary>The plain plan object of a finished plan (copies: the planner's own types stay inside).</summary>
+        /// <summary>The plain plan object of a finished plan (copies: the planner's own types stay inside). A plain run's band is the
+        /// mod rater's band of its ribbon (RaterBands bit RaterResult): the band scorecard v7 reads and the game shows. A graded run keeps
+        /// its band along the path.</summary>
         private static RunsFirstResult MakeResult(Grid g, PlanDraft built, List<Lift> lifts)
         {
             var res = new RunsFirstResult();
             foreach (PlanRun r in built.Runs)
                 res.Runs.Add(new RunsFirstResult.Run
                 {
-                    Pts = new List<float2>(r.Pts), Band = r.Band, Kind = r.Kind, Graded = r.Graded, Groomed = r.Groomed,
+                    Pts = new List<float2>(r.Pts), Band = !r.Graded && g.Rater.Use(RaterResult) ? RaterBand(g, r.Pts) : r.Band, Kind = r.Kind, Graded = r.Graded, Groomed = r.Groomed,
                     Lift = r.By == null ? 0 : lifts.IndexOf(r.By) + 1,
                 });
             foreach (List<float2> c in built.Connectors)

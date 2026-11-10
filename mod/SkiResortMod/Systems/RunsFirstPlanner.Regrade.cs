@@ -651,7 +651,7 @@ namespace SkiResortMod.Systems
             var els = new List<(List<float2>, int, PlanRun, bool)>();
             foreach (PlanRun r in plan.Runs)
             {
-                var (run, band) = r.Graded ? TrackClass(g, r.Pts) : (true, GroundBand(g, r.Pts));
+                var (run, band) = r.Graded ? TrackClass(g, r.Pts) : (true, SeenBand(g, r.Pts, RaterChord));
                 if (run)
                     els.Add((Densify(r.Pts), -1, r, band <= SlopeBand.Green));
             }
