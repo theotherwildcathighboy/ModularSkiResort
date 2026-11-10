@@ -28,7 +28,7 @@
 #   7 prefabs     game ImportedData == gamedata-mirror\ (same ownership + include rules as tools\sync-gamedata.ps1, compared by file hashes).
 #                 The mirror is a copy of the game side, so a difference means the mirror is behind (run sync-gamedata.ps1)
 #                 or the game lacks a file. Mirror-only files are reported, not fatal.
-#   8 commit      the deployed DLL's BuildStamp.Commit == HEAD of this checkout (PASS / STALE). "+" = built from uncommitted
+#   8 commit      the deployed DLL's BuildStamp.Commit is HEAD of this checkout, or HEAD changes nothing under mod/ since it (PASS / STALE). "+" = built from uncommitted
 #                 changes, "nogit" = built without git: both are STALE (the build cannot be tied to a commit).
 # Never builds. Do not build while Cities2.exe runs. This script only reads.
 
@@ -222,7 +222,19 @@ try {
     } elseif ($headNow.StartsWith($dllCommit) -or $dllCommit.StartsWith($headNow)) {
         Add-Result "commit" "PASS" "[dll vs HEAD] both $headNow"
     } else {
-        Add-Result "commit" "STALE" "[dll vs HEAD] the deployed DLL is built from ${dllCommit}, HEAD is ${headNow}: rebuild + deploy (or the deploy came from another worktree)"
+        # A later commit that changes nothing under mod/ (docs, tools, tests) leaves the deployed DLL current.
+        git -C $root cat-file -e "$dllCommit^{commit}" 2>$null
+        $known = ($LASTEXITCODE -eq 0)
+        $same = $false
+        if ($known) {
+            git -C $root diff --quiet $dllCommit HEAD -- mod
+            $same = ($LASTEXITCODE -eq 0)
+        }
+        if ($same) {
+            Add-Result "commit" "PASS" "[dll vs HEAD] built from ${dllCommit}; HEAD is ${headNow}, with no change under mod/ since"
+        } else {
+            Add-Result "commit" "STALE" "[dll vs HEAD] the deployed DLL is built from ${dllCommit}, HEAD is ${headNow}: rebuild + deploy (or the deploy came from another worktree)"
+        }
     }
 } catch {
     Add-Result "commit" "UNKNOWN" "[git] $($_.Exception.Message)"
