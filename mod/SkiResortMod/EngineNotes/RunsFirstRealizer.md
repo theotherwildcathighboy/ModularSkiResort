@@ -85,6 +85,12 @@ width plus the gap. The realizer accepts the longest prefix that is clear. The r
 with that prefix in it. The stretch beside the prefix is lost. The free stretches after it become pieces that butt onto the
 prefix. A chain gets at most eight of these splits.
 
+A relation of a merged chain can stay without a game link to any host. Then the realizer tries a spur. A spur is a short straight
+track from the nearest host toward the related element. It starts in the gap of the host and stops at the link. A blocked cell or
+the gap of another track stops it, and then no spur is built. One track between the host and the related element is also a link
+for a merged chain. A reached end can make the ribbon of a piece cross itself. Then the piece goes without the reached end, and
+that end gets a spur.
+
 ## Determinism
 
 No clock and no random number has an effect on a decision. Every order is the list order, then the index. `RunsFirstRealizer.Hash`
