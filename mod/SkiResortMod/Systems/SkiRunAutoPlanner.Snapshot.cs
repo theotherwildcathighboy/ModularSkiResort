@@ -5,8 +5,9 @@
 // space (world + offset) * scale, floor, clamp to the full resolution, saturate, lerp along x then z, height / scale.y - offset.y.
 // So SkiRunRater.Rate over a SnapshotSampler gives the numbers the catalog computes after build with TerrainHeightSampler (same float
 // ops). CoreCLR vs Mono bit equality and the in-game parity are phase-2 probe items, UNVERIFIED. The backdrop branch of SampleHeight
-// is never reached: the planner masks every cell within OffMapMarginTexels of the heightmap edge.
-// Pure file: System and Unity.Mathematics only (the tests/AutoGenBatch rule). Engine notes: EngineNotes/SkiRunAutoPlanner.md
+// is never reached: the realizer masks every cell within OffMapMarginTexels of the heightmap edge (RunsFirstRealizer.Lattice.cs).
+// The file keeps the name of the deleted v1 / v2 planner (port round R2-d) because the tool, the cat track tool and GradeBatch link it.
+// Pure file: System and Unity.Mathematics only (the tests/AutoGenBatch rule). Engine notes: EngineNotes/ResortPlanner.md
 
 using System;
 using Unity.Mathematics;

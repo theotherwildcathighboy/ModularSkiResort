@@ -58,7 +58,7 @@ It takes 10 to 190 ms in game, growing with the rect, so it never runs per edit.
 - Debounce: `DebounceMs` (150 ms) after the last edit, not while dragging. A newer edit cancels the job (`GradeCancel`, polled between
   stages) and drops its result. One job runs at a time (a canceled one finishes first).
 - Worker input:
-  - A `HeightSnapshot` of the rect plus the entered crossed runs plus the planner's lattice margin (SkiRunAutoPlanner.SnapshotRect, rows
+  - A `HeightSnapshot` of the rect plus the entered crossed runs plus the planner's lattice margin (PlanGeometry.SnapshotRect, rows
     copied from `hd.heights`).
   - The wet layer of the rect (`FillWet`: SampleDepth at the GradeMap texel centers behind the node pre-filter).
   - A private `GradeObstacles` (CollectObstacles allocates a new one per solve, and the worker fills its WetTexels).

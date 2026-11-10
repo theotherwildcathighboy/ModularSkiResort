@@ -16,7 +16,7 @@ by a few meters, or drop it. The `RealizeReport` records each loss. The tool doe
 - `RunsFirstRealizer.Lifts.cs`: one `PlanLift` row for each planner lift, with the tower plan of the lift tool.
 - `RunsFirstRealizer.Graph.cs`: groups, pads, clusters, the served rule, the way home, dead ends, the mix, the relation gate.
 
-The files are pure C# 9 for net48. They use no part of the `SkiRunAutoPlanner` class. The parts they need are copies.
+The files are pure C# 9 for net48. The parts they took from the v1 / v2 planner are copies. That planner was deleted in port round R2-d.
 
 ## Order
 

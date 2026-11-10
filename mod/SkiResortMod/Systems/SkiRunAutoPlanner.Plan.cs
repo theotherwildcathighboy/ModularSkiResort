@@ -1,5 +1,6 @@
-// Resort Planner (v2): every plan type, written once (stage A, task A0). So the terrain / pods / lifts / fans / flow tasks fill them
-// and never touch each other's files. Pure and Entities-free like the rest of the planner (usings System and Unity.Mathematics).
+// Resort Planner: every plan type, written once for the v2 planner (stage A, task A0). The v2 planner was deleted in port round R2-d.
+// The runs-first realizer now fills these types, and the tool, the hub, the overlay and the host metrics read them. The file keeps its
+// old name because many files cite it. It also holds the last piece of the SkiRunAutoPlanner class (the end of the file). Pure and Entities-free like the rest of the planner (usings System and Unity.Mathematics).
 // The worker creates all plan objects, and nothing mutates them after the scan finishes. They are plain arrays and structs (the host
 // prints and fingerprints them). World xz is in meters. Heights are in meters (snapshot heights).
 // Ids are stable for the same (snapshot, region, obstacles, pinned lifts, knobs) and survive a Reselect that does not restart before
@@ -115,10 +116,6 @@ namespace SkiResortMod.Systems
         public readonly float[] MountainMix = new float[5];   // the terrain's honest mix (run-km share by rated band), Flat..DoubleBlack
         public SiteVerdict Site;          // spec section 6.2
         public float TreeLineY = float.NaN;   // the value used (NaN = none known)
-        public readonly int[] StageUnits = new int[SkiRunAutoPlanner.ResortStageCount];   // units per probe slot (stage-a-spec 1)
-        // Probe timing per slot (additive to the spec). The planner records them as it runs: ms of all units, and the longest unit
-        public readonly float[] StageMs = new float[SkiRunAutoPlanner.ResortStageCount];
-        public readonly float[] StageMaxMs = new float[SkiRunAutoPlanner.ResortStageCount];
         public ulong Fingerprint;         // over pads, pods, lifts, verdicts (AutoPlanResult.Fingerprint folds it in when non-zero)
 
         /// <summary>An independent copy (arrays and the nested per-pod / per-lift arrays are cloned), for AutoPlanResult.Snapshot.</summary>
@@ -143,9 +140,6 @@ namespace SkiResortMod.Systems
                 if (c.Lifts[i].TowerXz != null)
                     c.Lifts[i].TowerXz = (float2[])c.Lifts[i].TowerXz.Clone();
             Array.Copy(MountainMix, c.MountainMix, MountainMix.Length);
-            Array.Copy(StageUnits, c.StageUnits, StageUnits.Length);
-            Array.Copy(StageMs, c.StageMs, StageMs.Length);
-            Array.Copy(StageMaxMs, c.StageMaxMs, StageMaxMs.Length);
             return c;
         }
     }
@@ -165,5 +159,15 @@ namespace SkiResortMod.Systems
         public uint Key; public byte TypeIndex; public float3 Bottom, Top;   // the census row's stations (stub tips)
         public float2[] Chords;                                              // xz chord ends in pairs (LiftServedRule.Chord list slice)
         public bool Complete;
+    }
+
+    /// <summary>What is left of the v1 / v2 planner class after port round R2-d deleted its compute (plan 7.7): one forwarder. The frozen
+    /// scorecard probes (tests/AutoGenBatch/RunsFirstScoreTests.cs, never edited) call it. Other code calls PlanGeometry.SnapshotRect.</summary>
+    public static class SkiRunAutoPlanner
+    {
+        /// <summary>Forwarder: PlanGeometry.SnapshotRect.</summary>
+        public static bool SnapshotRect(float2[] region, int resX, int resZ, float3 scale, float3 offset,
+            out int x0, out int z0, out int width, out int depth) =>
+            PlanGeometry.SnapshotRect(region, resX, resZ, scale, offset, out x0, out z0, out width, out depth);
     }
 }

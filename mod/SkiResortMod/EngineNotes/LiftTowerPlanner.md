@@ -335,7 +335,7 @@ A station's rope sits at its own HV rope sub-lane anchor, not at a tower's rope.
 (tower 7.27), DQ 3.70 (8.26), gondola 4.85 (10.28), tram 16.00 (26.25, the track rope, UtilityType HV. The haul rope is LV). Every
 station anchor is LOWER, by 1.4 to 10.3 m. `StationEndRope(station, nodeY, frontGroundY)` = the lowest of the tower rope, the level
 anchor and the anchor over the lot front (`StationDef.FrontLocalZ` = lot depth x 4, where vanilla stands the building). The lift tool's
-ground ends (LiftLineEdit.md) and the auto planner's station ends (`SkiRunAutoPlanner.TowerPlan`, level only) plan with it. A slope
+ground ends (LiftLineEdit.md) and the Resort Planner's station ends (`RunsFirstPlanner.Towers.cs`, `RunsFirstRealizer.Lifts.cs`, level only) plan with it. A slope
 still moves a placed station: the Eishain FG base stood 5.1 m below its level anchor, the DQ base 26.3 m above it. Gate: LiftBatch EI-48
 compares every catalog row with the mirror's station prefab (anchor, lot depth, stub tip) and checks the anchor is below the tower rope.
 

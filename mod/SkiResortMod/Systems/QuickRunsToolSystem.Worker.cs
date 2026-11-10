@@ -2,7 +2,7 @@
 // and the realizer on a worker thread (Task.Run). The tree filler's compose job is the pattern (QuickRunsToolSystem.Trees.cs: state,
 // launch bookkeeping with a GC count, stale test, per-frame poll and cancel, collect with IsFaulted and the stale drop, the summary fields).
 // States, in order: Idle, Running (the worker), collected on the main thread, then Idle again. There is no main-thread path: runs-first
-// cannot be sliced, and the Diagnostics setting "Resort Planner on the main thread" is ignored (its deletion follows with v2's).
+// cannot be sliced (plan 7.4), so the old Diagnostics fallback setting went with the v1 / v2 planner.
 // The worker touches ONLY its job: a fresh AutoPlanInput per scan, a fresh obstacle list, a snapshot buffer, the planner inputs and the
 // options. The buffer is never rewritten while a job holds it (TakeSnapshot writes the other one). No Entities, no Unity API and no log on
 // the worker. The job owns its result, and no later job writes it, so m_Published is the job's result as it is. One job at a time. A scan

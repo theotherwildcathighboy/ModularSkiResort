@@ -98,13 +98,13 @@ namespace AutoGenBatch
             return true;
         }
 
-        /// <summary>A HeightSnapshot of the rectangle SkiRunAutoPlanner.SnapshotRect asks for (the same window the tool copies), read
+        /// <summary>A HeightSnapshot of the rectangle PlanGeometry.SnapshotRect asks for (the same window the tool copies), read
         /// from the fixture PNG. Null when the region is degenerate.</summary>
         public static HeightSnapshot Snapshot(HeightmapFile f, float2[] region)
         {
             float3 scale = new float3(Terrain.Scale.x, 65535f / f.ScaleM, Terrain.Scale.z);
             float3 offset = new float3(Terrain.Offset.x, -f.OffsetM, Terrain.Offset.z);
-            if (!SkiRunAutoPlanner.SnapshotRect(region, Res, Res, scale, offset, out int x0, out int z0, out int w, out int d))
+            if (!PlanGeometry.SnapshotRect(region, Res, Res, scale, offset, out int x0, out int z0, out int w, out int d))
                 return null;
             HeightSnapshot s = HeightSnapshot.Allocate(x0, z0, w, d, Res, Res, scale, offset, false);
             // south-up lattice rows z0 .. z0 + d - 1 = PNG rows (Res - 1 - (z0 + d - 1)) .. (Res - 1 - z0)
@@ -407,8 +407,6 @@ namespace AutoGenBatch
                         Check(Math.Abs(s.Sample(new float3(x, 0f, z)) - want) < 0.01f, "Heightmap", $"world height {s.Sample(new float3(x, 0f, z))} vs {want}");
                         Check(Math.Abs(z - (7168.0 - (N - 1 - l + 0.5) * 3.5)) < 1e-3 && Math.Abs(x - (-7168.0 + (k + 0.5) * 3.5)) < 1e-3, "Heightmap",
                             "texel center is not the header contract's x = -7168 + (col + 0.5) x 3.5, z = 7168 - (row + 0.5) x 3.5");
-                        var inputs = new AutoPlanInput { Snapshot = s, Region = region, Knobs = AutoPlanKnobs.Default(1u) };
-                        Check(new SkiRunAutoPlanner().Run(inputs).Status != AutoPlanStatus.BadInput, "Heightmap", "the planner refuses the loaded snapshot as BadInput");
                     }
                 }
             }

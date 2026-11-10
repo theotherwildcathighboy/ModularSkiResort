@@ -2,7 +2,8 @@
 // - the synthetic regions (V2Fixtures.Synthetic: Alpine1, Benched1, Steep1 full): the planner plans, the realizer realizes, and every
 //   ring passes the invariants (3 nodes, 2 m node spacing, GradeRibbon.Clear, inside the region, the band = a fresh rate), no overlap
 //   the game refuses, the relation gate, the same hash on a second run;
-// - the easiest descent copy against the v2 original on the Flow hand graph;
+// - the easiest descent on a hand graph with known answers, and against a reference linear-scan Dijkstra on random graphs (both
+//   moved from the deleted v2 FlowTests in port round R2-d);
 // - hand fixtures: hand-made plans on a plane, each with the expected pieces, junctions and links.
 // The real sets run in the rf-realize host mode (RealizerHost.cs): numbers only, no checks.
 
@@ -108,24 +109,142 @@ namespace AutoGenBatch
 
         // ---------------------------------------------------------------- the descent copy
 
+        private static PlanEdge E(int from, int to, byte kind, SlopeBand band, int run = -1) =>
+            new PlanEdge { From = from, To = to, Kind = kind, Band = band, Run = run };
+
         private static void RealizerDescent()
         {
+            RealizerDescentHandGraph();
+            RealizerDescentHeapEquality();
+        }
+
+        /// <summary>Nodes: 0 base pad, 1 lift top, 2/3 run A (black, short), 4/5 run B (blue), 6/7 run C (green, joined from B's bottom),
+        /// 8 lift bottom, 9/10 run D (blue, longer than B), 11 an island. The easiest descent from 1 is B then C (hardest band Blue), not A
+        /// (Black, shorter) and not D (Blue, longer). The descent never rides the lift edge 1 -> 0 down.</summary>
+        private static void RealizerDescentHandGraph()
+        {
             const string w = "Realizer descent";
-            var g = new[]
+            const byte Run = RunsFirstRealizer.EdgeRun, Lift = RunsFirstRealizer.EdgeLift, Link = RunsFirstRealizer.EdgeLink, Cat = RunsFirstRealizer.EdgeCatTrack;
+            var g = new List<PlanEdge>
             {
-                E(1, 2, 3, SlopeBand.Flat), E(2, 3, 0, SlopeBand.Black, 0), E(3, 0, 3, SlopeBand.Flat), E(1, 4, 3, SlopeBand.Flat), E(4, 5, 0, SlopeBand.Blue, 1),
-                E(5, 7, 3, SlopeBand.Green, 2), E(6, 7, 0, SlopeBand.Green, 2), E(7, 0, 3, SlopeBand.Flat), E(1, 9, 3, SlopeBand.Flat), E(9, 10, 0, SlopeBand.Blue, 3),
-                E(10, 0, 3, SlopeBand.Flat), E(1, 0, 1, SlopeBand.Flat), E(0, 8, 3, SlopeBand.Flat), E(8, 1, 1, SlopeBand.Flat),
+                E(1, 2, Link, SlopeBand.Flat), E(2, 3, Run, SlopeBand.Black, 0), E(3, 0, Link, SlopeBand.Flat),
+                E(1, 4, Link, SlopeBand.Flat), E(4, 5, Run, SlopeBand.Blue, 1), E(5, 7, Link, SlopeBand.Green, 2),
+                E(6, 7, Run, SlopeBand.Green, 2), E(7, 0, Link, SlopeBand.Flat),
+                E(1, 9, Link, SlopeBand.Flat), E(9, 10, Run, SlopeBand.Blue, 3), E(10, 0, Link, SlopeBand.Flat),
+                E(1, 0, Lift, SlopeBand.Flat), E(0, 8, Link, SlopeBand.Flat), E(8, 1, Lift, SlopeBand.Flat),
             };
             double[] m = { 10, 300, 10, 10, 600, 200, 400, 10, 10, 1200, 10, 1, 10, 900 };
             var target = new bool[12];
             target[0] = true;
-            int band = RunsFirstRealizer.EasiestDescent(12, g, m, 1, target, 1, out int run);
-            int want = SkiRunAutoPlanner.EasiestDescent(12, g, m, 1, target, 1, out int wantRun);
-            Check(band == (int)SlopeBand.Blue && run == 1 && band == want && run == wantRun, w, $"band {band} run {run}, v2 {want} run {wantRun} (want Blue via run 1)");
-            var lone = new[] { E(1, 0, 1, SlopeBand.Flat), E(1, 11, 0, SlopeBand.Green, 0) };
+            int band = RunsFirstRealizer.EasiestDescent(12, g.ToArray(), m, 1, target, 1, out int run);
+            Check(band == (int)SlopeBand.Blue && run == 1, w, $"easiest descent band {band}, first run {run} (want Blue via run 1)");
+
+            // the black run made green: now A is easiest (Green, shortest)
+            g[1] = E(2, 3, Run, SlopeBand.Green, 0);
+            band = RunsFirstRealizer.EasiestDescent(12, g.ToArray(), m, 1, target, 1, out run);
+            Check(band == (int)SlopeBand.Green && run == 0, w, $"after the regrade: band {band}, first run {run} (want Green via run 0)");
+
+            // ties by length: B blocked, D is the only blue
+            g[1] = E(2, 3, Run, SlopeBand.Black, 0);
+            g[5] = E(5, 11, Link, SlopeBand.Green, 2);
+            band = RunsFirstRealizer.EasiestDescent(12, g.ToArray(), m, 1, target, 1, out run);
+            Check(band == (int)SlopeBand.Blue && run == 3, w, $"B dead-ended: band {band}, first run {run} (want Blue via run 3)");
+
+            // no path at all (only the lift edge reaches the pad)
+            var lone = new[] { E(1, 0, Lift, SlopeBand.Flat), E(1, 11, Run, SlopeBand.Green, 0) };
             band = RunsFirstRealizer.EasiestDescent(12, lone, new double[] { 1, 1 }, 1, target, 1, out run);
-            Check(band == -1 && run == -1, w, $"no way home: band {band}, run {run}");
+            Check(band == -1 && run == -1, w, $"no way home: band {band}, run {run} (want -1, -1)");
+
+            // the search skips a link from the top onto a pad (getting off on the top pad is no way home). It does not skip a cat track
+            var hop = new[] { E(1, 0, Link, SlopeBand.Flat) };
+            band = RunsFirstRealizer.EasiestDescent(12, hop, new double[] { 1 }, 1, target, 1, out run);
+            Check(band == -1, w, $"top pad hop counted as a way home (band {band})");
+            var cat = new[] { E(1, 0, Cat, SlopeBand.Green) };
+            band = RunsFirstRealizer.EasiestDescent(12, cat, new double[] { 1 }, 1, target, 1, out run);
+            Check(band == (int)SlopeBand.Green && run == -1, w, $"cat track from the top: band {band} (want Green)");
+        }
+
+        /// <summary>The heap Dijkstra settles in the linear scan's order: same band and first run as a reference O(V^2) scan (ties by
+        /// node index) on random graphs with many equal lengths, every source, two target sets.</summary>
+        private static void RealizerDescentHeapEquality()
+        {
+            const string w = "Realizer descent heap";
+            var rng = new System.Random(451);
+            int bad = 0, cases = 0;
+            for (int t = 0; t < 40; t++)
+            {
+                int n = 6 + rng.Next(40), m = n + rng.Next(4 * n);
+                var g = new PlanEdge[m];
+                var meters = new double[m];
+                for (int e = 0; e < m; e++)
+                {
+                    g[e] = E(rng.Next(n), rng.Next(n), (byte)rng.Next(4), (SlopeBand)rng.Next(5), rng.Next(3) == 0 ? -1 : rng.Next(50));
+                    meters[e] = 10 * rng.Next(1, 5);   // coarse lengths: many ties
+                }
+                var target = new bool[n];
+                for (int v = 0; v < n; v++)
+                    target[v] = rng.Next(5) == 0;
+                for (int src = 0; src < n; src++)
+                {
+                    cases++;
+                    int a = RunsFirstRealizer.EasiestDescent(n, g, meters, src, target, 3, out int ra);
+                    int b = ReferenceDescent(n, g, meters, src, target, 3, out int rb);
+                    if ((a != b || ra != rb) && bad++ == 0)
+                        Check(false, w, $"graph {t} src {src}: heap band {a} run {ra}, reference band {b} run {rb}");
+                }
+            }
+            Check(bad == 0, w, $"{bad} of {cases} descents differ from the reference");
+        }
+
+        /// <summary>The linear-scan Dijkstra of the first version (v2 task A6), kept verbatim as the reference for the heap version.</summary>
+        private static int ReferenceDescent(int nodes, PlanEdge[] g, double[] meters, int src, bool[] target, int srcPadLimit, out int firstRun)
+        {
+            firstRun = -1;
+            var band = new int[nodes];
+            var len = new double[nodes];
+            var pred = new int[nodes];
+            var done = new bool[nodes];
+            for (int v = 0; v < nodes; v++)
+            {
+                band[v] = int.MaxValue;
+                len[v] = double.PositiveInfinity;
+                pred[v] = -1;
+            }
+            band[src] = 0;
+            len[src] = 0.0;
+            while (true)
+            {
+                int u = -1;
+                for (int v = 0; v < nodes; v++)
+                    if (!done[v] && band[v] != int.MaxValue && (u < 0 || band[v] < band[u] || (band[v] == band[u] && len[v] < len[u])))
+                        u = v;
+                if (u < 0)
+                    return -1;
+                done[u] = true;
+                if (u != src && target[u])
+                {
+                    for (int v = u; pred[v] >= 0; v = g[pred[v]].From)
+                        if (g[pred[v]].Run >= 0)
+                            firstRun = g[pred[v]].Run;
+                    return band[u];
+                }
+                for (int e = 0; e < g.Length; e++)
+                {
+                    if (g[e].From != u || g[e].Kind == RunsFirstRealizer.EdgeLift)
+                        continue;
+                    int x = g[e].To;
+                    if (done[x] || (u == src && x < srcPadLimit && g[e].Kind == RunsFirstRealizer.EdgeLink))
+                        continue;
+                    int b = Math.Max(band[u], (int)g[e].Band);
+                    double d = len[u] + meters[e];
+                    if (b < band[x] || (b == band[x] && d < len[x]))
+                    {
+                        band[x] = b;
+                        len[x] = d;
+                        pred[x] = e;
+                    }
+                }
+            }
         }
 
         // ---------------------------------------------------------------- hand fixtures

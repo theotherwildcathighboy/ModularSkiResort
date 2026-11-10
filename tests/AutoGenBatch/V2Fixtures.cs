@@ -1,6 +1,6 @@
-// V2 fixtures (A1): the region matrix of stage-a-gates 1 (synthetic fixtures in git, real heightmaps from the fixture folder outside git).
-// The file also checks the fixtures themselves: field-test 3 regions transcribed from the log, Steep / Benched shape, and the refusal
-// ladder in Resort mode = V1-4. A missing real fixture = one SKIP line, never a FAIL.
+// V2 fixtures (A1): the region set of stage-a-gates 1 (synthetic fixtures in git, real heightmaps from the fixture folder outside git).
+// The runs-first golden, the realizer suite and the rf modes plan on them. The file also checks the fixtures themselves: field-test 3
+// regions transcribed from the log, the Steep / Benched shape. A missing real fixture = one SKIP line, never a FAIL.
 
 using System;
 using System.Collections.Generic;
@@ -112,7 +112,7 @@ namespace AutoGenBatch
         {
             return new V2Case
             {
-                Id = id, Fixture = fixture, Kind = FixtureKind.Synthetic, Region = region, AreaKm2 = (float)(SkiRunAutoPlanner.PolygonArea(region) / 1.0e6),
+                Id = id, Fixture = fixture, Kind = FixtureKind.Synthetic, Region = region, AreaKm2 = (float)(PlanGeometry.PolygonArea(region) / 1.0e6),
                 Steeper = steeper, ExpectBench = bench, Determinism = det, Snap = () => Terrain.Snapshot(f, region),
             };
         }
@@ -144,7 +144,7 @@ namespace AutoGenBatch
         {
             return new V2Case
             {
-                Id = id, Fixture = sp.Name, Kind = sp.Kind, Region = region, AreaKm2 = (float)(SkiRunAutoPlanner.PolygonArea(region) / 1.0e6),
+                Id = id, Fixture = sp.Name, Kind = sp.Kind, Region = region, AreaKm2 = (float)(PlanGeometry.PolygonArea(region) / 1.0e6),
                 Steeper = steeper, ExpectBench = false, Determinism = false, Snap = () => Heightmap.Snapshot(file, region),
             };
         }
@@ -285,7 +285,7 @@ namespace AutoGenBatch
             // The four field-test 3 regions, transcribed from the log: the polygon areas must equal the logged ones (a mistyped corner shows here)
             for (int i = 0; i < V2Fixtures.FieldRegions.Length; i++)
             {
-                double ha = SkiRunAutoPlanner.PolygonArea(V2Fixtures.FieldRegions[i]) / 1.0e4;
+                double ha = PlanGeometry.PolygonArea(V2Fixtures.FieldRegions[i]) / 1.0e4;
                 Check(Math.Abs(ha - V2Fixtures.FieldAreaHa[i]) <= 0.003 * V2Fixtures.FieldAreaHa[i] + 0.2, "V2Fixtures field regions",
                     $"region {i + 1} polygon {ha:F1} ha vs logged {V2Fixtures.FieldAreaHa[i]} ha");
             }
@@ -296,7 +296,7 @@ namespace AutoGenBatch
             foreach (float km2 in new[] { 1f, 4f, 9f })
             {
                 float2[] sq = V2Fixtures.Sq(7000f, -7000f, km2);
-                double a = SkiRunAutoPlanner.PolygonArea(sq) / 1.0e6;
+                double a = PlanGeometry.PolygonArea(sq) / 1.0e6;
                 bool inside = true;
                 foreach (float2 p in sq)
                     inside &= Math.Abs(p.x) <= V2Fixtures.MapHalfM - 59f && Math.Abs(p.y) <= V2Fixtures.MapHalfM - 59f;
@@ -338,47 +338,6 @@ namespace AutoGenBatch
                 Check(st.VerticalM > 600f, "V2Fixtures Benched1", $"vertical {st.VerticalM:F0} m (the stacking gates need over 600 m)");
             }
 
-            // V1-4 in Resort mode: the refusal ladder keeps its statuses (the Ladder suite's fixtures, Mode = Resort)
-            float2[] sqr = Terrain.Square(0f, 0f, 450f);
-            var cover = new List<AutoObstacle> { new AutoObstacle { Kind = AutoObstacleKind.Surface, Ring = Terrain.Rect(-460f, -460f, 460f, 300f) } };
-            var tiles = new List<AutoObstacle> { new AutoObstacle { Kind = AutoObstacleKind.Unowned, Ring = Terrain.Rect(-460f, -460f, 300f, 460f) } };
-            HeightFn cliff = (x, z) => z < -30 ? 1220.0 : z > 30 ? 1100.0 : 1160.0 - 2.0 * z;
-            AutoPlanInput small = Input(Terrain.Plane(0.3), Terrain.Square(0f, 0f, 400f));
-            small.Region = Terrain.Square(0f, 0f, 86f);
-            AutoPlanInput nan = Input(Terrain.Plane(0.3), sqr);
-            nan.Region = new[] { new float2(0, 0), new float2(float.NaN, 0), new float2(10, 10) };
-            AutoPlanInput hostCap = Input(Terrain.Plane(0.3), Terrain.Square(0f, 0f, 550f));
-            hostCap.MaxAreaM2 = 1.0e6f;
-            AutoPlanInput stale = Input(Terrain.Plane(0.3), sqr);
-            stale.Region = Terrain.Square(800f, 0f, 450f);
-            var cases = new (string, AutoPlanInput, AutoPlanStatus)[]
-            {
-                ("ladder null", new AutoPlanInput(), AutoPlanStatus.BadInput),
-                ("ladder NaN region", nan, AutoPlanStatus.BadInput),
-                ("ladder 3 ha", small, AutoPlanStatus.TooSmall),
-                ("ladder 1.21 km2 (9 km2 cap)", Input(Terrain.Plane(0.3), Terrain.Square(0f, 0f, 550f)), AutoPlanStatus.Ok),
-                ("ladder 1.21 km2 (1 km2 host cap)", hostCap, AutoPlanStatus.TooLarge),
-                ("ladder 9.3 km2", Input(Terrain.Plane(0.3), Terrain.Rect(-1550f, -1500f, 1550f, 1500f)), AutoPlanStatus.TooLarge),
-                ("ladder snapshot elsewhere", stale, AutoPlanStatus.BadInput),
-                ("ladder flat", Input((x, z) => 900.0, sqr), AutoPlanStatus.NoVertical),
-                ("ladder 4 % (64 m)", Input(Terrain.Plane(0.04), Terrain.Rect(-300f, -800f, 300f, 800f)), AutoPlanStatus.TooFlat),
-                ("ladder cliff band", Input(cliff, sqr), AutoPlanStatus.AllCliff),
-                ("ladder all cliff", Input(Terrain.Plane(1.4), sqr), AutoPlanStatus.AllCliff),
-                ("ladder 82 % painted surface", Input(Terrain.Plane(0.3), sqr, cover), AutoPlanStatus.Blocked),
-                ("ladder unowned tiles", Input(Terrain.Plane(0.3), sqr, tiles), AutoPlanStatus.Blocked),
-                ("ladder off the map", Input(Terrain.Plane(0.3), Terrain.Rect(7050f, -400f, 7650f, 400f)), AutoPlanStatus.Blocked),
-                ("ladder order flat + covered", Input((x, z) => 900.0, sqr, cover), AutoPlanStatus.Blocked),
-            };
-            foreach (var (name, input, want) in cases)
-            {
-                AutoPlanResult runs = new SkiRunAutoPlanner().Run(input);
-                input.Mode = AutoPlanMode.Resort;
-                AutoPlanResult res = new SkiRunAutoPlanner().Run(input);
-                Check(res.Status == want, "V1-4 " + name, $"Resort status {res.Status}, want {want}");
-                Check(res.Status == runs.Status, "V1-4 " + name, $"Resort status {res.Status} differs from Runs {runs.Status}");
-                if (res.Status == AutoPlanStatus.Ok)
-                    Invariants("V1-3 " + name, input, res);
-            }
             Console.WriteLine($"INFO  V2Fixtures: {swFix.ElapsedMilliseconds} ms");
         }
 

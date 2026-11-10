@@ -1,5 +1,5 @@
 // Quick runs tool: the Resort Planner's hub-side state (stage A, task A7, stage-a-spec.md 6.1-6.3). It has these parts:
-//   * The per-pod and per-lift toggles (keyed by the plan's stable pod / lift keys, so they survive a Reselect).
+//   * The per-pod and per-lift toggles (keyed by the plan's stable pod / lift keys, so they survive a new realize of the same plan).
 //   * The pod rows the hub shows.
 //   * The hover pick of a pod ring or a lift chord (tooltip lines).
 //   * The click pick that toggles them.

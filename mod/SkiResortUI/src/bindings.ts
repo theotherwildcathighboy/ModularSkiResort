@@ -508,7 +508,7 @@ export interface QuickRunsState {
   /** The census knows a lift station: a click on one plans runs around it (the Region step's hint is true only then). */
   canPlanAround: boolean;
   areaM2: number;
-  /** The area cap (9 km2, SkiRunAutoPlanner.V1MaxAreaM2). */
+  /** The area cap (9 km2, PlanGeometry.V1MaxAreaM2). */
   maxAreaM2: number;
   /** Top to bottom of the region. */
   verticalM: number;
