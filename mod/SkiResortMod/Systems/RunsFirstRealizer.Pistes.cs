@@ -52,6 +52,7 @@ namespace SkiResortMod.Systems
             public AutoReject Why = AutoReject.Kept;
             public int Blocker = -1;                       // the accepted area an Overlap came from
             public float2[] Ring, Line;
+            public float[] Hl, Hr;                         // the half widths per Line sample that made Ring
             public float3[] Nodes;
             public int LeftCount;                          // ring[0 .. LeftCount - 1] is the left edge (start to end)
             public bool Fallback;                          // rated by the P90 fallback (a mask that is not connected)
@@ -575,6 +576,250 @@ namespace SkiResortMod.Systems
             return AutoReject.Kept;
         }
 
+        // ---------------------------------------------------------------- iteration 3, item 2: piste ends reach a related track
+
+        /// <summary>After the track pass: every planner relation of a kept piste end that is not a game link (the relation gate's set, the
+        /// way through the cutting area included) gets one straight extension of that end toward the nearest realized centerline of the
+        /// element, in SampleM steps, at most ExtendMaxM, until the end is within TrackReachM of its outline. The kept half widths stay,
+        /// the extension is MinHalfWidthM each side. The extended ring goes through the exact check and the rater again. A blocked cell,
+        /// the region and the gap of another piste stop it. A track never stops a piste.</summary>
+        private void ReachPisteEnds()
+        {
+            for (int i = 0; i < m_P.Count; i++)
+            {
+                Area x = m_P[i];
+                if (x.Ctx == null || x.Hl == null || x.Line.Length < 2)
+                    continue;
+                for (int s = 0; s < 2; s++)
+                {
+                    Area y = MissedRelation(x, s, out bool junction);
+                    if (y == null || !ReachPiste(i, x, s == 0, y))
+                        continue;
+                    m_Rep.PisteReaches++;
+                    int unl = s == 0 ? x.Unlinked0 : x.Unlinked1;
+                    if (junction && unl != 0)
+                    {
+                        m_Rep.UnlinkedEnds--;
+                        if (unl == 2)
+                            m_Rep.UnlinkedBlocked--;
+                        if (s == 0)
+                            x.Unlinked0 = 0;
+                        else
+                            x.Unlinked1 = 0;
+                    }
+                }
+            }
+        }
+
+        private Area AreaOf(Elem b, int k) => b.Type == ElemType.Track ? m_T[k] : m_P[k];
+
+        /// <summary>The nearest kept area of a related element (a junction partner at this end, or a planner contact at the source end
+        /// within RelationM + JunctionReachM) that is not a game link to x, not linked through the area that cut the end, and within
+        /// TrackReachM + ExtendMaxM of the end. Null when there is none.</summary>
+        private Area MissedRelation(Area x, int s, out bool junction)
+        {
+            junction = false;
+            Elem a = m_E[x.Elem];
+            List<int> js = s == 0 ? x.J0 : x.J1;
+            float2 end = s == 0 ? x.Line[0] : x.Line[x.Line.Length - 1];
+            var elems = new List<Elem>();
+            var fromJ = new List<Elem>();
+            foreach (int j in js)
+            {
+                Elem b = m_E[m_P[j].Elem];
+                if (b != a && !elems.Contains(b))
+                {
+                    elems.Add(b);
+                    fromJ.Add(b);
+                }
+            }
+            if (s == 0 ? x.Orig0 : x.Orig1)
+            {
+                float2 endPt = s == 0 ? a.Pts[0] : a.Pts[a.Pts.Count - 1];
+                foreach (Elem b in m_E)
+                {
+                    if (b == a || b.Areas.Count == 0 || elems.Contains(b) || !(s == 0 ? StartsOff(a, b) : EndsOnto(a, b)))
+                        continue;
+                    foreach (int k in b.Areas)
+                        if (!AreaOf(b, k).Existing && PlanGeometry.PointRingDistance(AreaOf(b, k).Ring, endPt) <= RelationM + JunctionReachM)
+                        {
+                            elems.Add(b);
+                            break;
+                        }
+                }
+            }
+            Area best = null;
+            float bestD = TrackReachM + ExtendMaxM;
+            foreach (Elem b in elems)
+            {
+                bool linked = false;
+                Area near = null;
+                float nd = float.PositiveInfinity;
+                foreach (int k in b.Areas)
+                {
+                    Area y = AreaOf(b, k);
+                    if (y.Existing)
+                        continue;
+                    if (LiftServedRule.OutlinesLinked(x.Ring, y.Ring))
+                    {
+                        linked = true;
+                        break;
+                    }
+                    float d = PlanGeometry.PointRingDistance(y.Ring, end);
+                    if (d < nd)
+                    {
+                        nd = d;
+                        near = y;
+                    }
+                }
+                if (linked || near == null || Via(x, js, b))
+                    continue;
+                if (nd <= bestD)
+                {
+                    bestD = nd;
+                    best = near;
+                    junction = fromJ.Contains(b);
+                }
+            }
+            return best;
+        }
+
+        private bool ReachPiste(int self, Area x, bool start, Area y)
+        {
+            PisteCtx ctx = x.Ctx;
+            float2[] line = x.Line;
+            int n = line.Length;
+            float2 end = start ? line[0] : line[n - 1], inner = start ? line[1] : line[n - 2];
+            float2 aim = y.Line[0];
+            float bd = float.PositiveInfinity;
+            for (int k = 0; k + 1 < y.Line.Length; k++)
+            {
+                float2 a = y.Line[k], d = y.Line[k + 1] - a;
+                float len2 = math.lengthsq(d);
+                float2 c = a + d * (len2 > 0f ? math.saturate(math.dot(end - a, d) / len2) : 0f);
+                float dd = math.distancesq(end, c);
+                if (dd < bd)
+                {
+                    bd = dd;
+                    aim = c;
+                }
+            }
+            float2 dir = math.normalizesafe(aim - end);
+            if (math.lengthsq(dir) < 0.5f || math.dot(dir, math.normalizesafe(end - inner)) < 0f)
+                return ReachMiss(x, start, y, "the target lies behind the end");
+            int yIdx = y.Track ? -1 : m_P.IndexOf(y);
+            var add = new List<float2>();
+            bool reached = false;
+            for (float t = SampleM; t <= ExtendMaxM + 0.01f; t += SampleM)
+            {
+                float2 q = end + dir * t;
+                if (!Cell(q, out int c))
+                    return ReachMiss(x, start, y, "the map edge");
+                byte f = m_Flags[c];
+                if ((f & (FBlockAll | FBlockPiste)) != 0 || ((f & FNearEdge) != 0 && !InRegion(q, EdgeBlockM)))
+                    return ReachMiss(x, start, y, $"a blocked cell after {t - SampleM:F0} m");
+                int N = m_OwnPiste[c];
+                if (N >= 0 && N != self && N != yIdx)
+                {
+                    float need = ctx.Partners.Contains(N) ? MergeGapM + MinHalfWidthM : PairGap(ctx.Gap, N);
+                    if (m_DPiste[c] < need)
+                        return ReachMiss(x, start, y, $"the gap of piste {m_E[m_P[N].Elem].Source} after {t - SampleM:F0} m");
+                }
+                add.Add(q);
+                if (Linked(q, y))
+                {
+                    reached = true;
+                    break;
+                }
+            }
+            if (!reached)
+                return ReachMiss(x, start, y, $"the {ExtendMaxM:F0} m cap");
+            int m = add.Count;
+            var xz = new List<float2>(n + m);
+            var hl = new float[n + m];
+            var hr = new float[n + m];
+            if (start)
+            {
+                for (int k = m - 1; k >= 0; k--)
+                    xz.Add(add[k]);
+                xz.AddRange(line);
+            }
+            else
+            {
+                xz.AddRange(line);
+                xz.AddRange(add);
+            }
+            int off = start ? m : 0;
+            for (int k = 0; k < n + m; k++)
+            {
+                int o = k - off;
+                bool ext = o < 0 || o >= n;
+                hl[k] = ext ? MinHalfWidthM : x.Hl[o];
+                hr[k] = ext ? MinHalfWidthM : x.Hr[o];
+            }
+            var b = new Built { Line = xz.ToArray(), Hl = hl, Hr = hr };
+            if (!MakeRing(xz, hl, hr, b))
+                return ReachMiss(x, start, y, "the extended ring crosses itself");
+            AutoReject why = CheckPiste(ctx, b.Ring, out int blocker, self);
+            // The extension converges on a piste it has no relation with: that piste becomes a partner (as item 1), one more check
+            if (why == AutoReject.Overlap && blocker >= 0 && blocker != yIdx && ctx.Partners.Add(blocker))
+            {
+                int first = blocker;
+                why = CheckPiste(ctx, b.Ring, out blocker, self);
+                if (why == AutoReject.Kept)
+                    m_Rep.ConvergeJunctions++;
+                else
+                    ctx.Partners.Remove(first);
+            }
+            if (why != AutoReject.Kept)
+                return ReachMiss(x, start, y, $"the extended ring failed ({why}{(blocker >= 0 ? " by piste " + m_E[m_P[blocker].Elem].Source : "")})");
+            if (!RateRing(b, x.Graded))
+                return ReachMiss(x, start, y, $"the extended ring is not rated ({m_RateWhy})");
+            Count(x, -1);
+            x.Ring = b.Ring;
+            x.Nodes = b.Nodes;
+            x.Line = b.Line;
+            x.Hl = hl;
+            x.Hr = hr;
+            x.LengthM = b.LengthM;
+            x.AreaM2 = (float)PlanGeometry.PolygonArea(b.Ring);
+            x.TopY = b.TopY;
+            x.BottomY = b.BottomY;
+            x.DropM = b.Drop;
+            x.RatingGrade = b.RatingGrade;
+            x.MeanGrade = b.MeanGrade;
+            x.SteepestGrade = b.Steepest;
+            x.Band = b.Band;
+            x.EndY = H(b.Line[b.Line.Length - 1]);
+            PlanGeometry.BBox(x.Ring, out x.Lo, out x.Hi);
+            Count(x, 1);
+            Elem e = m_E[x.Elem];
+            m_Rep.Lines.Add($"piste {e.Source} ({e.Kind}) segment {x.Segment}: {(start ? "start" : "end")} extended {m * SampleM:F0} m to reach {(y.Track ? "track" : "piste")} {m_E[y.Elem].Source}");
+            return true;
+        }
+
+        private bool ReachMiss(Area x, bool start, Area y, string why)
+        {
+            m_Rep.Lines.Add($"piste {m_E[x.Elem].Source} ({m_E[x.Elem].Kind}) segment {x.Segment}: {(start ? "start" : "end")} cannot reach {(y.Track ? "track" : "piste")} {m_E[y.Elem].Source}: {why}");
+            return false;
+        }
+
+        /// <summary>Adds (sign 1) or removes (sign -1) a kept piste area from the km and band counts of the report.</summary>
+        private void Count(Area a, int sign)
+        {
+            if (a.Graded)
+            {
+                m_Rep.GradedKmKept += sign * a.LengthM / 1000.0;
+                m_Rep.GradedShown[(int)a.Band] += sign;
+            }
+            else
+            {
+                m_Rep.PisteKmKept += sign * a.LengthM / 1000.0;
+                m_Rep.BandTable[(int)a.Planned, (int)a.Band] += sign;
+                m_Rep.BandKm[(int)a.Planned, (int)a.Band] += sign * a.LengthM / 1000.0;
+            }
+        }
+
         private void Unlinked(Elem e, Area a, bool start, string why, bool blocked)
         {
             m_Rep.UnlinkedEnds++;
@@ -691,13 +936,13 @@ namespace SkiResortMod.Systems
             for (int attempt = 0; attempt < 2; attempt++)
             {
                 March(ctx, xz, cap, j0, j1, attempt == 0 ? 1f : RetryShare, out float[] hl, out float[] hr);
-                b = new Built { Line = xz.ToArray() };
+                b = new Built { Line = xz.ToArray(), Hl = hl, Hr = hr };
                 if (!MakeRing(xz, hl, hr, b))
                 {
                     b.Why = AutoReject.Crosses;
                     continue;
                 }
-                b.Why = CheckPiste(ctx, b.Ring, out b.Blocker);
+                b.Why = CheckPiste(ctx, b.Ring, out b.Blocker, -1);
                 if (b.Why != AutoReject.Kept)
                     continue;
                 if (!RateRing(b, ctx.Graded))
@@ -714,10 +959,10 @@ namespace SkiResortMod.Systems
                 var hw = new float[xz.Count];
                 for (int i = 0; i < hw.Length; i++)
                     hw[i] = MinHalfWidthM;
-                var c = new Built { Line = xz.ToArray() };
+                var c = new Built { Line = xz.ToArray(), Hl = hw, Hr = (float[])hw.Clone() };
                 if (MakeRing(xz, hw, hw, c))
                 {
-                    c.Why = CheckPiste(ctx, c.Ring, out c.Blocker);
+                    c.Why = CheckPiste(ctx, c.Ring, out c.Blocker, -1);
                     if (c.Why == AutoReject.Kept && !RateRing(c, ctx.Graded))
                         c.Why = AutoReject.Unrated;
                     if (c.Why == AutoReject.Kept)
@@ -785,7 +1030,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>5.5, after v2's CheckRing: region, obstacles by the type rule (cat tracks never block a piste), and ExactGapShare of the
         /// gap from every accepted piste (of MergeGapM from each partner).</summary>
-        private AutoReject CheckPiste(PisteCtx ctx, float2[] ring, out int blocker)
+        private AutoReject CheckPiste(PisteCtx ctx, float2[] ring, out int blocker, int self)
         {
             blocker = -1;
             if (!RegionOk(ring))
@@ -795,6 +1040,8 @@ namespace SkiResortMod.Systems
             PlanGeometry.BBox(ring, out float2 lo, out float2 hi);
             for (int a = 0; a < m_P.Count; a++)
             {
+                if (a == self)
+                    continue;
                 Area acc = m_P[a];
                 float need = ctx.Partners.Contains(a) ? ExactGapShare * MergeGapM : ExactGapShare * PairGap(ctx.Gap, a);
                 if (math.any(acc.Hi < lo - need) || math.any(acc.Lo > hi + need))
@@ -851,7 +1098,7 @@ namespace SkiResortMod.Systems
                 Elem = e.Id, Segment = segment, Graded = ctx.Graded, Ring = b.Ring, Nodes = b.Nodes, Line = b.Line, GapM = ctx.Gap,
                 LengthM = b.LengthM, AreaM2 = (float)PlanGeometry.PolygonArea(b.Ring), TopY = b.TopY, BottomY = b.BottomY, DropM = b.Drop,
                 RatingGrade = b.RatingGrade, MeanGrade = b.MeanGrade, SteepestGrade = b.Steepest, Band = b.Band, Planned = e.Planned,
-                EndY = H(b.Line[b.Line.Length - 1]),
+                EndY = H(b.Line[b.Line.Length - 1]), Hl = b.Hl, Hr = b.Hr, Ctx = ctx,
             };
             PlanGeometry.BBox(a.Ring, out a.Lo, out a.Hi);
             int idx = m_P.Count;

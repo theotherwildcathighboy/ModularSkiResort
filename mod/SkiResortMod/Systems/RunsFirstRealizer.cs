@@ -36,6 +36,7 @@ namespace SkiResortMod.Systems
         public double TrackKmPlanned, TrackKmKept;
         // Junctions
         public int ConvergeJunctions;   // pistes met in a converging line's path and made its partners (iteration 3, item 1)
+        public int PisteReaches;    // piste ends extended after the track pass to reach a related track or piste (iteration 3, item 2)
         public int TrackReaches;    // track ends extended to reach a related piste or track (iteration 2, item 6)
         public int Relations, RelationLinks, RelationVia, RelationMisses, Extensions, UnlinkedEnds, UnlinkedBlocked;   // RelationVia: linked through the area that cut the end
         // Served and dead ends
@@ -133,6 +134,8 @@ namespace SkiResortMod.Systems
             public int Unlinked0, Unlinked1;   // 0 linked or no junction, 1 unlinked, 2 unlinked because a blocked cell stopped the extension
             public int Chain = -1;        // tracks: the chain element
             public float PitchShare;      // tracks: share of 30 m pitches over 25 % on the raw ground
+            public float[] Hl, Hr;        // pistes: the half widths per Line sample (iteration 3, item 2 extends an end with them)
+            public PisteCtx Ctx;          // pistes: the context the area was built in
         }
 
         // ---------------------------------------------------------------- state (one realizer per call)

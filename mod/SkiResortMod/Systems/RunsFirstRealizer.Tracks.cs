@@ -413,6 +413,7 @@ namespace SkiResortMod.Systems
                     return;
                 RealizeTrack(e);
             }
+            ReachPisteEnds();
             // A piste a new track crosses (informational, AutoRun.CrossesCatTrack)
             foreach (Area p in m_P)
                 foreach (Area t in m_T)
@@ -637,7 +638,7 @@ namespace SkiResortMod.Systems
                     }
                 }
                 if (near <= TrackReachM)
-                    return null;   // already a link to this element: nothing to reach
+                    continue;   // already a link to this element: nothing to reach for it (iteration 3: the other related elements still count)
                 if (near < best && near <= TrackReachM + ExtendMaxM)
                 {
                     best = near;
@@ -673,7 +674,13 @@ namespace SkiResortMod.Systems
                 if (cause == CTrack && tb.Type == ElemType.Track && tb.Areas.Contains(own))
                     break;   // inside the related track's gap: the butt joint is the link
                 if (cause != CFree)
-                    return add.Count > 0 && Linked(add[add.Count - 1], target) ? add : null;
+                {
+                    if (add.Count > 0 && Linked(add[add.Count - 1], target))
+                        return add;
+                    m_Rep.Lines.Add($"track {e.Source} ({e.Kind}): {(start ? "start" : "end")} cannot reach {(tb.Type == ElemType.Track ? "track" : "piste")} {tb.Source}: " +
+                        (cause == CTrack && own >= 0 ? $"the gap of track {m_E[m_T[own].Elem].Source}" : $"cause {cause}") + $" after {t - SampleM:F0} m");
+                    return null;
+                }
                 add.Add(q);
                 if (Linked(q, target))
                     return add;

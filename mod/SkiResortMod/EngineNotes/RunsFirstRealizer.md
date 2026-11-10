@@ -55,6 +55,11 @@ cell or the gap of another area stops it. Then the report marks the end as unlin
 Tracks butt against tracks. Tracks cross pistes. The planner can relate an original track end to a piste or a track. If that end
 is not a game link, it gets a straight extension toward that element. It can go into a piste. It stops at the link. A new piste crosses an existing cat track and gets the flag `CrossesCatTrack`.
 
+After the track pass, one more pass examines each relation of a kept piste end that is not a game link yet. The piste end gets a
+straight extension toward the related track or piste. The extension is at most 40 m and 7.5 m each side. The kept widths do not
+change. The extended ring gets the exact check and the rating again. If the extension comes near a piste with no relation, that
+piste becomes a partner.
+
 ## Determinism
 
 No clock and no random number has an effect on a decision. Every order is the list order, then the index. `RunsFirstRealizer.Hash`

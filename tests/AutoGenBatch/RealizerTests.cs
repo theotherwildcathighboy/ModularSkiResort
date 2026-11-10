@@ -72,7 +72,7 @@ namespace AutoGenBatch
                     Check(d >= 1.6f - 1e-3f && !inside, where, $"areas {i} and {j} ({a.Kind}, {b.Kind}) {d:F2} m apart{(inside ? ", a node inside the other" : "")}");
                 }
             // The relation gate: every planner relation between two kept areas is a game link (spec 10)
-            Check(rep.RelationMisses <= 1, where, $"{rep.RelationMisses} of {rep.Relations} planner relations are not game links: " +
+            Check(rep.RelationMisses == 0, where, $"{rep.RelationMisses} of {rep.Relations} planner relations are not game links: " +
                 string.Join("; ", rep.Lines.Where(s => s.StartsWith("relation not linked")).Take(4)));
         }
 
@@ -98,7 +98,7 @@ namespace AutoGenBatch
                 double kmP = rep.PisteKmPlanned + rep.GradedKmPlanned, kmK = rep.PisteKmKept + rep.GradedKmKept;
                 Console.WriteLine($"REPORT realizer {id}: {res.Runs.Count} areas, piste km {kmK:F2}/{kmP:F2}, track km {rep.TrackKmKept:F2}/{rep.TrackKmPlanned:F2}, " +
                     $"relations {rep.RelationLinks}/{rep.Relations}, unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, {rep.Ms:F0} ms, hash {a:x16}" +
-                    string.Concat(rep.Lines.Where(l => l.StartsWith("relation not linked")).Select(l => "\n  " + l)));
+                    string.Concat(rep.Lines.Where(l => l.StartsWith("relation not linked") || l.Contains("cannot reach")).Select(l => "\n  " + l)));
             }
         }
 
