@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 42;
+export const HUB_CONTRACT = 43;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -540,6 +540,8 @@ export interface QuickRunsState {
   status: string;
   /** Locale keys (QUICK_WARN[*]). */
   warnings: string[];
+  /** Enabled pistes with no Welcome Sign in range: the N of QUICK_WARN[NoSignSome] ("N of M runs", M = `enabled`). Contract 43. */
+  unbound: number;
   clusters: QuickRunsCluster[];
   /** Runs of the last build that Undo removes (with a refund). */
   batchRuns: number;
@@ -1171,7 +1173,7 @@ const EMPTY_MERGED: readonly MergedLodgeRow[] = [];
 const EMPTY_QUICK_RUNS: QuickRunsState = {
   available: false, active: false, reason: "", phase: "", corners: 0, canPlanAround: false, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
   progress: 0, density: 1, kinds: 3, runs: 0, enabled: 0, tracks: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
-  variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
+  variety: false, status: "", warnings: [], unbound: 0, clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
   treeLine: -1, groundMin: 0, groundMax: 0, group: 0, species: 0, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
   buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0, rejects: [0, 0, 0, 0, 0, 0, 0, 0],
   sitePercent: -1, siteTier: 0, pods: [], planLifts: [],

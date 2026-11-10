@@ -18,6 +18,7 @@
  * Contract 42: a Built row whose line has a tower over its sheave-train limit reads in the warning style with one fact line (tower, bend,
  * limit) and the tower's distance in its tooltip. A Proposed row and a lift row of the preview say how the line builds: with one tower over its
  * limit (flagged), or waiting for a hand fit in the lift tool.
+ * Contract 43: QUICK_WARN[NoSignSome] (some enabled pistes, not all, have no Welcome Sign in range) reads "N of M runs" (`unbound` of `enabled`).
  * Every knob is a button here, so nothing needs a hotkey.
  * It reads only the non-CORE quickRuns binding (ok panel only). Every action is quickRunsSet(key, value) and C# clamps it. Each Button sits
  * in its own Tip (one focusable child per Tooltip FocusBoundary, TreeControls.tsx).
@@ -58,6 +59,8 @@ const liftsAct = (action: QuickLiftsAction, key = 0): void => hubTriggers.quickL
 
 /* C# QuickRunsToolSystem.ClusterKey's pod keys (the rest is QUICK_CLUSTER). */
 const POD_BEGINNER = "SkiResort.Tooltip.QUICK_POD[Beginner]";
+/* The one warning with numbers (C# QuickToolWarning.NoSignSome): N = quickRuns.unbound of M = quickRuns.enabled. */
+const WARN_NO_SIGN_SOME = "SkiResort.Tooltip.QUICK_WARN[NoSignSome]";
 const POD_MID = "SkiResort.Tooltip.QUICK_POD[MidStation]";
 /* The reason a plan sheet row falls back to when C# sends none (the text is in SENT_KEYS). */
 const LIFT_WHY_GAME = "SkiResort.Tooltip.QUICK_LIFT_WHY[GAME]";
@@ -177,7 +180,9 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
       {q.phase === "Region" && q.regionState === "Over" && <div className={cx(styles.quickLine, styles.warnText)}>{t(HUB_LOC.quickRegionOver)}</div>}
       {q.status && <div className={cx(styles.quickLine, styles.warnText)}>{t(sentKeyEntry(q.status, HUB_LOC.quickUnavailable))}</div>}
       {q.notice && <div className={styles.quickLine}>{t(sentKeyEntry(q.notice, HUB_LOC.quickUnavailable))}</div>}
-      {q.warnings.filter((w) => w !== q.status).map((w) => <div key={w} className={cx(styles.quickLine, styles.warnText)}>{t(sentKeyEntry(w, HUB_LOC.quickUnavailable))}</div>)}
+      {q.warnings.filter((w) => w !== q.status).map((w) => <div key={w} className={cx(styles.quickLine, styles.warnText)}>{w === WARN_NO_SIGN_SOME
+        ? <LocText entry={HUB_FMT.quickNoSignSome} args={{ N: numArg(q.unbound, Unit.Integer), M: numArg(q.enabled, Unit.Integer) }} />
+        : t(sentKeyEntry(w, HUB_LOC.quickUnavailable))}</div>)}
       {q.pods.length === 0 && q.clusters.map((c, i) => (
         <div key={"c" + i} className={styles.quickLine}>
           {c.label === POD_BEGINNER ? <LocText entry={HUB_FMT.quickPodBeginner} args={{ N: numArg(c.runs, Unit.Integer) }} />
@@ -389,6 +394,10 @@ function LiftsTotalLine({ q }: { q: QuickRunsState }): JSX.Element | null {
 /* A row's state as a line, and whether it is a caution (a refusal, a lift waiting for the player, or a built line with a flagged tower). */
 function sheetState(r: QuickRunsSheetRow, t: Translate): { text: JSX.Element | string; warn: boolean } {
   const why = (): string => t(sentKeyEntry(r.reasonKey || LIFT_WHY_GAME, HUB_LOC.quickUnavailable));
+  /* Task 2c-l: the over-limit tower's numbers (a flagged or waiting row, before the build from the plan, after it from the queue) */
+  const towerArgs = () => ({
+    TOWER: numArg(r.overLimitTower, Unit.Integer), BEND: numArg(Math.round(r.overLimitBendDeg), Unit.Integer), CAP: numArg(Math.round(r.overLimitCapDeg), Unit.Integer),
+  });
   if (r.step === "building") return { text: t(HUB_LOC.quickLiftBuilding), warn: false };
   if (r.step === "queued") return { text: t(HUB_LOC.quickLiftQueued), warn: false };
   switch (r.state) {
@@ -402,14 +411,23 @@ function sheetState(r: QuickRunsSheetRow, t: Translate): { text: JSX.Element | s
         };
       return { text: t(HUB_LOC.quickLiftBuilt), warn: false };
     case "Refused": return { text: <LocText entry={HUB_FMT.quickLiftRefused} args={{ WHY: why() }} />, warn: true };
-    case "NeedsFitting": return { text: <LocText entry={HUB_FMT.quickLiftFitting} args={{ WHY: why() }} />, warn: true };
+    case "NeedsFitting":
+      if (r.overLimitTowers > 0 && r.reasonKey.endsWith("[PLAN_TRAIN]")) return { text: <LocText entry={HUB_FMT.quickLiftFittingAt} args={towerArgs()} />, warn: true };
+      return { text: <LocText entry={HUB_FMT.quickLiftFitting} args={{ WHY: why() }} />, warn: true };
     case "StationsPlaced":
       return r.reasonKey ? { text: <LocText entry={HUB_FMT.quickLiftPlacedWhy} args={{ WHY: why() }} />, warn: true }
         : { text: t(HUB_LOC.quickLiftPlaced), warn: false };
     default:
       /* Not built yet: say how the line will build when the plan says so. A lift switched off says only that */
-      if (r.on && r.flagged) return { text: t(HUB_LOC.quickLiftFlagged), warn: true };
-      if (r.on && r.waits) return { text: t(HUB_LOC.quickLiftWaits), warn: true };
+      /* Task 2c-l: the reason and numbers before the build, the sentence the row shows after it */
+      if (r.on && r.flagged)
+        return r.overLimitTowers > 0 ? { text: <LocText entry={HUB_FMT.quickLiftFlaggedAt} args={towerArgs()} />, warn: true }
+          : { text: t(HUB_LOC.quickLiftFlagged), warn: true };
+      if (r.on && r.waits) {
+        if (r.overLimitTowers > 0 && r.reasonKey.endsWith("[PLAN_TRAIN]")) return { text: <LocText entry={HUB_FMT.quickLiftFittingAt} args={towerArgs()} />, warn: true };
+        if (r.reasonKey) return { text: <LocText entry={HUB_FMT.quickLiftFitting} args={{ WHY: why() }} />, warn: true };
+        return { text: t(HUB_LOC.quickLiftWaits), warn: true };
+      }
       return { text: t(r.on ? HUB_LOC.quickLiftProposed : HUB_LOC.quickLiftOff), warn: false };
   }
 }

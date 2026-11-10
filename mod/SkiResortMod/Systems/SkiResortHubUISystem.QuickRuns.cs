@@ -242,6 +242,9 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < warn.Count; i++)
                 writer.Write(warn[i]);
             writer.ArrayEnd();
+            // Contract 43: the N of QUICK_WARN[NoSignSome] ("N of M runs", M = enabled)
+            writer.PropertyName("unbound");
+            writer.Write(preview ? t.UnboundPistes : 0);
             writer.PropertyName("clusters");
             AutoPlanResult r = t.Result;
             int clusters = preview ? r.Clusters.Count : 0;
@@ -457,6 +460,15 @@ namespace SkiResortMod.Systems
                 ResortPlanSheet.Row row = sheet.Rows[i];
                 string step = row.Key == inFlight && lb.QueueRunning ? "building" : IsPending(pending, row.Key) ? "queued" : "";
                 string group = ResortPlanSheet.ReasonGroup(row.ReasonKey);
+                // How the line builds, from the plan of the same key (the sheet does not hold it): false for both when the plan is gone
+                int planned = FindPlanLift(sheetPlan, row.Key);
+                // Task 2c-l: a row not built yet that will wait or build flagged says why before the build, as the waiting row says it
+                // after: the plan's reason key (PLAN_*, the queue's words) and its first over-limit tower
+                bool before = row.State == SheetLiftState.Proposed && planned >= 0 && sheetPlan.Lifts[planned].HandFit;
+                PlanLift pl = before ? sheetPlan.Lifts[planned] : default;
+                if (before && group.Length == 0 && !pl.BuildsFlagged)
+                    group = ResortPlanSheet.ReasonGroup(pl.PlanWhy);
+                bool planOver = before && row.OverLimitTowers == 0 && pl.OverLimitTower > 0;
                 writer.TypeBegin("SkiResortMod.QuickRunsSheetRow");
                 writer.PropertyName("key");
                 writer.Write(unchecked((int)row.Key));
@@ -478,24 +490,23 @@ namespace SkiResortMod.Systems
                 writer.Write(step);
                 writer.PropertyName("reasonKey");
                 writer.Write(group.Length == 0 ? "" : LiftWhyPrefix + group + "]");
-                // How the line builds, from the plan of the same key (the sheet does not hold it): false for both when the plan is gone
-                int planned = FindPlanLift(sheetPlan, row.Key);
                 writer.PropertyName("flagged");
                 writer.Write(planned >= 0 && sheetPlan.Lifts[planned].BuildsFlagged);
                 writer.PropertyName("waits");
                 writer.Write(planned >= 0 && sheetPlan.Lifts[planned].HandFit && !sheetPlan.Lifts[planned].BuildsFlagged);
                 // A built line with a tower over its sheave-train limit (task R2-l): the count, the first tower counted from the base,
                 // its distance along the line, its bend and its train's limit. Zeros and -1 with none
+                // A row not built yet carries the plan's tower (task 2c-l): the state tells the two apart
                 writer.PropertyName("overLimitTowers");
-                writer.Write(row.OverLimitTowers);
+                writer.Write(planOver ? pl.OverLimitTowers : row.OverLimitTowers);
                 writer.PropertyName("overLimitTower");
-                writer.Write(row.OverLimitTower);
+                writer.Write(planOver ? pl.OverLimitTower : row.OverLimitTower);
                 writer.PropertyName("overLimitAlongM");
-                writer.Write(Finite(row.OverLimitAlongM));
+                writer.Write(Finite(planOver ? pl.OverLimitAlongM : row.OverLimitAlongM));
                 writer.PropertyName("overLimitBendDeg");
-                writer.Write(Finite(row.OverLimitBendDeg));
+                writer.Write(Finite(planOver ? pl.OverLimitBendDeg : row.OverLimitBendDeg));
                 writer.PropertyName("overLimitCapDeg");
-                writer.Write(Finite(row.OverLimitCapDeg));
+                writer.Write(Finite(planOver ? pl.OverLimitCapDeg : row.OverLimitCapDeg));
                 writer.TypeEnd();
             }
             writer.ArrayEnd();

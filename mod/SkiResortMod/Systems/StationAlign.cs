@@ -346,6 +346,10 @@ namespace SkiResortMod.Systems
         /// r1c pass). The origin height splits the error between the uphill and the downhill side.</summary>
         public enum StationHeightRule : byte { VanillaFront, LowestOfThree, Fit }
 
+        /// <summary>The rule the build queue places its stations with (ResortLiftBuildSystem.DefaultStationHeight). The planner's and
+        /// the realizer's tower checks plan with it (LiftLineInput.PlanQueueLine).</summary>
+        public const StationHeightRule QueueHeightRule = StationHeightRule.Fit;
+
         /// <summary>What a station prefab does with the terrain under its lot. Pad: the lot cuts or levels the ground (the fill window or
         /// the cut window is open). Slope: DontRaise and DontLower together, both windows are empty and the terrain does not change
         /// (BuildingUtils.cs:610-617). The placer reads it from the prefab's BuildingTerraformData (TerrainKindOf).</summary>
@@ -378,6 +382,87 @@ namespace SkiResortMod.Systems
         }
 
         private static bool Finite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
+
+        /// <summary>One station as the build queue places it (PlaceStation): the three terrain heights the placer reads, the station's
+        /// y, the stub tip, the stub node's y once the lot has cut its pad, and the rope the line tool reads there.</summary>
+        public struct QueueStation
+        {
+            public StationTerrainKind Kind;
+            public float FrontGround, OriginGround, LineSideGround;
+            /// <summary>The station's y (StationY under the rule).</summary>
+            public float StationY;
+            /// <summary>The stub tip (y = NodeY).</summary>
+            public float3 Tip;
+            /// <summary>The ground under the stub tip after the placement: a pad station cuts it down to StationY, a slope station leaves
+            /// the terrain.</summary>
+            public float NodeY;
+            /// <summary>The station's own rope anchor: StationY + RopeAnchorLocalY (NaN when the row has no anchor).</summary>
+            public float RopeY;
+        }
+
+        /// <summary>The station kind of a catalog row: Slope when the row keeps the slope (no pad, StationDef.PadBackLocalZ NaN: the FG
+        /// top and the tram top), else Pad. In game the placer reads the prefab's BuildingTerraformData (TerrainKindOf); the two agree on
+        /// every catalog row (field r2g round 2: FG tops slope, every other station pad).</summary>
+        public static StationTerrainKind CatalogKindOf(StationDef station) =>
+            station != null && !Finite(station.PadBackLocalZ) ? StationTerrainKind.Slope : StationTerrainKind.Pad;
+
+        /// <summary>THE station height rule of the build queue, one pure function for the placer in game (StationPlaceToolSystem.ResolveY)
+        /// and for the planner's and the realizer's tower checks (LiftLineInput.PlanQueueLine). The station stands at
+        /// <paramref name="origin"/> (xz) with <paramref name="rotation"/>. <paramref name="ground"/> gives the terrain at a world point
+        /// (NaN = unknown). It samples the lot front (local z +lotDepthM, BuildingUtils.CalculateFrontPosition), the origin and the line
+        /// side (local z -lotDepthM), and takes StationY. The y falls back to the vanilla y, then to the origin. The stub tip is
+        /// StubTip(origin, rotation, stubTipLocalZ, stubTipLocalX); a pad station cuts the ground there down to its plane and never fills
+        /// (DECISIONS 625, 626), a slope station leaves it. The line tool reads the station's own rope lane anchor: StationY +
+        /// ropeAnchorLocalY (field r2g round 2: every queue line's end rope = station y + anchor, to 0.01 m).</summary>
+        public static QueueStation PlaceStation(StationHeightRule rule, StationTerrainKind kind, float3 origin, quaternion rotation, float lotDepthM,
+                                                float stubTipLocalZ, float stubTipLocalX, float ropeAnchorLocalY, float placementOffsetY,
+                                                Func<float3, float> ground)
+        {
+            var s = new QueueStation { Kind = kind };
+            float3 o = new float3(origin.x, 0f, origin.z);
+            s.OriginGround = ground(o);
+            s.FrontGround = s.LineSideGround = s.OriginGround;
+            if (Finite(lotDepthM))
+            {
+                s.FrontGround = ground(o + math.mul(rotation, new float3(0f, 0f, lotDepthM)));
+                s.LineSideGround = ground(o + math.mul(rotation, new float3(0f, 0f, -lotDepthM)));
+            }
+            float offset = Finite(placementOffsetY) ? placementOffsetY : 0f;
+            float y = StationY(rule, kind, s.FrontGround, s.OriginGround, s.LineSideGround, offset);
+            if (!Finite(y))
+            {
+                float vanilla = StationY(StationHeightRule.VanillaFront, kind, s.FrontGround, s.OriginGround, s.LineSideGround, offset);
+                y = Finite(vanilla) ? vanilla : s.OriginGround + offset;
+            }
+            s.StationY = y;
+            float3 tip = StubTip(o, rotation, stubTipLocalZ, stubTipLocalX);
+            float g = ground(new float3(tip.x, 0f, tip.z));
+            s.NodeY = !Finite(g) ? y : kind == StationTerrainKind.Pad && Finite(y) ? math.min(g, y) : g;
+            s.Tip = new float3(tip.x, s.NodeY, tip.z);
+            s.RopeY = Finite(ropeAnchorLocalY) && Finite(y) ? y + ropeAnchorLocalY : float.NaN;
+            return s;
+        }
+
+        /// <summary>PlaceStation with a catalog row (its lot front FrontLocalZ, stub tip, anchor and kind), placement offset 0 (every lift
+        /// station prefab, field r2g round 2).</summary>
+        public static QueueStation PlaceStation(StationHeightRule rule, StationDef station, float3 origin, quaternion rotation,
+                                                Func<float3, float> ground) =>
+            PlaceStation(rule, CatalogKindOf(station), origin, rotation, station.FrontLocalZ, station.StubTipLocalZ, station.StubTipLocalX,
+                station.RopeAnchorLocalY, 0f, ground);
+
+        /// <summary>A planned lift as the queue builds it: PoseLift for the two stations, then PlaceStation at each. False (and default
+        /// stations) when the pose is invalid or a row is missing.</summary>
+        public static bool QueueLift(float2 bottomXz, float2 topXz, StationDef baseStation, StationDef topStation, StationHeightRule rule,
+                                     Func<float3, float> ground, out QueueStation bottom, out QueueStation top)
+        {
+            bottom = top = default;
+            LiftPose pose = PoseLift(bottomXz, topXz, baseStation, topStation);
+            if (!pose.Valid)
+                return false;
+            bottom = PlaceStation(rule, baseStation, pose.BasePosition, pose.BaseRotation, ground);
+            top = PlaceStation(rule, topStation, pose.TopPosition, pose.TopRotation, ground);
+            return true;
+        }
 
         public static Result Measure(float3 partnerTip, float2 partnerAxis, float3 subjectTip, float2 subjectAxis)
         {

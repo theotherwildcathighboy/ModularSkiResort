@@ -63,7 +63,11 @@ namespace SkiResortMod.Systems
             public float2 TopXZ;          // the top station's HV stub tip xz. NaN when the top is not in the last build
 
             public bool Serves =>
-                Complete && ChordCount > 0 && !float.IsNaN(TopY) && IsPowered(Power);
+                Built && IsPowered(Power);
+
+            /// <summary>Serves without the power factor: complete, with chords and a known top (the hub's runs-in-reach count).</summary>
+            public bool Built =>
+                Complete && ChordCount > 0 && !float.IsNaN(TopY);
 
             /// <summary>The radius the rule uses: RadiusM when &gt; 0, else the fixed-grip ServeRadiusM.</summary>
             public float EffectiveRadiusM => RadiusM > 0f ? RadiusM : ServeRadiusM;
@@ -250,10 +254,17 @@ namespace SkiResortMod.Systems
         /// <paramref name="distanceM"/> is the xz distance to its nearest chord (+inf when false).</summary>
         public static bool Reaches(float3 runTop, in Lift lift, List<Chord> chords, out float distanceM)
         {
+            return Reaches(runTop, in lift, chords, false, out distanceM);
+        }
+
+        /// <summary>Reaches with the power factor optional. ignorePower = true asks only "is this run within the lift's reach" (Built
+        /// instead of Serves). Geometry and the top margin are the same.</summary>
+        public static bool Reaches(float3 runTop, in Lift lift, List<Chord> chords, bool ignorePower, out float distanceM)
+        {
             distanceM = float.PositiveInfinity;
             // The row's own margin and radius (the fixed-grip consts only for a struct-default Lift)
             float radius = lift.EffectiveRadiusM;
-            if (!lift.Serves || !math.all(math.isfinite(runTop)) || runTop.y > lift.TopY + lift.EffectiveTopMarginM)
+            if (!(ignorePower ? lift.Built : lift.Serves) || !math.all(math.isfinite(runTop)) || runTop.y > lift.TopY + lift.EffectiveTopMarginM)
                 return false;
             float2 p = runTop.xz;
             if (lift.Rule == (byte)ServeRuleKind.TerminalsOnly)
@@ -367,6 +378,26 @@ namespace SkiResortMod.Systems
                 }
                 servingLift.Add(best);
                 servingDistanceM.Add(bestD);
+            }
+        }
+
+        /// <summary>For every lift: how many run tops lie within its reach, power ignored (Reaches with ignorePower). It is Assign's
+        /// servedCount for a lift that has power, and the same count for a lift without power or with power pending. The hub's lift row
+        /// shows it (SkiResortStatsSystem, LiftStats.RunsServed), so an unpowered lift reads its runs, not "no runs". Service, scoring and
+        /// capacity keep the power-gated Assign. Linked runs do not add (as in Assign). The output list is cleared and filled.
+        /// Allocation-free once grown.</summary>
+        public static void CountInReach(List<float3> runTops, List<Lift> lifts, List<Chord> chords, List<int> inReachCount)
+        {
+            inReachCount.Clear();
+            for (int l = 0; l < lifts.Count; l++)
+            {
+                int n = 0;
+                for (int r = 0; r < runTops.Count; r++)
+                {
+                    if (Reaches(runTops[r], lifts[l], chords, true, out float _))
+                        n++;
+                }
+                inReachCount.Add(n);
             }
         }
 

@@ -555,7 +555,7 @@ export const HUB_LOC = {
   quickLiftIdPinned: ["SkiResort.Tooltip.QUICK_LIFT_ID_PINNED", "Existing lift"],
   /* R1-d (contract 41): the plan sheet's lifts block, the texts without a placeholder (the formats are in HUB_FMT, the reasons in SENT_KEYS) */
   quickLiftsBuild: ["SkiResort.Hub.QUICK_LIFTS_BUILD", "Build lifts"],
-  quickLiftsBuildTip: ["SkiResort.Hub.QUICK_LIFTS_BUILD_TIP", "Build every lift that is switched on and not built, lowest first. A lift the city cannot pay for is skipped."],
+  quickLiftsBuildTip: ["SkiResort.Hub.QUICK_LIFTS_BUILD_TIP", "Build every lift switched on and not built, lowest first. Unaffordable lifts are skipped, lines needing a hand fit wait, the rest still build."],
   quickLiftBuild: ["SkiResort.Hub.QUICK_LIFT_BUILD", "Build"],
   quickLiftBuildTip: ["SkiResort.Hub.QUICK_LIFT_BUILD_TIP", "Place both stations and build the line of this lift."],
   quickLiftsStopTip: ["SkiResort.Hub.QUICK_LIFTS_STOP_TIP", "Stop after the lift in progress. Lifts built so far stay."],
@@ -790,6 +790,8 @@ export const HUB_FMT = {
   quickRejects: ["SkiResort.Hub.QUICK_REJECTS_LINE", "{N} lines dropped: {LIST}."],
   quickTotals: ["SkiResort.Hub.QUICK_TOTALS_LINE", "{N} of {M} runs · cat tracks {T} · {FEE} · {SKIERS} skiers a day"],
   quickBatch: ["SkiResort.Hub.QUICK_BATCH_LINE", "Last build: {N} runs and cat tracks. Undo removes them and refunds the fee."],
+  /** QUICK_WARN[NoSignSome] with its numbers (the warnings list holds only the key; N = quickRuns.unbound, M = quickRuns.enabled). */
+  quickNoSignSome: ["SkiResort.Tooltip.QUICK_WARN[NoSignSome]", "About {N} of {M} runs have no Welcome Sign in range: they will not count until one is placed nearby."],
   quickTreeCounts: ["SkiResort.Hub.QUICK_TREE_COUNTS", "{P} to plant · {R} to remove"],
   quickTreeCountsCost: ["SkiResort.Hub.QUICK_TREE_COUNTS_COST", "{P} to plant · {R} to remove · costs {FEE}"],
   quickMixLine: ["SkiResort.Tooltip.QUICK_MIX", "Green {G} of {TG} · Blue {B} of {TB} · Black {K} of {TK} · Double black {D} of {TD}"],
@@ -815,8 +817,10 @@ export const HUB_FMT = {
   quickSheetLine: ["SkiResort.Tooltip.QUICK_SHEET_LINE", "{ID}: {TYPE}, {LENGTH} km, {RISE} m up, about {COST}"],
   quickLiftPlacedWhy: ["SkiResort.Tooltip.QUICK_LIFT_STATE[StationsPlacedWhy]", "Stations placed, no line: {WHY}"],
   quickLiftRefused: ["SkiResort.Tooltip.QUICK_LIFT_STATE[Refused]", "Not built: {WHY}"],
-  quickLiftFitting: ["SkiResort.Tooltip.QUICK_LIFT_STATE[NeedsFitting]", "Waiting in the lift tool: {WHY}"],
+  quickLiftFitting: ["SkiResort.Tooltip.QUICK_LIFT_STATE[NeedsFitting]", "Waits for a hand fit: {WHY}"],
   quickLiftBuiltFlagged: ["SkiResort.Tooltip.QUICK_LIFT_STATE[BuiltFlagged]", "Built. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
+  quickLiftFlaggedAt: ["SkiResort.Tooltip.QUICK_LIFT_STATE[FlaggedAt]", "Builds flagged. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
+  quickLiftFittingAt: ["SkiResort.Tooltip.QUICK_LIFT_STATE[FittingAt]", "Waits for a hand fit. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
   quickLiftFlagTip: ["SkiResort.Hub.QUICK_LIFT_FLAG_TIP", "Tower {TOWER} stands {ALONG} m from the base station. The rope bends more there than its wheels can follow."],
 } as const;
 
@@ -1106,6 +1110,7 @@ export const SENT_KEYS: readonly LocEntry[] = [
   ["SkiResort.Tooltip.QUICK_STOPPED", "Build stopped. The runs built so far stay. Undo removes them."],
   ["SkiResort.Tooltip.QUICK_PARTIAL", "Only some of the runs were built: the game refused the rest. Undo removes what was built."],
   ["SkiResort.Tooltip.QUICK_UNDONE", "The build was undone and its fee refunded."],
+  ["SkiResort.Tooltip.QUICK_UNDONE_RESCAN", "The build was undone and its fee refunded. The region is scanned again for its plan."],
   ["SkiResort.Tooltip.QUICK_NOTHING_TO_UNDO", "Nothing to undo."],
   ["SkiResort.Tooltip.QUICK_RUNS_MISSING", "The ski run assets did not load: check that the mod is installed completely."],
   ["SkiResort.Tooltip.QUICK_TREES_OFF", "Turn the tree filler on first."],

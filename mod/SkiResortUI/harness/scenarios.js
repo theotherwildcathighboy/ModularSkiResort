@@ -167,7 +167,7 @@
   // The Quick runs tool (contract 17, treesCost since 18) is closed by default. The "Quick runs open" case below has a preview with trees on (every row drawn).
   const quickRuns = { available: true, active: false, reason: "", phase: "Region", corners: 0, areaM2: 0, maxAreaM2: 1000000, verticalM: 0,
     regionState: "Open", progress: 0, density: 1, kinds: 3, runs: 0, enabled: 0, tracks: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0,
-    skiers: 0, variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: 4, treeLine: -1, groundMin: 0,
+    skiers: 0, variety: false, status: "", warnings: [], unbound: 0, clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: 4, treeLine: -1, groundMin: 0,
     groundMax: 0, group: 0, species: -1, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
     buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0, rejects: [0, 0, 0, 0, 0, 0, 0, 0], sitePercent: -1, siteTier: 0,
     // The plan (empty while no plan shows). Contract 42: no Lifts / Mix / Way home knob fields, the cat tracks counted apart
@@ -177,7 +177,8 @@
     sheet: { rows: [], running: false, index: 0, total: 0, stopping: false, toBuild: 0, unbuilt: 0, built: 0, cost: 0, notice: "" } };
   const quickPreview = Object.assign({}, quickRuns, { active: true, phase: "Preview", corners: 6, areaM2: 812000, verticalM: 640, regionState: "Ok",
     runs: 12, enabled: 11, tracks: 5, count: [0, 3, 5, 3, 0], target: [0, 0, 0, 0, 0], fee: 1840000, skiers: 2350, variety: true,
-    warnings: ["SkiResort.Tooltip.QUICK_WARN[OverWater]", "SkiResort.Tooltip.QUICK_WARN[Renumber]", "SkiResort.Tooltip.QUICK_WARN[ChecksOff]"],
+    warnings: ["SkiResort.Tooltip.QUICK_WARN[OverWater]", "SkiResort.Tooltip.QUICK_WARN[Renumber]", "SkiResort.Tooltip.QUICK_WARN[ChecksOff]",
+      "SkiResort.Tooltip.QUICK_WARN[NoSignSome]"], unbound: 3,
     clusters: [{ label: "SkiResort.Tooltip.QUICK_CLUSTER", runs: 7 }, { label: "SkiResort.Tooltip.QUICK_POD[Beginner]", runs: 2 },
       { label: "SkiResort.Tooltip.QUICK_POD[MidStation]", runs: 2 }], trees: true, treeLine: 1820, groundMin: 1210, groundMax: 1850,
     speciesNames: ["AlderTree01", "BirchTree01", "PineTree01", "SpruceTree01"], speciesGroups: [1, 1, 0, 0], plant: 3120, remove: 140, treesCost: 131040, rejects: [18, 15, 9, 3, 0, 0, 1, 0], sitePercent: 62, siteTier: 4 });   // the longest verdict (Beyond): the layout test's worst case
@@ -223,6 +224,11 @@
     sheetRow(606, "P7", "fixedGrip", 700, 180, 800000, false, "Proposed", "", ""),
     sheetRow(607, "P8", "detachable", 1500, 480, 2700000, true, "Proposed", "", "", { flagged: true }),
     sheetRow(608, "P9", "gondola", 2100, 700, 4300000, true, "Proposed", "", "", { waits: true }),
+    // Task 2c-l / 2d-l: the plan's reason and tower before the build, and a waiting row with its tower after it
+    sheetRow(609, "P10", "detachable", 1300, 500, 2900000, true, "Proposed", "", "", { flagged: true, overLimitTowers: 1, overLimitTower: 1, overLimitAlongM: 30, overLimitBendDeg: 34.5, overLimitCapDeg: 32 }),
+    sheetRow(610, "P11", "gondola", 1450, 710, 4200000, true, "Proposed", "", WHY("PLAN_TRAIN"), { waits: true, overLimitTowers: 1, overLimitTower: 8, overLimitAlongM: 1425, overLimitBendDeg: 48.9, overLimitCapDeg: 40 }),
+    sheetRow(611, "P12", "detachable", 990, 260, 2100000, true, "Proposed", "", WHY("PLAN_LOW"), { waits: true }),
+    sheetRow(612, "P13", "detachable", 1320, 500, 2900000, true, "NeedsFitting", "", WHY("PLAN_TRAIN"), { overLimitTowers: 1, overLimitTower: 7, overLimitAlongM: 1270, overLimitBendDeg: 50.9, overLimitCapDeg: 32 }),
   ];
   const quickSheetRunning = Object.assign({}, quickRuns, { sheet: sheetOf(sheetRows, { running: true, index: 2, total: 3 }) });
   const quickSheetStopping = Object.assign({}, quickRuns, { active: true, phase: "Region", corners: 0, canPlanAround: true, sheet: sheetOf(sheetRows, { running: true, index: 2, total: 3, stopping: true }) });
@@ -289,7 +295,7 @@
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800 };
-  const base = { hubOpen: false, contract: 42, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 43, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },

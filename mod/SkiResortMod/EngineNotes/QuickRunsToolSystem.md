@@ -53,6 +53,9 @@ It holds no state: each tool keeps its own phases, queries and logs.
   - MoneyShort (fee > city money).
   - Renumber (default-named runs exist: the new runs renumber them, SkiRunCatalogSystem ordinals).
   - OtherResort / NoSign (the gate nearest each enabled run's ring center, the tether rule).
+  - The NoSign flag means that no enabled piste has a sign in range. NoSignSome means that some pistes have no sign and other pistes have a sign.
+    `UnboundPistes` gives the count (the hub field `unbound`, the tooltip "N of M runs"). Cat tracks are not counted. Before the change, one
+    unbound run set NoSign. The field pass of 2026-11-10 then showed "the runs will not count" with 22 of 213 runs unbound.
   - ChecksOff (`ToolSystem.ignoreErrors`, ToolSystem.cs:159: Anarchy).
 - Knobs: a Density change scans again. Kinds realizes the cached plan again. Lifts, Mix, Shuffle and Way home have no effect
   (`ResortPlanner.md`, the knobs). A knob change cancels a running job first.
@@ -132,6 +135,14 @@ Undo works from the hub's Undo button only. Right click never undoes a built bat
 
 The code clears the batch list on load and when the tool closes. The bind check line survives a close. UNVERIFIED: an undo inside the
 150-frame bind window (a run not bound yet refunds 0, and binds after its delete is queued).
+
+Scan after Undo (2026-11-10): the build drops the plan (`FinishBuild`, phase Region). Before this change, Build stayed gray after an Undo
+until a new scan. Now Undo starts `ScanAfterUndo` 2 frames later (`ScanAfterUndoFrames`). This occurs when the region is closed, the tree filler
+is off, and no build or tree cycle runs (`ScanAfterUndoPossible`, checked again at the scan). A scan in flight starts again. The notice is UNDONE_RESCAN, or
+UNDONE when there is no scan. The obstacles are again those of the scan before the build (`m_AreaQuery` skips the Deleted runs). Thus the
+plan cache usually gives that plan back. The scan replaces the lift sheet (`PublishSheet`), as a scan by hand does. While Undo is possible, the
+lift queue has not run, because the queue closes the tool, and the close ends the Undo. Thus no sheet row of this build is Built.
+The player's left-out runs (`m_OffIds`) do not come back, because the build clears them.
 
 ## Tree filler
 - The filler uses the compose path of the glade tool with a fill mask (DECISIONS 412). It calls `SkiGladeCompose.Compose` with

@@ -25,6 +25,7 @@ namespace SkiResortMod.Systems
     {
         private const string P = QuickRunsRules.TipPrefix;
         private const int MaxWarnings = 8;
+        private const string NoSignSomeKey = P + "WARN[NoSignSome]";   // "{N} of {M} runs": the one warning with numbers
 
         private QuickRunsToolSystem m_Tool;
         private SkiResortHubUISystem m_Hub;
@@ -150,7 +151,13 @@ namespace SkiResortMod.Systems
                     ShowTrees();
                 IReadOnlyList<string> warnings = m_Tool.WarningKeys;
                 for (int i = 0; detail && i < warnings.Count && i < MaxWarnings; i++)
-                    Show(m_Warn[i], ref m_LastWarn[i], warnings[i]);
+                {
+                    if (warnings[i] == NoSignSomeKey)
+                        ShowValue(m_Warn[i], ref m_LastWarn[i], Template(NoSignSomeKey).Replace("{N}", m_Tool.UnboundPistes.ToString())
+                            .Replace("{M}", Shown().PistesOn.ToString()));
+                    else
+                        Show(m_Warn[i], ref m_LastWarn[i], warnings[i]);
+                }
                 string clusterKey = m_Tool.HoverClusterKey;
                 if (plan != null && (m_Tool.HoverPod >= 0 || m_Tool.HoverLift >= 0))
                     ShowHoverPlan(plan);

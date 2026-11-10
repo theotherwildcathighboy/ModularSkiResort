@@ -1,6 +1,7 @@
 // Runs-first realizer: lifts (spec section 7). Each planner lift becomes a PlanLift row: the catalog type by name, both ends at snapshot
-// heights, the tower plan (the lift tool's planner, called as v2 calls it), the cost, a key, its own group and pads. A lift whose
-// towers do not clear stays in the plan, flagged TowersUnchecked: the planner's network was built with it. Pure.
+// heights, the tower plan (the line the build queue plans between the stations it places: LiftLineInput.PlanQueueLine, task 2b-l), the
+// cost, a key, its own group and pads. A lift whose towers do not clear stays in the plan, flagged TowersUnchecked: the planner's network
+// was built with it. Pure.
 // Spec: docs/research/quickruns-v2/port/REALIZER-SPEC.md section 7.
 
 using System;
@@ -11,19 +12,17 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class RunsFirstRealizer
     {
-        /// <summary>The ground along a lift chord for LiftTowerPlanner (copied from SkiRunAutoPlanner.Lifts ChordSampler). A miss returns the
-        /// last good height and is counted: a plan with a miss is not clear.</summary>
-        private sealed class ChordSampler
+        /// <summary>The snapshot ground at a world point for LiftLineInput.PlanQueueLine. A miss returns the last good height and is
+        /// counted: a plan with a miss is not clear.</summary>
+        private sealed class QueueGround
         {
             public HeightSnapshot Snap;
-            public float2 A, Dir, Right;
             public float Last;
             public int Misses;
 
-            public float Sample(float along, float lateral)
+            public float Sample(float3 p)
             {
-                float2 p = A + Dir * along + Right * lateral;
-                float h = Snap.Sample(new float3(p.x, 0f, p.y));
+                float h = Snap.Sample(new float3(p.x, 0f, p.z));
                 if (float.IsNaN(h))
                 {
                     Misses++;
@@ -53,7 +52,8 @@ namespace SkiResortMod.Systems
             m_Rep.Lifts = list.Count;
             var planner = new LiftTowerPlanner();
             var consts = new LiftTowerPlanConstants[PlanGeometry.StationTypes];
-            var cs = new ChordSampler { Snap = m_Snap };
+            var cs = new QueueGround { Snap = m_Snap };
+            Func<float3, float> ground = cs.Sample;
             for (int i = 0; i < list.Count; i++)
             {
                 RunsFirstResult.Lift L = list[i];
@@ -64,22 +64,42 @@ namespace SkiResortMod.Systems
                 float len = math.distance(bottom.xz, top.xz);
                 LiftTowerPlan plan = null;
                 bool clear = false;
+                float2 tipA = bottom.xz, dir = len > 1f ? (top.xz - bottom.xz) / len : new float2(1f, 0f);
+                cs.Misses = 0;
+                cs.Last = bottom.y;
                 if (len > 1f)
-                    plan = TowerPlan(planner, consts[t], cs, t, bottom, top, len, out clear);
+                {
+                    // Task 2b-l: the line the queue plans between the stations it places (the shared station height rule)
+                    plan = LiftLineInput.PlanQueueLine(consts[t], SkiCatalog.StationOf(t, StationRole.Base), SkiCatalog.StationOf(t, StationRole.Top),
+                        bottom.xz, top.xz, ground, planner, out StationAlign.QueueStation qb, out _, out LiftLineEdit edit);
+                    clear = cs.Misses == 0 && plan != null && plan.Clear && plan.MaxEdgeSlope <= LiftEdgeSlopeShare * consts[t].MaxEdgeSlope;
+                    if (edit != null)
+                    {
+                        tipA = qb.Tip.xz;
+                        dir = edit.LengthM > 1e-3f ? (edit.B.xz - edit.A.xz) / edit.LengthM : dir;
+                    }
+                }
                 // Iteration 3, item 5: clear means Sound in the lift tool's sense (LiftLineToolSystem.AutoBuildBlocker: every span clear, no
                 // tower over its sheave-train cap, none too steep, none past its carrier clearance). Else the lift waits for a hand fit.
                 bool edgeClear = clear;
                 string why = cs.Misses > 0 ? "a sampler miss" : plan == null ? "no tower plan" : !plan.Clear ? "a span not clear"
                     : plan.OverCapTowers > 0 ? $"{plan.OverCapTowers} tower(s) over the cap" : plan.TooSteepTowers > 0 ? $"{plan.TooSteepTowers} tower(s) too steep"
-                    : plan.ClearanceTowers > 0 ? $"{plan.ClearanceTowers} tower(s) past the clearance" : !clear ? "an edge slope" : null;
+                    : plan.ClearanceTowers > 0 ? $"{plan.ClearanceTowers} tower(s) past the clearance" : !clear ? "an edge slope"
+                    : plan.LeansOnStationClearance ? "a tower inside the station clearance" : null;
                 clear = why == null;
                 // Task R2-l: the queue still builds a line with exactly one tower over its sheave-train limit and no other defect, and flags it.
-                bool flagged = !clear && cs.Misses == 0 && plan != null && edgeClear && plan.QueueBuild == LiftQueueBuild.BuildFlagged;
+                bool flagged = !clear && cs.Misses == 0 && plan != null && edgeClear && plan.PlanBuild == LiftQueueBuild.BuildFlagged;
+                // Task 2c-l: the row's reason before the build, in the queue's words (LiftLineInput.PlanKey; a plan leaning on the station
+                // clearance: PLAN_TRAIN, what the queue met on those lines) and its first over-limit tower
+                string planWhy = clear ? null : cs.Misses > 0 || plan == null ? "GAME" : plan.Clear && plan.OverCapTowers == 0 && plan.LeansOnStationClearance
+                    ? "PLAN_TRAIN" : LiftLineInput.PlanKey(plan, out _);
+                if (planWhy == "PLAN_CLEAR")
+                    planWhy = "PLAN_STEEP";   // the edge slope margin: the line prefab's slope
+                int ot = plan != null && plan.OverLimitTowers > 0 ? plan.FirstOverCapTower() : -1;
                 var towers = new float2[plan?.LineTowers ?? 0];
-                float2 dir = len > 1f ? (top.xz - bottom.xz) / len : new float2(1f, 0f);
                 for (int n = 1, w = 0; plan != null && n < plan.Nodes.Length - 1 && w < towers.Length; n++)
                     if (!plan.Nodes[n].IsStation)
-                        towers[w++] = bottom.xz + dir * plan.Nodes[n].AlongM;
+                        towers[w++] = tipA + dir * plan.Nodes[n].AlongM;   // along from the base stub tip
                 LiftTypeDef def = SkiCatalog.Lifts[t];
                 long cost = def.StationCostBase + def.StationCostTop + (long)Math.Round(def.LinePerKm * (double)len / 1000.0);
                 uint key = 2166136261u;
@@ -93,7 +113,9 @@ namespace SkiResortMod.Systems
                 {
                     Id = i, Key = key, Origin = LiftOrigin.Proposed, TypeIndex = t, Bottom = bottom, Top = top, LengthM = len, RiseM = top.y - bottom.y,
                     MaxEdgeSlope = plan?.MaxEdgeSlope ?? 0f, Towers = plan?.LineTowers ?? -1, TowerXz = towers, TowersUnchecked = !clear, HandFit = !clear,
-                    OverLimitTowers = plan?.OverLimitTowers ?? 0, BuildsFlagged = flagged,
+                    OverLimitTowers = plan?.OverLimitTowers ?? 0, BuildsFlagged = flagged, PlanWhy = planWhy, OverLimitTower = ot,
+                    OverLimitAlongM = ot >= 0 ? plan.Nodes[ot].AlongM : 0f, OverLimitBendDeg = ot >= 0 ? math.abs(plan.Nodes[ot].DeflectionDeg) : 0f,
+                    OverLimitCapDeg = ot >= 0 ? plan.Nodes[ot].CapDeg : 0f,
                     Pod = i, BottomPad = 2 * i, TopPad = 2 * i + 1, TopSunk = tSunk, BottomSunk = bSunk, Cost = cost, Home = HomeVerdict.None,
                     Wanted = HomeLevel.Auto, HomeRun = -1,
                 };
@@ -102,6 +124,8 @@ namespace SkiResortMod.Systems
                 else
                 {
                     m_Rep.HandFitByType[Math.Min(3, (int)t)]++;
+                    if (flagged)
+                        m_Rep.LiftsFlagged++;
                     if (cs.Misses > 0 || plan == null)
                         m_Rep.HandFitMiss++;
                     else if (!plan.Clear)
@@ -112,6 +136,8 @@ namespace SkiResortMod.Systems
                         m_Rep.HandFitSteep++;
                     else if (plan.ClearanceTowers > 0)
                         m_Rep.HandFitClearance++;
+                    else if (edgeClear && plan.LeansOnStationClearance)
+                        m_Rep.HandFitNear++;
                     else
                         m_Rep.HandFitEdge++;
                     m_Rep.Lines.Add($"lift L{L.Id} ({L.Type} {len:F0} m / {top.y - bottom.y:F0} m up): tower plan not sound ({why}), kept, waits for a hand fit");
@@ -165,31 +191,6 @@ namespace SkiResortMod.Systems
                     if (math.distance(CellCenter(i, j), p) <= r && (m_Flags[j * m_Nx + i] & FBlockAll) != 0)
                         return true;
             return false;
-        }
-
-        /// <summary>The lift tool's planner on the chord (bottom = station A), as SkiRunAutoPlanner.Lifts TowerPlan calls it (copied):
-        /// stations at both ends, the engine's edge slope rule with the end nodes at the snapshot heights, ropes at the station's own
-        /// anchor. Clear = no sampler miss, every span clear, edge slopes under LiftEdgeSlopeShare x the type cap.</summary>
-        private static LiftTowerPlan TowerPlan(LiftTowerPlanner planner, LiftTowerPlanConstants k, ChordSampler s, byte type, float3 bottom,
-            float3 top, float len, out bool clear)
-        {
-            s.A = bottom.xz;
-            s.Dir = (top.xz - bottom.xz) / len;
-            s.Right = new float2(s.Dir.y, -s.Dir.x);
-            s.Last = bottom.y;
-            s.Misses = 0;
-            planner.LegacySpacing = false;
-            planner.Forbidden = null;
-            planner.StationA = planner.StationB = true;
-            planner.StationRule = true;
-            planner.CheckEdgeSlope = true;
-            planner.EndNodeYA = bottom.y;
-            planner.EndNodeYB = top.y;
-            float ropeA = k.StationEndRope(SkiCatalog.StationOf(type, StationRole.Base), bottom.y);
-            float ropeB = k.StationEndRope(SkiCatalog.StationOf(type, StationRole.Top), top.y);
-            LiftTowerPlan plan = planner.Plan(s.Sample, len, ropeA, ropeB, k);
-            clear = s.Misses == 0 && plan != null && plan.Clear && plan.MaxEdgeSlope <= LiftEdgeSlopeShare * k.MaxEdgeSlope;
-            return plan;
         }
     }
 }
