@@ -77,6 +77,8 @@
     <Compile Include="CarrierPoseTests.cs" />
     <!-- plan bends at towers (census row, hub number, tool joint): the LiftBend warning -->
     <Compile Include="BendTests.cs" />
+    <!-- The station pose of a planned lift (Resort Planner R1-c): StationAlign.PoseLift, SP-1..SP-6. -->
+    <Compile Include="StationPoseTests.cs" />
     <!-- The vanilla HV join refusal rule (PowerJoinRefusalSystem). -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\PowerJoinRule.cs" Link="PowerJoinRule.cs" />
     <Compile Include="PowerJoinTests.cs" />

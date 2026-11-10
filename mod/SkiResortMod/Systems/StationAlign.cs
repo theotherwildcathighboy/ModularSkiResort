@@ -276,6 +276,68 @@ namespace SkiResortMod.Systems
             return FacesAway(r.YawDeg) ? Readout.FacingAway : Readout.Numbers;
         }
 
+        /// <summary>The two stations of a planned lift, posed so that they face each other on one axis (LiftPose). Positions carry y NaN:
+        /// the station placer stands each building at the vanilla height (StationPlaceToolSystem.ResolveY).</summary>
+        public struct LiftPose
+        {
+            /// <summary>False when a spot is not finite or the spots are too close for the two stubs (SpotDistanceM at or under
+            /// MinTipGapM + both stub offsets).</summary>
+            public bool Valid;
+            public float3 BasePosition, TopPosition;
+            public quaternion BaseRotation, TopRotation;
+            /// <summary>Unit horizontal direction from the bottom spot to the top spot, (x, z).</summary>
+            public float2 Dir;
+            public float SpotDistanceM;
+            /// <summary>Horizontal distance between the two stub tips: SpotDistanceM minus both |StubTipLocalZ|.</summary>
+            public float TipDistanceM;
+            /// <summary>The stub tips (y NaN), for the log and the tests.</summary>
+            public float3 BaseTip, TopTip;
+        }
+
+        /// <summary>LiftPose refuses spots whose stub tips would end closer than this, meters.</summary>
+        public const float MinTipGapM = 1f;
+
+        /// <summary>The planner's lift as two station poses. The spots are the station spots of the plan (PlanLift.Bottom / Top, the lot
+        /// centers the overlay draws). Each station's line axis (local x = StubTipLocalX) runs through its spot. So the chord between
+        /// the spots is the line, and the tram base's 4 m side offset moves its origin, never the line. The base faces the top: its local
+        /// -Z = Dir. The top faces the base: its local -Z = -Dir. Then the stub tips lie on the chord, |StubTipLocalZ| in from each spot.
+        /// Yaw convention as quaternion.RotateY: local +z = (sin a, cos a), so local -Z = Dir needs a = atan2(-Dir.x, -Dir.y).</summary>
+        public static LiftPose PoseLift(float2 bottomXz, float2 topXz, float baseStubZ, float baseStubX, float topStubZ, float topStubX)
+        {
+            var p = new LiftPose();
+            float bz = math.abs(Finite(baseStubZ) ? baseStubZ : StubTipLocalZ), tz = math.abs(Finite(topStubZ) ? topStubZ : StubTipLocalZ);
+            float bx = Finite(baseStubX) ? baseStubX : 0f, tx = Finite(topStubX) ? topStubX : 0f;
+            float2 d = topXz - bottomXz;
+            p.SpotDistanceM = math.length(d);
+            if (!math.all(math.isfinite(bottomXz)) || !math.all(math.isfinite(topXz)) || !(p.SpotDistanceM > bz + tz + MinTipGapM))
+                return p;
+            d /= p.SpotDistanceM;
+            p.Dir = d;
+            p.BaseRotation = quaternion.RotateY(math.atan2(-d.x, -d.y));
+            p.TopRotation = quaternion.RotateY(math.atan2(d.x, d.y));
+            float3 b = new float3(bottomXz.x, 0f, bottomXz.y), t = new float3(topXz.x, 0f, topXz.y);
+            float3 bo = b - math.mul(p.BaseRotation, new float3(bx, 0f, 0f));
+            float3 to = t - math.mul(p.TopRotation, new float3(tx, 0f, 0f));
+            float3 btip = StubTip(bo, p.BaseRotation, -bz, bx), ttip = StubTip(to, p.TopRotation, -tz, tx);
+            p.BasePosition = new float3(bo.x, float.NaN, bo.z);
+            p.TopPosition = new float3(to.x, float.NaN, to.z);
+            p.BaseTip = new float3(btip.x, float.NaN, btip.z);
+            p.TopTip = new float3(ttip.x, float.NaN, ttip.z);
+            p.TipDistanceM = math.distance(btip.xz, ttip.xz);
+            p.Valid = true;
+            return p;
+        }
+
+        /// <summary>PoseLift with the two stations' catalog rows (StubTipLocalZ, StubTipLocalX). An invalid pose when a row is null.</summary>
+        public static LiftPose PoseLift(float2 bottomXz, float2 topXz, StationDef baseStation, StationDef topStation)
+        {
+            if (baseStation == null || topStation == null)
+                return new LiftPose { SpotDistanceM = math.distance(bottomXz, topXz) };
+            return PoseLift(bottomXz, topXz, baseStation.StubTipLocalZ, baseStation.StubTipLocalX, topStation.StubTipLocalZ, topStation.StubTipLocalX);
+        }
+
+        private static bool Finite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
+
         public static Result Measure(float3 partnerTip, float2 partnerAxis, float3 subjectTip, float2 subjectAxis)
         {
             var r = new Result();

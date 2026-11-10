@@ -143,6 +143,7 @@ namespace LiftBatch
             AlignTests.Run(Check);
             CarrierPoseTests.Run(Check);
             BendTests.Run(Check);
+            StationPoseTests.Run(Check);
             PowerJoinTests.Run(Check);
             LiftIconTests.Run(Check);
             RopePickTests.Run(Check);
