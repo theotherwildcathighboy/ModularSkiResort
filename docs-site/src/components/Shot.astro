@@ -7,12 +7,37 @@ interface Props {
   src?: string;
   ratio?: string;
 }
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 const { label, src, ratio = '16 / 9' } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+// The file's real pixel size (from the JPEG frame header), so the page keeps the image's shape before it loads.
+// The build runs in docs-site/. A file that cannot be read keeps the 16:9 default.
+function jpegSize(name: string): [number, number] {
+  try {
+    const b = readFileSync(join(process.cwd(), 'public', 'shots', name));
+    let i = 2;
+    while (i + 9 < b.length && b[i] === 0xff) {
+      const marker = b[i + 1];
+      if (marker === 0xff) { i++; continue; }
+      const frame = marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+      if (frame) return [b.readUInt16BE(i + 7), b.readUInt16BE(i + 5)];
+      i += 2 + b.readUInt16BE(i + 2);
+    }
+  } catch {
+    // fall through to the default
+  }
+  return [1920, 1080];
+}
+const [width, height] = src ? jpegSize(src) : [1920, 1080];
+// A native crop of a panel is never drawn larger than its own pixels.
+const cap = width < 1200 ? `max-width: ${width}px` : undefined;
 ---
 {src ? (
   <a class="shot-link" href={`${base}/shots/${src}`} data-shot-zoom>
-    <img class="shot-img" src={`${base}/shots/${src}`} alt={label} width="1920" height="1080" loading="lazy" decoding="async" />
+    <img class="shot-img" src={`${base}/shots/${src}`} alt={label} width={width} height={height} style={cap} loading="lazy" decoding="async" />
   </a>
 ) : (
   <figure class="shot" style={`aspect-ratio: ${ratio}`} role="img" aria-label={`Screenshot to come: ${label}`}>

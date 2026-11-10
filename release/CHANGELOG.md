@@ -71,7 +71,7 @@ First public release. Draft notes (check against the build at upload):
   a month plus 300 per km to that lodge (Finances, row Ski bus). An oxblood coach, with SKI BUS painted on it, drives between the depot and the hill. Selecting the coach or the depot shows a Ski Bus card beside the game's panel: guests by bus this month, the coach bill and the distance to the hill lodge.
 - Merge an existing building into a ski area as a lodge: a park, landmark, signature or decor building near the runs can be merged as
   a lodge tier its lot allows. It keeps working as before and adds score, skier room, staff and attraction, for a one-time charge and a
-  monthly fee. The Mergeable buildings switch on the hub's Buildings tab (and in the Overview's Merged buildings fold) outlines the
+  monthly fee. The Mergeable buildings switch on the hub's Buildings tab (and in the Attraction view's Merged buildings fold) outlines the
   buildings near the runs and lifts that can be merged, green when a lodge tier fits the lot and gray when the lot is too small;
   the merge card beside the info panel says whether a building is near enough to count before you pay.
 - The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.

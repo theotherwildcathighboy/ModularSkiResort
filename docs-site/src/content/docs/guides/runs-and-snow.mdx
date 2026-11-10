@@ -36,7 +36,7 @@ Rating = slope of the **hardest unavoidable pitch**: the crux of the easiest lin
 
 ## Run Features
 
-One **Run** tile draws every run. A row under it sets the next run's features: **Groomed** (On or Off), **Snow guns** and **Lights** (Off, or the distance between them). Both need Groomed. A built run changes them in the Runs view, for the run selected in the list. The hub's run list names each run's features (*Groomed, snowmaking, lit*).
+One **Run** tile draws every run. While it is active, the **New run** rows at the top of the Runs view set the next run's features. **Groomed**: On or Off. **Snow guns** and **Lights**: Off, or the distance between them. Both need Groomed. A built run changes them in the Runs view, for the run selected in the list. In the hub's run list, a row's tooltip names the run's features (*Groomed, snowmaking, lit*).
 
 <Tabs>
   <TabItem label="Natural">
@@ -126,7 +126,7 @@ The Resort Planner is new and may change. It is off by default: turn it on in Op
 - **Trees:** **Tree filler** fills the outlined region with trees around the runs, up to a tree line. The tree line starts where the wild trees nearby stop. Move it 10 or 50 m at a time. Pick **Conifer** (default), **Deciduous**, **Palm**, **All trees** or a single species, and a density. The count line shows the trees to plant and to remove, and the cost. **Plant** plants them 2,000 at a time until the region is full (*Planting trees 2,400 / 9,000*). It also removes filler trees that a lower density or tree line no longer wants. While the tree filler is on, **Enter** plants and does not scan or build. A large region can take a few seconds to a minute. **Stop** (in place of Plant) or right click stops after the trees in progress. What is planted stays. **Undo trees** removes the trees of the last planting until the Resort Planner closes. A scan or a build turns the tree filler off. Filler trees count as wild trees: a run drawn over them later can clear them.
 - **A scan that stops with an error:** see [Troubleshooting](/guides/troubleshooting/#common-cases).
 
-<Shot src="planner-built.jpg" label="The same region after Build and Build lifts: the planner's runs, cat tracks and lifts, with the lift rows in the hub." />
+<Shot src="planner-built.jpg" label="The same region after Build and Build lifts. The piste map shows the planner's runs and cat tracks. The two new base stations are at the lower left, and the hub lists both lifts as built." />
 
 ## Snow Conditions
 
@@ -136,7 +136,7 @@ Snow is measured per run from the game's snow simulation.
 - **Patchy:** between open and closed. Counts part of its value.
 - **Closed:** an open run stays open while **30 cm** of snow covers **40 %** of it, then closes. A closed run opens again at **91 cm**.
 - **Snow guns:** runs and cat tracks with snow guns on, where air temperature is at most **3.3 °C** above freezing (option *Snowmaking margin*). Higher margin: longer season, higher snowmaking bill.
-- **Edge props:** guns, hydrants and floodlights stand along a run's edge at a set distance, however its outline was drawn: Off or **20** to **200 m**, per run, in the Runs view for the run selected in the list. A new run starts with the values of the row under the Run tile. A cat track starts with snow guns at **60 m** and lights Off. Snow guns Off: no guns, no made snow, no snowmaking upkeep (snow already made stays until it melts). Lights Off: no lights, no lighting upkeep. On a cat track the lights change only the look and the bill: **300** per ha of its plan area per month in its snow season, guns on or off. Each one is a separate object you can bulldoze. It stays gone until the outline or a value changes.
+- **Edge props:** guns, hydrants and floodlights stand along a run's edge at a set distance, however its outline was drawn: Off or **20** to **200 m**, per run, in the Runs view for the run selected in the list. A new run starts with the values of the **New run** rows. A cat track starts with snow guns at **60 m** and lights Off. Snow guns Off: no guns, no made snow, no snowmaking upkeep (snow already made stays until it melts). Lights Off: no lights, no lighting upkeep. On a cat track the lights change only the look and the bill: **300** per ha of its plan area per month in its snow season, guns on or off. Each one is a separate object you can bulldoze. It stays gone until the outline or a value changes.
 - **Gun depth:** the guns start when the run falls under **91 cm** and stop at **96 cm**, so the run stays open between restarts.
 - **Gun season:** from **2 months before winter to 1 month after**, which is October 1 to April 1 when winter is December to February. There are no guns, no bill and no plume outside it. Where the game's own season reads Winter the guns run, and where it reads Summer they do not, whatever the date.
 - **Cat tracks:** the snow under the track is measured like a natural run's, plus the snow its guns made. Made snow lasts through a warm spell as long as on the best-kept run, up to **72** game hours (**36** in spring, none above **10 °C**), then melts as fast as a run's snow does (about **6** game hours at **1 °C**, under **1** at **7 °C**), so a cat track closes last. A save keeps it.
