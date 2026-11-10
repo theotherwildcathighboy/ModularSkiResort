@@ -404,6 +404,10 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<SkiStationAlignSystem, Game.Rendering.OverlayRenderSystem>(
                 SystemUpdatePhase.Rendering);
 
+            // The plan sheet's lifts not built yet, while a lift tool is in hand (Resort Planner R1-c). Before OverlayRenderSystem (same
+            // reason as SkiStationAlignSystem above). Reads the sheet ResortLiftBuildSystem writes at UIUpdate earlier in the frame.
+            updateSystem.UpdateBefore<ResortPlanMarksSystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
+
             // Piste-map overlay. Before OverlayRenderSystem (it completes every registered writer, then clears the lists, so the job must
             // be scheduled first). Reads the hub's state written at UIUpdate earlier in the frame (SystemOrder.cs:67-68).
             updateSystem.UpdateBefore<SkiPisteMapSystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
