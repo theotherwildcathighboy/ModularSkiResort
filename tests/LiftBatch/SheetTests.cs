@@ -1,5 +1,5 @@
 // The Resort Planner's plan sheet (ResortPlanSheet, task R1-c): the rows the build queue, the marks outside the planner and the hub read.
-// Where-tags `sheet/...`, PS-1..PS-6.
+// Where-tags `sheet/...`, PS-1..PS-12.
 // Pinned:
 // - Load sorts the rows lowest bottom spot first (ties by key, a NaN height last) and numbers Order. A repeated key keeps its first row.
 // - Every change bumps Revision. Load and Clear bump PlanSerial. A no-op write bumps nothing.
@@ -12,6 +12,9 @@
 // - The lifts total (PS-9): CountToBuild, CountUnbuilt and the built count follow the states and the switches.
 // - The station order of the queue (PS-10, task R1-e): the top is asked only after the base stands, so a refused base places and charges
 //   nothing (field r1c 8b placed and charged the top). A refused top leaves the base. A cancel the queue did not ask for stops it.
+// - The waiting reasons (PS-11, task R1-f): a line that waits in the lift tool gets its own reason group (PLAN_TRAIN, PLAN_SADDLE, PLAN_PITCH,
+//   PLAN_CLEARANCE, BUILD_REFUSED, WAIT), never the GAME text (nothing refused it unless the game did).
+// - The queue index (PS-12): a Stop keeps the run total, so "Stopping after lift 1 / 3" reads the place in the build that was asked for.
 
 using System;
 using System.Collections.Generic;
@@ -39,6 +42,47 @@ namespace LiftBatch
             Ps8ReasonGroups();
             Ps9Totals();
             Ps10StationOrder();
+            Ps11WaitingKeys();
+            Ps12QueueIndex();
+        }
+
+        private static void Ps11WaitingKeys()
+        {
+            const string W = "sheet/PS-11";
+            string[][] want =
+            {
+                new[] { "PLAN_TRAIN", "PLAN_TRAIN" }, new[] { "PLAN_SADDLE", "PLAN_SADDLE" }, new[] { "PLAN_PITCH", "PLAN_PITCH" },
+                new[] { "PLAN_CLEARANCE", "PLAN_CLEARANCE" }, new[] { "PLAN_LOW", "PLAN_LOW" }, new[] { "ALONG", "ALONG" }, new[] { "BACKWARD", "BACKWARD" },
+                new[] { "CROSS_SHALLOW", "CROSS_SHALLOW" },
+                new[] { "the game refused the build (2 error(s): OverlapExisting x2)", "BUILD_REFUSED" },
+                new[] { "no Temp edges 600 frames after the emission", "WAIT" }, new[] { "auto build off", "WAIT" }, new[] { "building", "WAIT" },
+                new[] { "the build request was refused (see the line above)", "WAIT" }, new[] { "no plan", "WAIT" }, new[] { "", "WAIT" }, new[] { null, "WAIT" },
+            };
+            foreach (string[] w in want)
+            {
+                string key = ResortPlanSheet.WaitingKey(w[0]);
+                Check(key == w[1], W, "waiting reason '" + (w[0] ?? "null") + "' -> '" + key + "' (want '" + w[1] + "')");
+                Check(ResortPlanSheet.ReasonGroup(key) != "GAME", W, "waiting key '" + key + "' falls to the GAME text");
+            }
+            // The reasons reach the hub as their own group, never as the game's text.
+            foreach (string k in new[] { "PLAN_TRAIN", "PLAN_SADDLE", "PLAN_PITCH", "PLAN_CLEARANCE", "BUILD_REFUSED", "WAIT" })
+                Check(ResortPlanSheet.ReasonGroup(ResortPlanSheet.WaitingKey(k)) == k, W, "group of " + k);
+        }
+
+        private static void Ps12QueueIndex()
+        {
+            const string W = "sheet/PS-12";
+            // A queue of 3 lifts. Running: lift 1 in flight, none done.
+            Check(ResortPlanSheet.QueueIndexOf(true, 3, 0, false, true) == 1, W, "lift 1 in flight");
+            Check(ResortPlanSheet.QueueIndexOf(true, 3, 1, false, true) == 2, W, "lift 2 in flight");
+            Check(ResortPlanSheet.QueueIndexOf(true, 3, 3, false, false) == 3, W, "past the last lift stays on the total");
+            // Stop with lift 1 in flight: the two waiting keys leave the queue, the total stays 3 ("Stopping after lift 1 / 3").
+            Check(ResortPlanSheet.QueueIndexOf(true, 3, 0, true, true) == 1, W, "stopping on lift 1 of 3");
+            // The lift ended, the queue has not seen its end yet: the place stays on the lift that finished.
+            Check(ResortPlanSheet.QueueIndexOf(true, 3, 1, true, false) == 1, W, "stopped after lift 1");
+            Check(ResortPlanSheet.QueueIndexOf(true, 3, 2, true, false) == 2, W, "stopped after lift 2");
+            Check(ResortPlanSheet.QueueIndexOf(false, 3, 1, false, false) == 0, W, "idle reads 0");
+            Check(ResortPlanSheet.QueueIndexOf(true, 1, 0, false, false) == 1, W, "never below 1 while running");
         }
 
         private static ResortPlanSheet.Input L(uint key, float bottomY, bool on = true, long cost = 100000) => new ResortPlanSheet.Input
@@ -161,7 +205,8 @@ namespace LiftBatch
                 new[] { "BASE[GONE]", "GONE" }, new[] { "TOP[GONE]", "GONE" }, new[] { "STOPPED", "STOPPED" },
                 new[] { "LINE[PICK]", "LINE_PICK" }, new[] { "LINE[ABANDONED]", "LINE_ABANDONED" }, new[] { "LINE[REFUSED]", "LINE_REFUSED" },
                 new[] { "LINE[PENDING]", "GAME" }, new[] { "PLAN_LOW", "PLAN_LOW" }, new[] { "PLAN_STEEP", "PLAN_STEEP" }, new[] { "PLAN_HIGH", "PLAN_HIGH" },
-                new[] { "PLAN_TRAIN", "GAME" }, new[] { "ALONG", "ALONG" }, new[] { "BACKWARD", "BACKWARD" }, new[] { "CROSS_SHALLOW", "CROSS" },
+                new[] { "PLAN_TRAIN", "PLAN_TRAIN" }, new[] { "PLAN_SADDLE", "PLAN_SADDLE" }, new[] { "PLAN_PITCH", "PLAN_PITCH" },
+                new[] { "PLAN_CLEARANCE", "PLAN_CLEARANCE" }, new[] { "BUILD_REFUSED", "BUILD_REFUSED" }, new[] { "WAIT", "WAIT" }, new[] { "ALONG", "ALONG" }, new[] { "BACKWARD", "BACKWARD" }, new[] { "CROSS_SHALLOW", "CROSS" },
                 new[] { "CROSS_CLEARANCE", "CROSS" }, new[] { "CROSS", "CROSS" }, new[] { "GAME", "GAME" }, new[] { "something odd", "GAME" },
             };
             foreach (string[] w in want)

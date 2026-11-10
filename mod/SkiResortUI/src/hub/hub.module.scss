@@ -3311,6 +3311,11 @@
   color: var(--hubTextDim);
 }
 
+// A refusal or a wait on a sheet row: .planRowSub comes after .warnText with the same weight, so it needs its own pair (as .areaNameText.warnText).
+.planRowSub.warnText {
+  color: var(--hubCaution);
+}
+
 .planMixItem {
   display: flex;
   flex-direction: row;
