@@ -438,8 +438,23 @@ function measure(treeRoot) {
   const index = indexDecompile(treeRoot);
   const sources = walkCs(MOD_DIR, []);
   const stripped = new Map(sources.map((f) => [f, stripCs(fs.readFileSync(f, "utf8"))]));
+  // Our own type names hide a vanilla type of the same name. A PRIVATE nested type hides it only in the files of its own partial class
+  // (Name.Part.cs): the realizer's private class Area must not hide Game.Areas.Area from every other system.
   const ownTypes = new Set();
-  for (const code of stripped.values()) for (const m of code.matchAll(/\b(?:class|struct|enum|interface)\s+(\w+)/g)) ownTypes.add(m[1]);
+  const ownPrivate = new Map(); // file family (the name up to its first dot) -> private nested type names
+  const familyOf = (file) => path.basename(file).split(".")[0];
+  for (const [file, code] of stripped) {
+    for (const m of code.matchAll(/\b((?:(?:public|internal|private|protected|sealed|static|abstract|readonly|partial|unsafe|ref)\s+)*)(?:class|struct|enum|interface)\s+(\w+)/g)) {
+      if (/\bprivate\b/.test(m[1])) {
+        if (!ownPrivate.has(familyOf(file))) ownPrivate.set(familyOf(file), new Set());
+        ownPrivate.get(familyOf(file)).add(m[2]);
+      } else ownTypes.add(m[2]);
+    }
+  }
+  const ownFor = (file) => {
+    const priv = ownPrivate.get(familyOf(file));
+    return priv ? new Set([...ownTypes, ...priv]) : ownTypes;
+  };
 
   const types = new Set();
   const burst = new Map(); // full name -> "r" | "w"
@@ -449,13 +464,14 @@ function measure(treeRoot) {
   const byValue = []; // {job, field, type}: a vanilla struct held by value in a job struct, so every later job field moves with it
   for (const [file, code] of stripped) {
     const usings = usingsOf(code);
-    for (const t of vanillaRefs(code, usings, index, ownTypes)) types.add(t);
+    const own = ownFor(file);
+    for (const t of vanillaRefs(code, usings, index, own)) types.add(t);
     for (const job of burstJobs(code)) {
       burstJobsSeen.push(`${path.basename(file)}:${job.name}`);
       burstSystems.add(job.owner || path.basename(file).split(".")[0]);
       // A vanilla struct nested in a class (OverlayRenderSystem.Buffer): the job's bytes and the inlined helpers are that struct's.
       for (const n of job.body.matchAll(/(?<![.\w])([A-Z]\w*)\.([A-Z]\w*)\s+\w+\s*[;=,)]/g)) {
-        if (ownTypes.has(n[1])) continue;
+        if (own.has(n[1])) continue;
         for (const ns of index.get(n[1]) || []) {
           if (!usings.ns.has(ns)) continue;
           const nestedFile = path.join(treeRoot, ns, n[1] + ".cs");
@@ -471,9 +487,9 @@ function measure(treeRoot) {
       for (const line of topLevelLines(job.body)) {
         const f = /^(?:\[[^\]]*\]\s*)*(?:(?:public|internal|private|readonly)\s+)*([A-Z][\w.]*)\s+(\w+)\s*;$/.exec(line);
         if (!f) continue;
-        for (const t of vanillaRefs(f[1], usings, index, ownTypes)) byValue.push({ job: job.name, field: f[2], type: t });
+        for (const t of vanillaRefs(f[1], usings, index, own)) byValue.push({ job: job.name, field: f[2], type: t });
       }
-      for (const t of vanillaRefs(job.body, usings, index, ownTypes)) {
+      for (const t of vanillaRefs(job.body, usings, index, own)) {
         const shortName = t.split(".").pop();
         const mark = job.writes.has(shortName) ? "w" : "r";
         if (burst.get(t) !== "w") burst.set(t, mark);
