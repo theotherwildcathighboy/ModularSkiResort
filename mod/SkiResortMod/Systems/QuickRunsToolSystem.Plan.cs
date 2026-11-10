@@ -4,6 +4,7 @@
 //   * The hover pick of a pod ring or a lift chord (tooltip lines).
 //   * The click pick that toggles them.
 //   * "Plan around this lift": a click on an existing lift's station while the region is empty starts a region around that lift.
+//   * The plan sheet's feed: a publish loads the proposed lifts into ResortLiftBuildSystem's sheet, a toggle syncs their on flags.
 // The rules are pure (QuickRunsPlanRules.cs, linked into the test host).
 // A toggle only changes which runs are enabled (QuickRunsToolSystem.Scan.cs RefreshEnabled asks PlanLeftOut): nothing is re-planned.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Resort Planner hub)
@@ -21,6 +22,7 @@ namespace SkiResortMod.Systems
         private int m_PodRowsRevision = -1;
         private AutoPlanResult m_PodRowsFor;
         private int m_AroundRevision = -1;   // GradeEdit.Revision right after "plan around" set the corners (right click clears them at once)
+        private ResortLiftBuildSystem m_LiftBuild;
 
         /// <summary>Pod / lift under the cursor in the Preview (tooltip lines), -1 none.</summary>
         internal int HoverPod { get; private set; } = -1;
@@ -134,9 +136,65 @@ namespace SkiResortMod.Systems
                     m_OffLifts.Add(key);
             }
             RefreshEnabled();
+            SyncSheetToggles();
             Say(string.Format(CultureInfo.InvariantCulture, "QuickRuns [toggle]: {0} {1} {2} — {3} of {4} run(s) enabled, fee {5}",
                 what, name, nowOn ? "ON" : "OFF", m_Totals.Enabled, m_Totals.Runs, m_Totals.Fee));
             return $"{what} {name} {(nowOn ? "on" : "off")}";
+        }
+
+        // ---------------------------------------------------------------- the plan sheet's feed (ResortLiftBuildSystem)
+
+        private ResortLiftBuildSystem LiftBuild()
+        {
+            if (m_LiftBuild == null)
+                m_LiftBuild = World.GetExistingSystemManaged<ResortLiftBuildSystem>();
+            return m_LiftBuild;
+        }
+
+        /// <summary>The plan's proposed lifts (not the pinned ones) as sheet rows, each with its toggle (QuickRunsPlanRules.LiftOn: the
+        /// lift and its pod both on).</summary>
+        private List<ResortPlanSheet.Input> SheetInputs(ResortPlan plan)
+        {
+            var list = new List<ResortPlanSheet.Input>();
+            for (int i = 0; i < plan.Lifts.Length; i++)
+            {
+                PlanLift l = plan.Lifts[i];
+                if (l.Origin != LiftOrigin.Proposed)
+                    continue;
+                list.Add(new ResortPlanSheet.Input
+                {
+                    Key = l.Key, Name = LiftName(plan, i), TypeIndex = l.TypeIndex, Bottom = l.Bottom, Top = l.Top, Cost = l.Cost,
+                    On = QuickRunsPlanRules.LiftOn(plan, i, m_OffPods, m_OffLifts),
+                });
+            }
+            return list;
+        }
+
+        /// <summary>FinishScan: the published plan replaces the sheet (a failed scan empties it).</summary>
+        private void PublishSheet(string why)
+        {
+            ResortPlan plan = m_Published.Status == AutoPlanStatus.Ok ? m_Published.Resort : null;
+            LiftBuild()?.LoadFromPlan(plan, plan != null ? SheetInputs(plan) : null, why);
+        }
+
+        private void SyncSheetToggles()
+        {
+            ResortPlan plan = Plan;
+            if (plan != null)
+                LiftBuild()?.SyncToggles(plan, SheetInputs(plan));
+        }
+
+        /// <summary>The estimated cost of the plan's proposed lifts that are switched on (the Build money check, plan 3.3).</summary>
+        internal long LiftCostOn()
+        {
+            ResortPlan plan = Plan;
+            long sum = 0;
+            if (plan == null)
+                return 0;
+            for (int i = 0; i < plan.Lifts.Length; i++)
+                if (plan.Lifts[i].Origin == LiftOrigin.Proposed && QuickRunsPlanRules.LiftOn(plan, i, m_OffPods, m_OffLifts))
+                    sum += System.Math.Max(0L, plan.Lifts[i].Cost);
+            return sum;
         }
 
         /// <summary>"P1" for a proposal. "Existing 1" is a locale key in the hub / tooltip, "E1" in logs.</summary>

@@ -390,6 +390,11 @@ namespace SkiResortMod
             updateSystem.UpdateAt<StationPlaceToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<StationPlaceProbeUISystem>(SystemUpdatePhase.UIUpdate);
 
+            // Resort Planner lift side (R1-c): the plan sheet's owner and the lift build queue. UIUpdate is load-bearing: it runs every frame,
+            // paused included, whatever tool is active, so the queue steps while the station placer or the lift-line tool is the active
+            // tool (an inactive tool never ticks, ToolSystem.cs:312-327). It only queues work for those tools: their own ToolUpdate emits.
+            updateSystem.UpdateAt<ResortLiftBuildSystem>(SystemUpdatePhase.UIUpdate);
+
             // Lift park emitter. EndFrameBarrier.CreateCommandBuffer throws at Modification4B (Game/SafeCommandBufferSystem.cs:16-23), so
             // the {Event, SubObjectsUpdated} entities are created at UIUpdate (after SystemOrder.cs:62). Without this line nothing is parked.
             updateSystem.UpdateAt<LiftParkSystem>(SystemUpdatePhase.UIUpdate);

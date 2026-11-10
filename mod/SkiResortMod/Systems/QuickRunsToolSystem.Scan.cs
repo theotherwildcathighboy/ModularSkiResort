@@ -128,6 +128,7 @@ namespace SkiResortMod.Systems
             m_StatusKey = QuickRunsRules.StatusKey(r.Status, m_Obstacles != null && m_Obstacles.Exists(o => o.Kind == AutoObstacleKind.Unowned));
             m_Phase = r.Status == AutoPlanStatus.Ok ? ToolPhase.Preview : ToolPhase.Region;
             RefreshEnabled();
+            PublishSheet($"scan ({m_ScanWhy})");   // the plan sheet takes the proposed lifts (Plan.cs)
             int slow = 0;   // the stage of the longest unit (StageMaxMs, P2): names what to slice next
             for (int s = 1; s < r.StageMaxMs.Length; s++)
                 if (r.StageMaxMs[s] > r.StageMaxMs[slow])
