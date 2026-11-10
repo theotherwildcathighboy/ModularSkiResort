@@ -57,7 +57,7 @@ namespace AutoGenBatch
             if (rows.Count > 0)
             {
                 Console.WriteLine($"REALIZE mean over {rows.Count} region(s): km kept {rows.Average(r => r.KeptShare) * 100:F1} %, unlinked {rows.Average(r => r.UnlinkedShare) * 100:F2} %, " +
-                    $"score raw {rows.Average(r => r.Raw):F2} realized {rows.Average(r => r.Realized):F2} (delta {rows.Average(r => r.Realized - r.Raw):+0.00;-0.00}), " +
+                    $"score raw {rows.Average(r => r.Raw):F2} realized {rows.Average(r => r.Realized):F2} (delta {rows.Average(r => r.Realized - r.Raw):+0.00;-0.00}), as skied {rows.Average(r => r.Skied):F2} (delta {rows.Average(r => r.Skied - r.Raw):+0.00;-0.00}), " +
                     $"plan {rows.Average(r => r.PlanMs):F0} ms, realize {rows.Average(r => r.RealizeMs):F0} ms, layers {rows.Max(r => r.LayerMB):F1} MB max, " +
                     $"deterministic {rows.Count(r => r.Same)}/{rows.Count}");
             }
@@ -66,7 +66,7 @@ namespace AutoGenBatch
 
         private sealed class Row
         {
-            public double KeptShare, UnlinkedShare, Raw, Realized, PlanMs, RealizeMs, LayerMB;
+            public double KeptShare, UnlinkedShare, Raw, Realized, Skied, PlanMs, RealizeMs, LayerMB;
             public bool Same;
         }
 
@@ -121,12 +121,32 @@ namespace AutoGenBatch
 
         /// <summary>The scorecard input of a realized plan: plain pistes as runs (Natural or Groomed), graded pistes and tracks as
         /// connectors, the planner's lifts (the realizer never moves one).</summary>
-        public static ScorePlan ScoreOfRealized(AutoPlanResult res, RunsFirstResult plan)
+        public static ScorePlan ScoreOfRealized(AutoPlanResult res, RunsFirstResult plan) => ScoreOfRealized(res, plan, false);
+
+        /// <summary>skied = the "as skied" feed: consecutive segments of one source run (a piste or a graded piste, never a track) are
+        /// joined back into one polyline when the next segment starts within SkiedJoinM of the previous end, because a skier skis through
+        /// the run that cut them. Nothing else is rejoined or restored.</summary>
+        public static ScorePlan ScoreOfRealized(AutoPlanResult res, RunsFirstResult plan, bool skied)
         {
             var sp = new ScorePlan();
+            var lines = new List<(AutoRun Run, List<float2> Pts)>();
             foreach (AutoRun r in res.Runs)
             {
-                var pts = new List<float2>(r.Centerline);
+                if (skied && r.Kind != RunKind.CatTrack && r.Source >= 0 && lines.Count > 0)
+                {
+                    var (prev, prevPts) = lines[lines.Count - 1];
+                    if (prev.Kind != RunKind.CatTrack && prev.Source == r.Source && r.Segment == prev.Segment + 1 &&
+                        math.distance(prevPts[prevPts.Count - 1], r.Centerline[0]) <= SkiedJoinM)
+                    {
+                        prevPts.AddRange(r.Centerline);
+                        lines[lines.Count - 1] = (r, prevPts);
+                        continue;
+                    }
+                }
+                lines.Add((r, new List<float2>(r.Centerline)));
+            }
+            foreach (var (r, pts) in lines)
+            {
                 if (r.Graded)
                     sp.Connectors.Add(pts);
                 else
@@ -152,6 +172,8 @@ namespace AutoGenBatch
             return sp;
         }
 
+        private const float SkiedJoinM = 60f;
+
         private static Row RunRegion(string id, float2[] ring, HeightSnapshot snap, RunsFirstOptions options, string outDir)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -164,6 +186,7 @@ namespace AutoGenBatch
             ulong h2 = RunsFirstRealizer.Hash(RunsFirstRealizer.Realize(plan, InputOf(snap, ring), null));
             RunsFirstScore.Result raw = RunsFirstScore.Evaluate(snap, ring, ScoreOfRaw(plan));
             RunsFirstScore.Result real = RunsFirstScore.Evaluate(snap, ring, ScoreOfRealized(res, plan));
+            RunsFirstScore.Result skied = RunsFirstScore.Evaluate(snap, ring, ScoreOfRealized(res, plan, true));
             // the realized pistes with the raw plan connectors: which half of the plan the score loses
             ScorePlan mixed = ScoreOfRealized(res, plan);
             mixed.Connectors.Clear();
@@ -198,7 +221,7 @@ namespace AutoGenBatch
             for (int k = 1; k < (int)AutoReject.Count; k++)
                 if (rep.TrackDrops[k] > 0)
                     tdrops.Add($"{(AutoReject)k} {rep.TrackDrops[k]}");
-            float rawT = raw.Total, realT = real.Total;
+            float rawT = raw.Total, realT = real.Total, skiedT = skied.Total;
             var lines = new List<string>
             {
                 $"REALIZE {id}: {res.Status}{(res.Warnings != AutoPlanWarning.None ? " (" + res.Warnings + ")" : "")}, {res.Runs.Count} areas",
@@ -213,7 +236,7 @@ namespace AutoGenBatch
                     $"{rep.UnlinkedEnds} ({rep.UnlinkedBlocked} blocked) of {ends} ({(ends > 0 ? 100.0 * rep.UnlinkedEnds / ends : 0):F2} %)",
                 $"  graph: unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, bottom reach {rep.BottomReach}/{rep.Lifts}, no way to bottom {rep.NoWayToBottom}",
                 $"  lifts: {rep.Lifts}, towers clear {rep.LiftsClear}, sunk ends {rep.SunkEnds}, lot conflicts {rep.LotConflicts}",
-                $"  score: raw {rawT:F1}, realized {realT:F1} ({realT - rawT:+0.0;-0.0}), realized pistes with the raw connectors {mixT:F1}",
+                $"  score: raw {rawT:F1}, as built {realT:F1} ({realT - rawT:+0.0;-0.0}), as skied {skiedT:F1} ({skiedT - rawT:+0.0;-0.0}), realized pistes with the raw connectors {mixT:F1}",
                 $"  time: plan {planMs:F0} ms, realize {rep.Ms:F0} ms (lattice {rep.LatticeMs:F0}, lifts {rep.LiftMs:F0}, pistes {rep.PisteMs:F0}, tracks {rep.TrackMs:F0}, graph {rep.GraphMs:F0}); " +
                     $"layers {rep.LayerBytes / 1048576.0:F1} MB; hash {h1:x16}{(h1 == h2 ? "" : " NOT DETERMINISTIC " + h2.ToString("x16"))}",
             };
@@ -229,13 +252,13 @@ namespace AutoGenBatch
                         $"line y {snap.Sample(new float3(a.x, 0, a.y)):F0} -> {snap.Sample(new float3(b.x, 0, b.y)):F0}");
                 }
             File.WriteAllLines(Path.Combine(outDir, id + ".txt"), lines.Concat(rep.Lines.Select(s => "  | " + s))
-                .Concat(new[] { "", RunsFirstScore.Line(id + " raw", raw), "", RunsFirstScore.Line(id + " realized", real) })
+                .Concat(new[] { "", RunsFirstScore.Line(id + " raw", raw), "", RunsFirstScore.Line(id + " realized", real), "", RunsFirstScore.Line(id + " skied", skied) })
                 .Concat(real.Notes.Select(s => "  realized note: " + s)));
             string tsv = Path.Combine(outDir, "realize.tsv");
             if (!File.Exists(tsv))
                 File.WriteAllText(tsv, "region\tsources\tdropped\tdrops\tareas\tpiecesLost\tkmPlan\tkmKept\tgradedKmPlan\tgradedKmKept\trelations\tlinks\tvia\tmisses\textensions\t" +
                     "unlinked\tunlinkedBlocked\tends\tunserved\tdeadEnds\tbandAgree\tbandRated\tbandAgreeKm\tbandRatedKm\ttrackSources\ttrackChains\ttrackAreas\t" +
-                    "trackPiecesLost\ttrackKmPlan\ttrackKmKept\ttrackDrops\tlifts\tliftsClear\tbottomReach\traw\trealized\tplanMs\trealizeMs\tlayerMB\tdeterministic\tfallback\n");
+                    "trackPiecesLost\ttrackKmPlan\ttrackKmKept\ttrackDrops\tlifts\tliftsClear\tbottomReach\traw\trealized\tplanMs\trealizeMs\tlayerMB\tdeterministic\tfallback\tskied\tcrossesFallback\ttrackReaches\n");
             File.AppendAllText(tsv, string.Join("\t", new object[]
             {
                 id, sources, dropped, drops.Count > 0 ? string.Join(",", drops) : "-", res.Runs.Count, rep.PiecesLost, kmPlan.ToString("F2"), kmKept.ToString("F2"),
@@ -243,11 +266,11 @@ namespace AutoGenBatch
                 rep.UnlinkedEnds, rep.UnlinkedBlocked, ends, rep.UnservedAreas, rep.DeadEnds, agree, rated, agreeKm.ToString("F2"), ratedKm.ToString("F2"),
                 rep.TrackSources, rep.TrackChains, rep.TrackAreas, rep.TrackPiecesLost, rep.TrackKmPlanned.ToString("F2"), rep.TrackKmKept.ToString("F2"),
                 tdrops.Count > 0 ? string.Join(",", tdrops) : "-", rep.Lifts, rep.LiftsClear, rep.BottomReach, rawT.ToString("F1"), realT.ToString("F1"),
-                planMs.ToString("F0"), rep.Ms.ToString("F0"), (rep.LayerBytes / 1048576.0).ToString("F1"), h1 == h2 ? "yes" : "NO", rep.FallbackRated,
+                planMs.ToString("F0"), rep.Ms.ToString("F0"), (rep.LayerBytes / 1048576.0).ToString("F1"), h1 == h2 ? "yes" : "NO", rep.FallbackRated, skiedT.ToString("F1"), rep.CrossesFallback, rep.TrackReaches,
             }.Select(o => Convert.ToString(o, CultureInfo.InvariantCulture))) + "\n");
             return new Row
             {
-                KeptShare = kmPlan > 0 ? kmKept / kmPlan : 1.0, UnlinkedShare = ends > 0 ? (double)rep.UnlinkedEnds / ends : 0.0, Raw = rawT, Realized = realT,
+                KeptShare = kmPlan > 0 ? kmKept / kmPlan : 1.0, UnlinkedShare = ends > 0 ? (double)rep.UnlinkedEnds / ends : 0.0, Raw = rawT, Realized = realT, Skied = skiedT,
                 PlanMs = planMs, RealizeMs = rep.Ms, LayerMB = rep.LayerBytes / 1048576.0, Same = h1 == h2,
             };
         }
