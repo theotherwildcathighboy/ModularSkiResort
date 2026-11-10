@@ -4,7 +4,7 @@ This file covers the lift-served rule and the power predicate. These consumers r
 `ReadLiftPower`:
 
 - `SkiResortAttractivenessSystem` (served runs, lift value)
-- `SkiResortStatsSystem` (servedBy, runsServed)
+- `SkiResortStatsSystem` (servedBy, and runsServed through `CountInReach`)
 - `SkiLiftChargeSystem` and `SkiLiftTicketSystem` (IsPowered)
 
 tests/LiftBatch and tests/ResortBatch link the file. The census keeps edge to row only. So a line is a set of chords, not an ordered
@@ -28,6 +28,14 @@ A run is also served when a skier can get onto it DOWNHILL from a served run (20
 - A real part of the run lies below the junction (BelowJunction).
 
 Cat tracks carry service along themselves, downhill or level only. See `AssignLinked` and `RunLinks`. Rules 1-4 decide direct service.
+
+## Runs in reach (the hub's lift row)
+`CountInReach` counts, per lift, the run tops that satisfy rules 1, 3 and 4. It does not apply rule 2 (power). `Lift.Built` is
+`Serves` without the power factor. `Reaches(..., ignorePower: true, ...)` applies the same geometry and top margin. For a lift that has
+power, the count equals Assign's servedCount. For a lift with NoPower or Pending power, Assign counts 0, and CountInReach counts the runs
+that the lift would serve. The hub's lift row shows this count (`LiftStats.RunsServed`), so an unpowered lift does not read "no runs"
+(field test r2c-v, 2026-11-10). Its status word says No power. Service, scoring, capacity, billing and tickets keep the power-gated
+rule. Linked runs do not add to either count. Test: tests/ResortBatch UP-1b.
 
 ## Per lift type
 `Lift` carries Rule (ServeRuleKind as a byte), RadiusM, TopMarginM and TopXZ (the top station's HV stub tip xz, NaN when the top is not in
