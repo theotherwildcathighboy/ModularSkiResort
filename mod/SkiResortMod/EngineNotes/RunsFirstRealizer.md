@@ -45,6 +45,10 @@ The files are pure C# 9 for net48. They use no part of the `SkiRunAutoPlanner` c
 
 ## Junctions
 
+The partners of a piste are the pistes that the planner relates to it and the pistes that its line enters. Two more types of piste
+are partners. The first type is a piste that the line comes near with no relation. Two fall lines converge there. The piece ends with
+a junction on that piste, and the line continues past it as a new segment. The second type is an earlier segment of the same piste.
+
 A piste end that is more than 20 m from its partner gets a straight extension toward it. The extension is at most 40 m. A blocked
 cell or the gap of another area stops it. Then the report marks the end as unlinked.
 

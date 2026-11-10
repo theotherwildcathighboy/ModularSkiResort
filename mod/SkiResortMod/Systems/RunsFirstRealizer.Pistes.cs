@@ -107,6 +107,27 @@ namespace SkiResortMod.Systems
             var owner = new int[n];
             for (int i = 0; i < n; i++)
                 cause[i] = FreePiste(ctx, path.Xz[i], out owner[i]);
+            // Converging lines (iteration 3, item 1): a line that comes so near a piste it has no relation with that a ring at
+            // MinHalfWidthM would enter the pair gap (two fall lines converge) treats that piste as a partner from there. The free test
+            // runs again with the partner need: the piece ends with a junction on it (taper, reach, extension) and is not dropped as
+            // Overlap, and a line that leaves the zone farther down continues as the next segment.
+            for (int pass = 0; pass < 3; pass++)
+            {
+                bool added = false;
+                for (int i = 0; i < n; i++)
+                {
+                    int N = Converging(ctx, path.Xz[i]);
+                    if (N >= 0 && ctx.Partners.Add(N))
+                    {
+                        added = true;
+                        m_Rep.ConvergeJunctions++;
+                    }
+                }
+                if (!added)
+                    break;
+                for (int i = 0; i < n; i++)
+                    cause[i] = FreePiste(ctx, path.Xz[i], out owner[i]);
+            }
             // Stretches of free samples
             var pieces = new List<Piece>();
             bool anyPiste = false, anyRegion = false;
@@ -166,7 +187,7 @@ namespace SkiResortMod.Systems
                 {
                     last = why;
                     m_Res.Rejects[(int)why]++;
-                    m_Rep.Lines.Add($"piste {e.Source} ({e.Kind}): piece at ({path.Xz[pc.S].x:F0}, {path.Xz[pc.S].y:F0}) dropped ({why}{(why == AutoReject.Unrated ? ": " + m_RateWhy : "")})");
+                    m_Rep.Lines.Add($"piste {e.Source} ({e.Kind}): piece at ({path.Xz[pc.S].x:F0}, {path.Xz[pc.S].y:F0}) dropped ({why}{(why == AutoReject.Unrated || why == AutoReject.Overlap ? ": " + m_RateWhy : "")})");
                 }
             }
             if (e.Areas.Count == 0)
@@ -238,6 +259,18 @@ namespace SkiResortMod.Systems
                 }
             }
             return CFree;
+        }
+
+        /// <summary>Item 1 of iteration 3: the accepted piste with no partner status whose pair gap a MinHalfWidthM ring at p would
+        /// enter, or -1.</summary>
+        private int Converging(PisteCtx ctx, float2 p)
+        {
+            if (!Cell(p, out int c))
+                return -1;
+            int N = m_OwnPiste[c];
+            if (N < 0 || ctx.Partners.Contains(N))
+                return -1;
+            return m_DPiste[c] < PairGap(ctx.Gap, N) + MinHalfWidthM ? N : -1;
         }
 
         private static void Sub(GradePath path, int s, int e, out List<float2> xz)
@@ -486,7 +519,11 @@ namespace SkiResortMod.Systems
             Sub(path, pc.S, pc.E, out List<float2> xz);
             Built b0 = TryRing(ctx, xz, null, pc.J0, pc.J1);
             if (b0.Why != AutoReject.Kept)
+            {
+                if (b0.Why == AutoReject.Overlap && b0.Blocker >= 0)
+                    m_RateWhy = $"by piste {m_E[m_P[b0.Blocker].Elem].Source}{(ctx.Partners.Contains(b0.Blocker) ? ", a partner" : "")}";
                 return b0.Why;
+            }
             // 5.4: a junction end farther than JunctionReachM from its partner's outline is extended toward it
             int ext0 = 0, ext1 = 0;
             string why0 = null, why1 = null;
@@ -524,6 +561,8 @@ namespace SkiResortMod.Systems
             }
             int idx = Accept(ctx, use, segment);
             Area a = m_P[idx];
+            // The same piste continues past a cut: its kept segments are partners of its later pieces (merge gap, not the pair gap)
+            ctx.Partners.Add(idx);
             // The ends that still miss are unlinked, with the reason
             if (pc.J0.Count > 0 && EndMiss(use, pc.J0, true, out _) > JunctionReachM)
                 Unlinked(e, a, true, why0 ?? "no extension possible", blocked0);

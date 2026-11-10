@@ -35,6 +35,7 @@ namespace SkiResortMod.Systems
         public readonly int[] TrackDrops = new int[(int)AutoReject.Count];
         public double TrackKmPlanned, TrackKmKept;
         // Junctions
+        public int ConvergeJunctions;   // pistes met in a converging line's path and made its partners (iteration 3, item 1)
         public int TrackReaches;    // track ends extended to reach a related piste or track (iteration 2, item 6)
         public int Relations, RelationLinks, RelationVia, RelationMisses, Extensions, UnlinkedEnds, UnlinkedBlocked;   // RelationVia: linked through the area that cut the end
         // Served and dead ends

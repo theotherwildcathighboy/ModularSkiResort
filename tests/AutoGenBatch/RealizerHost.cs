@@ -256,7 +256,7 @@ namespace AutoGenBatch
                     $"{rep.GradedShown[1]}/{rep.GradedShown[2]}/{rep.GradedShown[3]}/{rep.GradedShown[4]}; natural to groomed {rep.NaturalToGroomed}; rated by the fallback {rep.FallbackRated}; constant-width after Crosses {rep.CrossesFallback}; table {BandTable(rep)}",
                 $"  tracks: {rep.TrackSources} sources, {rep.TrackChains} chains, {rep.TrackAreas} areas, {rep.TrackPiecesLost} pieces lost, dropped " +
                     $"({(tdrops.Count > 0 ? string.Join(", ", tdrops) : "none")}), km {rep.TrackKmKept:F2} / {rep.TrackKmPlanned:F2}, 30 m pitches over 25 % {rep.TrackPitchesOver}/{rep.TrackPitches}",
-                $"  junctions: relations {rep.Relations}, linked {rep.RelationLinks} ({rep.RelationVia} through the area that cut the end), missed {rep.RelationMisses}; extensions {rep.Extensions}, track ends reached {rep.TrackReaches}; unlinked ends " +
+                $"  junctions: relations {rep.Relations}, linked {rep.RelationLinks} ({rep.RelationVia} through the area that cut the end), missed {rep.RelationMisses}; extensions {rep.Extensions}, track ends reached {rep.TrackReaches}, converging junctions {rep.ConvergeJunctions}; unlinked ends " +
                     $"{rep.UnlinkedEnds} ({rep.UnlinkedBlocked} blocked) of {ends} ({(ends > 0 ? 100.0 * rep.UnlinkedEnds / ends : 0):F2} %)",
                 $"  graph: unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, bottom reach {rep.BottomReach}/{rep.Lifts}, no way to bottom {rep.NoWayToBottom}",
                 $"  lifts: {rep.Lifts}, towers clear {rep.LiftsClear}, sunk ends {rep.SunkEnds}, lot conflicts {rep.LotConflicts}",
