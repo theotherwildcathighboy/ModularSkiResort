@@ -158,12 +158,12 @@ namespace SkiResortMod.Systems
 
         // round v3's rule (every lift needs an easy way home: way-home tracks from every top, download gondolas, stranded lifts taken
         // out). Scorecard v4 reads experts-only lifts as normal, so the rule is off (RF_V3HOME=1 turns it back on)
-        private static bool V3Home => O.V3Home;
+        private bool V3Home => O.V3Home;
 
         /// <summary>A lift still without an easy way home is a download lift: its riders ride it down, so it is a gondola, or a tram
         /// where the grade needs one, when the norms fit with a margin and its chord crosses no other gondola or tram. Returns the
         /// lifts changed.</summary>
-        private static int DownloadLifts(Grid g, Plan plan, List<Lift> lifts)
+        private int DownloadLifts(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             SkiGraph sg = Ski(g, plan, lifts);
             int[] root = V3Bases(g, lifts, out HashSet<int> bases);
@@ -202,7 +202,7 @@ namespace SkiResortMod.Systems
         /// With chords set (after the chord repairs), the method also takes out two kinds of lift. One kind is a lift whose line still lies
         /// along runs (the scorecard's chord-on-run test). The other kind is a lift whose line crosses another lift of its kind. It does this
         /// only where every run the lift serves is another lift's run too. Returns the lifts taken out.</summary>
-        private static int DropStrandedLifts(Grid g, Plan plan, List<Lift> lifts, List<Cand> cands, bool chords = false)
+        private int DropStrandedLifts(Grid g, PlanDraft plan, List<Lift> lifts, List<Cand> cands, bool chords = false)
         {
             int dropped = 0;
             var tried = new HashSet<Lift>();
@@ -311,14 +311,14 @@ namespace SkiResortMod.Systems
         }
 
         // only the way down from the peak (RF_WAYPEAK=1): the lifts below it get no way-home track of their own
-        private static bool WayPeakOnly => O.WayPeakOnly;
+        private bool WayPeakOnly => O.WayPeakOnly;
         // the way down from the peak is sought again after the chord drop only where it took a lift out (RF_PEAKAGAIN=1: always)
-        private static bool PeakWayAgain => O.PeakWayAgain;
+        private bool PeakWayAgain => O.PeakWayAgain;
 
         /// <summary>The easy ways home: a track from every lift's top that has none (a gondola or tram top counts as home there, its
         /// riders ride down), then, for scorecard v4, the way down from the peak (a gondola or tram top needs one of its own).
         /// Returns the tracks added.</summary>
-        private static int AddWaysHome(Grid g, Plan plan, List<Lift> lifts)
+        private int AddWaysHome(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int added = WayPeakOnly ? 0 : AddLiftWaysHome(g, plan, lifts);
             if (!V3Home)
@@ -328,7 +328,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Adds a way-home cat track from the top of every lift that has none. Returns the tracks added.</summary>
         [MethodImpl(Hot)]
-        private static int AddLiftWaysHome(Grid g, Plan plan, List<Lift> lifts)
+        private int AddLiftWaysHome(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int added = 0, blue = 0;
             var used = new HashSet<int>();   // cells of the tracks this pass emitted (a later track ends where it meets one)
@@ -439,7 +439,7 @@ namespace SkiResortMod.Systems
         /// bottoms, other gondola and tram tops to ride down, and the easy skiing already leading home. Where none fits, the search moves to
         /// the next highest top. One is enough, and the lifts below it may stay experts-only. Returns the tracks added.</summary>
         [MethodImpl(Hot)]
-        private static int AddPeakWayHome(Grid g, Plan plan, List<Lift> lifts)
+        private int AddPeakWayHome(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             var tried = new HashSet<Lift>();
             int added = 0;

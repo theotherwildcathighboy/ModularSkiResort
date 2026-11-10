@@ -20,13 +20,13 @@ namespace SkiResortMod.Systems
         private const float FillCrowdShare = 0.25f, FillCrowdM = 40f;   // at most this share of it within 40 m of another run (its last 150 m aside)
         private const float FillForkM = 30f;        // a fill run leaves a run or traverse within this distance, at most 3 m above it
         private const float FillDropM = 60f;
-        private static float FillMinM => O.FillMinM;   // a short fill run still drops FillDropM (no stub). Scorecard v3 rates length nowhere else
+        private float FillMinM => O.FillMinM;   // a short fill run still drops FillDropM (no stub). Scorecard v3 rates length nowhere else
         private const float FillFeedM = 110f, FillFeedShare = 0.3f;   // ... or from a straight cut-over this long at most (a share of the run)
         // a fill run must open ground for the crowding it brings. The scorecard weighs coverage 10 against its 60 % target and
         // crowding 5 against a 30 % share. So at par a crowded 10 m sample costs about 1.0 x (lattice points / run samples) new points.
         // The fill asks a quarter of that: 0.25 against 0.67. Result: visible 97.48 -> 97.53, 80 % outlines 95.33 -> 95.40, 120 %
         // 96.10 -> 96.22, squares 95.01 -> 95.21, no region worse (1.0: 97.41 against 97.48)
-        private static float FillCrowdTrade => O.FillCrowdTrade;
+        private float FillCrowdTrade => O.FillCrowdTrade;
 
         /// <summary>Fall lines through open ground. From an open lattice point, a line goes up the steepest ascent until it meets ground
         /// a skier is on (onNear). It then goes down the steepest descent until it runs along a run for a few steps or reaches a
@@ -198,7 +198,7 @@ namespace SkiResortMod.Systems
         }
 
         [MethodImpl(Hot)]
-        private static int FillCover(Grid g, Plan plan, List<Lift> lifts, List<Cand> cands)
+        private int FillCover(Grid g, PlanDraft plan, List<Lift> lifts, List<Cand> cands)
         {
             SkiGraph sg = Ski(g, plan, lifts);
             static long Key(float2 p) => ((long)Math.Floor(p.x / 60f) << 32) ^ (uint)(int)Math.Floor(p.y / 60f);
@@ -731,7 +731,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>RF_COVDBG: a map of the skiable ground and what the served runs cover of it, 100 m a character, +z up and +x right
         /// ("#" all covered, "+" half or more, "." less, "o" none, A-Z a lift bottom, a-z its top).</summary>
-        private static void CoverDebug(Grid g, Plan plan, List<Lift> lifts)
+        private static void CoverDebug(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             // the elements the scorecard reads as runs (as the cut model takes them: every one served)
             var runs = new PointHash();

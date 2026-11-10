@@ -25,29 +25,29 @@ namespace SkiResortMod.Systems
         private const float AccessRadiusM = 1500f, AccessMaxDown = 0.35f, AccessMaxUp = 0.07f, AccessCliff = 0.75f;
         private const float AccessRawPitch = 0.42f, AccessRawRise = 3.5f;   // on the raw terrain: 30 m pitch, rise within 55 m
         private const float StationMax = 0.34f;   // raw 10 m grade a station pad may sit on (the scorecard flags over 0.40)
-        private static float TopLatticeM => O.TopLatticeM;
-        private static float ReturnM => O.ReturnM;
-        private static float ReachBudget => O.ReachBudget;   // cells the top lattice's reach searches may visit
+        private float TopLatticeM => O.TopLatticeM;
+        private float ReturnM => O.ReturnM;
+        private float ReachBudget => O.ReachBudget;   // cells the top lattice's reach searches may visit
         // a lattice point with no pad within 30 m takes the flattest pad within this reach, as a top for the coverage lifts only.
         // The reach is about half the lattice diagonal, so every pad on a steep ridge belongs to some lattice point
-        private static float PadReachM => O.PadReachM;
-        private static int ScanThreads => Math.Max(1, O.ScanThreads);   // threads for the top lattice's reach scan
+        private float PadReachM => O.PadReachM;
+        private int ScanThreads => Math.Max(1, O.ScanThreads);   // threads for the top lattice's reach scan
         private const float MarginalShare = 0.1f;   // a lift worth less than this share of the first is marginal
         private const float HubLinkM = 150f, BenchGrade = 0.25f, MinLapM = 60f;
         private const float TowerLiftM = 20f;
         private const float TwinM = 300f;       // a lift whose top AND bottom are this close to an existing one's is a twin, not a new lift
 
         // hourly capacity relative to a detachable quad (2,400 / h): a tram lap is worth a third of a chair lap to a resort
-        private static float Capacity(string type) => type switch { "fixed-grip" => 0.75f, "detachable" => 1f, "gondola" => GondolaCap, _ => 0.3f };   // terrain may rise this far above the straight chord (towers carry the rope over it)
+        private float Capacity(string type) => type switch { "fixed-grip" => 0.75f, "detachable" => 1f, "gondola" => GondolaCap, _ => 0.3f };   // terrain may rise this far above the straight chord (towers carry the rope over it)
         // v5 lift type by use: 0 off, 1 in the placement (the value follows the new type), 2 a relabel of the finished plan
-        private static int TypeUse => O.TypeUse;
-        private static float ChairMaxRise => O.ChairMaxRise;
-        private static float VeryLongM => O.VeryLongM;
-        private static float TramRise => O.TramRise;
-        private static float GondolaCap => O.GondolaCap;
-        private static float LiftFallW => O.LiftFallW;   // the share of a lift's value lost 60 degrees off the fall line (off: at 0.6 it re-picked the lifts, -2.8 visible, more lone bases)
+        private int TypeUse => O.TypeUse;
+        private float ChairMaxRise => O.ChairMaxRise;
+        private float VeryLongM => O.VeryLongM;
+        private float TramRise => O.TramRise;
+        private float GondolaCap => O.GondolaCap;
+        private float LiftFallW => O.LiftFallW;   // the share of a lift's value lost 60 degrees off the fall line (off: at 0.6 it re-picked the lifts, -2.8 visible, more lone bases)
 
-        private static readonly List<(float2 P, int R, int G, int B)> DebugDots = new List<(float2, int, int, int)>();   // RF_TOPS marks
+        private readonly List<(float2 P, int R, int G, int B)> DebugDots = new List<(float2, int, int, int)>();   // RF_TOPS marks
 
         private sealed class Lift
         {
@@ -83,7 +83,7 @@ namespace SkiResortMod.Systems
         }
 
         [MethodImpl(Hot)]
-        private static List<Lift> PlaceLifts(Grid g, int[] rec, List<Line> all, float km2, PointHash runs)
+        private List<Lift> PlaceLifts(Grid g, int[] rec, List<Line> all, float km2, PointHash runs)
         {
             int n = g.W * g.D;
             var lines = all.FindAll(l => l.Picked);
@@ -535,7 +535,7 @@ namespace SkiResortMod.Systems
         [MethodImpl(Hot)]
         /// <summary>A lift line along the region edge: over half of its chord's middle within EdgeLiftM of ground outside the region (the
         /// low ground a station wants often lies on the edge of a cut-out region, and a designer keeps the line inside it).</summary>
-        private static bool AlongEdge(Grid g, int b, int t)
+        private bool AlongEdge(Grid g, int b, int t)
         {
             if (EdgeLiftM <= 0f)
                 return false;
@@ -557,19 +557,19 @@ namespace SkiResortMod.Systems
             }
             return near * 2 > n;
         }
-        private static float EdgeLiftM => O.EdgeLiftM;
+        private float EdgeLiftM => O.EdgeLiftM;
 
         private static bool Aerial(string type) => type == "gondola" || type == "tram";
 
         // scorecard v4's parallel lines are twins too (RF_PARALLELOK=1: allowed), past the lines a new one may run beside
-        private static bool NoParallel => O.NoParallel;
-        private static int TransferBeside => O.TransferBeside;
+        private bool NoParallel => O.NoParallel;
+        private int TransferBeside => O.TransferBeside;
 
         // a lift of the search whose bottom finds no pad of its own is not placed, up to this many times a region (RF_OWNBOTTOM=0: off)
-        private static bool OwnBottom => O.OwnBottom;
-        private static int OwnBottomTries => O.OwnBottomTries;
+        private bool OwnBottom => O.OwnBottom;
+        private int OwnBottomTries => O.OwnBottomTries;
 
-        private static bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f, string type = null, int beside = 0)
+        private bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f, string type = null, int beside = 0)
         {
             int v4 = 0;
             // this check returns true for:
@@ -746,9 +746,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>The cheapest lift type whose length / rise / mean grade norms fit and whose chord clears the ground (terrain at
         /// most TowerLiftM above the straight line). Returns null when none fits. Long chairs prefer the detachable.</summary>
-        private static float MaxRiseM => O.MaxRiseM;
+        private float MaxRiseM => O.MaxRiseM;
 
-        private static string TypeFor(Grid g, int b, int t)
+        private string TypeFor(Grid g, int b, int t)
         {
             // the real ground, as the rope sees it: raw heights at the stations and every 10 m along the chord
             float3 a = new float3(g.World(b).x, g.Hr[b], g.World(b).y), c = new float3(g.World(t).x, g.Hr[t], g.World(t).y);
@@ -778,7 +778,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>v5, the type by use, not by rise: chairs to ChairMaxRise (a fixed-grip to 1000 m of length, detachable beyond), a
         /// gondola for a very long line or a grade past a chair's, a tram for a trunk line past TramRise (base to ridge).</summary>
-        private static string ByUse(float len, float rise, float run)
+        private string ByUse(float len, float rise, float run)
         {
             float gr = rise / run;
             if (rise >= 95f && rise <= ChairMaxRise && len <= VeryLongM)
@@ -799,7 +799,7 @@ namespace SkiResortMod.Systems
         /// ladder by rise sets their value). Then a gondola or tram that is neither the village lift nor a download lift becomes the
         /// chair its line allows. A gondola past TramRise becomes a tram. Both changes happen where no chair line crosses the lift and
         /// the ski graph keeps its links and ways home (a gondola top also takes skiers down). Returns the lifts changed.</summary>
-        private static int RetypeByUse(Grid g, Plan plan, List<Lift> lifts, Lift village)
+        private int RetypeByUse(Grid g, PlanDraft plan, List<Lift> lifts, Lift village)
         {
             int changed = 0;
             var log = new List<string>();

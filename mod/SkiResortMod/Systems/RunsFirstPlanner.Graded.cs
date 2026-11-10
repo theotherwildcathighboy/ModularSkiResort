@@ -29,13 +29,13 @@ namespace SkiResortMod.Systems
 
         // v5 natural runs (RF_NATURAL). 0: none. 1: double black by the ground. 2: also a black run whose ground is mostly past the
         // double-black line (cliffs and rock: hostile ground a designer leaves ungroomed)
-        private static int NaturalMode => O.NaturalMode;
-        private static float NaturalHostile => O.NaturalHostile;
+        private int NaturalMode => O.NaturalMode;
+        private float NaturalHostile => O.NaturalHostile;
 
         /// <summary>Scorecard v5: skiers ski steep ground ungroomed. A run (not a graded track) is natural (the mod's RunKind.Natural)
         /// when its ground rates double black, or when its ground rates black with NaturalHostile of it past the double-black line.
         /// Returns the runs marked.</summary>
-        private static int MarkNatural(Grid g, Plan plan)
+        private int MarkNatural(Grid g, PlanDraft plan)
         {
             if (NaturalMode == 0)
                 return 0;
@@ -96,7 +96,7 @@ namespace SkiResortMod.Systems
             return (false, SlopeBand.Green);
         }
 
-        private static float StraightDevM => O.StraightDevM;   // a straight piece stays this close to the track's own points
+        private float StraightDevM => O.StraightDevM;   // a straight piece stays this close to the track's own points
 
         /// <summary>Green cat tracks pulled straight. A route search steps between cell centers, and the smoothing only softens the
         /// staircase. So a track wobbles where a cat track on the ground runs straight. Between its anchors, a track takes the longest
@@ -105,7 +105,7 @@ namespace SkiResortMod.Systems
         /// connector rules. The code keeps a straightened track only where it still reads green. It keeps the pass only where the ski
         /// graph loses nothing. Returns the tracks pulled straight.</summary>
         [MethodImpl(Hot)]
-        private static int StraightenTracks(Grid g, Plan plan, List<Lift> lifts)
+        private int StraightenTracks(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             var ends = new List<float2>();
             foreach (PlanRun r in plan.Runs)
@@ -165,7 +165,7 @@ namespace SkiResortMod.Systems
         /// - the piece has no 30 m pitch or 50 m climb past the connector rules
         /// - no 20-30 m of the piece lies at the blue line.</summary>
         [MethodImpl(Hot)]
-        private static bool StraightOk(Grid g, List<float2> c, int i, int k)
+        private bool StraightOk(Grid g, List<float2> c, int i, int k)
         {
             for (int m = i + 1; m < k; m++)
                 if (SegDist(c[m], c[i], c[k]) > StraightDevM)
@@ -192,7 +192,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>RF_V3DBG: the plan's elements by their v3 class, and the crowded samples (the scorecard's rule, served or not) by the
         /// kinds of the two elements.</summary>
-        private static void V3Debug(Grid g, Plan plan, List<Lift> lifts)
+        private void V3Debug(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             var els = new List<(string Kind, float3[] P, bool Run)>();
             foreach (PlanRun r in plan.Runs)

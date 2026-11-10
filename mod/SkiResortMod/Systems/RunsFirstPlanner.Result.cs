@@ -10,7 +10,7 @@ namespace SkiResortMod.Systems
     public sealed partial class RunsFirstPlanner
     {
         /// <summary>The plain plan object of a finished plan (copies: the planner's own types stay inside).</summary>
-        private static RunsFirstResult MakeResult(Grid g, Plan built, List<Lift> lifts)
+        private static RunsFirstResult MakeResult(Grid g, PlanDraft built, List<Lift> lifts)
         {
             var res = new RunsFirstResult();
             foreach (PlanRun r in built.Runs)

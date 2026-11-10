@@ -60,7 +60,7 @@ namespace SkiResortMod.Systems
         // - a blue run
         // - a black run (an expert way into the next area)
         private static readonly EasyLimits GreenWay = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f);
-        private static EasyLimits LearnWay => new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f, false, O.LearnGround);
+        private EasyLimits LearnWay => new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f, false, O.LearnGround);
         private static readonly EasyLimits GreenProbe = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1500f);   // green ground near a station
         private static readonly EasyLimits CatTrack = new EasyLimits(0.30f, ConnPitchMax, ConnPitchMax, 3.5f, 1f, 1500f);
         private static readonly EasyLimits BlueWay = new EasyLimits(0.36f, 0.38f, 0.62f, 7f, 0.08f, 3500f);
@@ -99,7 +99,7 @@ namespace SkiResortMod.Systems
         }
 
         [MethodImpl(Hot)]
-        private static void AddBeginnerPods(Grid g, Plan plan, List<Lift> lifts)
+        private void AddBeginnerPods(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             if (lifts.Count == 0)
                 return;
@@ -206,7 +206,7 @@ namespace SkiResortMod.Systems
         /// still gets a learning pod on the green ground its runs leave alone. This holds while the lift budget has room (the slots held for
         /// the beginner pods often stay free). The method keeps a pod only where it joins the network and the ski graph loses nothing.
         /// Returns the pods added.</summary>
-        private static int AddLearningPods(Grid g, Plan plan, List<Lift> lifts, float km2)
+        private int AddLearningPods(Grid g, PlanDraft plan, List<Lift> lifts, float km2)
         {
             int budget = (int)Math.Ceiling(1.5 * km2) + 2, added = 0;
             var tried = new HashSet<int>();
@@ -285,7 +285,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Where an easy run may end at a base: its lift stations, pads beside them, and flat spots on the last 400 m of the
         /// served runs that come home to it (a green run ending there flows on with that run).</summary>
-        private static List<int> BaseOrigins(Grid g, Plan plan, List<Lift> lifts, List<int> members, SkiGraph sg)
+        private static List<int> BaseOrigins(Grid g, PlanDraft plan, List<Lift> lifts, List<int> members, SkiGraph sg)
         {
             var o = new List<int>();
             void Add(int c)
@@ -340,7 +340,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A beginner at the base finds green skiing to lap (scorecard v3: up the base's lifts, anywhere they lead).</summary>
-        private static bool BaseHasGreen(SkiGraph sg, Plan plan, List<Lift> lifts, List<int> members) => LearnOk(sg, lifts, members, SlopeBand.Green);
+        private static bool BaseHasGreen(SkiGraph sg, PlanDraft plan, List<Lift> lifts, List<int> members) => LearnOk(sg, lifts, members, SlopeBand.Green);
 
         /// <summary>The winding route from a reached cell down to its origin as a green run, or null when it does not hold up. The route
         /// holds up when it meets all these conditions:
@@ -352,7 +352,7 @@ namespace SkiResortMod.Systems
         /// soft (0 = clean): the share of the route along other runs when over 35 % (up to 70 %), plus 1 when a run lies along a lift line.
         /// A caller may still take the softest when nothing clean exists (a base without beginner terrain costs more than either).</summary>
         [MethodImpl(Hot)]
-        private static List<float2> GreenRoute(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, int x, PointHash avoid, ChordGuard guard, int[] why, out float soft,
+        private static List<float2> GreenRoute(Grid g, PlanDraft plan, List<Lift> lifts, List<int> members, EasyReach er, int x, PointHash avoid, ChordGuard guard, int[] why, out float soft,
             out bool graded)
         {
             soft = 0f;
@@ -433,7 +433,7 @@ namespace SkiResortMod.Systems
         /// <summary>The route (top first) cut where it first comes onto a run (25 m) whose rest is green and passes a station of the
         /// base, with that run's point as its end. The result is null when it meets none past its first 250 m or keeps under 60 m of drop.</summary>
         [MethodImpl(Hot)]
-        private static List<float2> JoinRunOut(Grid g, Plan plan, List<Lift> lifts, List<int> members, List<float2> route, PointHash avoid, bool graded)
+        private static List<float2> JoinRunOut(Grid g, PlanDraft plan, List<Lift> lifts, List<int> members, List<float2> route, PointHash avoid, bool graded)
         {
             float at = 0f;
             int tries = 0;
@@ -475,7 +475,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>A green way down from the top of a lift of the base, when the easy ground reaches it. Out parameter shared = the softest one
         /// that shares its ground with other runs or a lift line (not added) when no clean one exists.</summary>
-        private static bool TryWayDown(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard guard, out PlanRun shared,
+        private static bool TryWayDown(Grid g, PlanDraft plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard guard, out PlanRun shared,
             out float softest)
         {
             var why = new int[4];
@@ -514,7 +514,7 @@ namespace SkiResortMod.Systems
         /// way home or regraded track gives it one), the method gives it a winding green that the grading tool cuts. The owner's rule: a green
         /// learning run on steep ground is a graded track. The green runs from the top of a lift of the base down to its stations. Returns the
         /// bases given one.</summary>
-        private static int AddGradedLearningWays(Grid g, Plan plan, List<Lift> lifts)
+        private int AddGradedLearningWays(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int added = 0, tried = 0;
             int[] root = V3Bases(g, lifts, out HashSet<int> bases);
@@ -554,7 +554,7 @@ namespace SkiResortMod.Systems
         /// <summary>A green cat track from the top of a lift of the base down to its stations. The search treats it as it treats the ways
         /// home (steep pitches along the path, so it may zigzag down a face). It is at least 250 m long and 40 m down (a learning run, not a
         /// transfer).</summary>
-        private static bool TryGradedWayDown(Grid g, Plan plan, List<Lift> lifts, List<int> members, PointHash avoid, PointHash lines)
+        private bool TryGradedWayDown(Grid g, PlanDraft plan, List<Lift> lifts, List<int> members, PointHash avoid, PointHash lines)
         {
             var origins = new List<int>();
             foreach (int L in members)
@@ -592,7 +592,7 @@ namespace SkiResortMod.Systems
         /// or traverse skied from a lift of the base where the easy ground meets it (30 m, not above it) and winds home. The green run is
         /// at least 60 m down and 300 m long. The highest clean one comes first (else the softest, not added). Whoever comes that far
         /// down skis green the rest of the way.</summary>
-        private static PlanRun FindBranch(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard guard, SkiGraph sg,
+        private static PlanRun FindBranch(Grid g, PlanDraft plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard guard, SkiGraph sg,
             out float softest)
         {
             var at = new Dictionary<long, List<float3>>();
@@ -642,7 +642,7 @@ namespace SkiResortMod.Systems
         }
 
         [MethodImpl(Hot)]
-        private static bool TryPod(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard lines, SkiGraph before)
+        private bool TryPod(Grid g, PlanDraft plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard lines, SkiGraph before)
         {
             var bottoms = new HashSet<int>(lifts.Select(lf => lf.BottomCell));
             var cands = er.CostInOrder().Where(kv => er.Len[kv.Key] <= PodRouteMaxM && g.Hr[kv.Key] - g.Hr[er.Root[kv.Key]] >= PodMinRise)
@@ -833,11 +833,11 @@ namespace SkiResortMod.Systems
 
         // cells the easy-ground searches settled in this region's plan, and the most they may settle. On wide gentle ground one
         // search floods the whole region (a link that fails tries three of them per round). The region must plan in seconds
-        private static long EasyWork, LinkWork;
+        private long EasyWork, LinkWork;
         // a graded track may climb a little per step (a contour step on rough ground). The route's climb rule still holds it
-        private static float EasyUpTol => O.EasyUpTol;
-        private static float EasyBudget => O.EasyBudget;
-        private static float LinkBudget => O.LinkBudget;
+        private float EasyUpTol => O.EasyUpTol;
+        private float EasyBudget => O.EasyBudget;
+        private float LinkBudget => O.LinkBudget;
 
         /// <summary>The easy-ground search's working arrays per grid cell (Steep: meters steeper than green, Hi: the highest raw point
         /// along the route), clean between searches. One set serves every search (regions plan one at a time).</summary>
@@ -860,7 +860,7 @@ namespace SkiResortMod.Systems
                 Done = new bool[n];
             }
         }
-        private static EasyScratch s_Easy;
+        private EasyScratch s_Easy;
 
         /// <summary>Uphill search from the origin cells over ground an easy run can come down. Per 7 m step the skier's descent is at
         /// most EasyEdgeMax (smoothed) and the climb tiny. On the raw terrain these limits hold:
@@ -869,10 +869,10 @@ namespace SkiResortMod.Systems
         /// - Pitches over a green grade stay a small share (the band reads the 85th percentile).
         /// Routes along other runs, or along the given lift lines, cost more. With a goal cell the search heads for it (A*, the straight
         /// distance left as the estimate) and stops when it settles that cell.</summary>
-        private static float TrackTurnM => O.TrackTurnM;
+        private float TrackTurnM => O.TrackTurnM;
 
         [MethodImpl(Hot)]
-        private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null, float linesCost = 3f, int goal = -1)
+        private EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null, float linesCost = 3f, int goal = -1)
         {
             int n = g.W * g.D;
             if (s_Easy == null || s_Easy.Done.Length < n)

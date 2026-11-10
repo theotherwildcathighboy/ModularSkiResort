@@ -19,12 +19,12 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class RunsFirstPlanner
     {
-        private static float RegradeStretch => O.RegradeStretch;   // a bench at most this many times the piece's length (plus 100 m)
+        private float RegradeStretch => O.RegradeStretch;   // a bench at most this many times the piece's length (plus 100 m)
         private const float RegradeShare = 0.33f;    // connector km kept under this share of the run km (the scorecard's 0.35, less a margin)
 
         /// <summary>The planner's read of the economy term: connector km (green cat tracks, graded greens) and run km (runs and
         /// diagonal runs, all taken as served).</summary>
-        private static (float Conn, float Run) EconomyKm(Grid g, Plan plan)
+        private static (float Conn, float Run) EconomyKm(Grid g, PlanDraft plan)
         {
             float conn = 0f, run = 0f;
             foreach (PlanRun r in plan.Runs)
@@ -47,7 +47,7 @@ namespace SkiResortMod.Systems
             public readonly List<float2> Ends = new List<float2>(), Bottoms = new List<float2>();
             public readonly PointHash EndHash = new PointHash(), Stations = new PointHash();
 
-            public JoinPoints(Plan plan, List<Lift> lifts)
+            public JoinPoints(PlanDraft plan, List<Lift> lifts)
             {
                 foreach (PlanRun r in plan.Runs)
                 {
@@ -81,7 +81,7 @@ namespace SkiResortMod.Systems
         /// every join the piece carried between its ends). Where that misses a join, a bench routed through the joins. Null where
         /// none fits. tally counts the legs past the search budget [0] and the legs no bench reached [1].</summary>
         [MethodImpl(Hot)]
-        private static (List<float2> Direct, bool Keeps, List<float2> Routed) Benches(Grid g, List<float2> old, JoinPoints jp, int[] tally)
+        private (List<float2> Direct, bool Keeps, List<float2> Routed) Benches(Grid g, List<float2> old, JoinPoints jp, int[] tally)
         {
             // uphill from the foot to the head over ground a green cat track can be graded across
             List<float2> od = Densify(old);
@@ -171,7 +171,7 @@ namespace SkiResortMod.Systems
             public int Net;
             public float EasyHi;   // scorecard v4: the highest top an intermediate skis home from
 
-            public static SkiRead Of(Grid g, Plan plan, List<Lift> lifts)
+            public static SkiRead Of(Grid g, PlanDraft plan, List<Lift> lifts)
             {
                 int[] root = V3Bases(g, lifts, out HashSet<int> bases);
                 SkiGraph sg = Ski(g, plan, lifts);
@@ -203,7 +203,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Puts a new track in a connector's place (and in the links, which hold the same list).</summary>
-        private static void SwapConnector(Plan plan, int ci, List<float2> track)
+        private static void SwapConnector(PlanDraft plan, int ci, List<float2> track)
         {
             int li = plan.Links.IndexOf(plan.Connectors[ci]);
             if (li >= 0)
@@ -230,7 +230,7 @@ namespace SkiResortMod.Systems
             private float m_RunKm, m_ConnKm;
 
             [MethodImpl(Hot)]
-            public CutModel(Grid g, Plan plan)
+            public CutModel(Grid g, PlanDraft plan)
             {
                 var els = new List<List<float2>>();
                 foreach (PlanRun r in plan.Runs)
@@ -430,12 +430,12 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private static float RegradeMinGain => O.RegradeMinGain;   // a cut that moves the score less than this stays a diagonal
+        private float RegradeMinGain => O.RegradeMinGain;   // a cut that moves the score less than this stays a diagonal
 
         /// <summary>Cuts diagonal traverse pieces as green cat tracks where a bench fits and the cut gains score (crowding, stubs and
         /// economy against coverage, as the scorecard reads them). Returns the pieces regraded.</summary>
         [MethodImpl(Hot)]
-        private static int RegradeTraverses(Grid g, Plan plan, List<Lift> lifts)
+        private int RegradeTraverses(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             var model = new CutModel(g, plan);
             var diag = Enumerable.Range(0, model.Conn.Count).Where(e => model.Conn[e] >= 0).ToList();
@@ -520,13 +520,13 @@ namespace SkiResortMod.Systems
             return done;
         }
 
-        private static float PruneMinGain => O.PruneMinGain;   // a run taken out gains at least this much score
+        private float PruneMinGain => O.PruneMinGain;   // a run taken out gains at least this much score
         private const int PruneReads = 40;                                         // ski graph reads the prune may spend
 
         /// <summary>Takes out the plan runs whose removal gains score as the scorecard reads the plan (a run crowded along most of its
         /// length that opens little ground of its own, or a stub), the largest gain first, where the ski graph loses nothing by it.
         /// Returns the runs taken out.</summary>
-        private static int PruneRuns(Grid g, Plan plan, List<Lift> lifts)
+        private int PruneRuns(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             var model = new CutModel(g, plan);
             var open = Enumerable.Range(0, model.Run.Count).Where(e => model.Run[e] != null).ToList();
@@ -577,7 +577,7 @@ namespace SkiResortMod.Systems
         /// <summary>A diagonal piece with a stub's drop joined end to start with the piece it runs into (or that runs into it) as one
         /// graded track: the same line on the ground, read by the scorecard as one run (a run may branch off anywhere along it). Kept
         /// where the score gains (the model), the ski graph loses nothing and no more lift lines lie on runs. Returns the pieces merged.</summary>
-        private static int MergeStubPieces(Grid g, Plan plan, List<Lift> lifts)
+        private static int MergeStubPieces(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int merged = 0, tried = 0;
             float now = new CutModel(g, plan).Total();
@@ -642,7 +642,7 @@ namespace SkiResortMod.Systems
         /// <summary>The runs a lift line's middle may not lie along, as scorecard v3 reads them (runs, and graded tracks steeper than
         /// the blue line). It returns each with the connector that the graded track is (-1 for a plan run). It also returns whether the
         /// element is a green run (a learning chair's own green run does not count under its line).</summary>
-        private static List<(List<float2> D, int Conn, PlanRun Run, bool Green)> ChordEls(Grid g, Plan plan)
+        private static List<(List<float2> D, int Conn, PlanRun Run, bool Green)> ChordEls(Grid g, PlanDraft plan)
         {
             var els = new List<(List<float2>, int, PlanRun, bool)>();
             foreach (PlanRun r in plan.Runs)
@@ -711,7 +711,7 @@ namespace SkiResortMod.Systems
         /// method removes the plan runs under it. It does this only while the ground and crowding they cost (as the scorecard reads them)
         /// stay under a violation's worth. It keeps each change where the ski graph loses nothing. It undoes a line's changes when they
         /// do not clear the line. Returns the lines cleared.</summary>
-        private static int ClearChordTracks(Grid g, Plan plan, List<Lift> lifts)
+        private int ClearChordTracks(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int cleared = 0;
             List<(List<float2> D, int Conn, PlanRun Run, bool Green)> els = ChordEls(g, plan);

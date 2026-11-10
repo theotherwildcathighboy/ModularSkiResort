@@ -15,15 +15,15 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class RunsFirstPlanner
     {
-        private static bool NoNewBase => !O.CoverNewBase;
+        private bool NoNewBase => !O.CoverNewBase;
         // a coverage lift opens at least this share of the region's skiable ground. 0.015 against 0.02, once lifts without a way home
         // and lines left on runs could go (0fd4f15, 41163e9). Result: visible 97.62 -> 97.64, 80 % outlines 95.40 -> 95.50, 120 % 96.22 ->
         // 96.88, squares 95.21 -> 95.30 (small pod chairs in side bowls). 0.01 put lifts that join nothing on a square (network 0.69)
-        private static float CoverLiftShare => O.CoverLiftShare;
-        private static int CoverLiftMinPts => O.CoverLiftMinPts;     // ... and at least this many 20 m lattice points (11 ha)
-        private static float CoverParallelM => O.CoverParallelM;       // ... and no closer than this alongside a placed lift
-        private static float CoverClearM => O.CoverClearM;          // ... its stations no closer than this to another rope
-        private static float CoverFallW => O.CoverFallW;      // the share of a coverage lift's gain lost 60 degrees off the fall line
+        private float CoverLiftShare => O.CoverLiftShare;
+        private int CoverLiftMinPts => O.CoverLiftMinPts;     // ... and at least this many 20 m lattice points (11 ha)
+        private float CoverParallelM => O.CoverParallelM;       // ... and no closer than this alongside a placed lift
+        private float CoverClearM => O.CoverClearM;          // ... its stations no closer than this to another rope
+        private float CoverFallW => O.CoverFallW;      // the share of a coverage lift's gain lost 60 degrees off the fall line
 
         /// <summary>The skiable 20 m lattice: per cell its index (-1 = not a lattice point or not skiable).</summary>
         [MethodImpl(Hot)]
@@ -115,10 +115,10 @@ namespace SkiResortMod.Systems
         }
 
         // a coverage lift's station on a placed lift's station needs a free pad nearby (RF_COVEROWNPAD=0: off)
-        private static bool OwnPads => O.CoverOwnPads;
+        private bool OwnPads => O.CoverOwnPads;
 
         [MethodImpl(Hot)]
-        private static int AddCoverLifts(Grid g, int[] rec, List<Lift> lifts, List<int> tops, List<bool[]> reachB, List<ulong[]> reachBits,
+        private int AddCoverLifts(Grid g, int[] rec, List<Lift> lifts, List<int> tops, List<bool[]> reachB, List<ulong[]> reachBits,
             List<int> bottoms, int[] latIdx, int latCount, PointHash runs, float km2, float[] slope)
         {
             int n = g.W * g.D, B = bottoms.Count, wb = (B + 63) / 64, wl = (latCount + 63) / 64;

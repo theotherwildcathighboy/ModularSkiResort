@@ -16,11 +16,11 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class RunsFirstPlanner
     {
-        private static float HeadForwardM => O.HeadForwardM;   // how far a run's start may slide forward
+        private float HeadForwardM => O.HeadForwardM;   // how far a run's start may slide forward
 
         /// <summary>Moves runs' starts forward to where their first stretch crowds other runs least. Returns the runs changed.</summary>
         [MethodImpl(Hot)]
-        private static int TrimHeads(Grid g, Plan plan, List<Lift> lifts)
+        private int TrimHeads(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             SkiGraph sg = Ski(g, plan, lifts);
             static long Key(float2 p) => ((long)Math.Floor(p.x / 60f) << 32) ^ (uint)(int)Math.Floor(p.y / 60f);

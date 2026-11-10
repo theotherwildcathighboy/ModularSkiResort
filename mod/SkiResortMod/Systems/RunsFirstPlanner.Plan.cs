@@ -22,10 +22,10 @@ namespace SkiResortMod.Systems
         private const float DeliverM = 50f;        // a run delivers to a lift when it passes this close to the bottom station (scorecard 60 m)
         private const float MinRunDropM = 55f;     // shorter served runs read as stubs (the scorecard counts under 50 m)
         private const float ContactM = 39f;        // a merging run ends where it first comes this close to the run it joins (the skier's 40 m)
-        private static float ServeCapPerKm2 => O.ServeCapPerKm2;
-        private static float RunOutM => O.RunOutM;   // how far below its first station a run may go on to others
-        private static float ChordDefer => O.ChordDefer;   // value share of a run that lies along a lift line
-        private static float ChordKeep => O.ChordKeep;    // ... kept anyway at this share of the best run's value
+        private float ServeCapPerKm2 => O.ServeCapPerKm2;
+        private float RunOutM => O.RunOutM;   // how far below its first station a run may go on to others
+        private float ChordDefer => O.ChordDefer;   // value share of a run that lies along a lift line
+        private float ChordKeep => O.ChordKeep;    // ... kept anyway at this share of the best run's value
 
         private sealed class PlanRun
         {
@@ -38,7 +38,7 @@ namespace SkiResortMod.Systems
             public RunKind Surface = RunKind.Groomed;   // or Natural (ungroomed: black or double black only, scorecard v5)
         }
 
-        private sealed class Plan
+        private sealed class PlanDraft
         {
             public readonly List<PlanRun> Runs = new List<PlanRun>();
             public readonly List<List<float2>> Connectors = new List<List<float2>>();
@@ -63,9 +63,9 @@ namespace SkiResortMod.Systems
         }
 
         [MethodImpl(Hot)]
-        private static Plan BuildPlan(Grid g, int[] rec, List<Line> lines, List<Lift> lifts, float km2)
+        private PlanDraft BuildPlan(Grid g, int[] rec, List<Line> lines, List<Lift> lifts, float km2)
         {
-            var plan = new Plan();
+            var plan = new PlanDraft();
             WayDbg = O.DebugWayHome ? (g, plan, lifts) : null;
             plan.Dots.AddRange(DebugDots);
             DebugDots.Clear();
@@ -698,7 +698,7 @@ namespace SkiResortMod.Systems
         /// fork side by side stay on the cat track until they part. A stretch joins only when the joined run keeps the run rules and stays
         /// off the lift lines. The rest stays a traverse. Returns the spurs merged.</summary>
         [MethodImpl(Hot)]
-        private static int MergeSpurs(Grid g, Plan plan, List<Lift> lifts)
+        private int MergeSpurs(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             const float clearM = 44f, minM = 30f;
             var guard = new ChordGuard(lifts);
@@ -802,7 +802,7 @@ namespace SkiResortMod.Systems
         /// <summary>Drop from the entry to end, weighted by the band (beginner and intermediate vertical is scarce) and the corridor
         /// width. A line that delivers nowhere counts half (it can still end on another run).</summary>
         [MethodImpl(Hot)]
-        private static float CandValue(Grid g, Cand cd, int end)
+        private float CandValue(Grid g, Cand cd, int end)
         {
             if (end <= cd.Entry + 3)
                 return 0f;
@@ -816,7 +816,7 @@ namespace SkiResortMod.Systems
         /// to the bowl lift, the cat track from the upper lift to the base. The method then emits the traverse trees again.
         /// Returns the traverses added.</summary>
         [MethodImpl(Hot)]
-        private static int LinkLifts(Grid g, Plan plan, List<Lift> lifts, Dictionary<int, int>[] reachOf, List<List<int>>[] need, ref int chains, ref int bad)
+        private static int LinkLifts(Grid g, PlanDraft plan, List<Lift> lifts, Dictionary<int, int>[] reachOf, List<List<int>>[] need, ref int chains, ref int bad)
         {
             int added = 0;
             for (int round = 0; round < 3; round++)

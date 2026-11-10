@@ -36,7 +36,7 @@ namespace SkiResortMod.Systems
         private const float SpacingM = 60f;       // the upper 60 % of two picked lines stay this far apart
         private const float OverlapShare = 0.3f;
         private const float MergeM = 35f;         // a picked line ends where it runs onto an earlier one (3 samples in a row this close, a trail width)
-        private static float PicksPerKm2 => O.PicksPerKm2;     // line cap per km2 (12-80), the Normal density
+        private float PicksPerKm2 => O.PicksPerKm2;     // line cap per km2 (12-80), the Normal density
         private const float GentleLatticeM = 50f, GentleMinGrade = 0.06f, GentleMaxGrade = 0.40f;
 
         // per family: steepest 30 m pitch the line may hold (cut there), runout grade trimmed off the bottom, min drop / length (m)
@@ -44,15 +44,15 @@ namespace SkiResortMod.Systems
             family == "gentle" ? (0.40f, 0.015f, 40f, 200f) : (0.85f, 0.04f, 120f, 300f);
 
         // beginner and intermediate vertical is scarce and worth more per meter than expert vertical
-        private static float BandWeight(SlopeBand b) => MixW != null ? MixW[(int)b] : b == SlopeBand.Green ? 3f : b == SlopeBand.Blue ? 2f : 1f;
+        private float BandWeight(SlopeBand b) => MixW != null ? MixW[(int)b] : b == SlopeBand.Green ? 3f : b == SlopeBand.Blue ? 2f : 1f;
 
         // v5 grade mix (RF_MIXW): weigh a band by the region's own ground over the share of the candidate lines' drop in it, instead of the
         // fixed 3 / 2 / 1. The region's own ground is the share of its 100 m cells in the band, rated as the scorecard rates them. 1: lines
         // banded by their own pitch, the weights also used for run candidates. 2: lines banded by the ground under them (the scorecard's run
         // band), the pick only. Off: both lowered the visible grade mix (see the v5 report).
-        private static int MixMode => O.MixMode;
-        private static float MixGreenMin => O.MixGreenMin;   // green keeps at least this weight (the learning areas)
-        private static float[] MixW;   // per band, for the region being planned (null: the fixed weights)
+        private int MixMode => O.MixMode;
+        private float MixGreenMin => O.MixGreenMin;   // green keeps at least this weight (the learning areas)
+        private float[] MixW;   // per band, for the region being planned (null: the fixed weights)
 
         /// <summary>The region's ground mix as scorecard v5 rates it: 100 m cells inside the ring, each the 85th percentile of the raw
         /// grade on a 20 m grid inside it, skiable from the green line to a 1.0 pitch (hostile ground counts as double black).</summary>
@@ -86,7 +86,7 @@ namespace SkiResortMod.Systems
             return bands;
         }
 
-        private static void SetMixWeights(string id, Grid g, float2[] ring, List<Line> lines)
+        private void SetMixWeights(string id, Grid g, float2[] ring, List<Line> lines)
         {
             MixW = null;
             if (MixMode == 0)
@@ -115,7 +115,7 @@ namespace SkiResortMod.Systems
         private static float2 P(float x, float z) => new float2(x, z);
 
         /// <summary>The options the planner reads (the only knobs it has). The host sets them per run; the default is today's defaults.</summary>
-        internal static RunsFirstOptions O = new RunsFirstOptions();
+        internal RunsFirstOptions O = new RunsFirstOptions();
 
         /// <summary>Host only: the options from the RF_* environment switches (unset or unreadable: the default). The planner never reads
         /// the environment itself.</summary>
@@ -270,7 +270,7 @@ namespace SkiResortMod.Systems
 
         public static int Run(string[] args)
         {
-            O = HostOptions();
+            RunsFirstOptions opts = HostOptions();
             // "rf-holdout <file>": writes the real-resort regions (9 km2 around each real fixture base point) as a regions file
             if (args[0] == "rf-holdout")
             {
@@ -358,12 +358,12 @@ namespace SkiResortMod.Systems
                 }
                 if (!golden)
                 {
-                    RunRegion(id, ring, hf, outDir);
+                    new RunsFirstPlanner { O = opts, Id = id }.RunRegion(id, ring, hf, outDir);
                     continue;
                 }
                 HeightSnapshot snap = Heightmap.Snapshot(hf, ring);
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                RunsFirstResult res = PlanRegion(snap, ring, O, id);
+                RunsFirstResult res = PlanRegion(snap, ring, opts, id);
                 string row = $"{id} {res.Hash():x16} {res.Runs.Count} {res.Lifts.Count} {res.Connectors.Count}";
                 goldenRows.Add(row);
                 Console.WriteLine($"GOLDEN {row} ({sw.ElapsedMilliseconds} ms)");
@@ -375,10 +375,10 @@ namespace SkiResortMod.Systems
 
         // The clock only reports: no pass reads it, so a plan depends on its input alone (the time cutoff RF_LATEMS and the learning
         // search's RF_ABOVEMS went in the port round R0-c). Tick records the end of each pass; the host prints the table.
-        private static System.Diagnostics.Stopwatch Clock = new System.Diagnostics.Stopwatch();
-        private static bool Timing => O.Timing;
-        private static readonly List<(string Pass, long Ms)> PassTimes = new List<(string, long)>();
-        private static void Tick(string what)
+        private System.Diagnostics.Stopwatch Clock = new System.Diagnostics.Stopwatch();
+        private bool Timing => O.Timing;
+        private readonly List<(string Pass, long Ms)> PassTimes = new List<(string, long)>();
+        private void Tick(string what)
         {
             PassTimes.Add((what, Clock.ElapsedMilliseconds));
             if (Timing)
@@ -391,7 +391,7 @@ namespace SkiResortMod.Systems
                 Console.WriteLine($"WHDBG {what}: none from " + string.Join(" ", Enumerable.Range(0, lifts.Count).Where(L => !ok[L]).Select(L => "L" + lifts[L].Id)));
             }
         }
-        private static (Grid, Plan, List<Lift>)? WayDbg;
+        private (Grid, PlanDraft, List<Lift>)? WayDbg;
 
         /// <summary>A finished plan: the plain result, plus the planner's own objects the host draws, writes and scores.</summary>
         private sealed class Planned
@@ -400,28 +400,32 @@ namespace SkiResortMod.Systems
             public float[] Acc, AccR;
             public List<Line> Lines;
             public List<Lift> Lifts;
-            public Plan Built;
+            public PlanDraft Built;
             public long Ms;
             public RunsFirstResult Result;
         }
 
         /// <summary>Plans one region with the given options (null: the defaults) and returns the plain plan object. The options hold
         /// for this call only.</summary>
-        internal static RunsFirstResult PlanRegion(HeightSnapshot snap, float2[] ring, RunsFirstOptions options, string id = "region")
+        internal static RunsFirstResult PlanRegion(HeightSnapshot snap, float2[] ring, RunsFirstOptions options, string id = "region") =>
+            new RunsFirstPlanner { Id = id }.Plan(snap, ring, options);
+
+        /// <summary>The region's name in the planner's own report lines (the host sets it).</summary>
+        internal string Id = "region";
+        private bool m_Used;
+
+        /// <summary>Plans one region and returns the plain plan object. One instance plans once: a planner holds the state of its
+        /// plan (no static state), so two instances may plan at the same time on two threads. Options null: the defaults.</summary>
+        public RunsFirstResult Plan(HeightSnapshot snapshot, float2[] ring, RunsFirstOptions options, AutoPlanCancel cancel = null)
         {
-            RunsFirstOptions keep = O;
+            if (m_Used)
+                throw new InvalidOperationException("RunsFirstPlanner plans once: use a new instance for each plan");
+            m_Used = true;
             O = options ?? new RunsFirstOptions();
-            try
-            {
-                return PlanCore(id, snap, ring).Result;
-            }
-            finally
-            {
-                O = keep;
-            }
+            return PlanCore(Id, snapshot, ring).Result;
         }
 
-        private static Planned PlanCore(string id, HeightSnapshot snap, float2[] ring)
+        private Planned PlanCore(string id, HeightSnapshot snap, float2[] ring)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             Clock = sw;
@@ -471,7 +475,7 @@ namespace SkiResortMod.Systems
             PointHash taken = Pick(lines, g, km2r);
             List<Lift> lifts = PlaceLifts(g, rec, lines, km2r, taken);
             Tick("lifts");
-            Plan built = BuildPlan(g, rec, lines, lifts, km2r);
+            PlanDraft built = BuildPlan(g, rec, lines, lifts, km2r);
             Tick("plan");
             // the village lift (from the opus-med contest entry): the longest main lift off the lowest base whose top is a hub (another
             // lift loads within 300 m) is a gondola: a resort's main lift from the village to mid-mountain, with chairs stacked above it
@@ -493,7 +497,7 @@ namespace SkiResortMod.Systems
             return new Planned { G = g, Acc = acc, AccR = accR, Lines = lines, Lifts = lifts, Built = built, Ms = ms, Result = MakeResult(g, built, lifts) };
         }
 
-        private static void RunRegion(string id, float2[] ring, HeightmapFile file, string outDir)
+        private void RunRegion(string id, float2[] ring, HeightmapFile file, string outDir)
         {
             HeightSnapshot snap = Heightmap.Snapshot(file, ring);
             Planned pl = PlanCore(id, snap, ring);
@@ -501,7 +505,7 @@ namespace SkiResortMod.Systems
             float[] acc = pl.Acc, accR = pl.AccR;
             List<Line> lines = pl.Lines;
             List<Lift> lifts = pl.Lifts;
-            Plan built = pl.Built;
+            PlanDraft built = pl.Built;
             long ms = pl.Ms;
             // the per-pass time table (report only): each pass's own milliseconds, in plan order
             long prevMs = 0;
@@ -787,7 +791,7 @@ namespace SkiResortMod.Systems
         }
 
         [MethodImpl(Hot)]
-        private static void AddLine(List<Line> lines, Grid g, List<int> cells, string family)
+        private void AddLine(List<Line> lines, Grid g, List<int> cells, string family)
         {
             if (cells.Count < 4)
                 return;
@@ -858,7 +862,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Length, drop, mean / 85th-percentile / steepest 30 m pitch, band, corridor width and score, from Pts.</summary>
         [MethodImpl(Hot)]
-        private static void Stats(Grid g, Line l)
+        private void Stats(Grid g, Line l)
         {
             int per = (int)(PitchM / StepM), n = l.Pts.Count;
             l.Length = (n - 1) * StepM;
@@ -954,7 +958,7 @@ namespace SkiResortMod.Systems
         }
 
         [MethodImpl(Hot)]
-        private static PointHash Pick(List<Line> lines, Grid g, float km2)
+        private PointHash Pick(List<Line> lines, Grid g, float km2)
         {
             SortStable(lines, (a, b) => b.Score.CompareTo(a.Score));
             for (int i = 0; i < lines.Count; i++)
@@ -1083,7 +1087,7 @@ namespace SkiResortMod.Systems
 
         private static (int, int, int) EdgeColor(SlopeBand b) => b == SlopeBand.DoubleBlack ? (255, 150, 0) : (255, 255, 255);
 
-        private static void Render(string path, HeightSnapshot s, float2[] ring, Grid g, float[] acc, float[] accR, List<Line> lines, AutoPlanResult v2, List<Lift> lifts, Plan built)
+        private static void Render(string path, HeightSnapshot s, float2[] ring, Grid g, float[] acc, float[] accR, List<Line> lines, AutoPlanResult v2, List<Lift> lifts, PlanDraft built)
         {
             int w = s.Width, d = s.Depth;
             float t = s.TexelM;

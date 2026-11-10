@@ -30,7 +30,7 @@ namespace SkiResortMod.Systems
         }
 
         [MethodImpl(Hot)]
-        private static SkiGraph Ski(Grid g, Plan plan, List<Lift> lifts)
+        private static SkiGraph Ski(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             var sg = new SkiGraph { Runs = plan.Runs.Count };
             foreach (PlanRun r in plan.Runs)

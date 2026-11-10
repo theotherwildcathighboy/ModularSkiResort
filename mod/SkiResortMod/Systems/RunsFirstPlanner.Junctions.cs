@@ -14,11 +14,11 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class RunsFirstPlanner
     {
-        private static float JunctionBackM => O.JunctionBackM;   // how far a merging run's end may slide back
+        private float JunctionBackM => O.JunctionBackM;   // how far a merging run's end may slide back
 
         /// <summary>Moves merging runs' ends back to where they crowd the run they join least. Returns the runs changed.</summary>
         [MethodImpl(Hot)]
-        private static int TrimJunctions(Grid g, Plan plan, List<Lift> lifts)
+        private int TrimJunctions(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             SkiGraph sg = Ski(g, plan, lifts);
             static long Key(float2 p) => ((long)Math.Floor(p.x / 60f) << 32) ^ (uint)(int)Math.Floor(p.y / 60f);

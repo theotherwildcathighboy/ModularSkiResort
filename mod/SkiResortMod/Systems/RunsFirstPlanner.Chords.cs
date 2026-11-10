@@ -35,7 +35,7 @@ namespace SkiResortMod.Systems
         /// <summary>Moves the runs' stretches under a lift line out beside it where the line's middle still runs along runs. Returns
         /// the lifts cleared.</summary>
         [MethodImpl(Hot)]
-        private static int RepairChords(Grid g, Plan plan, List<Lift> lifts)
+        private static int RepairChords(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int cleared = 0;
             List<List<float2>> dense = plan.Runs.Select(r => Densify(r.Pts)).ToList();
@@ -178,7 +178,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>RF_CHORDDBG: per lift, the share of its chord middle on runs as scorecard v3 reads them, by element.</summary>
-        private static void ChordDebug(Grid g, Plan plan, List<Lift> lifts)
+        private static void ChordDebug(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             var els = new List<(string Name, List<float2> P, bool Own)>();
             for (int i = 0; i < plan.Runs.Count; i++)
@@ -221,7 +221,7 @@ namespace SkiResortMod.Systems
         // how far a station may move across its line. 100 m against 60 m moved three more stations 70-80 m (visible 97.64 -> 97.69,
         // 80 % outlines 95.50 -> 95.72). 150 m moved one more, 120 m (ft5-r2 L5 off the summit station it shared: visible 97.69 -> 97.80).
         // 350 m (scorecard v4) moved owner-4 L7 260 m off the valley runs it lay along (visible 97.30 -> 97.41)
-        private static float NudgeMaxM => O.NudgeMaxM;
+        private float NudgeMaxM => O.NudgeMaxM;
 
         /// <summary>A lift line may move instead of the runs when its middle still lies along runs, when it crosses another lift of its
         /// kind, or when it runs beside another as scorecard v4 reads a parallel. The move shifts the whole line across itself, or swings
@@ -232,7 +232,7 @@ namespace SkiResortMod.Systems
         /// - the line clears, runs beside fewer lines (beside none when it ran beside none), and crowds no terminals
         /// - the ski graph loses nothing (its runs still start at its top and come home to its bottom).
         /// Returns the lines moved.</summary>
-        private static int NudgeLines(Grid g, Plan plan, List<Lift> lifts)
+        private int NudgeLines(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int moved = 0;
             List<(List<float2> D, int Conn, PlanRun Run, bool Green)> els = ChordEls(g, plan);
