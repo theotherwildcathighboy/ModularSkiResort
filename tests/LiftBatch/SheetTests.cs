@@ -6,6 +6,10 @@
 // - BuildAllKeys takes the rows switched on and not built, in build order. CostToBuild sums the same rows.
 // - Stations and states are per row. An unknown key changes nothing.
 // - Dump names every row.
+// - A hand-drawn line counts (PS-7): a complete census row of the row's type between its two stations. Not an open row, not another type,
+//   not another pair of stations, not a row without both stations.
+// - ReasonGroup (PS-8) maps every reason key of the queue and the lift tool to one player-text group, and an unknown key to GAME.
+// - The lifts total (PS-9): CountToBuild, CountUnbuilt and the built count follow the states and the switches.
 
 using System;
 using System.Collections.Generic;
@@ -29,6 +33,9 @@ namespace LiftBatch
             Ps4StatesAndStations();
             Ps5Clear();
             Ps6Dump();
+            Ps7HandBuilt();
+            Ps8ReasonGroups();
+            Ps9Totals();
         }
 
         private static ResortPlanSheet.Input L(uint key, float bottomY, bool on = true, long cost = 100000) => new ResortPlanSheet.Input
@@ -111,6 +118,70 @@ namespace LiftBatch
                   s.CostToBuild() == 0, W, "clear left rows or did not bump");
             s.Load(null, "no plan");
             Check(s.Count == 0, W, "a null load left rows");
+        }
+
+        private static LiftCensus.Row Census(EntityRef b, EntityRef t, byte type, LiftCensus.State state) =>
+            new LiftCensus.Row { Id = b, Base = b, Top = t, State = state, Type = type };
+
+        private static void Ps7HandBuilt()
+        {
+            const string W = "sheet/PS-7";
+            var b = new EntityRef(10, 1);
+            var t = new EntityRef(11, 1);
+            var o = new EntityRef(12, 1);
+            var rows = new List<LiftCensus.Row> { Census(o, t, 0, LiftCensus.State.Complete), Census(b, o, 0, LiftCensus.State.Complete) };
+            Check(!ResortPlanSheet.HasCompleteLiftBetween(rows, b, t, 0), W, "a lift between other stations matched");
+            rows.Add(Census(b, t, 0, LiftCensus.State.Open));
+            Check(!ResortPlanSheet.HasCompleteLiftBetween(rows, b, t, 0), W, "an open (unfinished) row matched");
+            rows.Add(Census(b, t, 2, LiftCensus.State.Complete));
+            Check(!ResortPlanSheet.HasCompleteLiftBetween(rows, b, t, 0), W, "a complete lift of another type matched");
+            Check(ResortPlanSheet.HasCompleteLiftBetween(rows, b, t, 2), W, "a complete lift of the row's type did not match");
+            rows.Clear();
+            rows.Add(Census(t, b, 1, LiftCensus.State.Complete));
+            Check(ResortPlanSheet.HasCompleteLiftBetween(rows, b, t, 1), W, "the pair in the other order did not match");
+            Check(!ResortPlanSheet.HasCompleteLiftBetween(rows, b, EntityRef.Null, 1), W, "a row without its top station matched");
+            Check(!ResortPlanSheet.HasCompleteLiftBetween(rows, EntityRef.Null, t, 1), W, "a row without its base station matched");
+            Check(!ResortPlanSheet.HasCompleteLiftBetween(null, b, t, 1) && !ResortPlanSheet.HasCompleteLiftBetween(new List<LiftCensus.Row>(), b, t, 1), W,
+                  "a null or empty census matched");
+        }
+
+        private static void Ps8ReasonGroups()
+        {
+            const string W = "sheet/PS-8";
+            string[][] want =
+            {
+                new[] { null, "" }, new[] { "", "" }, new[] { "MONEY", "MONEY" }, new[] { "POSE", "POSE" }, new[] { "PREFAB", "PREFAB" },
+                new[] { "BASE[OverlapExisting]", "BASE_OVERLAP" }, new[] { "BASE[InWater]", "BASE_WATER" }, new[] { "BASE[ExceedsCityLimits]", "BASE_LAND" },
+                new[] { "BASE[SteepSlope]", "BASE_OTHER" }, new[] { "BASE[GAME]", "BASE_OTHER" }, new[] { "BASE[LOST]", "BASE_OTHER" },
+                new[] { "TOP[OverlapExisting]", "TOP_OVERLAP" }, new[] { "TOP[InWater]", "TOP_WATER" }, new[] { "TOP[ExceedsCityLimits]", "TOP_LAND" },
+                new[] { "TOP[AlreadyExists]", "TOP_OTHER" }, new[] { "BASE[NotEnoughMoney]", "MONEY" }, new[] { "TOP[NotEnoughMoney]", "MONEY" },
+                new[] { "BASE[GONE]", "GONE" }, new[] { "TOP[GONE]", "GONE" }, new[] { "STOPPED", "STOPPED" },
+                new[] { "LINE[PICK]", "LINE_PICK" }, new[] { "LINE[ABANDONED]", "LINE_ABANDONED" }, new[] { "LINE[REFUSED]", "LINE_REFUSED" },
+                new[] { "LINE[PENDING]", "GAME" }, new[] { "PLAN_LOW", "PLAN_LOW" }, new[] { "PLAN_STEEP", "PLAN_STEEP" }, new[] { "PLAN_HIGH", "PLAN_HIGH" },
+                new[] { "PLAN_TRAIN", "GAME" }, new[] { "ALONG", "ALONG" }, new[] { "BACKWARD", "BACKWARD" }, new[] { "CROSS_SHALLOW", "CROSS" },
+                new[] { "CROSS_CLEARANCE", "CROSS" }, new[] { "CROSS", "CROSS" }, new[] { "GAME", "GAME" }, new[] { "something odd", "GAME" },
+            };
+            foreach (string[] w in want)
+            {
+                string got = ResortPlanSheet.ReasonGroup(w[0]);
+                Check(got == w[1], W, "reason '" + (w[0] ?? "null") + "' -> '" + got + "' (want '" + w[1] + "')");
+            }
+        }
+
+        private static void Ps9Totals()
+        {
+            const string W = "sheet/PS-9";
+            ResortPlanSheet s = Make();   // 2, 9, 7 (off), 5, 3: five rows, 100000 each
+            Check(s.CountToBuild() == 4 && s.CountUnbuilt() == 5 && s.CountIn(SheetLiftState.Built) == 0, W,
+                  "fresh sheet: to build " + s.CountToBuild() + ", unbuilt " + s.CountUnbuilt());
+            s.SetState(2, SheetLiftState.Built, null);
+            s.SetState(9, SheetLiftState.Refused, "MONEY");
+            s.SetOn(3, false);
+            Check(s.CountToBuild() == 2 && s.CountUnbuilt() == 4 && s.CountIn(SheetLiftState.Built) == 1, W,
+                  "after a build, a switch off: to build " + s.CountToBuild() + ", unbuilt " + s.CountUnbuilt());
+            Check(s.CostToBuild() == 200000, W, "cost " + s.CostToBuild());
+            s.Clear("t");
+            Check(s.CountToBuild() == 0 && s.CountUnbuilt() == 0, W, "an empty sheet has counts");
         }
 
         private static void Ps6Dump()

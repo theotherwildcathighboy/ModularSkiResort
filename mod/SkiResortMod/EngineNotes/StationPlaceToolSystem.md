@@ -8,8 +8,8 @@ The Resort Planner builds its proposed lifts (task R1-c, plan sections 3.1 to 3.
 - `ResortLiftBuildSystem.Queue.cs`: the lift build queue.
 - `ResortPlanMarksSystem`: the plan marks outside the planner.
 
-The lift-line tool has a scripted entry for the line (LiftLineToolSystem.md, Scripted entry). The hub (a later task) reads the sheet and
-calls the queue. Citations are `File.cs:line` against the decompile baseline 1.6.0f1.
+The lift-line tool has a scripted entry for the line (LiftLineToolSystem.md, Scripted entry). The hub (task R1-d, contract 41) reads the sheet and
+calls the queue (see Hub entry points). Citations are `File.cs:line` against the decompile baseline 1.6.0f1.
 
 ## Station pose (`StationAlign.PoseLift`)
 - Input: the two spots of a `PlanLift` (`Bottom`, `Top`) and the station rows of the lift type (`SkiCatalog.StationOf`).
@@ -89,6 +89,36 @@ More rules:
 - Enter refuses when the city cannot pay the runs and the lifts that are on (`BuildFromTool`, plan 3.3). The money warning of the tool
   uses the same sum.
 
+## Hub entry points (task R1-d)
+SkiResortHubUISystem.md (Plan sheet lifts) has the binding. The engine side gives the hub these members:
+- Read API: `Sheet` (Rows, Revision, PlanSerial, Count, `CountToBuild`, `CountUnbuilt`, `CountIn`, `CostToBuild`), `QueueRunning`,
+  `QueueStopping`, `QueueIndex`, `QueueTotal`, `QueueRevision`, `InFlightKey`, `PendingKeys`, `Notice`.
+- `HubAct(action, key, plannerBusy)`: buildAll, build, stop, clear. It refuses with a notice (Off, RunsBusy, Nothing, Queued, Busy) and a
+  `ResortLifts [hub]` line. `plannerBusy` is the hub's test of the Resort Planner tool (a phase other than Region, or planting).
+- Queue count: `QueueTotal` counts the keys asked in one run. A call while the queue runs adds to it. Stop and a stopped lift take the waiting
+  keys out. `QueueIndex` is the 1-based place of the lift in flight (or next), capped at the total. A run starts counting from zero when the
+  queue was idle. `QueueStopping` is true after Stop while a lift is in flight.
+- `QueueRevision` moves with every start, step, end, stop and notice. The hub pushes on it, because none of those change a sheet row.
+- `ResortPlanSheet.ReasonGroup(reasonKey)` (pure, LiftBatch PS-8) maps a reason key to a player-text group of the hub. An unknown key is
+  GAME, so the hub never shows a raw key. The groups are:
+  - MONEY, POSE, PREFAB, GONE, STOPPED, GAME.
+  - BASE_* and TOP_* (OVERLAP, WATER, LAND, OTHER), by the error type of the game.
+  - LINE_PICK, LINE_ABANDONED, LINE_REFUSED.
+  - PLAN_LOW, PLAN_STEEP, PLAN_HIGH, ALONG, CROSS, BACKWARD.
+
+## A line the player draws by hand (task R1-d)
+The queue and the watch list only see lines that the scripted lift tool builds. A player can also draw the line between two placed stations
+of a row. `ResortLiftBuildSystem.TickHandBuilt` catches that and makes the row Built:
+- Rule (`ResortPlanSheet.HasCompleteLiftBetween`, pure, LiftBatch PS-7): a census row (`LiftCensus.Row`) must match all of these:
+  - State Complete.
+  - The row's lift type.
+  - Base and Top equal to the row's two placed stations (either order).
+- Which rows: StationsPlaced, NeedsFitting, and a Refused row that kept both stations (LINE[PICK]). Never Proposed or Built rows, and not the
+  lift in flight (its own job writes the result).
+- Cost: the pass runs only when the sheet `Revision` or the `LiftCensusSystem.Revision` changed since the last pass. Otherwise it is two
+  integer compares a frame. It reads the census rows in place (`CensusRows`), without a copy.
+- A match drops the row's watch. The log line is `ResortLifts [sheet]: P2 BUILT by hand`.
+
 ## Plan marks outside the planner (`ResortPlanMarksSystem`)
 - The rows that are not Built show while one of these tools is active:
   - the lift-line tool,
@@ -111,11 +141,13 @@ Silence is impossible. Every part logs ARMED or NOT ARMED per load. One line for
 - `ResortLifts [sheet]`: LOADED, CLEARED, DUMP, and the toggle sync.
 - `ResortLifts [queue]`: BUILD, START, STATIONS PLACED, SETTLED, LINE, the end state of each lift, STOP, END.
 - `ResortLifts [watch]`: the end of a watched line.
+- `ResortLifts [hub]`: each hub call and its result. `ResortLifts [sheet]` also logs BUILT by hand.
 - `ResortLifts [marks]`: SHOWN and HIDDEN.
 - `ResortLifts [dev]`: each dev call.
 
 An exception disables the part until the next load (one "!!!" ERROR with the stack).
 
 ## Not proven in game
-The host tests prove the pose and the sheet. The bridge sheet `r1c-bridge-sheet.md` (private docs) proves the rest: the queue, the
+The host tests prove the pose, the sheet, its totals, the reason groups and the hand-built match. The hub rows, the buttons and the notices
+are proven in the harness only (UI). The bridge sheet `r1c-bridge-sheet.md` (private docs) proves the rest: the queue, the
 settle rule, the scripted line, the refusals and the marks.

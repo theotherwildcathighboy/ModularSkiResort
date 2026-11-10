@@ -1,6 +1,7 @@
 /*
  * src/hub/RunsView.tsx - the Runs view: one context area, the piste-map toggle and the run list of the shown ski area.
- * The context area holds the Quick runs, draw, tree tool or picked run's rows. It is empty when idle.
+ * The context area holds the Quick runs, draw, tree tool or picked run's rows. It is empty when idle. The Resort Planner's plan sheet (its
+ * proposed lifts and their build state) stays at the top while the planner is closed and the sheet has rows.
  * One list, no pager (this view and Lifts are the two that may scroll).
  * The piste-map check box shows C#'s value (pisteMap$), never a guess: a click sends setPisteMap(!value), and C# answers by pushing it.
  * RunLine sends hoverRun on enter (dedup). Leaving the list and unmounting send Null once (HubPanel covers the area switch and the panel unmount).
@@ -21,7 +22,7 @@ import { focused$, sendHoverRun } from "./hubState";
 import { HUB_LOC } from "./hubText";
 import { CheckBox, Divider, Tip, cx, useNumberSamples } from "./parts";
 import { RunHeader, RunLine } from "./RunList";
-import { QuickRunsRows } from "./QuickRunsControls";
+import { LiftSheetRows, QuickRunsRows, sheetShows } from "./QuickRunsControls";
 import { DrawRunRows, RunPropRows } from "./RunPropControls";
 import { TreeRows } from "./TreeControls";
 import { runsOf } from "./resortData";
@@ -74,10 +75,12 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   // One context area above the list (hub redesign 2026-11-07): the Quick runs rows, the draw rows, the tree rows while the tree tool is on,
   // the picked run's rows. The area shows nothing (and no divider) when idle.
   const focusedRow = focusedId ? rows.find((r) => r.entity && entityId(r.entity) === focusedId) : undefined;
-  const contextRows = quick?.active ? <QuickRunsRows />
+  const toolRows = quick?.active ? <QuickRunsRows />
     : draw.active ? <DrawRunRows draw={draw} />
       : glade?.active ? <TreeRows toggle={false} />
         : focusedRow ? <RunPropRows key={focusedId} row={focusedRow} /> : null;
+  // The plan sheet's lifts (R1-d) stay with the planner closed, above whatever else the area holds (the open planner draws them itself).
+  const contextRows = !quick?.active && sheetShows(quick) ? (toolRows ? <><LiftSheetRows /><Divider />{toolRows}</> : <LiftSheetRows />) : toolRows;
   const context = contextRows && <>{contextRows}<Divider /></>;
 
   const toggle = (

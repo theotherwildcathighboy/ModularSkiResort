@@ -2,8 +2,8 @@
 // plan section 3.1). It outlives the run build and the planner tool. A new published plan replaces it, an explicit clear and a load empty
 // it. Session only: nothing is saved. Owner: ResortLiftBuildSystem (it loads the rows from the planner tool, the build queue writes the
 // states). Readers: the build queue, the plan marks outside the planner, and the hub (a later task) through Rows and Revision.
-// Pure file: System, System.Collections.Generic, System.Globalization, Unity.Mathematics and the shared pure EntityRef (tests/LiftBatch
-// SheetTests links it).
+// Pure file: System, System.Collections.Generic, System.Globalization, Unity.Mathematics, the shared pure EntityRef and the pure LiftCensus
+// rows (the hand-built match). tests/LiftBatch SheetTests links it.
 // Engine notes: EngineNotes/StationPlaceToolSystem.md (Plan sheet)
 
 using System;
@@ -187,6 +187,75 @@ namespace SkiResortMod.Systems
                 if (m_Rows[i].State == state)
                     n++;
             return n;
+        }
+
+        /// <summary>The rows switched on and not built (what "build all" takes). The hub's lifts total prints it.</summary>
+        public int CountToBuild()
+        {
+            int n = 0;
+            for (int i = 0; i < m_Rows.Count; i++)
+                if (m_Rows[i].On && m_Rows[i].Buildable)
+                    n++;
+            return n;
+        }
+
+        /// <summary>The rows not built yet, switched on or not.</summary>
+        public int CountUnbuilt()
+        {
+            int n = 0;
+            for (int i = 0; i < m_Rows.Count; i++)
+                if (m_Rows[i].Buildable)
+                    n++;
+            return n;
+        }
+
+        /// <summary>A complete lift of the row's type stands between the row's two placed stations, whoever drew its line (the census rows,
+        /// LiftCensus.Row: Base and Top are the station of each role, State Complete). A hand-drawn line makes the row Built this way. False
+        /// when the row lacks a station.</summary>
+        public static bool HasCompleteLiftBetween(IReadOnlyList<LiftCensus.Row> census, EntityRef baseStation, EntityRef topStation, byte typeIndex)
+        {
+            if (census == null || baseStation.IsNull || topStation.IsNull)
+                return false;
+            for (int i = 0; i < census.Count; i++)
+            {
+                LiftCensus.Row c = census[i];
+                if (c.State == LiftCensus.State.Complete && c.Type == typeIndex &&
+                    ((c.Base == baseStation && c.Top == topStation) || (c.Base == topStation && c.Top == baseStation)))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>The player-text group of a row's reason key: the suffix of SkiResort.Tooltip.QUICK_LIFT_WHY[*]. "" for no reason. A
+        /// station refusal groups by the game's error type (overlap, water, land the city does not own, anything else). An unknown key is
+        /// GAME, so the hub never shows a raw key.</summary>
+        public static string ReasonGroup(string reasonKey)
+        {
+            if (string.IsNullOrEmpty(reasonKey))
+                return string.Empty;
+            switch (reasonKey)
+            {
+                case "MONEY": case "POSE": case "PREFAB": case "STOPPED": case "GAME": case "ALONG": case "BACKWARD":
+                case "PLAN_LOW": case "PLAN_STEEP": case "PLAN_HIGH":
+                    return reasonKey;
+                case "BASE[GONE]": case "TOP[GONE]":
+                    return "GONE";
+                case "LINE[PICK]": case "LINE[ABANDONED]": case "LINE[REFUSED]":
+                    return "LINE_" + reasonKey.Substring(5, reasonKey.Length - 6);
+            }
+            if (reasonKey.StartsWith("CROSS", StringComparison.Ordinal))
+                return "CROSS";
+            bool isBase = reasonKey.StartsWith("BASE[", StringComparison.Ordinal);
+            if ((isBase || reasonKey.StartsWith("TOP[", StringComparison.Ordinal)) && reasonKey.EndsWith("]", StringComparison.Ordinal))
+            {
+                int open = reasonKey.IndexOf('[');
+                string error = reasonKey.Substring(open + 1, reasonKey.Length - open - 2);
+                if (error == "NotEnoughMoney")
+                    return "MONEY";
+                string kind = error == "OverlapExisting" ? "OVERLAP" : error == "InWater" ? "WATER" : error == "ExceedsCityLimits" ? "LAND" : "OTHER";
+                return (isBase ? "BASE_" : "TOP_") + kind;
+            }
+            return "GAME";
         }
 
         /// <summary>One line per row for the log (the dev dump and the queue's lines).</summary>

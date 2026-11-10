@@ -78,6 +78,10 @@ namespace SkiResortMod.Systems
         private int m_QueueBuilt, m_QueueFitting, m_QueueRefused;
         private string m_QueueWhy;
         private bool m_Running;
+        // The hub's view of the queue (SkiResortHubUISystem.QuickRuns.cs): lifts asked in this run, lifts finished, a stop asked while a lift
+        // is in flight, and a revision that moves with every change the hub shows (no sheet row changes with them).
+        private int m_QueueTotal, m_QueueDone, m_QueueRev;
+        private bool m_StopAsked;
 
         private StationPlaceToolSystem m_Placer;
         private LiftLineToolSystem m_LiftTool;
@@ -87,6 +91,19 @@ namespace SkiResortMod.Systems
 
         /// <summary>The queue has a lift in flight or keys waiting.</summary>
         internal bool QueueBusy => m_Job != null || m_Pending.Count > 0;
+
+        /// <summary>The queue is on: a lift in flight, or keys waiting for their turn (a lift may have just finished).</summary>
+        internal bool QueueRunning => m_Running;
+
+        /// <summary>Stop was asked while a lift was in flight: it finishes, nothing starts after it.</summary>
+        internal bool QueueStopping => m_Running && m_StopAsked;
+
+        /// <summary>Lifts asked in this run (stopped keys leave it) and the 1-based place of the lift in flight or next, 0 when idle.</summary>
+        internal int QueueTotal => m_QueueTotal;
+        internal int QueueIndex => m_Running ? Math.Min(m_QueueTotal, m_QueueDone + 1) : 0;
+
+        /// <summary>Moves with every change of the queue the hub shows (start, step, end, stop, a notice).</summary>
+        internal int QueueRevision => m_QueueRev;
 
         /// <summary>The key of the lift in flight (0 = none) and the keys still to build, for the hub and the dump.</summary>
         internal uint InFlightKey => m_Job?.Key ?? 0;
@@ -107,6 +124,9 @@ namespace SkiResortMod.Systems
             m_Watches.Clear();
             m_Job = null;
             m_Running = false;
+            m_StopAsked = false;
+            m_QueueTotal = m_QueueDone = 0;
+            m_QueueRev++;
         }
 
         // ---------------------------------------------------------------- entry points (the planner, the dev triggers, the hub later)
@@ -118,6 +138,7 @@ namespace SkiResortMod.Systems
             if (!IsArmed)
                 return 0;
             List<uint> keys = m_Sheet.BuildAllKeys();
+            BeginRunAccounting();
             int added = 0;
             foreach (uint k in keys)
                 if (AddPending(k))
@@ -138,6 +159,7 @@ namespace SkiResortMod.Systems
                              (r == null ? "no such row in the sheet" : $"{r.Name} is already built"));
                 return false;
             }
+            BeginRunAccounting();
             bool added = AddPending(key);
             StartQueue(why, added ? 1 : 0, 1);
             return added;
@@ -146,13 +168,15 @@ namespace SkiResortMod.Systems
         /// <summary>The lift in flight finishes, nothing starts after it. Returns the count of keys dropped.</summary>
         internal int Stop(string why)
         {
-            int dropped = m_Pending.Count;
-            m_Pending.Clear();
+            int dropped = DropPending();
             if (m_Job == null && dropped == 0)
             {
                 Mod.Log.Info($"ResortLifts [queue]: stop ({why}) — the queue is idle");
                 return 0;
             }
+            if (m_Job != null)
+                m_StopAsked = true;
+            m_QueueRev++;
             Mod.Log.Info($"ResortLifts [queue]: STOP ({why}) — {dropped} lift(s) dropped; " +
                          (m_Job != null ? $"{m_Job.Name} in flight finishes ({m_Job.Step})" : "nothing in flight"));
             if (m_Job == null)
@@ -165,7 +189,30 @@ namespace SkiResortMod.Systems
             if (m_Pending.Contains(key) || (m_Job != null && m_Job.Key == key))
                 return false;
             m_Pending.Add(key);
+            m_QueueTotal++;
+            m_QueueRev++;
             return true;
+        }
+
+        /// <summary>The keys waiting leave the queue and its total. Returns how many.</summary>
+        private int DropPending()
+        {
+            int dropped = m_Pending.Count;
+            m_Pending.Clear();
+            m_QueueTotal -= dropped;
+            if (dropped > 0)
+                m_QueueRev++;
+            return dropped;
+        }
+
+        /// <summary>A new run of the queue counts from zero. A call while the queue runs adds to the run in progress.</summary>
+        private void BeginRunAccounting()
+        {
+            if (!m_Running)
+            {
+                m_QueueTotal = m_QueueDone = 0;
+                m_StopAsked = false;
+            }
         }
 
         private void StartQueue(string why, int added, int asked)
@@ -176,6 +223,7 @@ namespace SkiResortMod.Systems
                 m_QueueBuilt = m_QueueFitting = m_QueueRefused = 0;
                 m_QueueWhy = why;
                 m_StartFrame = m_Frame + StartDelayFrames;
+                m_QueueRev++;
             }
             Mod.Log.Info($"ResortLifts [queue]: BUILD ({why}) — {added} of {asked} lift(s) added; queue {KeysText()}" +
                          (m_Job != null ? $", {m_Job.Name} in flight" : string.Empty) + $"; city money {CityMoney()}");
@@ -209,6 +257,8 @@ namespace SkiResortMod.Systems
             if (!m_Running)
                 return;
             m_Running = false;
+            m_StopAsked = false;
+            m_QueueRev++;
             Mod.Log.Info($"ResortLifts [queue]: END ({how}; {m_QueueWhy}) — this run: {m_QueueBuilt} built, {m_QueueFitting} needs fitting, " +
                          $"{m_QueueRefused} refused; {m_Watches.Count} watched; sheet {m_Sheet.Dump()}");
         }
@@ -221,6 +271,8 @@ namespace SkiResortMod.Systems
             if (r == null || !r.Buildable)
             {
                 Mod.Log.Info($"ResortLifts [queue]: {key:X8} skipped — " + (r == null ? "no longer in the sheet" : $"{r.Name} is built"));
+                m_QueueDone++;
+                m_QueueRev++;
                 return;
             }
             LiftTypeDef type = SkiCatalog.LiftByIndex(r.TypeIndex);
@@ -267,6 +319,7 @@ namespace SkiResortMod.Systems
                 return;
             }
             m_Job = job;
+            m_QueueRev++;
             if (job.BaseSerial == 0 && job.TopSerial == 0)
                 BeginSettle(job, r);
         }
@@ -438,6 +491,8 @@ namespace SkiResortMod.Systems
         private void EndJob(LiftJob job, ResortPlanSheet.Row r, SheetLiftState state, string reasonKey, string text)
         {
             m_Job = null;
+            m_QueueDone++;
+            m_QueueRev++;
             if (state == SheetLiftState.Refused)
                 m_QueueRefused++;
             bool written = r != null && job.PlanSerial == m_Sheet.PlanSerial;
@@ -457,6 +512,8 @@ namespace SkiResortMod.Systems
         private void Refuse(ResortPlanSheet.Row r, string reasonKey, string text)
         {
             m_QueueRefused++;
+            m_QueueDone++;
+            m_QueueRev++;
             m_Sheet.SetState(r.Key, SheetLiftState.Refused, reasonKey);
             Mod.Log.Warn($"ResortLifts [queue]: {r.Name} Refused ({reasonKey}) — {text}; queue {KeysText()}");
         }
@@ -465,7 +522,7 @@ namespace SkiResortMod.Systems
         {
             if (m_Pending.Count > 0)
                 Mod.Log.Info($"ResortLifts [queue]: STOP ({why}) — {m_Pending.Count} lift(s) not started: {KeysText()}");
-            m_Pending.Clear();
+            DropPending();
             EndQueue("stopped: " + why);
         }
 
