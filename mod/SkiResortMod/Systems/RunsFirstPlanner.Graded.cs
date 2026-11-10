@@ -54,7 +54,7 @@ namespace SkiResortMod.Systems
                 }
                 if (natural)
                 {
-                    r.Surface = RunKind.Natural;
+                    r.Groomed = false;
                     marked++;
                     km += RunLength(r.Pts) / 1000f;
                 }

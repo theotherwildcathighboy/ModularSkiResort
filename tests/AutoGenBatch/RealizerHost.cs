@@ -178,7 +178,7 @@ namespace AutoGenBatch
                 if (r.Graded)
                     sp.Connectors.Add(r.Pts);
                 else
-                    sp.Runs.Add((r.Pts, r.Surface));
+                    sp.Runs.Add((r.Pts, r.Groomed ? RunKind.Groomed : RunKind.Natural));
             sp.Connectors.AddRange(plan.Connectors);
             foreach (RunsFirstResult.Lift l in plan.Lifts)
                 sp.Lifts.Add((l.Type, l.Bottom.xz, l.Top.xz));

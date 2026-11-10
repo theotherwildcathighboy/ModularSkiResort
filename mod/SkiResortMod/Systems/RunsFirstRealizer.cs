@@ -117,7 +117,7 @@ namespace SkiResortMod.Systems
             public float3[] Samp;         // every 10 m with snapshot heights: the planner's contact geometry
             public float2 Lo, Hi;
             public SlopeBand Planned;
-            public RunKind Surface;
+            public bool Groomed;
             public int Lift = -1;         // the group's lift (0-based), -1 = the last group
             public bool Link;             // a link or way home (no parent, last group)
             public int Parent = -1;       // a chain's parent chain (element id)
@@ -270,7 +270,7 @@ namespace SkiResortMod.Systems
                 RunsFirstResult.Run run = plan.Runs[r];
                 var e = new Elem
                 {
-                    Id = m_E.Count, Source = r, Pts = run.Pts, Kind = run.Kind, Surface = run.Surface,
+                    Id = m_E.Count, Source = r, Pts = run.Pts, Kind = run.Kind, Groomed = run.Groomed,
                     Planned = run.Band == SlopeBand.Flat ? SlopeBand.Green : run.Band, Lift = run.Lift - 1,
                 };
                 Sample(e);
@@ -448,26 +448,26 @@ namespace SkiResortMod.Systems
         private void AssignKinds()
         {
             AutoKinds allowed = m_In.Knobs.Kinds == AutoKinds.None ? AutoKinds.Default : m_In.Knobs.Kinds;
-            RunKind fallback = (allowed & AutoKinds.Groomed) != 0 ? RunKind.Groomed
-                : (allowed & AutoKinds.Snowmaking) != 0 ? RunKind.Snowmaking
-                : (allowed & AutoKinds.Night) != 0 ? RunKind.Night : RunKind.Groomed;
+            // A prepared piste under the knob: plain groomed when the knob has it, else with guns, else with guns and lights.
+            bool plain = (allowed & AutoKinds.Groomed) != 0 || (allowed & (AutoKinds.Snowmaking | AutoKinds.Night)) == 0;
+            bool gunsOnly = !plain && (allowed & AutoKinds.Snowmaking) != 0;
+            RunKind prepared = PisteKind(true, !plain, !plain && !gunsOnly);
             List<AutoRun> runs = m_Res.Runs;
             var groomed = new List<AutoRun>();
             foreach (Area a in m_P)
             {
                 AutoRun r = runs[a.Out];
                 Elem e = m_E[a.Elem];
-                bool natural = !a.Graded && e.Surface == RunKind.Natural;
+                bool natural = !a.Graded && !e.Groomed;
                 if (natural && a.Band >= SlopeBand.Black && (allowed & AutoKinds.Natural) != 0)
                 {
-                    r.Kind = RunKind.Natural;
+                    r.Kind = PisteKind(false, false, false);
                     continue;
                 }
                 if (natural)
                     m_Rep.NaturalToGroomed++;
-                r.Kind = fallback;
-                if (r.Band <= SlopeBand.Green && r.TouchesBase && (allowed & AutoKinds.Snowmaking) != 0)
-                    r.Kind = RunKind.Snowmaking;
+                bool guns = r.Band <= SlopeBand.Green && r.TouchesBase && (allowed & AutoKinds.Snowmaking) != 0;
+                r.Kind = guns ? PisteKind(true, true, false) : prepared;
                 groomed.Add(r);
             }
             if ((allowed & AutoKinds.Night) == 0)
@@ -477,15 +477,22 @@ namespace SkiResortMod.Systems
                 AutoRun best = null;
                 foreach (AutoRun r in groomed)
                 {
-                    if (!r.TouchesBase || r.Band > SlopeBand.Blue || r.Kind == RunKind.Night)
+                    if (!r.TouchesBase || r.Band > SlopeBand.Blue || RunFeatures.FromKind((int)r.Kind).Lights)
                         continue;
                     if (best == null || r.TopY < best.TopY || (r.TopY == best.TopY && r.Id < best.Id))
                         best = r;
                 }
                 if (best == null)
                     break;
-                best.Kind = RunKind.Night;
+                best.Kind = PisteKind(true, true, true);
             }
+        }
+
+        /// <summary>The realizer decides features (grooming, guns, lights). RunFeatures names the kind the plan carries (run types,
+        /// DECISIONS 576: no kind is named here).</summary>
+        private static RunKind PisteKind(bool groomed, bool guns, bool lights)
+        {
+            return RunFeatures.Of(RunBase.Piste, groomed, guns, lights).SnowKind;
         }
 
         private AutoRun ToRun(Area a, int id)
@@ -493,7 +500,7 @@ namespace SkiResortMod.Systems
             Elem e = m_E[a.Elem];
             return new AutoRun
             {
-                Id = id, Band = a.Band, PassBand = a.Planned, Kind = a.Track ? RunKind.CatTrack : RunKind.Groomed, Ring = a.Ring, Nodes = a.Nodes,
+                Id = id, Band = a.Band, PassBand = a.Planned, Kind = RunFeatures.Of(a.Track ? RunBase.CatTrack : RunBase.Piste, true, false, false).SnowKind, Ring = a.Ring, Nodes = a.Nodes,
                 Centerline = a.Line, RatingGrade = a.RatingGrade, MeanGrade = a.MeanGrade, SteepestGrade = a.SteepestGrade, DropM = a.DropM,
                 AreaM2 = a.AreaM2, LengthM = a.LengthM, TopY = a.TopY, BottomY = a.BottomY,
                 CrossesCatTrack = a.CrossesTrack, TouchesBase = a.EndY <= m_BottomTop,

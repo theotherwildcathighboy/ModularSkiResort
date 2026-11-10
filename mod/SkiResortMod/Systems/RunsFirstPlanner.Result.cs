@@ -16,7 +16,7 @@ namespace SkiResortMod.Systems
             foreach (PlanRun r in built.Runs)
                 res.Runs.Add(new RunsFirstResult.Run
                 {
-                    Pts = new List<float2>(r.Pts), Band = r.Band, Kind = r.Kind, Graded = r.Graded, Surface = r.Surface,
+                    Pts = new List<float2>(r.Pts), Band = r.Band, Kind = r.Kind, Graded = r.Graded, Groomed = r.Groomed,
                     Lift = r.By == null ? 0 : lifts.IndexOf(r.By) + 1,
                 });
             foreach (List<float2> c in built.Connectors)

@@ -18,7 +18,7 @@ namespace SkiResortMod.Systems
             public SlopeBand Band;
             public string Kind;                  // line / fill / learning / ... (the pass that made it)
             public bool Graded;                  // cut with the grading tool: built as a connector
-            public RunKind Surface;              // groomed or natural
+            public bool Groomed;                 // false: natural (ungroomed)
             public int Lift;                     // the lift (1-based index into Lifts) the run starts from; 0 = none
         }
 
@@ -77,7 +77,7 @@ namespace SkiResortMod.Systems
                 Str(r.Kind);
                 Long((long)r.Band);
                 Long(r.Graded ? 1 : 0);
-                Long((long)r.Surface);
+                Long((long)RunFeatures.Of(RunBase.Piste, r.Groomed, false, false).SnowKind);   // the value the port baseline hashed (0 groomed, 3 natural)
                 Long(r.Lift);
                 Pts(r.Pts);
             }

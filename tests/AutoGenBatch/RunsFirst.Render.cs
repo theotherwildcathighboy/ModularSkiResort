@@ -59,7 +59,7 @@ namespace SkiResortMod.Systems
                 if (r.Graded)
                     plan.Connectors.Add(r.Pts);
                 else
-                    plan.Runs.Add((r.Pts, r.Surface));
+                    plan.Runs.Add((r.Pts, r.Groomed ? RunKind.Groomed : RunKind.Natural));
             plan.Connectors.AddRange(built.Connectors);
             foreach (Lift lf in lifts)
                 plan.Lifts.Add((lf.Type, lf.Bottom.xz, lf.Top.xz));
@@ -284,7 +284,7 @@ namespace SkiResortMod.Systems
                     continue;
                 }
                 SlopeBand band = GroundBand(g, r.Pts);
-                if (r.Surface == RunKind.Natural)
+                if (!r.Groomed)
                 {
                     // a natural (ungroomed) run: dashed
                     Dashed(right, pl, 4.5f, EdgeColor(band), 12f, 6f);

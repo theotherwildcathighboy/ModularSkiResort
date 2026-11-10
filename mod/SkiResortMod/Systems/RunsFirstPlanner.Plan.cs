@@ -35,7 +35,7 @@ namespace SkiResortMod.Systems
             public Lift By;                  // the lift whose traverse (or top) the run starts from
             public string Kind = "line";
             public bool Graded;              // cut with the grading tool: handed over as a connector (rated along its path, not by the ground)
-            public RunKind Surface = RunKind.Groomed;   // or Natural (ungroomed: black or double black only, scorecard v5)
+            public bool Groomed = true;   // false: natural (ungroomed: black or double black only, scorecard v5)
         }
 
         private sealed class PlanDraft

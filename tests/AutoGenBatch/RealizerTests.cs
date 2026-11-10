@@ -140,7 +140,7 @@ namespace AutoGenBatch
 
             public Hand Run(List<float2> pts, SlopeBand band, bool graded = false, int lift = 0, string kind = "line")
             {
-                Plan.Runs.Add(new RunsFirstResult.Run { Pts = pts, Band = band, Kind = kind, Graded = graded, Surface = RunKind.Groomed, Lift = lift });
+                Plan.Runs.Add(new RunsFirstResult.Run { Pts = pts, Band = band, Kind = kind, Graded = graded, Groomed = true, Lift = lift });
                 return this;
             }
 

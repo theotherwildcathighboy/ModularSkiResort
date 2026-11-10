@@ -309,7 +309,7 @@ namespace SkiResortMod.Systems
             while (q.Count > 0)
                 foreach (int i in E(q.Dequeue()))
                 {
-                    if (i < sg.Runs && !plan.Runs[i].Graded && plan.Runs[i].Surface == RunKind.Groomed && sg.Band[i] == SlopeBand.Green
+                    if (i < sg.Runs && !plan.Runs[i].Graded && plan.Runs[i].Groomed && sg.Band[i] == SlopeBand.Green
                         && sg.Reached[i] && sg.Returns[i])
                         runs.Add(i);
                     foreach (int M in sg.Delivers[i])
