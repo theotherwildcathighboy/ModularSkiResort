@@ -22,6 +22,18 @@ namespace SkiResortMod.Systems
             public float TargetHw, Gap, Ceil;
             public readonly HashSet<int> Partners = new HashSet<int>();
             public readonly List<int> StartJ = new List<int>(), EndJ = new List<int>();
+            public readonly List<Neighbor> Others = new List<Neighbor>();   // fair share (iteration 2, item 3)
+        }
+
+        /// <summary>Another piste centerline near this one, for the fair-share width: its samples, its gap, whether the planner relates
+        /// the two lines, and the points where it crosses this run.</summary>
+        private sealed class Neighbor
+        {
+            public float2[] Pts;
+            public float2 Lo, Hi;
+            public float Gap;
+            public bool Related;
+            public readonly List<float2> Crossings = new List<float2>();
         }
 
         /// <summary>A candidate piece: samples, half widths, junction sets at its two ends.</summary>
@@ -55,6 +67,7 @@ namespace SkiResortMod.Systems
                 if (Canceled)
                     return;
                 RealizePiste(e);
+                e.Done = true;
             }
         }
 
@@ -74,6 +87,8 @@ namespace SkiResortMod.Systems
                 return;
             }
             int n = path.Count;
+            if (!ctx.Graded)
+                FairShare(ctx, path);
             // Partners (5.1): the accepted pistes the planner relates to this run, and those whose ring its centerline enters
             for (int b = 0; b < m_P.Count; b++)
             {
@@ -263,8 +278,9 @@ namespace SkiResortMod.Systems
                 float2 t = math.normalizesafe(xz[Math.Min(i + 1, n - 1)] - xz[Math.Max(i - 1, 0)], new float2(1f, 0f));
                 float2 nl = new float2(-t.y, t.x);
                 float hw = cap != null ? Math.Min(ctx.TargetHw, cap[i]) : ctx.TargetHw;
-                hl[i] = MarchSide(ctx, xz[i], nl, hw, s[i], total - s[i], j0, j1);
-                hr[i] = MarchSide(ctx, xz[i], -nl, hw, s[i], total - s[i], j0, j1);
+                FairCaps(ctx, xz[i], t, nl, hw, Math.Min(s[i], total - s[i]), out float capL, out float capR);
+                hl[i] = MarchSide(ctx, xz[i], nl, capL, s[i], total - s[i], j0, j1);
+                hr[i] = MarchSide(ctx, xz[i], -nl, capR, s[i], total - s[i], j0, j1);
             }
             Smooth(hl);
             Smooth(hr);
@@ -274,6 +290,102 @@ namespace SkiResortMod.Systems
                     hl[i] = Math.Max(1f, hl[i] * scale);
                     hr[i] = Math.Max(1f, hr[i] * scale);
                 }
+        }
+
+        /// <summary>Iteration 2, item 3: the other piste centerlines (plain and graded, accepted or still to come, not the dropped ones)
+        /// whose box comes within reach of this run, with the points where they cross it. Exact polylines, not a raster.</summary>
+        private void FairShare(PisteCtx ctx, GradePath path)
+        {
+            Elem a = ctx.E;
+            float reach = 2f * ctx.TargetHw + ctx.Gap + FairCrossM;
+            foreach (Elem b in m_E)
+            {
+                if (b == a || b.Type == ElemType.Track || (b.Done && b.Areas.Count == 0))
+                    continue;
+                if (b.Lo.x > a.Hi.x + reach || b.Hi.x < a.Lo.x - reach || b.Lo.y > a.Hi.y + reach || b.Hi.y < a.Lo.y - reach)
+                    continue;
+                int bandIx = Math.Max(1, Math.Min(4, (int)b.Planned)) - 1;
+                float bHw = b.Type == ElemType.GradedPiste ? GradedHalfWidthM : 0.5f * PlanGeometry.TargetWidthM[bandIx];
+                var nb = new Neighbor { Lo = b.Lo, Hi = b.Hi, Gap = Math.Min(ctx.Gap, PlanGeometry.GapOf(m_Density, 2f * bHw)), Related = Related(a, b) };
+                nb.Pts = new float2[b.Samp.Length];
+                for (int k = 0; k < b.Samp.Length; k++)
+                    nb.Pts[k] = b.Samp[k].xz;
+                for (int i = 0; i + 1 < path.Count; i++)
+                {
+                    float2 p0 = path.Xz[i], p1 = path.Xz[i + 1];
+                    for (int k = 0; k + 1 < nb.Pts.Length; k++)
+                        if (SegCross(p0, p1, nb.Pts[k], nb.Pts[k + 1], out float2 x))
+                            nb.Crossings.Add(x);
+                }
+                ctx.Others.Add(nb);
+            }
+        }
+
+        private static bool SegCross(float2 a0, float2 a1, float2 b0, float2 b1, out float2 x)
+        {
+            x = default;
+            float2 r = a1 - a0, q = b1 - b0;
+            float den = r.x * q.y - r.y * q.x;
+            if (Math.Abs(den) < 1e-9f)
+                return false;
+            float2 w = b0 - a0;
+            float t = (w.x * q.y - w.y * q.x) / den, u = (w.x * r.y - w.y * r.x) / den;
+            if (t < 0f || t > 1f || u < 0f || u > 1f)
+                return false;
+            x = a0 + r * t;
+            return true;
+        }
+
+        /// <summary>The fair-share caps at one sample. Each side stops at half the distance to the nearest centerline of another run that
+        /// runs alongside on that side, minus half the pair gap, floored at MinHalfWidthM. Alongside: the two lines meet at under 45 degrees
+        /// and no crossing of the two lies within FairCrossM. A related pair tapers its gap to MergeGapM over MergeTaperM at the ends.</summary>
+        private void FairCaps(PisteCtx ctx, float2 p, float2 t, float2 nl, float hw, float sEnd, out float capL, out float capR)
+        {
+            capL = capR = hw;
+            if (ctx.Others.Count == 0)
+                return;
+            float reach = 2f * hw + ctx.Gap;
+            foreach (Neighbor nb in ctx.Others)
+            {
+                if (p.x < nb.Lo.x - reach || p.x > nb.Hi.x + reach || p.y < nb.Lo.y - reach || p.y > nb.Hi.y + reach)
+                    continue;
+                float best = float.PositiveInfinity;
+                float2 q = default, tb = default;
+                for (int k = 0; k + 1 < nb.Pts.Length; k++)
+                {
+                    float2 a = nb.Pts[k], d = nb.Pts[k + 1] - a;
+                    float len2 = math.lengthsq(d);
+                    float u = len2 > 0f ? math.saturate(math.dot(p - a, d) / len2) : 0f;
+                    float2 c = a + d * u;
+                    float dist = math.distancesq(p, c);
+                    if (dist < best)
+                    {
+                        best = dist;
+                        q = c;
+                        tb = d;
+                    }
+                }
+                float dd = math.sqrt(best);
+                if (dd > reach || dd < 1e-3f)
+                    continue;
+                if (Math.Abs(math.dot(t, math.normalizesafe(tb))) < FairCos)
+                    continue;   // not alongside: the lines meet at 45 degrees or more
+                bool nearCross = false;
+                foreach (float2 x in nb.Crossings)
+                    if (math.distancesq(x, p) < FairCrossM * FairCrossM)
+                    {
+                        nearCross = true;
+                        break;
+                    }
+                if (nearCross)
+                    continue;
+                float gap = nb.Related && sEnd < MergeTaperM ? MergeGapM + (nb.Gap - MergeGapM) * sEnd / MergeTaperM : nb.Gap;
+                float lim = Math.Max(MinHalfWidthM, 0.5f * dd - 0.5f * gap);
+                if (math.dot(q - p, nl) >= 0f)
+                    capL = Math.Min(capL, lim);
+                else
+                    capR = Math.Min(capR, lim);
+            }
         }
 
         private float MarchSide(PisteCtx ctx, float2 p, float2 dir, float maxHw, float sFrom, float sTo, List<int> j0, List<int> j1)

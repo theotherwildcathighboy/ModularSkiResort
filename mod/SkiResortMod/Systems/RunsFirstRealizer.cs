@@ -79,6 +79,7 @@ namespace SkiResortMod.Systems
         public const float BlockedShare = 0.30f, PartlyBlockedShare = 0.60f;
         public const float SunkGrade = 0.25f, LiftEdgeSlopeShare = 0.97f;
         public const float PitchM = 30f, PitchGrade = 0.25f;
+        public const float FairCrossM = 60f, FairCos = 0.70710678f;   // fair share: no crossing within 60 m, under 45 degrees
         /// <summary>The "other runs" group's toggle key (no lift to hash). Fixed, so the toggle survives a new scan.</summary>
         public const uint OtherGroupKey = 0x4F54524Eu;
         /// <summary>The band's hard ceiling the piste march stops at (v1 PassHardCeiling), by SlopeBand Green..DoubleBlack.</summary>
@@ -105,6 +106,7 @@ namespace SkiResortMod.Systems
             public int Parent = -1;       // a chain's parent chain (element id)
             public string Kind;
             public float LengthM;
+            public bool Done;             // the piste pass has realized (or dropped) it
             public readonly List<int> Areas = new List<int>();   // area ids in m_P (pistes) or m_T (tracks)
             public int StartArea = -1, EndArea = -1;              // the areas that hold the source's first and last point
         }
