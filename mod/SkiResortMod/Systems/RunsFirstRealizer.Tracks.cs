@@ -429,7 +429,8 @@ namespace SkiResortMod.Systems
             if (!Cell(p, out int c))
                 return CRegion;
             byte f = m_Flags[c];
-            if ((f & FBlockRegion) != 0)
+            // the ribbon is TrackHalfWidthM each side of the centerline: near the edge, test it exactly (iteration 2, item 5)
+            if ((f & FBlockRegion) != 0 || ((f & FNearEdge) != 0 && !InRegion(p, EdgeBlockM + TrackHalfWidthM)))
                 return CRegion;
             if ((f & FBlockHard) != 0)
                 return CObstacle;

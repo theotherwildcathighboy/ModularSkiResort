@@ -71,6 +71,7 @@ namespace SkiResortMod.Systems
         public const float TrackHalfWidthM = 0.5f * GradeParams.NarrowTopWidthM, TrackNarrowHalfWidthM = 0.5f * GradeParams.NarrowMinTopWidthM;
         public const float TrackFreeM = MergeGapM + 5f, TrackMinPieceM = 30f, TrackReachM = 20f;
         public const float TrackStubM = 2f * GradeParams.NarrowTopWidthM;   // a shorter track piece is lost even when joined at both ends (a blob, not a track)
+        public const float NearEdgeM = EdgeBlockM + TrackHalfWidthM + 2f;   // the band where the free tests check the region exactly
         public const float EdgeBlockM = 2f, RegionClearanceM = 0.25f, RingSimplifyM = 1f, WidthMarginM = 1f, MarchStepM = 1f;
         public const float CliffGrade = 1.0f;
         public const float RelationM = 40f, RelationRiseM = 5f;   // the planner's contact (RF/.Graph.cs:66-70)

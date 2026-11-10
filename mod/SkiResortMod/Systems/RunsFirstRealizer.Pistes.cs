@@ -223,7 +223,7 @@ namespace SkiResortMod.Systems
             if (!Cell(p, out int c))
                 return CRegion;
             byte f = m_Flags[c];
-            if ((f & FBlockRegion) != 0)
+            if ((f & FBlockRegion) != 0 || ((f & FNearEdge) != 0 && !InRegion(p, EdgeBlockM)))
                 return CRegion;
             if ((f & (FBlockHard | FBlockPiste)) != 0)
                 return CObstacle;
@@ -400,6 +400,8 @@ namespace SkiResortMod.Systems
                     break;
                 if ((m_Flags[c] & (FBlockAll | FBlockPiste)) != 0)
                     break;
+                if ((m_Flags[c] & FNearEdge) != 0 && !InRegion(p + dir * t, EdgeBlockM))
+                    break;   // iteration 2, item 5: the exact edge, so the ring check never finds a vertex outside
                 if (!ctx.Graded && !(m_Grade[c] < ctx.Ceil))
                     steep = true;
                 if (steep && t > MinHalfWidthM + WidthMarginM)

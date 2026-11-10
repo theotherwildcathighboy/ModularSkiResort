@@ -14,6 +14,7 @@ namespace SkiResortMod.Systems
         // Cell flags. BlockedAll = FBlockRegion | FBlockHard (spec 3: outside the region or within 2 m of its edge, unowned tiles with
         // their clearance, wet texels). FBlockPiste: other Surface areas and existing pistes. FBlockTrack: existing cat tracks
         private const byte FRegion = 1, FBlockRegion = 2, FBlockHard = 4, FBlockPiste = 8, FBlockTrack = 16, FWet = 32;
+        private const byte FNearEdge = 64;   // within NearEdgeM of the region's edge or the map margin: the free tests check exactly (iteration 2, item 5)
         private const byte FBlockAll = FBlockRegion | FBlockHard;
 
         /// <summary>The lattice cap. The spec names the snapshot's own 2^21. The big set (25-29 km2) needs more, and the realizer has no
@@ -109,6 +110,9 @@ namespace SkiResortMod.Systems
                     }
                     if (k < OffMapMarginTexels || l < OffMapMarginTexels || k > resX - 1 - OffMapMarginTexels || l > resZ - 1 - OffMapMarginTexels)
                         f |= FBlockRegion;
+                    int nearT = OffMapMarginTexels + (int)math.ceil(NearEdgeM / m_Texel);
+                    if (k < nearT || l < nearT || k > resX - 1 - nearT || l > resZ - 1 - nearT)
+                        f |= FNearEdge;
                     if (snap.IsWet(k, l))
                         f |= (byte)(FWet | FBlockHard);
                     m_Flags[c] = f;
@@ -119,7 +123,20 @@ namespace SkiResortMod.Systems
             // Within EdgeBlockM of the region's edge
             for (int e = 0, n = m_Region.Length; e < n; e++)
                 MarkNear(m_Region[e], m_Region[(e + 1) % n], EdgeBlockM, FBlockRegion);
+            for (int e = 0, n = m_Region.Length; e < n; e++)
+                MarkNear(m_Region[e], m_Region[(e + 1) % n], NearEdgeM + m_Texel, FNearEdge);
             return AutoPlanStatus.Running;
+        }
+
+        /// <summary>The exact region test of a point on a cell flagged FNearEdge: inside the region, clear of its edges by clear meters,
+        /// and inside the map margin by the same meters (the ring check RegionOk tests the vertices exactly, the cells are 3.5 m).</summary>
+        private bool InRegion(float2 q, float clear)
+        {
+            if (!GradeRaster.Inside(m_Region, q) || PlanGeometry.PointRingDistance(m_Region, q) < clear)
+                return false;
+            HeightSnapshot snap = m_Snap;
+            float hx = (q.x + snap.Offset.x) * snap.Scale.x, hz = (q.y + snap.Offset.z) * snap.Scale.z, m = OffMapMarginTexels + clear / m_Texel;
+            return hx >= m && hz >= m && hx <= snap.ResX - 1 - m && hz <= snap.ResZ - 1 - m;
         }
 
         /// <summary>Obstacles (spec 3): unowned tiles block every type (their 0.5 m clearance), other Surface areas block pistes (2 m),
