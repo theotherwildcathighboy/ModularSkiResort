@@ -148,6 +148,55 @@ h1 { text-transform: uppercase; letter-spacing: 0.04em; }
 .shot-img { display: block; width: 100%; height: auto; border-radius: 0.5rem; }
 .shot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1rem; margin: 1.5rem 0; }
 .shot-grid .shot-link { margin: 0; }
+/* Inline carousel (ShotCarousel.astro): one 16:9 slide at a time, swipe by scroll snap, thumbnails below. */
+.shot-carousel { margin: 1.5rem 0; }
+.shot-carousel-stage { position: relative; }
+.shot-carousel-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  border-radius: 0.5rem;
+  outline-offset: 3px;
+}
+.shot-carousel-track::-webkit-scrollbar { display: none; }
+.shot-carousel-track > .shot-link { flex: 0 0 100%; margin: 0; scroll-snap-align: center; scroll-snap-stop: always; }
+.shot-carousel-track .shot-img { aspect-ratio: 16 / 9; object-fit: cover; border-radius: 0; }
+.shot-carousel-prev, .shot-carousel-next {
+  position: absolute;
+  top: 50%;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-top: -1.375rem;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+  font-size: 1.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.shot-carousel-prev { left: 0.6rem; }
+.shot-carousel-next { right: 0.6rem; }
+.shot-carousel-prev:hover, .shot-carousel-next:hover,
+.shot-carousel-prev:focus-visible, .shot-carousel-next:focus-visible { background: rgb(0 0 0 / 0.8); }
+.shot-carousel-caption { min-height: 2.6em; margin: 0.6rem 0 0; font-size: var(--sl-text-sm); color: var(--sl-color-gray-2); text-align: center; }
+.shot-carousel-count { margin-right: 0.5em; color: var(--sl-color-gray-3); font-variant-numeric: tabular-nums; }
+.shot-carousel-thumbs { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.5rem; margin-top: 0.6rem; }
+@media (max-width: 40rem) { .shot-carousel-thumbs { grid-template-columns: repeat(4, 1fr); } }
+.shot-carousel-thumb {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 0.35rem;
+  background: none;
+  cursor: pointer;
+  opacity: 0.55;
+  overflow: hidden;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+.shot-carousel-thumb img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.shot-carousel-thumb:hover, .shot-carousel-thumb:focus-visible { opacity: 0.85; }
+.shot-carousel-thumb[aria-current] { opacity: 1; border-color: var(--sl-color-accent); }
 /* The zoom dialog fills the viewport and centers the shot itself, so the page's margin reset cannot shift it off center. */
 .shot-zoom {
   position: fixed;

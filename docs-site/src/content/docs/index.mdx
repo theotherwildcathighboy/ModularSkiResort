@@ -18,6 +18,7 @@ hero:
 import { CardGrid } from '@astrojs/starlight/components';
 import FeatureCard from '../../components/FeatureCard.astro';
 import Shot from '../../components/Shot.astro';
+import ShotCarousel from '../../components/ShotCarousel.astro';
 
 <Shot src="hero.jpg" label="Two detachable chairlift base stations and the Swanky Summit Lodge on a bench above the town, with the mountain range beyond." />
 
@@ -43,7 +44,7 @@ import Shot from '../../components/Shot.astro';
 
 ## In Pictures
 
-<div class="shot-grid">
+<ShotCarousel>
   <Shot src="tram.jpg" label="The aerial tram: a cabin passes the tower, with the valley and the town below." />
   <Shot src="night.jpg" label="Night at the lift bases: the lit stations, the Swanky Summit Lodge and the town in the valley." />
   <Shot src="golden-hour.jpg" label="Last sun on the slope above two detachable base stations and their lift lines." />
@@ -52,7 +53,7 @@ import Shot from '../../components/Shot.astro';
   <Shot src="welcome-sign.jpg" label="The Welcome Sign with the ski area's name. The name on the board needs Write Everywhere." />
   <Shot src="lift-line.jpg" label="From a top station down the lift line to the valley, the river and the town." />
   <Shot src="summer.jpg" label="Summer: the aerial tram keeps running as sightseeing, above the green valley and the town." />
-</div>
+</ShotCarousel>
 
 ## Install
 

@@ -1,0 +1,81 @@
+---
+// An inline carousel around <Shot> children: one screenshot at a time, arrows, swipe (native scroll snap),
+// the arrow keys while it has focus, a caption with the position, and a row of thumbnails.
+// The slides stay ordinary Shot links, so a click still opens the page's screenshot viewer at that shot.
+// Without JavaScript the track still scrolls sideways and every shot opens as its own file.
+---
+<div class="shot-carousel not-content" data-shot-carousel>
+  <div class="shot-carousel-stage">
+    <div class="shot-carousel-track" tabindex="0" role="region" aria-roledescription="carousel" aria-label="Screenshots">
+      <slot />
+    </div>
+    <button type="button" class="shot-carousel-prev" aria-label="Previous screenshot" hidden>&#8249;</button>
+    <button type="button" class="shot-carousel-next" aria-label="Next screenshot" hidden>&#8250;</button>
+  </div>
+  <p class="shot-carousel-caption" aria-live="polite"><span class="shot-carousel-count"></span><span class="shot-carousel-text"></span></p>
+  <div class="shot-carousel-thumbs"></div>
+</div>
+
+<script>
+  const smooth = (): ScrollBehavior =>
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+
+  document.querySelectorAll<HTMLElement>('[data-shot-carousel]').forEach((root) => {
+    const track = root.querySelector<HTMLElement>('.shot-carousel-track')!;
+    const slides = Array.from(track.querySelectorAll<HTMLAnchorElement>('.shot-link'));
+    if (!slides.length) return;
+    const prev = root.querySelector<HTMLButtonElement>('.shot-carousel-prev')!;
+    const next = root.querySelector<HTMLButtonElement>('.shot-carousel-next')!;
+    const count = root.querySelector<HTMLElement>('.shot-carousel-count')!;
+    const text = root.querySelector<HTMLElement>('.shot-carousel-text')!;
+    const thumbs = root.querySelector<HTMLElement>('.shot-carousel-thumbs')!;
+    let current = -1;
+
+    const buttons = slides.map((slide, index) => {
+      const source = slide.querySelector('img')!;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'shot-carousel-thumb';
+      button.setAttribute('aria-label', `Screenshot ${index + 1}: ${source.alt}`);
+      const image = document.createElement('img');
+      image.src = source.src;
+      image.alt = '';
+      image.loading = 'lazy';
+      image.decoding = 'async';
+      button.append(image);
+      button.addEventListener('click', () => go(index));
+      thumbs.append(button);
+      return button;
+    });
+
+    const mark = (index: number) => {
+      if (index === current) return;
+      current = index;
+      count.textContent = `${index + 1} / ${slides.length}`;
+      text.textContent = slides[index].querySelector('img')!.alt;
+      buttons.forEach((button, i) => button.toggleAttribute('aria-current', i === index));
+    };
+    const go = (index: number) => {
+      const target = (index + slides.length) % slides.length;
+      track.scrollTo({ left: target * track.clientWidth, behavior: smooth() });
+      mark(target);
+    };
+
+    let frame = 0;
+    track.addEventListener('scroll', () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => mark(Math.round(track.scrollLeft / Math.max(1, track.clientWidth))));
+    }, { passive: true });
+    track.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft') { event.preventDefault(); go(current - 1); }
+      if (event.key === 'ArrowRight') { event.preventDefault(); go(current + 1); }
+    });
+    prev.addEventListener('click', () => go(current - 1));
+    next.addEventListener('click', () => go(current + 1));
+    // Keep the shown slide in place when the width changes (window resize, sidebar toggle).
+    new ResizeObserver(() => { track.scrollLeft = current * track.clientWidth; }).observe(track);
+
+    if (slides.length > 1) { prev.hidden = false; next.hidden = false; }
+    mark(0);
+  });
+</script>
