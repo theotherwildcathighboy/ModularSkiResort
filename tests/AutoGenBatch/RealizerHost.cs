@@ -206,7 +206,7 @@ namespace AutoGenBatch
                     $"{sources - dropped} sources kept, {dropped} dropped ({(drops.Count > 0 ? string.Join(", ", drops) : "none")}), {rep.PiecesLost} pieces lost, " +
                     $"km {kmKept:F2} / {kmPlan:F2} ({(kmPlan > 0 ? kmKept / kmPlan * 100 : 100):F1} %), graded km {rep.GradedKmKept:F2} / {rep.GradedKmPlanned:F2}",
                 $"  bands: planned = shown {agree}/{rated} areas ({(rated > 0 ? 100.0 * agree / rated : 100):F0} %), {agreeKm:F2}/{ratedKm:F2} km; graded shown G/B/K/DB " +
-                    $"{rep.GradedShown[1]}/{rep.GradedShown[2]}/{rep.GradedShown[3]}/{rep.GradedShown[4]}; natural to groomed {rep.NaturalToGroomed}; table {BandTable(rep)}",
+                    $"{rep.GradedShown[1]}/{rep.GradedShown[2]}/{rep.GradedShown[3]}/{rep.GradedShown[4]}; natural to groomed {rep.NaturalToGroomed}; rated by the fallback {rep.FallbackRated}; table {BandTable(rep)}",
                 $"  tracks: {rep.TrackSources} sources, {rep.TrackChains} chains, {rep.TrackAreas} areas, {rep.TrackPiecesLost} pieces lost, dropped " +
                     $"({(tdrops.Count > 0 ? string.Join(", ", tdrops) : "none")}), km {rep.TrackKmKept:F2} / {rep.TrackKmPlanned:F2}, 30 m pitches over 25 % {rep.TrackPitchesOver}/{rep.TrackPitches}",
                 $"  junctions: relations {rep.Relations}, linked {rep.RelationLinks} ({rep.RelationVia} through the area that cut the end), missed {rep.RelationMisses}; extensions {rep.Extensions}; unlinked ends " +
@@ -235,7 +235,7 @@ namespace AutoGenBatch
             if (!File.Exists(tsv))
                 File.WriteAllText(tsv, "region\tsources\tdropped\tdrops\tareas\tpiecesLost\tkmPlan\tkmKept\tgradedKmPlan\tgradedKmKept\trelations\tlinks\tvia\tmisses\textensions\t" +
                     "unlinked\tunlinkedBlocked\tends\tunserved\tdeadEnds\tbandAgree\tbandRated\tbandAgreeKm\tbandRatedKm\ttrackSources\ttrackChains\ttrackAreas\t" +
-                    "trackPiecesLost\ttrackKmPlan\ttrackKmKept\ttrackDrops\tlifts\tliftsClear\tbottomReach\traw\trealized\tplanMs\trealizeMs\tlayerMB\tdeterministic\n");
+                    "trackPiecesLost\ttrackKmPlan\ttrackKmKept\ttrackDrops\tlifts\tliftsClear\tbottomReach\traw\trealized\tplanMs\trealizeMs\tlayerMB\tdeterministic\tfallback\n");
             File.AppendAllText(tsv, string.Join("\t", new object[]
             {
                 id, sources, dropped, drops.Count > 0 ? string.Join(",", drops) : "-", res.Runs.Count, rep.PiecesLost, kmPlan.ToString("F2"), kmKept.ToString("F2"),
@@ -243,7 +243,7 @@ namespace AutoGenBatch
                 rep.UnlinkedEnds, rep.UnlinkedBlocked, ends, rep.UnservedAreas, rep.DeadEnds, agree, rated, agreeKm.ToString("F2"), ratedKm.ToString("F2"),
                 rep.TrackSources, rep.TrackChains, rep.TrackAreas, rep.TrackPiecesLost, rep.TrackKmPlanned.ToString("F2"), rep.TrackKmKept.ToString("F2"),
                 tdrops.Count > 0 ? string.Join(",", tdrops) : "-", rep.Lifts, rep.LiftsClear, rep.BottomReach, rawT.ToString("F1"), realT.ToString("F1"),
-                planMs.ToString("F0"), rep.Ms.ToString("F0"), (rep.LayerBytes / 1048576.0).ToString("F1"), h1 == h2 ? "yes" : "NO",
+                planMs.ToString("F0"), rep.Ms.ToString("F0"), (rep.LayerBytes / 1048576.0).ToString("F1"), h1 == h2 ? "yes" : "NO", rep.FallbackRated,
             }.Select(o => Convert.ToString(o, CultureInfo.InvariantCulture))) + "\n");
             return new Row
             {

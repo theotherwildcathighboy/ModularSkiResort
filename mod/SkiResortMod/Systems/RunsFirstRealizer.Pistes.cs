@@ -42,6 +42,7 @@ namespace SkiResortMod.Systems
             public float2[] Ring, Line;
             public float3[] Nodes;
             public int LeftCount;                          // ring[0 .. LeftCount - 1] is the left edge (start to end)
+            public bool Fallback;                          // rated by the P90 fallback (a mask that is not connected)
             public string RateWhy;                         // the rater's answer when Unrated (report only)
             public SlopeBand Band;
             public float RatingGrade, MeanGrade, Steepest, Drop, TopY, BottomY, LengthM;
@@ -633,7 +634,9 @@ namespace SkiResortMod.Systems
             return AutoReject.Kept;
         }
 
-        /// <summary>SkiRunRater.Rate on the ring's nodes at snapshot heights. Rated (Ok, connected, no sampler miss) or not.</summary>
+        /// <summary>SkiRunRater.Rate on the ring's nodes at snapshot heights. Rated (status Ok, no sampler miss) or not. A mask that is
+        /// not connected is a rating: the classifier falls back to its P90 band (SkiSlopeClassifier SlopeResult.Connected, Band), and the
+        /// game shows that band. Such a piece is kept and counted as rated by the fallback.</summary>
         private bool RateRing(Built b, bool graded)
         {
             int n = b.Ring.Length;
@@ -647,12 +650,13 @@ namespace SkiResortMod.Systems
             // A graded piste crosses the fall line: the rater finds too few full 20 m windows across 15 m and answers ShortRun, with a
             // band the game shows (SkiSlopeClassifier treats ShortRun as rated). Plain pistes need Ok, as v2.
             bool statusOk = res.Status == SlopeStatus.Ok || (graded && res.Status == SlopeStatus.ShortRun);
-            if (rs != RateStatus.Rated || !statusOk || !res.Connected || sampler.Misses > 0)
+            if (rs != RateStatus.Rated || !statusOk || sampler.Misses > 0)
             {
                 m_RateWhy = b.RateWhy = $"{rs} {res.Status}{(res.Connected ? "" : " not connected")}{(sampler.Misses > 0 ? " sampler misses" : "")}";
                 return false;
             }
             b.Nodes = nodes;
+            b.Fallback = !res.Connected;
             b.Band = res.Band;
             b.RatingGrade = res.RatingGrade;
             b.MeanGrade = res.MeanGrade;
@@ -665,6 +669,8 @@ namespace SkiResortMod.Systems
 
         private int Accept(PisteCtx ctx, Built b, int segment)
         {
+            if (b.Fallback)
+                m_Rep.FallbackRated++;
             Elem e = ctx.E;
             var a = new Area
             {
