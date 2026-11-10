@@ -155,6 +155,8 @@ namespace SkiResortMod.Systems
         public float LengthM, RiseM, HorizontalM; public bool AlignKnown; public float AlignOffsetM, AlignYawDeg;
         public float CapacityPerHour;        // −1 when no chair rides
         public bool HasBase, HasTop, Powered, Counted; public int Status;
+        // RunsServed = run tops within the lift's reach, power ignored (LiftServedRule.CountInReach): an unpowered or pending lift still
+        // reads its runs. Service and scoring keep the power-gated count (m_ServedCount)
         public float RideTimeS; public int RunsServed, CostMonth; public bool BilledReduced;
         // The census row's lift type. Type = its LiftTypeDef.Id ("" unknown, LiftRow.type). TypeIndex = its SkiCatalog.Lifts index
         // (LiftCensus.NoType when unknown, the hub's per-type hints and items). Mixed = the row's component mixes lift types
@@ -402,6 +404,7 @@ namespace SkiResortMod.Systems
         private readonly List<int> m_ServingLift = new List<int>(32);
         private readonly List<float> m_ServingDistance = new List<float>(32);
         private readonly List<int> m_ServedCount = new List<int>(8);
+        private readonly List<int> m_InReachCount = new List<int>(8);   // per serve lift, LiftServedRule.CountInReach (the row's RunsServed)
         private readonly List<bool> m_TrackRuns = new List<bool>(32); // per run row, RunKindRules.IsCatTrackLink (the cat track mask)
         private readonly List<Efficiency> m_FactorScratch = new List<Efficiency>(8);
         private readonly List<HubProblemFactor> m_PFactors = new List<HubProblemFactor>(8);
@@ -1570,6 +1573,9 @@ namespace SkiResortMod.Systems
             }
             LiftServedRule.AssignLinked(m_RunTops, m_RunLinks, m_ServeLifts, m_Chords, m_ServingLift, m_ServingDistance,
                                         m_ServedCount, m_ServedRoot, m_ServedVia, anyTrack ? m_TrackRuns : null);
+            // The lift row's run count: reach alone, power ignored. A lift with no power or power pending shows the runs it would serve
+            // (its status word says No power); the power-gated m_ServedCount stays for service only
+            LiftServedRule.CountInReach(m_RunTops, m_ServeLifts, m_Chords, m_InReachCount);
             for (int i = 0; i < m_RunsNext.Count && i < m_ServingLift.Count; i++)
             {
                 RunStats r = m_RunsNext[i];
@@ -1780,7 +1786,7 @@ namespace SkiResortMod.Systems
                     Status = (int)HubRules.LiftStatusOf(state, powered, closed),
                     // Half the loop at the row type's speed. For a tram, the trip (the local rideTimeS above).
                     RideTimeS = rideTimeS,
-                    RunsServed = serveRow && k < m_ServedCount.Count ? m_ServedCount[k] : 0,
+                    RunsServed = serveRow && k < m_InReachCount.Count ? m_InReachCount[k] : 0,
                     CostMonth = costMonth,
                     BilledReduced = reduced,
                     // The row's type, mixed flag, seats and speed.
@@ -3331,8 +3337,8 @@ namespace SkiResortMod.Systems
                       // total). The row carries the closed gate through its capacity (-1 when complete + powered but closed), so read that.
                       .Append(", carries ").Append(l.CapacityPerHour >= 0f ? "Y" : "N")
                       .Append(" (capacity ").Append(l.CapacityPerHour >= 0f ? F(l.CapacityPerHour, "F0") + "/h" : "–").Append(')')
-                      .Append(", ride ").Append(F(l.RideTimeS, "F0")).Append(" s, serves ").Append(l.RunsServed)
-                      .Append(" run(s), cost ").Append(l.CostMonth).Append("/month").Append(l.BilledReduced ? " (at 25 %)" : "")
+                      .Append(", ride ").Append(F(l.RideTimeS, "F0")).Append(" s, runs in reach ").Append(l.RunsServed)
+                      .Append(", cost ").Append(l.CostMonth).Append("/month").Append(l.BilledReduced ? " (at 25 %)" : "")
                       .Append(", sign ").Append(Ent(l.Sign)).Append('\n');
                 }
             }
