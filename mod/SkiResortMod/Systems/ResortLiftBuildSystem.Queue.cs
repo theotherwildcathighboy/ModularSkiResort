@@ -579,6 +579,10 @@ namespace SkiResortMod.Systems
                     // build, the next lift's tools drop the line from the lift tool (not watched); the last waiting line stays in the tool.
                     bool handOver = m_HandOver && m_RunWaiting.Count > 0 && m_RunWaiting[0] == job.Key;
                     string key = ResortPlanSheet.WaitingKey(t.Reason);
+                    // Task 2d-l: a waiting row keeps its plan's over-limit tower (the tool noted it on the ticket), so the row can name the
+                    // tower, its bend and its limit, as a flagged built row does
+                    if (r != null && job.PlanSerial == m_Sheet.PlanSerial)
+                        m_Sheet.SetOverLimit(job.Key, t.OverLimitTowers, t.OverLimitTower, t.OverLimitAlongM, t.OverLimitBendDeg, t.OverLimitCapDeg);
                     if (!handOver)
                     {
                         m_QueueFitting++;

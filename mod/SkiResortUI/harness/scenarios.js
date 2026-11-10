@@ -224,6 +224,11 @@
     sheetRow(606, "P7", "fixedGrip", 700, 180, 800000, false, "Proposed", "", ""),
     sheetRow(607, "P8", "detachable", 1500, 480, 2700000, true, "Proposed", "", "", { flagged: true }),
     sheetRow(608, "P9", "gondola", 2100, 700, 4300000, true, "Proposed", "", "", { waits: true }),
+    // Task 2c-l / 2d-l: the plan's reason and tower before the build, and a waiting row with its tower after it
+    sheetRow(609, "P10", "detachable", 1300, 500, 2900000, true, "Proposed", "", "", { flagged: true, overLimitTowers: 1, overLimitTower: 1, overLimitAlongM: 30, overLimitBendDeg: 34.5, overLimitCapDeg: 32 }),
+    sheetRow(610, "P11", "gondola", 1450, 710, 4200000, true, "Proposed", "", WHY("PLAN_TRAIN"), { waits: true, overLimitTowers: 1, overLimitTower: 8, overLimitAlongM: 1425, overLimitBendDeg: 48.9, overLimitCapDeg: 40 }),
+    sheetRow(611, "P12", "detachable", 990, 260, 2100000, true, "Proposed", "", WHY("PLAN_LOW"), { waits: true }),
+    sheetRow(612, "P13", "detachable", 1320, 500, 2900000, true, "NeedsFitting", "", WHY("PLAN_TRAIN"), { overLimitTowers: 1, overLimitTower: 7, overLimitAlongM: 1270, overLimitBendDeg: 50.9, overLimitCapDeg: 32 }),
   ];
   const quickSheetRunning = Object.assign({}, quickRuns, { sheet: sheetOf(sheetRows, { running: true, index: 2, total: 3 }) });
   const quickSheetStopping = Object.assign({}, quickRuns, { active: true, phase: "Region", corners: 0, canPlanAround: true, sheet: sheetOf(sheetRows, { running: true, index: 2, total: 3, stopping: true }) });
