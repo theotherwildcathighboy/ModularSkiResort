@@ -12,7 +12,7 @@ namespace SkiResortMod.Systems
     {
         /// <summary>Debug, host only (RF_TIES=reverse, port round 2b-f): equal keys in SortStable, SortByKey and StableHeap go in
         /// reverse order. A plan hash that moves with it proves a tie that decides the plan. The game never sets it (false).</summary>
-        internal static int ReverseTies;   // bit 1: the sorts, bit 2: the queue
+        internal static int ReverseTies = 0;   // bit 1: the sorts, bit 2: the queue (only the test host writes it)
 
         /// <summary>A stable sort: equal keys keep their order in the list. The comparison plus the list index is a total order, so
         /// any correct sort gives this one result.</summary>
