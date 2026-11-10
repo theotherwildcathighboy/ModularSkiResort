@@ -12,7 +12,7 @@ Build a ski resort: drawn chairlifts, gondolas and an aerial tram, runs on the g
 
 ---
 
-**Long description** (5,764 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
+**Long description** (5,833 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
 
 ---
 
@@ -45,7 +45,7 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No other mod and no DLC.
 - Most chairlift and gondola stations cut a level pad into the slope and fill nothing. The fixed-grip top station and the aerial tram's top terminal keep the slope as placed.
 - Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
 - Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and refunds no run fee. A warning shows the run count and asks first. To move a sign, use Relocate in its info panel: its runs stay linked.
-- The Resort Planner is experimental and off by default: turn it on in Options. Build makes its cat tracks and runs, and Build lifts then adds its lifts one at a time. A lift line that needs a hand fit waits for you. On steep ground it plans mostly black runs with few greens. It does not avoid roads or buildings inside the outline. Its Undo covers runs only and ends when the lift build starts.
+- The Resort Planner is experimental and off by default: turn it on in Options. Build makes its cat tracks and runs, and Build lifts then adds its lifts one at a time. A lift line the planner cannot fit gets its stations only, and the lift tool opens on it for you to place the towers. On steep ground it plans mostly black runs with few greens. It does not avoid roads or buildings inside the outline. Its Undo covers runs only and ends when the lift build starts.
 - Lifts cross lifts of another type, over or under, where the towers can reach the height. Two lifts of the same type cannot cross.
 - A cat track cannot pass under a lift that is already built: build cat tracks first.
 - Lifts are power-line networks and need low-voltage power at the base station. The game refuses a city high-voltage line at a lift.

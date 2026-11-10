@@ -555,7 +555,7 @@ export const HUB_LOC = {
   quickLiftIdPinned: ["SkiResort.Tooltip.QUICK_LIFT_ID_PINNED", "Existing lift"],
   /* R1-d (contract 41): the plan sheet's lifts block, the texts without a placeholder (the formats are in HUB_FMT, the reasons in SENT_KEYS) */
   quickLiftsBuild: ["SkiResort.Hub.QUICK_LIFTS_BUILD", "Build lifts"],
-  quickLiftsBuildTip: ["SkiResort.Hub.QUICK_LIFTS_BUILD_TIP", "Build every lift switched on and not built, lowest first. Unaffordable lifts are skipped, lines needing a hand fit wait, the rest still build."],
+  quickLiftsBuildTip: ["SkiResort.Hub.QUICK_LIFTS_BUILD_TIP", "Builds the lifts switched on, lowest first. Skips lifts the city cannot afford. A line needing towers fitted by hand opens in the lift tool."],
   quickLiftBuild: ["SkiResort.Hub.QUICK_LIFT_BUILD", "Build"],
   quickLiftBuildTip: ["SkiResort.Hub.QUICK_LIFT_BUILD_TIP", "Place both stations and build the line of this lift."],
   quickLiftsStopTip: ["SkiResort.Hub.QUICK_LIFTS_STOP_TIP", "Stop after the lift in progress. Lifts built so far stay."],
@@ -568,7 +568,7 @@ export const HUB_LOC = {
   quickLiftPlaced: ["SkiResort.Tooltip.QUICK_LIFT_STATE[StationsPlaced]", "Stations placed, no line yet"],
   quickLiftBuilt: ["SkiResort.Tooltip.QUICK_LIFT_STATE[Built]", "Built"],
   quickLiftFlagged: ["SkiResort.Tooltip.QUICK_LIFT_FIT[Flagged]", "Builds, with one tower over its limit"],
-  quickLiftWaits: ["SkiResort.Tooltip.QUICK_LIFT_FIT[Waits]", "Needs fitting by hand: the line waits in the lift tool"],
+  quickLiftWaits: ["SkiResort.Tooltip.QUICK_LIFT_FIT[Waits]", "Towers need fitting by hand: the lift tool opens on this line"],
 } as const;
 
 /* Placeholder entries: only as <LocText entry={HUB_FMT.x} args={...} /> (gate R5, R13). */
@@ -818,10 +818,10 @@ export const HUB_FMT = {
   quickSheetLine: ["SkiResort.Tooltip.QUICK_SHEET_LINE", "{ID}: {TYPE}, {LENGTH} km, {RISE} m up, about {COST}"],
   quickLiftPlacedWhy: ["SkiResort.Tooltip.QUICK_LIFT_STATE[StationsPlacedWhy]", "Stations placed, no line: {WHY}"],
   quickLiftRefused: ["SkiResort.Tooltip.QUICK_LIFT_STATE[Refused]", "Not built: {WHY}"],
-  quickLiftFitting: ["SkiResort.Tooltip.QUICK_LIFT_STATE[NeedsFitting]", "Waits for a hand fit: {WHY}"],
+  quickLiftFitting: ["SkiResort.Tooltip.QUICK_LIFT_STATE[NeedsFitting]", "Towers need fitting by hand: {WHY}"],
   quickLiftBuiltFlagged: ["SkiResort.Tooltip.QUICK_LIFT_STATE[BuiltFlagged]", "Built. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
   quickLiftFlaggedAt: ["SkiResort.Tooltip.QUICK_LIFT_STATE[FlaggedAt]", "Builds flagged. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
-  quickLiftFittingAt: ["SkiResort.Tooltip.QUICK_LIFT_STATE[FittingAt]", "Waits for a hand fit. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
+  quickLiftFittingAt: ["SkiResort.Tooltip.QUICK_LIFT_STATE[FittingAt]", "Towers need fitting by hand. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
   quickLiftFlagTip: ["SkiResort.Hub.QUICK_LIFT_FLAG_TIP", "Tower {TOWER} stands {ALONG} m from the base station. The rope bends more there than its wheels can follow."],
 } as const;
 
