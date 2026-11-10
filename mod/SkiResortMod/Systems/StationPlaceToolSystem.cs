@@ -17,7 +17,9 @@
 // (ObjectToolSystem.cs:2612, :2668). The definitions job reads it, so every write first completes the last emission's job.
 // Height: vanilla stands a building on the terrain at the FRONT edge of its lot (PlacementFlags.RoadSide on every BuildingData building,
 // DC/Game.Prefabs/BuildingInitializeSystem.cs:1131-1133; ObjectToolSystem.CalculateHeight :1608-1625 at BuildingUtils.CalculateFrontPosition
-// :88-92), plus PlaceableObjectData.m_PlacementOffset.y. ResolveY does the same when the caller gives no y (NaN).
+// :88-92), plus PlaceableObjectData.m_PlacementOffset.y. ResolveY does the same when the caller gives no y (NaN) and the request's
+// HeightRule is VanillaFront (the dev probe). The build queue asks LowestOfThree (StationAlign.StationY): the lowest terrain of the front
+// edge, the origin and the line-side edge. On a top station the front edge is uphill, so the vanilla y floats (field r1c, 5 to 14 m).
 // Phases: Pending (activated, emits on its first update), Emitted (definitions out: wait for the Temp building, one settle frame for
 // validation, then Apply when GetAllowApply holds, else Clear), Applying (the frame after Apply: read the permanent station, log it,
 // hand the tool back to the default tool). Apply and Clear are read from the tool that ran this frame (ToolSystem.cs:147-156,
@@ -63,14 +65,15 @@ namespace SkiResortMod.Systems
         /// <summary>The state of one request. Pending covers queued and in flight.</summary>
         internal enum PlaceStatus : byte { Pending, Placed, Refused, Canceled }
 
-        /// <summary>One station to place. Position y NaN = the vanilla height. Tag is the caller's (the build queue names the lift and the
-        /// role, CancelPending matches it).</summary>
+        /// <summary>One station to place. Position y NaN = the height of HeightRule (default VanillaFront, the object tool's height). Tag is
+        /// the caller's (the build queue names the lift and the role, CancelPending matches it).</summary>
         internal struct PlaceRequest
         {
             public Entity Prefab;
             public float3 Position;
             public quaternion Rotation;
             public string Tag;
+            public StationAlign.StationHeightRule HeightRule;
         }
 
         /// <summary>The outcome of one request. Placed is the permanent station. ErrorTypes counts the game's error types on a refused
@@ -133,6 +136,7 @@ namespace SkiResortMod.Systems
         private Entity m_Prefab;
         private float3 m_Position;
         private quaternion m_Rotation;
+        private StationAlign.StationHeightRule m_HeightRule;
         private int m_EmitFrame, m_SeenFrame = -1, m_ApplyFrame;
         private long m_MoneyBefore;
         private Entity m_Temp;
@@ -254,7 +258,7 @@ namespace SkiResortMod.Systems
         internal bool TryPlace(string why, Entity prefab, float3 position, quaternion rotation) =>
             Enqueue(why, new PlaceRequest { Prefab = prefab, Position = position, Rotation = rotation, Tag = null }) > 0;
 
-        /// <summary>Queue one station. position.y NaN = the vanilla height (terrain at the lot's front edge + placement offset). Activates
+        /// <summary>Queue one station. position.y NaN = the height of request.HeightRule (StationAlign.StationY). Activates
         /// this tool when it is idle; the emission runs in its next update. Returns the request's serial (read the outcome with
         /// TryGetOutcome), or 0 (logged, an outcome Refused under the next serial is NOT kept) when the tool is not armed, disabled, the
         /// queue is full or the request is malformed. Main thread, outside a job.</summary>
@@ -332,6 +336,7 @@ namespace SkiResortMod.Systems
             m_Prefab = r.Prefab;
             m_Rotation = r.Rotation;
             m_Position = r.Position;
+            m_HeightRule = r.HeightRule;
             m_Phase = PlacePhase.Pending;
             m_Temp = Entity.Null;
             m_SeenFrame = -1;
@@ -435,7 +440,7 @@ namespace SkiResortMod.Systems
             m_EmitJob.Complete();   // the list is read by the last emission's job
             float3 p = m_Position;
             if (!math.isfinite(p.y))
-                p.y = ResolveY(m_Prefab, p, m_Rotation, out _);
+                p.y = ResolveY(m_Prefab, p, m_Rotation, m_HeightRule);
             m_Position = p;
             var cp = new ControlPoint
             {
@@ -596,19 +601,25 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The vanilla y: the terrain at the front edge of the lot (local +z, lot depth x 4 m) plus the placement offset (see the
-        /// header). Also returns the terrain at the origin for the log.</summary>
-        private float ResolveY(Entity prefab, float3 p, quaternion rotation, out float originGround)
+        /// <summary>The y of a request without one, by <paramref name="rule"/> (StationAlign.StationY). VanillaFront: the terrain at the
+        /// front edge of the lot (local +z, lot depth x 4 m) plus the placement offset (see the header). LowestOfThree: the lowest terrain
+        /// of the front edge, the origin and the line-side edge (local -z, the stub tip side) plus the offset. One log line per request
+        /// with the three heights, the rule and the chosen y (the vanilla y beside it).</summary>
+        private float ResolveY(Entity prefab, float3 p, quaternion rotation, StationAlign.StationHeightRule rule)
         {
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
-            originGround = TerrainUtils.SampleHeight(ref hd, p);
-            float y = originGround;
-            string how = "origin (no BuildingData)";
+            float originGround = TerrainUtils.SampleHeight(ref hd, p);
+            float frontGround = originGround, lineGround = originGround;
+            string lot = "no BuildingData: origin only";
             if (EntityManager.TryGetComponent(prefab, out BuildingData bd))
             {
-                float3 front = Game.Buildings.BuildingUtils.CalculateFrontPosition(new Game.Objects.Transform(p, rotation), bd.m_LotSize.y);
-                y = TerrainUtils.SampleHeight(ref hd, front);
-                how = string.Format(CultureInfo.InvariantCulture, "front edge ({0:F1}, {1:F1}), lot {2}x{3}", front.x, front.z, bd.m_LotSize.x, bd.m_LotSize.y);
+                var t = new Game.Objects.Transform(p, rotation);
+                float3 front = Game.Buildings.BuildingUtils.CalculateFrontPosition(t, bd.m_LotSize.y);
+                float3 back = Game.Objects.ObjectUtils.LocalToWorld(t, new float3(0f, 0f, -bd.m_LotSize.y * 4f));
+                frontGround = TerrainUtils.SampleHeight(ref hd, front);
+                lineGround = TerrainUtils.SampleHeight(ref hd, back);
+                lot = string.Format(CultureInfo.InvariantCulture, "lot {0}x{1}, front edge ({2:F1}, {3:F1}), line-side edge ({4:F1}, {5:F1})",
+                    bd.m_LotSize.x, bd.m_LotSize.y, front.x, front.z, back.x, back.z);
             }
             float offset = 0f;
             if (EntityManager.TryGetComponent(prefab, out PlaceableObjectData pod))
@@ -619,11 +630,15 @@ namespace SkiResortMod.Systems
                     Mod.Log.Warn($"StationPlace [height]: the prefab has water placement flags ({pod.m_Flags & water}); the vanilla water " +
                                  "branch is NOT reproduced, the plain branch is used");
                 offset = pod.m_PlacementOffset.y;
-                y += offset;
             }
+            float vanilla = StationAlign.StationY(StationAlign.StationHeightRule.VanillaFront, frontGround, originGround, lineGround, offset);
+            float y = StationAlign.StationY(rule, frontGround, originGround, lineGround, offset);
+            if (!math.isfinite(y))
+                y = math.isfinite(vanilla) ? vanilla : originGround + offset;
             Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
-                "StationPlace [height]: y {0:F2} = terrain at the {1} + placement offset {2:F2}; terrain at the origin {3:F2} (difference {4:F2})",
-                y, how, offset, originGround, y - originGround));
+                "StationPlace [height]: #{0}{1} rule {2}: terrain front {3:F2}, origin {4:F2}, line side {5:F2}; placement offset {6:F2} -> y {7:F2} " +
+                "(vanilla y {8:F2}, {9:F2} m lower; y minus the origin terrain {10:F2}); {11}",
+                CurSerial, TagText(m_Current?.Tag), rule, frontGround, originGround, lineGround, offset, y, vanilla, vanilla - y, y - originGround, lot));
             return y;
         }
 

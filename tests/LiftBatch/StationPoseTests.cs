@@ -1,5 +1,5 @@
 // The station pose of a planned lift (StationAlign.PoseLift, Resort Planner round task R1-c): the base and the top station of a plan's
-// lift, posed so the placer can stand them and the lift-line tool can join their stubs. Where-tags `pose/...`, SP-1..SP-6.
+// lift, posed so the placer can stand them and the lift-line tool can join their stubs. Where-tags `pose/...`, SP-1..SP-7.
 // Pinned:
 // - For the four lift types and 72 directions at three lengths, StationAlign.Measure reads the pair as aligned both ways (0.5 m /
 //   0.5 deg), the subject ahead of the partner.
@@ -8,6 +8,9 @@
 // - Each station's line leaves along its local -Z toward the other station (StationAlign.Axis).
 // - y stays NaN (the placer resolves it).
 // - Spots too close for the two stubs, or not finite, give an invalid pose.
+// - The height rule (SP-7, StationAlign.StationY, task R1-e): LowestOfThree is the lowest finite of the three terrain heights plus the
+//   placement offset, never above the vanilla front-edge y and never above the origin. On the field r1c tops (front edge uphill) it
+//   removes the float. On the bases (front edge downhill) it equals the vanilla y. NaN inputs are skipped.
 
 using System;
 using SkiResortMod.Systems;
@@ -27,6 +30,7 @@ namespace LiftBatch
             Sp1AlignedEveryTypeAndDirection();
             Sp2Degenerate();
             Sp3CatalogRows();
+            Sp7HeightRule();
         }
 
         /// <summary>SP-1..SP-4: the four types, 72 directions, three lengths, a spot off the origin.</summary>
@@ -119,6 +123,53 @@ namespace LiftBatch
                                                             SkiCatalog.StationOf(SkiCatalog.LiftById("tram").Index, StationRole.Top));
             Check(p.Valid && math.abs(math.abs(p.BasePosition.x) - 4f) < 1e-3f && math.abs(p.BasePosition.z) < 1e-3f, W,
                   "tram base origin at (" + p.BasePosition.x + ", " + p.BasePosition.z + ") for a line up +z from the origin");
+        }
+        /// <summary>SP-7: the station height rule of the build queue (StationAlign.StationY). Field numbers: RESULTS r1c note 5 and the
+        /// pass log's StationPlace [height] lines (front edge, origin). The line-side height is not in that log, so the tops take it NaN
+        /// (the rule must still not float) and a few cases add one.</summary>
+        private static void Sp7HeightRule()
+        {
+            const string W = "pose/SP-7";
+            const StationAlign.StationHeightRule V = StationAlign.StationHeightRule.VanillaFront, L = StationAlign.StationHeightRule.LowestOfThree;
+            // Plan #8 P3 top (fixed grip): Transform y 997.61 = the front edge, origin 986.34, stub nodes at 980.4.
+            Check(math.abs(StationAlign.StationY(V, 997.61f, 986.34f, 980.4f, 0f) - 997.61f) < 1e-3f, W, "vanilla is not the front edge");
+            Check(math.abs(StationAlign.StationY(L, 997.61f, 986.34f, 980.4f, 0f) - 980.4f) < 1e-3f, W, "lowest of a top is not the line side");
+            Check(math.abs(StationAlign.StationY(L, 997.61f, 986.34f, 980.4f, 0.25f) - 980.65f) < 1e-3f, W, "the placement offset is not added");
+            // A base on a slope: the front edge is downhill, so the rule gives the vanilla y (the cut the pass measured, -1.8 to -3.7 m).
+            Check(math.abs(StationAlign.StationY(L, 504.95f, 507.43f, 510.2f, 0f) - StationAlign.StationY(V, 504.95f, 507.43f, 510.2f, 0f)) < 1e-4f, W,
+                  "a base on a plain slope does not keep the vanilla y");
+            // NaN heights are skipped. None finite: NaN (the placer then falls back to the vanilla y or the origin).
+            Check(math.abs(StationAlign.StationY(L, 997.61f, 986.34f, float.NaN, 0f) - 986.34f) < 1e-3f, W, "a NaN line side was not skipped");
+            Check(math.abs(StationAlign.StationY(L, float.NaN, 986.34f, 990f, 0f) - 986.34f) < 1e-3f, W, "a NaN front was not skipped");
+            Check(float.IsNaN(StationAlign.StationY(L, float.NaN, float.NaN, float.NaN, 0f)), W, "three NaN heights gave a number");
+            Check(float.IsNaN(StationAlign.StationY(V, float.NaN, 986.34f, 980f, 0f)), W, "vanilla without a front edge gave a number");
+            Check(math.abs(StationAlign.StationY(L, 1000f, 1000f, 1000f, float.NaN) - 1000f) < 1e-4f, W, "a NaN offset was not 0");
+            // The field r1c tops (front edge, origin from StationPlace [height]): vanilla floats 4.8 to 13.8 m, the rule does not.
+            float[][] tops =
+            {
+                new[] { 1196.07f, 1191.02f }, new[] { 997.61f, 986.34f }, new[] { 1245.85f, 1233.39f }, new[] { 1179.39f, 1170.39f },
+                new[] { 1397.86f, 1384.02f }, new[] { 1437.76f, 1430.65f }, new[] { 1056.77f, 1048.02f }, new[] { 1436.08f, 1431.27f },
+            };
+            foreach (float[] f in tops)
+            {
+                float v = StationAlign.StationY(V, f[0], f[1], float.NaN, 0f), l = StationAlign.StationY(L, f[0], f[1], float.NaN, 0f);
+                Check(v - f[1] > 4f && l <= f[1] + 1e-4f, W, "top front " + f[0] + " origin " + f[1] + ": vanilla " + v + ", lowest " + l);
+            }
+            // Property: the lowest finite height plus the offset; never above the vanilla y or any finite height.
+            var rnd = new System.Random(20261109);
+            int bad = 0;
+            for (int i = 0; i < 20000; i++)
+            {
+                float a = (float)(rnd.NextDouble() * 400 + 600), b = (float)(rnd.NextDouble() * 400 + 600), c = (float)(rnd.NextDouble() * 400 + 600);
+                if (rnd.Next(10) == 0) a = float.NaN;
+                if (rnd.Next(10) == 0) c = float.NaN;
+                float off = (float)(rnd.NextDouble() * 2 - 1);
+                float l = StationAlign.StationY(L, a, b, c, off), v = StationAlign.StationY(V, a, b, c, off);
+                float want = math.min(math.min(float.IsNaN(a) ? float.MaxValue : a, b), float.IsNaN(c) ? float.MaxValue : c) + off;
+                if (!(math.abs(l - want) < 1e-3f) || (!float.IsNaN(v) && l > v + 1e-4f))
+                    bad++;
+            }
+            Check(bad == 0, W, bad + " of 20000 random cases broke the lowest-of-three rule");
         }
     }
 }

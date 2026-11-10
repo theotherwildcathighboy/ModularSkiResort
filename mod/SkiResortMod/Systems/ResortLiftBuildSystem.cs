@@ -52,7 +52,8 @@ namespace SkiResortMod.Systems
             m_HandSheetRev = m_HandCensusRev = -1;
             m_Armed = mode == GameMode.Game;
             Mod.Log.Info(m_Armed
-                ? "ResortLifts [sheet]: ARMED — the plan sheet is empty; a published Resort Planner plan fills it, a new plan replaces it"
+                ? "ResortLifts [sheet]: ARMED — the plan sheet is empty; a published Resort Planner plan fills it, a new plan replaces it; " +
+                  $"station height rule {StationHeight} (dev trigger \"height vanilla\" / \"height lowest\")"
                 : $"ResortLifts [sheet]: NOT ARMED (mode {mode})");
         }
 

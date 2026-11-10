@@ -2,8 +2,10 @@
 // lowest bottom spot first. Per lift:
 // 1. Money: the city must pay the lift's estimate less the stations it already has, else Refused MONEY and nothing is placed.
 // 2. Pose: StationAlign.PoseLift from the two spots and the type's station rows, else Refused POSE.
-// 3. Stations: the missing ones go to the station placer (StationPlaceToolSystem.Enqueue), base first. A refused base cancels the queued
-//    top: Refused BASE[error type]. A refused top keeps the base: Refused TOP[error type] with the base in the row. The next lift starts.
+// 3. Stations: the missing ones go to the station placer (StationPlaceToolSystem.Enqueue), the base first. The top is asked only after the
+//    base stands (ResortPlanSheet.NextStationStep). A refused base places nothing and charges nothing: Refused BASE[error type]. A refused
+//    top keeps the base: Refused TOP[error type] with the base in the row. The next lift starts. The queue's stations take the height rule
+//    StationHeight (default LowestOfThree, StationAlign.StationY: no planner-built station floats).
 // 4. Settle: the lot cut runs after the station is permanent and the CPU heights lag it, so the queue samples the terrain under both stub
 //    tips every SettleEveryFrames and goes on when two samples agree within SettleToleranceM (at least SettleMinFrames, at most
 //    SettleMaxFrames with a warning).
@@ -11,6 +13,8 @@
 //    sound, a notice stands, or the game refused the line): NeedsFitting, the queue stops with the tool open in Edit. Refused (the ends
 //    could not be picked): Refused LINE[PICK], the next lift starts. Abandoned (the player took another tool): the queue stops.
 // A row that waits in the lift tool stays watched after the queue ends: a later build by the player makes it Built.
+// The tool: a built scripted line hands the lift tool back to the default tool (LiftLineToolSystem). When the queue ends, HandToolBack
+// gives an idle placer or an idle lift tool back too. A line that waits for the player keeps the lift tool open.
 // Stop: the lift in flight finishes, nothing starts after it. A new plan or a clear stops the queue the same way, and the lift in flight
 // writes nothing into the new rows (PlanSerial guard).
 // Ticks from ResortLiftBuildSystem.OnUpdate (UIUpdate: every frame, whatever tool is active). The entry points only queue keys: the first
@@ -56,8 +60,12 @@ namespace SkiResortMod.Systems
             public JobStep Step;
             public int StepFrame;
             public string BaseTag, TopTag;
-            public int BaseSerial, TopSerial;   // 0 = the station was there before the job
+            public int BaseSerial, TopSerial;   // 0 = the station was there before the job (or, for the top, not asked yet)
+            public bool BaseHad, TopHad, TopAsked;
             public Entity Base, Top;
+            public StationDef TopDef;   // the top's request, made once the base stands
+            public float3 TopPosition;
+            public quaternion TopRotation;
             public float LastBaseY = float.NaN, LastTopY = float.NaN;
             public int NextSample;
             public ScriptTicket Ticket;
@@ -127,6 +135,7 @@ namespace SkiResortMod.Systems
             m_StopAsked = false;
             m_QueueTotal = m_QueueDone = 0;
             m_QueueRev++;
+            StationHeight = DefaultStationHeight;
         }
 
         // ---------------------------------------------------------------- entry points (the planner, the dev triggers, the hub later)
@@ -261,6 +270,46 @@ namespace SkiResortMod.Systems
             m_QueueRev++;
             Mod.Log.Info($"ResortLifts [queue]: END ({how}; {m_QueueWhy}) — this run: {m_QueueBuilt} built, {m_QueueFitting} needs fitting, " +
                          $"{m_QueueRefused} refused; {m_Watches.Count} watched; sheet {m_Sheet.Dump()}");
+            HandToolBack();
+        }
+
+        /// <summary>The queue ended: the tool it opened goes back to the default tool. Only the station placer with nothing queued, or the
+        /// lift-line tool with nothing in hand (LiftLineToolSystem.IdleAfterScript). A line that waits for the player keeps the lift tool
+        /// open, and a tool the player took is never touched.</summary>
+        private void HandToolBack()
+        {
+            var tools = World.GetExistingSystemManaged<Game.Tools.ToolSystem>();
+            var defaultTool = World.GetExistingSystemManaged<Game.Tools.DefaultToolSystem>();
+            if (tools == null || defaultTool == null || tools.activeTool == null || tools.activeTool == defaultTool)
+                return;
+            bool placerIdle = tools.activeTool == m_Placer && !m_Placer.Busy;
+            bool liftIdle = tools.activeTool == m_LiftTool && m_LiftTool.IdleAfterScript;
+            if (!placerIdle && !liftIdle)
+            {
+                Mod.Log.Info($"ResortLifts [queue]: the tool stays ({tools.activeTool.toolID}" +
+                             (tools.activeTool == m_LiftTool ? ": a line waits for the player or is in hand" :
+                              tools.activeTool == m_Placer ? ": stations are still queued" : ": not a tool the queue opened") + ")");
+                return;
+            }
+            tools.activeTool = defaultTool;
+            Mod.Log.Info($"ResortLifts [queue]: the tool goes back to the default tool (was {(placerIdle ? m_Placer.toolID : m_LiftTool.toolID)})");
+        }
+
+        // ---------------------------------------------------------------- the station height rule (one switch, compared in game)
+
+        /// <summary>The default height rule of the stations the queue places: the lowest terrain of the lot's front edge, its origin and its
+        /// line-side edge (StationAlign.StationY), so no planner-built station floats (DECISIONS 625, 626).</summary>
+        internal const StationAlign.StationHeightRule DefaultStationHeight = StationAlign.StationHeightRule.LowestOfThree;
+
+        /// <summary>The height rule of the stations the queue places. The dev trigger "height vanilla" / "height lowest" switches it so the two
+        /// rules can be compared in game. A load resets it to DefaultStationHeight. The dev probe and an explicit y keep the vanilla rule.</summary>
+        internal StationAlign.StationHeightRule StationHeight { get; private set; } = DefaultStationHeight;
+
+        internal void SetStationHeight(StationAlign.StationHeightRule rule, string why)
+        {
+            StationAlign.StationHeightRule old = StationHeight;
+            StationHeight = rule;
+            Mod.Log.Info($"ResortLifts [queue]: station height rule {old} -> {rule} ({why}); the next station the queue asks uses it");
         }
 
         // ---------------------------------------------------------------- one lift
@@ -302,26 +351,24 @@ namespace SkiResortMod.Systems
             {
                 Key = key, Name = r.Name, PlanSerial = m_Sheet.PlanSerial, Type = type, Step = JobStep.Placing, StepFrame = m_Frame,
                 BaseTag = r.Name + " base", TopTag = r.Name + " top", Base = baseSt, Top = topSt,
+                BaseHad = baseSt != Entity.Null, TopHad = topSt != Entity.Null,
+                TopDef = topDef, TopPosition = pose.TopPosition, TopRotation = pose.TopRotation,
             };
             Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
                 "ResortLifts [queue]: {0} START — {1}, cost about {2} (city {3}); spots {4:F1} m apart, stub tips {5:F1} m; stations already " +
-                "there: base {6}, top {7}", r.Name, type.Id, need, money, pose.SpotDistanceM, pose.TipDistanceM, Fmt(baseSt), Fmt(topSt)));
+                "there: base {6}, top {7}; station height rule {8}", r.Name, type.Id, need, money, pose.SpotDistanceM, pose.TipDistanceM,
+                Fmt(baseSt), Fmt(topSt), StationHeight));
+            // The base first. The top is asked only after the base stands (StepPlacing, ResortPlanSheet.NextStationStep): a refused base
+            // places nothing and charges nothing.
             if (baseSt == Entity.Null && !QueueStation(job, baseDef, pose.BasePosition, pose.BaseRotation, job.BaseTag, out job.BaseSerial))
             {
                 Refuse(r, "PREFAB", $"the base station {baseDef.Prefab} could not be queued (see the line above)");
                 return;
             }
-            if (topSt == Entity.Null && !QueueStation(job, topDef, pose.TopPosition, pose.TopRotation, job.TopTag, out job.TopSerial))
-            {
-                if (job.BaseSerial != 0)
-                    m_Placer.CancelPending(job.BaseTag, "the top station could not be queued");
-                Refuse(r, "PREFAB", $"the top station {topDef.Prefab} could not be queued (see the line above)");
-                return;
-            }
             m_Job = job;
             m_QueueRev++;
-            if (job.BaseSerial == 0 && job.TopSerial == 0)
-                BeginSettle(job, r);
+            if (job.BaseSerial == 0)
+                StepPlacing(job, r);   // the base stands already: ask the top now, or settle when both stand
         }
 
         private bool QueueStation(LiftJob job, StationDef def, float3 position, quaternion rotation, string tag, out int serial)
@@ -335,9 +382,25 @@ namespace SkiResortMod.Systems
             }
             serial = m_Placer.Enqueue("plan " + job.Name, new StationPlaceToolSystem.PlaceRequest
             {
-                Prefab = prefab, Position = position, Rotation = rotation, Tag = tag,
+                Prefab = prefab, Position = position, Rotation = rotation, Tag = tag, HeightRule = StationHeight,
             });
             return serial != 0;
+        }
+
+        /// <summary>A station request's state for ResortPlanSheet.NextStationStep. A serial of 0 is no request. An outcome that is gone (the
+        /// placer keeps the last 64) is None.</summary>
+        private ResortPlanSheet.StationOutcome OutcomeOf(int serial, out StationPlaceToolSystem.PlaceOutcome o)
+        {
+            o = null;
+            if (serial == 0 || !m_Placer.TryGetOutcome(serial, out o) || o == null)
+                return ResortPlanSheet.StationOutcome.None;
+            switch (o.Status)
+            {
+                case PlaceStatus.Pending: return ResortPlanSheet.StationOutcome.Pending;
+                case PlaceStatus.Placed: return o.Placed != Entity.Null ? ResortPlanSheet.StationOutcome.Placed : ResortPlanSheet.StationOutcome.Refused;
+                case PlaceStatus.Canceled: return ResortPlanSheet.StationOutcome.Canceled;
+                default: return ResortPlanSheet.StationOutcome.Refused;
+            }
         }
 
         private void StepJob(LiftJob job)
@@ -357,45 +420,55 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>The stations of one lift, base first (ResortPlanSheet.NextStationStep): the top is asked only once the base stands. So a
+        /// refused base places nothing and charges nothing. A refused top leaves the base in the row (plan 3.3).</summary>
         private void StepPlacing(LiftJob job, ResortPlanSheet.Row r)
         {
-            StationPlaceToolSystem.PlaceOutcome bo = null, to = null;
-            bool baseDone = job.BaseSerial == 0 || (m_Placer.TryGetOutcome(job.BaseSerial, out bo) && bo.Status != PlaceStatus.Pending);
-            bool topDone = job.TopSerial == 0 || (m_Placer.TryGetOutcome(job.TopSerial, out to) && to.Status != PlaceStatus.Pending);
-            if (bo != null && bo.Status != PlaceStatus.Pending && bo.Status != PlaceStatus.Placed && !topDone)
+            ResortPlanSheet.StationOutcome bs = OutcomeOf(job.BaseSerial, out StationPlaceToolSystem.PlaceOutcome bo);
+            ResortPlanSheet.StationOutcome ts = OutcomeOf(job.TopSerial, out StationPlaceToolSystem.PlaceOutcome to);
+            if (!job.BaseHad && job.Base == Entity.Null && bs == ResortPlanSheet.StationOutcome.Placed)
             {
-                if (m_Placer.CancelPending(job.TopTag, "the base station was " + bo.Status.ToString().ToLowerInvariant()) > 0)
-                    topDone = m_Placer.TryGetOutcome(job.TopSerial, out to) && to.Status != PlaceStatus.Pending;
-            }
-            if (!baseDone || !topDone)
-                return;
-            if (bo != null && bo.Status == PlaceStatus.Placed && bo.Placed != Entity.Null)
                 job.Base = bo.Placed;
-            if (to != null && to.Status == PlaceStatus.Placed && to.Placed != Entity.Null)
+                if (r != null)
+                    m_Sheet.SetStations(job.Key, Ref(job.Base), Ref(job.Top));
+            }
+            if (job.TopAsked && job.Top == Entity.Null && ts == ResortPlanSheet.StationOutcome.Placed)
                 job.Top = to.Placed;
-            if (r != null)
-                m_Sheet.SetStations(job.Key, Ref(job.Base), Ref(job.Top));
-            if (job.Base != Entity.Null && job.Top != Entity.Null)
+            switch (ResortPlanSheet.NextStationStep(job.BaseHad, job.BaseHad ? ResortPlanSheet.StationOutcome.None : bs, job.TopHad, job.TopAsked, ts))
             {
-                BeginSettle(job, r);
-                return;
+                case ResortPlanSheet.StationStep.Wait:
+                    return;
+                case ResortPlanSheet.StationStep.AskTop:
+                    job.TopAsked = true;
+                    if (!QueueStation(job, job.TopDef, job.TopPosition, job.TopRotation, job.TopTag, out job.TopSerial))
+                    {
+                        EndJob(job, r, SheetLiftState.Refused, "PREFAB",
+                               $"the top station {job.TopDef.Prefab} could not be queued (see the line above); the base {Fmt(job.Base)} stays");
+                        return;
+                    }
+                    Mod.Log.Info($"ResortLifts [queue]: {job.Name} the base {Fmt(job.Base)} stands — top station requested (#{job.TopSerial})");
+                    return;
+                case ResortPlanSheet.StationStep.Settle:
+                    if (r != null)
+                        m_Sheet.SetStations(job.Key, Ref(job.Base), Ref(job.Top));
+                    BeginSettle(job, r);
+                    return;
+                case ResortPlanSheet.StationStep.PlayerStop:
+                    // A placer cancel the queue did not ask for (the player took another tool) stops the queue.
+                    EndJob(job, r, r != null && (job.Base != Entity.Null || job.Top != Entity.Null) ? SheetLiftState.Refused : SheetLiftState.Proposed,
+                           "STOPPED", "the station placer was closed before both stations stood");
+                    StopAfterJob("the station placer was closed");
+                    return;
+                default:
+                    bool baseRefused = job.Base == Entity.Null;
+                    StationPlaceToolSystem.PlaceOutcome o = baseRefused ? bo : to;
+                    string error = o?.FirstError ?? (o == null ? "LOST" : "GAME");
+                    EndJob(job, r, SheetLiftState.Refused, (baseRefused ? "BASE[" : "TOP[") + error + "]",
+                           $"the game refused the {(baseRefused ? "base" : "top")} station: {o?.Summary ?? "no outcome"}" +
+                           (baseRefused ? (job.Top != Entity.Null ? $"; the top {Fmt(job.Top)} stays" : "; nothing placed, nothing charged")
+                                        : $"; the base {Fmt(job.Base)} stays"));
+                    return;
             }
-            // A placer cancel the queue did not ask for (the player took another tool) stops the queue.
-            bool playerStop = (bo != null && bo.Status == PlaceStatus.Canceled) ||
-                              (to != null && to.Status == PlaceStatus.Canceled && (bo == null || bo.Status == PlaceStatus.Placed));
-            if (playerStop)
-            {
-                EndJob(job, r, r != null && (job.Base != Entity.Null || job.Top != Entity.Null) ? SheetLiftState.Refused : SheetLiftState.Proposed,
-                       "STOPPED", "the station placer was closed before both stations stood");
-                StopAfterJob("the station placer was closed");
-                return;
-            }
-            bool baseRefused = job.Base == Entity.Null;
-            StationPlaceToolSystem.PlaceOutcome o = baseRefused ? bo : to;
-            string error = o?.FirstError ?? (o != null && o.Status == PlaceStatus.Placed ? "LOST" : "GAME");
-            EndJob(job, r, SheetLiftState.Refused, (baseRefused ? "BASE[" : "TOP[") + error + "]",
-                   $"the game refused the {(baseRefused ? "base" : "top")} station: {o?.Summary ?? "no outcome"}" +
-                   (!baseRefused ? $"; the base {Fmt(job.Base)} stays" : job.Top != Entity.Null ? $"; the top {Fmt(job.Top)} stays" : string.Empty));
         }
 
         private void BeginSettle(LiftJob job, ResortPlanSheet.Row r)

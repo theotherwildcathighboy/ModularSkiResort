@@ -277,7 +277,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The two stations of a planned lift, posed so that they face each other on one axis (LiftPose). Positions carry y NaN:
-        /// the station placer stands each building at the vanilla height (StationPlaceToolSystem.ResolveY).</summary>
+        /// the station placer sets each building's y by the queue's height rule (StationY, StationPlaceToolSystem.ResolveY).</summary>
         public struct LiftPose
         {
             /// <summary>False when a spot is not finite or the spots are too close for the two stubs (SpotDistanceM at or under
@@ -334,6 +334,28 @@ namespace SkiResortMod.Systems
             if (baseStation == null || topStation == null)
                 return new LiftPose { SpotDistanceM = math.distance(bottomXz, topXz) };
             return PoseLift(bottomXz, topXz, baseStation.StubTipLocalZ, baseStation.StubTipLocalX, topStation.StubTipLocalZ, topStation.StubTipLocalX);
+        }
+
+        /// <summary>How the station placer sets the y of a station when the caller gives none. VanillaFront is the object tool's height:
+        /// the terrain at the lot's front edge (the side away from the line) plus the placement offset (ObjectToolSystem.cs:1608-1625).
+        /// On a top station that edge is uphill, so the station floats above the ground at its origin and its stub (field r1c, 5 to 14 m).
+        /// LowestOfThree takes the lowest terrain of the front edge, the origin and the line-side edge (the stub tip side). So a pad
+        /// station cuts its pad down to that height and never floats (DECISIONS 625, 626: stations cut, never raise the ground).</summary>
+        public enum StationHeightRule : byte { VanillaFront, LowestOfThree }
+
+        /// <summary>The station's y under <paramref name="rule"/>: the chosen terrain height plus <paramref name="placementOffsetY"/>.
+        /// LowestOfThree skips a height that is not finite and falls back to the front edge when none is finite. NaN when the needed
+        /// heights are not finite.</summary>
+        public static float StationY(StationHeightRule rule, float frontGround, float originGround, float lineSideGround, float placementOffsetY)
+        {
+            float offset = Finite(placementOffsetY) ? placementOffsetY : 0f;
+            if (rule != StationHeightRule.LowestOfThree)
+                return Finite(frontGround) ? frontGround + offset : float.NaN;
+            float y = float.PositiveInfinity;
+            if (Finite(frontGround)) y = math.min(y, frontGround);
+            if (Finite(originGround)) y = math.min(y, originGround);
+            if (Finite(lineSideGround)) y = math.min(y, lineSideGround);
+            return float.IsPositiveInfinity(y) ? float.NaN : y + offset;
         }
 
         private static bool Finite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
