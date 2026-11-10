@@ -41,7 +41,7 @@ Repeating swatches up close, small per-asset maps at distance.
 
 - **Tile sheet:** one shared **4096²** sheet of material swatches per building family at LOD0. Faces are cut to swatch size so repeats come from reuse, as in vanilla.
 - **Far maps:** each asset carries its own maps for LOD1 and LOD2.
-- **Own atlas:** the Ski Bus Depot is off the family sheets. It bakes one **2048²** atlas from real-world-scale scans tinted to its palette, at about **100** px/m on its main surfaces. A unique bake at this size cannot reach the wall band.
+- **Own atlas:** the Ski Bus Depot bakes one **2048²** atlas from scans tinted to its palette, at about **100** px/m, below the wall band.
 - **Texel density:** held in a band per surface class. Target for building walls: the vanilla band of **340** to **520** px/m. Large station surfaces: **120** to **200** px/m. Roof-edge trim: strip-mapped along its length at **400** px/m across, at no triangle cost.
 - **Material split:** the vanilla set. Base color, normal, mask, control mask (recolor channels), emissive.
 - **Fine detail:** features under **5 cm** live in the normal map and span at least **3** texels. Weathering is low frequency and opaque.
@@ -64,7 +64,7 @@ Where the game has a prop, fixture or detail, the asset uses it.
 - **Benefit:** vanilla detail, consistent with the rest of the city, at **0** triangles against the asset's cap.
 - **Modeled in-house:** only what the game lacks, such as chimney crowns, string lights, patrol beacons and lift machinery.
 - **Ski Bus Depot:** the shelter, sign tower and corten planter are modeled. The bench, bin, lamp, trees and rocks are vanilla.
-- **Ski bus coach:** the game's own bus meshes, with **0** new triangles. The SKI BUS livery is a decal on the sides and roof, so it reads as paint rather than a bolted-on sign. At night the lit windows show through the side letters. The roof stays readable.
+- **Ski bus coach:** the game's own bus meshes, with **0** new triangles. The SKI BUS livery is a decal on the sides and roof, so it reads as paint.
 
 ## Recolor Channels
 

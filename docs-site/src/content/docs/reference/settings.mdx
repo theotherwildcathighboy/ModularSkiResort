@@ -49,7 +49,7 @@ Open-state gating and snow-gun range.
 | Option | Range | Default | What it does |
 |---|---|---|---|
 | Snow & season gating | On/off | On | A run adds to the score only while snow lies on it. Off: every run counts as open all year, for maps without winter. |
-| Snowmaking margin (°C) | 0 to 6, step 0.1 | 3.3: guns run in air up to 3.3 °C (38 °F) | Snow guns on runs and cat tracks work where the air on the run is at most this many degrees above freezing. They work from 2 months before winter to 1 month after, until the run has 91 cm (3 ft) of snow. |
+| Snowmaking margin (°C) | 0 to 6, step 0.1 | 3.3 (38 °F) | Snow guns on runs and cat tracks work where the air on the run is at most this many degrees above freezing. Season and depth: [Snow Conditions](/guides/runs-and-snow/#snow-conditions). |
 
 ## Runs
 
@@ -60,8 +60,8 @@ Run drawing, cat tracks and the Resort Planner.
 | Link runs the moment they are drawn | On | A run drawn within the ski area radius of a Welcome Sign links to that ski area at once and pays its fee, also while paused. |
 | Show run difficulty while drawing | On | Slope heat-map and a tooltip with rating, pitch, length and drop. |
 | Contour lines while drawing runs | On | Terrain contours switch on while a run is selected in the area tool, then off again. |
-| Show the winter snow line while placing | On | Two lines on the terrain: the average winter snow line, and a fainter one below where snow guns start to work. The tooltip adds the height under the cursor. While you place a sign, it also adds the lowest and highest dry ground within the radius, the vertical above the snow line and the share of ground above it. |
-| Show the ski area radius | On | A ring on the ground: around the cursor while placing a Welcome Sign, around a selected sign, and around every sign while placing a run, lift or resort building. A blue ring shows the lodge parking radius (**600 m**) around an A-Frame, Chalet or Grand lodge being placed or selected. It is fainter around the other lodges with a road. |
+| Show the winter snow line while placing | On | Two lines on the terrain: the average winter snow line, and a fainter one below where snow guns start to work. While you place a sign, the tooltip adds the vertical above the snow line and the share of ground above it. |
+| Show the ski area radius | On | A ring around a Welcome Sign being placed or selected, and around every sign while placing a run, lift or resort building. A blue ring shows the lodge parking radius (**600 m**) around a lodge with a road being placed or selected. |
 | Show run names on the hill | On | Each run's name written on the snow along the run, in its difficulty color, at piste-map distance. |
 | Run outline width | 0 to 16, step 1, default 8 | Thickness of the outline and corner dots while you draw, edit or bulldoze a run: 0.3 m (1 ft) a step, so 8 = 2.4 m (8 ft). 0 keeps the game's thin outline. |
 | Snow-gun plumes | On | A vapor plume while the guns make snow. Look only. |
@@ -71,7 +71,7 @@ Run drawing, cat tracks and the Resort Planner.
 | Cat track: cut slope (out : down) | 1 to 3, step 0.5, default 1.5 | Meters out per meter down where the track cuts into the hill. Lower is steeper. |
 | Cat track: fill slope (out : up) | 1 to 4, step 0.5, default 2 | Meters out per meter up where the track is built up. Lower is steeper. |
 | Cat track: constant grade | Off | Off: the track follows the ground and moves as little earth as the max grade allows. On: one even slope from end to end. |
-| Resort Planner (experimental) | Off | Outline a mountainside and the planner proposes lifts, cat tracks and a set of linked runs. You review and change the plan. **Build** makes the cat tracks and runs together. **Build lifts** then adds the lifts one at a time. An optional tree filler plants trees. Off: the tool cannot open, its key does nothing, its hub button is grayed. See [Runs and Snow](/guides/runs-and-snow/#resort-planner-experimental). |
+| Resort Planner (experimental) | Off | Outline a mountainside and the planner proposes lifts, cat tracks and linked runs, and builds them. Off: the tool, its key and its hub button do nothing. See [Resort Planner](/guides/runs-and-snow/#resort-planner-experimental). |
 
 ## Lifts
 
@@ -97,7 +97,7 @@ Tools and diagnostics.
 | Cat track tool: toggle | Ctrl+Shift+K |
 | Cat track tool: delete mode | Ctrl+Shift+D. Only while the cat track tool is open. |
 | Resort Planner: toggle | Ctrl+Shift+Q. Inert while the Resort Planner is off. |
-| Dump diagnostics | Ctrl+Alt+G. Writes the drawing-feedback and tree-tool state to the mod log. It is a support tool. Needs Measurement diagnostics on. |
+| Dump diagnostics | Ctrl+Alt+G. Writes the drawing-feedback and tree-tool state to the mod log, for support. Needs Measurement diagnostics on. |
 
 ## Diagnostics
 
@@ -113,4 +113,4 @@ For bug reports and field tests.
 | Option | What it does |
 |---|---|
 | Reset all options to defaults | Restores every option above and every key binding to its default, after a confirmation. |
-| Delete all ski resort content | Deletes everything the mod placed in the loaded city, after a confirmation: lifts with their towers, stations, lodges, the Ski School, patrol buildings, Welcome Signs, runs, cat tracks, safety fences, and the trees the tree tool or the Resort Planner planted. **Use:** before uninstalling (delete, save, then uninstall). **No undo:** keep a save from before. **Untouched:** player power lines, roads and buildings. **Left as is:** ground graded for cat tracks, felled trees. Snow on the runs melts with the weather. A power line ending at a base station: bulldoze that last span first. Disabled outside a loaded city. |
+| Delete all ski resort content | Deletes everything the mod placed in the loaded city, after a confirmation: lifts, stations, the mod's buildings, Welcome Signs, runs, cat tracks, safety fences, and the trees the tree tool or the Resort Planner planted. **Use:** before uninstalling (delete, save, then uninstall). **No undo:** keep a save from before. **Untouched:** player power lines, roads and buildings, graded ground, felled trees. A power line ending at a base station: bulldoze that last span first. |

@@ -19,7 +19,6 @@ S     = ( runs + lifts + Ski School ) × variety × vertical
 - **K:** option *Attraction scale*, default **4**. All runs open, full efficiency: small ski area about **50**, medium about **95**, large about **160**.
 - **Square root:** doubling runs and lifts does not double the score. The game squares each building's attraction score when counting tourists. So tourists scale in proportion to ski area size.
 - **Cap:** **200**.
-- **Hub:** receipt rows per term. The full equation is in the section header tooltip.
 
 ## Lodge Base
 
@@ -56,8 +55,7 @@ Snow moves the score: a closed run adds **0**. The receipt shows both the actual
 
 ### Size Factor
 
-Bigger runs are worth more, with diminishing returns. Each doubling of the area adds only about **0.21**. A run of
-2 ha is the reference (**1**). The cap of **2** needs about 56 ha.
+Each doubling of the area adds about **0.21**. Under 1 ha the factor drops in a straight line to zero.
 
 | Area | Size factor |
 |---|---|
@@ -71,8 +69,6 @@ Bigger runs are worth more, with diminishing returns. Each doubling of the area 
 | 20 ha | 1.69 |
 | 40 ha | 1.90 |
 | 56 ha and up | 2.00 |
-
-Under 1 ha the factor drops in a straight line to zero, so a tiny run is worth almost nothing.
 
 ## Lifts
 
@@ -115,8 +111,7 @@ Welcome Sign efficiency as in its info panel: staff, power, water, sewage, garba
 The score is the ski area's attraction score in the game's tourist formula.
 
 - **Lodge info panels:** show **0** (the ski area carries the score).
-- **Game counting:** each building's score squared. The hub shows this ski area's **share of the city's tourist draw**.
-- **Effect:** the share sets how many tourists come to the city. Their destination is unaffected.
+- **Share of the city's tourist draw:** the game counts each building's score squared. The hub shows this ski area's share. It sets how many tourists come to the city, not where they go.
 
 <Aside type="note" title="Ski Days">
 Ski days are a separate stream: the mod's own visitors, who react to the score, fresh snow, distance and the lift ticket

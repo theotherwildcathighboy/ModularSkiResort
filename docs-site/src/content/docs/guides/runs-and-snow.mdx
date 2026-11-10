@@ -11,8 +11,8 @@ import Icon from '../../../components/Icon.astro';
 
 Hub **Runs** tab > **Run** tile > area tool, drawn from the lift top downhill.
 
-- **Linking:** a run within the ski area radius (**5 km** by default) of a Welcome Sign is linked to that ski area when you draw it. It stays linked if the radius changes later. Option **Link runs the moment they are drawn**, default on.
-- **Feedback:** slope heat-map (gray flat, green, blue, black, red double black), contour lines, tooltip with rating, hardest unavoidable pitch, length, vertical drop.
+- **Linking:** a run drawn within the ski area radius (**5 km** by default) of a Welcome Sign links to that ski area, and stays linked if the radius changes later. Option **Link runs the moment they are drawn**, default on.
+- **Feedback:** slope heat-map (gray flat, green, blue, black, red double black), contour lines, and a tooltip with the rating, hardest unavoidable pitch, length and vertical drop.
 
 <Shot src="run-draw.jpg" label="Drawing a run: slope heat-map over the outline and the rating tooltip." />
 
@@ -28,15 +28,14 @@ Rating = slope of the **hardest unavoidable pitch**: the crux of the easiest lin
 | 40 to 60 % | Black diamond | 20 |
 | 60 % and over | Double black diamond | 28 |
 
-- **Short steep pitches:** the table is the common case. A borderline black or double black rates one band easier when little of the run is that steep. This does not apply when the steep pitch is **40 m** or longer, or when the run is under **20 m** wide there. A run whose average slope is under 25 % rates at most blue, unless its steep pitch is 40 m or longer.
+- **Short steep pitches:** a borderline black or double black rates one band easier when little of the run is that steep, unless the pitch is **40 m** or longer or the run is under **20 m** wide there. A run averaging under 25 % rates at most blue, unless its steep pitch is 40 m or longer.
 - **Cannot be rated:** outline too large, too thin or without terrain. Worth **3**.
-- **New run:** counts **0** until rated.
-- **Reshaped run:** keeps its last rating during re-rating.
-- **Size factor:** bigger runs are worth more, with diminishing returns: **1** at 2 ha, about **1.4** at 8 ha, the cap **2** at about 56 ha. Under 1 ha it falls in proportion to the area. Worked values: [Attraction Formula](/reference/attraction/#size-factor).
+- **New run:** counts **0** until rated. A reshaped run keeps its last rating while it is rated again.
+- **Size factor:** bigger runs are worth more, with diminishing returns: **1** at 2 ha, the cap **2** at about 56 ha. Values: [Attraction Formula](/reference/attraction/#size-factor).
 
 ## Run Features
 
-One **Run** tile draws every run. While it is active, the **New run** rows at the top of the Runs view set the next run's features. **Groomed**: On or Off. **Snow guns** and **Lights**: Off, or the distance between them. Both need Groomed. A built run changes them in the Runs view, for the run selected in the list. In the hub's run list, a row's tooltip names the run's features (*Groomed, snowmaking, lit*).
+While the **Run** tile is active, the **New run** rows at the top of the Runs view set the next run's features. **Groomed**: On or Off. **Snow guns** and **Lights**: Off, or the distance between them. Both need Groomed. For a built run, select it in the Runs list to change them.
 
 <Tabs>
   <TabItem label="Natural">
@@ -51,7 +50,7 @@ One **Run** tile draws every run. While it is active, the **New run** rows at th
   </TabItem>
   <TabItem label="Snow guns">
     <Icon name="run-snowmaking" alt="Snow guns icon" />
-    **Adds:** snow guns (lances, fan guns, hydrants) where the air is cold enough: the run opens earlier and stays open longer.
+    **Adds:** snow guns where the air is cold enough: the run opens earlier and stays open longer.
     **Build fee:** +2,000 + 3,000 per ha. **Upkeep:** +350 per ha per month where the guns make snow.
   </TabItem>
   <TabItem label="Lights">
@@ -61,27 +60,23 @@ One **Run** tile draws every run. While it is active, the **New run** rows at th
   </TabItem>
   <TabItem label="Cat track">
     <Icon name="run-cat-track" alt="Cat track icon" />
-    **Role:** link across the hill. It carries lift service to the runs it meets lower down (see [Lift Service](#lift-service)). Always rated **green**. It counts **a quarter** of a run its size in score and capacity. **Pricing:** as groomed. **Upkeep:** 500 per ha of plan area per month while its guns can run. With its snow guns set to Off, it pays for its lights only, if it has them.
-    **Snow guns:** guns and hydrants on one side of the ribbon. Their snow counts toward opening the track but is not painted: the game's snow map has cells about 14 m across, too coarse for a track this narrow, so the track keeps its own surface. It opens like a run with snow guns, at up to the snowmaking margin above freezing. With its snow guns set to Off, it makes no snow. Snow already made stays until it melts.
-    **Slope limit:** built with the cat track tool below, which grades the ground to stay under **25 %**, so a cat track is always green. Crosses other runs without changing them.
+    **Role:** link across the hill. It carries lift service to the runs it meets lower down (see [Lift Service](#lift-service)). Graded under **25 %** by the [cat track tool](#cat-track-tool), so always rated **green**. It counts **a quarter** of a run its size in score and capacity, and crosses other runs without changing them.
+    **Pricing:** as groomed. **Upkeep:** 500 per ha of plan area per month while its guns can run. Lights add **300** per ha of plan area per month in its snow season, guns on or off, and change only the look.
+    **Snow guns:** on one side of the ribbon. Their snow counts toward opening the track but is not painted on it.
   </TabItem>
 </Tabs>
 
-- **Paid once:** a feature's fee is charged the first time it is on, by the run's area. Turning it off refunds nothing. Turning it on again is free. Changing a distance is free.
-- **Groomed on a built run:** the run's surface is redrawn, so it may flash for a moment, as the game does with any area that changes type. Everything else carries over: its name, its ski area, its snow guns and lights, its trees.
-- **Names:** a new run gets a trail name from a list of **200** that fits it. Examples: a black run a *Chute* or a *Wall*, a green a *Meadow* or a *Lane*, a run through trees a *Glade*, a cat track a *Road* or a *Way*. A run near the top or the bottom of its ski area may be *Upper …* or *Lower …*. No two runs share a name while one is free. After that, the name is *Run N*. The name comes once the run is rated, stays through reshaping and reloads, and a rename wins.
-
-Reshaping a run: no extra cost.
+- **Paid once:** a feature's fee is charged the first time it is on, by the run's area. Turning it off refunds nothing. Turning it on again, changing a distance and reshaping a run are free.
+- **Groomed on a built run:** the run keeps its name, ski area, snow guns, lights and trees.
+- **Names:** a new run gets a trail name that fits it from a list of **200** (a black *Chute*, a green *Meadow*, a cat track *Road*, *Upper …* near the top). No two runs share a name while one is free, then it is *Run N*. A rename wins.
 
 ## Cat Track Tool
 
 Lay out the track and press **Enter**. The tool cuts and fills the ground so the track never climbs steeper than the grade you set, then builds the cat track on the graded strip.
 
-- **Open:** hub **Runs** tab > **Cat track**, or **Ctrl+Shift+K**.
-- **Use:** click points up the hill. Drag a point to move it. Right click or **Esc** steps back one point (with no point left it closes the tool). **Enter** builds. Right click and **Esc** never remove a track that is built.
-- **Delete mode:** hub **Runs** tab > **Delete cat tracks**, or **Ctrl+Shift+D** while the tool is open. Hover a track to outline it, click it once to arm it (red), click again to delete it. A click elsewhere disarms it. Right click or **Esc** leaves Delete mode without deleting. With the mode off, a click on an existing cat track starts a new track there (a branch).
-- **Delete from the list:** the trash button on the cat track's row in the hub's **Runs** list: click it, then click again within 4 seconds.
-- **After a delete:** the ground stays as graded and the fee is not refunded, like the bulldozer on a run. The bulldozer itself cannot pick a cat track.
+- **Open:** hub **Runs** tab > **Cat track**, or **Ctrl+Shift+K**. Click points up the hill. Right click or **Esc** steps back one point. Neither ever removes a built track.
+- **Branch:** a click on an existing cat track starts a new track there.
+- **Delete:** hub **Runs** tab > **Delete cat tracks**, or **Ctrl+Shift+D** while the tool is open. Click a track once to arm it (red), again to delete it. Or the trash button on its row in the Runs list, clicked twice within 4 seconds. The ground stays as graded and the fee is not refunded. The bulldozer cannot pick a cat track.
 - **Settings** (Options > Modular Ski Resort > Runs):
 
   | Setting | Default | Range |
@@ -92,53 +87,47 @@ Lay out the track and press **Enter**. The tool cuts and fills the ground so the
   | Fill slope | 1:2 | 1 to 4 |
 
 - **Cost:** grading is free, like vanilla terraforming. The track pays the cat track fee.
-- **Switchbacks:** legs closer than the track width are refused: spread them apart or make the track narrower.
-- **Mode:** with *Cat track: constant grade* off, the track follows the ground and moves as little earth as the max grade allows. On: one even slope from end to end.
-- **Too steep:** a path that cannot stay under the max grade is refused, with the missing length in meters. Add a switchback.
-- **Crossing runs:** a cat track crosses groomed and natural runs, with or without snow guns or lights, and keeps their difficulty. Inside a run there is no flat bench. The run's ground keeps its own slope and is graded at most **2 m** along the track, fading out toward the run's edges. Outside, the grading fades in over the **15 m** before the run. If a crossed run would change its difficulty, the tool grades less inside it (down to none), or refuses the crossing. Where 2 m is not enough the plan turns red: cross it more level, not down the fall line. Trees in the 15 m before a run are cleared with the rest of the corridor. A run the track only runs beside is left alone and the track keeps its full width. Two cat tracks cannot overlap.
-- **Terrain:** trees in the corridor are removed (not inside a crossed run). Runs are rated again after the terrain changes. A track whose graded strip reaches under a building or station, into water, or within **6 m** of a lift line is refused.
-- **Plan cat tracks before lifts:** grading changes the ground, so a cat track can never pass under a lift that is already built. Build the track first, then draw the lift over it.
+- **Refused:** a path that cannot stay under the max grade (the tooltip gives the missing length: add a switchback), legs closer than the track width, a graded strip under a building or station, in water or within **6 m** of a lift line, and two overlapping cat tracks.
+- **Constant grade:** off, the track follows the ground and moves as little earth as the max grade allows. On: one even slope from end to end.
+- **Crossing runs:** the crossed run keeps its own slope and difficulty. It is graded at most **2 m** along the track, fading out toward its edges, and the grading fades in over the **15 m** before the run. If that would change the run's difficulty, the tool grades less or refuses. Where 2 m is not enough the plan turns red: cross more level, not down the fall line.
+- **Terrain:** trees in the corridor are removed (not inside a crossed run). Runs are rated again after the terrain changes.
+- **Before lifts:** grading changes the ground, so a cat track can never pass under a lift that is already built. Build the track first, then the lift over it.
 
 ## Resort Planner (Experimental)
 
 Outline a region and the planner lays out linked runs and cat tracks, then the lifts that serve them. You review and change the plan. **Build** makes the cat tracks and runs. **Build lifts** then adds the lifts.
 
 <Aside type="caution" title="Experimental">
-The Resort Planner is new and may change. It is off by default: turn it on in Options > Modular Ski Resort > Runs > **Resort Planner (experimental)**. While it is off, the tool cannot open and its hub chip is grayed with the reason.
+The Resort Planner is new and may change. It is off by default: turn it on in Options > Modular Ski Resort > Runs > **Resort Planner (experimental)**.
 
-**Limits:** On steep ground expect mostly black runs and few greens. Roads and buildings inside the outline are not avoided. The plan keeps clear of water, existing runs, other painted areas and land the city does not own. It also keeps clear of existing lifts: their stations and 10 m on each side of their line. A lift line the planner cannot fit gets its stations only, and the lift tool opens on it once the other lifts are built. **Undo** removes cat tracks and runs only, never a lift, and it ends when the tool closes. **Build lifts** closes the tool.
+**Limits:** On steep ground expect mostly black runs and few greens. Roads and buildings inside the outline are not avoided. The plan keeps clear of water, existing runs, other painted areas, land the city does not own, and existing lifts (their stations and 10 m on each side of their line). **Undo** removes cat tracks and runs only, never a lift, and ends when the tool closes. **Build lifts** closes the tool.
 </Aside>
 
 <Shot src="planner-plan.jpg" label="The Resort Planner after a scan: runs, cat tracks and dashed lift lines on the map, and the plan's rows in the hub." />
 
 - **Open:** hub **Runs** tab > **Resort Planner**, or **Ctrl+Shift+Q**.
-- **Outline:** click the corners of the region, then the first corner again to close the outline and scan it. The region is from **4 ha** up to **9 km²** (about 3 x 3 km), with its corners no wider apart than about 5 km. Drag a corner to move it, click an edge to add a corner, and right click to reopen the outline. The tooltip shows the size against the limit and the vertical.
-- **Around a lift:** with no corner placed, click the station of a lift that has its line: the outline becomes **150 m** on each side of its line plus **400 m** down the fall line below its base station. Right click clears those corners together.
-- **Site verdict:** one plain line says how steep the outlined ground is, as an average grade: gentle (under 25 %), steep (25 to 44 %), very steep (45 to 57 %) or steeper than any real ski area (58 % and up). It shows while you outline, in the tooltip and the hub, and updates after the scan.
-- **Scan:** closing the outline, **Scan** or **Enter**. The scan runs in the background, so the game keeps running, and the hub shows its progress (*Scanning the region: 40 %*). A large region can take about half a minute. Right click stops it. Moving a corner starts it again. The knobs, **Build**, **Undo** and the tree buttons wait until it ends.
-- **Refused:** a scan that finds nothing says why. The region can be too small, over the size limit, or partly outside the city's map tiles. It can be mostly taken by other areas or by land the city does not own. It can have too little vertical. Or no run fits it: try another shape.
-- **The plan on the map:** each proposed lift is a dashed line with its towers and hatched station spots. Its color is its way home. A label gives its facts (*P2: Detachable, 1.3 km, 540 m up, reaches 7 run(s)*). A lift and the runs that start from it are one group. A ring at the lift's top shows the group in its terrain color, with the label *Runs from P2: Intermediate*. The runs no lift starts are *Other runs*. Runs show in piste-map colors, and natural runs are dashed. Cat tracks are yellow center lines. The longest have the label *Cat track*.
-- **The plan in the hub:** a plan line (*Planned: 12 lift(s), 38.4 km of runs, 9.1 km of cat tracks*). Then the lifts to build with about what they cost, and what the mountain's ground gives by color. Then one row per lift. A row shows the length, the rise, the runs it reaches and its way home. It also shows its group's runs by color and its cat tracks. A line with one tower over its limit reads *Builds, with one tower over its limit*. A line you must fit reads *Needs fitting by hand: the line waits in the lift tool*. The last row is *Other runs*.
-- **Run colors:** the planner rates each run with the same rating the hub shows for a run you draw.
-- **Way home:** for each lift, the easiest way on skis from its top to the bottom of a lift that starts in the base area. The top of a gondola or tram also counts: guests ride it down. The verdicts are *Green way home*, *Blue way home*, *Black only*, *Double Black only* and *No way down on skis: ride the lift down*.
-- **Way to the bottom:** the planner also looks for a way from every lift's top to the bottom of the region. A run or cat track of any rating counts. A warning says when some lifts have none.
-- **Pick:** click a run to leave it out (gray) or take it back. Click a proposed lift's line, a group's ring, or its row in the hub. This leaves out the lift and its group's runs, or takes them back. Picking plans nothing again.
-- **Knobs:** **How many** (Few, Normal, Many) plans again with fewer or more runs. *Few* leaves out the runs that fill the ground between the main lines. *Many* adds little over *Normal*. **Features** sets the run kinds. *Leave black runs natural*: black and harder runs stay ungroomed, with no grooming fee or upkeep. *Snowmaking near the base*: green runs that reach the base get snow guns. *Light the two lowest*: up to two base runs, blue or easier, get lights and snow guns. Every other run is groomed.
-- **Totals:** runs kept, cat tracks kept, the runs by color, the runs' fee, and skiers a day once a lift serves them.
-- **Build:** **Build** or **Enter**. Refused when the city cannot pay the runs and the switched-on lifts together. If the map changed since the scan, Build scans again first. The cat tracks are built first, then the runs. They are linked and pay like runs you draw. A run the game refuses turns red and is left out. If the game refuses again, the build stops there and what is built stays.
-- **Lifts:** **Build lifts** adds every lift that is switched on and not yet built, one at a time from the lowest base up. Each lift gets its base station, its top station, then its line. A station that cuts a pad is set low enough that it never floats above the hill. A lift the city cannot pay for is skipped. A base station spot the game refuses places and charges nothing. A refused top station spot leaves the base station standing. A line with one tower up to **5 degrees** over its sheave-train limit is built, and its row reads *Built. Tower 7 bends the rope 36 degrees, its limit is 32.* A line whose towers the planner cannot fit gets its two stations and no line. The other lifts still build, then the lift tool opens on that line: move or add towers and press **Enter**. The planner places no power line: each base station still needs its low-voltage line. Until a lift serves them, its runs count as backcountry (see [Lift Service](#lift-service)).
-- **The lift list:** after the build, the hub's Runs view lists the planned lifts with their cost. The list stays while the planner is closed, until the next scan or the next load. The **Build lifts** button is there too. A row's own **Build** makes that one lift. **Stop** stops after the lift in progress. **Clear list** removes the rows. Stations and lines already built stay. Each row shows its state: *Waiting for its turn*, *Building now: stations, then the line*, *Built*, *Not built* or *Towers need fitting by hand*. The last two give the reason. A row also becomes *Built* when you draw that lift by hand between its two stations.
-- **Wait:** the runs are built a few at a time so the game keeps running smoothly, with progress in the hub and the tooltip (*Building cat tracks and runs 4 / 11*). A large region can take a few seconds to a minute. **Stop** or right click stops after the runs in progress. What is built so far stays, and **Undo** removes it. Closing the tool also stops the build. What is built stays, without Undo.
-- **Undo:** the hub's **Undo** removes the cat tracks and runs of the last build and refunds what they cost. It never removes a lift. After an undo, the region is scanned again for its plan. Undo works until the Resort Planner closes, and **Build lifts** closes it. So check the runs before you build the lifts. After that, built runs stay. The bulldozer removes them one at a time and refunds no run fee. Right click never removes built runs.
-- **Warnings:** no lift fits the region, lift tops with no way down on skis, lifts with no run or cat track to the bottom of the region, a run that ends where nothing continues, a run that crosses a cat track, fewer than 2 runs, a color the slope cannot give, part of the region blocked by other areas or unowned land, a build the city cannot pay, runs that will be renumbered, runs in more than one ski area, no Welcome Sign in range for some or all of the runs (they will not count until one is placed nearby), and the game's checks being off (Anarchy).
-- **Trees:** **Tree filler** fills the outlined region with trees around the runs, up to a tree line. The tree line starts where the wild trees nearby stop. Move it 10 or 50 m at a time. Pick **Conifer** (default), **Deciduous**, **Palm**, **All trees** or a single species, and a density. The count line shows the trees to plant and to remove, and the cost. **Plant** plants them 2,000 at a time until the region is full (*Planting trees 2,400 / 9,000*). It also removes filler trees that a lower density or tree line no longer wants. While the tree filler is on, **Enter** plants and does not scan or build. A large region can take a few seconds to a minute. **Stop** (in place of Plant) or right click stops after the trees in progress. What is planted stays. **Undo trees** removes the trees of the last planting until the Resort Planner closes. A scan or a build turns the tree filler off. Filler trees count as wild trees: a run drawn over them later can clear them.
+- **Outline:** click the corners, then the first corner again to scan. From **4 ha** up to **9 km²** (about 3 x 3 km), corners no wider apart than about 5 km. Click an edge to add a corner.
+- **Around a lift:** with no corner placed, click the station of a lift that has its line: the outline becomes **150 m** on each side of the line plus **400 m** down the fall line below the base station.
+- **Site verdict:** the outlined ground's average grade: gentle (under 25 %), steep (25 to 44 %), very steep (45 to 57 %) or steeper than any real ski area (58 % and up).
+- **Scan:** runs in the background, about half a minute for a large region. Right click stops it, moving a corner starts it again. A scan that finds nothing says why.
+- **The plan:** each proposed lift is a dashed line with its towers and station spots, colored by its way home. A ring at its top marks its group: the runs that start from it. Runs show in piste-map colors (natural runs dashed), cat tracks as yellow center lines. The hub lists one row per lift with its length, rise, runs and way home. *Builds, with one tower over its limit* and *Needs fitting by hand* are explained under **Lifts** below.
+- **Way home:** for each lift, the easiest way on skis from its top to the bottom of a lift that starts in the base area. A gondola or tram top also counts: guests ride it down. Verdicts range from *Green way home* to *No way down on skis: ride the lift down*.
+- **Way to the bottom:** the planner also looks for a run or cat track of any rating from every lift top to the bottom of the region, and warns when some lifts have none.
+- **Pick:** click a run to leave it out (gray) or take it back. Click a lift's line, ring or hub row to do the same for the lift and its group's runs.
+- **Knobs:** **How many** (Few, Normal, Many). *Few* leaves out the runs between the main lines. *Many* adds little over *Normal*. **Features:** *Leave black runs natural* (black and harder runs ungroomed, no grooming fee or upkeep), *Snowmaking near the base* (green runs that reach the base get snow guns), *Light the two lowest* (up to two base runs, blue or easier, get lights and snow guns). Every other run is groomed.
+- **Build:** **Build** or **Enter**. Refused when the city cannot pay the runs and the switched-on lifts together. If the map changed since the scan, it scans again first. Cat tracks are built first, then runs, a few at a time. They link and pay like runs you draw. A run the game refuses turns red and is left out. **Stop** or right click stops after the runs in progress. Closing the tool stops too, and what is built stays without Undo.
+- **Lifts:** **Build lifts** adds every switched-on lift not yet built, from the lowest base up: base station, top station, then the line. A lift the city cannot pay for is skipped. A line with one tower up to **5 degrees** over its sheave-train limit is built anyway. A line the planner cannot fit gets its two stations only, then the lift tool opens on it: move or add towers and press **Enter**. The planner places no power line: each base station still needs its low-voltage line. Until a lift serves them, its runs count as backcountry.
+- **The lift list:** the Runs view keeps the planned lifts with their cost and state until the next scan or load, also while the planner is closed. A row's **Build** makes that one lift, **Stop** stops after the lift in progress, **Clear list** removes the rows (built parts stay). A row also turns *Built* when you draw that lift by hand between its stations.
+- **Undo:** removes the cat tracks and runs of the last build, refunds them and scans again. Check the runs before **Build lifts**, which ends Undo. After that, the bulldozer removes runs one at a time and refunds no run fee.
+- **Warnings:** among others: lift tops with no way down on skis, a run that ends where nothing continues, a build the city cannot pay, runs in more than one ski area, no Welcome Sign in range (those runs count only once a sign is placed nearby), and the game's checks being off (Anarchy).
+- **Trees:** **Tree filler** fills the region with trees around the runs, up to a tree line that starts where the wild trees nearby stop (move it 10 or 50 m at a time). Pick **Conifer** (default), **Deciduous**, **Palm**, **All trees** or one species, and a density. **Plant** (or **Enter**) plants 2,000 at a time until the region is full, and removes filler trees a lower density or tree line no longer wants. **Undo trees** works until the planner closes. A scan or a build turns the filler off. Filler trees count as wild trees: a run drawn over them later can clear them.
 - **A scan that stops with an error:** see [Troubleshooting](/guides/troubleshooting/#common-cases).
 
 <Shot src="planner-built.jpg" label="The same region after Build and Build lifts. The piste map shows the planner's runs and cat tracks. The two new base stations are at the lower left, and the hub lists both lifts as built." />
 
 ## Snow Conditions
 
-Snow is measured per run from the game's snow simulation.
+Snow is measured per run from the game's snow simulation. The same rule applies to every run: natural or made snow, every rating.
 
 | State | Snow on the run |
 |---|---|
@@ -146,17 +135,15 @@ Snow is measured per run from the game's snow simulation.
 | Patchy | between open and closed. Counts part of its value. |
 | Closed | an open run closes once less than 30 cm covers 40 % of it. It opens again at 91 cm. |
 
-One bar for every run: natural or made snow, every rating.
-
-- **Snow guns:** runs and cat tracks with snow guns on, where air temperature is at most **3.3 °C** above freezing (option *Snowmaking margin*). Higher margin: longer season, higher snowmaking bill.
-- **Edge props:** guns, hydrants and floodlights stand along a run's edge at a set distance, however its outline was drawn: Off or **20** to **200 m**, per run, in the Runs view for the run selected in the list. A new run starts with the values of the **New run** rows. A cat track starts with snow guns at **60 m** and lights Off. Snow guns Off: no guns, no made snow, no snowmaking upkeep (snow already made stays until it melts). Lights Off: no lights, no lighting upkeep. On a cat track the lights change only the look and the bill: **300** per ha of its plan area per month in its snow season, guns on or off. Each one is a separate object you can bulldoze. It stays gone until the outline or a value changes.
+- **Snow guns:** work where the air is at most **3.3 °C** above freezing (option *Snowmaking margin*). Higher margin: longer season, higher snowmaking bill.
 - **Gun depth:** the guns start when the run falls under **91 cm** and stop at **96 cm**, so the run stays open between restarts.
-- **Gun season:** from **2 months before winter to 1 month after**, which is October 1 to April 1 when winter is December to February. There are no guns, no bill and no plume outside it. Where the game's own season reads Winter the guns run, and where it reads Summer they do not, whatever the date.
-- **Cat tracks:** the snow under the track is measured like a natural run's, plus the snow its guns made. Made snow lasts through a warm spell as long as on the best-kept run, up to **72** game hours (**36** in spring, none above **10 °C**), then melts as fast as a run's snow does (about **6** game hours at **1 °C**, under **1** at **7 °C**), so a cat track closes last. A save keeps it.
+- **Gun season:** from **2 months before winter to 1 month after** (October 1 to April 1 for a December to February winter). No guns, bill or plume outside it. Where the game's own season reads Winter the guns run, where it reads Summer they do not, whatever the date.
+- **Spacing:** guns, hydrants and floodlights stand along a run's edge: Off or **20** to **200 m**, per run. A cat track starts with snow guns at **60 m** and lights Off. Off means no guns or lights and no upkeep for them. Snow already made stays until it melts. Each prop can be bulldozed and stays gone until the outline or a value changes.
+- **Cat tracks:** the snow under the track counts plus its made snow, which outlasts a warm spell for up to **72** game hours (**36** in spring, none above **10 °C**). A cat track closes last.
 - **Powder day:** fresh snow in the last 24 hours. More locals go skiing. See [Passes and Lessons](/guides/passes-and-lessons/).
-- **Units:** the docs are metric. The in-game hub shows snow depth in the unit setting you chose in the game's options.
+- **Units:** the docs are metric. The hub shows snow depth in your game's unit setting.
 - **Estimated snow:** after a save load, or for a new sign, snow is estimated from the day's temperature. Marked **≈**.
-- **No open run:** ski area counts as summer sightseeing. Lodges and lifts count at a reduced share. After one game hour with no open run, chairlifts and gondolas stop. The aerial tram keeps running as sightseeing.
+- **No open run:** the ski area counts as summer sightseeing. Lodges and lifts count at a reduced share. After one game hour with no open run, chairlifts and gondolas stop. The aerial tram keeps running as sightseeing.
 
 <Aside type="note" title="Snow Gating Off">
 Option **Snow & season gating** off: every run counts as open all year. Upkeep is paid only while grooming or snow guns run, so a warm map with gating off has **0** upkeep.
@@ -166,11 +153,11 @@ Option **Snow & season gating** off: every run counts as open all year. Upkeep i
 
 A run reaches full value only while a lift serves it. See [Lifts](/guides/lifts/) for building one.
 
-- **Served:** a complete, powered lift reaches the run top (the highest point of the outline). An unpowered, unfinished or missing-section lift serves nothing.
+- **Served:** a complete, powered lift reaches the run top (the highest point of the outline).
   - **Chairlift and gondola:** the lift line passes within **150 m** of the run top, and the run top is at most **15 m** above the top station.
-  - **Aerial tram:** the run top is within **300 m** of the top terminal and at most **15 m** above it. The tram serves around its top terminal only, not along the line.
-- **Linked runs:** a run is served too when skiers can get onto it downhill from a served run in the same ski area. The two outlines must come within **25 m** of each other or overlap, and at least **30 m** of the run (or a third of its drop, if less) must lie below the junction. A run that only touches a served run at its own bottom is not served. Service never flows uphill: a run joined part way down passes service on only below that point. A chain of linked runs is served from one lift.
-- **Cat tracks:** skiers get on a cat track where it meets a served run and ride it either way, as long as it never takes them more than **3 m** above where they got on. Runs the track meets on the way are served by the same downhill rule. A long cat track across the mountain serves only the runs it meets below where skiers get on.
+  - **Aerial tram:** the run top is within **300 m** of the top terminal and at most **15 m** above it. Not along the line.
+- **Linked runs:** a run is served too when skiers can get onto it downhill from a served run in the same ski area: the outlines come within **25 m** or overlap, and at least **30 m** of the run (or a third of its drop, if less) lies below the junction. Touching only at its own bottom does not count. Service never flows uphill, and a chain of linked runs is served from one lift.
+- **Cat tracks:** skiers get on where a cat track meets a served run and ride it either way, as long as it never takes them more than **3 m** above where they got on. It serves the runs it meets below that point.
 - **Backcountry:** no lift serves the run. Counts **40 %** of a served run (option *Backcountry run value*).
 - **Ski patrol:** raises backcountry runs near an active patrol building to at least **70 %**. See [Lodges, Ski School and Patrol](/guides/lodges-school-patrol/).
 
@@ -181,7 +168,6 @@ Tree tool: plans trees on and around runs. Hover a run, click.
 - **Toggle:** **Ctrl+Shift+G**.
 - **Tree density:** **Shift+G** steps **1** (clears the run) to **8** (thick forest).
 - **Mode:** **Alt+G** switches run interior / tree line along the edge.
-- **Rebinding:** all three keys in Options.
 - **Cat tracks:** the Tree tool plans ski runs only. A cat track's top is cleared of trees when it is built.
 
 ## Piste Map

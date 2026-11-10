@@ -6,8 +6,7 @@ description: Where resort income appears in the game's Economy panel, why there 
 import { Aside, Steps } from '@astrojs/starlight/components';
 import Shot from '../../../components/Shot.astro';
 
-Resort income: lift tickets, season passes, lessons, lodge spend. The game classes a ski resort as a park, and
-parks have no income line in the Economy panel.
+Resort income: lift tickets, season passes, lessons, lodge spend.
 
 <Aside type="caution" title="Unverified Items">
 Two items marked (unverified) are not yet confirmed on a live Economy panel.
@@ -15,19 +14,14 @@ Two items marked (unverified) are not yet confirmed on a live Economy panel.
 
 ## Income Booking
 
-Resort income is booked as **Public Transport Fees** (a chairlift is transport). It reaches the balance
-through the game's budget, like any fare.
-
-- **Booking:** tickets, season passes, lessons and lodge spend, always. There is no option to book them elsewhere.
-- **Economy panel:** the **Public Transport Fees** income line, counted in the income total and the budget charts.
+Resort income is booked as **Public Transport Fees**, always, and reaches the balance through the game's budget like any fare.
 
 <Shot src="budget.jpg" label="Economy > Budget with a ski resort running: the Public Transport Fees line under Service Fees." />
 
 ## Why No Ski Resort Line
 
-The Economy panel has a fixed set of income lines. A mod cannot add one without rewriting the panel, and this mod does not
-modify the game's menus. *Public Transport Fees* is the closest label: a lift ticket is a ride fare. Parks have no fee
-line at all.
+The Economy panel has a fixed set of income lines, and this mod does not modify the game's menus. The game classes a ski
+resort as a park, and parks have no fee line. *Public Transport Fees* is the closest label: a lift ticket is a ride fare.
 
 ## Panel Coverage
 
@@ -40,15 +34,13 @@ line at all.
 | Ski Bus Depot coach bill | No | Hub, Finances view |
 | Commercial tax from hotels and shops the resort fills | **Yes**, the largest effect | Income: Commercial tax |
 
-- **Parks & Recreation:** the game's category for park buildings.
 - **Hub Finances view:** full total, including lift and run costs. **Net so far** = everything booked this month minus lifts, runs, ski bus, buildings and wages.
 
 ## Commercial Tax
 
-Resort-drawn tourists sleep in hotels and shop in stores. Those companies' profit is taxed on the ordinary
-**Commercial tax** line. The mod does not change it.
+Resort-drawn tourists sleep in hotels and shop in stores, taxed on the ordinary **Commercial tax** line. It is not
+resort income and is excluded from the hub net.
 
-- **Resort income:** no. Excluded from the hub net.
 - **Hub row:** **City tourist income** = ski area share of the city's tourist draw × game tourist income. Labeled an estimate.
 - **Hidden when:** Tourism Overhaul is installed (replaces the game's tourist formula).
 
@@ -72,6 +64,5 @@ Resort-drawn tourists sleep in hotels and shop in stores. Those companies' profi
 - **Fee income crediting:** vanilla behavior expected (unverified).
 
 <Aside type="note" title="Lodges Are Not Hotels">
-Lodges are park buildings, not hotels, so they earn no room income. The city's share of a stay comes through the
-commercial tax above, from any hotel the resort fills.
+Lodges are park buildings and earn no room income. A stay pays the city through the commercial tax of the hotels the resort fills.
 </Aside>

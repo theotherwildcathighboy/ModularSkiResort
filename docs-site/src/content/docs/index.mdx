@@ -62,7 +62,7 @@ import ShotCarousel from '../../components/ShotCarousel.astro';
    - **Required mods:** none. Everything works on the base game.
    - **Recommended:** Write Everywhere. With it the Welcome Sign shows your ski area's name. Without it the sign keeps its plain "SKI AREA" header over a blank name board.
    - **Useful:** Move It. It places stations and buildings more precisely than the game's own tools.
-   - **Optional:** Tourism Overhaul, Realistic Workplaces and Households, Realistic Path Finding and other trip-planner mods. The mod detects them to show a notice in the hub and changes nothing in them. Other people maintain those mods, and the author does not control their updates or their compatibility.
+   - **Optional:** Tourism Overhaul, Realistic Workplaces and Households, Realistic Path Finding and other trip-planner mods. The mod detects them to show a notice in the hub and changes nothing in them. Their compatibility is up to their own authors.
 3. **Access:** the **Ski Resort** button at the top left. Nothing is added to the game's build menus.
 
 ## Compatibility
@@ -74,17 +74,17 @@ import ShotCarousel from '../../components/ShotCarousel.astro';
 
 - **Riders:** chairs and cabins move empty. Skiers are counted, not simulated.
 - **Chair numbers:** towers are numbered. Chairs all show the same number.
-- **Stations:** most chairlift and gondola stations cut a level pad into the slope but fill nothing, so the downhill side keeps the slope. The aerial tram's base levels its own pad. The fixed-grip top station and the aerial tram's top keep the slope as placed, so on steep ground they can sit partly in the hillside.
+- **Stations:** the fixed-grip top station and the aerial tram's top keep the slope as placed, so on steep ground they can sit partly in the hillside. The other stations cut a level pad. See [Lifts, Terrain](/guides/lifts/#terrain).
 - **Summer:** chairlifts and gondolas stop when no run is open. The aerial tram keeps running as sightseeing.
 - **Power:** a lift needs a low-voltage line at its base station. The game refuses a city high-voltage line at a lift.
-- **Crossing lifts:** a lift crosses a lift of another type over or under it, where the towers can give the height the game needs. Two lifts of the same type cannot cross. No crossing is built near a station, beside a tower of the other lift, or at an angle under 20°. See [Lifts, Terrain](/guides/lifts/#terrain).
-- **Cat tracks and lifts:** a cat track cannot pass under a lift that is already built. Build cat tracks first, then the lifts over them.
-- **Roads under lifts:** towers stand clear of roads, tracks and paths where the line allows it. They do not stand clear of the roads and paths inside a building's lot. Where the line does not allow it, the game reports the tower as overlapping. Move the road or the tower.
+- **Crossing lifts:** two lifts of the same type cannot cross. Other crossings need room from stations and towers and an angle of at least 20°. See [Lifts, Terrain](/guides/lifts/#terrain).
+- **Cat tracks and lifts:** a cat track cannot pass under a lift that is already built. Build cat tracks first.
+- **Roads under lifts:** where the line leaves no other choice, a tower stands on a road and the game reports an overlap.
 - **Trees:** a lift fells the trees along its whole corridor, also where the rope runs high above them.
-- **Far hills:** a hill far from the city's homes and hotels gets few ski-day guests. The hub shows the distance. A [Ski Bus Depot](/guides/lodges-school-patrol/#ski-bus-depot) in town helps.
+- **Far hills:** a hill far from the city's homes and hotels gets few ski-day guests. A [Ski Bus Depot](/guides/lodges-school-patrol/#ski-bus-depot) in town helps.
 - **Language:** English only for now.
-- **Uninstall:** first bulldoze all lifts and runs, or use **Delete all ski resort content** (Options > Modular Ski Resort > Reset), then save. Without that, buildings and stations turn into checkered placeholder blocks. Runs stay as flat patches. See [Uninstall](/guides/lifts/#uninstall).
-- **Resort Planner:** experimental. It may change, and it is off until you turn it on in Options. It proposes runs, cat tracks and lifts. **Build** makes the cat tracks and runs. **Build lifts** then adds the lifts one at a time. A lift line the planner cannot fit gets its stations only, and the lift tool opens on it for you to place the towers. Its Undo covers runs only and ends when the lift build starts. On steep ground expect mostly black runs and few greens. See [Runs and Snow](/guides/runs-and-snow/#resort-planner-experimental).
+- **Uninstall:** first bulldoze all lifts and runs, or use **Delete all ski resort content** (Options > Modular Ski Resort > Reset), then save. Otherwise buildings and stations turn into checkered placeholder blocks. See [Uninstall](/guides/lifts/#uninstall).
+- **Resort Planner:** experimental and off until turned on in Options. Its Undo covers runs only. On steep ground expect mostly black runs and few greens. See [Resort Planner](/guides/runs-and-snow/#resort-planner-experimental).
 
 ## Rough Roadmap
 
