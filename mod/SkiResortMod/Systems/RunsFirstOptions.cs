@@ -144,10 +144,13 @@ namespace SkiResortMod.Systems
         public RunsFirstOptions Clone() => (RunsFirstOptions)MemberwiseClone();
 
         // ---- density presets (the hub's Density knob). Normal = the scored defaults above
+        // Measured in the host (rf-scan, port round R2-a): the line and serve caps alone barely move a plan, because the fill pass
+        // covers the open faces again. Sparse also turns the fill and the face lines off. Dense has no stronger lever in the options:
+        // the spacing of the lines is a planner constant (RunsFirstPlanner.SpacingM, FillCrowdM). LiftsPerKm2 did not bind on the field test 5 regions.
         public const float SparsePicksPerKm2 = 3.5f, SparseServeCapPerKm2 = 5.5f;
         public const float DensePicksPerKm2 = 7f, DenseServeCapPerKm2 = 11f;
 
-        /// <summary>The defaults with the density's line cap and serve cap. Normal: exactly the defaults (the scored plan).</summary>
+        /// <summary>The defaults with the density's line cap and serve cap (Sparse: no fill). Normal: exactly the defaults (the scored plan).</summary>
         public static RunsFirstOptions ForDensity(AutoDensity density)
         {
             var o = new RunsFirstOptions();
@@ -156,6 +159,8 @@ namespace SkiResortMod.Systems
                 case AutoDensity.Sparse:
                     o.PicksPerKm2 = SparsePicksPerKm2;
                     o.ServeCapPerKm2 = SparseServeCapPerKm2;
+                    o.Fill = false;        // no backfill of the uncovered faces: the picked lines only
+                    o.FaceLines = false;
                     break;
                 case AutoDensity.Dense:
                     o.PicksPerKm2 = DensePicksPerKm2;

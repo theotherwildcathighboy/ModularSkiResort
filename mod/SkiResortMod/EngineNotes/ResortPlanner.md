@@ -35,6 +35,10 @@ The inputs (`QuickRunsScanJob.InputsFrom`):
 
 The knobs:
 - Density picks one of three option presets (`RunsFirstOptions.ForDensity`). Normal is the scored default. A change starts a new scan.
+- Sparse lowers the line cap and the serve cap and turns the fill off. Dense raises both caps. The host measured them (`rf-scan`).
+  On the field test 5 regions, Sparse gives 23 % fewer runs and Dense 9 % more. On the owner set, Dense gives fewer runs than Normal.
+  The options have no stronger lever for Dense. The line spacing is a planner constant.
+- Memory: the live set of one scan at 9 km2 is 28 MB (Normal) to 72 MB (Dense), under the bound of 80 MB (`RF_SCAN_LIVE=1`).
 - Kinds is read by the realizer only. A change uses the cached plan and runs the realizer again.
 - Lifts, Mix, Shuffle and Way home have no effect. The tool logs one line and keeps the plan.
 - The lift toggles work as before. `QuickRunsPlanRules.MaxLifts` is 15.

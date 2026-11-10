@@ -6,7 +6,8 @@
 //   rf-scan <out file> [regions file]: each region at the three density presets (RunsFirstOptions.ForDensity) through the job, with no
 //     planner input (the host has no obstacles): plan hash, runs, lifts, km, the scorecard (raw plan, realized as skied), time and the
 //     peak managed memory of the scan. No regions file = the field test 5 regions plus one 3 x 3 km square (the 9 km2 cap). The Normal
-//     row's hash must equal the golden (rf-golden) of the region: the job plans what the host scores.
+//     row's hash must equal the golden (rf-golden) of the region: the job plans what the host scores. RF_SCAN_LIVE=1: the peak_mb
+//     column is the live set (a full GC every LiveSampleMs, so the times are slower): the memory bound reads this column.
 // Report only (no checks) except rf-replay's exit code. Run from the repo root:
 //   dotnet run --project tests/AutoGenBatch/AutoGenBatch.csproj -c Release -- rf-scan rf-scan.txt [regions file]
 
@@ -24,6 +25,7 @@ namespace AutoGenBatch
     internal static class ScanHost
     {
         private static float2 P(float x, float z) => new float2(x, z);
+        private const int LiveSampleMs = 20;   // RF_SCAN_LIVE=1: the live-set sampler's period (a full GC per sample)
 
         // the field test 5 regions (a copy of RunsFirst.Regions, which is private), then a 3 x 3 km square at ft5-r1 (the 9 km2 cap)
         private static readonly (string Id, float2[] Ring)[] Builtin =
@@ -119,15 +121,16 @@ namespace AutoGenBatch
                     GC.WaitForPendingFinalizers();
                     GC.Collect();
                     long base0 = GC.GetTotalMemory(true), alloc0 = GC.GetTotalAllocatedBytes(true), peak = base0;
-                    bool done = false;
+                    bool done = false, live = Environment.GetEnvironmentVariable("RF_SCAN_LIVE") == "1";
                     var sampler = new Thread(() =>
                     {
                         while (!Volatile.Read(ref done))
                         {
-                            long m = GC.GetTotalMemory(false);
+                            // live: a full collection per sample (the job pauses for it), so the peak is the live set, not the garbage
+                            long m = GC.GetTotalMemory(live);
                             if (m > Interlocked.Read(ref peak))
                                 Interlocked.Exchange(ref peak, m);
-                            Thread.Sleep(1);
+                            Thread.Sleep(live ? LiveSampleMs : 1);
                         }
                     }) { IsBackground = true };
                     sampler.Start();
