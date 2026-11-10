@@ -62,10 +62,18 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Regrade.cs" Link="RunsFirstPlanner.Regrade.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Layout.cs" Link="RunsFirstPlanner.Layout.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Learning.cs" Link="RunsFirstPlanner.Learning.cs" />
+    <Compile Include="RealizerTests.cs" />
+    <Compile Include="RealizerHost.cs" />
     <!-- The contract types and the shared geometry helpers that outlive the v1 / v2 planner -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\PlanContract.cs" Link="PlanContract.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\PlanGeometry.cs" Link="PlanGeometry.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstResult.cs" Link="RunsFirstResult.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.cs" Link="RunsFirstRealizer.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Lattice.cs" Link="RunsFirstRealizer.Lattice.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Pistes.cs" Link="RunsFirstRealizer.Pistes.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Tracks.cs" Link="RunsFirstRealizer.Tracks.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Lifts.cs" Link="RunsFirstRealizer.Lifts.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Graph.cs" Link="RunsFirstRealizer.Graph.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.cs" Link="SkiRunAutoPlanner.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Select.cs" Link="SkiRunAutoPlanner.Select.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Kernels.cs" Link="SkiRunAutoPlanner.Kernels.cs" />

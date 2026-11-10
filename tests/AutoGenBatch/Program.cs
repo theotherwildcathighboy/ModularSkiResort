@@ -41,6 +41,8 @@ namespace AutoGenBatch
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
             if (args.Length > 0 && (args[0] == "rf" || args[0] == "rf-holdout" || args[0] == "rf-golden" || args[0] == "rf-cancel"))
                 return RunsFirst.Run(args);   // the runs-first prototype (field test 5): renders, no checks
+            if (args.Length > 0 && args[0] == "rf-realize")
+                return RealizerHost.Run(args);   // the runs-first realizer on the real sets (RealizerHost.cs)
             if (args.Length > 0 && args[0] == "golden")
             {
                 GoldenPrint();
@@ -90,6 +92,7 @@ namespace AutoGenBatch
             FanTests();
             FlowTests();
             RunsFirstGoldenTests();
+            RealizerTests();
             if (args.Length > 0 && args[0] == "v2")
                 V2Tests();   // the real-heightmap matrix (A1): local only, the fixtures live outside git
             Timing();
