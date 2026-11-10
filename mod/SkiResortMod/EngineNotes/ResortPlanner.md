@@ -55,6 +55,14 @@ The proof (Measurement diagnostics on):
 - The dev trigger `skiResortDev.quickRuns` takes `scan <region> [bare]` and `dump [stem]` (`Systems/QuickRunsDevUISystem.cs`).
 - `scan ft5-r1 bare` must give the plan hash of the golden line of ft5-r1.
 - `dump` writes the exact input to `Logs/SkiResortMod.<stem>.rfscan`. The host mode `rf-replay <file>` runs it again and prints MATCH or DIFF.
+- `[probe] runs-first prints` gives a 64-bit print of the plan state after each planner pass and each realizer stage (`RunsFirstPrint`).
+  The line shows the low 32 bits. A version 2 dump holds the full prints and the game's own plan.
+  `rf-replay` then prints game against host per pass and names the FIRST pass that differs.
+  For that pass it gives each part (grid, flow, lines, lifts, runs, connectors, links) and the first element that differs.
+  It also names the first plan element that differs.
+- The host mode `rf-game-plans <dir> [bound]` replaces bit equality between the game and the host.
+  Each game plan must pass the host's HARD plan checks. The mean v7 score of game minus host must be at or over the bound (default -3.0).
+- `RF_TIES=reverse|sorts|queue` (host only) reverses the tie order of the planner's sorts and queue (`RunsFirstPlanner.Order.cs`). It shows which ties decide a plan. They are deterministic (the list index breaks them), so they cannot cause a runtime difference by themselves.
 - The host mode `rf-scan <out>` scans the field test regions at the three densities. It prints runs, lifts, km, score, time and memory.
 
 ## Test host (tests/AutoGenBatch)

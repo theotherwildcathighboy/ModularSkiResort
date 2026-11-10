@@ -332,6 +332,7 @@ namespace SkiResortMod.Systems
                 excluded.Add(b);
             int want = Clamp(Math.Max((int)Math.Round(km2 * perKm2), (int)Math.Ceiling(vertical / 400f)), 1, (int)Math.Ceiling(1.5 * km2) + 2);
             var lifts = new List<Lift>();
+            m_PrLifts = lifts;
             float firstGain = 0f;
             var fed = new HashSet<int>();   // lifts whose bottom another lift already delivers to
             var bans = new HashSet<long>();   // top-bottom pairs whose bottom found no pad of its own

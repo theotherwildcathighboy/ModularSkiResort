@@ -420,8 +420,8 @@ namespace SkiResortMod.Systems
                     (m_Frame - m_BuildStartFrame) / (double)m_BuildChunk, m_ChunkMaxMs, m_ChunkMaxFrames));
             m_StopBuild = m_BuildPartial = false;
             Bump();
-            if (!stopped)
-                LiftBuild()?.BuildAll("after the run build");   // plan 3.2: runs first, then the lifts switched on; the sheet stays
+            // The lifts do not follow on their own: the hub's "Build lifts" starts the queue (the strings say so). The queue makes the station
+            // placer the active tool, which closes this tool and ends its Undo, so a chained start would take the Undo of every run build.
         }
 
         /// <summary>Every frame (QuickRunsHotkeySystem): the tool's frame counter while closed, and the bind line of the last batch.</summary>
@@ -605,6 +605,8 @@ namespace SkiResortMod.Systems
                     p == null ? 0 : p.BlockedCells + p.OpenCells, job.RealizeMs, rep.LatticeMs, rep.LiftMs, rep.PisteMs, rep.TrackMs, rep.GraphMs,
                     job.PrecheckMs, job.TotalMs, ms, rep.PisteKmKept + rep.GradedKmKept, rep.PisteKmPlanned + rep.GradedKmPlanned, rep.TrackKmKept,
                     rep.TrackKmPlanned, rep.UnservedAreas, rep.LiftsClear, rep.Lifts, rep.LayerBytes / 1048576.0));
+                // the cross-runtime prints (port round 2b-f): rf-replay on a dump of this scan names the first pass that differs from the host
+                Mod.Log.Info($"QuickRuns [probe] runs-first prints {job.Id}: plan {(p == null ? "none" : p.Hash.ToString("x16", CultureInfo.InvariantCulture))}; {job.PrintsText()}");
             }
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
             float worst = 0f;

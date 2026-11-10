@@ -10,6 +10,10 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class RunsFirstPlanner
     {
+        /// <summary>Debug, host only (RF_TIES=reverse, port round 2b-f): equal keys in SortStable, SortByKey and StableHeap go in
+        /// reverse order. A plan hash that moves with it proves a tie that decides the plan. The game never sets it (false).</summary>
+        internal static int ReverseTies = 0;   // bit 1: the sorts, bit 2: the queue (only the test host writes it)
+
         /// <summary>A stable sort: equal keys keep their order in the list. The comparison plus the list index is a total order, so
         /// any correct sort gives this one result.</summary>
         private static void SortStable<T>(List<T> list, Comparison<T> cmp)
@@ -24,7 +28,7 @@ namespace SkiResortMod.Systems
             Array.Sort(idx, (a, b) =>
             {
                 int c = cmp(items[a], items[b]);
-                return c != 0 ? c : a.CompareTo(b);
+                return c != 0 ? c : (ReverseTies & 1) != 0 ? b.CompareTo(a) : a.CompareTo(b);
             });
             for (int i = 0; i < n; i++)
                 list[i] = items[idx[i]];
@@ -41,7 +45,11 @@ namespace SkiResortMod.Systems
                 while (j < keys.Length && keys[j].CompareTo(keys[i]) == 0)
                     j++;
                 if (j - i > 1)
+                {
                     Array.Sort(items, i, j - i);
+                    if ((ReverseTies & 1) != 0)
+                        Array.Reverse(items, i, j - i);
+                }
                 i = j;
             }
         }
@@ -60,7 +68,7 @@ namespace SkiResortMod.Systems
             private bool Less(int a, int b)
             {
                 int c = m_Key[a].CompareTo(m_Key[b]);
-                return c < 0 || c == 0 && m_Seq[a] < m_Seq[b];
+                return c < 0 || c == 0 && ((ReverseTies & 2) != 0 ? m_Seq[a] > m_Seq[b] : m_Seq[a] < m_Seq[b]);
             }
 
             private void Swap(int a, int b)

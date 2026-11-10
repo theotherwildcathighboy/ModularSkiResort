@@ -42,6 +42,7 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Heads.cs" Link="RunsFirstPlanner.Heads.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Heap.cs" Link="RunsFirstPlanner.Heap.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Order.cs" Link="RunsFirstPlanner.Order.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Prints.cs" Link="RunsFirstPlanner.Prints.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Compat.cs" Link="RunsFirstPlanner.Compat.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstOptions.cs" Link="RunsFirstOptions.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Result.cs" Link="RunsFirstPlanner.Result.cs" />
@@ -58,6 +59,7 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Learning.cs" Link="RunsFirstPlanner.Learning.cs" />
     <Compile Include="RealizerTests.cs" />
     <Compile Include="RealizerHost.cs" />
+    <Compile Include="GamePlans.cs" />
     <Compile Include="ScanHost.cs" />
     <!-- The tool's scan job (planner + realizer in one call), its dump, and the planner's inputs from the game (port round R2-a) -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\QuickRunsScanJob.cs" Link="QuickRunsScanJob.cs" />

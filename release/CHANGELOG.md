@@ -33,7 +33,8 @@ Notes...
 First public release. Draft notes (check against the build at upload):
 
 - Four lift types: fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Chairs and cabins move
-  along the cable; the tram shuttles two cabins.
+  along the cable, lean downwind and rock in the gusts; the tram shuttles two cabins. A built lift line fells the trees in
+  its corridor.
 - One lift tool: click the base station and the top station, click the line to add a tower, drag to move one, Enter builds.
   The tower planner fits tower heights to the terrain with few towers, prefers short towers next to the stations, and
   draws spans that are too steep in red. Towers are numbered.
@@ -45,7 +46,7 @@ First public release. Draft notes (check against the build at upload):
   crosses a run it grades up to 2 m inside the run and keeps the run's difficulty. Delete mode (Ctrl+Shift+D) and a hub trash
   button remove a track; right click and Esc never do.
 - Resort Planner (experimental): outline a slope of up to 9 km2. The planner lays out the linked runs and cat tracks first,
-  then proposes up to 15 lifts that serve them, each with its way home (green, blue, black only, or ride the lift down).
+  then proposes the lifts that serve them, each with its way home (green, blue, black only, or ride the lift down).
   Run colors come from the mod's own run rater. It plans around water, other ski areas, land the city does not own, your
   existing runs, and existing lifts (stations and a 10 m corridor along the line). It does not avoid roads or buildings.
   Leave out runs or lifts and set how many runs and the run features. Build makes the cat tracks and then the runs in one go,

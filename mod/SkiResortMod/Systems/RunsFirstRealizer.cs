@@ -69,6 +69,9 @@ namespace SkiResortMod.Systems
         // Time (ms, a report only) and memory
         public double Ms, LatticeMs, LiftMs, PisteMs, TrackMs, GraphMs;
         public long LayerBytes;
+        /// <summary>The print of the realizer state after each stage (port round 2b-f, RunsFirstPrint): lattice, classify, lifts, pistes,
+        /// tracks, assemble. Parts: region stats, elements, lifts, pistes, tracks, result runs.</summary>
+        public readonly List<RunsFirstPrint> Stages = new List<RunsFirstPrint>();
         /// <summary>One line per drop, lost piece, unlinked end, unserved area, dead end and lift flag.</summary>
         public readonly List<string> Lines = new List<string>();
 
@@ -220,6 +223,7 @@ namespace SkiResortMod.Systems
                 }
             }
             rep.LatticeMs = Ms(t0);
+            Stage("lattice");
             if (s != AutoPlanStatus.Running || plan == null)
             {
                 res.Status = s == AutoPlanStatus.Running ? AutoPlanStatus.BadInput : s;
@@ -227,25 +231,83 @@ namespace SkiResortMod.Systems
                 return res;
             }
             Classify();
+            Stage("classify");
             long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
             RealizeLifts();
             rep.LiftMs = Ms(t1);
+            Stage("lifts");
             t1 = System.Diagnostics.Stopwatch.GetTimestamp();
             RealizePistes();
             rep.PisteMs = Ms(t1);
+            Stage("pistes");
             if (Canceled)
                 return CanceledResult(t0);
             t1 = System.Diagnostics.Stopwatch.GetTimestamp();
             RealizeTracks();
             rep.TrackMs = Ms(t1);
+            Stage("tracks");
             if (Canceled)
                 return CanceledResult(t0);
             t1 = System.Diagnostics.Stopwatch.GetTimestamp();
             Assemble();
             rep.GraphMs = Ms(t1);
+            Stage("assemble");
             res.Fingerprint = Hash(res);
             rep.Ms = Ms(t0);
             return res;
+        }
+
+        /// <summary>The print of the realizer state after one stage (RealizeReport.Stages, port round 2b-f). Parts: the region stats, the
+        /// elements (type, band, samples), the lifts, the piste areas, the track areas, the result runs. One pass over the rings.</summary>
+        private void Stage(string what)
+        {
+            var parts = new ulong[6];
+            var counts = new int[6];
+            var items = new ulong[6][];
+            AutoPlanResult res = m_Res;
+            ulong h = RunsFirstPrint.Seed;
+            h = RunsFirstPrint.Mix(RunsFirstPrint.Mix(RunsFirstPrint.Mix(h, res.OpenShare), res.VerticalM), res.MeanGrade);
+            h = RunsFirstPrint.Mix(RunsFirstPrint.Mix(RunsFirstPrint.Mix(h, res.UsableShare), res.CliffShare), m_BottomTop);
+            parts[0] = h;
+            var it = items[1] = new ulong[m_E.Count];
+            for (int i = 0; i < it.Length; i++)
+            {
+                Elem e = m_E[i];
+                h = RunsFirstPrint.Mix(RunsFirstPrint.Seed, (ulong)(uint)e.Source | ((ulong)e.Type << 32) | ((ulong)e.Planned << 40) | (e.Done ? 1UL << 48 : 0UL));
+                h = RunsFirstPrint.Mix(h, (ulong)e.Areas.Count);
+                if (e.Samp != null)
+                    foreach (float3 p in e.Samp)
+                        h = RunsFirstPrint.Mix(h, p);
+                it[i] = h;
+            }
+            it = items[2] = new ulong[m_Lifts.Length];
+            for (int i = 0; i < it.Length; i++)
+            {
+                PlanLift l = m_Lifts[i];
+                h = RunsFirstPrint.Mix(RunsFirstPrint.Seed, (ulong)l.TypeIndex | ((ulong)(uint)l.Towers << 8) | (l.HandFit ? 1UL << 40 : 0UL));
+                h = RunsFirstPrint.Mix(RunsFirstPrint.Mix(h, l.Bottom), l.Top);
+                it[i] = RunsFirstPrint.Mix(h, l.TowerXz);
+            }
+            items[3] = AreaPrints(m_P);
+            items[4] = AreaPrints(m_T);
+            it = items[5] = new ulong[res.Runs.Count];
+            for (int i = 0; i < it.Length; i++)
+            {
+                AutoRun r = res.Runs[i];
+                it[i] = RunsFirstPrint.Mix(RunsFirstPrint.Mix(RunsFirstPrint.Seed, (ulong)(uint)r.Band | ((ulong)(uint)r.Kind << 8) | ((ulong)(uint)r.Source << 16)), r.Ring);
+            }
+            m_Rep.Stages.Add(RunsFirstPrint.Of(what, parts, counts, items));
+        }
+
+        private static ulong[] AreaPrints(List<Area> areas)
+        {
+            var it = new ulong[areas.Count];
+            for (int i = 0; i < it.Length; i++)
+            {
+                Area a = areas[i];
+                it[i] = RunsFirstPrint.Mix(RunsFirstPrint.Mix(RunsFirstPrint.Seed, (ulong)(uint)a.Elem | ((ulong)a.Band << 32) | ((ulong)(uint)a.Segment << 40)), a.Ring);
+            }
+            return it;
         }
 
         private AutoPlanResult CanceledResult(long t0)
