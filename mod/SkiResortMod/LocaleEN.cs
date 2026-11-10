@@ -836,6 +836,7 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_STATUS[AllCliff]", "The region is mostly cliff: no run can reach the bottom. Try a gentler slope." },
                 { "SkiResort.Tooltip.QUICK_STATUS[TooFlat]", "The region is too flat for ski runs." },
                 { "SkiResort.Tooltip.QUICK_STATUS[NoRuns]", "No run fits this region. Try another shape." },
+                { "SkiResort.Tooltip.QUICK_STATUS[ScanFailed]", "The scan stopped on an internal error, and nothing was planned. The error and the scan input are in the mod log folder." },
                 { "SkiResort.Tooltip.QUICK_WARN[FewRuns]", "Fewer than 2 runs fit here." },
                 { "SkiResort.Tooltip.QUICK_WARN[NoGreen]", "No green runs: the slope is too steep for them, or the gentle part at the bottom is too short." },
                 { "SkiResort.Tooltip.QUICK_WARN[NoBlue]", "No blue runs: the slope gives none." },

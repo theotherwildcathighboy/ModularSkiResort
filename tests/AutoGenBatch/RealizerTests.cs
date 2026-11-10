@@ -23,6 +23,7 @@ namespace AutoGenBatch
             RealizerDescent();
             RealizerHandFixtures();
             BottomFixtures();
+            RealizerRescan();   // fix round 2b-x (the block at the end of this file)
         }
 
         // ---------------------------------------------------------------- the way to the bottom (R2-c, plan 5.1 to 5.4)
@@ -743,5 +744,88 @@ namespace AutoGenBatch
                               string.Join(", ", counts.OrderBy(kv => kv.Key).Select(kv => kv.Key + " x" + kv.Value)));
         }
         // ================================================================ task R2-l (block end)
+
+        // ================================================================ fix round 2b-x: a rescan of a built region (block start)
+        // In the game, a rescan of a region that has built runs passes them back as obstacles: our pistes as ExistingRun, our cat tracks as
+        // CatTrack (QuickRunsToolSystem.CollectObstacles), the built lifts as Pinned. The realizer keeps each existing cat track as an area
+        // of its track list (Existing, no element). Pinned:
+        // - hand: a new track end reaches toward a related track, and an existing track's gap stops the reach on its first step (the
+        //   in-game ArgumentOutOfRangeException in ReachToward, 2 of 2 rescans of ft5-r1): no exception, the report names the existing track;
+        // - ft5-r1 (MountainVillage, skipped without the fixture): scan, feed the result back as the game does, scan again through the
+        //   tool's job: no exception, a result.
+        private static void RealizerRescan()
+        {
+            {
+                const string w = "Realizer rescan hand: a track reach stopped by an existing track";
+                Hand h = NewHand();
+                h.Obstacles = new List<AutoObstacle> { new AutoObstacle { Kind = AutoObstacleKind.CatTrack, Ring = Terrain.Rect(29f, -120f, 31f, 120f) } };
+                h.Plan.Connectors.Add(Line(0f, -300f, 0f, 300f));     // the related track (realized first)
+                h.Plan.Connectors.Add(Line(400f, 0f, 39f, 0f));       // ends onto it 39 m away, the existing track's gap between them
+                try
+                {
+                    h.Realize();
+                    // not RealizerInvariants: the stopped reach leaves the planner relation unlinked by design (the relation gate counts it)
+                    Check(h.Tracks.Count == 2, w, "want both new tracks kept: " + Areas(h));
+                    Check(h.Rep.Lines.Any(l => l.Contains("cannot reach") && l.Contains("(existing)")), w,
+                        "the fixture does not reach into the existing track's gap (it tests nothing): " + string.Join("; ", h.Rep.Lines.Where(l => l.StartsWith("track -2"))));
+                }
+                catch (Exception ex)
+                {
+                    Check(false, w, "the realizer threw: " + ex.GetType().Name + ": " + ex.Message + " " + ex.StackTrace?.Split('\n').FirstOrDefault(f => f.Contains("SkiResortMod"))?.Trim());
+                }
+            }
+            {
+                const string w = "Realizer rescan ft5-r1";
+                if (!Heightmap.TryOpen("MountainVillage", out HeightmapFile hf, out string why))
+                {
+                    Console.WriteLine($"SKIP {w}: {why}");
+                    return;
+                }
+                float2[] ring = { new float2(3372, -1943), new float2(3462, -3193), new float2(6386, -2246), new float2(6244, -1083) };
+                HeightSnapshot snap = Heightmap.Snapshot(hf, ring);
+                AutoPlanInput first = RealizerHost.InputOf(snap, ring);
+                RunsFirstOptions options = RunsFirstOptions.ForDensity(first.Knobs.Density);
+                var job = new QuickRunsScanJob(first, options, QuickRunsScanJob.InputsFrom(first, false), null, "ft5-r1");
+                job.Run();
+                Check(job.Result != null && job.Result.Status == AutoPlanStatus.Ok && job.Result.Runs.Count > 0, w, $"the first scan has no result ({job.Result?.Status})");
+                if (job.Result == null || job.Plan == null)
+                    return;
+                AutoPlanInput again = RealizerHost.InputOf(snap, ring);
+                again.Obstacles = job.Result.Runs.Where(r => r.Ring != null && r.Ring.Length >= 3).Select(r => new AutoObstacle
+                {
+                    Kind = r.Kind == RunKind.CatTrack ? AutoObstacleKind.CatTrack : AutoObstacleKind.ExistingRun, Ring = r.Ring,
+                }).ToList();
+                again.Pinned = job.Plan.Plan.Lifts.Select((l, i) => new PinnedLift
+                {
+                    Key = (uint)(i + 1), Bottom = l.Bottom, Top = l.Top, Chords = new[] { l.Bottom.xz, l.Top.xz }, Complete = true,
+                }).ToList();
+                var rescan = new QuickRunsScanJob(again, options, QuickRunsScanJob.InputsFrom(again, false), null, "ft5-r1 rescan");
+                try
+                {
+                    rescan.Run();
+                    Check(rescan.Result != null, w, $"the rescan has no result (refused {rescan.Refused}, canceled {rescan.Canceled})");
+                    Console.WriteLine($"REPORT {w}: {again.Obstacles.Count} obstacle(s) ({again.Obstacles.Count(o => o.Kind == AutoObstacleKind.CatTrack)} cat track), " +
+                                      $"{again.Pinned.Count} existing lift(s); rescan status {rescan.Result?.Status}, {rescan.Result?.Runs.Count ?? 0} areas, " +
+                                      $"{rescan.Report.Lines.Count(l => l.Contains("(existing)"))} report line(s) name an existing track");
+                    // the tool's fault dump (QuickRunsToolSystem.WriteFaultDump: this writer, status "fault") carries the existing runs and
+                    // lifts: the replayed input gives the same result
+                    var ms = new System.IO.MemoryStream();
+                    QuickRunsScanDump.Write(ms, new QuickRunsScanDump.Header { Tag = rescan.Id, PlanHash = rescan.Plan?.Hash ?? 0UL, OptionsPrint = options.Fingerprint(), Status = "fault" },
+                        again, options);
+                    ms.Position = 0;
+                    AutoPlanInput back = QuickRunsScanDump.Read(ms, out RunsFirstOptions backOptions, out QuickRunsScanDump.Header backHead);
+                    var replay = new QuickRunsScanJob(back, backOptions, QuickRunsScanJob.InputsFrom(back, backHead.Bare), null, backHead.Tag);
+                    replay.Run();
+                    Check(back.Obstacles?.Count == again.Obstacles.Count && back.Pinned?.Count == again.Pinned.Count, w,
+                        $"the dump lost inputs: {back.Obstacles?.Count} obstacle(s), {back.Pinned?.Count} lift(s)");
+                    Check(replay.Result?.Fingerprint == rescan.Result?.Fingerprint, w, "the dump's replay gives another result");
+                }
+                catch (Exception ex)
+                {
+                    Check(false, w, "the rescan threw: " + ex.GetType().Name + ": " + ex.Message + " " + ex.StackTrace?.Split('\n').FirstOrDefault(f => f.Contains("SkiResortMod"))?.Trim());
+                }
+            }
+        }
+        // ================================================================ fix round 2b-x (block end)
     }
 }

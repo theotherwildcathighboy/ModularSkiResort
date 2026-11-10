@@ -60,7 +60,7 @@ namespace SkiResortMod.Systems
                 return;
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             if (m_Disabled || !PollScanJob(true))
-                return;   // a faulted job disabled the tool
+                return;   // the tool is disabled (a main-thread fault, Fail)
             float2[] region = CornerArray();
             UpdateReadout();
             if (region == null || region.Length < 3)

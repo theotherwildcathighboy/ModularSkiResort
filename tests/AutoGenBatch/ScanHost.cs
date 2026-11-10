@@ -2,7 +2,7 @@
 // and the realizer), so these modes measure and replay exactly that.
 //   rf-replay <dump file>: reads a dump the tool wrote (QuickRunsScanDump, the dev trigger's "dump"), runs the same job on the same input
 //     and prints the game's and the host's plan hash and result hash. Exit 0 when both match, 2 when one differs (the round's
-//     cross-runtime gate).
+//     cross-runtime gate), 3 when the job throws (a fault dump, SkiResortMod.fault-n.rfscan).
 //   rf-scan <out file> [regions file]: each region at the three density presets (RunsFirstOptions.ForDensity) through the job, with no
 //     planner input (the host has no obstacles): plan hash, runs, lifts, km, the scorecard (raw plan, realized as skied), time and the
 //     peak managed memory of the scan. No regions file = the field test 5 regions plus one 3 x 3 km square (the 9 km2 cap). The Normal
@@ -68,7 +68,16 @@ namespace AutoGenBatch
                               $"density {input.Knobs.Density}, kinds {input.Knobs.Kinds}, game status {head.Status}");
             var job = new QuickRunsScanJob(input, options, QuickRunsScanJob.InputsFrom(input, head.Bare), null, head.Tag);
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            job.Run();
+            try
+            {
+                job.Run();
+            }
+            catch (Exception ex)
+            {
+                // a fault dump (SkiResortMod.fault-n.rfscan, game status "fault") replays the exception
+                Console.WriteLine($"REPLAY FAULT {head.Tag} (game status {head.Status}): plan game {head.PlanHash:x16} host {job.Plan?.Hash ?? 0UL:x16}; {ex}");
+                return 3;
+            }
             ulong plan = job.Plan?.Hash ?? 0UL, result = job.Result?.Fingerprint ?? 0UL;
             bool planOk = plan == head.PlanHash, resultOk = result == head.ResultHash, optOk = optPrint == head.OptionsPrint;
             Console.WriteLine($"REPLAY options  game {head.OptionsPrint:x16} host {optPrint:x16} {(optOk ? "MATCH" : "DIFF")}");
