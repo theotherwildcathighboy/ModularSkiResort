@@ -35,7 +35,7 @@ namespace AutoGenBatch
                 return GamePlans(args);   // the gate on the game's own dumped plans (GamePlans.cs)
             if (args.Length > 0 && (args[0] == "rf" || args[0] == "rf-holdout" || args[0] == "rf-golden" || args[0] == "rf-cancel"))
                 return RunsFirst.Run(args);   // the runs-first planner on the field test regions: renders, no checks
-            if (args.Length > 0 && (args[0] == "rf-replay" || args[0] == "rf-scan")) return ScanHost.Run(args);   // the tool's scan job: replay a game dump, density presets (ScanHost.cs)
+            if (args.Length > 0 && (args[0] == "rf-replay" || args[0] == "rf-scan" || args[0] == "rf-liftcheck")) return ScanHost.Run(args);   // the tool's scan job: replay a game dump, density presets (ScanHost.cs)
             if (args.Length > 0 && args[0] == "rf-realize")
                 return RealizerHost.Run(args);   // the runs-first realizer on the real sets (RealizerHost.cs)
             ToRepoRoot();

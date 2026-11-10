@@ -95,6 +95,9 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftServedRule.cs" Link="LiftServedRule.cs" />
     <!-- The lift tool tower planner the realizer and the runs-first planner call; its only dependency is SkiCatalog (linked above) -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftTowerPlanner.cs" Link="LiftTowerPlanner.cs" />
+    <!-- The queue station height rule and the queue line the tower checks plan (LiftLineInput.PlanQueueLine, task 2b-l) -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\StationAlign.cs" Link="StationAlign.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLineEdit.cs" Link="LiftLineEdit.cs" />
     <!-- the planner's phase (d) rope angles (LiftAlignMath.RopeAngles, the train kinds) -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftAlignMath.cs" Link="LiftAlignMath.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiMoneyRules.cs" Link="SkiMoneyRules.cs" />

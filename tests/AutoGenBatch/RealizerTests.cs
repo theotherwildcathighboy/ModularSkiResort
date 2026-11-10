@@ -696,14 +696,15 @@ namespace AutoGenBatch
         // - a sound lift has no over-limit tower and is not flagged;
         // - a flagged lift is HandFit (HandFit keeps its meaning: not Sound) with exactly one over-limit tower;
         // - the tram has no sheave train: never an over-limit tower, never flagged;
-        // - the sweep has at least one flagged lift and one that waits with two or more (the fields are live).
+        // - the sweep has at least one lift that waits on its trains: two or more over, or one past the flag cap
+        //   (LiftTowerPlan.FlagMaxExcessDeg, task 2b-l) (the fields are live).
         private static void RealizerOverLimitLifts()
         {
             const string w = "Realizer R2-l: over-limit lifts";
             int lifts = 0, sound = 0, flagged = 0, waitsTrains = 0, otherHandFit = 0;
             var shapes = new List<(string name, double[] seg)>();
             // A profile from the bottom (u = 0) up the line: pairs of (length m, grade). 900 m in all.
-            foreach (double face in new[] { 0.5, 0.65, 0.8 })
+            foreach (double face in new[] { 0.3, 0.35, 0.4, 0.45, 0.5, 0.65, 0.8 })
                 foreach (double crest in new[] { 12.0, 20.0, 35.0 })
                     foreach (double low in new[] { 0.12, 0.25 })
                         shapes.Add(($"lip face {face:F2} crest {crest:F0} low {low:F2}", new[] { 640.0 - crest, low, 260.0, face, crest, 0.0 }));
@@ -735,19 +736,20 @@ namespace AutoGenBatch
                         Check(L.HandFit || (L.OverLimitTowers == 0 && !L.BuildsFlagged), w, "a sound lift carries an over-limit tower: " + at);
                         Check(!L.BuildsFlagged || (L.HandFit && L.OverLimitTowers == 1), w, "a flagged lift is not HandFit with one over-limit tower: " + at);
                         Check(type != "tram" || (L.OverLimitTowers == 0 && !L.BuildsFlagged), w, "the tram has an over-limit tower: " + at);
-                        string bucket = !L.HandFit ? "sound" : L.BuildsFlagged ? "flagged" : L.OverLimitTowers >= 2 ? "waits 2+" : "other";
+                        string bucket = !L.HandFit ? "sound" : L.BuildsFlagged ? "flagged" : L.OverLimitTowers >= 1 ? "waits trains" : "other";
                         if (!L.HandFit) sound++;
                         else if (L.BuildsFlagged) flagged++;
-                        else if (L.OverLimitTowers >= 2) waitsTrains++;
+                        else if (L.OverLimitTowers >= 1) waitsTrains++;   // two or more, or one past the flag cap (task 2b-l)
                         else otherHandFit++;
                         string key = type + " " + bucket + " over " + L.OverLimitTowers;
                         counts[key] = counts.TryGetValue(key, out int n) ? n + 1 : 1;
                     }
                 }
-            Check(flagged > 0, w, $"no lift in the sweep is flagged ({lifts} lifts): the field is dead");
-            Check(waitsTrains > 0, w, $"no lift in the sweep waits with two or more over-limit towers ({lifts} lifts)");
+            // Task 2b-l: on the queue line (pairs on) the planner clears every small overrun of this sweep; what stays over is past the
+            // flag cap. The flag rule itself is pinned in LiftBatch PS-13 (34 against 32 builds flagged, 47.5 against 40 waits). REPORT only.
+            Check(waitsTrains > 0, w, $"no lift in the sweep waits on its sheave trains (two or more over, or one past the flag cap; {lifts} lifts)");
             Console.WriteLine($"REPORT rf realizer R2-l over-limit sweep: {lifts} lifts, {sound} sound, {flagged} flagged (the queue builds them), " +
-                              $"{waitsTrains} wait with 2+ over the limit, {otherHandFit} other hand fits; " +
+                              $"{waitsTrains} wait on their trains (2+ over, or 1 past the flag cap), {otherHandFit} other hand fits; " +
                               string.Join(", ", counts.OrderBy(kv => kv.Key).Select(kv => kv.Key + " x" + kv.Value)));
         }
         // ================================================================ task R2-l (block end)

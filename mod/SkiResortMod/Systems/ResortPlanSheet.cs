@@ -192,13 +192,17 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>The keys the build queue takes for "build all": the rows switched on and not built, in build order.</summary>
+        /// <summary>The keys the build queue takes for "build all": the rows switched on and not built, in build order. A row that waits
+        /// for a hand fit (NeedsFitting) goes after every other row (task 2b-l): it is tried once more, and never ahead of a row that may
+        /// build.</summary>
         public List<uint> BuildAllKeys()
         {
             var keys = new List<uint>();
+            var waiting = new List<uint>();
             for (int i = 0; i < m_Rows.Count; i++)
                 if (m_Rows[i].On && m_Rows[i].Buildable)
-                    keys.Add(m_Rows[i].Key);
+                    (m_Rows[i].State == SheetLiftState.NeedsFitting ? waiting : keys).Add(m_Rows[i].Key);
+            keys.AddRange(waiting);
             return keys;
         }
 

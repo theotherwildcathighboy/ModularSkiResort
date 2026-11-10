@@ -304,7 +304,7 @@ namespace AutoGenBatch
                     $"({string.Join(", ", plan.Lifts.Where(l => l.ToBottom != RunsFirstBottom.Reaches).Select(l => $"L{l.Id} {l.ToBottom}"))})",
                 $"  bottom: lifts with a way down {rep.BottomWayDown}, reach the base band by the planner {rep.BottomPlanner}, realized {rep.BottomRealized}; " +
                     $"lost {rep.BottomLost}, gained {rep.BottomGained}; band top realizer {rep.BottomTop:F0} m, planner {PlannerBandTop(plan)}; differ: {BottomDiffer(rep)}",
-                $"  lifts: {rep.Lifts}, tower plan sound {rep.LiftsClear}, hand fit chair/detachable/gondola/tram {rep.HandFitByType[0]}/{rep.HandFitByType[1]}/{rep.HandFitByType[2]}/{rep.HandFitByType[3]} " +
+                $"  lifts: {rep.Lifts}, tower plan sound {rep.LiftsClear}, flagged {rep.LiftsFlagged}, hand fit chair/detachable/gondola/tram {rep.HandFitByType[0]}/{rep.HandFitByType[1]}/{rep.HandFitByType[2]}/{rep.HandFitByType[3]} " +
                     $"(spans {rep.HandFitSpans}, over cap {rep.HandFitOverCap}, too steep {rep.HandFitSteep}, clearance {rep.HandFitClearance}, edge slope {rep.HandFitEdge}, miss {rep.HandFitMiss}), sunk ends {rep.SunkEnds}, lot conflicts {rep.LotConflicts}",
                 $"  score: raw {rawT:F1}, as built {realT:F1} ({realT - rawT:+0.0;-0.0}), as skied {skiedT:F1} ({skiedT - rawT:+0.0;-0.0}), realized pistes with the raw connectors {mixT:F1}; " +
                     $"scorecard v{RunsFirstScore.Version}, raw scored in {scoreMs:F0} ms",

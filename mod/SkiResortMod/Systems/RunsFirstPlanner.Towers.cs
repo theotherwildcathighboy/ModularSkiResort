@@ -1,7 +1,8 @@
 // RunsFirstPlanner towers (port round 2, step R2-p2): lifts the lift tool can build. The realizer runs the mod's tower planner on every
 // planned lift (RunsFirstRealizer.Lifts.cs RealizeLifts, TowerPlan) and the lift queue builds a line only when its plan is Sound, or with
 // exactly one tower over its sheave-train limit and nothing else wrong (flagged, LiftTowerPlan.QueueRule). Any other line waits for a hand
-// fit. This pass runs the same tower plan on each planned lift (the call is a copy of the realizer's) and, for a lift that is not Sound,
+// fit. This pass runs the same tower plan on each planned lift (LiftLineInput.PlanQueueLine: the stations where the queue places them, the
+// line the queue's lift tool plans, as the realizer's lift rows call it; task 2b-l) and, for a lift that is not Sound,
 // tries in this order: a small shift of its stations, another lift type on the same line, then a flagged plan. A lift that still needs a
 // hand fit is kept and marked in the log. The plans are cached per line, and each new plan polls the cancel token. Pure C# 9, net48-clean.
 
@@ -36,22 +37,21 @@ namespace SkiResortMod.Systems
             public int Plans, Hits;   // a report only
         }
 
-        /// <summary>One thread's tower planner, its constants per lift type and the chord sampler.</summary>
+        /// <summary>One thread's tower planner, its constants per lift type and the ground sampler.</summary>
         private sealed class TowerWorker
         {
             public readonly LiftTowerPlanner Planner = new LiftTowerPlanner();
             public readonly LiftTowerPlanConstants[] Consts = new LiftTowerPlanConstants[4];
             public HeightSnapshot Snap;
-            public float2 A, Dir, Right;
             public float Last;
             public int Misses;
+            private Func<float3, float> m_Ground;
 
-            /// <summary>The ground along the chord (RunsFirstRealizer.ChordSampler, copied): a miss returns the last good height and
-            /// is counted.</summary>
-            public float Sample(float along, float lateral)
+            /// <summary>The snapshot ground at a world point (RunsFirstRealizer.QueueGround, copied): a miss returns the last good height
+            /// and is counted.</summary>
+            public Func<float3, float> Ground => m_Ground ??= p =>
             {
-                float2 p = A + Dir * along + Right * lateral;
-                float h = Snap.Sample(new float3(p.x, 0f, p.y));
+                float h = Snap.Sample(new float3(p.x, 0f, p.z));
                 if (float.IsNaN(h))
                 {
                     Misses++;
@@ -59,7 +59,7 @@ namespace SkiResortMod.Systems
                 }
                 Last = h;
                 return h;
-            }
+            };
         }
         private TowerCheck m_Towers;
 
@@ -123,44 +123,30 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The realizer's verdict on one line, on one worker.</summary>
+        /// <summary>The realizer's verdict on one line, on one worker: the line the queue plans between the stations it places
+        /// (LiftLineInput.PlanQueueLine, as RunsFirstRealizer.Lifts calls it). Sound = QueueRule Build with the edge-slope margin, flagged =
+        /// QueueRule BuildFlagged (one tower over its limit, by at most the flag cap), else a hand fit.</summary>
         private static TowerFit PlanFit(TowerWorker tc, byte t, float3 bottom, float3 top, out int over)
         {
-            HeightSnapshot snap = tc.Snap;
-            float hb = snap.Sample(new float3(bottom.x, 0f, bottom.z)), ht = snap.Sample(new float3(top.x, 0f, top.z));
-            float3 b = new float3(bottom.x, float.IsNaN(hb) ? bottom.y : hb, bottom.z), tp = new float3(top.x, float.IsNaN(ht) ? top.y : ht, top.z);
-            float len = math.distance(b.xz, tp.xz);
             TowerFit fit = TowerFit.HandFit;
             over = 0;
-            if (len > 1f)
-            {
-                LiftTowerPlanConstants k = tc.Consts[t] ??= LiftTowerPlanConstants.For(SkiCatalog.Lifts[t]);
-                // RunsFirstRealizer.TowerPlan, copied: stations at both ends, the engine's edge slope rule with the end nodes at the
-                // snapshot heights, ropes at the station's own anchor
-                tc.A = b.xz;
-                tc.Dir = (tp.xz - b.xz) / len;
-                tc.Right = new float2(tc.Dir.y, -tc.Dir.x);
-                tc.Last = b.y;
-                tc.Misses = 0;
-                LiftTowerPlanner planner = tc.Planner;
-                planner.LegacySpacing = false;
-                planner.Forbidden = null;
-                planner.StationA = planner.StationB = true;
-                planner.StationRule = true;
-                planner.CheckEdgeSlope = true;
-                planner.EndNodeYA = b.y;
-                planner.EndNodeYB = tp.y;
-                float ropeA = k.StationEndRope(SkiCatalog.StationOf(t, StationRole.Base), b.y);
-                float ropeB = k.StationEndRope(SkiCatalog.StationOf(t, StationRole.Top), tp.y);
-                LiftTowerPlan plan = planner.Plan(tc.Sample, len, ropeA, ropeB, k);
-                bool edgeClear = tc.Misses == 0 && plan != null && plan.Clear && plan.MaxEdgeSlope <= TowerEdgeSlopeShare * k.MaxEdgeSlope;
-                if (plan != null)
-                    over = plan.OverCapTowers;
-                if (edgeClear && plan.OverCapTowers == 0 && plan.TooSteepTowers == 0 && plan.ClearanceTowers == 0)
-                    fit = TowerFit.Sound;
-                else if (edgeClear && plan.QueueBuild == LiftQueueBuild.BuildFlagged)
-                    fit = TowerFit.Flagged;
-            }
+            if (math.distance(bottom.xz, top.xz) <= 1f)
+                return fit;
+            LiftTowerPlanConstants k = tc.Consts[t] ??= LiftTowerPlanConstants.For(SkiCatalog.Lifts[t]);
+            float hb = tc.Snap.Sample(new float3(bottom.x, 0f, bottom.z));
+            tc.Last = float.IsNaN(hb) ? bottom.y : hb;
+            tc.Misses = 0;
+            LiftTowerPlan plan = LiftLineInput.PlanQueueLine(k, SkiCatalog.StationOf(t, StationRole.Base), SkiCatalog.StationOf(t, StationRole.Top),
+                bottom.xz, top.xz, tc.Ground, tc.Planner, out _, out _, out _);
+            if (plan == null)
+                return fit;
+            over = plan.OverCapTowers;
+            bool edgeClear = tc.Misses == 0 && plan.Clear && plan.MaxEdgeSlope <= TowerEdgeSlopeShare * k.MaxEdgeSlope;
+            LiftQueueBuild q = plan.QueueBuild;
+            if (edgeClear && q == LiftQueueBuild.Build)
+                fit = TowerFit.Sound;
+            else if (edgeClear && q == LiftQueueBuild.BuildFlagged)
+                fit = TowerFit.Flagged;
             return fit;
         }
 

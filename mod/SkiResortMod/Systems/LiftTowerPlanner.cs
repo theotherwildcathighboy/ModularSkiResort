@@ -1037,26 +1037,49 @@ namespace SkiResortMod.Systems
         public int OverLimitTowers => Constants != null && Constants.HasTrains ? OverCapTowers : 0;
 
         /// <summary>What the planner's lift queue does with this plan (QueueRule).</summary>
-        public LiftQueueBuild QueueBuild => QueueRule(Clear, Constants != null && Constants.HasTrains, OverCapTowers, TooSteepTowers, ClearanceTowers);
+        public LiftQueueBuild QueueBuild =>
+            QueueRule(Clear, Constants != null && Constants.HasTrains, OverCapTowers, TooSteepTowers, ClearanceTowers, MaxOverCapExcessDeg);
 
-        /// <summary>The lift queue's rule for a scripted line (task R2-l, DECISIONS 637). Build: the plan is Sound. BuildFlagged: every
-        /// span clear, exactly one tower over its sheave-train limit, none too steep, none past its carrier clearance. The queue builds
-        /// it the way Enter builds it and flags its row. Wait: anything else (two or more such towers, a tram saddle past its cap, any
-        /// other defect). The line waits for the player in the lift tool.</summary>
-        public static LiftQueueBuild QueueRule(bool clear, bool trains, int overCap, int tooSteep, int clearance) =>
+        /// <summary>The flag cap (task 2b-l): the most the one tower of a flagged build may bend past its sheave-train limit, degrees.
+        /// Field r2g round 2 built a DQ tower at 34 against 32 (a small, plausible overrun) and a gondola tower at 47.5 against 40 (a
+        /// visible kink the player has to fit by hand).</summary>
+        public const float FlagMaxExcessDeg = 5.0f;
+
+        /// <summary>The largest bend past its cap among the towers over their cap (IsOverCap): |deflection| - cap, degrees. 0 when no tower
+        /// is over.</summary>
+        public float MaxOverCapExcessDeg
+        {
+            get
+            {
+                float worst = 0f;
+                for (int i = 0; Nodes != null && i < Nodes.Length; i++)
+                    if (IsOverCap(i))
+                        worst = math.max(worst, math.abs(Nodes[i].DeflectionDeg) - Nodes[i].CapDeg);
+                return worst;
+            }
+        }
+
+        /// <summary>The lift queue's rule for a scripted line (task R2-l, DECISIONS 637; the flag cap, task 2b-l). Build: the plan is
+        /// Sound. BuildFlagged: every span clear, exactly one tower over its sheave-train limit and by at most FlagMaxExcessDeg
+        /// (<paramref name="overExcessDeg"/>: MaxOverCapExcessDeg), none too steep, none past its carrier clearance. The queue builds it
+        /// the way Enter builds it and flags its row. Wait: anything else (one tower further over, two or more such towers, a tram saddle
+        /// past its cap, any other defect). The line waits for the player in the lift tool. The planner's Towers pass and the realizer's
+        /// lift rows read the same rule (QueueBuild).</summary>
+        public static LiftQueueBuild QueueRule(bool clear, bool trains, int overCap, int tooSteep, int clearance, float overExcessDeg) =>
             !clear || tooSteep > 0 || clearance > 0 ? LiftQueueBuild.Wait
             : overCap == 0 ? LiftQueueBuild.Build
-            : trains && overCap == 1 ? LiftQueueBuild.BuildFlagged : LiftQueueBuild.Wait;
+            : trains && overCap == 1 && overExcessDeg <= FlagMaxExcessDeg + 1e-3f ? LiftQueueBuild.BuildFlagged : LiftQueueBuild.Wait;
 
         /// <summary>The reason key of a line that waits under QueueRule. A span fault keeps <paramref name="planKey"/>
         /// (LiftLineInput.PlanKey: PLAN_LOW, PLAN_STEEP, PLAN_HIGH). Two or more towers over their sheave-train limit read PLAN_TRAINS.
-        /// Otherwise the tower fault that blocks the build: PLAN_PITCH, then PLAN_CLEARANCE. One tower over its limit alone never waits,
-        /// so PLAN_TRAIN only stays where the plan key has it with no blocking fault named (it does not happen under QueueRule).</summary>
+        /// Otherwise the tower fault that blocks the build: PLAN_PITCH, then PLAN_CLEARANCE, then PLAN_TRAIN (one tower further over its
+        /// limit than the flag cap allows).</summary>
         public static string QueueWaitKey(string planKey, bool clear, bool trains, int overCap, int tooSteep, int clearance) =>
             !clear ? planKey
             : trains && overCap >= 2 ? "PLAN_TRAINS"
             : tooSteep > 0 ? "PLAN_PITCH"
             : clearance > 0 ? "PLAN_CLEARANCE"
+            : trains && overCap == 1 ? "PLAN_TRAIN"
             : planKey;
 
         /// <summary>The first node over its cap (IsOverCap), or -1. Node 0 is end A, so node i is tower i counted from end A.</summary>

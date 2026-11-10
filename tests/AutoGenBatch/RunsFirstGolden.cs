@@ -18,8 +18,8 @@ namespace AutoGenBatch
         private static readonly (string Id, ulong Hash)[] RfGolden =
         {
             ("Alpine1 full", 0x59b2ee492f4ef4c5UL),
-            ("Benched1 full", 0x0166f01e2c9530c4UL),
-            ("Steep1 full", 0x9725dc31047d72c7UL),
+            ("Benched1 full", 0x0889bd4541dcaa12UL),
+            ("Steep1 full", 0x535893eaf6b2d3efUL),
         };
 
         private static void RunsFirstGoldenTests()

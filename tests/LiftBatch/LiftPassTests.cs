@@ -742,8 +742,11 @@ namespace LiftBatch
             Check(q.OverLimitTowers == q.OverCapTowers && (q.OverCapTowers == 0) == (first < 0), W, "over-limit count " + q.OverLimitTowers +
                   " / over cap " + q.OverCapTowers + " / first " + first);
             Check(first < 0 || q.IsOverCap(first), W, "the first over-limit tower " + first + " is not over its cap");
-            Check(q.QueueBuild == LiftTowerPlan.QueueRule(q.Clear, true, q.OverCapTowers, q.TooSteepTowers, q.ClearanceTowers), W, "QueueBuild");
-            if (q.Clear && q.OverCapTowers == 1 && q.TooSteepTowers == 0 && q.ClearanceTowers == 0)
+            Check(q.QueueBuild == LiftTowerPlan.QueueRule(q.Clear, true, q.OverCapTowers, q.TooSteepTowers, q.ClearanceTowers, q.MaxOverCapExcessDeg),
+                  W, "QueueBuild");
+            Check((q.OverCapTowers == 0) == (q.MaxOverCapExcessDeg == 0f), W,
+                  "worst excess " + q.MaxOverCapExcessDeg + " with " + q.OverCapTowers + " over");
+            if (q.Clear && q.OverCapTowers == 1 && q.TooSteepTowers == 0 && q.ClearanceTowers == 0 && q.MaxOverCapExcessDeg <= LiftTowerPlan.FlagMaxExcessDeg)
                 Check(q.QueueBuild == LiftQueueBuild.BuildFlagged && !q.Sound, W, "one tower over the limit and no other fault: " + q.QueueBuild);
             float top = R2Length - plan.Nodes[plan.Nodes.Length - 2].AlongM;
             s_Report.Add("LP-34 r1e West P1 model (DQ 1,819 m, top on a lip) | no tower inside 20 m of a stub, spans clear | top tower " +
