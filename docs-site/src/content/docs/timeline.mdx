@@ -1,52 +1,139 @@
 ---
 title: Timeline
-description: Dated list of the major events in making Modular Ski Resort, with the outcome and the reason for each, August to October 2026.
+description: How Modular Ski Resort was built, phase by phase, from the first towers on August 3, 2026 to the release build in November.
 ---
 
 import Shot from '../../components/Shot.astro';
 
-One author (direction, verdicts, Editor imports, all in-game testing) and Claude as lead architect (design, correctness, written record). Project start: **Aug 3, 2026**.
+One author (direction, verdicts, Editor imports, in-game testing) and Claude as lead architect (design, correctness, written record). Project start: **Aug 3, 2026**.
 
-- **Outcomes:** *Built*, *Changed*, *Settled*.
 - **Dates:** work dates. A range means the work spanned those days.
 - **Rule since day one:** engine behavior is claimed only from the decompiled game or a field test.
+- **Each phase** says what it unlocked for the next one.
 
 <Shot src="overview.jpg" label="Where it ended up: a resort's runs and cat tracks on the piste map." />
 
-## August
+## At a Glance
 
-- **Aug 4 · Built** First chairlift line that draws in the game.
-- **Aug 10 · Built** Ski Resort menu tab under Parks & Recreation, with the attraction score, the snow line and the first trail surfaces.
-- **Aug 10 · Built** First building: an A-frame base lodge.
-- **Aug 11 · Changed** The lodge became an upgrade of one resort entity, the Welcome Sign. One entity gives the resort its identity, and its size follows from what is built. Size tiers S, M and L were rejected.
-- **Aug 11 · Built** Runs first show snow. The game's snow simulation carries the white, and decals carry the corduroy.
-- **Aug 19 · Built** First full loop in the game: Welcome Sign, lodge, stations, lift, runs, power and economy all work together.
+| Phase | Dates | What it unlocked |
+|---|---|---|
+| [1. A lift that draws](#1-a-lift-that-draws) | Aug 3-7 | A chairlift line you can draw on any slope, with power. |
+| [2. Runs, snow and a lodge](#2-runs-snow-and-a-lodge) | Aug 10-19 | The first full loop: sign, lodge, lift, runs, power and money. |
+| [3. Moving chairs and the hub](#3-moving-chairs-and-the-hub) | Sep 22-Oct 5 | Chairs that ride the rope, runs that rate themselves, one panel, and guests who come to ski. |
+| [4. The big asset round](#4-the-big-asset-round) | Oct 10-20 | Four lift types and eight buildings with one look. |
+| [5. Tools and release preparation](#5-tools-and-release-preparation) | Oct 20-31 | One lift tool, cat tracks, the Resort Planner, the Ski Bus, and a release plan. |
+| [6. Polish on the mountain](#6-polish-on-the-mountain) | Nov 1-10 | Steep lines, swinging chairs, a groomer, merged buildings, and the release build. |
 
-## October 1-9
+## 1. A Lift That Draws
 
-- **Sep 30-Oct 1 · Changed** Run rating rewritten after play found green runs too hard to draw. The rating now follows the hardest unavoidable pitch, with bands at 6, 25, 40 and 60 %.
-- **Oct 1 · Built** Ski Resort hub, the first in-game panel. The sign was hard to find, so the tools were combined into one panel.
-- **Oct 4 · Built** Natural run, ski-area attraction score, ticket fees and a redesigned hub.
-- **Oct 5 · Built** Ski days. In testing, a town lodge drew 162 guests a month and the real hill drew 2. Residents now choose the nearest venue of the leisure type they want, so the lodge claims a share of leisure trips.
+**Aug 3-7.** A resort needs a lift first. Five days took the project from a blank Editor to a chairlift line that draws, connects and takes power.
 
-## October 10-19
+- **Aug 3:** project start. One day of concept and spec. The lift became a drawn network, with a code mod for what assets cannot do.
+- **Aug 3-4:** the first stations, towers and chairs were imported into the game.
 
-- **Oct 11 · Built** Five lodges, Ski School, patrol hut and patrol HQ, and the Welcome Sign.
-- **Oct 11 · Built** Tram stations designed from a lift-engineering reference, with every platform reachable.
-- **Oct 11-12 · Built** Grand Lodge: a U-plan around a pool court, with a plaza, a valet drive and vanilla trees and benches.
-- **Oct 14 · Changed** Tickets are booked as public-transport fares, so ticket cash shows in the Economy panel.
-- **Oct 14 · Built** Season passes, priced at about 65 % of lift revenue, bought once and not refundable.
-- **Oct 15 · Built** Economy numbers approved: ticket 40 to 60, lodge spend 15, a lesson fee and pre-season pass sales. Lodges and Ski School carry upkeep and staff.
-- **Oct 16 · Changed** Snow rules set: guns make snow up to 3.3 °C, and a run opens at 15 cm of snow.
-- **Oct 16 · Built** One shared tile sheet for all eight buildings, with walls close to vanilla texel density inside hard triangle caps.
-- **Oct 18 · Changed** Tram stations switched to plain glass, because lit fake interiors looked wrong at night. The stations got their own tile sheet.
-- **Oct 18 · Built** Hub history: guests and finances per month.
-- **Oct 19 · Changed** Hub redesign: a single net figure, a simpler Finances chart and a clearer History chart.
-- **Oct 19 · Changed** Windows became plain glass with lit backing plates. Vanilla's fake room interiors read wrong in a ski building.
-- **Oct 19 · Built** Tower planner: each tower's height follows the terrain along the line.
-- **Oct 19 · Changed** Ski School becomes a top-level building.
-- **Oct 19 · Built** All eight buildings and both tram stations in the game on their tile sheets.
-- **Oct 19 · Settled** Vanilla sub-objects used wherever one exists, since they carry more detail for less effort.
-- **Oct 20 · Changed** A near-full-year playthrough set the numbers for release: every run opens at 91 cm, snow guns run October to March, ticket 80, lessons 30 %, season pass 2 tickets.
-- **Oct 20 · Changed** The five lodges and both patrol buildings became standalone buildings, like the Ski School, instead of Welcome Sign upgrades.
-- **Oct 20 · Built** One lift tool for all four lift types, numbered towers and a cat track grading tool.
+<Shot src="early-first-towers.jpg" label="August 3, 2026: the game's Editor with the Asset Importer open. The first fixed-grip lift towers lie flat on the grass." />
+
+*where it all began...*
+
+- **Aug 4:** the first chairlift line that draws in the game.
+
+<Shot src="early-first-chairlift.jpg" label="August 4, 2026: the first chairlift line climbs a hillside in the Editor, with gray towers and dark chairs. A plain gray block stands in for the top station." />
+
+*the very first chairlift, with a gray doorway for a top station and big dreams*
+
+- **Aug 4-5:** the cables connect to the stations.
+- **Aug 6:** lines connect on any slope.
+- **Aug 6-7:** tower heights follow the terrain, and the cable sags between the towers.
+- **Aug 7:** power flows through the lift. The lift network reached beta after five days.
+
+## 2. Runs, Snow and a Lodge
+
+**Aug 10-19.** With a lift in place, the mountain needed something to ski on and somewhere to warm up. This phase ended with the first full loop in the game.
+
+- **Aug 10:** the Ski Resort menu tab under Parks & Recreation, with the attraction score, the snow line and the first trail surfaces.
+- **Aug 10:** the first building, an A-frame base lodge.
+- **Aug 11:** the lodge became an upgrade of one resort entity, the Welcome Sign. One entity gives the resort its identity, and its size follows from what is built. Size tiers S, M and L were rejected.
+- **Aug 11:** runs first show snow. The game's snow simulation carries the white, and decals carry the corduroy.
+
+<Shot src="early-summer-corduroy.jpg" label="August 11, 2026: a run under the first chairlift, white with corduroy stripes. The game's status bar reads summer, 21 °C. The developer menu is open on the left." />
+
+*21 °C in June, and nobody told the run it was summer*
+
+- **Aug 12-17:** run props and night lighting passed their field test. The snow code got faster: from 18-37 ms down to 2-5 ms.
+
+<Shot src="early-white-run.jpg" label="August 13, 2026: a long white run winds down a bare valley in fall, at 2 °C. Only the run and the trees beside it are white." />
+
+*bare mountain, suspiciously white run: the day we knew snowmaking would work*
+
+- **Aug 19:** a lift takes its power through one door, the base station.
+- **Aug 19:** the first full loop in the game. Welcome Sign, lodge, stations, lift, runs, power and economy all work together.
+
+## 3. Moving Chairs and the Hub
+
+**Sep 22-Oct 5.** The resort worked, but the chairs stood still and the tools were hard to find. This phase made the lift move and gave the resort one panel.
+
+- **Sep 22:** the game updated to 1.6.2. An audit found that nothing the mod relies on had changed.
+- **Sep 22:** the first field test of moving chairs failed. The chairs did not move at all. The cause was found the same day: the lift's ends were not recognized as stations. After the fix, 134 chairs rode a 1,383 m loop.
+- **Sep 22:** the chairs turn around the bullwheel at each station.
+- **Sep 30:** a tree tool for runs, and slope shading while you draw a run.
+- **Sep 30-Oct 1:** the run rating was rewritten after play found green runs too hard to draw. The rating now follows the hardest unavoidable pitch, with bands at 6, 25, 40 and 60 %.
+- **Oct 1:** the Ski Resort hub, the first in-game panel. The sign was hard to find, so the tools were combined into one panel.
+- **Oct 3:** the hub lists ski areas, lifts and runs. A lift section can be bulldozed by itself.
+- **Oct 4:** the natural run, the ski-area attraction score, ticket fees and a redesigned hub.
+- **Oct 5:** ski days. In testing, a town lodge drew 162 guests a month and the real hill drew 2. Residents now choose the nearest venue of the leisure type they want, so the lodge claims a share of leisure trips.
+
+## 4. The Big Asset Round
+
+**Oct 10-20.** Until now the resort had one chairlift and one lodge. This phase built the rest of the hardware and the buildings, and gave them one look.
+
+- **Oct 11:** five lodges, the Ski School, the patrol hut and patrol HQ, and the Welcome Sign.
+- **Oct 11:** tram stations designed from a lift-engineering reference, with every platform reachable.
+- **Oct 11-12:** the Grand Lodge, a U-plan around a pool court, with a plaza, a valet drive and vanilla trees and benches.
+- **Oct 13:** one long import session brought in the towers, stations, chairs and cabins for the detachable chairlift, the gondola and the aerial tram.
+- **Oct 14:** tickets are booked as public-transport fares, so ticket cash shows in the Economy panel.
+- **Oct 14:** season passes, priced at about 65 % of lift revenue, bought once and not refundable.
+- **Oct 15:** economy numbers approved: ticket 40 to 60, lodge spend 15, a lesson fee and pre-season pass sales. Lodges and the Ski School carry upkeep and staff.
+- **Oct 16:** snow rules set: guns make snow up to 3.3 °C, and a run opens at 15 cm of snow.
+- **Oct 16:** one shared tile sheet for all eight buildings, with walls close to vanilla texel density inside hard triangle caps.
+- **Oct 18:** tram stations switched to plain glass, because lit fake interiors looked wrong at night. The stations got their own tile sheet.
+- **Oct 18:** hub history: guests and finances per month.
+- **Oct 19:** hub redesign: a single net figure, a simpler Finances chart and a clearer History chart.
+- **Oct 19:** windows became plain glass with lit backing plates. Vanilla's fake room interiors read wrong in a ski building.
+- **Oct 19:** the tower planner. Each tower's height follows the terrain along the line.
+- **Oct 19:** the Ski School became a top-level building.
+- **Oct 19:** all eight buildings and both tram stations in the game on their tile sheets.
+- **Oct 19:** vanilla sub-objects are used wherever one exists, since they carry more detail for less effort.
+
+## 5. Tools and Release Preparation
+
+**Oct 20-31.** A near-full-year playthrough showed what a player needs next: fewer tools that do more. The release plan was written in the same weeks.
+
+- **Oct 20:** the playthrough set the numbers for release: every run opens at 91 cm, snow guns run October to March, ticket 80, lessons 30 %, season pass 2 tickets.
+- **Oct 20:** the five lodges and both patrol buildings became standalone buildings, like the Ski School, instead of Welcome Sign upgrades.
+- **Oct 20:** one lift tool for all four lift types, numbered towers and a cat track grading tool.
+- **Oct 22:** the release plan. The mod goes straight to 1.0 on Paradox Mods, with no public beta. All buildings and props were signed off, and the licenses were set: code MIT, art CC BY-NC-SA 4.0.
+- **Oct 25:** a cat track became one action: lay out the track, and one key grades the ground and builds it. Cat tracks cross runs without changing them.
+- **Oct 25:** Quick Runs, an experimental planner that proposes runs for a slope. Two days later it was renamed the Resort Planner.
+- **Oct 26:** the lift tool shows each tower's height and a ghost preview while you plan a line.
+- **Oct 30:** the Resort Planner was merged for 1.0 as an experimental feature, off by default.
+- **Oct 31:** a test bridge lets Claude drive test passes in the running game. The first pass found a crash after a hub row delete. It was fixed the same day.
+- **Oct 31:** the Ski Bus Depot, a coach stop in town. Its coach drives between the depot and the hill.
+
+## 6. Polish on the Mountain
+
+**Nov 1-10.** The features were in. This phase made them hold on steep ground and in big cities, and made the hub easier to read.
+
+- **Nov 1:** a performance pass on a city of 355,000. With the mod removed, the frame rate changed by under 1 %.
+- **Nov 1-2:** a snow groomer drives the cat tracks, with its lights on at night. An A-Frame, Chalet or Grand lodge with no road can be supplied over a cat track.
+- **Nov 2:** a run's type became a set of features: groomed or natural, with snow guns and lights as options.
+- **Nov 3:** on all four lift types, each chair and cabin hangs from a grip that follows the rope, and swings in the wind.
+- **Nov 4:** steep lines. Each lift type has a rope pitch limit per tower, and towers lean on steep ground.
+- **Nov 5:** the hand test of the steep-line build. The verdict: "very, very good", with 27 notes to fix.
+- **Nov 5:** lifts of different types can cross, and towers keep off roads.
+- **Nov 6:** an existing city building can be merged into a ski area as a lodge. The ski area radius became an option, with a ring on the ground.
+- **Nov 7:** the hub was redesigned again: simple on the surface, with each number one layer down.
+- **Nov 9:** chairlift and gondola stations cut a level pad into the slope.
+- **Nov 9-10:** the Resort Planner plans the runs first, then proposes the lifts that serve them, and builds those lifts.
+- **Nov 10:** the game updated to 1.6.4f1 "Seasonal Shift". The mod was checked against it the same day. The release screenshots were retaken on the final build.
+
+**Next:** the final playtest, then 1.0 on Paradox Mods. For what comes after that, see the [Rough Roadmap](/#rough-roadmap).
