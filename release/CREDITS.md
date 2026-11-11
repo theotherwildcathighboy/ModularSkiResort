@@ -53,3 +53,10 @@ the generators in `assets/blender/`.
   https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db —
   reference for the gondola cabin, hanger, carriage and station layout.
 - Tiling materials: CC0 sets from ambientCG (https://ambientcg.com), no attribution required.
+
+## Trailer music (CC BY 4.0)
+
+- **"Hummingbird" by Shane Ivers** (Silverman Sound Studios) — https://www.silvermansound.com/free-music/hummingbird —
+  Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/). Used in the release trailer, cut to
+  length and faded. The music is not part of the mod. Credit line for a video description:
+  "Music: Hummingbird by Shane Ivers - https://www.silvermansound.com".
