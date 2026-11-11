@@ -3,7 +3,7 @@ title: Troubleshooting
 description: Hub problem lines with causes and fixes, the mod log tags for cases the hub does not cover, and where to report bugs.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside } from '@astrojs/starlight/components'
 
 Start with the hub's problem line. If the hub shows nothing, or a hub line points to the log, read the mod log.
 
@@ -69,11 +69,11 @@ Tickets missing from the Economy panel: check the log first, then [Economy](/gui
 
 ## Common Cases
 
-- **Run never opens.** Open requires **91 cm** of snow on **60 %** of the run ([Snow Conditions](/guides/runs-and-snow/#snow-conditions)). Fixes: turn on the run's **Snow guns**, raise *Snowmaking margin*, or on a map without winter turn off **Snow & season gating** (both in Options > Modular Ski Resort > Snow).
+- **Run never opens.** Open requires **91 cm** of snow on **60 %** of the run ([Snow Conditions](/guides/runs-and-snow/#snow-conditions)). Fixes: turn on the run's **Snow guns** or raise *Snowmaking margin*. On a map without winter, turn off **Snow & season gating**. Both options are in Options > Modular Ski Resort > Snow.
 - **Chairs stopped.** Hub: *Lift X: chairs stopped*. The lift still counts. Log: `Lifts [state]`, `Lift [power]`.
 - **Hub button missing.** Options > Modular Ski Resort > Ski Resort hub. The hub is always in the Universal Mod Panel.
 - **DLL and UI version mismatch notice.** Reinstall the mod. Building works. Resort statistics stay hidden until both halves match.
-- **Resort Planner scan stops with an error.** The planner stays usable: change the outline and scan again. An error elsewhere in the tool turns it off until the next game load (hub: *The Resort Planner hit an error and is off until the next load*): reload the save. Log: `QuickRuns [scan]`.
+- **Resort Planner scan stops with an error.** The planner stays usable: change the outline and scan again. An error elsewhere in the tool turns it off until the next game load (hub: *The Resort Planner hit an error and is off until the next load*). Reload the save. Log: `QuickRuns [scan]`.
 - **Runs gone after a Welcome Sign was bulldozed.** Bulldozing a sign deletes every run linked to it, with the runs' glade trees, after a warning. Run fees are not refunded. **Relocate** in the sign's info panel moves it and keeps its runs.
 
 ## Bug Reports
