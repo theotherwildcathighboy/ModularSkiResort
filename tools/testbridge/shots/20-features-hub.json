@@ -1,0 +1,861 @@
+{
+  "shot": "20",
+  "title": "Features video: hub views, a run row's switches, a merge",
+  "save": "bridgetrailer5a",
+  "notes": "Block F1. Silver Ridge staged with real play; dev money only to pay builds (1,500,000 added after loading the save, before the run row and merge takes). All takes: normal game camera (fixed), UI visible, {op:'fps',target:60}, rec.mjs cursor on, no capture mode, no dedupe: the .mp4 remux is the clip. Sim speed 3 during the takes. Third-party toolbar hidden in the page as in shot 19 (rects [100,0,1215,125], [1220,0,3100,125], [3700,1450,3840,1900], 150 ms timer); this also hides the hub launcher (1164,60), so show the page again before reopening the hub. Hub layout at 3840x2160: tiles at y 305 (Attraction 2986, Runs open 3125, Lifts 3263, Guests 3402, Finances 3529, History 3679); bottom tabs at y 1714 with the strip closed, 1509 with it open (Lifts 3057, Runs 3341, Buildings 3625); chips at y 1565 (Lodges 3020, Services 3230, Mergeable buildings 3557). Attraction folds are an accordion: Runs, lifts and school (3306,523), Mountain (3278,1114 with fold 1 open), Merged buildings (3329,996 with Mountain open). Finances Income fold (3263,456). Run row switches: Snow guns y 489, Lights y 542; Fewer x 3130, More x 3301. Clicking the Off position of a switch that is on hits the distance label and does nothing: turn a switch off with 7 Fewer clicks (50, 60, 80, 100, 130, 160, 200, Off). A run selection persists in the hub across close, Esc and world clicks. The merge card preselects Mountain restaurant; Day lodge row (1125,344), Merge (1431,622).",
+  "staging": {
+    "skiSchool": {
+      "prefab": "SkiSchool",
+      "pos": [
+        2769,
+        804.5,
+        -1648.4
+      ],
+      "yaw": -39.9,
+      "cost": 80000,
+      "fit": "passes (four-side low sheet fit6-school)"
+    },
+    "greenRun": {
+      "name": "Lower Snowdrop",
+      "prefab": "SkiRunGroomedA",
+      "points": [
+        [
+          2738,
+          -1722
+        ],
+        [
+          2780,
+          -1724
+        ],
+        [
+          2770,
+          -1680
+        ],
+        [
+          2740,
+          -1683
+        ]
+      ],
+      "rating": "Green circle",
+      "pitchPct": 24,
+      "lengthM": 56,
+      "dropM": 12,
+      "cost": 2150
+    },
+    "homes": {
+      "note": "Placed with the object tool on the north and east edge of town, about 150 to 200 m from the Grand Lodge, for staff. 371 households. Fits unsure (res-1 to res-3) or failed (res-4): keep them out of frame. The CCP5 buildings come from a creator pack, not the base game.",
+      "list": [
+        {
+          "prefab": "EU_ResidentialMediumSignature01",
+          "pos": [
+            2936,
+            788.7,
+            -1386.4
+          ]
+        },
+        {
+          "prefab": "CCP5_ResidentialMediumSignature01",
+          "pos": [
+            2891.9,
+            785.8,
+            -1371.1
+          ]
+        },
+        {
+          "prefab": "CCP5_ResidentialMediumSignature02",
+          "pos": [
+            2948.8,
+            795.2,
+            -1433
+          ]
+        },
+        {
+          "prefab": "CCP5_ResidentialMediumSignature03",
+          "pos": [
+            2956.9,
+            800.2,
+            -1486.5
+          ]
+        }
+      ]
+    },
+    "mergePark": {
+      "prefab": "CityPark01",
+      "name": "Small Park",
+      "pos": [
+        2637,
+        785,
+        -1576
+      ],
+      "cost": 10000,
+      "note": "Placed after loading bridgetrailer5a, not in the save. Fit passes (fit6-park)."
+    }
+  },
+  "sim": {
+    "climate": {
+      "temperature": -8,
+      "cloudiness": 0,
+      "precipitation": 0
+    },
+    "autosave": false,
+    "speedDuringTakes": 3
+  },
+  "takes": {
+    "hub2-views": {
+      "camera": {
+        "pivot": [
+          3215,
+          -2440
+        ],
+        "zoom": 300,
+        "yaw": 100,
+        "tilt": 28
+      },
+      "setup": "Hub open on Attraction, all folds closed, piste map on, cursor at (2760,1250).",
+      "steps": [
+        {
+          "op": "wait",
+          "frames": 180
+        },
+        {
+          "op": "glide",
+          "x": 3306,
+          "y": 523,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 74
+        },
+        {
+          "op": "glide",
+          "x": 3278,
+          "y": 1114,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 74
+        },
+        {
+          "op": "glide",
+          "x": 3329,
+          "y": 996,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 284
+        },
+        {
+          "op": "glide",
+          "x": 3125,
+          "y": 305,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 344
+        },
+        {
+          "op": "glide",
+          "x": 3263,
+          "y": 305,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 344
+        },
+        {
+          "op": "glide",
+          "x": 3402,
+          "y": 305,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 344
+        },
+        {
+          "op": "glide",
+          "x": 3529,
+          "y": 305,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 80
+        },
+        {
+          "op": "glide",
+          "x": 3263,
+          "y": 456,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 194
+        },
+        {
+          "op": "glide",
+          "x": 3679,
+          "y": 305,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 344
+        },
+        {
+          "op": "glide",
+          "x": 3057,
+          "y": 1714,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 344
+        },
+        {
+          "op": "glide",
+          "x": 3341,
+          "y": 1509,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 344
+        },
+        {
+          "op": "glide",
+          "x": 3625,
+          "y": 1509,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 150
+        },
+        {
+          "op": "glide",
+          "x": 3020,
+          "y": 1565,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 170
+        },
+        {
+          "op": "glide",
+          "x": 3230,
+          "y": 1565,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 170
+        },
+        {
+          "op": "glide",
+          "x": 3557,
+          "y": 1565,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 2760,
+          "y": 1250,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 200
+        },
+        {
+          "op": "wait",
+          "frames": 120
+        }
+      ]
+    },
+    "hub2-runrow": {
+      "camera": "Shot 19 runrow camera (R4); the row click moves the camera top-down over the run.",
+      "setup": "Hub open on Runs open with another run (Upper Breezeway) selected; the Chimney row at (3222,812); cursor rest (3600,515) keeps tooltips off the panel.",
+      "steps": [
+        {
+          "op": "wait",
+          "frames": 180
+        },
+        {
+          "op": "glide",
+          "x": 3222,
+          "y": 812,
+          "seconds": 0.6
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 3600,
+          "y": 515,
+          "seconds": 0.6
+        },
+        {
+          "op": "wait",
+          "frames": 150
+        },
+        {
+          "op": "glide",
+          "x": 3301,
+          "y": 489,
+          "seconds": 0.4
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 3600,
+          "y": 515,
+          "seconds": 0.3
+        },
+        {
+          "op": "wait",
+          "frames": 60
+        },
+        {
+          "op": "glide",
+          "x": 3301,
+          "y": 542,
+          "seconds": 0.4
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 3600,
+          "y": 515,
+          "seconds": 0.3
+        },
+        {
+          "op": "wait",
+          "frames": 180
+        },
+        {
+          "op": "glide",
+          "x": 3130,
+          "y": 542,
+          "seconds": 0.4
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "glide",
+          "x": 3600,
+          "y": 515,
+          "seconds": 0.3
+        },
+        {
+          "op": "wait",
+          "frames": 60
+        },
+        {
+          "op": "glide",
+          "x": 3130,
+          "y": 489,
+          "seconds": 0.4
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 22
+        },
+        {
+          "op": "glide",
+          "x": 3600,
+          "y": 515,
+          "seconds": 0.3
+        },
+        {
+          "op": "wait",
+          "frames": 200
+        }
+      ]
+    },
+    "merge2": {
+      "camera": "__aim(2637,786,-1576,130,38,140,2200,1250): zoom 130, tilt 38, yaw 140 (at yaw -160 the hotel tower hides the park).",
+      "setup": "Hub open on Attraction with the Merged buildings fold open; park click point (2191,1277); cursor rest (1750,1500).",
+      "steps": [
+        {
+          "op": "wait",
+          "frames": 180
+        },
+        {
+          "op": "glide",
+          "x": 3625,
+          "y": 1714,
+          "seconds": 0.6
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 1750,
+          "y": 1500,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 90
+        },
+        {
+          "op": "glide",
+          "x": 3557,
+          "y": 1565,
+          "seconds": 0.6
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 1750,
+          "y": 1500,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 180
+        },
+        {
+          "op": "glide",
+          "x": 2191,
+          "y": 1277,
+          "seconds": 0.8
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 1750,
+          "y": 1500,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 150
+        },
+        {
+          "op": "glide",
+          "x": 1125,
+          "y": 344,
+          "seconds": 0.6
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 1750,
+          "y": 1500,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 200
+        },
+        {
+          "op": "glide",
+          "x": 1431,
+          "y": 622,
+          "seconds": 0.6
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 1750,
+          "y": 1500,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 180
+        },
+        {
+          "op": "glide",
+          "x": 2986,
+          "y": 305,
+          "seconds": 0.8
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        },
+        {
+          "op": "glide",
+          "x": 1750,
+          "y": 1500,
+          "seconds": 0.5
+        },
+        {
+          "op": "wait",
+          "frames": 240
+        },
+        {
+          "op": "wait",
+          "frames": 120
+        }
+      ]
+    }
+  }
+}

@@ -329,5 +329,127 @@
         }
       ]
     }
+  },
+  "f2": {
+    "take": "lt2-t1 (file lt2-t1.mp4)",
+    "notes": "Block F2, features video. Fresh load of bridgetrailer1j, autosave off, climate -8 C / cloudiness 0 / precipitation 0, same two gondola stations as block R2e (placed with __placeYaw at the same targets; they land at base 2961.2, 1096.7, -2550.0 and top 3435.6, 1236.3, -2671.0, the top 20 m south of the R2e spot) and the same underground ground cable. Camera t8. Third-party toolbar buttons hidden in the page (rects 0..1215 and 1220..3100 in the top 125 px, 3700..3840 x 1450..1900). Normal mode (fps 60), cursor capture on, sim speed 1, nothing saved. Preview for this line: Towers: 3, length 458 m, ready to build. A click on the line in a long span adds a pinned tower and the planner refits: the count stayed 3 here (the pinned tower replaces the planned one); in a rehearsal a second add in a shorter span gave 4. A drag moves a tower along the line (38.7 m here, no keep-clear note). Build: hub 6 / 6 lifts, Lift 4 Gondola Running, capacity 14,903 skiers/h.",
+    "sim": 1,
+    "seq": [
+      {
+        "op": "sim",
+        "speed": 1
+      },
+      {
+        "op": "wait",
+        "frames": 120
+      },
+      {
+        "op": "glide",
+        "wx": 2961.2,
+        "wy": 1096.7,
+        "wz": -2550,
+        "seconds": 1
+      },
+      {
+        "op": "wait",
+        "frames": 15
+      },
+      {
+        "op": "click",
+        "after": 20
+      },
+      {
+        "op": "glide",
+        "wx": 3435.6,
+        "wy": 1236.3,
+        "wz": -2671,
+        "seconds": 1.4
+      },
+      {
+        "op": "wait",
+        "frames": 20
+      },
+      {
+        "op": "click",
+        "after": 120
+      },
+      {
+        "note": "add a tower in the long span: a screen point; the ground hit is (3251.7, -2618.4)",
+        "op": "glide",
+        "x": 1610,
+        "y": 956,
+        "seconds": 1
+      },
+      {
+        "op": "wait",
+        "frames": 15
+      },
+      {
+        "op": "click",
+        "after": 120
+      },
+      {
+        "note": "drag the upper tower: wy is the ground height under it (1202.4); the target is the ground height at (3295, -2635.2), 1185.2",
+        "op": "glide",
+        "wx": 3334.9,
+        "wy": 1202.4,
+        "wz": -2646.2,
+        "seconds": 1
+      },
+      {
+        "op": "wait",
+        "frames": 20
+      },
+      {
+        "op": "down",
+        "after": 10
+      },
+      {
+        "op": "glide",
+        "wx": 3295,
+        "wy": 1185.2,
+        "wz": -2635.2,
+        "seconds": 1.6
+      },
+      {
+        "op": "wait",
+        "frames": 10
+      },
+      {
+        "op": "up",
+        "after": 120
+      },
+      {
+        "op": "key",
+        "keys": "enter",
+        "after": 20
+      },
+      {
+        "op": "glide",
+        "x": 1100,
+        "y": 760,
+        "seconds": 1
+      },
+      {
+        "op": "wait",
+        "frames": 180
+      },
+      {
+        "op": "click",
+        "button": "right",
+        "after": 10
+      },
+      {
+        "op": "wait",
+        "frames": 180
+      }
+    ],
+    "marks": "clip seconds, +-0.5: still to about 5; base click about 7.0; top click about 8.2, preview from 8.5; add-tower click about 11.2; drag down about 15.7, released about 17.7; Enter about 19.6; cursor away 19.9 to 20.9; right click about 23.8; still to 31.9",
+    "tips": {
+      "preview": "Click the line to add a tower. Drag a tower to move it. Enter builds. Right click or Esc goes back a step. | Towers: 3, length 458 m. The line is ready to build. | cost chip 10,325",
+      "hoverTower": "Tower 2 of 3: 20 m tall, placed by you. Chairs and cabins pass 14 m above the ground at the tower.",
+      "afterBuild": "Gondola line: click a station, loose end or open ground to start. Click a rope to remove its section. Right click closes the tool."
+    },
+    "retakeNote": "The first take (cursor left on the rope after Enter, a section lit for about 4 s) was replaced by this one: the cursor leaves right after Enter."
   }
 }

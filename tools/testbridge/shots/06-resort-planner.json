@@ -496,5 +496,33 @@
         "seconds": 1
       }
     ]
+  },
+  "f2": {
+    "take": "06-t7 (file 06-t7.mp4)",
+    "notes": "Block F2. Same slope, outline, sign, camera, features and species as take 6 (fresh load, Welcome Sign at (-4972.2, 595.0, -3050.2), Leave black runs natural off, Snowmaking near the base on, Light the two lowest on, filler on, species stepped 17 times to Spruce, preview left, the queue cleared with Clear list, the planner chip closed, Runs tab open). The whole take is one page-side async function: each label is located by two equal reads 250 ms apart, then re-read after the glide and re-aimed when the button moved (Build lifts moved from y 1067 to 1027 while the cursor glided). Changes against take 6: 4 s hold after Plant, 4 s hold at the end. Density 4 to 7 with three + clicks. The outer edge of the planted forest is ragged. Result: 32 / 32 runs, 3 of 4 lifts (two fixed-grip Running, Lift 2 detachable No power, Lift 1 detachable Unfinished); one Enter in the Lift Line Tool; the Station Place Tool opened and closed on its own four times.",
+    "sim": 1,
+    "clipSecondRule": "clip second = page second + 2.73",
+    "events": {
+      "plannerClick": 9.16,
+      "corners": [
+        10.95,
+        12.23,
+        13.5,
+        14.68
+      ],
+      "closingClick": 15.98,
+      "planShown": 17.47,
+      "buildClick": 22.53,
+      "fillerClick": 26.45,
+      "plusClicks": [
+        28.78,
+        30.31,
+        31.89
+      ],
+      "plantClick": 34.07,
+      "zeroToPlant": 39.09,
+      "buildLiftsClick": 45.1,
+      "liftTools": "Station Place / Default flicker 46.6 to 50.2; Lift Line Tool from 50.17; Enter 52.7; Default Tool 52.95; idle to 77.97; held to 81.97; clip ends 88.9"
+    }
   }
 }
