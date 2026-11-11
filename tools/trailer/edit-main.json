@@ -21,7 +21,7 @@
   },
   "clips": [
     {"id":"01","src":"01-t1-x60.mp4","in":6.5,"dur":4.4444,"fadeIn":0.6},
-    {"id":"02","src":"02-t3-x60.mp4","in":3.6,"dur":4.4444,"captions":[{"lines":["MODULAR SKI RESORT","for Cities: Skylines II"],"pos":"center","y":0.42,"at":0.9,"dur":3.4,"size":260,"lineSizes":[260,96],"color":"0x1d2b44","shadow":"white@0.5"}]},
+    {"id":"02","src":"02-t3-x60.mp4","in":3.6,"dur":4.4444,"captions":[{"lines":["MODULAR SKI RESORT","for Cities: Skylines II"],"pos":"center","y":0.33,"at":0.9,"dur":3.4,"size":260,"lineSizes":[260,96],"color":"0x1d2b44","shadow":"white@0.5"}]},
     {"id":"03a","src":"03a-t3-x60.mp4","in":9.3,"dur":2.2222,"captions":[{"lines":["Chairlifts, gondolas and an aerial tram"],"at":0.3,"dur":3}]},
     {"id":"03b","src":"03b-t2-x60.mp4","in":4,"dur":3.3333,"captions":[{"lines":["Chairlifts, gondolas and an aerial tram"],"at":-0.4,"dur":2.8}]},
     {"id":"04","src":"04-t2.mp4","captions":[{"lines":["Lift tool: towers planned over your terrain"],"at":0.4,"dur":3.6}],"parts":[{"in":2.2,"dur":2,"speed":1.7},{"in":5.6,"dur":1.4444,"speed":0.7},{"in":6.61,"dur":1,"speed":1.4}],"zoom":{"from":1,"to":1.04}},
@@ -32,7 +32,7 @@
     {"id":"07","src":"07-t4-x60.mp4","in":2.6,"dur":2.2222,"captions":[{"lines":["Piste map"],"at":0.15,"dur":1.95,"fade":0.25}]},
     {"id":"09","src":"09-t1-x60.mp4","in":5.5,"dur":3.3333,"captions":[{"lines":["Lodges, Ski School, Ski Patrol"],"at":0.3,"dur":2.8}],"speed":0.78},
     {"id":"09b","src":"09b-t3-x60.mp4","in":34.2,"dur":2.2222,"captions":[{"lines":["Ski Bus Depot"],"at":0.12,"dur":2.05,"fade":0.25}]},
-    {"id":"08","src":"08-t4-x60.mp4","in":3,"dur":4.4444,"captions":[{"lines":["One hub for the whole ski area"],"at":0.3,"dur":3.6,"fade":0.35}],"zoom":{"from":1.3,"to":1.4,"cx":0.8,"cy":0.3}},
+    {"id":"08","src":"08-t4-x60.mp4","in":3,"dur":4.4444,"captions":[{"lines":["One hub for the whole ski area"],"at":0.3,"dur":3.6,"fade":0.35}],"zoom":{"from":1.4,"to":1.41,"cx":0.8,"cy":0.473}},
     {"id":"10a","src":"10-t1.mp4","in":1.5,"dur":1.4,"speed":2.5,"xfade":0.6},
     {"id":"10b","src":"10-t1.mp4","in":9,"dur":4.7556,"speed":10,"captions":[{"lines":["Runs open on the game's own snow"],"at":0.5,"dur":3.5}]},
     {"id":"11","src":"11-t2-x60.mp4","in":2,"dur":4.4444,"captions":[{"lines":["Snow guns extend the season"],"at":0.6,"dur":2.8}]},
