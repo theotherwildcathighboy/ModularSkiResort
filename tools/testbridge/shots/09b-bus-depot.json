@@ -1,0 +1,20 @@
+{
+  "shot": "09b",
+  "title": "The Ski Bus at its depot",
+  "save": "bridgetrailer1f",
+  "notes": "Ski Bus Depot (2666.6, 797.9, -1713.0). Camera on the snow bank beside the sidewalk, 1.6 m up, looking southwest along the street at the shelter and the SKI BUS pylon, a 2 m truck. The coach (SkiCoachBus) drives in from the A-Frame (route through (2709, -1660), (2675, -1688)), stops at about (2663, -1708), turns at (2659, -1701) and drives out through (2675, -1693), 4 m from the camera's right side. One cycle takes about 40 s real at sim speed 1. Start when the inbound coach passes x 2725 to 2700; a 12 s path covers the arrival; the departure came 1 s after the path ended. Pedestrians use the sidewalk: keep the camera off it. Capture mode (fps 30, capture 60).",
+  "sim": 1,
+  "trigger": { "entity": "SkiCoachBus", "when": "inbound (x falling), x between 2700 and 2725" },
+  "pm": {
+    "cam": { "x": 2683.4, "y": 801.1, "z": -1694.4, "at": [2663, 800.5, -1709] },
+    "set": { "PhotoModeRenderSystem.focalLength": 40, "Time of Day": 16 }
+  },
+  "path": {
+    "seconds": 12,
+    "ease": "inOut2",
+    "keys": [
+      { "pos": [2683.4, 801.1, -1694.4], "at": [2663, 800.5, -1709] },
+      { "pos": [2685.2, 801.3, -1693.4], "at": [2664, 800.5, -1708.5] }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "shot": "15",
+  "title": "Golden hour",
+  "save": "bridgetrailer1f",
+  "notes": "A rising crane with a slow push from low above the snow west of the Swanky Summit Lodge (it faces west: deck and glass dining room toward the camera) to about 15 to 18 m above the slope, looking east at the lodge, the Bowl Gondola base, the Summit Express base and the lit peak. A snow mound hides the lift bases in the first second (the reveal). Ground: 1078.1 at x 3030, 1083.5 at x 3045. State: the clock moved one game day plus to 20:41 sim time (lamps on), temperature -8, cloudiness 0. Note: one game day moves the normalized date by about 0.09 here (it read 0.655, not a July 0.52); a climate date override did not change the light. Time of Day 19.6 was the warmest light that still lights the buildings (19.2 and 19.45 leave the lodge in shade); take 2 used 19.45. Path 9 s plus a 1.5 s hold for the end card. Capture mode (fps 30, capture 60).",
+  "sim": 1,
+  "post": 90,
+  "pm": {
+    "cam": { "x": 3030, "y": 1085, "z": -2408, "at": [3170, 1128, -2436] },
+    "set": { "PhotoModeRenderSystem.focalLength": 35, "Time of Day": 19.6 }
+  },
+  "path": {
+    "seconds": 9,
+    "ease": "inOut2",
+    "keys": [
+      { "pos": [3030, 1085, -2408], "at": [3170, 1128, -2436] },
+      { "pos": [3038, 1094, -2409], "at": [3170, 1134, -2436] },
+      { "pos": [3045, 1102, -2410], "at": [3170, 1140, -2436] }
+    ]
+  }
+}

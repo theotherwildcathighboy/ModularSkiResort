@@ -1,0 +1,20 @@
+{
+  "shot": "03a",
+  "title": "A gondola glimpse",
+  "save": "bridgetrailer1f",
+  "notes": "Bowl Gondola tower 1 (3222.2, 1127.7, -2378.1), seen from the southeast at cabin height, 33 m out: a 15 degree orbit around the tower head while an ascending cabin passes it, sun on the cabin side, peaks behind. The base station and its cut patch stay out of frame. Start when an ascending SkiGondolaCabin8 (x rising) passes x 3203 to 3208; cabins run about 5 m/s, one every 12.6 s per rope. Take 2 runs the orbit the other way at Time of Day 11.5. Capture mode (fps 30, capture 60).",
+  "sim": 1,
+  "trigger": { "entity": "an ascending SkiGondolaCabin8", "when": "x between 3203 and 3208" },
+  "pm": {
+    "cam": { "x": 3242.0, "y": 1136, "z": -2402.7, "at": [3220, 1133, -2378] },
+    "set": { "PhotoModeRenderSystem.focalLength": 50, "Time of Day": 10.5 }
+  },
+  "path": {
+    "seconds": 5.5,
+    "ease": "inOut2",
+    "keys": [
+      { "pos": [3242.0, 1136, -2402.7], "at": [3220, 1133, -2378] },
+      { "pos": [3247.7, 1136.5, -2396.7], "at": [3220, 1133, -2378] }
+    ]
+  }
+}

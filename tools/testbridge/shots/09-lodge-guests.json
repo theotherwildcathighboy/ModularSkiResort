@@ -1,0 +1,20 @@
+{
+  "shot": "09",
+  "title": "A lodge with guests",
+  "save": "bridgetrailer1f",
+  "notes": "A-Frame Day Lodge (2775.2, 804.9, -1643.3), entry at about (2770.1, -1637.2). A push-in at 1.7 m from 31 m to 22 m from across the street, ending on the entry with the ski racks and a crowd of guests. Street life crosses the frame (parked van, the Ski Bus at its A-Frame stop): the second half of the move is the clean part. Light poles stand between 32 and 40 m, so the move starts at 31 m. Take 2: 55 mm, Time of Day 16.5. Capture mode (fps 30, capture 60), sim speed 1.",
+  "sim": 1,
+  "pm": {
+    "cam": { "x": 2761.5, "y": 806.8, "z": -1607.4, "at": [2770.1, 806.5, -1637.2] },
+    "set": { "PhotoModeRenderSystem.focalLength": 50, "Time of Day": 16 }
+  },
+  "path": {
+    "seconds": 6,
+    "ease": "inOut2",
+    "keys": [
+      { "pos": [2761.5, 806.8, -1607.4], "at": [2770.1, 806.5, -1637.2] },
+      { "pos": [2761.4, 806.6, -1612.1], "at": [2770.1, 806.5, -1637.2] },
+      { "pos": [2761.8, 806.5, -1616.8], "at": [2770.1, 806.5, -1637.2] }
+    ]
+  }
+}

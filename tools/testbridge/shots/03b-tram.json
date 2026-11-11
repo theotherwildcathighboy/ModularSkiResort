@@ -1,0 +1,20 @@
+{
+  "shot": "03b",
+  "title": "The aerial tram",
+  "save": "bridgetrailer1f",
+  "notes": "Silver Tram tower (2921, 982, -2096), the frame of ref/c-tram-1.jpg: a 10 m truck to the right at cabin height, 50 mm. Shot 14 reuses this path in the summer state. The two cabins (SkiTramCabin) run on two track ropes about 20 m apart and cross near the tower; they depart about every 45 game minutes (seen at 17:24, 18:09, 18:53, 09:50 and 10:35) and dwell at the stations in between. Start the take when the cabin descending from the top passes x 2952 (about 60 to 80 m before the tower on the camera's side); the other cabin climbs into frame below the tower at the same time. At sim speed 1 a game minute is about 12 s real here: run the sim at 8 between passes and keep capture mode off until the cabin passes x 2995, or the polling stalls the pre-roll. Take 2 used Time of Day 14.5. Capture mode (fps 30, capture 60).",
+  "sim": 1,
+  "trigger": { "entity": "the descending SkiTramCabin (255287:1 or 255288:1 in this save; they alternate)", "when": "x below 2952" },
+  "pm": {
+    "cam": { "x": 2990, "y": 1015.2, "z": -2140, "at": [2905, 1004, -2075] },
+    "set": { "PhotoModeRenderSystem.focalLength": 50, "Time of Day": 15 }
+  },
+  "path": {
+    "seconds": 6,
+    "ease": "inOut2",
+    "keys": [
+      { "pos": [2990, 1015.2, -2140], "at": [2905, 1004, -2075] },
+      { "pos": [2996.1, 1015.2, -2132.1], "at": [2905, 1004, -2075] }
+    ]
+  }
+}
