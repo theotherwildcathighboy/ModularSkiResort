@@ -2,21 +2,272 @@
   "shot": "06t",
   "title": "Trails carved into the woods, snow guns running",
   "save": "bridgetrailer4b",
-  "notes": "The planted resort of shot 06 (density 7 Forest, Spruce) after the calendar move: all 4 lifts built, guns switched on for every run (331 guns in the area), the natural snow melted at 18 C, then -8 C until the runs held a 0.96 m pack. Save state: sim 2029-01-12 09:56, normalized date 0.9512, plume leases 266 of 331. The sim clock must be daytime: a Time of Day override does not light the scene while the sim clock is at night. Close the hub first: the piste map draws only while the hub is open. The camera stands about 300 m above the valley floor (ground about 596) west of the area and looks east-southeast across the trails; a lateral dolly of about 130 m with a 16 m descent. Takes: t1 Time of Day 15.9 (dusk), t2 16.4 (blue hour), t3 12 (day). The first Photo Mode still after a camera jump comes out overexposed: settle with two stills before recording. Capture mode (fps 30, capture 60), sim speed 1.",
-  "sim": 1,
-  "climate": { "temperature": -8, "precipitation": 0, "cloudiness": 0 },
-  "pm": {
-    "cam": { "x": -5355, "y": 900, "z": -3310, "at": [-4500, 700, -3700] },
-    "set": { "PhotoModeRenderSystem.focalLength": 40, "Time of Day": 15.9 }
+  "notes": "Block R2c retake on a thin fresh snow cover (white ground, dark spruce, white run corridors) with the guns plumeing. The snow guns stop on the first centimeters of natural snow: their pack measure (min(depth, own target) over the target) reads the stop depth 0.96 m while the Surface line reads a mean run depth of 0.01 to 0.05 m, so a run never plumes over fresh natural snow by itself (measured: STOP within one pass of the first snowfall, in every cycle). The takes therefore freeze the plume leases: the guns are started on bare ground, then SkiSnowGunPlumeSystem is switched off with the bridge's perf modSystems op, so the 16,384-frame leases it had just granted keep the plumes on through the snowfall and the takes. Switch the system on again afterward. The slope faces west-northwest and lies in terrain shade at this date at every daytime Time of Day: the snow reads white with blue shadows at 13, pale blue-gray at 15.3, yellow-green at 15.9 (rejected). The sim clock must be daytime (a Time of Day override does not light the scene at night): after the melts, `time` +900 min was used to reach the next morning. Close the hub first (the piste map draws only while it is open). Two settle stills after every camera jump. Capture mode (fps 30, capture 60), sim speed 1, ui and icons hidden (photoMode.setOverlayHidden).",
+  "snowRecipe": {
+    "steps": [
+      "Melt: climate 18 C, precipitation 0, sim speed 8, about 25 to 40 real seconds until the runs are bare too (the run pack melts after the open ground; check with a still).",
+      "If the sim clock is past about 16:00: sim paused, `time` +900 min (the next morning).",
+      "Guns on: climate -8 C, precipitation 0, sim speed 2; the leases go to all guns within about 1.5 real seconds (EarlyDisasterWarningDuration.m_EndFrame above the sim frame). Pause.",
+      "Freeze the leases: {op:'perf',action:'modSystems',match:'^SkiSnowGunPlumeSystem$',enabled:false}. The leases then end about 16,300 sim frames later (1.5 game hours).",
+      "Snowfall: -8 C, precipitation 1, sim speed 2, about 10 game minutes (sim 09:49 to 09:59; about 17 real seconds). Stop it (precipitation 0) when the ground between the trees reads white; more snow loads the spruce white and the corridors vanish (rt-snow-4).",
+      "Clear: -8 C, precipitation 0, sim speed 2 for about 4 game minutes until the flakes are gone. Pause; compose and record (each take uses about 700 sim frames).",
+      "Afterward: {op:'perf',action:'modSystems',match:'^SkiSnowGunPlumeSystem$',enabled:true}."
+    ],
+    "measured": "Takes at sim 2030-01-01 10:03 to 10:18, normalized date 0.032 (gun season). Leases 329 of 329 guns through all three takes. Mean run depth 0.11 to 0.12 m (Surface line); the guns' own pack measure read 0.96 m (stopped) from the snowfall on."
   },
-  "takes": { "t1": { "Time of Day": 15.9 }, "t2": { "Time of Day": 16.4 }, "t3": { "Time of Day": 12 } },
+  "sim": 1,
+  "climate": {
+    "temperature": -8,
+    "precipitation": 0,
+    "cloudiness": 0
+  },
+  "pm": {
+    "cam": {
+      "x": -5400,
+      "y": 1010,
+      "z": -3250,
+      "at": [
+        -4620,
+        690,
+        -3640
+      ]
+    },
+    "set": {
+      "PhotoModeRenderSystem.focalLength": 40,
+      "Time of Day": 13
+    }
+  },
+  "takes": {
+    "t4": {
+      "Time of Day": 13,
+      "camera": "high"
+    },
+    "t5": {
+      "Time of Day": 15.3,
+      "camera": "high"
+    },
+    "t6": {
+      "Time of Day": 13,
+      "camera": "low"
+    }
+  },
   "path": {
     "seconds": 8,
     "ease": "inOut2",
     "fps": 60,
     "keys": [
-      { "pos": [-5355, 900, -3310], "at": [-4500, 700, -3700] },
-      { "pos": [-5290, 884, -3190], "at": [-4470, 688, -3640] }
+      {
+        "pos": [
+          -5400,
+          1010,
+          -3250
+        ],
+        "at": [
+          -4620,
+          690,
+          -3640
+        ]
+      },
+      {
+        "pos": [
+          -5335,
+          994,
+          -3130
+        ],
+        "at": [
+          -4590,
+          678,
+          -3580
+        ]
+      }
     ]
+  },
+  "pathLow": {
+    "notes": "The lower, closer variant: about 190 m above the slope (ground about 660), 35 mm. Bigger plumes, but the runs read less as corridors and more shaded hillside fills the top third.",
+    "focalLength": 35,
+    "seconds": 8,
+    "ease": "inOut2",
+    "fps": 60,
+    "keys": [
+      {
+        "pos": [
+          -5000,
+          850,
+          -3440
+        ],
+        "at": [
+          -4550,
+          725,
+          -3700
+        ]
+      },
+      {
+        "pos": [
+          -4950,
+          842,
+          -3350
+        ],
+        "at": [
+          -4520,
+          715,
+          -3650
+        ]
+      }
+    ]
+  },
+  "r2b": {
+    "notes": "Block R2b: bare melted ground, runs at a 0.96 m gun pack, sim 2029-01-12 about 11:26 to 11:48, leases 266 of 331. Takes t1 (Time of Day 15.9), t2 (16.4), t3 (12).",
+    "pm": {
+      "cam": {
+        "x": -5355,
+        "y": 900,
+        "z": -3310,
+        "at": [
+          -4500,
+          700,
+          -3700
+        ]
+      },
+      "set": {
+        "PhotoModeRenderSystem.focalLength": 40,
+        "Time of Day": 15.9
+      }
+    },
+    "takes": {
+      "t1": {
+        "Time of Day": 15.9
+      },
+      "t2": {
+        "Time of Day": 16.4
+      },
+      "t3": {
+        "Time of Day": 12
+      }
+    },
+    "path": {
+      "seconds": 8,
+      "ease": "inOut2",
+      "fps": 60,
+      "keys": [
+        {
+          "pos": [
+            -5355,
+            900,
+            -3310
+          ],
+          "at": [
+            -4500,
+            700,
+            -3700
+          ]
+        },
+        {
+          "pos": [
+            -5290,
+            884,
+            -3190
+          ],
+          "at": [
+            -4470,
+            688,
+            -3640
+          ]
+        }
+      ]
+    }
+  },
+  "sunlit": {
+    "notes": "Block R2d: the sunlit version on save bridgetrailer4a (July calendar date, deep natural snow, sim clock about 12:21, no guns). Climate -8 C, precipitation 0, cloudiness 0. The slope is in full sun from Time of Day 10 to 13; 10 gives the longest tree shadows and the darkest spruce, so the most depth; 15 turns flat and gray. Both paths look up the valley side so the bare upper slope and a peak (top left) close the frame; the earlier aerial paths looked almost straight down. Capture mode (fps 30, capture 60), sim speed 1, ui and icons hidden (photoMode.setOverlayHidden). Two settle stills after every camera jump.",
+    "save": "bridgetrailer4a",
+    "takes": {
+      "t7": {
+        "Time of Day": 10,
+        "camera": "path"
+      },
+      "t8": {
+        "Time of Day": 11.5,
+        "camera": "pathLow"
+      }
+    },
+    "pm": {
+      "cam": {
+        "x": -5250,
+        "y": 980,
+        "z": -3300,
+        "at": [
+          -4100,
+          820,
+          -3700
+        ]
+      },
+      "set": {
+        "PhotoModeRenderSystem.focalLength": 40,
+        "Time of Day": 10
+      }
+    },
+    "path": {
+      "seconds": 8,
+      "ease": "inOut2",
+      "fps": 60,
+      "keys": [
+        {
+          "pos": [
+            -5250,
+            980,
+            -3300
+          ],
+          "at": [
+            -4100,
+            820,
+            -3700
+          ]
+        },
+        {
+          "pos": [
+            -5207,
+            965,
+            -3177
+          ],
+          "at": [
+            -4070,
+            812,
+            -3600
+          ]
+        }
+      ]
+    },
+    "pathLow": {
+      "focalLength": 35,
+      "Time of Day": 11.5,
+      "seconds": 8,
+      "ease": "inOut2",
+      "fps": 60,
+      "keys": [
+        {
+          "pos": [
+            -5000,
+            860,
+            -3440
+          ],
+          "at": [
+            -4250,
+            770,
+            -3700
+          ]
+        },
+        {
+          "pos": [
+            -4960,
+            850,
+            -3340
+          ],
+          "at": [
+            -4220,
+            762,
+            -3630
+          ]
+        }
+      ]
+    }
   }
 }
