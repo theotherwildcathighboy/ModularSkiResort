@@ -1,0 +1,22 @@
+{
+  "shot": "11",
+  "title": "Snow guns",
+  "save": "bridgetrailer2a",
+  "notes": "Right after the cold phase of shot 10 (-8 C, then precipitation 0 so the falling snow clears). Normalized date 0.871, sim clock about 14:20, Time of Day 15.9 to 16.1. The storyboard place (3255, -2476) looked through a fir belt: the near guns' plumes were behind trunks. This path stands on the open run east of the belt, 5 m above the snow (ground 1129.1 at the start, 1127.7 at the end), and looks east-southeast at the alpenglow peak: a lit plume left of the peak, a second one right of it, the moon at the upper left, firs passing in the left foreground. A lateral dolly of 12.6 m (a longer one runs into a fir at either end: stills b11-e2 and b11-i). Plume leases live during the take: 37 of 44 (EarlyDisasterWarningDuration.m_EndFrame above the sim frame). Capture mode (fps 30, capture 60), sim speed 1.",
+  "sim": 1,
+  "climate": { "temperature": -8, "precipitation": 0, "cloudiness": 0 },
+  "pm": {
+    "cam": { "x": 3355.7, "y": 1134.5, "z": -2524, "at": [3470, 1185, -2572] },
+    "set": { "PhotoModeRenderSystem.focalLength": 40, "Time of Day": 15.9 }
+  },
+  "path": {
+    "seconds": 8,
+    "ease": "inOut2",
+    "fps": 60,
+    "props": { "Time of Day": [15.9, 16.1] },
+    "keys": [
+      { "pos": [3355.7, 1134.5, -2524], "at": [3470, 1185, -2572] },
+      { "pos": [3361.1, 1133, -2512.6], "at": [3470, 1185, -2572] }
+    ]
+  }
+}

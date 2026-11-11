@@ -1,0 +1,79 @@
+{
+  "shot": "10",
+  "title": "Snow time-lapse",
+  "save": "bridgetrailer2a",
+  "notes": "Locked camera, normal mode (fps target 60, no capture mode, no dedupe). Calendar at normalized date 0.871 (gun season). The bowl floor is in terrain shade at every Time of Day at this date; the camera on the north (sunny) side looking south-east saw only a shaded wall (stills b10-e, b10-f), so the storyboard camera stays, aimed a little higher so the sunlit peaks fill the upper left (Time of Day 13). Melt: 18 C at sim speed 8, the slope was bare after about 56 game minutes (about 16 s real). Accumulation at -8 C, precipitation 1, sim speed 2: about 0.6 game minutes per real second; the ground reads white about 10 to 20 s after the switch, the guns start within the first 10 s (37 of 44 plume leases live), and the whole slope is white by about 30 to 40 s. Record 5.5 s bare, then the switch, then 55 s.",
+  "sim": 2,
+  "melt": {
+    "climate": {
+      "temperature": 18,
+      "precipitation": 0
+    },
+    "sim": 8,
+    "realSeconds": 20
+  },
+  "pm": {
+    "cam": {
+      "x": 3190,
+      "y": 1139.1,
+      "z": -2520,
+      "at": [
+        3330,
+        1150,
+        -2530
+      ]
+    },
+    "set": {
+      "PhotoModeRenderSystem.focalLength": 35,
+      "Time of Day": 13
+    }
+  },
+  "fps": {
+    "target": 60
+  },
+  "steps": [
+    {
+      "op": "ui",
+      "hidden": true,
+      "seconds": 120
+    },
+    {
+      "op": "sim",
+      "speed": 2
+    },
+    {
+      "op": "wait",
+      "frames": 330
+    },
+    {
+      "op": "climate",
+      "temperature": -8,
+      "precipitation": 1
+    },
+    {
+      "op": "wait",
+      "frames": 3300
+    },
+    {
+      "op": "sim",
+      "speed": 0
+    },
+    {
+      "op": "wait",
+      "frames": 30
+    },
+    {
+      "op": "ui",
+      "hidden": false
+    }
+  ],
+  "take2": {
+    "notes": "Same camera and steps after a second melt (18 C, sim speed 8, about 20 s real), Time of Day 15.8: warm low sun on the valley head, the moon at the top, warm-lit plumes; the slope reads blue-gray rather than white at the end.",
+    "pm": {
+      "set": {
+        "PhotoModeRenderSystem.focalLength": 35,
+        "Time of Day": 15.8
+      }
+    }
+  }
+}

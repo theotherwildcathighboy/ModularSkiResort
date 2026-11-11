@@ -1,0 +1,142 @@
+{
+  "shot": "12",
+  "title": "The groomer at night",
+  "save": "bridgetrailer2a",
+  "notes": "Ridge cat track, normalized date 0.87, sim clock about 20:40 (a time jump of 215 minutes from 17:05; the groomer's lights are on). The groomer drives south up the track along x 4379 at about 3.2 m/s (sim speed 1); find it with __groomers() (ids change per load: it was 90072:7). Run the sim until its InterpolatedTransform z is below -2449, pause, then arm capture mode and start. The track runs across a slope that keeps rising to the east (no crest), so the camera stands 13 m west (downhill), 1.5 m above the snow, and looks up: the machine stands against the sky over the slope line. Two campath steps: 2 s with Time of Day 16.2 to 17.0 (the last of the dusk into night), then 8 s at 17.0 with a 3 m truck south (the camera holds still for the first 2 s); ground under the path 1448.1 to 1448.7. Both follow the groomer (look-at = its drawn position + 1.5 m). At Time of Day 17.0 the sky is night with stars and the moon lights the snow; 17.3 reads the same (stills b12-g, b12-h).",
+  "sim": 1,
+  "trigger": {
+    "entity": "the ridge groomer (__groomers(), near x 4379)",
+    "when": "z below -2449, paused there before the take"
+  },
+  "pm": {
+    "cam": {
+      "x": 4366,
+      "y": 1449.6,
+      "z": -2470,
+      "at": [
+        4378.6,
+        1451.5,
+        -2449.5
+      ]
+    },
+    "set": {
+      "PhotoModeRenderSystem.focalLength": 50,
+      "Time of Day": 16.2
+    }
+  },
+  "paths": [
+    {
+      "seconds": 2,
+      "ease": "linear",
+      "fps": 60,
+      "props": {
+        "Time of Day": [
+          16.2,
+          17
+        ]
+      },
+      "follow": {
+        "entity": "<groomer id>",
+        "offset": [
+          0,
+          1.5,
+          0
+        ]
+      },
+      "keys": [
+        {
+          "pos": [
+            4366,
+            1449.6,
+            -2470
+          ],
+          "at": [
+            4378.6,
+            1451.5,
+            -2449.5
+          ]
+        },
+        {
+          "pos": [
+            4366,
+            1449.6,
+            -2470
+          ],
+          "at": [
+            4378.6,
+            1451.5,
+            -2449.5
+          ]
+        }
+      ]
+    },
+    {
+      "seconds": 8,
+      "ease": "inOut2",
+      "fps": 60,
+      "props": {
+        "Time of Day": [
+          17,
+          17
+        ]
+      },
+      "follow": {
+        "entity": "<groomer id>",
+        "offset": [
+          0,
+          1.5,
+          0
+        ]
+      },
+      "keys": [
+        {
+          "pos": [
+            4366,
+            1449.6,
+            -2470
+          ],
+          "at": [
+            4378.6,
+            1451.5,
+            -2449.5
+          ]
+        },
+        {
+          "pos": [
+            4366.5,
+            1450.2,
+            -2473
+          ],
+          "at": [
+            4378.6,
+            1451.5,
+            -2449.5
+          ]
+        }
+      ]
+    }
+  ],
+  "take2": {
+    "notes": "Same mark and path, 40 mm, Time of Day 16.2 to 16.8 then held at 16.8 (a little more sky light; the moon enters the frame). The groomer returned to the mark after a full round trip of the track (south end near 4323, -2616, north end near 4406, -2347).",
+    "pm": {
+      "set": {
+        "PhotoModeRenderSystem.focalLength": 40,
+        "Time of Day": 16.2
+      }
+    },
+    "props": [
+      {
+        "Time of Day": [
+          16.2,
+          16.8
+        ]
+      },
+      {
+        "Time of Day": [
+          16.8,
+          16.8
+        ]
+      }
+    ]
+  }
+}
