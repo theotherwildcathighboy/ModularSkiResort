@@ -349,6 +349,10 @@ strength 0.35 or less.
 
 `__terr` (trailer-helpers.js) runs steps 1 to 3 for a list of points. Check every edit from a low camera before the next one.
 
+**Leave Photo Mode before any tool work** (`__pmOff()`). While Photo Mode's overlay-hidden flag is set, the game forces the Default Tool
+on every frame: the terrain tool then paints nothing and the edit logs a row with 0 changed texels (it cost two empty edits in
+the staging pass of 2026-11-10).
+
 Measured on 2026-11-10 (this map: 4,096 x 4,096 texels of 3.5 m, height step 0.0625 m):
 - One Level stroke, size 10, strength 0.3, held 20 frames: 4 texels changed, +0.56 / -0.13 m. So a size 10 brush touches about
   four texels, and a pad needs a grid of strokes about 4 m apart.
