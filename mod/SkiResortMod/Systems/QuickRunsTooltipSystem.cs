@@ -3,7 +3,7 @@
 // glade tooltip's IntTooltip idiom). The two lines that mix several numbers into a sentence (mix, cluster) fill the active dictionary's
 // template (the SkiDaySystem.ReachRowText precedent) and go by Value. The step prompt is always shown while the tool is open, then the
 // build's or the planting's progress line. Refusals, notices and warnings follow under it. Resort Planner v2 (stage A, task A7): with a
-// plan showing, the tooltip also shows the plan line, the terrain's honest mix, the lifts-are-proposals note and the site verdict's detail
+// plan showing, the tooltip also shows the plan line, the terrain's honest mix and the site verdict's detail
 // line (the v1 site line itself is unchanged). The lift under the cursor gets its own line (its way-home verdict, and how its line builds:
 // flagged, or waiting in the lift tool), the lift group's ring too ("Runs from P2", the catch-all group is "Other runs"). The empty region
 // says a click on a lift station plans around it. Round R2-b (runs-first plans): the run and mix counts are pistes only and the cat tracks
@@ -30,13 +30,13 @@ namespace SkiResortMod.Systems
         private QuickRunsToolSystem m_Tool;
         private SkiResortHubUISystem m_Hub;
         private StringTooltip m_Prompt, m_Notice, m_Status, m_Mix, m_Cluster, m_Progress, m_Site;
-        private StringTooltip m_PlanLine, m_Honest, m_Proposal, m_SiteDetail, m_Around, m_HoverPlan, m_HoverVerdict, m_HoverFit;
+        private StringTooltip m_PlanLine, m_Honest, m_SiteDetail, m_Around, m_HoverPlan, m_HoverVerdict, m_HoverFit;
         private ProgressTooltip m_Scan;
         private IntTooltip m_Region, m_RegionMax, m_Vertical, m_Runs, m_Tracks, m_Fee, m_Skiers, m_Plant, m_Remove, m_TreeCost, m_TreeLine;
         private readonly StringTooltip[] m_Warn = new StringTooltip[MaxWarnings];
         private readonly string[] m_LastWarn = new string[MaxWarnings];
         private string m_LastPrompt, m_LastNotice, m_LastStatus, m_LastMix, m_LastCluster, m_LastProgress, m_LastSite, m_LoggedPrompt;
-        private string m_LastPlanLine, m_LastHonest, m_LastProposal, m_LastSiteDetail, m_LastAround, m_LastHoverPlan, m_LastHoverVerdict, m_LastHoverFit;
+        private string m_LastPlanLine, m_LastHonest, m_LastSiteDetail, m_LastAround, m_LastHoverPlan, m_LastHoverVerdict, m_LastHoverFit;
         private QuickRunsShown m_Shown;              // the counts of the published result (pistes and cat tracks apart), per hub revision
         private int m_ShownRevision = -1;
         private AutoPlanResult m_ShownFor;
@@ -56,7 +56,6 @@ namespace SkiResortMod.Systems
             m_Site = new StringTooltip { path = "skiQuickSite", color = TooltipColor.Info };
             m_PlanLine = new StringTooltip { path = "skiQuickPlanLine", color = TooltipColor.Info };
             m_Honest = new StringTooltip { path = "skiQuickHonest", color = TooltipColor.Info };
-            m_Proposal = new StringTooltip { path = "skiQuickProposal", color = TooltipColor.Info };
             m_SiteDetail = new StringTooltip { path = "skiQuickSiteDetail", color = TooltipColor.Info };
             m_Around = new StringTooltip { path = "skiQuickAround", color = TooltipColor.Info };
             m_HoverPlan = new StringTooltip { path = "skiQuickHoverPlan", color = TooltipColor.Info };
@@ -226,7 +225,7 @@ namespace SkiResortMod.Systems
             AddMouseTooltip(m_Skiers);
         }
 
-        /// <summary>The plan line, the honest mix, the proposal note and the site detail line (a plan with pods only).</summary>
+        /// <summary>The plan line, the honest mix and the site detail line (a plan with pods only).</summary>
         private void ShowPlan(ResortPlan plan)
         {
             int proposed = 0;
@@ -246,8 +245,6 @@ namespace SkiResortMod.Systems
                     .Replace("{B}", mixB.ToString(CultureInfo.InvariantCulture))
                     .Replace("{K}", mixK.ToString(CultureInfo.InvariantCulture)));
             }
-            if (proposed > 0)
-                Show(m_Proposal, ref m_LastProposal, P + "PROPOSAL_NOTE");
             if (plan.Site.Pods > 0)
                 ShowValue(m_SiteDetail, ref m_LastSiteDetail, Template(P + "SITE_DETAIL")
                     .Replace("{G}", plan.Site.PodsWithGreenHome.ToString(CultureInfo.InvariantCulture))

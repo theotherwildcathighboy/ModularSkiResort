@@ -2150,6 +2150,14 @@
   line-height: 130%;
 }
 
+// A plan's totals line: the band markers with their numbers, then the totals text (QuickRunsControls.tsx PreviewLines).
+.quickLineMix {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 // The picked run's name line: the name, then (a cat track) its trash on the right.
 .quickLineRow {
   display: flex;

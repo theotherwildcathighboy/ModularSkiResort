@@ -459,9 +459,6 @@ namespace SkiResortMod.Systems
             {
                 if (!QuickRunsRules.CanPay(CityMoney(), m_Totals.Fee + LiftCostOn()))
                     m_ToolWarn |= QuickToolWarning.MoneyShort;
-                // Anarchy sets DisableInGame at Modification5 and clears it at ModificationEnd every frame, so GameChecks in ToolUpdate never sees it.
-                if (QuickRunsRules.ChecksOff(GameChecks()) || SkiOtherMods.AnarchyDetected)
-                    m_ToolWarn |= QuickToolWarning.ChecksOff;
                 if (m_GateOf.Length != r.Runs.Count)
                     m_GateOf = new Entity[r.Runs.Count];
                 Entity first = Entity.Null;
@@ -538,7 +535,7 @@ namespace SkiResortMod.Systems
         private EntityQuery m_ToolErrorQuery;
         private bool m_ToolErrorQueryMade;
 
-        /// <summary>The game-checks state, the one source for the ChecksOff warning and the build / probe lines. The vanilla error prefabs
+        /// <summary>The game-checks state, the one source for the build / probe lines (no player warning since DECISIONS 648). The vanilla error prefabs
         /// for OverlapExisting are read as ValidationSystem reads them (its query NotificationIconData + ToolErrorData,
         /// ValidationSystem.cs:1920. FillErrorPrefabsJob skips a prefab whose flags carry DisableInGame, :1318-1325), plus
         /// ToolSystem.ignoreErrors (ToolSystem.cs:159, ToolBaseSystem.cs:535). Our own reads of vanilla prefab data: no reflection, no
