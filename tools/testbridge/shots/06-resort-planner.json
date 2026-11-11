@@ -2,7 +2,7 @@
   "shot": "06",
   "title": "Resort Planner with the tree filler",
   "save": "bridgetrailer1j",
-  "notes": "Block R2b reshoot. UI shot, normal game camera, fixed, recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 during the take. Place: an empty forested slope south-west of the map center (fall line from south-east to north-west, valley floor about 595 m, top corners about 1035 to 1070 m). State: a fresh load of bridgetrailer1j, autosave off, -8 C / cloudiness 0 / precipitation 0, 2.5 s at speed 1, then paused. Before the take (not filmed): one Welcome Sign (SkiResortGate, the hub tile Sign) on flat valley floor at about (-4972.6, 595, -3047.4), so the plan has no \"No Welcome Sign in range\" line (the new area reads \"Ski area 1\"); the planner opened once to set Features (Leave black runs natural off, Snowmaking near the base on, Light the two lowest on: more groomed runs with guns) and, on a scanned plan with the filler on, the species arrows stepped 17 times to Spruce (base game). Both settings hold in the load and reset on the next load. The preview then left (right click), the planner closed with its chip, the build strip unfolded on Runs. Hidden in the page by a 150 ms timer: elements fully inside [195,0,1215,125], [1220,0,3100,125], [3700,1450,3840,1900]. Driven as five page calls while OBS records: (A) 2 s still, glide to the chip, click, glide to the four corners with a click each, closing click on the first corner (the scan runs at speed 1), park the cursor at (1700, 420); (B) hold 2.5 s, glide to the hub Build button (read its rect first), click; (C) glide to Tree filler, click (Build switches the filler off; it must be switched on after Build); (D) the density plus button three times (4 Open glade to 7 Forest; its rect moves with the label, read it before each click); (E) glide to Plant, click, park; the planting runs in slices of about 2,000 trees, one visible pop per slice about 1.5 s apart; (F) hold, glide to Build lifts, click, park the cursor on the hub title (3333, 58); a lift that the queue cannot fit waits in the lift tool with its preview: Enter builds it. Density: 8 (Thick forest) planted a block with a hard straight edge along the outline (shoot/view/tf8-fault-a.jpg, tf8-fault-b.jpg); the takes use 7 (Forest). Take 4 (best): plan 18 runs, 14 cat tracks, 4 lifts; 4,283 trees planted; 3 of 4 lifts built by the queue (one detachable waits for fitting by hand). Take 3: a 5-lift plan, all 5 built, but a 35 s stretch of fumbled filler clicks and 17 species clicks on camera.",
+  "notes": "Block R3 retake (take 6). Same place, camera, sign, corners, features and species as block R2b (below under blockR2b); fresh load of bridgetrailer1j, autosave off, -8 C / cloudiness 0 / precipitation 0, 2.5 s at speed 1, then paused. The planner prep (one unrecorded scan to set Features and step the species 17 times to Spruce, right click to leave the preview, the chip to close, Runs tab) runs before OBS starts. UI shot, fixed game camera, fps target 60, no capture mode, no dedupe, cursor capture on, sim speed 1. The whole take runs as ONE page-side async function (no round trips between steps): every button is located by its label right before the glide, and only after its rect is the same on two reads 250 ms apart (the layout moves after Build and after the filler opens). Pacing: corners at a 0.8 s glide + 6 frames + click; plan held 3 s; Tree filler clicked only if it is not selected; density + three times; Plant; hold 3 s after '0 to plant'; Build lifts; when the lift tool (Station Place Tool, then Lift Line Tool) has held for 2 s, Enter; after the Default Tool returns, hold 4 s. Result of take 6: plan of 32 runs, 4 lifts (P1, P2 detachable, both 'Towers need fitting by hand'; P3, P4 fixed-grip); 2,268 trees to plant; all 4 lifts built and Running (two Enter presses). Clip second = page second + 2.94. The scan tooltip shows for only about 1.3 s (the scan's own speed at sim speed 1).",
   "sim": 1,
   "sign": {
     "prefab": "SkiResortGate",
@@ -39,53 +39,23 @@
     "yaw": 145
   },
   "filler": {
-    "density": "7 · Forest",
+    "density": "ends at 6 · Open forest after three + clicks",
     "species": "Spruce",
     "treeLine": "803 m (the estimate, unchanged)"
+  },
+  "page": {
+    "stableRead": "a label's rect equal on two reads 250 ms apart",
+    "click": "glide 0.8 s (Build and Build lifts 0.9 s), wait 12 frames, click allowUI after 6"
   },
   "seqA": [
     {
       "op": "wait",
-      "frames": 120
+      "frames": 90
     },
     {
       "op": "glide",
       "x": 3389,
       "y": 1565,
-      "seconds": 1.1
-    },
-    {
-      "op": "wait",
-      "frames": 30
-    },
-    {
-      "op": "click",
-      "allowUI": true,
-      "after": 40
-    },
-    {
-      "repeat": "for each corner",
-      "steps": [
-        {
-          "op": "glide",
-          "wx": "corner x",
-          "wz": "corner z",
-          "seconds": 1
-        },
-        {
-          "op": "wait",
-          "frames": 12
-        },
-        {
-          "op": "click",
-          "after": 12
-        }
-      ]
-    },
-    {
-      "op": "glide",
-      "wx": 3180,
-      "wz": -1750,
       "seconds": 1
     },
     {
@@ -94,132 +64,280 @@
     },
     {
       "op": "click",
+      "allowUI": true,
       "after": 20
+    },
+    {
+      "repeat": "for each corner",
+      "steps": [
+        {
+          "op": "glide",
+          "wx": "corner x",
+          "wz": "corner z",
+          "seconds": 0.8
+        },
+        {
+          "op": "wait",
+          "frames": 6
+        },
+        {
+          "op": "click",
+          "after": 4
+        }
+      ]
+    },
+    {
+      "op": "glide",
+      "wx": -4436,
+      "wz": -2838,
+      "seconds": 0.8
+    },
+    {
+      "op": "wait",
+      "frames": 6
+    },
+    {
+      "op": "click",
+      "after": 6
     },
     {
       "op": "glide",
       "x": 1700,
       "y": 420,
-      "seconds": 1
+      "seconds": 0.8
     }
   ],
-  "seqB": [
-    {
-      "op": "wait",
-      "frames": 150
-    },
-    {
-      "op": "glide",
-      "x": "Build x",
-      "y": "Build y",
-      "seconds": 1.1
-    },
-    {
-      "op": "wait",
-      "frames": 25
-    },
-    {
-      "op": "click",
-      "allowUI": true,
-      "after": 20
-    },
-    {
-      "op": "wait",
-      "frames": 50
-    }
+  "then": [
+    "wait for 'lifts to build' in the hub, hold 3 s",
+    "Build (the hub button with x > 3500, y < 450)",
+    "wait for 'Build lifts' to settle; Tree filler if not selected",
+    "+ three times (x 3200 to 3450, y 700 to 1000), 0.35 s apart",
+    "Plant; park the cursor at (1700, 420); wait for '0 to plant'; hold 3 s",
+    "Build lifts; park; Enter whenever the lift tool has held 2 s; hold 4 s after the Default Tool returns"
   ],
-  "seqC": [
-    {
-      "op": "glide",
-      "x": "Tree filler x",
-      "y": "Tree filler y",
-      "seconds": 1
+  "blockR2b": {
+    "shot": "06",
+    "title": "Resort Planner with the tree filler",
+    "save": "bridgetrailer1j",
+    "notes": "Block R2b reshoot. UI shot, normal game camera, fixed, recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 during the take. Place: an empty forested slope south-west of the map center (fall line from south-east to north-west, valley floor about 595 m, top corners about 1035 to 1070 m). State: a fresh load of bridgetrailer1j, autosave off, -8 C / cloudiness 0 / precipitation 0, 2.5 s at speed 1, then paused. Before the take (not filmed): one Welcome Sign (SkiResortGate, the hub tile Sign) on flat valley floor at about (-4972.6, 595, -3047.4), so the plan has no \"No Welcome Sign in range\" line (the new area reads \"Ski area 1\"); the planner opened once to set Features (Leave black runs natural off, Snowmaking near the base on, Light the two lowest on: more groomed runs with guns) and, on a scanned plan with the filler on, the species arrows stepped 17 times to Spruce (base game). Both settings hold in the load and reset on the next load. The preview then left (right click), the planner closed with its chip, the build strip unfolded on Runs. Hidden in the page by a 150 ms timer: elements fully inside [195,0,1215,125], [1220,0,3100,125], [3700,1450,3840,1900]. Driven as five page calls while OBS records: (A) 2 s still, glide to the chip, click, glide to the four corners with a click each, closing click on the first corner (the scan runs at speed 1), park the cursor at (1700, 420); (B) hold 2.5 s, glide to the hub Build button (read its rect first), click; (C) glide to Tree filler, click (Build switches the filler off; it must be switched on after Build); (D) the density plus button three times (4 Open glade to 7 Forest; its rect moves with the label, read it before each click); (E) glide to Plant, click, park; the planting runs in slices of about 2,000 trees, one visible pop per slice about 1.5 s apart; (F) hold, glide to Build lifts, click, park the cursor on the hub title (3333, 58); a lift that the queue cannot fit waits in the lift tool with its preview: Enter builds it. Density: 8 (Thick forest) planted a block with a hard straight edge along the outline (shoot/view/tf8-fault-a.jpg, tf8-fault-b.jpg); the takes use 7 (Forest). Take 4 (best): plan 18 runs, 14 cat tracks, 4 lifts; 4,283 trees planted; 3 of 4 lifts built by the queue (one detachable waits for fitting by hand). Take 3: a 5-lift plan, all 5 built, but a 35 s stretch of fumbled filler clicks and 17 species clicks on camera.",
+    "sim": 1,
+    "sign": {
+      "prefab": "SkiResortGate",
+      "tile": "Sign",
+      "at": [
+        -4972.6,
+        595,
+        -3047.4
+      ]
     },
-    {
-      "op": "wait",
-      "frames": 20
+    "corners": [
+      [
+        -4436,
+        -2838
+      ],
+      [
+        -5325,
+        -3501
+      ],
+      [
+        -4610,
+        -4605
+      ],
+      [
+        -3652,
+        -3638
+      ]
+    ],
+    "camera": {
+      "wx": -4989.55,
+      "wz": -3390.29,
+      "zoom": 1500,
+      "tilt": 18,
+      "yaw": 145
     },
-    {
-      "op": "click",
-      "allowUI": true,
-      "after": 30
-    }
-  ],
-  "seqD": {
-    "repeat": 3,
-    "steps": [
+    "filler": {
+      "density": "7 · Forest",
+      "species": "Spruce",
+      "treeLine": "803 m (the estimate, unchanged)"
+    },
+    "seqA": [
+      {
+        "op": "wait",
+        "frames": 120
+      },
       {
         "op": "glide",
-        "x": "+ x",
-        "y": "+ y",
-        "seconds": "0.9 first, 0.4 after"
+        "x": 3389,
+        "y": 1565,
+        "seconds": 1.1
       },
       {
         "op": "wait",
-        "frames": 10
+        "frames": 30
+      },
+      {
+        "op": "click",
+        "allowUI": true,
+        "after": 40
+      },
+      {
+        "repeat": "for each corner",
+        "steps": [
+          {
+            "op": "glide",
+            "wx": "corner x",
+            "wz": "corner z",
+            "seconds": 1
+          },
+          {
+            "op": "wait",
+            "frames": 12
+          },
+          {
+            "op": "click",
+            "after": 12
+          }
+        ]
+      },
+      {
+        "op": "glide",
+        "wx": 3180,
+        "wz": -1750,
+        "seconds": 1
+      },
+      {
+        "op": "wait",
+        "frames": 15
+      },
+      {
+        "op": "click",
+        "after": 20
+      },
+      {
+        "op": "glide",
+        "x": 1700,
+        "y": 420,
+        "seconds": 1
+      }
+    ],
+    "seqB": [
+      {
+        "op": "wait",
+        "frames": 150
+      },
+      {
+        "op": "glide",
+        "x": "Build x",
+        "y": "Build y",
+        "seconds": 1.1
+      },
+      {
+        "op": "wait",
+        "frames": 25
+      },
+      {
+        "op": "click",
+        "allowUI": true,
+        "after": 20
+      },
+      {
+        "op": "wait",
+        "frames": 50
+      }
+    ],
+    "seqC": [
+      {
+        "op": "glide",
+        "x": "Tree filler x",
+        "y": "Tree filler y",
+        "seconds": 1
+      },
+      {
+        "op": "wait",
+        "frames": 20
+      },
+      {
+        "op": "click",
+        "allowUI": true,
+        "after": 30
+      }
+    ],
+    "seqD": {
+      "repeat": 3,
+      "steps": [
+        {
+          "op": "glide",
+          "x": "+ x",
+          "y": "+ y",
+          "seconds": "0.9 first, 0.4 after"
+        },
+        {
+          "op": "wait",
+          "frames": 10
+        },
+        {
+          "op": "click",
+          "allowUI": true,
+          "after": 10
+        }
+      ]
+    },
+    "seqE": [
+      {
+        "op": "glide",
+        "x": "Plant x",
+        "y": "Plant y",
+        "seconds": 1
+      },
+      {
+        "op": "wait",
+        "frames": 20
       },
       {
         "op": "click",
         "allowUI": true,
         "after": 10
+      },
+      {
+        "op": "glide",
+        "x": 1700,
+        "y": 420,
+        "seconds": 1
+      }
+    ],
+    "seqF": [
+      {
+        "op": "wait",
+        "frames": 60
+      },
+      {
+        "op": "glide",
+        "x": "Build lifts x",
+        "y": "Build lifts y",
+        "seconds": 1
+      },
+      {
+        "op": "wait",
+        "frames": 20
+      },
+      {
+        "op": "click",
+        "allowUI": true,
+        "after": 10
+      },
+      {
+        "op": "glide",
+        "x": 3333,
+        "y": 58,
+        "seconds": 1
+      },
+      {
+        "note": "when the lift tool holds a waiting line for about 2 s",
+        "op": "key",
+        "keys": "enter"
       }
     ]
   },
-  "seqE": [
-    {
-      "op": "glide",
-      "x": "Plant x",
-      "y": "Plant y",
-      "seconds": 1
-    },
-    {
-      "op": "wait",
-      "frames": 20
-    },
-    {
-      "op": "click",
-      "allowUI": true,
-      "after": 10
-    },
-    {
-      "op": "glide",
-      "x": 1700,
-      "y": 420,
-      "seconds": 1
-    }
-  ],
-  "seqF": [
-    {
-      "op": "wait",
-      "frames": 60
-    },
-    {
-      "op": "glide",
-      "x": "Build lifts x",
-      "y": "Build lifts y",
-      "seconds": 1
-    },
-    {
-      "op": "wait",
-      "frames": 20
-    },
-    {
-      "op": "click",
-      "allowUI": true,
-      "after": 10
-    },
-    {
-      "op": "glide",
-      "x": 3333,
-      "y": 58,
-      "seconds": 1
-    },
-    {
-      "note": "when the lift tool holds a waiting line for about 2 s",
-      "op": "key",
-      "keys": "enter"
-    }
-  ],
   "blockC2": {
     "shot": "06",
     "title": "Resort Planner",

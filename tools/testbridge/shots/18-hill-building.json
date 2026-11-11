@@ -1,0 +1,103 @@
+{
+  "shot": "18",
+  "title": "Hill building: the Swanky Summit Lodge deck, looking down the Silver Tram to the ski town",
+  "save": "bridgetrailer1j",
+  "notes": "Block R3, the trailer's opening shot. Building: Swanky Summit Lodge (SkiLodgeSummit at (3102, 1100.6, -2398.2), yaw 90; its deck is on the north-west side). Lift: the Silver Tram (top station SkiTramTopStationBuilding at (3077.8, 1082.7, -2324.4), tower at (2921, 982, -2096)); its ropes run down past the tower to the ski town with the Grand Lodge, the city beyond. The Rimrock chairs are hidden by the tram station and the ridge, and no other lodge stands on the hill, so the tram is the moving lift. Camera: Photo Mode on the deck at rail height, 55 mm, a 2.6 m push toward the rail over 8 s (sim speed 1, capture mode fps 30 / capture 60, campath fps 60). Foreground: rail, lamps, red parasol, loungers; the station frame at the right. Cabin timing: before the take, run the sim at speed 1 and poll the downhill cabin's Game.Objects.Transform (SkiTramCabin; the ids change per load: find them with a dump of InterpolatedTransform + Transform without Vehicle, prefab /Tram/); pause when it leaves the top station (x < 3058, about (3058, -2291)). Hold 8 s for the exposure, then record: the cabin descends past the rail into the middle distance and the other cabin climbs from the town. Light: sunrise Time of Day 6.4 (take 3; 5.6 leaves the deck dark; the game's sunrise gives no warm color), sunset 18.9 (take 2, golden).",
+  "sim": 1,
+  "seq": [
+    {
+      "op": "sim",
+      "speed": 1
+    },
+    {
+      "op": "fps",
+      "target": 30,
+      "capture": 60
+    },
+    {
+      "op": "overlay",
+      "hidden": true,
+      "seconds": 120
+    },
+    {
+      "op": "ui",
+      "hidden": true,
+      "seconds": 50
+    },
+    {
+      "op": "wait",
+      "frames": 60
+    },
+    {
+      "op": "campath",
+      "path": "path"
+    },
+    {
+      "op": "wait",
+      "frames": 60
+    },
+    {
+      "op": "ui",
+      "hidden": false
+    },
+    {
+      "op": "fps",
+      "target": -1,
+      "capture": 0
+    }
+  ],
+  "pm": {
+    "cam": {
+      "x": 3088,
+      "y": 1103.5,
+      "z": -2392.5,
+      "at": [
+        2720,
+        880,
+        -1700
+      ]
+    },
+    "set": {
+      "PhotoModeRenderSystem.focalLength": 55,
+      "Time of Day": 6.4
+    }
+  },
+  "path": {
+    "mode": "pm",
+    "seconds": 8,
+    "fps": 60,
+    "ease": "inOut2",
+    "keys": [
+      {
+        "pos": [
+          3088,
+          1103.5,
+          -2392.5
+        ],
+        "at": [
+          2720,
+          880,
+          -1700
+        ]
+      },
+      {
+        "pos": [
+          3086.8,
+          1103.4,
+          -2390.3
+        ],
+        "at": [
+          2720,
+          880,
+          -1700
+        ]
+      }
+    ]
+  },
+  "sunset": {
+    "set": {
+      "PhotoModeRenderSystem.focalLength": 55,
+      "Time of Day": 18.9
+    }
+  }
+}

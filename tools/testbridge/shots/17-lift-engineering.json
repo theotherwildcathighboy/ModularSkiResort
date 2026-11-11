@@ -1,0 +1,74 @@
+{
+  "shot": "17",
+  "title": "Lift engineering: the two detachable quads at dusk (LE-a) and the leaning towers of the Rimrock Triple by day (LE-b)",
+  "save": "bridgetrailer1j",
+  "notes": "Block R3. Both parts: Photo Mode, ui hidden, icons hidden (Photo Mode setOverlayHidden plus the overlay op), capture mode (fps 30, capture 60), campath fps 60, sim speed 1 so the chairs move. Hold the start pose about 8 s before the take (auto exposure).",
+  "sim": 1,
+  "leA": {
+    "notes": "Fresh load of bridgetrailer1j, no time jump (normalized date about 0.54). From about 45 m above the two detachable bases, between the Summit Express (south line) and the Ridge Express (north line), looking east up both lines toward the horn. Take 1: a 67 m dolly along the lines with a 14 m rise, 24 mm; the near Summit Express towers (DQ16 and DQ18 at x 3206 and 3216) pass in the lower left, chairs on both lines, a groomer drives under the Summit Express in the first half, the horn gold at the top right. Take 2: 20 m higher and south of the Summit Express (weaker: the horn is cut and the chairs are small). Time of Day stills at 18.9, 19.1 and 19.3 (shoot/view/le-scout-tod.jpg): 19.3 is the warmest with a navy sky.",
+    "seq": [
+      { "op": "fps", "target": 30, "capture": 60 },
+      { "op": "overlay", "hidden": true, "seconds": 120 },
+      { "op": "ui", "hidden": true, "seconds": 50 },
+      { "op": "wait", "frames": 60 },
+      { "op": "campath", "path": "path" },
+      { "op": "wait", "frames": 60 },
+      { "op": "ui", "hidden": false },
+      { "op": "fps", "target": -1, "capture": 0 }
+    ],
+    "pm": {
+      "cam": { "x": 3180, "y": 1148, "z": -2446, "at": [3610, 1188, -2512] },
+      "set": { "PhotoModeRenderSystem.focalLength": 24, "Time of Day": 19.3 }
+    },
+    "path": {
+      "mode": "pm",
+      "seconds": 8,
+      "fps": 60,
+      "ease": "inOut2",
+      "keys": [
+        { "pos": [3180, 1148, -2446], "at": [3610, 1188, -2512] },
+        { "pos": [3245, 1162, -2463], "at": [3660, 1195, -2520] }
+      ]
+    },
+    "take2": {
+      "pm": { "cam": { "x": 3165, "y": 1172, "z": -2505, "at": [3620, 1200, -2490] }, "set": { "PhotoModeRenderSystem.focalLength": 24, "Time of Day": 19.3 } },
+      "path": {
+        "mode": "pm",
+        "seconds": 8,
+        "fps": 60,
+        "ease": "inOut2",
+        "keys": [
+          { "pos": [3165, 1172, -2505], "at": [3620, 1200, -2490] },
+          { "pos": [3235, 1182, -2512], "at": [3670, 1205, -2500] }
+        ]
+      }
+    }
+  },
+  "leB": {
+    "notes": "Tower lean on the Rimrock Triple (fixed-grip triple), the steepest stretch of the line: between tower nodes (2919, 895, -1818) and (2964, 965, -1891) the rope climbs 70 m over 85 m (about 39 degrees). Tower at (2919, -1818): SkiLiftTowerFG8HoldA, a hold-down tower, leaning 19.3 degrees from vertical. Tower at (2964, -1891): SkiLiftTowerFG12BreakA, a breakover tower, leaning 17.4 degrees. Lean = angle between the tower's up axis (Transform rotation) and world up, read with the entity op. For comparison on the same line: FG12 towers at (2871, -1742) 9.2 degrees and (3009, -1963) 8.9 degrees; FG16HoldA at (3099, -2107) 12.3 degrees; FG20BreakA at (3144, -2179) 10.4 degrees (the tallest, 20 m class). The camera is about 110 m off the line on its south-west side (the Silver Tram's ropes run about 145 m further out), at tower-top height, so the lean shows in the image plane. The frame edges are true vertical (roll 0). Take 1: Time of Day 12.5, moving 25 m up along the line and rising 17 m. Take 2: Time of Day 11, the same path reversed.",
+    "seq": [
+      { "op": "fps", "target": 30, "capture": 60 },
+      { "op": "overlay", "hidden": true, "seconds": 120 },
+      { "op": "ui", "hidden": true, "seconds": 48 },
+      { "op": "wait", "frames": 60 },
+      { "op": "campath", "path": "path" },
+      { "op": "wait", "frames": 60 },
+      { "op": "ui", "hidden": false },
+      { "op": "fps", "target": -1, "capture": 0 }
+    ],
+    "pm": {
+      "cam": { "x": 2828, "y": 915, "z": -1912, "at": [2941, 936, -1854] },
+      "set": { "PhotoModeRenderSystem.focalLength": 40, "Time of Day": 12.5 }
+    },
+    "path": {
+      "mode": "pm",
+      "seconds": 7,
+      "fps": 60,
+      "ease": "inOut2",
+      "keys": [
+        { "pos": [2828, 915, -1912], "at": [2941, 936, -1854] },
+        { "pos": [2842, 932, -1932], "at": [2949, 944, -1866] }
+      ]
+    }
+  }
+}
