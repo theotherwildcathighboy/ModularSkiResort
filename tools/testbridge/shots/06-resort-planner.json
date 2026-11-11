@@ -1,42 +1,382 @@
 {
   "shot": "06",
-  "title": "Resort Planner",
-  "save": "bridgeshots",
-  "notes": "UI shot, normal game camera, fixed. Never save this city. Recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 (2 after Build lifts). State: a fresh load, `time` +7230 min (bar: Apr 2029, 10:38), climate -8 C / cloudiness 0 / precipitation 0, autosave off. The hub opened (152, 60) and the ski area renamed in memory from 'Mt Testland' to 'Silver Ridge' (the hub's pencil at 3573, 111), as the release shots did. The build strip on Runs. The chip reads 'Resort Planner'; its tooltip reads 'Outline a region and get a set of runs to pick from. Experimental. Ctrl+Shift+Q also opens it.' Hidden in the page during the take by a 150 ms page timer: the third-party toolbar buttons, the top info strip, the right-edge round buttons, the Anarchy tool options panel and the hub's 'Anarchy is installed' line. Driven in three page calls while OBS records: (A) 2 s still, glide to the chip, click, glide to the four corners with a click each, the closing click on the first corner (the scan starts), park the cursor at (1700, 380 to 420); (B) when the hub shows 'Planned:', hold, glide to the hub's Build button (about 3578, 390) and click; (C) glide to 'Build lifts', click, sim speed 2; then hold. Read the Build lifts rect right before the glide: it moved from y 846 to 806 as the panel changed, and take 2's first glide missed it. Build makes the runs in about one second; the planner hides the piste map, so the runs show only after Build lifts closes the tool. Take 1 (best): camera t1 (the release shots' camera), plan 2 lifts, 6.2 km of runs, 3.6 km of cat tracks. Take 2: camera t2 (a little lower and wider); the scan gave another plan on the same outline (2 lifts, one detachable and one fixed-grip, 7 km of runs).",
+  "title": "Resort Planner with the tree filler",
+  "save": "bridgetrailer1j",
+  "notes": "Block R2b reshoot. UI shot, normal game camera, fixed, recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 during the take. Place: an empty forested slope south-west of the map center (fall line from south-east to north-west, valley floor about 595 m, top corners about 1035 to 1070 m). State: a fresh load of bridgetrailer1j, autosave off, -8 C / cloudiness 0 / precipitation 0, 2.5 s at speed 1, then paused. Before the take (not filmed): one Welcome Sign (SkiResortGate, the hub tile Sign) on flat valley floor at about (-4972.6, 595, -3047.4), so the plan has no \"No Welcome Sign in range\" line (the new area reads \"Ski area 1\"); the planner opened once to set Features (Leave black runs natural off, Snowmaking near the base on, Light the two lowest on: more groomed runs with guns) and, on a scanned plan with the filler on, the species arrows stepped 17 times to Spruce (base game). Both settings hold in the load and reset on the next load. The preview then left (right click), the planner closed with its chip, the build strip unfolded on Runs. Hidden in the page by a 150 ms timer: elements fully inside [195,0,1215,125], [1220,0,3100,125], [3700,1450,3840,1900]. Driven as five page calls while OBS records: (A) 2 s still, glide to the chip, click, glide to the four corners with a click each, closing click on the first corner (the scan runs at speed 1), park the cursor at (1700, 420); (B) hold 2.5 s, glide to the hub Build button (read its rect first), click; (C) glide to Tree filler, click (Build switches the filler off; it must be switched on after Build); (D) the density plus button three times (4 Open glade to 7 Forest; its rect moves with the label, read it before each click); (E) glide to Plant, click, park; the planting runs in slices of about 2,000 trees, one visible pop per slice about 1.5 s apart; (F) hold, glide to Build lifts, click, park the cursor on the hub title (3333, 58); a lift that the queue cannot fit waits in the lift tool with its preview: Enter builds it. Density: 8 (Thick forest) planted a block with a hard straight edge along the outline (shoot/view/tf8-fault-a.jpg, tf8-fault-b.jpg); the takes use 7 (Forest). Take 4 (best): plan 18 runs, 14 cat tracks, 4 lifts; 4,283 trees planted; 3 of 4 lifts built by the queue (one detachable waits for fitting by hand). Take 3: a 5-lift plan, all 5 built, but a 35 s stretch of fumbled filler clicks and 17 species clicks on camera.",
   "sim": 1,
-  "corners": [[3180, -1750], [3150, -2650], [4420, -2750], [4450, -1800]],
+  "sign": {
+    "prefab": "SkiResortGate",
+    "tile": "Sign",
+    "at": [
+      -4972.6,
+      595,
+      -3047.4
+    ]
+  },
+  "corners": [
+    [
+      -4436,
+      -2838
+    ],
+    [
+      -5325,
+      -3501
+    ],
+    [
+      -4610,
+      -4605
+    ],
+    [
+      -3652,
+      -3638
+    ]
+  ],
   "camera": {
-    "t1": { "wx": 4050, "wz": -2250, "zoom": 2350, "tilt": 55, "yaw": 0 },
-    "t2": { "wx": 4000, "wz": -2260, "zoom": 2150, "tilt": 48, "yaw": -6 }
+    "wx": -4989.55,
+    "wz": -3390.29,
+    "zoom": 1500,
+    "tilt": 18,
+    "yaw": 145
+  },
+  "filler": {
+    "density": "7 · Forest",
+    "species": "Spruce",
+    "treeLine": "803 m (the estimate, unchanged)"
   },
   "seqA": [
-    { "op": "wait", "frames": 120 },
-    { "op": "glide", "x": 3389, "y": 1565, "seconds": 1.1 },
-    { "op": "wait", "frames": 30 },
-    { "op": "click", "allowUI": true, "after": 40 },
-    { "repeat": "for each corner", "steps": [
-      { "op": "glide", "wx": "corner x", "wz": "corner z", "seconds": 1.0 },
-      { "op": "wait", "frames": 12 },
-      { "op": "click", "after": 12 }
-    ] },
-    { "op": "glide", "wx": 3180, "wz": -1750, "seconds": 1.0 },
-    { "op": "wait", "frames": 15 },
-    { "op": "click", "after": 20 },
-    { "op": "glide", "x": 1700, "y": 420, "seconds": 1.0 }
+    {
+      "op": "wait",
+      "frames": 120
+    },
+    {
+      "op": "glide",
+      "x": 3389,
+      "y": 1565,
+      "seconds": 1.1
+    },
+    {
+      "op": "wait",
+      "frames": 30
+    },
+    {
+      "op": "click",
+      "allowUI": true,
+      "after": 40
+    },
+    {
+      "repeat": "for each corner",
+      "steps": [
+        {
+          "op": "glide",
+          "wx": "corner x",
+          "wz": "corner z",
+          "seconds": 1
+        },
+        {
+          "op": "wait",
+          "frames": 12
+        },
+        {
+          "op": "click",
+          "after": 12
+        }
+      ]
+    },
+    {
+      "op": "glide",
+      "wx": 3180,
+      "wz": -1750,
+      "seconds": 1
+    },
+    {
+      "op": "wait",
+      "frames": 15
+    },
+    {
+      "op": "click",
+      "after": 20
+    },
+    {
+      "op": "glide",
+      "x": 1700,
+      "y": 420,
+      "seconds": 1
+    }
   ],
   "seqB": [
-    { "op": "wait", "frames": 200 },
-    { "op": "glide", "x": "Build button x", "y": "Build button y", "seconds": 1.1 },
-    { "op": "wait", "frames": 25 },
-    { "op": "click", "allowUI": true, "after": 20 },
-    { "op": "glide", "x": 1700, "y": 420, "seconds": 1.0 }
+    {
+      "op": "wait",
+      "frames": 150
+    },
+    {
+      "op": "glide",
+      "x": "Build x",
+      "y": "Build y",
+      "seconds": 1.1
+    },
+    {
+      "op": "wait",
+      "frames": 25
+    },
+    {
+      "op": "click",
+      "allowUI": true,
+      "after": 20
+    },
+    {
+      "op": "wait",
+      "frames": 50
+    }
   ],
   "seqC": [
-    { "op": "wait", "frames": 60 },
-    { "op": "glide", "x": "Build lifts x", "y": "Build lifts y", "seconds": 1.1 },
-    { "op": "wait", "frames": 25 },
-    { "op": "click", "allowUI": true, "after": 20 },
-    { "op": "sim", "speed": 2 },
-    { "op": "glide", "x": 1700, "y": 420, "seconds": 1.0 }
-  ]
+    {
+      "op": "glide",
+      "x": "Tree filler x",
+      "y": "Tree filler y",
+      "seconds": 1
+    },
+    {
+      "op": "wait",
+      "frames": 20
+    },
+    {
+      "op": "click",
+      "allowUI": true,
+      "after": 30
+    }
+  ],
+  "seqD": {
+    "repeat": 3,
+    "steps": [
+      {
+        "op": "glide",
+        "x": "+ x",
+        "y": "+ y",
+        "seconds": "0.9 first, 0.4 after"
+      },
+      {
+        "op": "wait",
+        "frames": 10
+      },
+      {
+        "op": "click",
+        "allowUI": true,
+        "after": 10
+      }
+    ]
+  },
+  "seqE": [
+    {
+      "op": "glide",
+      "x": "Plant x",
+      "y": "Plant y",
+      "seconds": 1
+    },
+    {
+      "op": "wait",
+      "frames": 20
+    },
+    {
+      "op": "click",
+      "allowUI": true,
+      "after": 10
+    },
+    {
+      "op": "glide",
+      "x": 1700,
+      "y": 420,
+      "seconds": 1
+    }
+  ],
+  "seqF": [
+    {
+      "op": "wait",
+      "frames": 60
+    },
+    {
+      "op": "glide",
+      "x": "Build lifts x",
+      "y": "Build lifts y",
+      "seconds": 1
+    },
+    {
+      "op": "wait",
+      "frames": 20
+    },
+    {
+      "op": "click",
+      "allowUI": true,
+      "after": 10
+    },
+    {
+      "op": "glide",
+      "x": 3333,
+      "y": 58,
+      "seconds": 1
+    },
+    {
+      "note": "when the lift tool holds a waiting line for about 2 s",
+      "op": "key",
+      "keys": "enter"
+    }
+  ],
+  "blockC2": {
+    "shot": "06",
+    "title": "Resort Planner",
+    "save": "bridgeshots",
+    "notes": "UI shot, normal game camera, fixed. Never save this city. Recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 (2 after Build lifts). State: a fresh load, `time` +7230 min (bar: Apr 2029, 10:38), climate -8 C / cloudiness 0 / precipitation 0, autosave off. The hub opened (152, 60) and the ski area renamed in memory from 'Mt Testland' to 'Silver Ridge' (the hub's pencil at 3573, 111), as the release shots did. The build strip on Runs. The chip reads 'Resort Planner'; its tooltip reads 'Outline a region and get a set of runs to pick from. Experimental. Ctrl+Shift+Q also opens it.' Hidden in the page during the take by a 150 ms page timer: the third-party toolbar buttons, the top info strip, the right-edge round buttons, the Anarchy tool options panel and the hub's 'Anarchy is installed' line. Driven in three page calls while OBS records: (A) 2 s still, glide to the chip, click, glide to the four corners with a click each, the closing click on the first corner (the scan starts), park the cursor at (1700, 380 to 420); (B) when the hub shows 'Planned:', hold, glide to the hub's Build button (about 3578, 390) and click; (C) glide to 'Build lifts', click, sim speed 2; then hold. Read the Build lifts rect right before the glide: it moved from y 846 to 806 as the panel changed, and take 2's first glide missed it. Build makes the runs in about one second; the planner hides the piste map, so the runs show only after Build lifts closes the tool. Take 1 (best): camera t1 (the release shots' camera), plan 2 lifts, 6.2 km of runs, 3.6 km of cat tracks. Take 2: camera t2 (a little lower and wider); the scan gave another plan on the same outline (2 lifts, one detachable and one fixed-grip, 7 km of runs).",
+    "sim": 1,
+    "corners": [
+      [
+        3180,
+        -1750
+      ],
+      [
+        3150,
+        -2650
+      ],
+      [
+        4420,
+        -2750
+      ],
+      [
+        4450,
+        -1800
+      ]
+    ],
+    "camera": {
+      "t1": {
+        "wx": 4050,
+        "wz": -2250,
+        "zoom": 2350,
+        "tilt": 55,
+        "yaw": 0
+      },
+      "t2": {
+        "wx": 4000,
+        "wz": -2260,
+        "zoom": 2150,
+        "tilt": 48,
+        "yaw": -6
+      }
+    },
+    "seqA": [
+      {
+        "op": "wait",
+        "frames": 120
+      },
+      {
+        "op": "glide",
+        "x": 3389,
+        "y": 1565,
+        "seconds": 1.1
+      },
+      {
+        "op": "wait",
+        "frames": 30
+      },
+      {
+        "op": "click",
+        "allowUI": true,
+        "after": 40
+      },
+      {
+        "repeat": "for each corner",
+        "steps": [
+          {
+            "op": "glide",
+            "wx": "corner x",
+            "wz": "corner z",
+            "seconds": 1
+          },
+          {
+            "op": "wait",
+            "frames": 12
+          },
+          {
+            "op": "click",
+            "after": 12
+          }
+        ]
+      },
+      {
+        "op": "glide",
+        "wx": 3180,
+        "wz": -1750,
+        "seconds": 1
+      },
+      {
+        "op": "wait",
+        "frames": 15
+      },
+      {
+        "op": "click",
+        "after": 20
+      },
+      {
+        "op": "glide",
+        "x": 1700,
+        "y": 420,
+        "seconds": 1
+      }
+    ],
+    "seqB": [
+      {
+        "op": "wait",
+        "frames": 200
+      },
+      {
+        "op": "glide",
+        "x": "Build button x",
+        "y": "Build button y",
+        "seconds": 1.1
+      },
+      {
+        "op": "wait",
+        "frames": 25
+      },
+      {
+        "op": "click",
+        "allowUI": true,
+        "after": 20
+      },
+      {
+        "op": "glide",
+        "x": 1700,
+        "y": 420,
+        "seconds": 1
+      }
+    ],
+    "seqC": [
+      {
+        "op": "wait",
+        "frames": 60
+      },
+      {
+        "op": "glide",
+        "x": "Build lifts x",
+        "y": "Build lifts y",
+        "seconds": 1.1
+      },
+      {
+        "op": "wait",
+        "frames": 25
+      },
+      {
+        "op": "click",
+        "allowUI": true,
+        "after": 20
+      },
+      {
+        "op": "sim",
+        "speed": 2
+      },
+      {
+        "op": "glide",
+        "x": 1700,
+        "y": 420,
+        "seconds": 1
+      }
+    ]
+  }
 }

@@ -1,0 +1,22 @@
+{
+  "shot": "06t",
+  "title": "Trails carved into the woods, snow guns running",
+  "save": "bridgetrailer4b",
+  "notes": "The planted resort of shot 06 (density 7 Forest, Spruce) after the calendar move: all 4 lifts built, guns switched on for every run (331 guns in the area), the natural snow melted at 18 C, then -8 C until the runs held a 0.96 m pack. Save state: sim 2029-01-12 09:56, normalized date 0.9512, plume leases 266 of 331. The sim clock must be daytime: a Time of Day override does not light the scene while the sim clock is at night. Close the hub first: the piste map draws only while the hub is open. The camera stands about 300 m above the valley floor (ground about 596) west of the area and looks east-southeast across the trails; a lateral dolly of about 130 m with a 16 m descent. Takes: t1 Time of Day 15.9 (dusk), t2 16.4 (blue hour), t3 12 (day). The first Photo Mode still after a camera jump comes out overexposed: settle with two stills before recording. Capture mode (fps 30, capture 60), sim speed 1.",
+  "sim": 1,
+  "climate": { "temperature": -8, "precipitation": 0, "cloudiness": 0 },
+  "pm": {
+    "cam": { "x": -5355, "y": 900, "z": -3310, "at": [-4500, 700, -3700] },
+    "set": { "PhotoModeRenderSystem.focalLength": 40, "Time of Day": 15.9 }
+  },
+  "takes": { "t1": { "Time of Day": 15.9 }, "t2": { "Time of Day": 16.4 }, "t3": { "Time of Day": 12 } },
+  "path": {
+    "seconds": 8,
+    "ease": "inOut2",
+    "fps": 60,
+    "keys": [
+      { "pos": [-5355, 900, -3310], "at": [-4500, 700, -3700] },
+      { "pos": [-5290, 884, -3190], "at": [-4470, 688, -3640] }
+    ]
+  }
+}
