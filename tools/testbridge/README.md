@@ -126,6 +126,15 @@ Then to load:
 and they restore the player's own target after the click. A save in Steam Cloud could not be read back after a direct launch
 (IOException in `SteamCloudStream.LoadCache`, 2026-11-06), so bridge saves stay local.
 
+`__save` is for a new name only. With a name that already exists the typed name did not reach the game, and the Save
+button wrote the city's default name as a new file, twice (2026-11-10). To overwrite a bridge save, click its row in the
+save panel, then "Overwrite Save", then "Yes"; or use the next free name.
+
+Remove warning icons with care: `Game.Common.Deleted` on every `Game.Notifications.Icon` of a city (58 icons, traffic and
+workplace icons among them) while the sim ran at speed 8 was followed by a silent game exit within seconds (2026-11-10; no
+dump, no log line, cause not proven). Pause the sim, delete only the few station icons in frame, wait 60 frames, read
+`status`. In Photo Mode, `photoMode.setOverlayHidden` hides the icons and deletes nothing.
+
 Do not call `engine.trigger("menu.saveGame", name)`. If the save panel is not open, the preview texture is null. Then the game
 throws a `NullReferenceException` and shows its error dialog (measured, see `MenuUISystem.cs:896-902` and `GameManager.cs:947`).
 
