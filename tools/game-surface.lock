@@ -662,7 +662,6 @@ type Game.UI.Tooltip.LabelIconTooltip class 642f3d793b
 type Game.UI.Tooltip.LandValueTooltipSystem class 9f8ac02282
 type Game.UI.Tooltip.NetCourseTooltipSystem class 712bbdd30d
 type Game.UI.Tooltip.NumberTooltip class b8e2b976ec
-type Game.UI.Tooltip.ProgressTooltip class b1de26f7e0
 type Game.UI.Tooltip.RaycastElectricityTooltipSystem class 49e61ae098
 type Game.UI.Tooltip.StringTooltip class c5a361e160
 type Game.UI.Tooltip.TempCostTooltipSystem class 1edee67420

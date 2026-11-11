@@ -806,6 +806,14 @@ if ($LASTEXITCODE -ne 0) {
     $rows.Add("OK    LATEDELETE $(($ldOut | Select-Object -Last 1))")
 }
 
+# ---- 12c. TOOLTIPUNITS: a ProgressTooltip only with a unit the game formats (raw "<percentage>" in the planner scan, T155) ------
+$tuOut = @(& node (Join-Path $PSScriptRoot "check-tooltip-units.js") 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    foreach ($l in $tuOut) { $rows.Add("FAIL  TOOLTIPUNITS $l"); $failures++ }
+} else {
+    $rows.Add("OK    TOOLTIPUNITS $(($tuOut | Select-Object -Last 1))")
+}
+
 # ---- 12c. RUNPROPS: the run prop placer's text rules (consumers on the tag, sliders look only, table = prefabs; 2026-11-01) ------
 $rpOut = @(& node (Join-Path $PSScriptRoot "check-run-props.js") 2>&1)
 if ($LASTEXITCODE -ne 0) {

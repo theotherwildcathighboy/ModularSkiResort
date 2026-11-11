@@ -31,7 +31,7 @@ namespace SkiResortMod.Systems
         private SkiResortHubUISystem m_Hub;
         private StringTooltip m_Prompt, m_Notice, m_Status, m_Mix, m_Cluster, m_Progress, m_Site;
         private StringTooltip m_PlanLine, m_Honest, m_SiteDetail, m_Around, m_HoverPlan, m_HoverVerdict, m_HoverFit;
-        private ProgressTooltip m_Scan;
+        private IntTooltip m_Scan;
         private IntTooltip m_Region, m_RegionMax, m_Vertical, m_Runs, m_Tracks, m_Fee, m_Skiers, m_Plant, m_Remove, m_TreeCost, m_TreeLine;
         private readonly StringTooltip[] m_Warn = new StringTooltip[MaxWarnings];
         private readonly string[] m_LastWarn = new string[MaxWarnings];
@@ -65,7 +65,9 @@ namespace SkiResortMod.Systems
             // ProgressTooltip printed the raw "2658641.75 / 9000000 <area>" (its fraction formatter has no area entry).
             m_Region = new IntTooltip { path = "skiQuickRegion", label = LocalizedString.Id(P + "REGION"), unit = "area" };
             m_RegionMax = new IntTooltip { path = "skiQuickRegionMax", label = LocalizedString.Id(P + "REGION_MAX"), unit = "area" };
-            m_Scan = new ProgressTooltip { path = "skiQuickScan", label = LocalizedString.Id(P + "SCANNING"), unit = "percentage", max = 100f };
+            // IntTooltip unit "percentage" like the game's battery charge (RaycastElectricityTooltipSystem.cs:142-147). A ProgressTooltip printed
+            // "Scanning 93 / 100 <percentage>" for the same reason as the area above (T155, DECISIONS 650).
+            m_Scan = new IntTooltip { path = "skiQuickScan", label = LocalizedString.Id(P + "SCANNING"), unit = "percentage" };
             m_Vertical = new IntTooltip { path = "skiQuickVertical", label = LocalizedString.Id(P + "VERTICAL"), unit = "length" };
             m_Runs = new IntTooltip { path = "skiQuickRuns", label = LocalizedString.Id(P + "RUNS"), unit = "integer" };
             m_Tracks = new IntTooltip { path = "skiQuickTracks", label = LocalizedString.Id(P + "TRACKS"), unit = "integer" };
@@ -138,7 +140,7 @@ namespace SkiResortMod.Systems
                         .Replace("{M}", m_Tool.RemoveTotal.ToString("N0", CultureInfo.InvariantCulture)));
                 if (phase == QuickRunsToolSystem.ToolPhase.Scanning)
                 {
-                    m_Scan.value = (float)Math.Round(m_Tool.ScanProgress * 100f);
+                    m_Scan.value = (int)Math.Round(m_Tool.ScanProgress * 100f);
                     AddMouseTooltip(m_Scan);
                 }
                 string status = m_Tool.StatusKey;
