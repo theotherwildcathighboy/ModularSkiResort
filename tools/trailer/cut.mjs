@@ -103,9 +103,15 @@ async function renderClip(clip, index) {
   const zx = clip.zoom?.cx ?? cx;
   const zy = clip.zoom?.cy ?? cy;
   const zoomExpr = z0 === z1 ? `${z0}` : `(${z0}+(${z1 - z0})*(3*pow(t/${n(total)},2)-2*pow(t/${n(total)},3)))`;
-  // Scale so the frame covers W x H at zoom 1, times the zoom; then crop W x H around the center point.
-  chains.push(`[${last}]scale=w='ceil(max(${W}/iw,${H}/ih)*iw*${zoomExpr}/2)*2':h='ceil(max(${W}/iw,${H}/ih)*ih*${zoomExpr}/2)*2':eval=frame:flags=lanczos,` +
-    `crop=${W}:${H}:'min(max(iw*${zx}-${W / 2},0),iw-${W})':'min(max(ih*${zy}-${H / 2},0),ih-${H})',setsar=1[f]`);
+  // Scale so the frame covers W x H at zoom 1, times the zoom; then crop W x H around the center point. The crop filter
+  // keeps the input size of its first frame in iw / ih, so the zoomed size is written out from the source size and t.
+  const [sw, sh] = (await run(FFPROBE, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', src]))
+    .trim().split(',').map(Number);
+  const cover = Math.max(W / sw, H / sh);
+  const zw = `(ceil(${n(cover * sw)}*${zoomExpr}/2)*2)`;
+  const zh = `(ceil(${n(cover * sh)}*${zoomExpr}/2)*2)`;
+  chains.push(`[${last}]scale=w='${zw}':h='${zh}':eval=frame:flags=lanczos,` +
+    `crop=${W}:${H}:'min(max(${zw}*${zx}-${W / 2},0),${zw}-${W})':'min(max(${zh}*${zy}-${H / 2},0),${zh}-${H})',setsar=1[f]`);
   last = 'f';
 
   const post = [];
@@ -120,7 +126,7 @@ async function renderClip(clip, index) {
     }
   }
   for (const [ci, cap] of (clip.captions || []).entries()) {
-    const size = Math.round((cap.size || 84) * H / 2160);
+    const size = Math.round((cap.size || edit.captionSize || 84) * H / 2160);
     const fade = cap.fade ?? 0.35;
     const a0 = cap.at ?? 0.5;
     const a1 = a0 + (cap.dur ?? 2.6);
@@ -146,17 +152,19 @@ async function renderClip(clip, index) {
         `:shadowcolor=${cap.shadow || 'black@0.55'}:shadowx=0:shadowy=${Math.max(2, Math.round(size * 0.05))}${box}`);
     });
   }
-  if (clip.fadeIn) post.push(`fade=t=in:st=0:d=${clip.fadeIn}`);
-  if (clip.fadeOut) post.push(`fade=t=out:st=${n(total - clip.fadeOut)}:d=${clip.fadeOut}`);
+  // The clip's own fades come last, so they also take the logo with them.
+  const fades = [];
+  if (clip.fadeIn) fades.push(`fade=t=in:st=0:d=${clip.fadeIn}`);
+  if (clip.fadeOut) fades.push(`fade=t=out:st=${n(total - clip.fadeOut)}:d=${clip.fadeOut}`);
   if (clip.logo) {
     inputs.push('-loop', '1', '-i', expand(clip.logo.file));
     const lh = Math.round((clip.logo.h ?? 0.2) * H / 2) * 2;
     const at = clip.logo.at ?? 0.5;
     chains.push(`[1:v]scale=-2:${lh},format=rgba,fade=t=in:st=${at}:d=0.5:alpha=1[lg]`);
     chains.push(`[${last}]${post.length ? post.join(',') + ',' : ''}null[pp]`);
-    chains.push(`[pp][lg]overlay=x=(W-w)/2:y=${Math.round(H * (clip.logo.y ?? 0.2))}:enable='gte(t,${at})':shortest=0[v]`);
+    chains.push(`[pp][lg]overlay=x=(W-w)/2:y=${Math.round(H * (clip.logo.y ?? 0.2))}:enable='gte(t,${at})':shortest=0${fades.length ? ',' + fades.join(',') : ''}[v]`);
   } else {
-    chains.push(`[${last}]${post.length ? post.join(',') : 'null'}[v]`);
+    chains.push(`[${last}]${[...post, ...fades].length ? [...post, ...fades].join(',') : 'null'}[v]`);
   }
   await run(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-y', ...inputs, '-filter_complex', chains.join(';'), '-map', '[v]',
     '-frames:v', String(count), '-r', String(FPS), '-an', ...encode, path.basename(target)], work);
