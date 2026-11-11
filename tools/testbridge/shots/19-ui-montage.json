@@ -38,6 +38,32 @@
       { "op": "wait", "frames": 430 }
     ]
   },
+  "uiFinances2": {
+    "takes": ["ui-finances-t2", "ui-finances-t3"],
+    "notes": "Block R5: the Finances view on a resort with a Ski School, so the Lessons row carries no 'No ski school' note. Fresh load of bridgetrailer1j, autosave off, climate -8 C / cloudiness 0 / precipitation 0. One new building, in memory only, nothing saved: SkiSchool (80,000) placed with the hub's Buildings tab > Services chip > School tile at (2769.0, 804.5, -1648.4), yaw about -40 deg, entity 93390:9, on the south side of the Small Road from (2779, -1604) to (2702, -1668) between the Welcome Sign and the Rimrock Triple base station (the spot of the former A-Frame Day Lodge); its road edge is that road. The upper base area (Summit Lodge, DQ and gondola bases) has no road within about 850 m, so a school there would show 'Lodge or school: road required'. The resort has no rated green run (the 7 green-marked rows are cat tracks), so the hub lists 'Ski school: no green run' under its problems: the school adds no score but sells lessons (active school). The Lessons row's note appears only for no school or a deactivated school. Sim at speed 8 from 11:21 to 15:00: Lessons 10 (12:39), 14 (13:01), 22 (14:00), 27 (15:00), at 120 each (1.5 x ticket 80). Page hiding, cursor capture, fps 60 and the camera as uiFinances.",
+    "school": { "prefab": "SkiSchool", "x": 2769.0, "y": 804.5, "z": -1648.4, "qy": -0.341, "qw": 0.94, "tile": "hub Buildings tab, Services chip, School tile at (3239, 1685)" },
+    "camera": { "wx": 3215, "wz": -2440, "zoom": 300, "yaw": 100, "tilt": 28 },
+    "t2": {
+      "before": "hub on its Finances view with the Income fold open, piste map on, sim paused at 15:00, cursor at (3400, 1400)",
+      "seq": [
+        { "op": "sim", "speed": 3 },
+        { "op": "wait", "frames": 780 },
+        { "op": "sim", "speed": 0 }
+      ]
+    },
+    "t3": {
+      "before": "hub on its Finances view with every fold closed (a click on a fold header toggles it; opening one fold closes the other), cursor at (3400, 1400)",
+      "seq": [
+        { "op": "sim", "speed": 3 },
+        { "op": "wait", "frames": 200 },
+        { "op": "glide", "x": 3050, "y": 456, "seconds": 0.5 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 180 },
+        { "op": "glide", "x": 3050, "y": 800, "seconds": 0.5 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 180 },
+        { "op": "glide", "x": 3400, "y": 1500, "seconds": 0.6 },
+        { "op": "wait", "frames": 220 },
+        { "op": "sim", "speed": 0 }
+      ]
+    }
+  },
   "uiLodge": {
     "take": "ui-lodge-t1",
     "building": "Swanky Grand Lodge 831720:3 at (2790.5, 805.3, -1536.8), its front (the clock gable and entrance) faces south-east",

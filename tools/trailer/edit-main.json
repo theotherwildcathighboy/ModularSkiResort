@@ -20,7 +20,7 @@
     "gainDb": -1.6
   },
   "clips": [
-    {"id":"ho","src":"ho-t6-x60.mp4","in":1.4,"dur":5,"fadeIn":0.5,"vf":"colorbalance=rm=0.02:bm=-0.02:rh=0.04:bh=-0.04"},
+    {"id":"ho","src":"ho-t7-x60.mp4","in":2.6,"dur":5,"fadeIn":0.5},
     {"id":"01","src":"01-t1-x60.mp4","in":7.6,"dur":3},
     {"id":"02","src":"02-t3-x60.mp4","in":3.6,"dur":4,"captions":[{"lines":["MODULAR SKI RESORT","for Cities: Skylines II"],"at":0.3,"dur":3.5,"pos":"center","y":0.33,"size":260,"lineSizes":[260,96],"color":"0x1d2b44","shadow":"white@0.5"}]},
     {"id":"03a","src":"03a-t3-x60.mp4","in":9.3,"dur":2,"captions":[{"lines":["Chairlifts, gondolas and an aerial tram"],"at":0.15,"dur":3}]},

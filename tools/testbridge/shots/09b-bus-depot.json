@@ -212,5 +212,12 @@
         }
       ]
     }
+  },
+  "blockR5": {
+    "notes": "Block R5 retake 09b-t8: the same camera, light and slow motion as take 7. Trigger in two stages: at sim speed 8 a page timer polls the coach (Game.Objects.Transform every 100 ms); when it is inbound west of x 1150 on the main road (z above 400, x falling) the sim drops to speed 1 and the recording starts; at x below 705 the sequence starts. The lane beside the coach stayed free while it stood at the stop; a green car came from the left only as the coach swung into the bay.",
+    "trigger": {
+      "slow": "x < 1150, z > 400, x falling: sim speed 1, start OBS",
+      "start": "x < 705, x falling: seq"
+    }
   }
 }

@@ -99,5 +99,236 @@
       "PhotoModeRenderSystem.focalLength": 55,
       "Time of Day": 18.9
     }
+  },
+  "blockR5": {
+    "notes": "Block R5 retake (ho-t4, ho-t6): a longer lens and a 10.8 m push from the deck over the rail, so the foreground (rail, lamp, red parasol, loungers) slides away and the Silver Tram top station with a cabin, the tram tower and the ski town (Grand Lodge, the hotel tower) fill the end frame. Lens 75 mm (85 mm hid the town behind the rail at the start). The town spans about 35 to 38 % of the frame width at the end. Sky: not reachable at this lens and direction (the far side of the valley rises above the horizon); the light carries the frame instead. Light: ToD 19.3 (ho-t4, golden, the warmest that is still bright; 18.5 and 18.9 are dark at this exposure) and ToD 7.0 (ho-t6, bright morning, cool; 6.0 recorded too dark and blue as ho-t5, deleted). Cabin timing: sim at speed 1, a page timer polls the downhill cabin (SkiTramCabin at the top station, about (3070, 1088.7, -2324.9)) and pauses the sim when x drops below 3067; then the take starts: the cabin leaves the station and runs down past the tower in front of the town. Path checked: camera at least 9 m above the terrain, above the rail top (deck at about 1101 m).",
+    "pm": {
+      "cam": {
+        "x": 3088.5,
+        "y": 1105,
+        "z": -2393.5,
+        "at": [
+          2790,
+          845,
+          -1560
+        ]
+      },
+      "set": {
+        "PhotoModeRenderSystem.focalLength": 75,
+        "Time of Day": 19.3
+      }
+    },
+    "morning": {
+      "set": {
+        "PhotoModeRenderSystem.focalLength": 75,
+        "Time of Day": 7
+      }
+    },
+    "path": {
+      "mode": "pm",
+      "seconds": 8,
+      "fps": 60,
+      "ease": "inOut2",
+      "keys": [
+        {
+          "pos": [
+            3088.5,
+            1105,
+            -2393.5
+          ],
+          "at": [
+            2790,
+            845,
+            -1560
+          ]
+        },
+        {
+          "pos": [
+            3083.5,
+            1104.5,
+            -2383.5
+          ],
+          "at": [
+            2790,
+            845,
+            -1560
+          ]
+        }
+      ]
+    },
+    "seq": [
+      {
+        "op": "sim",
+        "speed": 1
+      },
+      {
+        "op": "fps",
+        "target": 30,
+        "capture": 60
+      },
+      {
+        "op": "overlay",
+        "hidden": true,
+        "seconds": 120
+      },
+      {
+        "op": "ui",
+        "hidden": true,
+        "seconds": 50
+      },
+      {
+        "op": "wait",
+        "frames": 60
+      },
+      {
+        "op": "campath",
+        "path": "path"
+      },
+      {
+        "op": "wait",
+        "frames": 60
+      },
+      {
+        "op": "ui",
+        "hidden": false
+      },
+      {
+        "op": "fps",
+        "target": -1,
+        "capture": 0
+      }
+    ]
+  },
+  "blockR7": {
+    "notes": "Block R7 retake with sky in the frame. The view looks about NNW (bearing about 340 degrees: from the deck toward (2790, -1560)); the sun sets at the left of the frame (west), so sunset puts a warm horizon into the sky, and sunrise lights the scene from behind and gives a plain blue sky. Lens 40 mm, aim about 8 degrees down, so the recorded frame holds the sky over the far range (about a quarter of the frame), the city and the ski town in the valley with the Silver Tram tower and a cabin, the top station at the right, and the deck (rail, lamp, red parasols, loungers) at the bottom at the start. Path: an 11.2 m push from the deck over the rail, 8 s inOut2; the deck leaves the frame in the second half and a deck lamp stays at the bottom edge. Light judged from 2 s test recordings after a 360-frame settle (photo stills of the same Time of Day differ a lot from the recording): 19.6 is the best (yellow horizon, golden peaks, the ground readable); 19.7 gives a deeper orange band but a dark blue-gray ground; 19.45 and earlier are dark on the ground; sunrise 5.6 to 6.8 is a blue sky with no warm color. Camera at least 9 m above the terrain along the path.",
+    "pm": {
+      "cam": {
+        "x": 3089.5,
+        "y": 1105.5,
+        "z": -2395.5,
+        "at": [
+          2790,
+          1000,
+          -1560
+        ]
+      },
+      "set": {
+        "PhotoModeRenderSystem.focalLength": 40,
+        "Time of Day": 19.6
+      }
+    },
+    "path": {
+      "mode": "pm",
+      "seconds": 8,
+      "fps": 60,
+      "ease": "inOut2",
+      "keys": [
+        {
+          "pos": [
+            3089.5,
+            1105.5,
+            -2395.5
+          ],
+          "at": [
+            2790,
+            1000,
+            -1560
+          ]
+        },
+        {
+          "pos": [
+            3084.5,
+            1105,
+            -2385.5
+          ],
+          "at": [
+            2790,
+            1000,
+            -1560
+          ]
+        }
+      ]
+    },
+    "t8": {
+      "set": {
+        "PhotoModeRenderSystem.focalLength": 40,
+        "Time of Day": 19.7
+      },
+      "path": {
+        "mode": "pm",
+        "seconds": 8,
+        "fps": 60,
+        "ease": "inOut2",
+        "keys": [
+          {
+            "pos": [
+              3089.5,
+              1105.5,
+              -2395.5
+            ],
+            "at": [
+              2790,
+              985,
+              -1560
+            ]
+          },
+          {
+            "pos": [
+              3084.5,
+              1105,
+              -2385.5
+            ],
+            "at": [
+              2790,
+              985,
+              -1560
+            ]
+          }
+        ]
+      }
+    },
+    "settleFrames": 360,
+    "seq": [
+      {
+        "op": "sim",
+        "speed": 1
+      },
+      {
+        "op": "fps",
+        "target": 30,
+        "capture": 60
+      },
+      {
+        "op": "overlay",
+        "hidden": true,
+        "seconds": 120
+      },
+      {
+        "op": "ui",
+        "hidden": true,
+        "seconds": 50
+      },
+      {
+        "op": "wait",
+        "frames": 60
+      },
+      {
+        "op": "campath",
+        "path": "path"
+      },
+      {
+        "op": "wait",
+        "frames": 60
+      },
+      {
+        "op": "ui",
+        "hidden": false
+      },
+      {
+        "op": "fps",
+        "target": -1,
+        "capture": 0
+      }
+    ]
   }
 }
