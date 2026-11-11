@@ -30,7 +30,7 @@
     {"id":"07","src":"07-t1-x60.mp4","in":0,"dur":3.3333,"captions":[{"lines":["Piste map"],"at":0.5,"dur":2.4}]},
     {"id":"08","src":"08-t1.mp4","in":0,"dur":3.3333,"captions":[{"lines":["One hub for the whole ski area"],"at":0.4,"dur":2.6}]},
     {"id":"09","src":"09-t1-x60.mp4","in":3.3,"dur":4.4444,"captions":[{"lines":["Lodges, Ski School, Ski Patrol"],"at":1.4,"dur":2.6}]},
-    {"id":"09b","src":"09b-t1-x60.mp4","in":19.4,"dur":2.2222,"captions":[{"lines":["Ski Bus Depot"],"at":0.3,"dur":1.7,"fade":0.25}]},
+    {"id":"09b","src":"09b-t3-x60.mp4","in":34.2,"dur":2.2222,"captions":[{"lines":["Ski Bus Depot"],"at":0.3,"dur":1.7,"fade":0.25}]},
     {"id":"10","src":"10-t1.mp4","in":1.5,"dur":6.6667,"speed":8.5,"captions":[{"lines":["Runs open on the game's own snow"],"at":1,"dur":3.2}]},
     {"id":"11","src":"11-t2-x60.mp4","in":2,"dur":4.4444,"captions":[{"lines":["Snow guns extend the season"],"at":0.6,"dur":2.8}]},
     {"id":"12","src":"12-t1-x60.mp4","in":2,"dur":6.6667},

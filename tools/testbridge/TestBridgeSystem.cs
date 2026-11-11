@@ -129,6 +129,7 @@ namespace SkiTestBridge
                 case "terrain": return TerrainCommand(args);
                 case "wind": return WindCommand(args);
                 case "fps": return FpsCommand(args);
+                case "overlay": return OverlayCommand(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }

@@ -470,9 +470,43 @@ namespace SkiTestBridge
                 ShowUi();
             if (!running)
                 m_UiHiddenBySequence = false;
+            if (m_OverlayHidden && UnityEngine.Time.realtimeSinceStartup > m_OverlayDeadline)
+                SetOverlayHidden(false);
         }
 
         private bool m_UiHiddenBySequence;
+
+        // ------------------------------------------------------------------------------------------------------------------ overlay
+
+        private bool m_OverlayHidden;
+        private float m_OverlayDeadline;
+
+        /// <summary>Op "overlay": {hidden, seconds} sets RenderingSystem.hideOverlay, the switch the game's own screenshot uses
+        /// (ScreenCaptureHelper). Notification icons, tool overlays, area and route overlays are then not drawn. No entity changes
+        /// and nothing is saved. Unlike Photo Mode's overlay binding it leaves the active tool alone. It turns itself off after
+        /// `seconds` (default 120, at most 900). No argument: the state.</summary>
+        private JObject OverlayCommand(JObject args)
+        {
+            if (args["hidden"] != null)
+            {
+                bool hidden = (bool)args["hidden"];
+                float seconds = (float?)args["seconds"] ?? 120f;
+                if (hidden && (!(seconds > 0f) || seconds > kUiMaxHiddenSeconds))
+                    throw new ArgumentException($"overlay: seconds must be over 0 and at most {kUiMaxHiddenSeconds}");
+                m_OverlayDeadline = UnityEngine.Time.realtimeSinceStartup + seconds;
+                SetOverlayHidden(hidden);
+            }
+            var rendering = World.GetExistingSystemManaged<RenderingSystem>();
+            return new JObject { ["hidden"] = rendering != null && rendering.hideOverlay, ["byBridge"] = m_OverlayHidden };
+        }
+
+        private void SetOverlayHidden(bool hidden)
+        {
+            m_OverlayHidden = hidden;
+            var rendering = World.GetExistingSystemManaged<RenderingSystem>();
+            if (rendering != null)
+                rendering.hideOverlay = hidden;
+        }
 
         // ------------------------------------------------------------------------------------------------------------------ terrain
 

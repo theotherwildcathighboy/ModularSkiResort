@@ -1,0 +1,35 @@
+{
+  "shot": "08",
+  "title": "The hub",
+  "save": "bridgetrailer1g",
+  "notes": "The ski-area hub open on a live resort, normal game camera, UI visible. State: a time jump to 07:31, then the sim at speed 8 to about 14:15 (85 guests at 14:20, 124 at about 16:20; a time jump brings no guests). The hub button is the second top-left button (click 152, 60). Hidden in the page before the take (style visibility): the third-party toolbar buttons (top-left row, client x 200 to 1200), the game's top info strip (the container of the service icons) and the round buttons at the right edge (client x over 3700, y 1450 to 2000). Warning icons hidden with photoMode.setOverlayHidden true outside Photo Mode (it also hides the piste map; no icon deleted). The cursor rests on an empty part of the panel (3400, 1250 to 1350) so no tooltip shows; OBS cursor capture is off. Sim speed 3 during the take so guests and money tick. Camera: east-southeast up the slope over the Summit Express and Ridge Express bases and the gondola base, the lift lines climbing beside the panel; a 5 degree orbit. Take 1: the Attraction view (the default hub view), zoom 320. Take 2: the Lifts view (every lift Running), zoom 230 (closer). Capture mode (fps 30, capture 60). The problem line reads the sim's own state at the time (Not Enough Employees after the run).",
+  "sim": 3,
+  "hub": { "button": [152, 60], "views": { "t1": "Attraction tile (2986, 300)", "t2": "Lifts tile (3263, 300)" } },
+  "seq": [
+    { "op": "wait", "frames": 60 },
+    { "op": "campath", "path": "path" },
+    { "op": "wait", "frames": 60 }
+  ],
+  "path": {
+    "mode": "game",
+    "seconds": 7,
+    "fps": 60,
+    "ease": "inOut2",
+    "keys": [
+      { "wx": 3212, "wy": 1105, "wz": -2468, "zoom": 320, "tilt": 23, "yaw": 112.5 },
+      { "wx": 3212, "wy": 1105, "wz": -2468, "zoom": 320, "tilt": 23, "yaw": 117.5 }
+    ]
+  },
+  "t2": {
+    "path": {
+      "mode": "game",
+      "seconds": 7,
+      "fps": 60,
+      "ease": "inOut2",
+      "keys": [
+        { "wx": 3195, "wy": 1100, "wz": -2462, "zoom": 230, "tilt": 25, "yaw": 107.5 },
+        { "wx": 3195, "wy": 1100, "wz": -2462, "zoom": 230, "tilt": 25, "yaw": 112.5 }
+      ]
+    }
+  }
+}

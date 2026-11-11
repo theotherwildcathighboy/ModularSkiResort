@@ -210,6 +210,7 @@ namespace SkiTestBridge
                 case "pm":
                 case "wind":
                 case "fps":
+                case "overlay":
                 case "terrain":
                     s.results.Add(new JObject { ["step"] = s.index, [op] = Run(op, step) });
                     Next(s, 0);
