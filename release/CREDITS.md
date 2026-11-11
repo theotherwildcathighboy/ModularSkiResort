@@ -54,9 +54,8 @@ the generators in `assets/blender/`.
   reference for the gondola cabin, hanger, carriage and station layout.
 - Tiling materials: CC0 sets from ambientCG (https://ambientcg.com), no attribution required.
 
-## Trailer music (CC BY 4.0)
+## Trailer music
 
-- **"Hummingbird" by Shane Ivers** (Silverman Sound Studios) — https://www.silvermansound.com/free-music/hummingbird —
-  Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/). Used in the release trailer, cut to
-  length and faded. The music is not part of the mod. Credit line for a video description:
-  "Music: Hummingbird by Shane Ivers - https://www.silvermansound.com".
+- **"Berlin Dream" by housefrau.me** (Unminus) — https://www.unminus.com — the Unminus License (free for commercial and
+  non-commercial use, no credit required). Credited here as a courtesy. Used in the release trailer, cut to length. The music
+  is not part of the mod. Credit line for a video description: "Music: Berlin Dream by housefrau.me (Unminus)".
