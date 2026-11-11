@@ -1,0 +1,10 @@
+{
+  "name": "ski-trailer-obs-rec",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Records trailer takes with OBS Studio through obs-websocket v5.",
+  "dependencies": {
+    "obs-websocket-js": "^5.0.8"
+  }
+}

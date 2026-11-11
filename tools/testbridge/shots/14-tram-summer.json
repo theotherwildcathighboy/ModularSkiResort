@@ -1,0 +1,20 @@
+{
+  "shot": "14",
+  "title": "Winter to summer",
+  "save": "bridgetrailer1f",
+  "notes": "The path and trigger of 03b-tram.json in a summer state made in memory and never saved: a time jump to 08:00, climate temperature 26, sim speed 8; the valley was green within about one game hour (high ground keeps rock and some snow). The edit dissolves from a 03b winter take to a 14 summer take in the middle of the move. Take 1: descending cabin on the far rope (started at x 2943.6, slightly late), Time of Day 15. Take 2: the other cabin on the near rope (started at x 2951.9), Time of Day 14.5. Capture mode (fps 30, capture 60).",
+  "sim": 1,
+  "pre": [{ "op": "climate", "temperature": 26 }, { "op": "sim", "speed": 8 }],
+  "pm": {
+    "cam": { "x": 2990, "y": 1015.2, "z": -2140, "at": [2905, 1004, -2075] },
+    "set": { "PhotoModeRenderSystem.focalLength": 50, "Time of Day": 15 }
+  },
+  "path": {
+    "seconds": 6,
+    "ease": "inOut2",
+    "keys": [
+      { "pos": [2990, 1015.2, -2140], "at": [2905, 1004, -2075] },
+      { "pos": [2996.1, 1015.2, -2132.1], "at": [2905, 1004, -2075] }
+    ]
+  }
+}

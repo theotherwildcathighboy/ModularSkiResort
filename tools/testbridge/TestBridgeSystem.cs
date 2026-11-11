@@ -56,6 +56,7 @@ namespace SkiTestBridge
             TickReady();
             TickPerf();
             TickSequence();
+            TickTrailer();
             TickMergeProbeUi();
         }
 
@@ -123,6 +124,12 @@ namespace SkiTestBridge
                 case "bone": return BoneCommand(args);
                 case "mprobe": return MergeProbe(args);
                 case "trains": return TrainsCommand(args);
+                case "campath": return CamPathCommand(args);
+                case "ui": return UiCommand(args);
+                case "terrain": return TerrainCommand(args);
+                case "wind": return WindCommand(args);
+                case "fps": return FpsCommand(args);
+                case "overlay": return OverlayCommand(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }

@@ -90,6 +90,12 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `bone` | `id`, optional `mesh` (sub-mesh index), `bone`, `rotX`, `rotY` (deg) | lists a skinned object's bones (type, rest and current pose). With `bone` and a rotation, it writes that bone as rest x RotateY x RotateX and flags the skeleton for upload, as our own bone writers will. Bones exist only near the camera |
 | `mprobe` | `action`: `tag` (`id`, `serial`, `provider`), `untag`, `list`, `trace` (`id`, `p`, `write`), `read`, `stop` | merge-asset P0 probe: tags a building with `tools/testbridge-mergetag`'s saved component. `trace` writes round(sqrt(V² + P²)) right after vanilla AttractionSystem and samples the value every frame |
 | `trains` | `x`, `z`, optional `r` (default 400), `maxDeg` | gate G8 of the pitched sheave trains: per line tower with a `Train` bone near (x, z), the pitch the bone shows (relative to rest, nose up along +z, and null when far from the camera) against the analytic hanging-lane end slopes of the rope lanes on its anchors, and the worst difference |
+| `campath` | `seconds`, `keys`, optional `mode` (`pm`, `game`), `ease`, `props`, `follow`, `fps`, `snap` | an eased camera move on a spline, as a one-step sequence. See "Filming" |
+| `ui` | `hidden`, optional `seconds` (default 60, at most 900) | the whole UI view off or on. It comes back by itself after `seconds`, and when the sequence that hid it ends |
+| `terrain` | `action`: `begin` (`prefab`, `size` 1 to 10, `strength` 0.35 or less, optional `height`, `wx`, `wz`, `r`, `snapDir`, `log`, `note`), `end`, `cancel`, `undo` (`file`, optional `log`), `read` | a small terrain brush edit with a bit-exact snapshot before and after, an undo and a log row. See "Filming" |
+| `wind` | optional `x`, `y`, `force`; optional `wx`, `wz` | sets `WindSimulationSystem.constantWind` (default 0.275, 0.275). With `force`, it also writes that velocity into every cell of the wind simulation. Both are saved values. It reads the wind map at a point. See "Filming" |
+| `fps` | optional `target` (-1 = no cap, or 24 to 240), `capture` (0 = off, or 24 to 240) | `Application.targetFrameRate` and `Time.captureFramerate` for this run of the game. Not game settings, not saved. See "Filming" |
+| `overlay` | optional `hidden`, `seconds` (default 120, at most 900) | the game's own hide-overlay switch (`RenderingSystem.hideOverlay`): notification icons and the piste map are not drawn, nothing is deleted, the active tool stays. It turns itself off after `seconds`. No argument: the state. See "Filming" |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |
@@ -120,6 +126,15 @@ Then to load:
 `__save` / `__saveFromPanel` (helpers.js) write to the local `Saves` folder. They set the target to `Local` with `saveTarget`,
 and they restore the player's own target after the click. A save in Steam Cloud could not be read back after a direct launch
 (IOException in `SteamCloudStream.LoadCache`, 2026-11-06), so bridge saves stay local.
+
+`__save` is for a new name only. With a name that already exists the typed name did not reach the game, and the Save
+button wrote the city's default name as a new file, twice (2026-11-10). To overwrite a bridge save, click its row in the
+save panel, then "Overwrite Save", then "Yes"; or use the next free name.
+
+Remove warning icons with care: `Game.Common.Deleted` on every `Game.Notifications.Icon` of a city (58 icons, traffic and
+workplace icons among them) while the sim ran at speed 8 was followed by a silent game exit within seconds (2026-11-10; no
+dump, no log line, cause not proven). Pause the sim, delete only the few station icons in frame, wait 60 frames, read
+`status`. In Photo Mode, `photoMode.setOverlayHidden` hides the icons and deletes nothing.
 
 Do not call `engine.trigger("menu.saveGame", name)`. If the save panel is not open, the preview texture is null. Then the game
 throws a `NullReferenceException` and shows its error dialog (measured, see `MenuUISystem.cs:896-902` and `GameManager.cs:947`).
@@ -198,6 +213,7 @@ mutation; run it again on the same open tooltip. Gameface rejects `:scope` in a 
 ### Practical limits, all measured
 
 - **No bridge or `game_eval` call before READY** (see Wait for ready).
+- **The pause menu's exit is two steps** (1.6.4f1): "Exit", then "Exit To Desktop" in the dialog (`__exitToDesktop`).
 - **`game_eval` times out after 15 seconds.** Longer work keeps running in the page, but its result is lost. So start the work,
   return, and poll. Loading a small city took about 3 s.
 - **DOM rects are client pixels here** (3840 x 2160 at `devicePixelRatio` 1), so `getBoundingClientRect()` gives the click point for a
@@ -216,7 +232,7 @@ mutation; run it again on the same open tooltip. Gameface rejects `:scope` in a 
 - **The object tool's raycast is offset by the object's height** (`ObjectToolSystem.cs:3190`), so `hover.hit` lands up to a few meters
   short of the target with the camera tilted, and the object lands there. Read the placed `Transform` for the true position.
 - **A station buried or floating:** use Move It, Toolbox, "To Terrain Height", with no terrain edit. If the station sits past a crest, move it along its line first. A large Level brush cuts shelves. When terrain must change, brush 1 to 10 at 35 %, with the target from `engine.trigger("tool.setBrushHeight", worldY - seaLevel)`.
-- **`pm` op, lighting:** "Time of Day" changes the sky, not the lamps. The lamps follow sim time (on by about 20:20). Snow guns and their plumes run at sim night only. Lifts stop outside open hours. A lift with no power stops soon after it is built. To sample chair motion, pick a powered lift at sim day.
+- **`pm` op, lighting:** "Time of Day" changes the sky, not the lamps. The lamps follow sim time (on by about 20:20). Snow gun plumes do not depend on the hour: they run when the calendar is in the gun season (normalized date 0.75 to 1.25), the run's pack is below 0.91 m and it is cold (measured 2026-11-10: 0 of 44 guns at date 0.474 with 102 cm, 37 of 44 at noon at date 0.868 after a melt). Lifts stop outside open hours. A lift with no power stops soon after it is built. To sample chair motion, pick a powered lift at sim day.
 - **Close shots:** the camera keeps about 8.5 m above the terrain at any zoom, so a pivot near the ground needs tilt 40 to 60
   to stay on screen. Read `project` for the pivot at a few tilts. Keep the one nearest the screen center. The station roofs hide
   their loading areas from above.
@@ -254,7 +270,10 @@ Input steps wait `after` frames afterward (default 2).
 | `settle` | waits for the camera to hold still. `timeout` frames (default 600) |
 | `waitFor` | a `dump` query plus `min` (default 1). After `timeout` frames (default 1200), the sequence fails |
 | `hover`, `status`, `dump` | adds the reading to `results` |
-| `sim`, `time`, `money`, `climate`, `tool`, `unlock`, `milestone`, `demand`, `errors` | same as the ops. The reply goes to `results` |
+| `glide` | `x`, `y` or `wx`, `wz`, optional `wy`; `seconds` (default 1), `ease` (default `inOut`). The cursor travels there in real time, eased. A world target is projected again on every frame |
+| `campath` | same as the op. The sequence goes on when the move ends. `after` frames (default 0). The reply (frames, seconds, fps, `maxFrameMs`, `hitches` = frames over 25 ms) goes to `results` |
+| `ui` | same as the op |
+| `sim`, `time`, `money`, `climate`, `tool`, `unlock`, `milestone`, `demand`, `errors`, `pm`, `wind`, `fps`, `overlay`, `terrain` | same as the ops. The reply goes to `results` |
 
 Rectangles in the area tool: the vanilla right-angle snap can pull the closing click off the first corner, so the area stays open and nothing is built (`Area.m_Flags` without `Complete`, a fifth node 0.5 m from the first). Draw test areas slightly off square.
 
@@ -263,6 +282,146 @@ Two guards fail a sequence instead of letting it click on blindly:
 - **A new game error stops it**, since an error dialog would swallow the input. Pass `stopOnError: false` on the `seq` when a known
   error is expected, then read `errors`.
 - **A press aimed at a world point fails if UI is under the cursor.** Pass `allowUI: true` on the `click` or `down` to allow it.
+
+## Filming
+
+Ops for recorded takes (the release trailer, DECISIONS 647). Page helpers: `shots/trailer-helpers.js`. Camera paths are kept as JSON
+in `shots/`, one file per shot, so a retake after a game patch is a re-run. Recording is `obs/rec.mjs` (its own README).
+
+### `campath`
+
+An eased camera move on a spline. The pose is set once per rendered frame from real frame time (`Time.unscaledDeltaTime`), so
+the move takes `seconds` at any frame rate. `fps` gives each frame a fixed step of 1 / fps instead (frame-locked motion for a
+capture at that rate).
+
+- `mode`: `pm` (the Photo Mode camera; the default while Photo Mode is on) or `game` (the normal camera).
+- `keys`, at least two. `t` runs from 0 to 1 and rises; without `t` the keys are spread evenly.
+  - `pm`: `pos: [x, y, z]` and `at: [x, y, z]` (a look-at point), or `yaw` and `pitch` in place of `at` on every key.
+  - `game`: `wx`, `wz`, optional `wy` (the pivot), `zoom`, `yaw`, `tilt`. Zoom blends in log space.
+- The position and the look-at point run on a Catmull-Rom spline through the keys. Two keys give a straight line.
+- `ease`: `linear`, `in`, `out`, `inOut` (the default), `inOut2` (the softest start and end).
+- `props` (`pm` only): `{"Time of Day": [16.2, 17.0]}` moves a Photo Mode property from the first value to the second over the
+  move. Any id of `{op:"pm",list:true}` works (`PhotoModeRenderSystem.focalLength` for a zoom).
+- `follow` (`pm` only): `{entity: "index:version", offset: [0, 1.5, 0], attach: false}`. The camera looks at the entity's drawn
+  position (InterpolatedTransform) plus `offset`. With `attach`, the camera also moves by what the entity moved since the start
+  (a tracking shot). The groomers are respawned on every load: find the id again (`__groomers()`).
+- While a `pm` path runs, the Photo Mode camera takes no input and is not clamped to the terrain: keep the keys above the ground.
+- The reply in `results`: `frames`, `seconds`, `fps`, `maxFrameMs` and `hitches` (frames over 25 ms). A take with a hitch is
+  retaken.
+
+Measured on 2026-11-10 (4K, the 83-mod playset, no frame cap): a 5 s Photo Mode path ran 331 frames at 66 fps with a longest
+frame of 19.4 ms and no hitch. A path that moved Time of Day from 15 to 19.5 in 4 s had one frame of 33 ms. The normal-camera
+path ended on its last key exactly (pivot, zoom, yaw, tilt).
+
+### `glide`
+
+A sequence step. The cursor travels to a point in `seconds`, eased, where `move` jumps. Use it before each `click` of a tool
+shot. Measured: a 2 s glide to a world point 1,000 px away arrived within one pixel and the tool raycast hit the point.
+
+### `ui`
+
+`{op:"ui",hidden:true}` switches the whole UI view off (the same switch the `photo` op uses for one frame), so a recording shows
+the picture alone. The page may not run while the view is off, so the bridge shows it again by itself: when the sequence that hid
+it ends (also on an error or `abort`), and after `seconds` in any case. `photoMode.setOverlayHidden` is a different switch: it
+hides the notification icons and the piste map, in or out of Photo Mode.
+
+### `overlay`
+
+`{op:"overlay",hidden:true,seconds:N}` sets `RenderingSystem.hideOverlay`, the switch the game's own screenshot sets
+(`ScreenCaptureHelper`). `{op:"overlay",hidden:false}` clears it; `{op:"overlay"}` reads `{hidden, byBridge}`. Use it for every
+camera-only take that must show no warning icons, in place of `Deleted` on the icon entities: no entity changes and nothing
+goes into a save. Measured on OBS frames (1.6.4f1, 2026-11-10): the icons are gone while it is set and back afterward; an
+active tool stays active (the terrain tool read the same before, during and after), where Photo Mode's
+`photoMode.setOverlayHidden` forces the Default Tool every frame (`PhotoModeUISystem.OnUpdate`); with `seconds: 4` it was still
+set at +2.0 s and off at +4.6 s.
+
+Limits: the same switch hides the piste map (run outlines and names) and the overlays of tools, areas and routes in the
+game's code (`OverlayRenderSystem`, `AreaRenderSystem`, `RouteRenderSystem`), so takes of the Lift tool, a run outline, the
+Resort Planner, the piste map and the hub over the piste map keep it off. For those, pause the sim and delete only the few
+station icons in frame, or frame them out. The terrain tool's contour lines stay drawn while it is set; its brush circle was
+not seen in either state (not verified). The `photo` op cannot show the difference: the game's screenshot sets the switch
+itself.
+
+### `fps`
+
+The game runs with no frame cap and no vsync on this machine (66 to 78 fps at 4K). `{op:"fps",target:60}` caps it for this run
+(measured: 59.7 to 59.8 fps over 6 s).
+
+**A cap at 60 is not enough for a clean recording.** The game's cap and OBS's 60 fps clock are two clocks: a take at
+`target: 60` had one duplicated frame about every 0.24 s (82 of 1,189 frames), each one a visible step in a slow camera move.
+
+**Capture mode is the way to record a moving camera:** `{op:"fps",target:30,capture:60}`. Unity then advances game time by exactly
+1/60 s per rendered frame (`Time.deltaTime` 0.01667) while the game renders 30 frames per real second. The whole game follows:
+the simulation ran 30 steps per real second, and a chair moved 2.51 m/s in real time against 5.02 m/s without it. OBS records at
+60 fps and holds each game frame for 1 to 3 of its frames, so no game frame is lost. `node obs/rec.mjs dedupe <take>` drops the
+repeats and writes the unique frames as an exact 60 fps clip. Give the `campath` step `fps: 60` in this mode, so the path also
+moves by 1/60 s per frame. Measured: a 25.6 s recording gave 769 unique frames (25.6 x 30 = 768), holds of 1, 2 and 3 frames
+only, and a 6 s path was 360 frames. Recording takes twice the clip's length. Put `{op:"fps",target:-1,capture:0}` back after
+the take. A locked camera (a time-lapse) does not need this mode.
+
+### `terrain`
+
+Small brush edits for staging, with the game's own terrain tool and real input. The limits are in the code: brush size 1 to 10,
+strength 0.35 or less.
+
+1. `{op:"terrain",action:"begin",prefab,size,strength,height,wx,wz,r,snapDir,log,note}` reads the base heightmap texels around the
+   point (`r` meters, default size x 2 + 12) and saves them as `<snapDir>\<id>-before.json` (bit-exact, 16 bit). Then it activates
+   the terraforming prefab and sets the brush. `height` is the target in world meters (Level and Slope).
+   Prefabs: `Terrain Level Tool`, `Terrain Soften Tool`, `Terrain Shift Tool`, `Terrain Slope Tool`.
+2. The stroke is input: `move` to the point, `down`, `wait` some frames, `up`. Several strokes may follow one `begin`.
+3. `{op:"terrain",action:"end"}` saves `<id>-after.json`, compares, appends one row to the `log` file (position, tool, size,
+   strength, target, the largest raise and lowering, changed texels, the note, the snapshot) and leaves the tool.
+4. `{op:"terrain",action:"undo",file:"<id>-before.json",log}` writes the snapshot back into the base heightmap, verifies it by a
+   readback (`mismatches` must be 0) and runs the game's own change notifications (the ski mod's `HeightmapWriter` recipe).
+
+`__terr` (trailer-helpers.js) runs steps 1 to 3 for a list of points. Check every edit from a low camera before the next one.
+
+**Leave Photo Mode before any tool work** (`__pmOff()`). While Photo Mode's overlay-hidden flag is set, the game forces the Default Tool
+on every frame: the terrain tool then paints nothing and the edit logs a row with 0 changed texels (it cost two empty edits in
+the staging pass of 2026-11-10).
+
+Measured on 2026-11-10 (this map: 4,096 x 4,096 texels of 3.5 m, height step 0.0625 m):
+- One Level stroke, size 10, strength 0.3, held 20 frames: 4 texels changed, +0.56 / -0.13 m. So a size 10 brush touches about
+  four texels, and a pad needs a grid of strokes about 4 m apart.
+- A 12 m pad: nine Level strokes of 25 frames (17 texels, +1.50 / -0.81 m), then eight Soften strokes of 15 frames at strength 0.2
+  on a ring of 9 m (23 texels). The pad's center cells stand within 0.2 m of the target, and a low photo shows no shelf.
+- Undo of the first stroke: 0 mismatches, and the CPU heights read the old values again.
+
+### Move It: "To Terrain Height"
+
+A building that sits in the ground or floats is fitted with Move It's own tool, driven with real clicks (no call into Move It):
+its toolbar button (`MoveIt_Off.svg`), a click on the building, Toolbox, "To Terrain Height". `__moveItToTerrain(x, y, z)` does
+these steps and returns the height before and after. Measured (Move It 0.5.16): the Swanky Summit Lodge went from y 1,094.98 to
+1,098.15, the terrain height at its center, with the same entity and no game error. The building then stands at the height of its
+center: on a slope its uphill side is still in the ground, and that part is a `terrain` job (Level strokes along the uphill wall).
+Move It is a staging tool. Nothing in Modular Ski Resort needs it.
+
+### Fitting a building: the goal (owner, 2026-11-10)
+
+- Goal: every building reads as built into its slope. Each level's doors, decks and stairs meet the ground where a person would
+  step out. Nothing hangs in the air. Raw foundation or concrete shows only where the design means it to (a walk-out lower level,
+  a deck on posts), never as a big bare block.
+- Method: level both sides as each building needs. Cut a little on the uphill side and fill on the downhill side, in small blended
+  strokes. For multi-level huts with decks, fit each level to its own ground line: the upper entry flush uphill, the lower deck or
+  walk-out meeting the downhill ground. This is a goal with judgment, not a fixed rule.
+- "To Terrain Height" fits the center, so on a slope the downhill side floats after it (the proof above left the lodge's downhill
+  foundation block fully exposed, with air under its outer corner).
+- After each fit, check all four sides from a low camera (2 to 4 m up, about 30 m out) and keep a four-side contact sheet. Judge it
+  against the goal. When unsure, list the building for the owner's touch-up rather than force it.
+- The same holds for station pads and lots: an edge meets the ground, it never stands out of it as a wall.
+- Kept: brush size 1 to 10, strength 0.35 or less, a snapshot and a log row per edit, no shelves and no wall-like cuts.
+
+### `wind`
+
+The lift carriers sway with the wind map (`WindSystem`), which the wind simulation feeds every 512 simulation frames. Setting
+`constantWind` alone showed no change at a lift after one game hour (the simulation follows its boundary pressures slowly).
+`force: true` writes the velocity into every cell, so the next map update shows it. Both values are saved with the city: put the
+default (0.275, 0.275) back before a save, or do not save.
+
+Measured on 2026-11-10 at the Summit Express (a detachable quad chair, tilt from plumb sampled for 6 s): with the save's own wind
+(strength 0.23) the chair swung over 2.1 degrees across the line and 5.0 degrees along it. After `{op:"wind",x:0.5,y:0.5,force:true}`
+the map read 0.71 within 11 s, and the chair leaned 2.5 degrees with a swing of 2.4 degrees across and 6.2 degrees along. The forced
+wind fell to 0.70 in the next 8 s.
 
 ## Editor import
 

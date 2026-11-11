@@ -1,0 +1,42 @@
+{
+  "shot": "03a",
+  "title": "A gondola glimpse",
+  "save": "bridgetrailer1g",
+  "notes": "Bowl Gondola tower 1 (3222.2, 1127.7, -2378.1), seen from the southeast at cabin height, 33.5 m out: a short orbit from -35 to -22 degrees around the tower (block A's longer orbit started at -46 degrees, where a fir crown fills the lower left). Stills of the start, middle and end (shoot view c1-03a-abc, c1-03a-de) show no tree in front of the cabins; firs and the Summit Lodge stand behind them. Ground under the keys: 1123.0, 1124.5, 1125.9. Ascending cabins (x rising) run on the south rope (z about -2391 at x 3203), about 5.4 m/s at sim speed 1, one every 12 s or so. Start the sequence when an ascending SkiGondolaCabin8 passes x 3203 to 3209 (poll the cabin entities with `entity`; take 3 fired at x 3203.06): the sequence hides the UI, waits 30 frames, runs the 6 s path; the cabin passes the tower head at about 3.5 to 4.5 s of the path. Take 4 is the 60 mm variant at Time of Day 11.5 in alt60. Capture mode (fps 30, capture 60).",
+  "sim": 1,
+  "trigger": { "entity": "an ascending SkiGondolaCabin8", "when": "x between 3203 and 3209" },
+  "seq": [
+    { "op": "ui", "hidden": true, "seconds": 40 },
+    { "op": "wait", "frames": 30 },
+    { "op": "campath", "path": "path" },
+    { "op": "wait", "frames": 60 },
+    { "op": "ui", "hidden": false }
+  ],
+  "pm": {
+    "cam": { "x": 3247.5, "y": 1135.5, "z": -2397.1, "at": [3220, 1134, -2378] },
+    "set": { "PhotoModeRenderSystem.focalLength": 50, "Time of Day": 10.5 }
+  },
+  "path": {
+    "seconds": 6,
+    "fps": 60,
+    "ease": "inOut2",
+    "keys": [
+      { "pos": [3247.5, 1135.5, -2397.1], "at": [3220, 1134, -2378] },
+      { "pos": [3249.5, 1135.9, -2393.9], "at": [3220, 1134, -2378] },
+      { "pos": [3251.1, 1136.3, -2390.5], "at": [3220, 1134, -2378] }
+    ]
+  },
+  "alt60": {
+    "pm": { "set": { "PhotoModeRenderSystem.focalLength": 60, "Time of Day": 11.5 } },
+    "path": {
+      "seconds": 6,
+      "fps": 60,
+      "ease": "inOut2",
+      "keys": [
+        { "pos": [3247.5, 1135.5, -2397.1], "at": [3221, 1134.5, -2378] },
+        { "pos": [3249.5, 1135.9, -2393.9], "at": [3221, 1134.5, -2378] },
+        { "pos": [3251.1, 1136.3, -2390.5], "at": [3221, 1134.5, -2378] }
+      ]
+    }
+  }
+}

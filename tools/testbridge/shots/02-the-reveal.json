@@ -1,0 +1,20 @@
+{
+  "shot": "02",
+  "title": "The reveal",
+  "save": "bridgetrailer1f",
+  "notes": "Summit Express top. A rising crane with a push down the line, from 2.5 m above the snow just below the crest (chairs large at the left) to 13 m above the slope, ending on the frame of ref/a-top-2.jpg: the line, the valley, the river and the town. The top station (4322.5, -2621.5) and its cut bank stay behind the camera for the whole move. Ground: 1486.6 at x 4315, 1482.9 at x 4300. Take 2 used 45 mm and Time of Day 11. Capture mode (fps 30, capture 60).",
+  "sim": 1,
+  "pm": {
+    "cam": { "x": 4313, "y": 1489.4, "z": -2611, "at": [3856, 1345, -2565] },
+    "set": { "PhotoModeRenderSystem.focalLength": 40, "Time of Day": 10.5 }
+  },
+  "path": {
+    "seconds": 7,
+    "ease": "inOut2",
+    "keys": [
+      { "pos": [4313, 1489.4, -2611], "at": [3856, 1345, -2565] },
+      { "pos": [4305.5, 1492.7, -2609], "at": [3856, 1352, -2563] },
+      { "pos": [4298, 1496, -2607], "at": [3856, 1360, -2562] }
+    ]
+  }
+}
