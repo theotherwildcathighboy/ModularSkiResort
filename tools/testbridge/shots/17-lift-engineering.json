@@ -4,6 +4,35 @@
   "save": "bridgetrailer1j",
   "notes": "Block R3. Both parts: Photo Mode, ui hidden, icons hidden (Photo Mode setOverlayHidden plus the overlay op), capture mode (fps 30, capture 60), campath fps 60, sim speed 1 so the chairs move. Hold the start pose about 8 s before the take (auto exposure).",
   "sim": 1,
+  "flypast2": {
+    "notes": "Block R4, the LE-a retake (takes le-t3, le-t4). The same session as block R4's UI takes (bridgetrailer1j, sim about 19:00 in July 2029 on the bar, -8 C override). A fly-past up the Summit Express (the south detachable quad: towers at (3216, -2481), (3429, -2508), (3658, -2537), (3856, -2562), (4094, -2593), (4243, -2611)), the camera about 10 m south of the line and 12 to 16 m above the rope (21 to 23 m above the snow), 40 mm, rising 25 m over 107 m. The near tower at x 3429 passes under the camera in the middle of the move; three more towers stand up the line; chairs pass on both sides of the line, the near ones at the bottom left. The Ridge Express is hidden by the forest between the lines (a camera between the lines sits in fir crowns: tried, rejected; a camera 18 to 25 m south and 50 mm was clear but the chairs small). Light: Time of Day 12 for le-t3 (crisp, short shadows; stills at 10.5, 12 and 14 looked alike, 12 chosen); 17.5 for le-t4 (long tower and chair shadows, bright, not yellow-green; 18 the same; neither reads warm). The pm cam op needs Photo Mode's cinematic camera active: after the hub's run-row camera move it was not, until a camera op reset the game camera, then pm on.",
+    "seq": [
+      { "op": "fps", "target": 30, "capture": 60 },
+      { "op": "overlay", "hidden": true, "seconds": 120 },
+      { "op": "ui", "hidden": true, "seconds": 50 },
+      { "op": "wait", "frames": 60 },
+      { "op": "campath", "path": "path" },
+      { "op": "wait", "frames": 60 },
+      { "op": "ui", "hidden": false },
+      { "op": "fps", "target": -1, "capture": 0 }
+    ],
+    "pm": {
+      "cam": { "x": 3330, "y": 1146, "z": -2505, "at": [3580, 1152, -2527] },
+      "set": { "PhotoModeRenderSystem.focalLength": 40, "Time of Day": 12 },
+      "t4set": { "PhotoModeRenderSystem.focalLength": 40, "Time of Day": 17.5 }
+    },
+    "path": {
+      "mode": "pm",
+      "seconds": 8,
+      "fps": 60,
+      "ease": "inOut2",
+      "keys": [
+        { "pos": [3330, 1146, -2505], "at": [3580, 1152, -2527] },
+        { "pos": [3382, 1158, -2512], "at": [3632, 1166, -2534] },
+        { "pos": [3435, 1171, -2519], "at": [3685, 1180, -2540] }
+      ]
+    }
+  },
   "leA": {
     "notes": "Fresh load of bridgetrailer1j, no time jump (normalized date about 0.54). From about 45 m above the two detachable bases, between the Summit Express (south line) and the Ridge Express (north line), looking east up both lines toward the horn. Take 1: a 67 m dolly along the lines with a 14 m rise, 24 mm; the near Summit Express towers (DQ16 and DQ18 at x 3206 and 3216) pass in the lower left, chairs on both lines, a groomer drives under the Summit Express in the first half, the horn gold at the top right. Take 2: 20 m higher and south of the Summit Express (weaker: the horn is cut and the chairs are small). Time of Day stills at 18.9, 19.1 and 19.3 (shoot/view/le-scout-tod.jpg): 19.3 is the warmest with a navy sky.",
     "seq": [

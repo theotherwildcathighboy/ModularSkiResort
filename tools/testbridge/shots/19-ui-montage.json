@@ -1,0 +1,125 @@
+{
+  "shot": "19",
+  "title": "UI montage: the hub's views, the money, two building cards, a merge, a run row",
+  "save": "bridgetrailer1j",
+  "notes": "Block R4. Fresh load of bridgetrailer1j, autosave off, climate -8 C / cloudiness 0 / precipitation 0, then the sim at speed 8 from 11:21 to about 13:05 so the resort is alive. All takes: normal game camera (fixed), UI visible, {op:'fps',target:60}, rec.mjs cursor on, no capture mode, no dedupe: the .mp4 remux is the clip. The cursor moves only by glide; a click follows a 6 to 10 frame wait. Sim speed 1 during the takes (3 in ui-finances), so no PAUSED banner. Hidden in the page during the takes (style visibility, a 150 ms timer re-applies it, shown again afterward): every element whose rect lies fully inside [100,0,1215,125] (third-party toolbar buttons and the hub launcher), [1220,0,3100,125] (the top info strip) and [3700,1450,3840,1900] (right-edge round buttons). The hub button is the mountain icon at (1164, 60); hub tiles at y 305: Attraction 2986, Runs open 3125, Lifts 3263, Guests 3402, Finances 3529, History 3679; the hub's bottom tabs at y 1714 while the build strip is closed (Lifts 3057, Runs 3341, Buildings 3625) and y 1509 while it is open; a click on the open tab closes the strip. The Mergeable buildings chip sits at (3557, 1565) with the Buildings tab open. The game's Economy button is (3128, 2010), its Service Fees row (1676, 817). The hub's close button is (3737, 111). The cursor rests at (2350, 1900), (3600, 1300), (3300, 500), (2500, 250) or (2700, 1750) between and after clicks, on open ground, not over a building (a third-party hover tooltip shows over buildings). Selection info panel: client x 20 to 820; the merge card beside it, x 836 to 1516.",
+  "sim": 1,
+  "uiTabs": {
+    "take": "ui-tabs-t1",
+    "camera": { "wx": 3215, "wz": -2440, "zoom": 300, "yaw": 100, "tilt": 28 },
+    "before": "hub open on its Lifts view, the piste map on (Runs view check box), build strip closed, cursor at (2350, 1900)",
+    "seq": [
+      { "op": "sim", "speed": 1 },
+      { "op": "wait", "frames": 200 },
+      { "op": "glide", "x": 2986, "y": 305, "seconds": 0.5 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 114 },
+      { "op": "glide", "x": 3125, "y": 305, "seconds": 0.5 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 114 },
+      { "op": "glide", "x": 3263, "y": 305, "seconds": 0.5 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 114 },
+      { "op": "glide", "x": 3402, "y": 305, "seconds": 0.5 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 114 },
+      { "op": "glide", "x": 3529, "y": 305, "seconds": 0.5 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 114 },
+      { "op": "glide", "x": 3679, "y": 305, "seconds": 0.5 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 114 },
+      { "op": "glide", "x": 3057, "y": 1714, "seconds": 0.6 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 114 },
+      { "op": "glide", "x": 3341, "y": 1509, "seconds": 0.5 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 114 },
+      { "op": "glide", "x": 3625, "y": 1509, "seconds": 0.5 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 114 },
+      { "op": "glide", "x": 2350, "y": 1900, "seconds": 0.9 },
+      { "op": "wait", "frames": 220 }
+    ]
+  },
+  "uiFinances": {
+    "take": "ui-finances-t1",
+    "camera": { "wx": 3215, "wz": -2440, "zoom": 300, "yaw": 100, "tilt": 28 },
+    "before": "hub on its Finances view with the Income fold open (a click on a fold toggles it), cursor at (3600, 1300); the Economy panel was opened once before on its Budget tab, so it opens there",
+    "seq": [
+      { "op": "sim", "speed": 3 },
+      { "op": "wait", "frames": 420 },
+      { "op": "glide", "x": 3737, "y": 111, "seconds": 0.7 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 30 },
+      { "op": "glide", "x": 3128, "y": 2010, "seconds": 0.8 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 50 },
+      { "op": "glide", "x": 1676, "y": 817, "seconds": 0.7 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 20 },
+      { "op": "glide", "x": 3600, "y": 1300, "seconds": 0.8 },
+      { "op": "wait", "frames": 430 }
+    ]
+  },
+  "uiLodge": {
+    "take": "ui-lodge-t1",
+    "building": "Swanky Grand Lodge 831720:3 at (2790.5, 805.3, -1536.8), its front (the clock gable and entrance) faces south-east",
+    "camera": { "wx": 2800, "wz": -1590, "zoom": 175, "yaw": 320, "tilt": 24 },
+    "before": "hub closed, nothing selected, cursor at (3300, 500)",
+    "seq": [
+      { "op": "overlay", "hidden": true, "seconds": 60 },
+      { "op": "sim", "speed": 1 },
+      { "op": "wait", "frames": 200 },
+      { "op": "glide", "x": 2291, "y": 1248, "seconds": 0.9 }, { "op": "wait", "frames": 10 }, { "op": "click", "allowUI": true, "after": 20 },
+      { "op": "glide", "x": 3300, "y": 500, "seconds": 0.8 },
+      { "op": "wait", "frames": 330 }
+    ]
+  },
+  "uiLodge2": {
+    "take": "ui-lodge2-t1",
+    "building": "Swanky Summit Lodge 684392:3 at (3102, 1100.6, -2398.2), deck on its west side",
+    "camera": { "wx": 3092, "wz": -2380, "zoom": 150, "yaw": 90, "tilt": 24 },
+    "before": "hub closed, nothing selected, cursor at (3300, 500)",
+    "seq": [
+      { "op": "overlay", "hidden": true, "seconds": 60 },
+      { "op": "sim", "speed": 1 },
+      { "op": "wait", "frames": 200 },
+      { "op": "glide", "x": 2280, "y": 1100, "seconds": 0.9 }, { "op": "wait", "frames": 10 }, { "op": "click", "allowUI": true, "after": 20 },
+      { "op": "glide", "x": 3300, "y": 500, "seconds": 0.8 },
+      { "op": "wait", "frames": 330 }
+    ]
+  },
+  "uiMerge": {
+    "notes": "A merge changes no shape: the building stays as it is. What changes on screen: the Mergeable buildings chip outlines the city buildings in reach (green: a lodge tier fits; gray: too small) and the hub's status line shows the legend (2 Tier fits, 0 Too small); a click on a building opens the game's info panel with the merge card beside it (Merge into a ski area, Status Near the runs and lifts, the tiers with their one-time fees, Monthly fee, Merge); after Merge the card reads Counts as a lodge with an Unmerge button, the build strip folds, the outlines go, and the Attraction view's Merged buildings fold gains a row (name and tier). Staging, in memory only, nothing saved: two new vanilla parks on zoned but empty lots on the north side of Qualridge Street east of the Swanky Grand Lodge, placed with the object tool (tool op) where its preview said Place: CityPark03 'Large City Park' (10 x 8 lot, 42,000) at (2899.6, 806.6, -1555.1), entity 128990:27, and CityPark01 'Small Park' (4 x 4 lot, 10,000) at (2956.9, 800.2, -1486.5), entity 130090:11. Both stand at the foot of the slope: the game's own lot leveling cut a bank behind each lot (south-east side), so the camera looks from the slope toward the town (yaw 320), where the banks face away. Placement points were found with a 10 m height grid (flat within 2 m over 40 m), every building and road sampled, then the tool's preview text read in the page.",
+    "t1": {
+      "take": "ui-merge-t1",
+      "camera": { "wx": 2916, "wz": -1606, "zoom": 240, "yaw": 320, "tilt": 38 },
+      "park": "CityPark03, click (2109, 1536); tier Base lodge at (1121, 440), Merge at (1431, 670); fee 158,000; then the Attraction tile and the Merged buildings fold at (3325, 867)",
+      "seqA": [
+        { "op": "sim", "speed": 1 },
+        { "op": "wait", "frames": 200 },
+        { "op": "glide", "x": 3557, "y": 1565, "seconds": 0.7 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 120 },
+        { "op": "glide", "x": 2109, "y": 1536, "seconds": 0.9 }, { "op": "wait", "frames": 8 }, { "op": "click", "allowUI": true, "after": 45 },
+        { "op": "glide", "x": 1700, "y": 1700, "seconds": 0.6 }
+      ],
+      "seqB": [
+        { "op": "wait", "frames": 60 },
+        { "op": "glide", "x": 1121, "y": 440, "seconds": 0.7 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 45 },
+        { "op": "glide", "x": 1431, "y": 670, "seconds": 0.6 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 150 },
+        { "op": "glide", "x": 2986, "y": 305, "seconds": 0.8 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 60 }
+      ],
+      "seqC": [
+        { "op": "glide", "x": 3325, "y": 867, "seconds": 0.6 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 30 },
+        { "op": "glide", "x": 2500, "y": 250, "seconds": 0.9 },
+        { "op": "wait", "frames": 330 }
+      ],
+      "before": "hub open on Finances, build strip open on the Buildings tab (Lodges chip), cursor at (2500, 250). The three sequences ran one after the other with pauses between them (the card's rects were read in the page): t2 is the one-sequence version"
+    },
+    "t2": {
+      "take": "ui-merge-t2",
+      "camera": { "wx": 2969, "wz": -1526, "zoom": 170, "yaw": 320, "tilt": 38 },
+      "park": "CityPark01, click (2134, 1473); tier Day lodge at (1125, 344), Merge at (1431, 622); fee 30,000. The card's rects were read in a dry run (select, read, Esc) before the take",
+      "before": "hub open on its Attraction view with the Merged buildings fold open (2 rows), build strip closed, nothing selected, cursor at (2700, 1700)",
+      "seq": [
+        { "op": "sim", "speed": 1 },
+        { "op": "wait", "frames": 200 },
+        { "op": "glide", "x": 3625, "y": 1714, "seconds": 0.7 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 50 },
+        { "op": "glide", "x": 3557, "y": 1565, "seconds": 0.5 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 110 },
+        { "op": "glide", "x": 2134, "y": 1473, "seconds": 0.9 }, { "op": "wait", "frames": 8 }, { "op": "click", "allowUI": true, "after": 100 },
+        { "op": "glide", "x": 1125, "y": 344, "seconds": 0.8 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 50 },
+        { "op": "glide", "x": 1431, "y": 622, "seconds": 0.6 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 60 },
+        { "op": "glide", "x": 2700, "y": 1750, "seconds": 0.9 },
+        { "op": "wait", "frames": 330 }
+      ]
+    }
+  },
+  "uiRuns": {
+    "take": "ui-runs-t1",
+    "camera": { "wx": 3215, "wz": -2440, "zoom": 300, "yaw": 100, "tilt": 28 },
+    "before": "hub open on its Runs view (Runs open tile), build strip closed, nothing selected, cursor at (2350, 1900). The row click moves the camera to a top-down view of the run: afterward Photo Mode's cinematic camera did not take over until a camera op reset the game camera (see the report)",
+    "seq": [
+      { "op": "sim", "speed": 1 },
+      { "op": "wait", "frames": 200 },
+      { "op": "glide", "x": 3222, "y": 642, "seconds": 0.8 }, { "op": "wait", "frames": 6 }, { "op": "click", "allowUI": true, "after": 40 },
+      { "op": "glide", "x": 2350, "y": 1900, "seconds": 0.9 },
+      { "op": "wait", "frames": 420 }
+    ]
+  }
+}
