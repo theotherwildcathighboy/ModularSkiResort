@@ -102,16 +102,26 @@ async function renderClip(clip, index) {
   const z1 = clip.zoom?.to ?? 1;
   const zx = clip.zoom?.cx ?? cx;
   const zy = clip.zoom?.cy ?? cy;
-  const zoomExpr = z0 === z1 ? `${z0}` : `(${z0}+(${z1 - z0})*(3*pow(t/${n(total)},2)-2*pow(t/${n(total)},3)))`;
-  // Scale so the frame covers W x H at zoom 1, times the zoom; then crop W x H around the center point. The crop filter
-  // keeps the input size of its first frame in iw / ih, so the zoomed size is written out from the source size and t.
+  // Scale so the frame covers W x H, crop W x H around the crop center (both fixed for the clip). The zoom is then a
+  // window of W/z x H/z resampled to W x H by the perspective filter, with sub-pixel corners per frame. A zoom made by a
+  // per-frame scale and crop moves in whole pixels and shakes: 0.2 to 0.55 px a frame at 4K, measured 2026-11-10.
   const [sw, sh] = (await run(FFPROBE, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', src]))
     .trim().split(',').map(Number);
   const cover = Math.max(W / sw, H / sh);
-  const zw = `(ceil(${n(cover * sw)}*${zoomExpr}/2)*2)`;
-  const zh = `(ceil(${n(cover * sh)}*${zoomExpr}/2)*2)`;
-  chains.push(`[${last}]scale=w='${zw}':h='${zh}':eval=frame:flags=lanczos,` +
-    `crop=${W}:${H}:'min(max(${zw}*${zx}-${W / 2},0),${zw}-${W})':'min(max(${zh}*${zy}-${H / 2},0),${zh}-${H})',setsar=1[f]`);
+  const bw = Math.ceil(cover * sw / 2) * 2;
+  const bh = Math.ceil(cover * sh / 2) * 2;
+  const ox = Math.min(Math.max(Math.round(bw * cx - W / 2), 0), bw - W);
+  const oy = Math.min(Math.max(Math.round(bh * cy - H / 2), 0), bh - H);
+  let frame = `[${last}]scale=${bw}:${bh}:flags=lanczos,crop=${W}:${H}:${ox}:${oy},setsar=1`;
+  if (z0 !== 1 || z1 !== 1) {
+    const u = `min(on/${Math.max(1, count - 1)},1)`;
+    const z = z0 === z1 ? `${z0}` : `(${z0}+(${n(z1 - z0)})*(3*pow(${u},2)-2*pow(${u},3)))`;
+    const x0 = `min(max(W*${zx}-W/(2*${z}),0),W-W/${z})`;
+    const y0 = `min(max(H*${zy}-H/(2*${z}),0),H-H/${z})`;
+    frame += `,perspective=x0='${x0}':y0='${y0}':x1='${x0}+W/${z}':y1='${y0}':x2='${x0}':y2='${y0}+H/${z}':x3='${x0}+W/${z}':y3='${y0}+H/${z}'` +
+      `:interpolation=cubic:sense=source:eval=frame`;
+  }
+  chains.push(`${frame}[f]`);
   last = 'f';
 
   const post = [];
