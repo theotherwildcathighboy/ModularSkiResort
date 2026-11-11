@@ -1,8 +1,8 @@
 {
   "shot": "07",
   "title": "The piste map",
-  "save": "bridgetrailer1g",
-  "notes": "Normal game camera over the whole resort with the hub's piste map on (the check box at the top of the hub's Runs view, opened with the Runs open tile at 3125, 300; it draws while the hub is open). photoMode.setOverlayHidden must be false (it hides the piste map). The eight 'Powerline Not Connected - Low' icons (all on lift stations, all in frame) were deleted with the sim paused, in one batch, then 60 frames and a status check; no other icon was touched. The UI view is hidden with the ui step. A crane from zoom 1700 to 1450 (tilt 55 to 50) with a 10 degree orbit (yaw 17 to 27) around (3519, 1160, -2322): the storyboard's pivot (3300, 1129, -2420) at zoom 700 to 550 showed only the base and the lower runs, so the pivot moved up the resort and the zoom out until every run, the bases and the town fit. Take 2 at sim 15:00 (a time jump to the next day), take 1 at about 16:50. Capture mode (fps 30, capture 60). The camera moves little per frame at this distance, so rec.mjs dedupe (mpdecimate) drops real frames; these takes were deduplicated with a luma-difference threshold instead (keep a frame when its mean luma difference to the previous recorded frame, at 960 px, is over 0.15).",
+  "save": "bridgetrailer1h",
+  "notes": "Normal game camera over the run fan with the hub's piste map on (the check box at the top of the hub's Runs view, opened with the Runs open tile at 3125, 300; it draws while the hub is open, on any hub view). photoMode.setOverlayHidden and the bridge's overlay op must be off: both hide the piste map (measured: the run outlines vanish while the overlay is hidden). The six 'Powerline Not Connected - Low' icons on the lift bases were deleted before shot 08 (sim paused, one batch, 60 frames, status check); no other icon was touched. The UI view is hidden with the ui step. Camera from west of the bowl looking east, pivot (3600, 1200, -2320): a crane down and in from zoom 1350, tilt 36, yaw 90 to zoom 1150, tilt 31, yaw 100. The runs fan out up the bowl with the lift lines between them, the base area at the bottom, the ridge at the top. The recorded frame reads more top-down and wider than a photo still from the same camera (the slope rises toward the view). Sim 15:04 to 15:13, speed 1. Take 3: pivot (3540, 1160, -2330), zoom 1550 to 1300, tilt 47 to 42, yaw 90 to 100 (closer to top-down, the ridge cut). Capture mode (fps 30, capture 60). rec.mjs dedupe (mpdecimate) dropped real frames in the move (holds of 4 and 5), so the -x60.mp4 was made with shoot/dd.cjs at a luma threshold of 0.15.",
   "sim": 1,
   "seq": [
     { "op": "sim", "speed": 1 },
@@ -18,8 +18,20 @@
     "fps": 60,
     "ease": "inOut2",
     "keys": [
-      { "wx": 3519, "wy": 1160, "wz": -2322, "zoom": 1700, "tilt": 55, "yaw": 17 },
-      { "wx": 3519, "wy": 1160, "wz": -2322, "zoom": 1450, "tilt": 50, "yaw": 27 }
+      { "wx": 3600, "wy": 1200, "wz": -2320, "zoom": 1350, "tilt": 36, "yaw": 90 },
+      { "wx": 3600, "wy": 1200, "wz": -2320, "zoom": 1150, "tilt": 31, "yaw": 100 }
     ]
+  },
+  "t3": {
+    "path": {
+      "mode": "game",
+      "seconds": 7,
+      "fps": 60,
+      "ease": "inOut2",
+      "keys": [
+        { "wx": 3540, "wy": 1160, "wz": -2330, "zoom": 1550, "tilt": 47, "yaw": 90 },
+        { "wx": 3540, "wy": 1160, "wz": -2330, "zoom": 1300, "tilt": 42, "yaw": 100 }
+      ]
+    }
   }
 }

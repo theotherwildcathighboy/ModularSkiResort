@@ -1,14 +1,14 @@
 {
   "shot": "15",
   "title": "Golden hour",
-  "save": "bridgetrailer1g",
-  "notes": "A rising crane with a slow push from low above the snow west of the Swanky Summit Lodge (it faces west: deck and glass dining room toward the camera) to about 18 m above the slope, looking east at the lodge, the Bowl Gondola base, the Summit Express base and the peak. A snow mound hides the lift bases in the first second (the reveal). Ground: 1078.1 at x 3030, 1081.2 at x 3038, 1083.5 at x 3045. State on bridgetrailer1g: a time jump to 2029-01-08 20:41 (lamps on), normalized date 0.655, temperature -8, cloudiness 0. On this save Time of Day 19.6 (block A's value on bridgetrailer1f) renders night with stars; 18.6 gives a warm peak and lit lodge windows in dusk, 18.0 a brighter, cooler light with the lodge front lit, 17.2 plain day. Take 3: 18.6. Take 4: 18.0. Path 9 s, then a 270-frame (4.5 s) hold on the last pose for the end card, then the UI returns. Capture mode (fps 30, capture 60). The dark, low-contrast frames defeat rec.mjs dedupe (mpdecimate); the takes were deduplicated with a luma-difference threshold of 0.1.",
+  "save": "bridgetrailer1h",
+  "notes": "A rising crane with a slow push from low above the snow west of the Swanky Summit Lodge (it faces west: deck and glass dining room toward the camera) to about 18 m above the slope, looking east at the lodge, the Bowl Gondola base, the Summit Express base and the peak. A snow mound hides the lift bases in the first second (the reveal). Ground: 1078.1 at x 3030, 1081.2 at x 3038, 1083.5 at x 3045. State: a time jump to 2029-01-08 20:46 (lamps on), normalized date 0.6555, temperature -8, cloudiness 0, sim speed 1 in the take. On bridgetrailer1g / 1h Time of Day 19.6 renders night with stars at this date (and with the climate date overridden to 0.5 or 0.3, and with no Time of Day override), so the warm light of block A's take on bridgetrailer1f is not reproduced by Time of Day alone. Swept Time of Day 17.4 to 18.5 in 0.1 to 0.2 steps: 17.4 to 17.6 light the lodge front and the peak, 17.8 to 18.1 turn cool, 18.2 and later put the lodge front in shade with a yellow-green cast. Warmed with Photo Mode's white balance: take 6 (best): Time of Day 17.4, WhiteBalance.temperature 35, tint 8 (brighter, closest to block A). Take 5: Time of Day 17.6, temperature 30, tint 10 (a little darker, the glass front glows). Path 9 s, then a 270-frame (4.5 s) hold on the last pose for the end card, then the UI returns. Capture mode (fps 30, capture 60). rec.mjs dedupe kept every frame of the move and the hold here (the sim runs at speed 1, so the hold is not a still image); long holds only in the pre-roll.",
   "sim": 1,
   "post": 270,
   "seq": [
     { "op": "fps", "target": 30, "capture": 60 },
     { "op": "sim", "speed": 1 },
-    { "op": "ui", "hidden": true, "seconds": 50 },
+    { "op": "ui", "hidden": true, "seconds": 60 },
     { "op": "wait", "frames": 60 },
     { "op": "campath", "path": "path" },
     { "op": "wait", "frames": 270 },
@@ -18,7 +18,7 @@
   ],
   "pm": {
     "cam": { "x": 3030, "y": 1085, "z": -2408, "at": [3170, 1128, -2436] },
-    "set": { "PhotoModeRenderSystem.focalLength": 35, "Time of Day": 18.6 }
+    "set": { "PhotoModeRenderSystem.focalLength": 35, "Time of Day": 17.4, "WhiteBalance.temperature": 35, "WhiteBalance.tint": 8 }
   },
   "path": {
     "seconds": 9,
@@ -30,5 +30,5 @@
       { "pos": [3045, 1102, -2410], "at": [3170, 1140, -2436] }
     ]
   },
-  "alt": { "pm": { "set": { "PhotoModeRenderSystem.focalLength": 35, "Time of Day": 18.0 } } }
+  "alt": { "pm": { "set": { "PhotoModeRenderSystem.focalLength": 35, "Time of Day": 17.6, "WhiteBalance.temperature": 30, "WhiteBalance.tint": 10 } } }
 }

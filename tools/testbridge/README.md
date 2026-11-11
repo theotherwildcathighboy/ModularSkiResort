@@ -95,6 +95,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `terrain` | `action`: `begin` (`prefab`, `size` 1 to 10, `strength` 0.35 or less, optional `height`, `wx`, `wz`, `r`, `snapDir`, `log`, `note`), `end`, `cancel`, `undo` (`file`, optional `log`), `read` | a small terrain brush edit with a bit-exact snapshot before and after, an undo and a log row. See "Filming" |
 | `wind` | optional `x`, `y`, `force`; optional `wx`, `wz` | sets `WindSimulationSystem.constantWind` (default 0.275, 0.275). With `force`, it also writes that velocity into every cell of the wind simulation. Both are saved values. It reads the wind map at a point. See "Filming" |
 | `fps` | optional `target` (-1 = no cap, or 24 to 240), `capture` (0 = off, or 24 to 240) | `Application.targetFrameRate` and `Time.captureFramerate` for this run of the game. Not game settings, not saved. See "Filming" |
+| `overlay` | optional `hidden`, `seconds` (default 120, at most 900) | the game's own hide-overlay switch (`RenderingSystem.hideOverlay`): notification icons and the piste map are not drawn, nothing is deleted, the active tool stays. It turns itself off after `seconds`. No argument: the state. See "Filming" |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |
@@ -272,7 +273,7 @@ Input steps wait `after` frames afterward (default 2).
 | `glide` | `x`, `y` or `wx`, `wz`, optional `wy`; `seconds` (default 1), `ease` (default `inOut`). The cursor travels there in real time, eased. A world target is projected again on every frame |
 | `campath` | same as the op. The sequence goes on when the move ends. `after` frames (default 0). The reply (frames, seconds, fps, `maxFrameMs`, `hitches` = frames over 25 ms) goes to `results` |
 | `ui` | same as the op |
-| `sim`, `time`, `money`, `climate`, `tool`, `unlock`, `milestone`, `demand`, `errors`, `pm`, `wind`, `fps`, `terrain` | same as the ops. The reply goes to `results` |
+| `sim`, `time`, `money`, `climate`, `tool`, `unlock`, `milestone`, `demand`, `errors`, `pm`, `wind`, `fps`, `overlay`, `terrain` | same as the ops. The reply goes to `results` |
 
 Rectangles in the area tool: the vanilla right-angle snap can pull the closing click off the first corner, so the area stays open and nothing is built (`Area.m_Flags` without `Complete`, a fifth node 0.5 m from the first). Draw test areas slightly off square.
 
@@ -323,6 +324,23 @@ shot. Measured: a 2 s glide to a world point 1,000 px away arrived within one pi
 the picture alone. The page may not run while the view is off, so the bridge shows it again by itself: when the sequence that hid
 it ends (also on an error or `abort`), and after `seconds` in any case. `photoMode.setOverlayHidden` is a different switch: it
 hides the notification icons and the piste map, in or out of Photo Mode.
+
+### `overlay`
+
+`{op:"overlay",hidden:true,seconds:N}` sets `RenderingSystem.hideOverlay`, the switch the game's own screenshot sets
+(`ScreenCaptureHelper`). `{op:"overlay",hidden:false}` clears it; `{op:"overlay"}` reads `{hidden, byBridge}`. Use it for every
+camera-only take that must show no warning icons, in place of `Deleted` on the icon entities: no entity changes and nothing
+goes into a save. Measured on OBS frames (1.6.4f1, 2026-11-10): the icons are gone while it is set and back afterward; an
+active tool stays active (the terrain tool read the same before, during and after), where Photo Mode's
+`photoMode.setOverlayHidden` forces the Default Tool every frame (`PhotoModeUISystem.OnUpdate`); with `seconds: 4` it was still
+set at +2.0 s and off at +4.6 s.
+
+Limits: the same switch hides the piste map (run outlines and names) and the overlays of tools, areas and routes in the
+game's code (`OverlayRenderSystem`, `AreaRenderSystem`, `RouteRenderSystem`), so takes of the Lift tool, a run outline, the
+Resort Planner, the piste map and the hub over the piste map keep it off. For those, pause the sim and delete only the few
+station icons in frame, or frame them out. The terrain tool's contour lines stay drawn while it is set; its brush circle was
+not seen in either state (not verified). The `photo` op cannot show the difference: the game's screenshot sets the switch
+itself.
 
 ### `fps`
 
