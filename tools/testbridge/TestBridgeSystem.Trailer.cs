@@ -70,6 +70,7 @@ namespace SkiTestBridge
             public double sumDt;
             public bool started;
             public bool inputWasEnabled;
+            public float lastReal;
         }
 
         private CamPath m_Path;
@@ -199,6 +200,7 @@ namespace SkiTestBridge
             if (!p.started)
             {
                 p.started = true;
+                p.lastReal = UnityEngine.Time.realtimeSinceStartup;
                 if (p.follow != Entity.Null)
                     TryEntityPosition(p.follow, out p.followStart);
                 if (p.photoMode)
@@ -209,12 +211,17 @@ namespace SkiTestBridge
             }
             else
             {
-                float real = UnityEngine.Time.unscaledDeltaTime;
+                // Real time from the clock, not from Time: with a capture frame rate set, Time reports the fixed step.
+                float now = UnityEngine.Time.realtimeSinceStartup;
+                float real = now - p.lastReal;
+                p.lastReal = now;
                 dt = p.fixedDt > 0f ? p.fixedDt : real;
                 p.frames++;
                 p.sumDt += real;
                 p.maxDt = Math.Max(p.maxDt, real);
-                if (real > kHitchSeconds)
+                // A hitch: a frame over 25 ms, or over 1.5 frames of the cap when the run is capped (30 fps in capture mode).
+                float limit = Application.targetFrameRate > 0 ? Math.Max(kHitchSeconds, 1.5f / Application.targetFrameRate) : kHitchSeconds;
+                if (real > limit)
                     p.hitches++;
             }
             p.elapsed += dt;
@@ -765,7 +772,24 @@ namespace SkiTestBridge
                     throw new ArgumentException("fps: target is -1 (no cap) or 24 to 240");
                 Application.targetFrameRate = target;
             }
-            return new JObject { ["target"] = Application.targetFrameRate, ["vSync"] = QualitySettings.vSyncCount };
+            // capture: Unity's Time.captureFramerate. Every rendered frame then advances game time by exactly 1 / capture seconds,
+            // whatever the real frame time is (0 = off). With target below the recording rate, each game frame is recorded at least
+            // once, and the duplicates are dropped in the edit: a frame-exact take.
+            if (args["capture"] != null)
+            {
+                int capture = (int)args["capture"];
+                if (capture != 0 && (capture < 24 || capture > 240))
+                    throw new ArgumentException("fps: capture is 0 (off) or 24 to 240");
+                UnityEngine.Time.captureFramerate = capture;
+            }
+            return new JObject
+            {
+                ["target"] = Application.targetFrameRate,
+                ["capture"] = UnityEngine.Time.captureFramerate,
+                ["vSync"] = QualitySettings.vSyncCount,
+                ["deltaTime"] = Math.Round(UnityEngine.Time.deltaTime, 5),
+                ["unscaledDeltaTime"] = Math.Round(UnityEngine.Time.unscaledDeltaTime, 5),
+            };
         }
 
         // --------------------------------------------------------------------------------------------------------------------- wind

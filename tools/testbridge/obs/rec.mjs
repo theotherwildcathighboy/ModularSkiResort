@@ -584,6 +584,38 @@ async function cmdCheck(file, rest) {
   });
 }
 
+// A take recorded in capture mode ({op:"fps",target:30,capture:60} in the bridge): the game renders 30 frames a second of real
+// time and each one is 1/60 s of game time, so OBS (60 fps) holds every game frame for 1 to 3 of its own frames. This drops the
+// repeats and writes the unique frames as an exact 60 fps clip. A hold of 4 or more OBS frames means the game stalled there
+// (the picture is still complete: no game frame is lost, the stall only shows in the hold list).
+async function cmdDedupe(file, rest) {
+  if (!file) throw new UserError("usage: dedupe <file> [--qp 14]");
+  const qp = rest.includes("--qp") ? String(Number(rest[rest.indexOf("--qp") + 1]) || 14) : "14";
+  const info = await probe(file);
+  const { lines } = await run(FFMPEG, ["-hide_banner", "-nostats", "-i", file, "-map", "0:v:0", "-vf", "mpdecimate,showinfo",
+    "-fps_mode", "passthrough", "-f", "null", "-"]);
+  const times = [];
+  for (const l of lines) {
+    const m = l.match(/Parsed_showinfo.*pts_time:([\d.]+)/);
+    if (m) times.push(Number(m[1]));
+  }
+  const holds = {};
+  const long = [];
+  for (let i = 1; i < times.length; i++) {
+    const n = Math.round((times[i] - times[i - 1]) * (info.fps || 60));
+    holds[n] = (holds[n] || 0) + 1;
+    if (n >= 4) long.push({ at: Math.round(times[i - 1] * 100) / 100, frames: n });
+  }
+  const target = file.replace(/\.[^.]+$/, "") + "-x60.mp4";
+  await run(FFMPEG, ["-hide_banner", "-loglevel", "error", "-y", "-i", file, "-map", "0:v:0", "-vf", "mpdecimate,setpts=N/60/TB",
+    "-r", "60", "-an", "-c:v", "hevc_nvenc", "-preset", "p6", "-rc", "constqp", "-qp", qp, "-pix_fmt", "yuv420p",
+    "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-tag:v", "hvc1", target]);
+  const result = await probe(target);
+  out({ ok: true, source: info.path, sourceFrames: info.frames, unique: times.length, holds, longHolds: long.slice(0, 40),
+    longHoldCount: long.length, path: result.path, frames: result.frames, duration: result.duration, fps: result.fps,
+    sizeBytes: result.sizeBytes });
+}
+
 // ---------- main ----------
 
 const [cmd, ...args] = process.argv.slice(2);
@@ -606,10 +638,11 @@ const commands = {
   stop: () => cmdStop(),
   probe: () => cmdProbe(args[0]),
   check: () => cmdCheck(args[0], args.slice(1)),
+  dedupe: () => cmdDedupe(args[0], args.slice(1)),
 };
 
 try {
-  if (!commands[cmd]) throw new UserError('usage: node rec.mjs status|setup|restore|cursor on|off|start <shot> <take>|stop|probe <file>|check <file> [--sheets all]');
+  if (!commands[cmd]) throw new UserError('usage: node rec.mjs status|setup|restore|cursor on|off|start <shot> <take>|stop|probe <file>|check <file> [--sheets all]|dedupe <file> [--qp 14]');
   await commands[cmd]();
 } catch (e) {
   const msg = e instanceof UserError ? e.message : (e && e.message) || String(e);

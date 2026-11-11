@@ -87,6 +87,16 @@ the profile and scene collection in the OBS menus.
   changing `recordEncoder.json`; ffprobe cannot show the QP.
 - `check` on a 4.4 s 4K take takes about 3 s.
 
+## Frame-exact takes: `dedupe`
+
+`node rec.mjs dedupe <take.mkv> [--qp 14]` is for takes recorded in the bridge's capture mode
+(`{op:"fps",target:30,capture:60}`, see `../README.md`, "Filming"). It drops repeated frames with ffmpeg `mpdecimate` and
+writes the unique frames as `<take>-x60.mp4` at exactly 60 fps (HEVC, constant QP 14). The reply lists the hold lengths (how
+many OBS frames each game frame stayed on screen: 1 to 3 is normal at 30 game frames a second) and every hold of 4 or more
+frames, which marks a stall of the game during the take. Measured on a 25.6 s take: 1,536 recorded frames, 769 unique,
+holds 1: 113, 2: 542, 3: 113, no long hold. Do not use it on a take with a locked camera and little motion: `mpdecimate`
+would also drop frames that only look alike.
+
 ## Limits
 
 - `start` refuses unless the current OBS profile is `SkiTrailer`, so a take is never

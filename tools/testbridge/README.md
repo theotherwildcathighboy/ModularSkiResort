@@ -94,7 +94,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `ui` | `hidden`, optional `seconds` (default 60, at most 900) | the whole UI view off or on. It comes back by itself after `seconds`, and when the sequence that hid it ends |
 | `terrain` | `action`: `begin` (`prefab`, `size` 1 to 10, `strength` 0.35 or less, optional `height`, `wx`, `wz`, `r`, `snapDir`, `log`, `note`), `end`, `cancel`, `undo` (`file`, optional `log`), `read` | a small terrain brush edit with a bit-exact snapshot before and after, an undo and a log row. See "Filming" |
 | `wind` | optional `x`, `y`, `force`; optional `wx`, `wz` | sets `WindSimulationSystem.constantWind` (default 0.275, 0.275). With `force`, it also writes that velocity into every cell of the wind simulation. Both are saved values. It reads the wind map at a point. See "Filming" |
-| `fps` | optional `target` (-1 = no cap, or 24 to 240) | `Application.targetFrameRate` for this run of the game. Not a game setting, not saved |
+| `fps` | optional `target` (-1 = no cap, or 24 to 240), `capture` (0 = off, or 24 to 240) | `Application.targetFrameRate` and `Time.captureFramerate` for this run of the game. Not game settings, not saved. See "Filming" |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |
@@ -317,8 +317,20 @@ hides the notification icons and the piste map, in or out of Photo Mode.
 
 ### `fps`
 
-The game runs with no frame cap and no vsync on this machine (66 to 78 fps at 4K). `{op:"fps",target:60}` caps it for this run.
-Measured with the cap: 59.7 to 59.8 fps over 6 s (`perf`).
+The game runs with no frame cap and no vsync on this machine (66 to 78 fps at 4K). `{op:"fps",target:60}` caps it for this run
+(measured: 59.7 to 59.8 fps over 6 s).
+
+**A cap at 60 is not enough for a clean recording.** The game's cap and OBS's 60 fps clock are two clocks: a take at
+`target: 60` had one duplicated frame about every 0.24 s (82 of 1,189 frames), each one a visible step in a slow camera move.
+
+**Capture mode is the way to record a moving camera:** `{op:"fps",target:30,capture:60}`. Unity then advances game time by exactly
+1/60 s per rendered frame (`Time.deltaTime` 0.01667) while the game renders 30 frames per real second. The whole game follows:
+the simulation ran 30 steps per real second, and a chair moved 2.51 m/s in real time against 5.02 m/s without it. OBS records at
+60 fps and holds each game frame for 1 to 3 of its frames, so no game frame is lost. `node obs/rec.mjs dedupe <take>` drops the
+repeats and writes the unique frames as an exact 60 fps clip. Give the `campath` step `fps: 60` in this mode, so the path also
+moves by 1/60 s per frame. Measured: a 25.6 s recording gave 769 unique frames (25.6 x 30 = 768), holds of 1, 2 and 3 frames
+only, and a 6 s path was 360 frames. Recording takes twice the clip's length. Put `{op:"fps",target:-1,capture:0}` back after
+the take. A locked camera (a time-lapse) does not need this mode.
 
 ### `terrain`
 
