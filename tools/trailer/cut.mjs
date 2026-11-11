@@ -6,7 +6,7 @@
 // Pass 2 joins the clips (hard cuts or crossfades) and lays the music under them. --preview renders at half size.
 // The edit list (see edit-main.json): { size, fps, takes, work, out, fonts: {regular, bold}, music, clips: [...] }.
 // A clip: { id, src, in, dur, speed, parts: [{in, dur, speed}], zoom: {from, to, cx, cy}, crop: {cx, cy},
-//           fadeIn, fadeOut, xfade, dim, captions: [{lines, at, dur, pos, size, color, shadow}], logo: {file, at, h, y} }
+//           fadeIn, fadeOut, xfade, dim, vf, captions: [{lines, at, dur, pos ('center', 'top', default bottom left), size, color, shadow}], logo: {file, at, h, y} }
 // Times are seconds. `dur` is the clip's length in the cut; with `speed` the source span is dur x speed.
 // Paths may start with %USERPROFILE%. Takes are big and live outside the repository.
 
@@ -115,6 +115,7 @@ async function renderClip(clip, index) {
   last = 'f';
 
   const post = [];
+  if (clip.vf) post.push(clip.vf); // a raw ffmpeg filter for this clip (a grade), before the dim and the captions
   if (clip.dim) {
     const at = clip.dim.at ?? 0;
     const ramp = clip.dim.ramp ?? 0.8;
@@ -144,7 +145,7 @@ async function renderClip(clip, index) {
         y = `${Math.round(H * (cap.y ?? 0.44))}+${(li - (lines - 1) / 2) * Math.round((cap.lineSizes?.[li] ? cap.lineSizes[li] * H / 2160 : size) * 1.35)}-text_h/2`;
       } else {
         x = `${Math.round(W * 0.05)}`;
-        y = `${Math.round(H * 0.865) - (lines - 1 - li) * lineGap}`;
+        y = cap.pos === 'top' ? `${Math.round(H * (cap.y ?? 0.1)) + li * lineGap}` : `${Math.round(H * 0.865) - (lines - 1 - li) * lineGap}`;
       }
       const thisSize = cap.lineSizes?.[li] ? Math.round(cap.lineSizes[li] * H / 2160) : size;
       const box = cap.pos === 'center' ? '' : `:box=1:boxcolor=0x1d2b44@0.78:boxborderw=${Math.round(size * 0.34)}`;
