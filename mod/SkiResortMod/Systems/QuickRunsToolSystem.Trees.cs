@@ -39,6 +39,9 @@ namespace SkiResortMod.Systems
     public sealed partial class QuickRunsToolSystem
     {
         private const float HoleMarginM = 3f;    // package C's margin (BUILD-BRIEF, filler mask)
+        /// <summary>The filler's ragged outer edge (T157, DECISIONS 650): darts thin toward the region outline over a band 20-40 m deep,
+        /// the depth varying by a world-anchored noise with a 60 m cell (SkiGladePlanner, GladeMask edge band). Run holes keep the hard margin.</summary>
+        internal const float EdgeBandMinM = 20f, EdgeBandMaxM = 40f, EdgeNoiseCellM = 60f;
         private const int ContourSide = 65;      // contour grid (64 x 64 cells over the region's bounds)
         /// <summary>Trees per Apply while planting (within the glade caps). Smoothness over speed: the slices continue by
         /// themselves.</summary>
@@ -743,6 +746,9 @@ namespace SkiResortMod.Systems
                 HoleMargin = HoleMarginM,
                 Ground = m_Ground,
                 TreeLine = m_TreeLine >= m_GroundMax + QuickRunsRules.TreeLineStepM ? float.PositiveInfinity : m_TreeLine,
+                EdgeBandMinM = EdgeBandMinM,
+                EdgeBandMaxM = EdgeBandMaxM,
+                EdgeNoiseWavelengthM = EdgeNoiseCellM,
             };
             m_TreeInput.Ring = ring;
             m_TreeInput.Triangles = null;   // the planner ear-clips (SkiGladePlanner, no triangle buffer for a region)

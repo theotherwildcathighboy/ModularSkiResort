@@ -181,9 +181,13 @@ namespace GladeBatch
             FillerTimingReport(1000.0);
             FillerTimingReport(2000.0);
             FillerTimingReport(3000.0);   // the 9 km2 region cap (DECISIONS 419)
+            FillerTimingReport(3000.0, true);        // the same with the T157 edge band (the tool's mask)
+            FillerTimingReport(3000.0, false, 96);   // a 96-vertex outline without the band (the baseline of the next line)
+            FillerTimingReport(3000.0, true, 96);    // and a 96-vertex outline (the band's distance is O(vertices))
             FillerPlantingReport(1000.0, 4);
             FillerPlantingReport(3000.0, 4);
             FillerPlantingReport(3000.0, 6);   // about 19,600 trees: the 15-20k planting
+            FillerPlantingReport(3000.0, 6, true);
             FillerCancelTests();
         }
 
@@ -251,7 +255,7 @@ namespace GladeBatch
         /// <summary>The Quick runs Plant loop at the tool's numbers (slices of 2000, one GladePlanCache): compose, plant the slice,
         /// then compose again until Complete. The test reports every slice's ms (the cost a worker thread removes from the main thread).
         /// It also checks that the loop converges (no slice plants the same slot twice, the last compose is Complete).</summary>
-        private static void FillerPlantingReport(double side, byte level)
+        private static void FillerPlantingReport(double side, byte level, bool band = false)
         {
             const int SliceTrees = 2000;
             double2[] region = D2(0, 0, side, 0, side, side, 0, side);
@@ -262,6 +266,8 @@ namespace GladeBatch
                 holes.Add(MakeRing(D2(x, -20, x + 30, -20, x + 26, side + 20, x + 4, side + 20), 7, offset));
             var ground = new TestGround { X0 = offset.x, Z0 = offset.y };
             var mask = new GladeMask { Holes = holes.ToArray(), HoleMargin = FillMargin, Ground = ground, TreeLine = 1000f + 0.3f * (float)side };
+            if (band)
+                mask = WithBand(mask);
             var cache = new GladePlanCache(4);
             ComposeMember[] own = Array.Empty<ComposeMember>();
             var ms = new List<string>();
@@ -290,14 +296,14 @@ namespace GladeBatch
                 own = WithPlants(own, r);
             }
             Check(complete, "filler/planting", "FILL PLANTING: the Plant loop did not reach Complete at " + side + " m (" + planted + " of " + target + ")");
-            Console.WriteLine("TIME  filler.planting." + (int)side + "m.L" + level + ": " + planted + " trees in " + slices + " slice(s) of " + SliceTrees + ", target " + target +
+            Console.WriteLine("TIME  filler.planting." + (int)side + "m.L" + level + (band ? ".band" : string.Empty) + ": " + planted + " trees in " + slices + " slice(s) of " + SliceTrees + ", target " + target +
                 "; compose ms per slice [" + string.Join(", ", ms) + "] (h = plan cache hit), total " + F(total) + ", worst " + F(worst));
         }
 
         /// <summary>Report only: one level-6 filler compose (first apply, cap TCap) on a side x side region with a run every 70 m.</summary>
-        private static void FillerTimingReport(double side)
+        private static void FillerTimingReport(double side, bool band = false, int vertices = 4)
         {
-            double2[] region = D2(0, 0, side, 0, side, side, 0, side);
+            double2[] region = vertices <= 4 ? D2(0, 0, side, 0, side, side, 0, side) : Wobbly(side, vertices);
             var offset = new double2(-4000, 2500);
             float3[] ring = MakeRing(region, 7, offset);
             var holes = new List<float3[]>();
@@ -305,15 +311,31 @@ namespace GladeBatch
                 holes.Add(MakeRing(D2(x, -20, x + 30, -20, x + 26, side + 20, x + 4, side + 20), 7, offset));
             var ground = new TestGround { X0 = offset.x, Z0 = offset.y };
             var mask = new GladeMask { Holes = holes.ToArray(), HoleMargin = FillMargin, Ground = ground, TreeLine = 1000f + 0.3f * (float)side };
+            if (band)
+                mask = WithBand(mask);
             var input = new ComposeInput { Ring = ring, Params = FillParams(), Level = 6, Fill = mask, Caps = Caps(TCap) };
             var r = new ComposeResult();
             var sw = System.Diagnostics.Stopwatch.StartNew();
             SkiGladeCompose.Compose(input, r);
             sw.Stop();
             s_Plans++;
-            Console.WriteLine("TIME  filler." + (int)side + "m: " + F(sw.Elapsed.TotalMilliseconds) + " ms (area " + F(r.Plan.Area) + " m2, masked " +
+            Console.WriteLine("TIME  filler." + (int)side + "m" + (band ? ".band" : string.Empty) + (vertices > 4 ? "." + vertices + "v" : string.Empty) + ": " + F(sw.Elapsed.TotalMilliseconds) + " ms (area " + F(r.Plan.Area) + " m2, masked " +
                 F(r.Plan.MaskedArea) + " m2, " + holes.Count + " runs, T " + r.Target + ", plant " + r.Plant.Count + ", slice " + r.Slice +
                 ", attempts " + r.Plan.Attempts + ", clamped " + r.Clamped + ")");
+        }
+
+        /// <summary>A side x side region as a wobbly ring of n vertices (radius side / sqrt(pi) +- 8 %, the area about side^2).</summary>
+        private static double2[] Wobbly(double side, int n)
+        {
+            var v = new double2[n];
+            double r0 = side / Math.Sqrt(Math.PI);
+            for (int i = 0; i < n; i++)
+            {
+                double a = 2 * Math.PI * i / n;
+                double r = r0 * (1.0 + 0.08 * Math.Sin(5 * a) + 0.03 * Math.Cos(13 * a));
+                v[i] = new double2(side / 2 + r * Math.Cos(a), side / 2 + r * Math.Sin(a));
+            }
+            return v;
         }
 
         private static void FillerPlannerTests()
