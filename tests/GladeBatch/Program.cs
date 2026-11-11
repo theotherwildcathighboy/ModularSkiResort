@@ -1,6 +1,7 @@
 // GladeBatch - headless invariant tests for SkiGladePlanner, SkiGladeCompose, SkiGladeHover and the tree filler (SkiGladeTreeLine, SkiGladeSpecies).
 // Run (from the ModularSkiResort root): dotnet run --project tests\GladeBatch\GladeBatch.csproj -c Release -- 200
-// Argument = number of seeds (default 200). Prints `FAIL  fixture.params/seed: msg`, report-only TIME/WARN/INFO lines and one SUMMARY.
+// Argument = number of seeds (default 200), or `plot <dir>` for the T157 edge band density plot (EdgeBandTests.cs).
+// Prints `FAIL  fixture.params/seed: msg`, report-only TIME/WARN/INFO lines and one SUMMARY.
 // Oracles are test-local and use a DIFFERENT algorithm from the planner's (winding-number point-in-polygon vs crossing number, plain
 // shoelace, own segment distance, own FNV for Seed32). The test project links the planner as source (net8 here, net48 in the mod).
 // Only within-runtime replay is proven. CoreCLR vs the game's Mono bit equality is unverified, so the tests assert no golden hashes.
@@ -53,6 +54,16 @@ namespace GladeBatch
         private static int Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            if (args.Length > 1 && args[0] == "plot")
+            {
+                // T157 before / after density plot, no tests: plot <dir> [level [bandMin bandMax noiseCell]]
+                CultureInfo ic = CultureInfo.InvariantCulture;
+                if (args.Length > 5)
+                    EdgeBandPlot(args[1], int.Parse(args[2], ic), float.Parse(args[3], ic), float.Parse(args[4], ic), float.Parse(args[5], ic));
+                else
+                    EdgeBandPlot(args[1], args.Length > 2 ? int.Parse(args[2], ic) : 7);
+                return 0;
+            }
             int seeds = 200;
             if (args.Length > 0)
             {
@@ -85,6 +96,7 @@ namespace GladeBatch
             ComposeTimingReport(simRuns);
             PinTests(fixtures, sets, simRuns);
             FillerTests(seeds);
+            EdgeBandTests(seeds);
 
             total.Stop();
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,

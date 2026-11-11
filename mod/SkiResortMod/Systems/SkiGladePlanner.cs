@@ -7,6 +7,7 @@
 // Layers run in a fixed order (sanitize, thin, glade, belt). Each has its own salted random stream with a FIXED number of draws
 // per attempt and per accepted tree. SkiGladeCompose relies on the resulting prefix property (MaxPlant m1 is a bit-exact prefix of m2).
 // An optional GladeMask (the Quick runs tree filler: run holes + margin, tree line) narrows Thin and Glade. A null mask changes nothing, bit for bit.
+// Its optional edge band (T157) thins Glade darts toward the polygon's outline (no draws). Band off = the pre-band mask, bit for bit.
 // Engine notes: EngineNotes/SkiGladePlanner.md
 
 using System;
@@ -84,7 +85,19 @@ namespace SkiResortMod.Systems
         /// <summary>Cell (m) of the masked-area quadrature. 0 or less = DefaultAreaCellM.</summary>
         public float AreaCellM;
 
+        /// <summary>Edge band (T157): a Glade dart at distance d inside the polygon's own outline stands with probability
+        /// smoothstep(0, depth, d). depth runs from EdgeBandMinM to EdgeBandMaxM by a world-anchored 2-D value noise with lattice cell
+        /// EdgeNoiseWavelengthM. The hole margins stay hard. EdgeBandMaxM 0 or less (the default) = no band: the mask is the pre-band mask,
+        /// bit for bit. MaskedArea then weighs each allowed cell by that probability, so the Glade target counts what the band lets stand.</summary>
+        public float EdgeBandMinM, EdgeBandMaxM;
+        /// <summary>Lattice cell (m) of the band's depth noise. 0 or less = DefaultEdgeNoiseWavelengthM.</summary>
+        public float EdgeNoiseWavelengthM;
+
         public const float DefaultAreaCellM = 2.5f;
+        public const float DefaultEdgeNoiseWavelengthM = 60f;
+
+        /// <summary>True when the band is on (EdgeBandMaxM finite and above 0).</summary>
+        public bool HasEdgeBand => EdgeBandMaxM > 0f && math.isfinite(EdgeBandMaxM);
     }
 
     /// <summary>Cooperative cancel for a plan / compose that runs on a worker thread (the Quick runs tree filler). The owner calls Request.
@@ -159,6 +172,10 @@ namespace SkiResortMod.Systems
         private const uint SaltGlade = 0x9E3779B9u;
         private const uint SaltBelt = 0x85EBCA6Bu;
         private const uint SaltNoise = 0xC2B2AE35u;
+        // Edge band (T157): the depth noise lattice (world-anchored, no plan seed: the probe and the stream must weigh the same area) and the
+        // per-dart gate hash (with the plan seed)
+        private const uint SaltEdgeNoise = 0x27D4EB2Fu;
+        private const uint SaltEdgeGate = 0x165667B1u;
 
         // Hard ceilings so absurd parameters can never hang the main thread
         private const long MaxAttemptsPerLayer = 200000;
@@ -265,7 +282,7 @@ namespace SkiResortMod.Systems
             }
             output.Area = (float)poly.Area;
             output.MaskedArea = output.Area;
-            MaskSet mask = maskOrNull != null ? new MaskSet(maskOrNull) : null;
+            MaskSet mask = maskOrNull != null ? new MaskSet(maskOrNull, poly) : null;
 
             Knobs k = Knobs.From(in p);
             GladeStatus status = GladeStatus.Ok;
@@ -375,6 +392,8 @@ namespace SkiResortMod.Systems
                             continue;
                         if (mask != null && !mask.Allows(q, ref world.y))
                             continue;
+                        if (mask != null && mask.HasBand && !mask.EdgeKeeps(q, seed))
+                            continue;   // last test, no draws: the prefix property holds
                         grid.Add(q);
                         output.Planted.Add(MakeTree(ref rng, world, 0, in k, ages));
                         placed++;
@@ -898,8 +917,29 @@ namespace SkiResortMod.Systems
             private readonly float m_TreeLine;
             private readonly double m_Cell;
 
-            public MaskSet(GladeMask m)
+            // Edge band (T157). Off: none of these is read and the mask is the pre-band mask, bit for bit
+            private readonly Polygon m_Poly;
+            private readonly bool m_Band;
+            private readonly double m_BandMin, m_BandSpan, m_BandMaxSq, m_NoiseCell;
+            private readonly EdgeGrid m_Edges;
+
+            public bool HasBand => m_Band;
+
+            public MaskSet(GladeMask m, Polygon poly)
             {
+                m_Poly = poly;
+                if (m.HasEdgeBand)
+                {
+                    double hi = math.min((double)m.EdgeBandMaxM, 1.0e5);
+                    double lo = m.EdgeBandMinM > 0f && math.isfinite(m.EdgeBandMinM) ? math.min((double)m.EdgeBandMinM, hi) : 0.0;
+                    float wave = m.EdgeNoiseWavelengthM;
+                    m_Band = true;
+                    m_BandMin = lo;
+                    m_BandSpan = hi - lo;
+                    m_BandMaxSq = hi * hi;
+                    m_NoiseCell = wave > 0f && math.isfinite(wave) ? math.max((double)wave, 1.0) : GladeMask.DefaultEdgeNoiseWavelengthM;
+                    m_Edges = new EdgeGrid(poly, hi);
+                }
                 float margin = m.HoleMargin;
                 m_Margin = margin > 0f && math.isfinite(margin) ? margin : 0.0;
                 m_MarginSq = m_Margin * m_Margin;
@@ -983,6 +1023,8 @@ namespace SkiResortMod.Systems
                 if (samples > MaxAreaSamples)
                     cell *= math.sqrt(samples / MaxAreaSamples) * 1.001;
                 long nx = (long)math.ceil(w / cell), nz = (long)math.ceil(d / cell);
+                if (m_Band)
+                    return BandArea(poly, cancel, bb, cell, nx, nz);
                 long count = 0;
                 for (long j = 0; j < nz; j++)
                 {
@@ -999,6 +1041,90 @@ namespace SkiResortMod.Systems
                 return count * cell * cell;
             }
 
+            /// <summary>Area() with the band on: each allowed cell weighs its EdgeAccept probability (the expected share of darts the
+            /// band keeps there), so the Glade target is the number of trees the band lets stand.</summary>
+            private double BandArea(Polygon poly, GladeCancel cancel, double4 bb, double cell, long nx, long nz)
+            {
+                double sum = 0.0;
+                for (long j = 0; j < nz; j++)
+                {
+                    if (cancel != null && cancel.Requested)
+                        return 0.0;
+                    double z = bb.y + (j + 0.5) * cell;
+                    double rowSum = 0.0;   // per row: keeps the double sum's rounding small on 1.4 M cells
+                    for (long i = 0; i < nx; i++)
+                    {
+                        double2 q = new double2(bb.x + (i + 0.5) * cell, z);
+                        if (poly.Contains(q) && Allows(q))
+                            rowSum += EdgeAccept(q);
+                    }
+                    sum += rowSum;
+                }
+                return sum * cell * cell;
+            }
+
+            /// <summary>The band's keep probability at q (inside the polygon): smoothstep(0, depth, d), d = distance to the polygon's
+            /// outline, depth = min + span x noise(q). 1 without a band and at or past the deepest band.</summary>
+            public double EdgeAccept(double2 q)
+            {
+                if (!m_Band)
+                    return 1.0;
+                double dSq = m_Edges.DistanceSqWithin(m_Poly, q);
+                if (!(dSq < m_BandMaxSq))
+                    return 1.0;
+                double depth = m_BandMin + m_BandSpan * ValueNoise2(q.x / m_NoiseCell, q.y / m_NoiseCell);
+                if (!(depth > 0.0))
+                    return 1.0;
+                double t = math.sqrt(dSq) / depth;
+                if (t >= 1.0)
+                    return 1.0;
+                return t * t * (3.0 - 2.0 * t);
+            }
+
+            /// <summary>The per-dart gate: keep iff a position hash in [0, 1) (12.5 cm cells, the plan seed) is under EdgeAccept(q).</summary>
+            public bool EdgeKeeps(double2 q, uint seed)
+            {
+                double p = EdgeAccept(q);
+                if (p >= 1.0)
+                    return true;
+                if (!(p > 0.0))
+                    return false;
+                double qx = math.floor(q.x * 8.0), qz = math.floor(q.y * 8.0);
+                if (math.abs(qx) > 2.0e9 || math.abs(qz) > 2.0e9)
+                    return false;
+                unchecked
+                {
+                    uint h = Fmix32(math.hash(new uint4(seed, SaltEdgeGate, (uint)(int)qx, (uint)(int)qz)));
+                    return (h >> 8) * (1.0 / 16777216.0) < p;
+                }
+            }
+
+            /// <summary>World-anchored 2-D value noise in [0, 1): hashed lattice values (SaltEdgeNoise, no plan seed), smoothstep-weighted
+            /// bilinear blend. x and z are in lattice cells.</summary>
+            private static double ValueNoise2(double x, double z)
+            {
+                double fx = math.floor(x), fz = math.floor(z);
+                if (math.abs(fx) > 1.0e9 || math.abs(fz) > 1.0e9)
+                    return 0.5;
+                int ix = (int)fx, iz = (int)fz;
+                double tx = x - fx, tz = z - fz;
+                tx = tx * tx * (3.0 - 2.0 * tx);
+                tz = tz * tz * (3.0 - 2.0 * tz);
+                double v00 = Lattice(ix, iz), v10 = Lattice(ix + 1, iz), v01 = Lattice(ix, iz + 1), v11 = Lattice(ix + 1, iz + 1);
+                double a = v00 + (v10 - v00) * tx;
+                double b = v01 + (v11 - v01) * tx;
+                return a + (b - a) * tz;
+            }
+
+            private static double Lattice(int ix, int iz)
+            {
+                unchecked
+                {
+                    uint h = Fmix32(math.hash(new uint3(SaltEdgeNoise, (uint)ix, (uint)iz)));
+                    return (h >> 8) * (1.0 / 16777216.0);
+                }
+            }
+
             private static double RingDistanceSq(double2[] v, double2 p)
             {
                 double best = double.MaxValue;
@@ -1013,6 +1139,115 @@ namespace SkiResortMod.Systems
                     t = t < 0.0 ? 0.0 : t > 1.0 ? 1.0 : t;
                     double2 dd = ap - t * ab;
                     double dsq = dd.x * dd.x + dd.y * dd.y;
+                    if (dsq < best)
+                        best = dsq;
+                }
+                return best;
+            }
+        }
+
+        /// <summary>The outline's edges bucketed on a dense grid (cell >= the band's max depth) for the edge band. Each cell lists every edge
+        /// that passes through it or one of its 8 neighbors. An edge with a point within `reach` of q passes through a cell within one cell
+        /// of q's, so DistanceSqWithin is exact below reach^2 (the same per-edge formula as Polygon.BoundaryDistanceSq) and returns
+        /// double.MaxValue when no edge is that near.</summary>
+        private sealed class EdgeGrid
+        {
+            private const long MaxCells = 1 << 18;
+            private readonly double m_X0, m_Z0, m_Cell;
+            private readonly int m_Nx, m_Nz;
+            private readonly int[][] m_Lists;
+
+            public EdgeGrid(Polygon poly, double reach)
+            {
+                double4 b = poly.Bounds;
+                double w = b.z - b.x + 2.0 * reach, d = b.w - b.y + 2.0 * reach;
+                double cell = math.max(reach, 1.0);
+                if (math.ceil(w / cell) * math.ceil(d / cell) > MaxCells)
+                    cell = math.sqrt(w * d / MaxCells) * 1.001;
+                m_Cell = cell;
+                m_X0 = b.x - reach;
+                m_Z0 = b.y - reach;
+                m_Nx = math.max(1, (int)math.ceil(w / cell));
+                m_Nz = math.max(1, (int)math.ceil(d / cell));
+                var lists = new List<int>[m_Nx * m_Nz];
+                for (int e = 0; e < poly.Count; e++)
+                {
+                    double2 a = poly.Xz[e], c = poly.Xz[(e + 1) % poly.Count];
+                    int ix0 = Ix(math.min(a.x, c.x)), ix1 = Ix(math.max(a.x, c.x));
+                    int iz0 = Iz(math.min(a.y, c.y)), iz1 = Iz(math.max(a.y, c.y));
+                    for (int iz = iz0; iz <= iz1; iz++)
+                    {
+                        for (int ix = ix0; ix <= ix1; ix++)
+                        {
+                            if (!SegmentHitsBox(a, c, m_X0 + ix * cell, m_Z0 + iz * cell, cell))
+                                continue;
+                            for (int nz = math.max(0, iz - 1); nz <= math.min(m_Nz - 1, iz + 1); nz++)
+                            {
+                                for (int nx = math.max(0, ix - 1); nx <= math.min(m_Nx - 1, ix + 1); nx++)
+                                {
+                                    List<int> l = lists[nz * m_Nx + nx] ?? (lists[nz * m_Nx + nx] = new List<int>(4));
+                                    if (l.Count == 0 || l[l.Count - 1] != e)
+                                        l.Add(e);   // edges arrive in order: a repeat is always the last entry
+                                }
+                            }
+                        }
+                    }
+                }
+                m_Lists = new int[lists.Length][];
+                for (int i = 0; i < lists.Length; i++)
+                    m_Lists[i] = lists[i] != null ? lists[i].ToArray() : null;
+            }
+
+            private int Ix(double x)
+            {
+                int i = (int)math.floor((x - m_X0) / m_Cell);
+                return i < 0 ? 0 : i >= m_Nx ? m_Nx - 1 : i;
+            }
+
+            private int Iz(double z)
+            {
+                int i = (int)math.floor((z - m_Z0) / m_Cell);
+                return i < 0 ? 0 : i >= m_Nz ? m_Nz - 1 : i;
+            }
+
+            /// <summary>Slab test of segment a-c against the square [x0, x0 + s] x [z0, z0 + s] (closed).</summary>
+            private static bool SegmentHitsBox(double2 a, double2 c, double x0, double z0, double s)
+            {
+                double t0 = 0.0, t1 = 1.0;
+                double2 dv = c - a;
+                return Slab(a.x, dv.x, x0, x0 + s, ref t0, ref t1) && Slab(a.y, dv.y, z0, z0 + s, ref t0, ref t1);
+            }
+
+            private static bool Slab(double p, double dp, double lo, double hi, ref double t0, ref double t1)
+            {
+                if (dp == 0.0)
+                    return p >= lo && p <= hi;
+                double ta = (lo - p) / dp, tb = (hi - p) / dp;
+                if (ta > tb)
+                {
+                    double t = ta;
+                    ta = tb;
+                    tb = t;
+                }
+                if (ta > t0)
+                    t0 = ta;
+                if (tb < t1)
+                    t1 = tb;
+                return t0 <= t1;
+            }
+
+            public double DistanceSqWithin(Polygon poly, double2 p)
+            {
+                double fx = math.floor((p.x - m_X0) / m_Cell), fz = math.floor((p.y - m_Z0) / m_Cell);
+                if (!(fx >= 0.0 && fz >= 0.0 && fx < m_Nx && fz < m_Nz))
+                    return double.MaxValue;   // outside the grown bounds: farther than reach from every edge
+                int[] l = m_Lists[(int)fz * m_Nx + (int)fx];
+                if (l == null)
+                    return double.MaxValue;
+                double best = double.MaxValue;
+                for (int k = 0; k < l.Length; k++)
+                {
+                    double dsq = poly.EdgeDistanceSq(l[k], p);
                     if (dsq < best)
                         best = dsq;
                 }
@@ -1063,6 +1298,23 @@ namespace SkiResortMod.Systems
                         best = dsq;
                 }
                 return best;
+            }
+
+            /// <summary>Squared distance from p to edge i (i -> i + 1): BoundaryDistanceSq's per-edge formula, kept separate so that
+            /// method stays bit-identical.</summary>
+            public double EdgeDistanceSq(int i, double2 p)
+            {
+                double2 a = Xz[i];
+                double2 ab = Xz[(i + 1) % Count] - a;
+                double2 ap = p - a;
+                double len2 = ab.x * ab.x + ab.y * ab.y;
+                double t = len2 > 0.0 ? (ap.x * ab.x + ap.y * ab.y) / len2 : 0.0;
+                if (t < 0.0)
+                    t = 0.0;
+                else if (t > 1.0)
+                    t = 1.0;
+                double2 d = ap - t * ab;
+                return d.x * d.x + d.y * d.y;
             }
 
             public int PickTriangle(float u)

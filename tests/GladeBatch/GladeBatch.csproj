@@ -30,6 +30,7 @@
     <Compile Include="AttemptCapTests.cs" />
     <Compile Include="PinTests.cs" />
     <Compile Include="FillerTests.cs" />
+    <Compile Include="EdgeBandTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiGladePlanner.cs" Link="SkiGladePlanner.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiGladeCompose.cs" Link="SkiGladeCompose.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiGladeHover.cs" Link="SkiGladeHover.cs" />

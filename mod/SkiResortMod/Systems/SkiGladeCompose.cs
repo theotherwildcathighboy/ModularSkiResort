@@ -1213,7 +1213,7 @@ namespace SkiResortMod.Systems
             return h != 0UL ? h : 1UL;
         }
 
-        /// <summary>Holes (order-independent, like the exclusion rings), margin, tree line, ground fingerprint and area cell.</summary>
+        /// <summary>Holes (order-independent, like the exclusion rings), margin, tree line, ground fingerprint, area cell and the edge band (when on).</summary>
         private static ulong HashFill(ulong h, GladeMask m)
         {
             h = U32(h, 0x4C4C4946u); // "FILL"
@@ -1224,6 +1224,14 @@ namespace SkiResortMod.Systems
             h = F(h, m.AreaCellM);
             h = U64(h, m.Ground != null ? m.Ground.Fingerprint : 0UL);
             h = Byte(h, m.Ground != null ? (byte)1 : (byte)0);
+            if (m.HasEdgeBand)
+            {
+                // Hashed only when on, so a band-off key stays the pre-band key
+                h = U32(h, 0x45444745u); // "EDGE"
+                h = F(h, m.EdgeBandMinM);
+                h = F(h, m.EdgeBandMaxM);
+                h = F(h, m.EdgeNoiseWavelengthM);
+            }
             float3[][] holes = m.Holes;
             h = U32(h, holes != null ? (uint)holes.Length : 0xFFFFFFFFu);
             if (holes != null && holes.Length > 0)

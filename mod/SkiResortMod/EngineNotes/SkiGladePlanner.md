@@ -132,3 +132,33 @@ has these effects:
   `filler/emptymask`).
 - Cost: the quadrature runs once per Plan call (compose calls Plan twice: probe + stream). 1 km2 with 14 run holes: ~90 ms per compose
   on CoreCLR (GladeBatch TIME `filler.1000m`), 4 km2 ~190 ms (capped slice). Under Mono, expect more (unmeasured).
+
+## Edge band (T157, the filler's ragged outer edge)
+
+The filler planted its ring uniformly up to the outline. So the forest edge was the outline: a straight line (DECISIONS 650).
+`GladeMask.EdgeBandMinM`, `EdgeBandMaxM` and `EdgeNoiseWavelengthM` add a band inside the polygon's own outline. The defaults are off
+(EdgeBandMaxM <= 0). The mask is then the pre-band mask, bit for bit. Only the Glade layer reads the band. Thin and Belt never do.
+
+- A Glade dart at distance d from the outline stands with probability p = smoothstep(0, depth, d).
+  depth = min + (max - min) x noise(q). noise is a 2-D value noise on a world-anchored lattice.
+  Its cell is EdgeNoiseWavelengthM. It has a salt only, no plan seed. The run holes keep their hard margin. The tree line stays hard.
+- Why not the belt's 1-D perimeter noise, keyed by arc length? The arc jumps across the bisector of each convex corner.
+  Also, each outline edit changes the perimeter, so the whole edge reshuffles. A world lattice is continuous.
+  An edit changes only the edge near it.
+- The gate is the LAST dart test and uses no draws. It hashes the position (12.5 cm cells) with the plan seed and its own salt.
+  So the prefix property, replay and the cache contract hold.
+- With the band, MaskedArea weighs each allowed quadrature cell by p. The Glade target reads it. So the target counts the trees
+  the band lets stand. The hub's "Planting trees N / M" stays exact (GladeBatch `edge/compose`).
+- The noise has no plan seed. So the probe (ThinSeed) and the stream (Seed32) weigh the same area (GladeBatch `edge/seed`).
+- On a straight outline the band costs depth / 2 of area per meter of outline: 10-20 m2 per m at 20-40 m.
+  Past the band, the density is the level's (GladeBatch `edge/profile`).
+- No fringe OUTSIDE the outline. A filler member there reads as Misplaced, and the next compose removes it.
+  The census and the obstacles cover only the ring. And the outline is the player's promise.
+- Cost: `EdgeGrid` buckets the outline's edges on a dense grid. Its cell is at least the max depth.
+  Each cell lists the edges through it and through its 8 neighbors. So the distance is exact below the max depth.
+  A cell far from the outline costs one array read.
+- Without the grid, a 9 km2 compose on a 96-vertex outline took ~60 % longer (637 to 1019 ms, CoreCLR).
+  With the grid, the band cost is in the noise. GladeBatch TIME: `filler.3000m.96v` 690 ms, `filler.3000m.band.96v` 681 ms.
+  The grid and the plain scan gave the same areas and profiles, bit for bit.
+- The tool's values: QuickRunsToolSystem.Trees.cs `EdgeBandMinM` 20, `EdgeBandMaxM` 40, `EdgeNoiseCellM` 60.
+- The headless plot (EdgeBandTests.cs): GladeBatch with the arguments `plot <dir>`. Optional: a level, then min, max and cell.

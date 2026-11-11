@@ -194,6 +194,7 @@ semantics (`IsInterior(layer)` = not the belt), with these differences:
 - Misplaced = a filler member outside the fill region. A lowered tree line, or a run drawn later over it, removes those members first.
 - Every occupant is keyed (`Matters` is conservative for the filler). The tool hashes the mask (holes order-independent, margin, tree
   line, ground `Fingerprint`, area cell) into PlanKey only for the filler layer. So glade / tree-line keys are unchanged.
+- The key holds the edge band's three fields only while the band is on. A band-off filler key is the pre-band key (GladeBatch `edge/off`).
 - A tree-line compose ignores Fill (same key with and without).
 - Species: `SkiGladeSpecies.ApplyPool` sets SpeciesCount / DominantShare. Species draws come after the position, so changing the pool
   never moves a slot. The tool keeps the members of the old pool, and only new plants use the new pool.
