@@ -1,30 +1,234 @@
 {
   "shot": "05",
   "title": "A run is drawn",
-  "save": "bridgetrailer1h",
-  "notes": "UI shot, normal game camera, fixed. Recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 during the take. State as shot 04 (fresh load, `time` +970 min to 11:01, -8 C, cloudiness 0). Take 1 ran on the state left by shot 04 take 2 (the new detachable lift just north of the outline); take 2 (best) on a fresh load. The hub on its Runs view (the 'Runs open' tile at the top), the build strip on Runs, then the Run tile (the area tool, SkiRunGroomedA). The outline runs down the fall line (west) from about 1322 m to 1203 m through the forest: the heat map shows gray, green, blue and red bands; the tooltip reads Black diamond, hardest unavoidable pitch 47 to 51 %, length 381 to 400 m, drop 118 to 119 m. One sequence: 2 s still, a glide to each corner (0.8 to 0.85 s) with a click after 10 frames, the closing click on the first corner, the cursor glides off, 3 s still. The closed run shows as the piste map's black-diamond outline (the heat map goes) and the hub counts 21 / 21 runs. Hidden in the page as in shot 04. A Photo Mode part two (camera dropping 20 m along the new run) was tried as stills and dropped: the run lies in the forest, so the camera sees trees, not a run.",
+  "save": "bridgetrailer1j",
+  "notes": "Block R2a reshoot. UI shot, normal game camera, fixed, about 48 degrees down, looking down the fall line (west-south-west) so the town and its notification icons sit under the hub panel. Recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 during the take. State: a fresh load of bridgetrailer1j (no lift built), autosave off, -8 C / cloudiness 0 / precipitation 0. The hub on its Runs view (the Runs open tile 3125, 327) with the Piste map box checked (it is in the save), the build strip on Runs, then the Run tile (the area tool, SkiRunGroomedA); the tool options Topography toggle (ContourLines) off. The scouted tree-free outline (3800,-1830) (3790,-1715) (3450,-1680) (3420,-1795) rates Black diamond, hardest unavoidable pitch 57 %; every outline tried inside the tree-free band north of z -1810 rated black at 40 to 44 % (a crux at x 3625 to 3650). The kept outline lies 40 to 100 m further south and reaches into the sparse firs (about 50 trees inside, most in its southern half): Blue square, hardest unavoidable pitch 35 %, 314 m, drop 82 m. Its heat map shows gray, green, blue and red. Six corners (two on the long edges), started and closed at the top north corner, so the tooltip stack sits at the lower center of the frame, not the lower left. One sequence: 2 s still, a glide to each corner (0.85 s) with a click after 10 frames, the closing click on the first corner, a glide off, Esc closes the tool, 3 s still. The run then shows at once as the piste map blue outline with its generated name (t3: Hawk Haven) and a new row in the hub list (21 / 21 runs). Hidden in the page as in shot 04, plus the tool options panel [440,1530,1210,1950]. The run outline must not put a corner under that panel even while it is hidden.",
   "sim": 1,
-  "t2": {
-    "camera": { "wx": 3612, "wy": 1270, "wz": -1948, "zoom": 525, "tilt": 32, "yaw": 4 },
-    "corners": [[3728, -1835], [3540, -1828], [3338, -1832], [3320, -1930], [3520, -1940], [3724, -1930]],
-    "glideSeconds": 0.85
+  "corners": [
+    [
+      3685,
+      -1765
+    ],
+    [
+      3540,
+      -1762
+    ],
+    [
+      3390,
+      -1780
+    ],
+    [
+      3380,
+      -1870
+    ],
+    [
+      3535,
+      -1880
+    ],
+    [
+      3690,
+      -1875
+    ]
+  ],
+  "camera": {
+    "t3": {
+      "wx": 3599.06,
+      "wy": 1271.45,
+      "wz": -1751.75,
+      "zoom": 460,
+      "tilt": 48,
+      "yaw": 245
+    }
   },
-  "t1": {
-    "camera": { "wx": 3590, "wy": 1265, "wz": -1938, "zoom": 490, "tilt": 34, "yaw": 10 },
-    "corners": [[3725, -1842], [3530, -1835], [3335, -1838], [3318, -1928], [3470, -1938], [3640, -1933], [3722, -1927]],
-    "glideSeconds": 0.8
-  },
+  "glideSeconds": 0.85,
   "seq": [
-    { "op": "wait", "frames": 120 },
-    { "repeat": "for each corner", "steps": [
-      { "op": "glide", "wx": "corner x", "wz": "corner z", "seconds": 0.85 },
-      { "op": "wait", "frames": 10 },
-      { "op": "click", "after": 10 }
-    ] },
-    { "op": "glide", "wx": "first corner x", "wz": "first corner z", "seconds": 0.85 },
-    { "op": "wait", "frames": 20 },
-    { "op": "click", "after": 30 },
-    { "op": "glide", "x": 1500, "y": 1750, "seconds": 0.9 },
-    { "op": "wait", "frames": 180 }
-  ]
+    {
+      "op": "wait",
+      "frames": 120
+    },
+    {
+      "repeat": "for each corner",
+      "steps": [
+        {
+          "op": "glide",
+          "wx": "corner x",
+          "wz": "corner z",
+          "seconds": 0.85
+        },
+        {
+          "op": "wait",
+          "frames": 10
+        },
+        {
+          "op": "click",
+          "after": 10
+        }
+      ]
+    },
+    {
+      "op": "glide",
+      "wx": "first corner x",
+      "wz": "first corner z",
+      "seconds": 0.85
+    },
+    {
+      "op": "wait",
+      "frames": 20
+    },
+    {
+      "op": "click",
+      "after": 30
+    },
+    {
+      "op": "glide",
+      "x": 2450,
+      "y": 1250,
+      "seconds": 0.9
+    },
+    {
+      "op": "wait",
+      "frames": 10
+    },
+    {
+      "op": "key",
+      "keys": "esc",
+      "after": 10
+    },
+    {
+      "op": "wait",
+      "frames": 200
+    }
+  ],
+  "blockC2": {
+    "save": "bridgetrailer1h",
+    "notes": "UI shot, normal game camera, fixed. Recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 during the take. State as shot 04 (fresh load, `time` +970 min to 11:01, -8 C, cloudiness 0). Take 1 ran on the state left by shot 04 take 2 (the new detachable lift just north of the outline); take 2 (best) on a fresh load. The hub on its Runs view (the 'Runs open' tile at the top), the build strip on Runs, then the Run tile (the area tool, SkiRunGroomedA). The outline runs down the fall line (west) from about 1322 m to 1203 m through the forest: the heat map shows gray, green, blue and red bands; the tooltip reads Black diamond, hardest unavoidable pitch 47 to 51 %, length 381 to 400 m, drop 118 to 119 m. One sequence: 2 s still, a glide to each corner (0.8 to 0.85 s) with a click after 10 frames, the closing click on the first corner, the cursor glides off, 3 s still. The closed run shows as the piste map's black-diamond outline (the heat map goes) and the hub counts 21 / 21 runs. Hidden in the page as in shot 04. A Photo Mode part two (camera dropping 20 m along the new run) was tried as stills and dropped: the run lies in the forest, so the camera sees trees, not a run.",
+    "sim": 1,
+    "t2": {
+      "camera": {
+        "wx": 3612,
+        "wy": 1270,
+        "wz": -1948,
+        "zoom": 525,
+        "tilt": 32,
+        "yaw": 4
+      },
+      "corners": [
+        [
+          3728,
+          -1835
+        ],
+        [
+          3540,
+          -1828
+        ],
+        [
+          3338,
+          -1832
+        ],
+        [
+          3320,
+          -1930
+        ],
+        [
+          3520,
+          -1940
+        ],
+        [
+          3724,
+          -1930
+        ]
+      ],
+      "glideSeconds": 0.85
+    },
+    "t1": {
+      "camera": {
+        "wx": 3590,
+        "wy": 1265,
+        "wz": -1938,
+        "zoom": 490,
+        "tilt": 34,
+        "yaw": 10
+      },
+      "corners": [
+        [
+          3725,
+          -1842
+        ],
+        [
+          3530,
+          -1835
+        ],
+        [
+          3335,
+          -1838
+        ],
+        [
+          3318,
+          -1928
+        ],
+        [
+          3470,
+          -1938
+        ],
+        [
+          3640,
+          -1933
+        ],
+        [
+          3722,
+          -1927
+        ]
+      ],
+      "glideSeconds": 0.8
+    },
+    "seq": [
+      {
+        "op": "wait",
+        "frames": 120
+      },
+      {
+        "repeat": "for each corner",
+        "steps": [
+          {
+            "op": "glide",
+            "wx": "corner x",
+            "wz": "corner z",
+            "seconds": 0.85
+          },
+          {
+            "op": "wait",
+            "frames": 10
+          },
+          {
+            "op": "click",
+            "after": 10
+          }
+        ]
+      },
+      {
+        "op": "glide",
+        "wx": "first corner x",
+        "wz": "first corner z",
+        "seconds": 0.85
+      },
+      {
+        "op": "wait",
+        "frames": 20
+      },
+      {
+        "op": "click",
+        "after": 30
+      },
+      {
+        "op": "glide",
+        "x": 1500,
+        "y": 1750,
+        "seconds": 0.9
+      },
+      {
+        "op": "wait",
+        "frames": 180
+      }
+    ]
+  }
 }

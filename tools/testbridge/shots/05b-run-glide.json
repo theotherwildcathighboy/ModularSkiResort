@@ -1,0 +1,173 @@
+{
+  "shot": "05b",
+  "title": "The glide down the new run",
+  "save": "bridgetrailer1j",
+  "notes": "Block R2a. Right after shot 05 take 3, on the same run (Blue square, outline in 05-run-drawn.json), sim at speed 1. Photo Mode, 30 mm, Time of Day 14, overlay hidden (photoMode.setOverlayHidden), UI hidden. The camera glides 170 m west down the run 3.5 to 5 m above the snow (keys at ground + 4.5, ground sampled every 20 m at z -1771 +- 5 m), looking at the valley (3250, 1200, -1785): the river, the town and the mountains ahead. Path at z -1771, inside the run 6 to 9 m from its north edge, 25 m clear of the nearest firs; the first path at z -1780 (take 1) passed a spruce close and brushed a crown. Without the piste map the run does not read as a run: the new run is not groomed or painted yet, so the picture is open snow, rocks and a few firs at the left edge. The overlay-flag-off variant was not filmed: with the flag off about 150 notification icons of the town and the city beyond show along the valley (dump of Game.Notifications.Icon projected into the path frames), more than a few to delete. Capture mode (fps 30, capture 60), campath fps 60, 6 s inOut2; the clip is made with shoot dd.cjs at 0.15 (rec.mjs dedupe dropped real frames).",
+  "sim": 1,
+  "pm": {
+    "cam": {
+      "x": 3710,
+      "y": 1311,
+      "z": -1771,
+      "at": [
+        3250,
+        1200,
+        -1785
+      ]
+    },
+    "set": {
+      "PhotoModeRenderSystem.focalLength": 30,
+      "Time of Day": 14
+    },
+    "overlay": false
+  },
+  "path": {
+    "mode": "pm",
+    "seconds": 6,
+    "fps": 60,
+    "ease": "inOut2",
+    "keys": [
+      {
+        "pos": [
+          3710,
+          1311,
+          -1771
+        ],
+        "at": [
+          3250,
+          1200,
+          -1785
+        ]
+      },
+      {
+        "pos": [
+          3690,
+          1304.5,
+          -1771
+        ],
+        "at": [
+          3250,
+          1200,
+          -1785
+        ]
+      },
+      {
+        "pos": [
+          3670,
+          1299.3,
+          -1771
+        ],
+        "at": [
+          3250,
+          1200,
+          -1785
+        ]
+      },
+      {
+        "pos": [
+          3650,
+          1295,
+          -1771
+        ],
+        "at": [
+          3250,
+          1200,
+          -1785
+        ]
+      },
+      {
+        "pos": [
+          3630,
+          1291,
+          -1771
+        ],
+        "at": [
+          3250,
+          1200,
+          -1785
+        ]
+      },
+      {
+        "pos": [
+          3610,
+          1278.5,
+          -1771
+        ],
+        "at": [
+          3250,
+          1200,
+          -1785
+        ]
+      },
+      {
+        "pos": [
+          3590,
+          1278.3,
+          -1771
+        ],
+        "at": [
+          3250,
+          1200,
+          -1785
+        ]
+      },
+      {
+        "pos": [
+          3570,
+          1278.4,
+          -1771
+        ],
+        "at": [
+          3250,
+          1200,
+          -1785
+        ]
+      },
+      {
+        "pos": [
+          3540,
+          1278.5,
+          -1771
+        ],
+        "at": [
+          3250,
+          1200,
+          -1785
+        ]
+      }
+    ]
+  },
+  "seq": [
+    {
+      "op": "fps",
+      "target": 30,
+      "capture": 60
+    },
+    {
+      "op": "ui",
+      "hidden": true,
+      "seconds": 45
+    },
+    {
+      "op": "wait",
+      "frames": 60
+    },
+    {
+      "op": "campath",
+      "path": "path"
+    },
+    {
+      "op": "wait",
+      "frames": 60
+    },
+    {
+      "op": "ui",
+      "hidden": false
+    },
+    {
+      "op": "fps",
+      "target": -1,
+      "capture": 0
+    }
+  ]
+}

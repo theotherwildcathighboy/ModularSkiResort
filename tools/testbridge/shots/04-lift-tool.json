@@ -1,27 +1,202 @@
 {
   "shot": "04",
   "title": "Lift tool",
-  "save": "bridgetrailer1h",
-  "notes": "UI shot, normal game camera, fixed. Recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 during the take. State: a fresh load, `time` +970 min (2029-01-07 11:01), climate -8 C / cloudiness 0 / precipitation 0, autosave off. The hub open on its Lifts view (hub button 152, 60; the Lifts tile at the top of the hub), the build strip on Lifts with the type chip. Both stations placed before the take on the free slope north of the forest, facing each other (base yaw 268.65, top yaw 88.65; the object tool's right drag turns 0.72 degrees per pixel with an 8-frame drag and a 4-frame hold): the tooltip read offset -0.7 to -1.3 m, angle 0, 307 to 316 m, rise +72 m. Then the Lift line tile; the cursor rests at (1500, 1150). One sequence: 2 s still, glide to the base station, click, glide to the top station (a straight preview line follows), click (the planned towers and the chairs appear with 'Towers: n, length ... The line is ready to build.'), Enter builds, the cursor glides off, 3 s still. Hidden in the page before the take: the third-party toolbar buttons, the top info strip, the right-edge round buttons, the Anarchy tool options panel. Take 2 (best): detachable stations, camera t2. Take 1: fixed-grip stations, camera t1. After the build the rope is thin and white over snow and the line reads only as small chair dots; the hub's lift count goes from 5 / 6 to 6 / 6. Measured: the recorded frame matched the stills at this camera (a 2 s test recording).",
+  "save": "bridgetrailer1j",
+  "notes": "Block R2a reshoot. UI shot, normal game camera, fixed. Recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 during the take (sim clock 11:2x to 11:4x, 2029-01-07, the bar reads July 2029, Summer). State: a fresh load of bridgetrailer1j, autosave off, climate -8 C / cloudiness 0 / precipitation 0. The hub open on its Lifts view (hub button 152, 60; the Lifts tile 3263, 327), the build strip on Lifts, Detachable. Both stations placed before the take on the open ridge north of the bowl, facing each other (__placeYaw; place each with the camera aimed so the station point sits at about x 900 on screen, or the right drag of 250 px runs into the hub and the turn comes out wrong). Then the Lift line tile. Preview: Towers: 3, length 557 to 558 m, and the note that the rope bends past what the red tower can follow (the lift still runs): the tool plans 3 towers on this line, not 4; a click on the line between the clicks did not add a tower. One sequence: 2 s still, glide to the base station, click, glide to the top station, click (the blue preview with its towers and chairs appears), 95 frames of hold, Enter builds over the bend note, the cursor glides off to the lower left, a right click closes the tool (no tooltip on the built line), 3 s still. After the build: hub 6 / 6 lifts, Lift 3 Running (t4: 2,372 skiers/h, 5 runs); t3 showed No power after the build, and without the right click the tool tooltip stayed on the built line. The built rope is thin and white over snow; the chairs read as a dotted line, one tower clearly. Hidden in the page before the take (style visibility, a 150 ms timer): elements fully inside [195,0,1215,125], [1220,0,3100,125], [3700,1450,3840,1900] (third-party toolbar buttons, the top info strip, the right-edge round buttons). Take 4 (best): camera t4, closer. Take 3: camera t3.",
   "sim": 1,
   "stations": {
-    "t2": { "type": "Detachable", "base": [3417.4, 1254.9, -1805.9], "top": [3756.2, 1327.3, -1798.7] },
-    "t1": { "type": "Fixed-grip", "base": [3418.3, 1254.9, -1807.9], "top": [3758.0, 1327.0, -1800.1] }
+    "base": [
+      3421.1,
+      1254.8,
+      -1808.6
+    ],
+    "baseYaw": 269.7,
+    "top": [
+      4010.7,
+      1392.2,
+      -1801.6
+    ],
+    "topYaw": 89.7,
+    "type": "Detachable"
   },
   "camera": {
-    "t2": { "wx": 3515, "wy": 1265, "wz": -1832, "zoom": 380, "tilt": 24, "yaw": 118 },
-    "t1": { "wx": 3540, "wy": 1268, "wz": -1850, "zoom": 560, "tilt": 25, "yaw": 125 }
+    "t4": {
+      "wx": 3549.45,
+      "wy": 1263.07,
+      "wz": -1945.12,
+      "zoom": 400,
+      "tilt": 15,
+      "yaw": 60
+    },
+    "t3": {
+      "wx": 3589.08,
+      "wy": 1268.74,
+      "wz": -1948.44,
+      "zoom": 500,
+      "tilt": 15,
+      "yaw": 60
+    }
   },
   "seq": [
-    { "op": "wait", "frames": 120 },
-    { "op": "glide", "wx": 3417.4, "wy": 1254.9, "wz": -1805.9, "seconds": 1.0 },
-    { "op": "wait", "frames": 15 },
-    { "op": "click", "after": 20 },
-    { "op": "glide", "wx": 3756.2, "wy": 1327.3, "wz": -1798.7, "seconds": 1.2 },
-    { "op": "wait", "frames": 20 },
-    { "op": "click", "after": 50 },
-    { "op": "key", "keys": "enter", "after": 30 },
-    { "op": "glide", "x": 2350, "y": 1150, "seconds": 0.9 },
-    { "op": "wait", "frames": 180 }
-  ]
+    {
+      "op": "wait",
+      "frames": 120
+    },
+    {
+      "op": "glide",
+      "wx": 3421.1,
+      "wy": 1254.8,
+      "wz": -1808.6,
+      "seconds": 1
+    },
+    {
+      "op": "wait",
+      "frames": 15
+    },
+    {
+      "op": "click",
+      "after": 20
+    },
+    {
+      "op": "glide",
+      "wx": 4010.7,
+      "wy": 1392.2,
+      "wz": -1801.6,
+      "seconds": 1.2
+    },
+    {
+      "op": "wait",
+      "frames": 20
+    },
+    {
+      "op": "click",
+      "after": 95
+    },
+    {
+      "op": "key",
+      "keys": "enter",
+      "after": 30
+    },
+    {
+      "op": "glide",
+      "x": 1250,
+      "y": 1750,
+      "seconds": 0.9
+    },
+    {
+      "op": "wait",
+      "frames": 10
+    },
+    {
+      "op": "click",
+      "button": "right",
+      "after": 10
+    },
+    {
+      "op": "wait",
+      "frames": 200
+    }
+  ],
+  "blockC2": {
+    "save": "bridgetrailer1h",
+    "notes": "UI shot, normal game camera, fixed. Recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 during the take. State: a fresh load, `time` +970 min (2029-01-07 11:01), climate -8 C / cloudiness 0 / precipitation 0, autosave off. The hub open on its Lifts view (hub button 152, 60; the Lifts tile at the top of the hub), the build strip on Lifts with the type chip. Both stations placed before the take on the free slope north of the forest, facing each other (base yaw 268.65, top yaw 88.65; the object tool's right drag turns 0.72 degrees per pixel with an 8-frame drag and a 4-frame hold): the tooltip read offset -0.7 to -1.3 m, angle 0, 307 to 316 m, rise +72 m. Then the Lift line tile; the cursor rests at (1500, 1150). One sequence: 2 s still, glide to the base station, click, glide to the top station (a straight preview line follows), click (the planned towers and the chairs appear with 'Towers: n, length ... The line is ready to build.'), Enter builds, the cursor glides off, 3 s still. Hidden in the page before the take: the third-party toolbar buttons, the top info strip, the right-edge round buttons, the Anarchy tool options panel. Take 2 (best): detachable stations, camera t2. Take 1: fixed-grip stations, camera t1. After the build the rope is thin and white over snow and the line reads only as small chair dots; the hub's lift count goes from 5 / 6 to 6 / 6. Measured: the recorded frame matched the stills at this camera (a 2 s test recording).",
+    "sim": 1,
+    "stations": {
+      "t2": {
+        "type": "Detachable",
+        "base": [
+          3417.4,
+          1254.9,
+          -1805.9
+        ],
+        "top": [
+          3756.2,
+          1327.3,
+          -1798.7
+        ]
+      },
+      "t1": {
+        "type": "Fixed-grip",
+        "base": [
+          3418.3,
+          1254.9,
+          -1807.9
+        ],
+        "top": [
+          3758,
+          1327,
+          -1800.1
+        ]
+      }
+    },
+    "camera": {
+      "t2": {
+        "wx": 3515,
+        "wy": 1265,
+        "wz": -1832,
+        "zoom": 380,
+        "tilt": 24,
+        "yaw": 118
+      },
+      "t1": {
+        "wx": 3540,
+        "wy": 1268,
+        "wz": -1850,
+        "zoom": 560,
+        "tilt": 25,
+        "yaw": 125
+      }
+    },
+    "seq": [
+      {
+        "op": "wait",
+        "frames": 120
+      },
+      {
+        "op": "glide",
+        "wx": 3417.4,
+        "wy": 1254.9,
+        "wz": -1805.9,
+        "seconds": 1
+      },
+      {
+        "op": "wait",
+        "frames": 15
+      },
+      {
+        "op": "click",
+        "after": 20
+      },
+      {
+        "op": "glide",
+        "wx": 3756.2,
+        "wy": 1327.3,
+        "wz": -1798.7,
+        "seconds": 1.2
+      },
+      {
+        "op": "wait",
+        "frames": 20
+      },
+      {
+        "op": "click",
+        "after": 50
+      },
+      {
+        "op": "key",
+        "keys": "enter",
+        "after": 30
+      },
+      {
+        "op": "glide",
+        "x": 2350,
+        "y": 1150,
+        "seconds": 0.9
+      },
+      {
+        "op": "wait",
+        "frames": 180
+      }
+    ]
+  }
 }
