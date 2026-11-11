@@ -1,0 +1,27 @@
+{
+  "shot": "04",
+  "title": "Lift tool",
+  "save": "bridgetrailer1h",
+  "notes": "UI shot, normal game camera, fixed. Recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 during the take. State: a fresh load, `time` +970 min (2029-01-07 11:01), climate -8 C / cloudiness 0 / precipitation 0, autosave off. The hub open on its Lifts view (hub button 152, 60; the Lifts tile at the top of the hub), the build strip on Lifts with the type chip. Both stations placed before the take on the free slope north of the forest, facing each other (base yaw 268.65, top yaw 88.65; the object tool's right drag turns 0.72 degrees per pixel with an 8-frame drag and a 4-frame hold): the tooltip read offset -0.7 to -1.3 m, angle 0, 307 to 316 m, rise +72 m. Then the Lift line tile; the cursor rests at (1500, 1150). One sequence: 2 s still, glide to the base station, click, glide to the top station (a straight preview line follows), click (the planned towers and the chairs appear with 'Towers: n, length ... The line is ready to build.'), Enter builds, the cursor glides off, 3 s still. Hidden in the page before the take: the third-party toolbar buttons, the top info strip, the right-edge round buttons, the Anarchy tool options panel. Take 2 (best): detachable stations, camera t2. Take 1: fixed-grip stations, camera t1. After the build the rope is thin and white over snow and the line reads only as small chair dots; the hub's lift count goes from 5 / 6 to 6 / 6. Measured: the recorded frame matched the stills at this camera (a 2 s test recording).",
+  "sim": 1,
+  "stations": {
+    "t2": { "type": "Detachable", "base": [3417.4, 1254.9, -1805.9], "top": [3756.2, 1327.3, -1798.7] },
+    "t1": { "type": "Fixed-grip", "base": [3418.3, 1254.9, -1807.9], "top": [3758.0, 1327.0, -1800.1] }
+  },
+  "camera": {
+    "t2": { "wx": 3515, "wy": 1265, "wz": -1832, "zoom": 380, "tilt": 24, "yaw": 118 },
+    "t1": { "wx": 3540, "wy": 1268, "wz": -1850, "zoom": 560, "tilt": 25, "yaw": 125 }
+  },
+  "seq": [
+    { "op": "wait", "frames": 120 },
+    { "op": "glide", "wx": 3417.4, "wy": 1254.9, "wz": -1805.9, "seconds": 1.0 },
+    { "op": "wait", "frames": 15 },
+    { "op": "click", "after": 20 },
+    { "op": "glide", "wx": 3756.2, "wy": 1327.3, "wz": -1798.7, "seconds": 1.2 },
+    { "op": "wait", "frames": 20 },
+    { "op": "click", "after": 50 },
+    { "op": "key", "keys": "enter", "after": 30 },
+    { "op": "glide", "x": 2350, "y": 1150, "seconds": 0.9 },
+    { "op": "wait", "frames": 180 }
+  ]
+}

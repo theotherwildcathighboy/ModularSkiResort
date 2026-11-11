@@ -1,0 +1,30 @@
+{
+  "shot": "05",
+  "title": "A run is drawn",
+  "save": "bridgetrailer1h",
+  "notes": "UI shot, normal game camera, fixed. Recorded at fps target 60 (no capture mode, no dedupe), OBS cursor capture on, sim speed 1 during the take. State as shot 04 (fresh load, `time` +970 min to 11:01, -8 C, cloudiness 0). Take 1 ran on the state left by shot 04 take 2 (the new detachable lift just north of the outline); take 2 (best) on a fresh load. The hub on its Runs view (the 'Runs open' tile at the top), the build strip on Runs, then the Run tile (the area tool, SkiRunGroomedA). The outline runs down the fall line (west) from about 1322 m to 1203 m through the forest: the heat map shows gray, green, blue and red bands; the tooltip reads Black diamond, hardest unavoidable pitch 47 to 51 %, length 381 to 400 m, drop 118 to 119 m. One sequence: 2 s still, a glide to each corner (0.8 to 0.85 s) with a click after 10 frames, the closing click on the first corner, the cursor glides off, 3 s still. The closed run shows as the piste map's black-diamond outline (the heat map goes) and the hub counts 21 / 21 runs. Hidden in the page as in shot 04. A Photo Mode part two (camera dropping 20 m along the new run) was tried as stills and dropped: the run lies in the forest, so the camera sees trees, not a run.",
+  "sim": 1,
+  "t2": {
+    "camera": { "wx": 3612, "wy": 1270, "wz": -1948, "zoom": 525, "tilt": 32, "yaw": 4 },
+    "corners": [[3728, -1835], [3540, -1828], [3338, -1832], [3320, -1930], [3520, -1940], [3724, -1930]],
+    "glideSeconds": 0.85
+  },
+  "t1": {
+    "camera": { "wx": 3590, "wy": 1265, "wz": -1938, "zoom": 490, "tilt": 34, "yaw": 10 },
+    "corners": [[3725, -1842], [3530, -1835], [3335, -1838], [3318, -1928], [3470, -1938], [3640, -1933], [3722, -1927]],
+    "glideSeconds": 0.8
+  },
+  "seq": [
+    { "op": "wait", "frames": 120 },
+    { "repeat": "for each corner", "steps": [
+      { "op": "glide", "wx": "corner x", "wz": "corner z", "seconds": 0.85 },
+      { "op": "wait", "frames": 10 },
+      { "op": "click", "after": 10 }
+    ] },
+    { "op": "glide", "wx": "first corner x", "wz": "first corner z", "seconds": 0.85 },
+    { "op": "wait", "frames": 20 },
+    { "op": "click", "after": 30 },
+    { "op": "glide", "x": 1500, "y": 1750, "seconds": 0.9 },
+    { "op": "wait", "frames": 180 }
+  ]
+}
