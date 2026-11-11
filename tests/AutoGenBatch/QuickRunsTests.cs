@@ -204,10 +204,10 @@ namespace AutoGenBatch
             Check(QuickRunsRules.StatusKey(AutoPlanStatus.NoVertical, false) == "SkiResort.Tooltip.QUICK_STATUS[NoVertical]", W, "no vertical on owned ground keeps its reason");
             Check(QuickRunsRules.StatusKey(AutoPlanStatus.Ok, true) == null && QuickRunsRules.StatusKey(AutoPlanStatus.TooLarge, true) == "SkiResort.Tooltip.QUICK_STATUS[TooLarge]", W, "tiles never replace Ok or a size refusal");
             var keys = new List<string> { "stale" };
-            QuickRunsRules.WarningKeys(AutoPlanWarning.OverWater | AutoPlanWarning.NoGreen, QuickToolWarning.ChecksOff | QuickToolWarning.Renumber, keys);
+            QuickRunsRules.WarningKeys(AutoPlanWarning.OverWater | AutoPlanWarning.NoGreen, QuickToolWarning.NoSign | QuickToolWarning.Renumber | (QuickToolWarning)16, keys);
             Check(keys.Count == 4 && keys[0] == "SkiResort.Tooltip.QUICK_WARN[NoGreen]" && keys[1] == "SkiResort.Tooltip.QUICK_WARN[OverWater]" &&
-                  keys[2] == "SkiResort.Tooltip.QUICK_WARN[Renumber]" && keys[3] == "SkiResort.Tooltip.QUICK_WARN[ChecksOff]", W,
-                "warning keys in bit order, planner first: " + string.Join(", ", keys));
+                  keys[2] == "SkiResort.Tooltip.QUICK_WARN[Renumber]" && keys[3] == "SkiResort.Tooltip.QUICK_WARN[NoSign]", W,
+                "warning keys in bit order, planner first, the retired bit 16 (ChecksOff, DECISIONS 648) gives no key: " + string.Join(", ", keys));
 
             // Knobs
             Check(QuickRunsRules.ClampMix(2) == AutoMix.Expert && QuickRunsRules.ClampMix(7) == AutoMix.Balanced && QuickRunsRules.ClampMix(-1) == AutoMix.Balanced, W, "mix clamp");

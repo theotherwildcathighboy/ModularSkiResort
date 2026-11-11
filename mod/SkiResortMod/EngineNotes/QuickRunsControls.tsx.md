@@ -28,12 +28,10 @@
 ## Resort Planner v2 (stage A, task A7)
 - Stage A had two more knob rows: Lifts (a count) and Way home. Round R2-b removed them (see "Runs-first plans" below).
 - `PlanRows` draw between the Kinds row and the tree filler, only in the Preview with pods or lifts. In order:
-  1. The plan line (QUICK_PLAN_LINE).
-  2. The proposal note and, since R1-d, the lifts total line. Since R2-b the note says that Build makes the cat tracks and runs and that the lifts have their own button.
-  3. The terrain's honest mix (QUICK_MIX_HONEST, whole percents). Black includes double black.
-  4. One toggle row per lift: a check box, the lift line "P1: Detachable, 1.3 km, 540 m up, serves 7 runs", its way-home verdict, and its
-     pod's enabled runs by color as the map's band markers with a number. A pinned lift reads "Existing lift".
-  5. One row per group WITHOUT a lift ("Other runs: 11 run(s), 14 cat track(s)"). Since R2-b this is the catch-all group of the realizer.
+  Since DECISIONS 648 the plan line, the lifts total and the honest mix moved to the step lines (`PreviewLines`, below). The proposal note is gone.
+  1. One toggle row per lift: a check box, the lift line "P1 · Detachable · 1.3 km · 540 m up", then its pod's enabled runs by color as
+     the map's band markers with a number, its cat tracks and its way-home verdict. A pinned lift reads "Existing lift".
+  2. One row per group WITHOUT a lift ("Other runs", then the same markers and cat tracks). Since R2-b this is the catch-all group of the realizer.
 
   A click on a row sends `quickRunsSet("lift" | "pod", key)`. The key is the plan's unsigned FNV key as a signed int. C# casts it back.
   A left-out row dims. The Runs view scrolls as a whole while the tool is open. So the plan may grow (up to 9 lifts and 12 pods) without
@@ -57,7 +55,7 @@ The planner proposes lifts and the engine builds them (StationPlaceToolSystem.md
   - With the planner open, `QuickRunsRows` draws the same block (`LiftSheetBlock`) after the tree filler and before the plan list.
   - `sheetShows` is true when the sheet has rows and the phase is not Preview and not Scanning. A preview has its own lift rows. A new scan
     replaces the sheet, so old rows are hidden while it runs.
-- In the preview only the lifts total shows (`LiftsTotalLine`, under the plan line). Reason: a Build lifts button in a preview would hand
+- In the preview only the lifts total shows (`LiftsTotalLine`, in `PreviewLines`). Reason: a Build lifts button in a preview would hand
   the tool to the station placer. That closes the planner and drops the preview. C# refuses the lift calls then too (`plannerBusy`: a phase other than
   Region, or planting). The UI disables the buttons in the same cases.
 - Block, top to bottom:
@@ -127,3 +125,17 @@ The runs-first planner ignores four knobs. The hub hides them. It shows the new 
 The warning QUICK_WARN[NoSignSome] is the one warning with numbers. The hub draws it with `LocText` (`HUB_FMT.quickNoSignSome`,
 N = `unbound`, M = `enabled`). It does not use `sentKeyEntry`, because rule R13 lets only LocText fill "{N}". The harness preview
 scenario shows it with 3 of 11.
+
+## No wall of text (DECISIONS 648, 2026-11-10)
+- The release trailer showed the plan as a block of prose: 13 lines of totals, verdicts, hints and warnings before the first lift row.
+- A plan now reads (`PreviewLines`), one short line each:
+  1. The runs by color as band markers, then "11 of 12 runs · 5 cat tracks". Double black gets its own marker when it has runs.
+  2. "Runs cost ¢1,840,000 · 2,350 skiers a day".
+  3. The lifts total.
+  4. "Terrain: green 22 % · blue 38 % · black 40 %".
+  5. The warnings.
+- The preview no longer shows the word mix line, the site verdict, the site detail line or the plan line.
+  The Region step keeps the site verdict (shorter). A failed scan keeps the dropped-lines tally.
+- Removed keys: QUICK_PREVIEW_HINT, QUICK_PROPOSAL_NOTE (from the cursor tooltip too) and QUICK_WARN[ChecksOff].
+- Rule for this panel: numbers first, one line per item, no instructions, no sentence that repeats a number. The cursor prompt gives the instructions.
+- Harness: `node tools/test-hub-layout.js --shots=<dir> --list=plantext` shoots the plan, the plan at 15 lifts and the preview with trees.

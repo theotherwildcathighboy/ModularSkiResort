@@ -5,10 +5,11 @@
  * 2. While the tool is open, the rows at the top of the Runs view, in place of the tree tool's (QuickRunsRows). From top to bottom:
  *    - Scan / Build / Undo, the Density (how many) and Kinds knobs. The Lifts, Mix, Shuffle and Way home knobs are gone (round R2-b, DECISIONS
  *      632): the runs-first planner ignores them.
- *    - The step's line (region size, scan progress, totals and mix, the site detail line), warnings and clusters. The totals count the pistes
- *      and the cat tracks apart.
- *    - The plan: the plan line, one toggle row per lift (the lift and the runs it starts are one group) with its band counts, its cat tracks,
- *      its way home and how its line builds, then "Other runs" (the group no lift starts). PlanRows draws it, only while a plan shows.
+ *    - The step's lines (region size, scan progress), warnings and clusters. With a plan (DECISIONS 648, "no wall of text"): the runs by color
+ *      and the totals, the runs' cost, the lifts total, the terrain's mix, then the warnings. One short line each: no how-to, no site verdict, no
+ *      dropped-lines tally (those stay in the Region step), no proposal note. The totals count the pistes and the cat tracks apart.
+ *    - The plan: one toggle row per lift (the lift and the runs it starts are one group) with its band counts, its cat tracks, its way home
+ *      and how its line builds, then "Other runs" (the group no lift starts). PlanRows draws it, only while a plan shows.
  *    - The tree filler (on / off, density, tree line, species group chips and the single-species stepper, Plant / Undo trees).
  * A build runs a few runs per frame, and Plant plants a slice of trees per apply. The progress lines ("Building runs 4 / 11",
  * "Planting trees 2,400 / 9,000") show while either is in flight. Stop sits beside Undo (building) or in place of Plant (planting).
@@ -137,27 +138,12 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
   if (q.phase === "Scanning") {
     lines.push(<LocText key="scan" entry={HUB_FMT.quickScanning} args={{ P: numArg(Math.round(q.progress * 100), Unit.Percentage) }} />);
   } else if (q.phase === "Preview") {
-    lines.push(<LocText key="totals" entry={HUB_FMT.quickTotals} args={{
-      N: numArg(q.enabled, Unit.Integer), M: numArg(q.runs, Unit.Integer), T: numArg(q.tracks, Unit.Integer), FEE: numArg(q.fee, Unit.Money),
-      SKIERS: numArg(q.skiers, Unit.Integer),
-    }} />);
-    const c = (i: number): JSX.Element | string => numArg(q.count[i] ?? 0, Unit.Integer);
-    const g = (i: number): JSX.Element | string => numArg(q.target[i] ?? 0, Unit.Integer);
-    /* The runs-first planner gives no target (all zeros): the line then prints the counts alone, never "Green 5 of 0" */
-    const hasTarget = (q.target[1] ?? 0) + (q.target[2] ?? 0) + (q.target[3] ?? 0) + (q.target[4] ?? 0) > 0;
-    lines.push(hasTarget
-      ? <LocText key="mix" entry={HUB_FMT.quickMixLine} args={{ G: c(1), B: c(2), K: c(3), D: c(4), TG: g(1), TB: g(2), TK: g(3), TD: g(4) }} />
-      : <LocText key="mix" entry={HUB_FMT.quickMixCounts} args={{ G: c(1), B: c(2), K: c(3), D: c(4) }} />);
-    if (site) lines.push(site);
-    if (q.plan.sitePods > 0)
-      lines.push(<LocText key="siteDetail" entry={HUB_FMT.quickSiteDetail} args={{
-        G: numArg(q.plan.siteGreenHome, Unit.Integer), PODS: numArg(q.plan.sitePods, Unit.Integer), HA: numArg(q.plan.siteBenchHa, Unit.FloatSingleFraction),
-      }} />);
-    lines.push(<>{t(HUB_LOC.quickPreviewHint)}</>);
+    /* The numbers first: the runs by color with the totals, then what the runs cost. The lifts total and the terrain's mix follow */
+    return <PreviewLines q={q} t={t} />;
   } else if (building(q)) {
-    if (q.buildTotal > 0)
-      lines.push(<LocText key="build" entry={HUB_FMT.quickBuildProgress} args={{ N: numArg(q.buildDone, Unit.Integer), M: numArg(q.buildTotal, Unit.Integer) }} />);
-    lines.push(<>{t(HUB_LOC.quickBuilding)}</>);
+    lines.push(q.buildTotal > 0
+      ? <LocText key="build" entry={HUB_FMT.quickBuildProgress} args={{ N: numArg(q.buildDone, Unit.Integer), M: numArg(q.buildTotal, Unit.Integer) }} />
+      : <>{t(HUB_LOC.quickBuilding)}</>);
   } else if (q.corners < 3) {
     lines.push(<>{t(HUB_LOC.quickStart)}</>);
     if (q.corners === 0 && q.canPlanAround) lines.push(<>{t(HUB_LOC.quickAroundLift)}</>);
@@ -167,7 +153,8 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
     }} />);
     if (site) lines.push(site);
   }
-  const dropped = q.phase === "Preview" || (q.phase === "Region" && !!q.status) ? rejectSummary(q.rejects) : null;
+  /* The dropped lines explain a failed scan only: a plan's own numbers say enough */
+  const dropped = q.phase === "Region" && !!q.status ? rejectSummary(q.rejects) : null;
   if (dropped && dropped.top.length > 0) {
     const list = dropped.top.map((r) => String(r.n) + " " + t(QUICK_REJECT_TEXT[r.bucket])).join(", ");
     lines.push(<LocText key="rejects" entry={HUB_FMT.quickRejects} args={{ N: numArg(dropped.total, Unit.Integer), LIST: list }} />);
@@ -178,6 +165,41 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
     <>
       {lines.map((l, i) => <div key={i} className={styles.quickLine}>{l}</div>)}
       {q.phase === "Region" && q.regionState === "Over" && <div className={cx(styles.quickLine, styles.warnText)}>{t(HUB_LOC.quickRegionOver)}</div>}
+      <NoticeLines q={q} t={t} />
+    </>
+  );
+}
+
+/* A plan's lines (DECISIONS 648): the runs by color with the totals, the runs' cost, the lifts total, the terrain's mix. Then the notices. */
+function PreviewLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
+  const mix = q.plan.mountainMix;
+  const mixSum = (mix[1] ?? 0) + (mix[2] ?? 0) + (mix[3] ?? 0);
+  return (
+    <>
+      <div className={cx(styles.quickLine, styles.quickLineMix)}>
+        <BandCounts count={q.count} doubleBlack />
+        <LocText entry={HUB_FMT.quickTotals} args={{ N: numArg(q.enabled, Unit.Integer), M: numArg(q.runs, Unit.Integer), T: numArg(q.tracks, Unit.Integer) }} />
+      </div>
+      <div className={styles.quickLine}>
+        <LocText entry={HUB_FMT.quickCost} args={{ FEE: numArg(q.fee, Unit.Money), SKIERS: numArg(q.skiers, Unit.Integer) }} />
+      </div>
+      <LiftsTotalLine q={q} />
+      {mixSum > 0 && (
+        <div className={styles.quickLine}>
+          <LocText entry={HUB_FMT.quickMixHonest} args={{
+            G: numArg(mix[1] ?? 0, Unit.Integer), B: numArg(mix[2] ?? 0, Unit.Integer), K: numArg(mix[3] ?? 0, Unit.Integer),
+          }} />
+        </div>
+      )}
+      <NoticeLines q={q} t={t} />
+    </>
+  );
+}
+
+/* The status, the notice, the warnings (one short line each) and, without a plan, the clusters. */
+function NoticeLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
+  return (
+    <>
       {q.status && <div className={cx(styles.quickLine, styles.warnText)}>{t(sentKeyEntry(q.status, HUB_LOC.quickUnavailable))}</div>}
       {q.notice && <div className={styles.quickLine}>{t(sentKeyEntry(q.notice, HUB_LOC.quickUnavailable))}</div>}
       {q.warnings.filter((w) => w !== q.status).map((w) => <div key={w} className={cx(styles.quickLine, styles.warnText)}>{w === WARN_NO_SIGN_SOME
@@ -194,10 +216,14 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
   );
 }
 
-/* The enabled runs of a pod by color: green, blue, black (double black counts with black) as the map's markers with a number. */
-function BandCounts({ count }: { count: readonly number[] }): JSX.Element {
+/* The enabled runs by color: green, blue, black as the map's markers with a number. A pod's row counts double black with black. The plan's
+   totals line (doubleBlack) gives double black its own marker when it has any. */
+function BandCounts({ count, doubleBlack }: { count: readonly number[]; doubleBlack?: boolean }): JSX.Element {
+  const db = count[BAND.DoubleBlack] ?? 0;
+  const split = !!doubleBlack && db > 0;
   const items: Array<[number, number]> = [[BAND.Green, count[BAND.Green] ?? 0], [BAND.Blue, count[BAND.Blue] ?? 0],
-    [BAND.Black, (count[BAND.Black] ?? 0) + (count[BAND.DoubleBlack] ?? 0)]];
+    [BAND.Black, (count[BAND.Black] ?? 0) + (split ? 0 : db)]];
+  if (split) items.push([BAND.DoubleBlack, db]);
   return (
     <>
       {items.map(([band, n]) => (
@@ -243,15 +269,14 @@ function LiftPlanRow({ l, pod, t, wait }: { l: QuickRunsLift; pod: QuickRunsPod 
   const id = l.origin === 1 ? t(HUB_LOC.quickLiftIdPinned) : "P" + String(l.ordinal);
   const first = (
     <LocText entry={HUB_FMT.quickLiftLine} args={{
-      ID: id, TYPE: type ? t(type) : l.typeKey, LENGTH: numArg(l.lengthM / 1000, Unit.FloatSingleFraction),
-      RISE: numArg(Math.round(l.riseM), Unit.Integer), RUNS: numArg(l.serves, Unit.Integer),
+      ID: id, TYPE: type ? t(type) : l.typeKey, LENGTH: numArg(l.lengthM / 1000, Unit.FloatSingleFraction), RISE: numArg(Math.round(l.riseM), Unit.Integer),
     }} />
   );
   const second = (
     <>
-      <span className={styles.planMixItem}>{verdictText(l.homeKey, t)}</span>
       {pod && <BandCounts count={pod.count} />}
       {pod && pod.tracks > 0 && <TrackCount n={pod.tracks} />}
+      {l.homeKey && <span className={styles.planMixItem}>{verdictText(l.homeKey, t)}</span>}
     </>
   );
   /* How the line builds (a planned line, not a pinned lift): one tower over its limit still builds and flags the row, else it waits for the player */
@@ -261,33 +286,18 @@ function LiftPlanRow({ l, pod, t, wait }: { l: QuickRunsLift; pod: QuickRunsPod 
 
 /* "Other runs": the group no lift starts (links between lifts, ways home, runs without a lift). */
 function OtherRunsRow({ p, t, wait }: { p: QuickRunsPod; t: Translate; wait: boolean }): JSX.Element {
-  const first = <LocText entry={HUB_FMT.quickOtherLine} args={{ RUNS: numArg(p.runs, Unit.Integer), TRACKS: numArg(p.tracks, Unit.Integer) }} />;
-  return <PlanRow on={p.on} tip={t(HUB_LOC.quickPodTip)} wait={wait} onSelect={() => set("pod", p.key)} first={first} second={<BandCounts count={p.count} />} />;
+  /* The lift rows' shape: the name, then the band counts and the cat tracks */
+  const second = <><BandCounts count={p.count} />{p.tracks > 0 && <TrackCount n={p.tracks} />}</>;
+  return <PlanRow on={p.on} tip={t(HUB_LOC.quickPodTip)} wait={wait} onSelect={() => set("pod", p.key)} first={<>{t(HUB_LOC.quickOtherRuns)}</>} second={second} />;
 }
 
-/* The plan, top to bottom: the plan line, the lifts total (R1-d), the honest mix, the proposal note. Then one row per lift (with the band counts and
-   cat tracks of the group it starts, and its way home). Then "Other runs". Up to 15 lift rows: the list scrolls in its own box. Nothing is drawn without a plan. */
+/* The plan's rows: one per lift (with the band counts and cat tracks of the group it starts, and its way home), then "Other runs". The totals,
+   the lifts total and the terrain's mix are the step lines above (PreviewLines). Up to 15 lift rows: the list scrolls in its own box. Nothing is
+   drawn without a plan. */
 function PlanRows({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: boolean }): JSX.Element | null {
   if (q.phase !== "Preview" || (q.pods.length === 0 && q.planLifts.length === 0)) return null;
-  const p = q.plan;
-  const mix = p.mountainMix;
-  const mixSum = (mix[1] ?? 0) + (mix[2] ?? 0) + (mix[3] ?? 0);
   return (
     <>
-      <div className={styles.quickLine}>
-        <LocText entry={HUB_FMT.quickPlanLine} args={{
-          LIFTS: numArg(p.liftsProposed, Unit.Integer), KM: numArg(p.runKm, Unit.FloatSingleFraction), TKM: numArg(p.trackKm, Unit.FloatSingleFraction),
-        }} />
-      </div>
-      <LiftsTotalLine q={q} />
-      {mixSum > 0 && (
-        <div className={styles.quickLine}>
-          <LocText entry={HUB_FMT.quickMixHonest} args={{
-            G: numArg(mix[1] ?? 0, Unit.Integer), B: numArg(mix[2] ?? 0, Unit.Integer), K: numArg(mix[3] ?? 0, Unit.Integer),
-          }} />
-        </div>
-      )}
-      {p.liftsProposed > 0 && <div className={styles.quickLine}>{t(HUB_LOC.quickProposalNote)}</div>}
       {q.planLifts.map((l) => (
         <LiftPlanRow key={"l" + l.id} l={l} pod={q.pods.find((x) => x.id === l.pod)} t={t} wait={wait} />
       ))}

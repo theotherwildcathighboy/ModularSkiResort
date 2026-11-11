@@ -57,7 +57,7 @@ namespace SkiResortMod.Systems
         Renumber = 2,         // default-named runs exist: the new runs renumber them (SkiRunCatalogSystem ordinals)
         OtherResort = 4,      // the enabled runs bind to more than one Welcome Sign
         NoSign = 8,           // no enabled piste has a Welcome Sign within the tether: they build and wait unbound, as drawn runs do
-        ChecksOff = 16,       // the game's own checks are off (QuickRunsRules.ChecksState). Only the planner's checks protect the build
+        // 16 was ChecksOff (the game's own checks off, Anarchy): retired, the build log keeps the checks state (DECISIONS 648)
         NoSignSome = 32,      // some enabled pistes (not all) have no Welcome Sign within the tether. The hub and tooltip say how many
     }
 

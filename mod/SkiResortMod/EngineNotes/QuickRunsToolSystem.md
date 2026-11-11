@@ -56,7 +56,9 @@ It holds no state: each tool keeps its own phases, queries and logs.
   - The NoSign flag means that no enabled piste has a sign in range. NoSignSome means that some pistes have no sign and other pistes have a sign.
     `UnboundPistes` gives the count (the hub field `unbound`, the tooltip "N of M runs"). Cat tracks are not counted. Before the change, one
     unbound run set NoSign. The field pass of 2026-11-10 then showed "the runs will not count" with 22 of 213 runs unbound.
-  - ChecksOff (`ToolSystem.ignoreErrors`, ToolSystem.cs:159: Anarchy).
+  - ChecksOff (bit 16) is retired (DECISIONS 648). It read "Anarchy is installed" from the assembly name only.
+    The mod cannot read whether the Anarchy toggle is on, so the player could not act on the line. It showed in the hub and in the cursor tooltip.
+    `GameChecks()` still feeds the build end line and the probe line ("game checks OFF ..."). Other-mod facts go to labels and log lines only (DECISIONS 150).
 - Knobs: a Density change scans again. Kinds realizes the cached plan again. Lifts, Mix, Shuffle and Way home have no effect
   (`ResortPlanner.md`, the knobs). A knob change cancels a running job first.
 
@@ -232,8 +234,8 @@ planting is in flight, it refuses every key but stop ("busy"). Progress fields: 
   logs `[around]`, and the click places a corner as before.
 - **Knobs** (stage A, now ignored: R2-a made `mix`, `lifts`, `home` and `shuffle` no-ops and R2-b removed their buttons): `lifts` / `home` were `HubApply` cases beside mix and density. They set `m_Knobs.Lifts / Home`, log through `SetKnobs`
   (`KnobsText` names them) and take the `RescanForKnobs` path (a running job is canceled, then the scan: a cached plan realizes only). The `ScanBlocks` guard that A2 added in HubApply is unchanged.
-- **Tooltip** (`QuickRunsTooltipSystem`): with a plan, it shows the plan line (QUICK_PLAN_LINE), the honest mix, the proposal note and the
-  site detail line. The pod or lift under the cursor gets one line (QUICK_POD_LINE / QUICK_OTHER_LINE / QUICK_LIFT_LINE), and the lift also gets its verdict.
+- **Tooltip** (`QuickRunsTooltipSystem`): with a plan, it shows the plan line (QUICK_PLAN_LINE), the honest mix and the site detail line
+  (the proposal note is gone, DECISIONS 648). The pod or lift under the cursor gets one line (QUICK_POD_LINE / QUICK_OTHER_LINE / QUICK_LIFT_LINE), and the lift also gets its verdict.
   The empty Region step shows QUICK_AROUND_LIFT when the census has a station. Texts: the keys of A0 plus three that A7 added
   (`QUICK_SITE_DETAIL`, `QUICK_LIFT_ID_PINNED` = "Existing lift", `QUICK_POD_UNSERVED` = "no lift planned", replaced in R2-b by `QUICK_OTHER_LINE`). The hub mirrors them in
   hubText.ts.
