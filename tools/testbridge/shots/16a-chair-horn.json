@@ -1,0 +1,32 @@
+{
+  "shot": "16a",
+  "title": "The chair under the horn",
+  "save": "bridgetrailer1j",
+  "notes": "Fresh load of bridgetrailer1j (sim 2029-01-07 11:21, date 0.539), no time jump. Low under the Summit Express, 1.7 m north of the descending (north) rope line, which runs from (3301, -2489.7) to (3358, -2496.8); the ascending line is about 4.5 m further south. The scouted b1 camera (3300, 1124, -2490) sits in the descending chairs' path (chair seat Transform at y 1124.7 there), so the camera moved north to z -2486.6, which also moves the near pine (3316, 1122, -2505) off the horn. The move is a 5 m dolly toward the horn with a 1.2 m rise. Chairs run about 5 m/s, 28 m apart. Trigger: poll a descending SkiLiftChairDQ4 (find one on the north line at x 3330 to 3420 with one filtered dump) and start the sequence when x < 3323 (take 1: the chair passes the camera at about the middle of the path) or x < 3331 (take 2: later). The pine at the right frames the far (ascending) line, not the passing chair. Photo Mode Time of Day 19.3, 24 mm, overlay hidden in Photo Mode. Capture mode (fps 30, capture 60). Auto exposure adapts slowly (several hundred frames): hold the start pose for a few seconds before the trigger.",
+  "sim": 1,
+  "trigger": { "entity": "a descending SkiLiftChairDQ4 on the north line", "when": "x < 3323 (take 1), x < 3331 (take 2)" },
+  "seq": [
+    { "op": "fps", "target": 30, "capture": 60 },
+    { "op": "ui", "hidden": true, "seconds": 40 },
+    { "op": "wait", "frames": 60 },
+    { "op": "campath", "path": "path" },
+    { "op": "wait", "frames": 60 },
+    { "op": "ui", "hidden": false },
+    { "op": "fps", "target": -1, "capture": 0 },
+    { "op": "sim", "speed": 0 }
+  ],
+  "pm": {
+    "cam": { "x": 3297, "y": 1123.6, "z": -2486.6, "at": [4400, 1950, -2950] },
+    "set": { "PhotoModeRenderSystem.focalLength": 24, "Time of Day": 19.3 }
+  },
+  "path": {
+    "mode": "pm",
+    "seconds": 7.5,
+    "fps": 60,
+    "ease": "inOut2",
+    "keys": [
+      { "pos": [3297, 1123.6, -2486.6], "at": [4400, 1950, -2950] },
+      { "pos": [3302, 1124.8, -2486.6], "at": [4400, 1950, -2950] }
+    ]
+  }
+}

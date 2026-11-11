@@ -1,20 +1,36 @@
 {
   "shot": "09",
-  "title": "A lodge with guests",
-  "save": "bridgetrailer1f",
-  "notes": "A-Frame Day Lodge (2775.2, 804.9, -1643.3), entry at about (2770.1, -1637.2). A push-in at 1.7 m from 31 m to 22 m from across the street, ending on the entry with the ski racks and a crowd of guests. Street life crosses the frame (parked van, the Ski Bus at its A-Frame stop): the second half of the move is the clean part. Light poles stand between 32 and 40 m, so the move starts at 31 m. Take 2: 55 mm, Time of Day 16.5. Capture mode (fps 30, capture 60), sim speed 1.",
+  "title": "The Swanky Grand Lodge, wide",
+  "save": "bridgetrailer1j",
+  "notes": "Swanky Grand Lodge (SkiLodgeGrand) at (2790.5, 805.3, -1536.8), front to the south-east onto the main street. Take 3: a 20 degree orbit from the scouted NE oblique (sc2-grand-c: street, lodge, mountains behind) round to a near-frontal view from the south-east, where the whole front, the plaza with guests and the street read and the small house in front no longer covers the lodge's right end. Take 4: the same keys reversed (ends on the scouted frame). The lodge's back and left side sit against steep banks and stay out of frame. Light: Photo Mode Time of Day 11 (sun on the front). Icons and lot outlines: Photo Mode overlay hidden plus the overlay op for the take; Default Tool and nothing selected before Photo Mode. State: bridgetrailer1j, time jump to 2029-01-08 07:40, sim speed 8 to about 11:13, takes at about 12:45 to 13:00 at sim speed 1 (guests on the plaza). Capture mode (fps 30, capture 60).",
   "sim": 1,
+  "seq": [
+    { "op": "overlay", "hidden": true, "seconds": 120 },
+    { "op": "pm", "set": { "Time of Day": 11 } },
+    { "op": "fps", "target": 30, "capture": 60 },
+    { "op": "ui", "hidden": true, "seconds": 60 },
+    { "op": "wait", "frames": 60 },
+    { "op": "campath", "path": "path" },
+    { "op": "wait", "frames": 60 },
+    { "op": "ui", "hidden": false },
+    { "op": "fps", "target": -1, "capture": 0 },
+    { "op": "overlay", "hidden": false },
+    { "op": "sim", "speed": 0 }
+  ],
   "pm": {
-    "cam": { "x": 2761.5, "y": 806.8, "z": -1607.4, "at": [2770.1, 806.5, -1637.2] },
-    "set": { "PhotoModeRenderSystem.focalLength": 50, "Time of Day": 16 }
+    "cam": { "x": 2905.1, "y": 827.1, "z": -1525.5, "at": [2790.5, 810.3, -1536.8] },
+    "set": { "PhotoModeRenderSystem.focalLength": 35, "Time of Day": 11 }
   },
   "path": {
-    "seconds": 6,
+    "mode": "pm",
+    "seconds": 8.5,
+    "fps": 60,
     "ease": "inOut2",
     "keys": [
-      { "pos": [2761.5, 806.8, -1607.4], "at": [2770.1, 806.5, -1637.2] },
-      { "pos": [2761.4, 806.6, -1612.1], "at": [2770.1, 806.5, -1637.2] },
-      { "pos": [2761.8, 806.5, -1616.8], "at": [2770.1, 806.5, -1637.2] }
+      { "pos": [2905.1, 827.1, -1525.5], "at": [2790.5, 810.3, -1536.8] },
+      { "pos": [2902, 832, -1546.3], "at": [2790.5, 811.2, -1536.8] },
+      { "pos": [2888, 836, -1566], "at": [2790.5, 812, -1536.8] }
     ]
-  }
+  },
+  "take4": { "notes": "The same keys in reverse order (south-east front to the NE oblique)." }
 }

@@ -1,43 +1,35 @@
 {
   "shot": "09b",
-  "title": "The Ski Bus at its depot",
-  "save": "bridgetrailer1g",
-  "notes": "Ski Bus Depot (2666.6, 797.9, -1713.0), seen from the north across the street and the parking slope, 40 m out, a long lens: the SKI BUS pylon and the depot shelter large and sunlit at sim 15:00 (Time of Day 15). The coach (SkiCoachBus, one in the city) has the SKI BUS lettering on both sides. It drives in from the A-Frame stop (2755, -1625), down the street (2702, -1666), (2686, -1679), (2670, -1692), stops at the depot near (2661, -1700), then turns away from the camera. About 3 s real from x 2745 to the stop at sim speed 1, then a dwell at the depot; it waits about 10 s at the A-Frame stop. Trigger: poll the coach's InterpolatedTransform every 250 ms at sim speed 1 (normal frame rate) and start the sequence when it drives inbound (x falling) between x 2745 and 2700; the sequence switches capture mode on, hides the UI and runs the 9 s path. The recorded frame is wider than a `photo` still from the same Photo Mode camera (block B noted the same). A parked van stands in front of the shelter and pedestrians cross the near sidewalk. Take 2: 60 mm. Take 3: 85 mm (the alt85 values). Capture mode (fps 30, capture 60).",
+  "title": "The Ski Bus driving through town",
+  "save": "bridgetrailer1j",
+  "notes": "The depot now stands outside town at (657, 608.7, 553.3); the coach (SkiCoachBus, one in the city; its id changes on every load: find it once with __coach()) drives about 4.5 km to the hotel stop near the Grand Lodge. Its road through town is the parallel street, a straight line from about (2510, -1662) to (2852, -1360) (direction (0.75, 0.662)); the coach drives it north-east inbound and south-west outbound, at roughly 15 m/s at sim speed 1, with a stop near (2682, -1504). The scouted 'MediumRoad straight' near the depot was not used: the frame there has no town behind. Camera: a locked Photo Mode camera on the street's south-east verge, 17 m from the road line at 129 m along it (about (2618, 787.2, -1589.4)), 2.3 m above the snow, looking north-west across the street at the shops, 28 mm, a 3 m drift with the traffic. The verge is full of firs; this spot is the one 29 m gap (along 113 to 142 m, offset under 28 m). Light: Photo Mode Time of Day 13 (sun from the south on the coach's side facing the camera). Trigger: poll the coach's InterpolatedTransform every 100 ms at sim speed 1 and start the sequence when its position along the street passes 90 m, driving north-east (it then crosses the frame center about 2 s into the path). Icons and outlines: Photo Mode overlay hidden plus the overlay op. Capture mode (fps 30, capture 60).",
   "sim": 1,
-  "trigger": { "entity": "SkiCoachBus", "when": "inbound (x falling), x between 2745 and 2700" },
+  "trigger": { "entity": "SkiCoachBus", "when": "along = (x - 2510) * 0.75 + (z + 1662) * 0.662 rises past 90" },
   "seq": [
+    { "op": "overlay", "hidden": true, "seconds": 120 },
+    { "op": "pm", "set": { "Time of Day": 13 } },
     { "op": "fps", "target": 30, "capture": 60 },
-    { "op": "ui", "hidden": true, "seconds": 40 },
-    { "op": "wait", "frames": 10 },
+    { "op": "ui", "hidden": true, "seconds": 60 },
+    { "op": "wait", "frames": 20 },
     { "op": "campath", "path": "path" },
-    { "op": "wait", "frames": 30 },
+    { "op": "wait", "frames": 20 },
     { "op": "ui", "hidden": false },
     { "op": "fps", "target": -1, "capture": 0 },
+    { "op": "overlay", "hidden": false },
     { "op": "sim", "speed": 0 }
   ],
   "pm": {
-    "cam": { "x": 2664, "y": 802.5, "z": -1668, "at": [2665, 800.5, -1709] },
-    "set": { "PhotoModeRenderSystem.focalLength": 60, "Time of Day": 15 }
+    "cam": { "x": 2618.0, "y": 787.2, "z": -1589.35, "at": [2607.41, 784.3, -1577.35] },
+    "set": { "PhotoModeRenderSystem.focalLength": 28, "Time of Day": 13 }
   },
   "path": {
-    "seconds": 9,
+    "mode": "pm",
+    "seconds": 6,
     "fps": 60,
     "ease": "inOut2",
     "keys": [
-      { "pos": [2664, 802.5, -1668], "at": [2665, 800.5, -1709] },
-      { "pos": [2662.5, 802.5, -1668], "at": [2663.5, 800.5, -1709] }
+      { "pos": [2618.0, 787.2, -1589.35], "at": [2607.41, 784.3, -1577.35] },
+      { "pos": [2615.75, 787.2, -1591.34], "at": [2605.16, 784.3, -1579.34] }
     ]
-  },
-  "alt85": {
-    "pm": { "set": { "PhotoModeRenderSystem.focalLength": 85, "Time of Day": 15 } },
-    "path": {
-      "seconds": 9,
-      "fps": 60,
-      "ease": "inOut2",
-      "keys": [
-        { "pos": [2664, 802.5, -1668], "at": [2666, 800.8, -1709] },
-        { "pos": [2662.5, 802.5, -1668], "at": [2664.5, 800.8, -1709] }
-      ]
-    }
   }
 }

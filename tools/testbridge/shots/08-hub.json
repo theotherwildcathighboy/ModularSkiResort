@@ -1,36 +1,177 @@
 {
   "shot": "08",
   "title": "The hub",
-  "save": "bridgetrailer1h",
-  "notes": "The ski-area hub open on a live resort with the piste map on, normal game camera, UI visible. State: a time jump to 07:32, then the sim at speed 8 to 14:04 (71 guests at 13:44, about 77 in the takes). The hub button is the second top-left button (click 152, 60). The piste map is the check box at the top of the hub's Runs view (opened with the Runs open tile, 3125, 300); it stays on after a switch to the Attraction view (tile 2986, 300), which shows guests, runs open, lifts and finances. Do not use photoMode.setOverlayHidden or the bridge's overlay op here: both hide the piste map. Icons: the six 'Powerline Not Connected - Low' icons on the three lift bases in frame (owners: the Summit Express, Ridge Express and Bowl Gondola base stations) got Game.Common.Deleted in one batch with the sim paused, then 60 frames and a status check; no other icon was touched. Hidden in the page before the take (style visibility): the third-party toolbar buttons (top-left row, client x 195 to 1215), the game's top info strip (the horizontal panel from x 1220) and the round buttons at the right edge (x over 3700, y 1450 to 1900). The cursor rests on an empty part of the panel (3400, 1300); OBS cursor capture is off. Sim speed 3 during the take so guests and money tick. Camera: east up the slope over the lift bases, the runs in their colors climbing beside the panel, a 5 degree orbit. Measured: tilt 25 to 27 is about 29 to 31 degrees below the horizon at the pivot, but the slope rises toward the camera's view, so the recorded frame reads nearly top-down at any tilt from 25 to 45; tilt 15 is clamped to 22. The recorded frame is also wider than a photo still from the same camera. Take 4 (best): zoom 420, the bases larger. Take 3: zoom 600, pivot (3265, -2450). Capture mode (fps 30, capture 60), rec.mjs dedupe.",
+  "save": "bridgetrailer1j",
+  "notes": "Block R1 (reshoot). The ski-area hub open on a live resort with the piste map on, normal game camera, UI visible. State: bridgetrailer1j, time jump to 2029-01-08 07:40, sim speed 8 to about 11:13, then the 09 and 09b takes; these takes at about 15:06. The hub read before the takes: Efficiency 87 % (Not Enough Employees, 1 more problem), attraction 98, 20 / 20 runs, 5 / 5 lifts, 149 guests, -65,418 money. The hub button is the second top-left button (click 152, 60). The piste map is the check box at the top of the hub's Runs view (Runs open tile, 3125, 300); it stays on after a switch to the Attraction view (tile 2986, 300). Do not use photoMode.setOverlayHidden or the overlay op here: both hide the piste map. Icons: none deleted in R1 (the lift-base icons are out of these frames or small). Hidden in the page before the take (style visibility, restored after): elements whose rect lies fully inside [195,0,1215,125] (third-party toolbar buttons), [1220,0,3100,125] and [1220,0,2700,125] (the game's top info strip), [3700,1450,3840,1900] (round buttons at the right edge). The cursor rests at (3400, 1700); OBS cursor capture is off. Sim speed 3 during the take so guests and money tick. Take 5: pivot (3215, 1105, -2445), zoom 380, yaw 95 to 100. Take 6: pivot (3205, 1105, -2448), zoom 300, yaw 100 to 105, the bases larger. Capture mode (fps 30, capture 60), rec.mjs dedupe.",
   "sim": 3,
-  "hub": { "button": [152, 60], "views": { "pisteMap": "Runs open tile (3125, 300), check box at the top of the list", "take": "Attraction tile (2986, 300)" } },
+  "hub": {
+    "button": [152, 60],
+    "views": {
+      "pisteMap": "Runs open tile (3125, 300), check box at the top of the list",
+      "take": "Attraction tile (2986, 300)"
+    }
+  },
   "seq": [
-    { "op": "sim", "speed": 3 },
-    { "op": "wait", "frames": 60 },
-    { "op": "campath", "path": "path" },
-    { "op": "wait", "frames": 60 }
+    {
+      "op": "sim",
+      "speed": 3
+    },
+    {
+      "op": "fps",
+      "target": 30,
+      "capture": 60
+    },
+    {
+      "op": "wait",
+      "frames": 60
+    },
+    {
+      "op": "campath",
+      "path": "path"
+    },
+    {
+      "op": "wait",
+      "frames": 60
+    },
+    {
+      "op": "fps",
+      "target": -1,
+      "capture": 0
+    },
+    {
+      "op": "sim",
+      "speed": 0
+    }
   ],
   "path": {
     "mode": "game",
-    "seconds": 7,
+    "seconds": 8,
     "fps": 60,
     "ease": "inOut2",
     "keys": [
-      { "wx": 3245, "wy": 1105, "wz": -2445, "zoom": 420, "tilt": 27, "yaw": 97 },
-      { "wx": 3245, "wy": 1105, "wz": -2445, "zoom": 420, "tilt": 27, "yaw": 102 }
+      {
+        "wx": 3215,
+        "wy": 1105,
+        "wz": -2445,
+        "zoom": 380,
+        "tilt": 27,
+        "yaw": 95
+      },
+      {
+        "wx": 3215,
+        "wy": 1105,
+        "wz": -2445,
+        "zoom": 380,
+        "tilt": 27,
+        "yaw": 100
+      }
     ]
   },
-  "t3": {
+  "t6": {
+    "path": {
+      "mode": "game",
+      "seconds": 8,
+      "fps": 60,
+      "ease": "inOut2",
+      "keys": [
+        {
+          "wx": 3205,
+          "wy": 1105,
+          "wz": -2448,
+          "zoom": 300,
+          "tilt": 27,
+          "yaw": 100
+        },
+        {
+          "wx": 3205,
+          "wy": 1105,
+          "wz": -2448,
+          "zoom": 300,
+          "tilt": 27,
+          "yaw": 105
+        }
+      ]
+    }
+  },
+  "blockC1c": {
+    "note": "The block C1c setup (game camera), kept for reference: its best take is the one to compare against.",
+    "save": "bridgetrailer1h",
+    "notes": "The ski-area hub open on a live resort with the piste map on, normal game camera, UI visible. State: a time jump to 07:32, then the sim at speed 8 to 14:04 (71 guests at 13:44, about 77 in the takes). The hub button is the second top-left button (click 152, 60). The piste map is the check box at the top of the hub's Runs view (opened with the Runs open tile, 3125, 300); it stays on after a switch to the Attraction view (tile 2986, 300), which shows guests, runs open, lifts and finances. Do not use photoMode.setOverlayHidden or the bridge's overlay op here: both hide the piste map. Icons: the six 'Powerline Not Connected - Low' icons on the three lift bases in frame (owners: the Summit Express, Ridge Express and Bowl Gondola base stations) got Game.Common.Deleted in one batch with the sim paused, then 60 frames and a status check; no other icon was touched. Hidden in the page before the take (style visibility): the third-party toolbar buttons (top-left row, client x 195 to 1215), the game's top info strip (the horizontal panel from x 1220) and the round buttons at the right edge (x over 3700, y 1450 to 1900). The cursor rests on an empty part of the panel (3400, 1300); OBS cursor capture is off. Sim speed 3 during the take so guests and money tick. Camera: east up the slope over the lift bases, the runs in their colors climbing beside the panel, a 5 degree orbit. Measured: tilt 25 to 27 is about 29 to 31 degrees below the horizon at the pivot, but the slope rises toward the camera's view, so the recorded frame reads nearly top-down at any tilt from 25 to 45; tilt 15 is clamped to 22. The recorded frame is also wider than a photo still from the same camera. Take 4 (best): zoom 420, the bases larger. Take 3: zoom 600, pivot (3265, -2450). Capture mode (fps 30, capture 60), rec.mjs dedupe.",
+    "sim": 3,
+    "hub": {
+      "button": [152, 60],
+      "views": {
+        "pisteMap": "Runs open tile (3125, 300), check box at the top of the list",
+        "take": "Attraction tile (2986, 300)"
+      }
+    },
+    "seq": [
+      {
+        "op": "sim",
+        "speed": 3
+      },
+      {
+        "op": "wait",
+        "frames": 60
+      },
+      {
+        "op": "campath",
+        "path": "path"
+      },
+      {
+        "op": "wait",
+        "frames": 60
+      }
+    ],
     "path": {
       "mode": "game",
       "seconds": 7,
       "fps": 60,
       "ease": "inOut2",
       "keys": [
-        { "wx": 3265, "wy": 1105, "wz": -2450, "zoom": 600, "tilt": 25, "yaw": 95 },
-        { "wx": 3265, "wy": 1105, "wz": -2450, "zoom": 600, "tilt": 25, "yaw": 100 }
+        {
+          "wx": 3245,
+          "wy": 1105,
+          "wz": -2445,
+          "zoom": 420,
+          "tilt": 27,
+          "yaw": 97
+        },
+        {
+          "wx": 3245,
+          "wy": 1105,
+          "wz": -2445,
+          "zoom": 420,
+          "tilt": 27,
+          "yaw": 102
+        }
       ]
+    },
+    "t3": {
+      "path": {
+        "mode": "game",
+        "seconds": 7,
+        "fps": 60,
+        "ease": "inOut2",
+        "keys": [
+          {
+            "wx": 3265,
+            "wy": 1105,
+            "wz": -2450,
+            "zoom": 600,
+            "tilt": 25,
+            "yaw": 95
+          },
+          {
+            "wx": 3265,
+            "wy": 1105,
+            "wz": -2450,
+            "zoom": 600,
+            "tilt": 25,
+            "yaw": 100
+          }
+        ]
+      }
     }
   }
 }

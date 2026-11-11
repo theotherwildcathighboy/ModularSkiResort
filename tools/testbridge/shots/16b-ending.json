@@ -1,0 +1,93 @@
+{
+  "shot": "16b",
+  "title": "The last picture: crane up to the horn",
+  "save": "bridgetrailer1j",
+  "notes": "bridgetrailer1j. The first (deleted) takes ran on a fresh load (date 0.539); the kept takes ran on 2029-01-08 after the 09 time jump (date about 0.61 to 0.64). A crane from 4 m above the snow (ground 1157.0 at the start) to 18 m (ground 1138.3 at the end), looking at the horn the whole time, 28 mm: gondola cabins lower left, the horn centered, the upper half calm sky for the end card. The straight line between the start and the end passes through fir crowns at its middle (still r1-16b-mid). The first path (start (3330, 1161, -2215), middle key (3300, 1162, -2237.5)) brushed the spruces at (3326.1, -2215.2) and (3280, -2253.5); those takes were deleted. Final path: four keys, start (3330, 1161, -2222), (3302, 1162.5, -2232), (3268, 1159, -2246), end (3270, 1156.3, -2260). Takes 1 and 2 of the final set still brush a crown early (t1 at 11.5 to 12.2 s, t2 at about 7 s); take 3 starts at the new start. The move is 9.5 s (inOut2), then a still hold of 360 frames (6 s) on the end pose (a wait step, which equals a final key equal to the last). Light: the Photo Mode auto exposure adapts over several hundred frames, so stills right after a Time of Day change mislead (the same 18.7 gave a gold and a pale still); judge settled stills (700+ frames) or the take. Settled: 18.9 pale gold, navy sky; 19.2 gold horn, dark teal sky. The sun follows the simulated date: after the 09 time jump (date about 0.61 to 0.64) the takes used 18.9 (takes 1 and 3) and 18.5 (take 2, neutral and less gold). Hold the start pose about 12 s before the sequence so the exposure settles. Sim speed 1 (cabins move). Capture mode (fps 30, capture 60).",
+  "sim": 1,
+  "seq": [
+    {
+      "op": "pm",
+      "set": {
+        "Time of Day": 18.9
+      }
+    },
+    {
+      "op": "fps",
+      "target": 30,
+      "capture": 60
+    },
+    {
+      "op": "ui",
+      "hidden": true,
+      "seconds": 60
+    },
+    {
+      "op": "wait",
+      "frames": 60
+    },
+    {
+      "op": "campath",
+      "path": "path"
+    },
+    {
+      "op": "wait",
+      "frames": 360
+    },
+    {
+      "op": "ui",
+      "hidden": false
+    },
+    {
+      "op": "fps",
+      "target": -1,
+      "capture": 0
+    },
+    {
+      "op": "sim",
+      "speed": 0
+    }
+  ],
+  "pm": {
+    "cam": {
+      "x": 3330,
+      "y": 1161,
+      "z": -2222,
+      "at": [3800, 1680, -2620]
+    },
+    "set": {
+      "PhotoModeRenderSystem.focalLength": 28,
+      "Time of Day": 18.9
+    }
+  },
+  "path": {
+    "mode": "pm",
+    "seconds": 9.5,
+    "fps": 60,
+    "ease": "inOut2",
+    "keys": [
+      {
+        "pos": [3330, 1161, -2222],
+        "at": [3800, 1680, -2620]
+      },
+      {
+        "pos": [3302, 1162.5, -2232],
+        "at": [3800, 1680, -2620]
+      },
+      {
+        "pos": [3268, 1159, -2246],
+        "at": [3800, 1680, -2620]
+      },
+      {
+        "pos": [3270, 1156.3, -2260],
+        "at": [3800, 1680, -2620]
+      }
+    ]
+  },
+  "take2": {
+    "pm": {
+      "set": {
+        "Time of Day": 18.5
+      }
+    }
+  }
+}
