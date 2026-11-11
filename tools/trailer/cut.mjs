@@ -6,7 +6,7 @@
 // Pass 2 joins the clips (hard cuts or crossfades) and lays the music under them. --preview renders at half size.
 // The edit list (see edit-main.json): { size, fps, takes, work, out, fonts: {regular, bold}, music, clips: [...] }.
 // A clip: { id, src, in, dur, speed, parts: [{in, dur, speed}], zoom: {from, to, cx, cy}, crop: {cx, cy},
-//           fadeIn, fadeOut, xfade, dim, captions: [{lines, at, dur, pos, size}], logo: {file, at, h, y} }
+//           fadeIn, fadeOut, xfade, dim, captions: [{lines, at, dur, pos, size, color, shadow}], logo: {file, at, h, y} }
 // Times are seconds. `dur` is the clip's length in the cut; with `speed` the source span is dur x speed.
 // Paths may start with %USERPROFILE%. Takes are big and live outside the repository.
 
@@ -142,8 +142,8 @@ async function renderClip(clip, index) {
       }
       const thisSize = cap.lineSizes?.[li] ? Math.round(cap.lineSizes[li] * H / 2160) : size;
       const box = cap.pos === 'center' ? '' : `:box=1:boxcolor=0x1d2b44@0.78:boxborderw=${Math.round(size * 0.34)}`;
-      post.push(`drawtext=fontfile=${font}:textfile=${textFile}:x=${x}:y=${y}:fontsize=${thisSize}:fontcolor=0xf0fbff:alpha='${alpha}'` +
-        `:shadowcolor=black@0.55:shadowx=0:shadowy=${Math.max(2, Math.round(size * 0.05))}${box}`);
+      post.push(`drawtext=fontfile=${font}:textfile=${textFile}:x=${x}:y=${y}:fontsize=${thisSize}:fontcolor=${cap.color || '0xf0fbff'}:alpha='${alpha}'` +
+        `:shadowcolor=${cap.shadow || 'black@0.55'}:shadowx=0:shadowy=${Math.max(2, Math.round(size * 0.05))}${box}`);
     });
   }
   if (clip.fadeIn) post.push(`fade=t=in:st=0:d=${clip.fadeIn}`);
@@ -179,18 +179,20 @@ if (only) process.exit(0);
 const inputs = [];
 rendered.forEach((r) => inputs.push('-i', r.file));
 const chains = [];
-let label = '[0:v]';
+// One timebase for every input: xfade refuses a pair whose timebases differ (a concat result against a file).
+rendered.forEach((r, i) => chains.push(`[${i}:v]fps=${FPS},settb=AVTB[s${i}]`));
+let label = '[s0]';
 let length = rendered[0].seconds;
 const starts = [0];
 for (let i = 1; i < rendered.length; i++) {
   const x = rendered[i - 1].clip.xfade || 0;
   const outLabel = `[x${i}]`;
   if (x > 0) {
-    chains.push(`${label}[${i}:v]xfade=transition=fade:duration=${x}:offset=${n(length - x)}${outLabel}`);
+    chains.push(`${label}[s${i}]xfade=transition=fade:duration=${x}:offset=${n(length - x)}${outLabel}`);
     starts.push(length - x);
     length += rendered[i].seconds - x;
   } else {
-    chains.push(`${label}[${i}:v]concat=n=2:v=1:a=0${outLabel}`);
+    chains.push(`${label}[s${i}]concat=n=2:v=1:a=0,settb=AVTB${outLabel}`);
     starts.push(length);
     length += rendered[i].seconds;
   }

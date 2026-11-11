@@ -21,7 +21,7 @@
   },
   "clips": [
     {"id":"01","src":"01-t1-x60.mp4","in":6.5,"dur":4.4444,"fadeIn":0.6},
-    {"id":"02","src":"02-t3-x60.mp4","in":3.6,"dur":4.4444,"captions":[{"lines":["MODULAR SKI RESORT","for Cities: Skylines II"],"pos":"center","y":0.5,"at":1.5,"dur":2.8,"size":260,"lineSizes":[260,96]}]},
+    {"id":"02","src":"02-t3-x60.mp4","in":3.6,"dur":4.4444,"captions":[{"lines":["MODULAR SKI RESORT","for Cities: Skylines II"],"pos":"center","y":0.42,"at":1.5,"dur":2.8,"size":260,"lineSizes":[260,96],"color":"0x1d2b44","shadow":"white@0.5"}]},
     {"id":"03a","src":"03a-t1-x60.mp4","in":4.9,"dur":2.2222,"captions":[{"lines":["Chairlifts, gondolas and an aerial tram"],"at":0.3,"dur":3}]},
     {"id":"03b","src":"03b-t2-x60.mp4","in":4.3,"dur":3.3333,"captions":[{"lines":["Chairlifts, gondolas and an aerial tram"],"at":-0.4,"dur":2.8}]},
     {"id":"04","src":"04-t1.mp4","in":0,"dur":4.4444,"captions":[{"lines":["Lift tool: towers planned over your terrain"],"at":0.6,"dur":3}]},
