@@ -4,12 +4,12 @@
 	<!--Name of the mod to display to players-->
 	<DisplayName Value="Modular Ski Resort" />
 	<!--Short description of the mod. Source: release/DESCRIPTION.md (keep the two in step)-->
-	<ShortDescription Value="Build a ski resort: drawn chairlifts, gondolas and an aerial tram, runs on the game's own snow, lodges and a resort economy. Base game only." />
+	<ShortDescription Value="Build a ski resort: drawn chairlifts, gondolas and an aerial tram, runs on the game's own snow, lodges and a resort economy. No mods required." />
 	<!--Long description of the mod. Single line or multi line. Supports minimal markdown subset. Source: release/DESCRIPTION.md (keep the two in step; no angle brackets or ampersands in the text, this is XML)-->
 	<LongDescription>
 **Build a ski resort in Cities: Skylines II.**
 
-Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it, and let the game's own snow decide when they open. Guests ski, buy tickets and lessons, and the resort draws tourists to your city. Base game only: no other mod is required.
+Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it, and let the game's own snow decide when they open. Guests ski, buy tickets and lessons, and the resort draws tourists to your city. No mods required, but Anarchy and Move It are highly recommended.
 
 ## Highlights
 - **Four lifts, one tool.** Fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Click the base station, click the top, and the tool plans numbered towers over your terrain. Chairs and cabins ride the rope.
@@ -49,7 +49,7 @@ Start with the Resort Quickstart at {{DOCS_URL}}/quickstart/ and the Lifts guide
 Bug reports: the Paradox forum thread {{FORUM_URL}} or the Discord thread {{DISCORD_URL}}. Paste the text from the Copy diagnostics button in the mod's Options. Source code: {{GITHUB_URL}}
 
 ## Works with
-Nothing else is required. Write Everywhere is recommended: with it, the Welcome Sign shows your ski area's name (without it, the name board stays plain). If Tourism Overhaul, Realistic Workplaces and Households or a trip-planner mod is installed, the hub shows a notice and changes nothing in them. Move It is useful for exact placement of every building and station.
+Nothing else is required, but Anarchy and Move It are highly recommended: Anarchy turns off the game's placement errors, and Move It gives exact placement of every building and station. Write Everywhere is recommended too: with it, the Welcome Sign shows your ski area's name (without it, the name board stays plain). If Tourism Overhaul, Realistic Workplaces and Households or a trip-planner mod is installed, the hub shows a notice and changes nothing in them.
 Realistic Trips replaces the game's leisure system that ski days need: with it, the resort sends no skiers of its own. Lifts, runs, snow and buildings still work.
 
 ## Credits

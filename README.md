@@ -10,7 +10,7 @@ Build a ski resort in CS2:
 - Or outline a mountainside: the experimental Resort Planner proposes linked runs, cat tracks and lifts, and builds them.
 
 Attractiveness, tourism and a resort economy (tickets, passes, lessons, lodge spend) react to runs, lifts and season.
-The mod needs the base game only.
+No mods required, but Anarchy and Move It are highly recommended.
 
 Started 2026-08-03. A working chairlift beta took 5 days. The docs site's Timeline page tells the rest.
 
