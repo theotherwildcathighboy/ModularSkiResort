@@ -20,6 +20,7 @@
 		<Reference Include="Colossal.Core"><Private>false</Private></Reference>
 		<Reference Include="Colossal.Logging"><Private>false</Private></Reference>
 		<Reference Include="Colossal.IO.AssetDatabase"><Private>false</Private></Reference>
+		<Reference Include="Colossal.AssetPipeline"><Private>false</Private></Reference>
 		<Reference Include="Colossal.UI.Binding"><Private>false</Private></Reference>
 		<Reference Include="Colossal.Mathematics"><Private>false</Private></Reference>
 		<Reference Include="Colossal.Collections"><Private>false</Private></Reference>

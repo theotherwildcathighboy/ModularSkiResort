@@ -63,15 +63,18 @@ function main() {
   const prefabEntries = zip.names.filter((n) => /\.Prefab$/i.test(n));
   const have = new Set(prefabEntries.map((n) => n.toLowerCase()));
   let missing = 0, cidDiff = 0;
+  // The package step names each entry after its source file (decompile 1.6.4f1 Game.UI.Editor/PackageHelper.cs:97-98), so a prefab
+  // whose library file carries a hash suffix (SkiLiftChair4_<hash>.Prefab) is found by the frozen "file" basename, not by its name.
+  const entriesOf = (s) => [s.name + ".Prefab", s.file ? path.posix.basename(s.file) : null].filter(Boolean).map((n) => n.toLowerCase());
   for (const s of shipped) {
-    const entry = s.name + ".Prefab";
-    if (!have.has(entry.toLowerCase())) { console.log("MISSING " + s.name + " (" + s.type + ")"); missing++; continue; }
-    const real = prefabEntries.find((n) => n.toLowerCase() === entry.toLowerCase());
+    const entry = entriesOf(s).find((n) => have.has(n));
+    if (!entry) { console.log("MISSING " + s.name + " (" + s.type + ")"); missing++; continue; }
+    const real = prefabEntries.find((n) => n.toLowerCase() === entry);
     const cidBytes = zip.read(real + ".cid");
     const cid = cidBytes ? cidBytes.toString("utf8").trim().toLowerCase() : null;
     if (cid && s.cid && cid !== String(s.cid).toLowerCase()) { console.log("CID     " + s.name + " cok " + cid + " frozen " + s.cid); cidDiff++; }
   }
-  const frozen = new Set(shipped.map((s) => (s.name + ".Prefab").toLowerCase()));
+  const frozen = new Set(shipped.flatMap(entriesOf));
   const extra = prefabEntries.filter((n) => !frozen.has(n.toLowerCase()));
   for (const n of extra.slice(0, 20)) console.log("EXTRA   " + n);
   if (extra.length > 20) console.log("EXTRA   ... " + (extra.length - 20) + " more");

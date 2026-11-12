@@ -96,6 +96,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `wind` | optional `x`, `y`, `force`; optional `wx`, `wz` | sets `WindSimulationSystem.constantWind` (default 0.275, 0.275). With `force`, it also writes that velocity into every cell of the wind simulation. Both are saved values. It reads the wind map at a point. See "Filming" |
 | `fps` | optional `target` (-1 = no cap, or 24 to 240), `capture` (0 = off, or 24 to 240) | `Application.targetFrameRate` and `Time.captureFramerate` for this run of the game. Not game settings, not saved. See "Filming" |
 | `overlay` | optional `hidden`, `seconds` (default 120, at most 900) | the game's own hide-overlay switch (`RenderingSystem.hideOverlay`): notification icons and the piste map are not drawn, nothing is deleted, the active tool stays. It turns itself off after `seconds`. No argument: the state. See "Filming" |
+| `package` | `list` (absolute path of `tools/shipped-prefabs.json`), optional `dry` (default true), `main`, `show`; or `status` | the Editor's package step for the release `.cok`, without the hand selection. See "Packaging the release .cok". It never uploads |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |
@@ -435,6 +436,39 @@ Launch with `--startEditor`. The first port 9444 reply comes before the Editor i
 - Import (3370,1992).
 
 Set Project root to the letter folder. Set Assets folder to the asset folder itself, so the file list shows only that asset. Never point at a letter folder that holds other assets. Result: `ImportedData\c030ee3ff256df91\<Name>\`, log `Logs\AssetPipeline.log`.
+
+## Packaging the release .cok
+
+The op `package` replaces the hand selection of 189 prefabs in the Editor's package panel (docs/RELEASE-CHECKLIST.md section 7, step 2a).
+It fills the game's own `DependencyCollector` with the prefabs of `tools/shipped-prefabs.json` and calls the same
+`PackageHelper.CreatePackage` as the panel's Create Package button (decompile 1.6.4f1 `Game.UI.Editor/PackagePanelSystem.cs:216-222`,
+`PackageHelper.cs:25-121`). It never uploads: no Editor upload, no Paradox Mods call. The upload stays the owner's `dotnet publish`.
+
+- **Dry** (the default, any game mode) writes nothing. It resolves each list entry by its frozen content id in the user database
+  (ImportedData), then by name, and replies with `found`, `missing`, `cidMismatch` (resolved by name only), the closure the package
+  would hold (`assets`, `mb` of the source files, `byType`, `byDatabase`, the 10 biggest), `extraPrefabsInClosure` (prefabs pulled in
+  as dependencies that are not on the list), `modDependencies` and `dlcDependencies` (both must be empty) and the user prefabs left out.
+- **Real** (`dry: false`) needs the Editor (`--startEditor`). It refuses when anything is missing, a content id differs, or the closure has a
+  mod or DLC dependency. It replies at once with `started`. The resave and the virtual-texturing conversion then block frames for a while:
+  poll `{op: "package", status: true}` until `state` is `done` (`path`, `mb`) or `failed` (`error`, and `Logs\Editor.log`).
+  The bridge log also gets a `package: done` line.
+- `name` names the package and the `.cok` (the release uses `ModularSkiResort`). The op hands it to the game's private
+  `PackageHelper.BuildPackage`, which uses it only for the staging folder, the backup folder and `AssetDatabase.packages.AddAsset`
+  (`PackageHelper.cs:80, 83, 109`). Nothing is renamed on disk afterward. Without `name`, the op calls the public `CreatePackage`, and the
+  package takes the main asset's name as in the Editor (`main`, default the first list entry, `PackageHelper.cs:38`). The output is
+  `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\.packages\<name>.cok`, next to the game's `.<name>_Backup` folder
+  (a copy of the source files, `PackageHelper.cs:83-85`).
+- Each call blocks the game for minutes: a dry run took about 3 to 4 minutes in the Editor (2026-11-12). The CDP call of `game_eval` then times
+  out after 15 s, so keep the promise on `window` (`engine.call(...).then(r => window.__pk = r)`) and read `window.__pk` when the game
+  responds again.
+- Quit the game, then move the `.cok` into `mod/SkiResortMod/Package/` before the next start: a `.cok` left in `.packages` loads as a
+  local package beside ImportedData (same content ids). Then follow `mod/SkiResortMod/Package/README.md`.
+
+```js
+engine.call("skitest.cmd", JSON.stringify({ op: "package", list: "<repo>\\tools\\shipped-prefabs.json", name: "ModularSkiResort" })).then(r => window.__pk = r)
+engine.call("skitest.cmd", JSON.stringify({ op: "package", list: "<repo>\\tools\\shipped-prefabs.json", name: "ModularSkiResort", dry: false })).then(r => window.__pk = r)
+engine.call("skitest.cmd", JSON.stringify({ op: "package", status: true }))
+```
 
 ## Building a test city
 
