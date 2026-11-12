@@ -30,58 +30,7 @@ Notes...
 - Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1
 - Do not load in older versions: no
 
-First public release. Draft notes (check against the build at upload):
-
-- Four lift types: fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Chairs and cabins move
-  along the cable, lean downwind and rock in the gusts; the tram shuttles two cabins. A built lift line fells the trees in
-  its corridor.
-- One lift tool: click the base station and the top station, click the line to add a tower, drag to move one, Enter builds.
-  The tower planner fits tower heights to the terrain with few towers, prefers short towers next to the stations, and
-  draws spans that are too steep in red. Towers are numbered.
-- Detachable quad and gondola stations and the fixed-grip base station cut a level pad into the slope and fill nothing. A
-  base station cuts 12 m further on the line side, so the chairs leave it over level ground. The aerial tram's base terminal
-  levels its pad. The fixed-grip top station and the aerial tram's top terminal keep the slope.
-- Ski runs you draw: natural, groomed, snowmaking, night and cat track, each rated green to double black from its slope.
-- Cat track tool: lay out a track, and one key grades the ground under 25 percent and builds the cat track on it. Where it
-  crosses a run it grades up to 2 m inside the run and keeps the run's difficulty. Delete mode (Ctrl+Shift+D) and a hub trash
-  button remove a track; right click and Esc never do.
-- Resort Planner (experimental): outline a slope of up to 9 km2. The planner lays out the linked runs and cat tracks first,
-  then proposes the lifts that serve them, each with its way home (green, blue, black only, or ride the lift down).
-  Run colors come from the mod's own run rater. It plans around water, other ski areas, land the city does not own, your
-  existing runs, and existing lifts (stations and a 10 m corridor along the line). It does not avoid roads or buildings.
-  Leave out runs or lifts and set how many runs and the run features. Build makes the cat tracks and then the runs in one go,
-  and Undo removes that build and refunds it. Build lifts then adds the kept lifts one at a time, lowest first. A line
-  whose towers fit builds; a line with one tower up to 5 degrees over its limit builds and its row says which tower; a line
-  the planner cannot fit gets its stations, the other lifts still build, and the lift tool then opens on it. The scan runs in the background with a progress line,
-  and right click stops it. Optional tree filler. Ctrl+Shift+Q; it is off by default and is turned on in Options.
-- Safety Net Fence: decorative orange netting on thin poles, in the hub's Runs tab.
-- Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run and stay open while 1 ft covers 40 percent, snow guns on snowmaking and night runs
-  (two months before winter to one month after), powder days, seasons.
-- Snow guns, hydrants and floodlights stand at a set distance along a run's edge, however its outline was drawn, with two values per run in the
-  Runs view. Cat tracks carry guns and hydrants on one side, and pay snowmaking upkeep by plan area while their guns can run; with the gun value at Off, none, and snow already made stays until it melts.
-- Welcome Sign (set back 8 m from the road on a leveled lot), five lodges, Ski School, two patrol
-  buildings.
-- The Welcome Sign is the ski area: runs, lifts and buildings within its radius belong to it (5 km by default, 2 to 10 km
-  in Options). While placing a sign, a ring shows the radius and the tooltip gives the height under the cursor, the lowest and
-  highest dry ground in the ring, the vertical above the winter snow line, and how much ground lies above it. A selected sign shows its ring too.
-- Lodge parking: car spaces within 600 m of a lodge with a road count for it (street parking, parking lots, a parking garage
-  at its entrance); tourist parties drive in and need them. A blue ring shows the 600 m while placing or selecting a lodge.
-- Ski Bus Depot: a coach stop in town for the nearest ski area, at any distance. A home closer to it than to a lodge starts
-  its ski day there; guests pay as at a lodge. It adds no skier room and no score, needs a hill lodge, and bills 1,500
-  a month plus 300 per km to that lodge (Finances, row Ski bus). An oxblood coach, with SKI BUS painted on it, drives between the depot and the hill. Selecting the coach or the depot shows a Ski Bus card beside the game's panel: guests by bus this month, the coach bill and the distance to the hill lodge.
-- Merge an existing building into a ski area as a lodge: a park, landmark, signature or decor building near the runs can be merged as
-  a lodge tier its lot allows. It keeps working as before and adds score, skier room, staff and attraction, for a one-time charge and a
-  monthly fee. The Mergeable buildings switch on the hub's Buildings tab (and in the Attraction view's Merged buildings fold) outlines the
-  buildings near the runs and lifts that can be merged, green when a lodge tier fits the lot and gray when the lot is too small;
-  the merge card beside the info panel says whether a building is near enough to count before you pay.
-- The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
-- Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.
-- Delete all ski resort content, a button in the mod's Options (Reset group): removes everything the mod placed in the
-  loaded city, after a confirmation, to clean a city before uninstalling. It cannot be undone.
-- Copy diagnostics, a button in the mod's Options (Diagnostics group): puts the versions, the changed options, the code mods and the latest log errors on the clipboard for a bug report.
-- Works on the base game; no other mod is required. Write Everywhere is recommended, and Move It is useful for exact placement.
-- Known limitations: the Resort Planner's Undo ends when the tool closes, a scan of a large outline can take about 30 seconds, a hill far from the city's homes and hotels gets few ski-day guests (the panel shows the distance), chairs carry no riders, two lifts of the same type cannot cross, a cat track cannot pass under a lift that is already built, the fixed-grip top station and the aerial tram's top terminal keep the slope and can sit partly in the hillside on steep
-  ground, chairlifts and gondolas stop in summer.
+First public release. Every feature, number and setting is on the docs site: https://theotherwildcathighboy.github.io/ModularSkiResort
 
 ## Beta notes (pre-release, not a release entry)
 Early beta builds only: the first working chairlift network (drawn line, station snapping, sagging cable) and snow-line
