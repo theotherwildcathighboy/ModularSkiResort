@@ -118,6 +118,6 @@ First public release.
 	<!--At the flip, add: <ExternalLink Type="discord" Url="DISCORD_URL" /> (left out of the first upload: the publisher refuses tokens in link fields)-->
 	<ExternalLink Type="youtube" Url="https://www.youtube.com/watch?v=NJvzaxwGfa4" />
 	<ExternalLink Type="github" Url="https://github.com/theotherwildcathighboy/ModularSkiResort" />
-	<!--Supported values Public, Private, Unlisted. CASE-SENSITIVE: anything else, such as unlisted in lowercase, silently becomes Public. Unlisted for the proofreading upload; to go public change this to Public and run the Update profile (UpdatePublishedConfiguration), no new version needed-->
-	<AccessLevel Value="Unlisted" />
+	<!--Supported values Public, Private, Unlisted. CASE-SENSITIVE: anything else, such as unlisted in lowercase, silently becomes Public. Unlisted for the proofreading upload; to go public change this to Public and run the Update profile (UpdatePublishedConfiguration), no new version needed. VERIFIED 2026-11-12: Unlisted does NOT hide the item: 167215 showed logged out in search and at the top of the newest list. Private is used until the flip-->
+	<AccessLevel Value="Private" />
 </Publish>
