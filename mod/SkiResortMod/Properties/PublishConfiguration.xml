@@ -48,7 +48,7 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 ## Guides and details
 - [Docs site](https://theotherwildcathighboy.github.io/ModularSkiResort): guides, every number, settings and troubleshooting.
 - Start with the [Resort Quickstart](https://theotherwildcathighboy.github.io/ModularSkiResort/quickstart/) and the [Lifts guide](https://theotherwildcathighboy.github.io/ModularSkiResort/guides/lifts/).
-- Bug reports: the [Paradox forum thread](https://forum.paradoxplaza.com/forum/threads/modular-ski-resort.1949673/). Paste the text from the Copy diagnostics button in the mod's Options.
+- Bug reports: the [Paradox forum thread](https://forum.paradoxplaza.com/forum/threads/modular-ski-resort.1949673/) or the [Discord thread](https://discord.com/channels/263634513861541888/1570379334672326736). Paste the text from the Copy diagnostics button in the mod's Options.
 - [Source code on GitHub](https://github.com/theotherwildcathighboy/ModularSkiResort)
 
 ## Credits
@@ -94,7 +94,7 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 First public release. Every feature, number and setting is on the docs site: https://theotherwildcathighboy.github.io/ModularSkiResort
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme". PLACEHOLDER: the DISCORD_URL token stands for the Discord bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or delete this line if only the forum thread is used (the same gate and the same UNVERIFIED publisher behavior as ForumLink)-->
-	<!--At the flip, add: <ExternalLink Type="discord" Url="DISCORD_URL" /> (left out of the first upload: the publisher refuses tokens in link fields)-->
+	<ExternalLink Type="discord" Url="https://discord.com/channels/263634513861541888/1570379334672326736" />
 	<ExternalLink Type="youtube" Url="https://www.youtube.com/watch?v=NJvzaxwGfa4" />
 	<ExternalLink Type="github" Url="https://github.com/theotherwildcathighboy/ModularSkiResort" />
 	<!--Supported values Public, Private, Unlisted. CASE-SENSITIVE: anything else, such as unlisted in lowercase, silently becomes Public. Unlisted for the proofreading upload; to go public change this to Public and run the Update profile (UpdatePublishedConfiguration), no new version needed. VERIFIED 2026-11-12: Unlisted does NOT hide the item: 167215 showed logged out in search and at the top of the newest list. Private is used until the flip-->
