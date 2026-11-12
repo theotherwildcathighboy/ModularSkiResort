@@ -12,7 +12,7 @@ Build a ski resort: drawn chairlifts, gondolas and an aerial tram, runs on the g
 
 ---
 
-**Long description** (5,952 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
+**Long description** (6,341 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
 
 ---
 
@@ -32,7 +32,7 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 - **A resort economy.** Lift tickets, season passes, lessons, lodge spend and running costs. A ski area's attraction score feeds the game's tourism, so a bigger resort brings more visitors.
 
 ## Requirements
-Cities: Skylines II 1.6 (tested on 1.6.4f1). No other mod and no DLC.
+Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 
 ## Getting started
 1. Open the Ski Resort hub. Place a Welcome Sign snapped to a road (it stands set back from it). Then place a lodge near where the runs will be.
@@ -42,7 +42,7 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No other mod and no DLC.
 
 ## Good to know
 - Skiers are counted, not simulated. Chairs and cabins move but carry no riders.
-- Most chairlift and gondola stations cut a level pad into the slope and fill nothing. The fixed-grip top station and the aerial tram's top terminal keep the slope as placed.
+- Ground: the Welcome Sign, the Ski Bus Depot, the A-Frame Day Lodge, the Swanky Grand Lodge and the aerial tram base level their ground. Most chairlift and gondola stations cut a level pad and fill nothing. The Chalet Lodge, Mountain Hut, Swanky Summit Lodge, both patrol buildings, the Ski School, the fixed-grip top station and the tram top terminal keep the slope: they are meant to be built into the hillside with the terrain tools or Move It. The Ski School is the most demanding: level the top of its magic-carpet area, then slope it down to the base.
 - Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
 - Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and refunds no run fee. A warning shows the run count and asks first. To move a sign, use Relocate in its info panel: its runs stay linked.
 - The Resort Planner is experimental and off by default: turn it on in Options. Build makes its cat tracks and runs, and Build lifts then adds its lifts one at a time. A lift line the planner cannot fit gets its stations only, and the lift tool opens on it for you to place the towers. On steep ground it plans mostly black runs with few greens. It does not avoid roads or buildings inside the outline. Its Undo covers runs only and ends when the lift build starts.
