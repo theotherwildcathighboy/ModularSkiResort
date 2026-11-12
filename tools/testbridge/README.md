@@ -97,6 +97,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `fps` | optional `target` (-1 = no cap, or 24 to 240), `capture` (0 = off, or 24 to 240) | `Application.targetFrameRate` and `Time.captureFramerate` for this run of the game. Not game settings, not saved. See "Filming" |
 | `overlay` | optional `hidden`, `seconds` (default 120, at most 900) | the game's own hide-overlay switch (`RenderingSystem.hideOverlay`): notification icons and the piste map are not drawn, nothing is deleted, the active tool stays. It turns itself off after `seconds`. No argument: the state. See "Filming" |
 | `package` | `list` (absolute path of `tools/shipped-prefabs.json`), optional `dry` (default true), `main`, `show`; or `status` | the Editor's package step for the release `.cok`, without the hand selection. See "Packaging the release .cok". It never uploads |
+| `loadcheck` | `action`: `begin` (`save`, a label), `report` (`month`, default true; `speed`, default 8; `motionFrames`, default 300; `monthTimeoutMinutes`, default 45), `status`, `census` | the machine half of the old-save checklist. See "Old-save load check" |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |
@@ -469,6 +470,36 @@ engine.call("skitest.cmd", JSON.stringify({ op: "package", list: "<repo>\\tools\
 engine.call("skitest.cmd", JSON.stringify({ op: "package", list: "<repo>\\tools\\shipped-prefabs.json", name: "ModularSkiResort", dry: false })).then(r => window.__pk = r)
 engine.call("skitest.cmd", JSON.stringify({ op: "package", status: true }))
 ```
+
+## Old-save load check
+
+The op `loadcheck` and its runner `tools/loadcheck.ps1` turn the machine-checkable steps of docs/research/field/old-save-checklist.md
+into one command (DECISIONS 658). The runner reaches the bridge through `bridge-call.mjs`, a small CDP client on the same port and call
+as the gameface MCP's `game_eval` (`node bridge-call.mjs --op <base64 json>`, `--js <base64 expression>`, `--inject helpers.js`; base64
+because PowerShell 5.1 strips the quotes of a JSON argument to a native command). Any script can use it.
+
+1. `begin` notes the byte length of Player.log, SceneFlow.log, Modding.log and SkiResortMod.Mod.log, and the game error serial.
+2. The load goes through `__load` (helpers.js), the pause menu's real clicks. Then `wait-ready.ps1 -Since <time of the load>`.
+3. `report` starts a state machine that waits on sim frames and never blocks a frame. It waits until the simulation runs (a paused game
+   is set to speed 1), scans the logs, takes the census and the billing snapshot, samples carrier motion over `motionFrames`, then runs
+   the sim at `speed` until the calendar month turns plus 4,096 frames (or the wall-clock limit), takes the billing snapshot again and
+   puts the sim speed back. Poll `status` until `state` is `done` or `failed`; the reply then holds `report`.
+4. `census` alone: the counts now, no logs, no motion (the runner uses it before the resave).
+
+The report:
+
+- `logs`: gated hits (`ours`) of `Unknown prefab ID` and `Not serializable type` naming Ski, any `Data size mismatch`, `Serializer type
+  mismatch` or `ComponentSerializerException`, `Duplicate prefab ID` naming Ski over the whole session (it is a startup line), exceptions
+  whose stack names SkiResortMod, mod log `!!!` / `[ERROR]` lines, and game errors since `begin` naming SkiResortMod. Hits from other code
+  are listed with `ours: false` and do not fail. `modLogInfo` lists the load pass, ARMED and History [load] lines.
+- `census`: `persisted` (entities per `SaveLayouts.All` row, read from SkiResortMod by reflection, plus the history buffer's element
+  count), `buildings`, `netEdges`, `runs` and `objects` (carriers, groomers, the coach) by prefab, `summary`, and `motion` (carriers that
+  moved more than 5 cm). Live entities only (no `Deleted`, no `Temp`).
+- `billingBefore` / `billingAfter`: money, our ledger (`SkiGuestCounterSystem.Ledger`: this and last month summed over the signs) and
+  every SkiRunBinding as `flags/paid`. `parts.c` fails on a bind charge line, a restore (load pass `restored free` or `[restore]` lines),
+  a paid amount that rose or a fresh paid binding: the signature of a lost SkiRunBinding block.
+
+The runner compares the census with the baseline beside the save and judges part (b); parts (a) and (c) come from the op.
 
 ## Building a test city
 

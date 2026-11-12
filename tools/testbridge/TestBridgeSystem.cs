@@ -58,6 +58,7 @@ namespace SkiTestBridge
             TickSequence();
             TickTrailer();
             TickMergeProbeUi();
+            TickLoadCheck();
         }
 
         protected override void OnDestroy()
@@ -131,6 +132,7 @@ namespace SkiTestBridge
                 case "fps": return FpsCommand(args);
                 case "overlay": return OverlayCommand(args);
                 case "package": return PackageCommand(args);
+                case "loadcheck": return LoadCheckCommand(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }

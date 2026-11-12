@@ -7,6 +7,8 @@
 #   -Mode Status     (default) read-only report: where each copy is, the subscription, the active playset, launch options.
 #   -Mode Dev        moves SkiResortMod-dev + SkiTestBridge from the aside folder into Mods.
 #   -Mode Published  moves them back out of Mods into the aside folder.
+#   -Mode Bridge     published mod + test bridge only: SkiTestBridge in Mods, SkiResortMod-dev parked. For bridge runs that must
+#                    measure the RELEASED build (baseline saves, tools/loadcheck.ps1 baselines).
 #
 # What the script does NOT do (by design):
 #   - Change playsets. Playset files sync to Paradox and are also written by the launcher and Skyve. Keep a playset without the
@@ -16,7 +18,7 @@
 #   - Guard deploys. A deploying `dotnet build` recreates Mods\SkiResortMod in any mode: run -Mode Status after one.
 #
 # Refuses to move anything while Cities2 runs. PowerShell 5.1. Exit: 0 ok, 1 refused / conflict.
-param([ValidateSet('Status', 'Dev', 'Published')][string]$Mode = 'Status')
+param([ValidateSet('Status', 'Dev', 'Published', 'Bridge')][string]$Mode = 'Status')
 
 $ErrorActionPreference = 'Stop'
 $ModId = '167215'
@@ -72,8 +74,10 @@ function Show-Status {
     "  Subscription   $ModId $($s.Installed); active playset '$($s.Playset)': $($s.Enabled)"
     "  Launch options $(Get-LaunchOptions)"
     $devLoaded = (Get-Where $Pairs[0]) -ne 'aside (parked)' -and (Get-Where $Pairs[0]) -ne 'missing'
+    $bridgeLoaded = (Get-Where $Pairs[1]) -eq 'Mods (loaded)'
     $mode = if ($devLoaded -and $s.Enabled -eq 'enabled') { 'CONFLICT: dev copy AND subscription both load' }
             elseif ($devLoaded) { 'DEV' }
+            elseif ($s.Enabled -eq 'enabled' -and $bridgeLoaded) { 'BRIDGE (published mod + test bridge)' }
             elseif ($s.Enabled -eq 'enabled') { 'PUBLISHED' }
             else { 'NONE (no copy of the mod loads)' }
     "  => mode: $mode"
@@ -93,7 +97,9 @@ if ($Mode -ne 'Status') {
         foreach ($p in $Pairs) {
             $local = Join-Path $ModsDir $p.Local
             $aside = Join-Path $AsideDir $p.Aside
-            if ($Mode -eq 'Dev') { Move-Pair $aside $local $p.Local } else { Move-Pair $local $aside $p.Local }
+            $wantLoaded = ($Mode -eq 'Dev') -or ($Mode -eq 'Bridge' -and $p.Local -eq 'SkiTestBridge')
+            if ($wantLoaded) { if (-not (Test-Path $local)) { Move-Pair $aside $local $p.Local } }
+            elseif (Test-Path $local) { Move-Pair $local $aside $p.Local }
         }
     } catch { Write-Host $_.Exception.Message; Show-Status; exit 1 }
 }
@@ -103,8 +109,8 @@ $s = Get-Subscription
 if ($Mode -eq 'Dev' -and $s.Enabled -eq 'enabled') {
     "  TODO: pick a playset without Modular Ski Resort (or disable it in '$($s.Playset)') before launching."
 }
-if ($Mode -eq 'Dev') { "  TODO: launch with --developerMode --uiDeveloperMode (Steam launch options or the bridge direct start)." }
-if ($Mode -eq 'Published' -and $s.Enabled -ne 'enabled') {
+if ($Mode -eq 'Dev' -or $Mode -eq 'Bridge') { "  TODO: launch with --developerMode --uiDeveloperMode (Steam launch options or the bridge direct start)." }
+if (($Mode -eq 'Published' -or $Mode -eq 'Bridge') -and $s.Enabled -ne 'enabled') {
     "  TODO: enable Modular Ski Resort ($ModId) in the active playset before launching."
 }
 exit 0

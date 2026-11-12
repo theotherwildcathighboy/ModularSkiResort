@@ -39,6 +39,12 @@ Before publishing release N+1, load the save of release N and run
 docs/research/field/old-save-checklist.md (local docs) end to end. Record the result in the changelog line
 "Save compatible with previous".
 
+The machine part is one command in the dev setup, with the game at the main menu:
+`powershell -NoProfile -ExecutionPolicy Bypass -File tools\loadcheck.ps1 -Resave`. It loads a copy of the newest save here (never the
+file itself), prints PASS / FAIL for the log scan, the entity census, one month of billing and the save-and-reload round trip, and
+keeps a census baseline beside the save as `<save name>.census.json` (git-ignored like the save). Its first run writes the baseline;
+later runs compare against it. The steps it cannot check stay manual (marked in the checklist).
+
 ## Saves
 
 | File | Mod | PDX | Game | Layout versions | Holds |
