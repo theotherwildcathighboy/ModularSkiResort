@@ -15,22 +15,44 @@ therefore never put a `.cok` beside ImportedData.
 
 ## Making the .cok
 
-1. In the Editor's package step, select only the prefabs of `tools/shipped-prefabs.json`. Include the prefabs that have no menu entry
-   (towers, chairs, cabins, number tiles, markers: only code reaches them). Never select the whole
-   `ImportedData\c030ee3ff256df91` library. Never select the vanilla `ExampleBakedAlphaFence` that sits in it.
-2. Quit the game. The package is `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\.packages\<main asset>.cok`
-   (decompile 1.6.2f1 `Game.UI.Editor/PackageHelper.cs:109`). Move it here. Keep no other `.cok` here. Only the `.cok` ships. The
-   game's own Editor upload copies just the `.cok` too (`Game.UI.Menu/PdxAssetUploadHandle.cs:268-277`), so a `.cok.cid` beside
-   it is not needed. Never use the Editor's upload itself, because it would create a second, asset-only Paradox Mods item.
-3. Check it (PowerShell, repo root):
+The bridge route (DECISIONS 655) replaces the hand selection. It runs the game's own package code, never an upload:
 
-   ```powershell
-   $cok = (Get-Item mod\SkiResortMod\Package\*.cok).FullName; node tools\check-cok.js $cok; (Get-Item $cok).Length / 1GB
+1. Start the game in the Editor with the bridge active (`--startEditor --developerMode --uiDeveloperMode`, `tools/testbridge/README.md`).
+   Dry run first, through the gameface MCP (`game_eval`):
+
+   ```js
+   engine.call("skitest.cmd", JSON.stringify({ op: "package", list: "<repo>\\tools\\shipped-prefabs.json", name: "ModularSkiResort" })).then(r => window.__pk = r)
    ```
 
-   Expected: `PASS`, then about 0.8. The shipped closure is 785 MB. A value near 3 means the whole library was packaged
-   (`tools/release-check.ps1` fails anything from 2 GB up). If `MISSING` lists exactly SkiLiftChair4 and SkiLiftTowerFG2, that may be
-   the check's own name match (their library files carry a hash suffix), not a broken package.
+   Expected: `found` 189 of 189, `missing` and `cidMismatch` empty, `modDependencies` and `dlcDependencies` empty, `byDatabase` only
+   `user`, and `extraPrefabsInClosure` only `... Mesh` RenderPrefabs. The call blocks the game for a few minutes (the game walks every
+   prefab), so the CDP call times out: keep the promise on `window` and read it when the game responds again. Then run it again with
+   `dry: false` and poll `{op: "package", status: true}` (or wait for `package: done` in `Logs\SkiTestBridge.log`).
+   `name` names the package and the `.cok` without renaming any file: the op hands it to the game's own `PackageHelper.BuildPackage`,
+   which uses the name only for its staging folder, its backup folder and `AssetDatabase.packages.AddAsset` (decompile 1.6.4f1
+   `Game.UI.Editor/PackageHelper.cs:73-121`). Without `name`, the package takes the main asset's name, as in the Editor.
+2. Quit the game. The package is `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\.packages\ModularSkiResort.cok`.
+   Move it here before the next game start (a `.cok` left in `.packages` loads as a local package beside ImportedData). Keep no other
+   `.cok` here. Only the `.cok` ships: the game's own Editor upload copies just the `.cok` too
+   (`Game.UI.Menu/PdxAssetUploadHandle.cs:337-344`, 1.6.4f1), so a `.cok.cid` beside it is not needed. The `.ModularSkiResort_Backup` folder
+   next to it is the game's copy of the source files (`PackageHelper.cs:83-85`). It is not needed for the upload.
+
+Fallback, the manual route: in the Editor's package step, select only the prefabs of `tools/shipped-prefabs.json`. Include the prefabs that
+have no menu entry (towers, chairs, cabins, number tiles, markers: only code reaches them). Never select the whole
+`ImportedData\c030ee3ff256df91` library. Never select the vanilla `ExampleBakedAlphaFence` that sits in it. Never use the Editor's upload
+itself, because it would create a second, asset-only Paradox Mods item. The package is then named after the first asset you added.
+
+Check it (PowerShell, repo root):
+
+```powershell
+$cok = (Get-Item mod\SkiResortMod\Package\*.cok).FullName; node tools\check-cok.js $cok; (Get-Item $cok).Length / 1GB
+```
+
+Expected: `PASS` (`missing 0, cid differs 0, extra 320`: the extras are the `... Mesh` RenderPrefabs of the shipped prefabs), then about 0.3.
+Measured 2026-11-12: 509 prefabs, 1,550 source assets (884 MB) packed into 312,639,541 bytes (0.29 GB). The package step converts 312 of the
+334 textures to virtual texturing (284 VTTexture entries) and keeps 22 as plain textures. A value near 3 means the whole library was
+packaged (`tools/release-check.ps1` fails anything from 2 GB up). check-cok finds SkiLiftChair4 and SkiLiftTowerFG2 by their frozen
+`file` names, because their library files carry a hash suffix and the package step names each entry after its source file.
 
 ## What a publish build does with it
 

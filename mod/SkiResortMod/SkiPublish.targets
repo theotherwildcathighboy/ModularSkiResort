@@ -42,7 +42,7 @@ SkiPublishPackage:
 	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- The staging folder (git-ignored, about 0.8 GB) is never a build item: only SkiPublishPackage reads it. -->
+		<!-- The staging folder (git-ignored, about 0.3 GB) is never a build item: only SkiPublishPackage reads it. -->
 		<None Remove="Package\**" />
 	</ItemGroup>
 

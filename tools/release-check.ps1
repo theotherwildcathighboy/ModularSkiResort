@@ -11,7 +11,7 @@
 # Mod.targets:52).
 # One PASS / FAIL line per check, then a SUMMARY. Exit 0 = every check PASS, 1 = any FAIL.
 #   cok         exactly one .cok at the folder root (the Editor package, mod/SkiResortMod/Package/README.md), under 2 GB (expected
-#               about 0.8 GB. A size near 3 GB means the build packaged the whole ImportedData\c030ee3ff256df91 library)
+#               about 0.3 GB, measured 0.29 GB on 2026-11-12. A size near 3 GB means the build packaged the whole ImportedData\c030ee3ff256df91 library)
 #   textures    at least 8 Textures\*.png (the run textures. mod/SkiResortMod/Textures is git-ignored, release review S4)
 #   layouts     K45_WE\layouts\*.wedefault.xml: the same file names as the repo's assets\we\K45_WE\layouts
 #   dll         SkiResortMod.dll and SkiResortMod_win_x86_64.dll (the Burst library the game loads)
@@ -75,7 +75,7 @@ $coks = @(Get-ChildItem -LiteralPath $DeployDir -File | Where-Object { $_.Extens
 if ($coks.Count -ne 1) {
     Add-Result "cok" "FAIL" ("{0} .cok file(s) at the folder root, expected exactly 1 (mod\SkiResortMod\Package\README.md)" -f $coks.Count)
 } elseif ($coks[0].Length -ge 2GB) {
-    Add-Result "cok" "FAIL" ("{0} is {1:N2} GB, expected about 0.8 GB: near 3 GB means the whole c030ee3ff256df91 library was packaged. Package only the prefabs of tools\shipped-prefabs.json" -f $coks[0].Name, ($coks[0].Length / 1GB))
+    Add-Result "cok" "FAIL" ("{0} is {1:N2} GB, expected about 0.3 GB: near 3 GB means the whole c030ee3ff256df91 library was packaged. Package only the prefabs of tools\shipped-prefabs.json" -f $coks[0].Name, ($coks[0].Length / 1GB))
 } else {
     Add-Result "cok" "PASS" ("{0}, {1:N2} GB" -f $coks[0].Name, ($coks[0].Length / 1GB))
 }
