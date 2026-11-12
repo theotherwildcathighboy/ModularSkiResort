@@ -48,7 +48,7 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 ## Guides and details
 - [Docs site](https://theotherwildcathighboy.github.io/ModularSkiResort): guides, every number, settings and troubleshooting.
 - Start with the [Resort Quickstart](https://theotherwildcathighboy.github.io/ModularSkiResort/quickstart/) and the [Lifts guide](https://theotherwildcathighboy.github.io/ModularSkiResort/guides/lifts/).
-- Bug reports: the Paradox forum thread {{FORUM_URL}} or the Discord thread {{DISCORD_URL}}. Paste the text from the Copy diagnostics button in the mod's Options.
+- Bug reports: the [Paradox forum thread](https://forum.paradoxplaza.com/forum/threads/modular-ski-resort.1949673/). Paste the text from the Copy diagnostics button in the mod's Options.
 - [Source code on GitHub](https://github.com/theotherwildcathighboy/ModularSkiResort)
 
 ## Credits
@@ -76,7 +76,7 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 	<Tag Value="Prefab" />
 	<Tag Value="Building" />
 	<!--Link to the forum post where the mod can be discussed. PLACEHOLDER: the FORUM_URL token stands for the Paradox forum bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or empty the value if only Discord is used: the public gate of tools/sync-listing.js fails while any token is left. Whether the publisher accepts a token here at the unlisted upload is UNVERIFIED: if the publish refuses it, fill or empty the value first. VERIFIED 2026-11-12: the publisher refuses the token ("forumLinks: Must be of acceptable format for a Paradox forum url"), so the value stays empty until the flip-->
-	<ForumLink Value="" />
+	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/modular-ski-resort.1949673/" />
 	<!--Version of the mod. Semver MAJOR.MINOR.PATCH (RELEASE-CHECKLIST section 0); first public upload = 1.0.0-->
 	<ModVersion Value="1.0.0" />
 	<!--Recommended version of the base game. A label shown on the mod page, not a gate: the publisher only checks that it is not empty and no game code compares it. Exact patch string, as 13 live CS2 mods use (for example 1.6.4f1); the wildcard form MAJOR.MINOR.* (1.6.* is what the in-game asset publisher writes and what 770 of 1426 cached mods use) is the alternative. Bump after each CS2 patch is checked; a metadata Update fixes it without a new version-->
@@ -98,5 +98,5 @@ First public release. Every feature, number and setting is on the docs site: htt
 	<ExternalLink Type="youtube" Url="https://www.youtube.com/watch?v=NJvzaxwGfa4" />
 	<ExternalLink Type="github" Url="https://github.com/theotherwildcathighboy/ModularSkiResort" />
 	<!--Supported values Public, Private, Unlisted. CASE-SENSITIVE: anything else, such as unlisted in lowercase, silently becomes Public. Unlisted for the proofreading upload; to go public change this to Public and run the Update profile (UpdatePublishedConfiguration), no new version needed. VERIFIED 2026-11-12: Unlisted does NOT hide the item: 167215 showed logged out in search and at the top of the newest list. Private is used until the flip-->
-	<AccessLevel Value="Private" />
+	<AccessLevel Value="Public" />
 </Publish>
