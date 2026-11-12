@@ -4,44 +4,44 @@
 	<!--Name of the mod to display to players-->
 	<DisplayName Value="Modular Ski Resort" />
 	<!--Short description of the mod. Source: release/DESCRIPTION.md (keep the two in step)-->
-	<ShortDescription Value="Build a ski resort: drawn chairlifts, gondolas and an aerial tram, runs on the game's own snow, lodges and a resort economy. No mods required." />
+	<ShortDescription Value="Ski resorts: lifts that fit your terrain, runs on natural or machine-made snow, lodges, ski school and patrol, a resort planner, resort economics, and merging your own buildings." />
 	<!--Long description of the mod. Single line or multi line. Supports minimal markdown subset. Source: release/DESCRIPTION.md (keep the two in step; no angle brackets or ampersands in the text, this is XML)-->
 	<LongDescription>
 **Build a ski resort in Cities: Skylines II.**
 
-Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it, and let the game's own snow decide when they open. Guests ski, buy tickets and lessons, and the resort draws tourists to your city. No mods required, but Anarchy and Move It are highly recommended.
+Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it, and natural or artificial snow will open the runs. Guests ski (simulated, not visualized, yet), buy tickets and lessons, and the resort draws tourists to your city. No mods required, but Anarchy and Move It are highly recommended, along with Write Everywhere.
 
 ## Highlights
-- **Four lifts, one tool.** Fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Click the base station, click the top, and the tool plans numbered towers over your terrain. Chairs and cabins ride the rope.
+- **Four lifts, one tool.** Fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Click the base station, click the top, and the tool plans numbered towers over your terrain. Chairs and cabins ride the rope. You can edit the tower placement.
 - **Runs on real snow.** Draw a run and set its features: groomed or natural, snow guns, floodlights for night skiing. Cat tracks link runs across the hill. Each run is rated green to double black from its hardest pitch. It opens at 3 ft (91 cm) of snow on 60 % of the run. Snow guns extend the season where it is cold enough.
 - **Resort Planner (experimental).** Outline a mountainside and get a plan of linked runs, cat tracks and lifts. Leave out what you do not want, then build it.
-- **Seasons.** Snow melts in spring, runs close and lifts stop. The aerial tram keeps running as summer sightseeing.
-- **Lodges, Ski School and Ski Patrol.** Five lodges, a school and two patrol buildings, each following a real place.
-- **Merge your own buildings.** A landmark, signature or recreation building near the runs can join a ski area as a lodge and keep working as before.
-- **Ski Bus Depot.** A coach stop in town that brings guests to a hill too far away to draw them on its own.
-- **One hub.** The Ski Resort button (top left) opens Attraction, Runs, Lifts, Guests, Finances and History views. It also has a problem list that flies you to what is wrong.
+- **Seasons.** Snow melts in spring, runs close and lifts stop. The aerial tram keeps running as summer sightseeing. Northern and Southern Hemisphere seasons are both accounted for.
+- **Lodges, Ski School and Ski Patrol.** Five lodges, a school and two patrol buildings, adding amenities (and costs) to your resort.
+- **Merge your own buildings.** Is there an asset you'd love to be in your ski area? A landmark, signature or recreation building near the runs can merge into the resort, increasing its attraction (and costs).
+- **Ski Bus Depot.** A coach stop in town that brings guests to a ski resort too far away for them to reach on their own. (Helps alleviate vanilla issues with travel times to far-away ski areas.)
+- **One hub.** The Ski Resort button (default top left) opens Attraction, Runs, Lifts, Guests, Finances and History views. You can also see any issues with your resort.
 - **A resort economy.** Lift tickets, season passes, lessons, lodge spend and running costs. A ski area's attraction score feeds the game's tourism, so a bigger resort brings more visitors.
 
 ## Requirements
 Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 
 ## Getting started
-1. Open the Ski Resort hub. Place a Welcome Sign snapped to a road (it stands set back from it). Then place a lodge near where the runs will be.
-2. Pick a lift type. Place the base station, then the top station facing it, then draw the line between them. Press Enter to build.
+1. Open the Ski Resort hub. Place a Welcome Sign, then place a lodge near where the runs will be.
+2. Pick a lift type. Place the base station, top station, then draw the line between them. Press Enter to build.
 3. Connect a low-voltage power line to the base station.
 4. Draw runs downhill from the top station, and wait for snow.
 
 ## Good to know
-- Skiers are counted, not simulated. Chairs and cabins move but carry no riders.
-- Ground: the Welcome Sign, the Ski Bus Depot, the A-Frame Day Lodge, the Swanky Grand Lodge and the aerial tram base level their ground. Most chairlift and gondola stations cut a level pad and fill nothing. The Chalet Lodge, Mountain Hut, Swanky Summit Lodge, both patrol buildings, the Ski School, the fixed-grip top station and the tram top terminal keep the slope: they are meant to be built into the hillside with the terrain tools or Move It. The Ski School is the most demanding: level the top of its magic-carpet area, then slope it down to the base.
+- Skiers are counted, not visually simulated. Chairs and cabins move but carry no riders. (Post Park Adventures, I will try my best to at least get Cims on the chairlifts)
+- Ground: the Welcome Sign, the Ski Bus Depot, the A-Frame Day Lodge, the Swanky Grand Lodge and the aerial tram base level their ground. Most chairlift and gondola stations cut a level pad. The Chalet Lodge, Mountain Hut, Swanky Summit Lodge, both patrol buildings, the Ski School, the fixed-grip top station and the tram top terminal are meant to be built into the hillside with the terrain tools or Move It. The Ski School is the most demanding: level the top of its magic-carpet area, then slope it down to the base.
 - Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
-- Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and refunds no run fee. A warning shows the run count and asks first. To move a sign, use Relocate in its info panel: its runs stay linked.
-- The Resort Planner is experimental and off by default: turn it on in Options. Build makes its cat tracks and runs, and Build lifts then adds its lifts one at a time. A lift line the planner cannot fit gets its stations only, and the lift tool opens on it for you to place the towers. On steep ground it plans mostly black runs with few greens. It does not avoid roads or buildings inside the outline. Its Undo covers runs only and ends when the lift build starts.
-- Lifts cross lifts of another type, over or under, where the towers can reach the height. Two lifts of the same type cannot cross.
+- Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and refunds no run fee. There is a warning popup before you bulldoze the sign.
+- The Resort Planner is somewhat experimental and off by default: turn it on in Options.
+- Lifts can cross lifts of another type, over or under, where the towers can reach the height. Two lifts of the same type cannot cross.
 - A cat track cannot pass under a lift that is already built: build cat tracks first.
-- Lifts are power-line networks and need low-voltage power at the base station. The game refuses a city high-voltage line at a lift.
-- Before uninstalling, bulldoze your lifts and runs (or use the Delete all ski resort content button in the mod's Options), then save the city. Otherwise the city still loads, but buildings and stations turn into placeholder blocks and runs stay as flat patches.
-- Resorts cost money all year and earn in winter. Build in steps.
+- Lifts are power-line networks and need low-voltage power at the base station. The game refuses a city high-voltage line at a lift. This is an odd quirk of how I decided to build the lifts system.
+- Before uninstalling, use the "Delete all ski resort content" button in the mod's Options, then save the city.
+- Resorts cost money all year and earn in winter. Build in steps if budget-constrained. Welcome to ski resort economics!
 
 ## Guides and details
 Guides, every number, settings and troubleshooting are on the docs site: {{DOCS_URL}}
@@ -54,9 +54,9 @@ Realistic Trips replaces the game's leisure system that ski days need: with it, 
 
 ## Credits
 - Modular Golf Course Pack by joergeske: the modular recreation idea this mod grew from.
-- Meapy's Tourism Overhaul: studied for how tourism and attractions work. Not required.
-- The fixed-grip lift is a tribute to the Pallavicini lift at Arapahoe Basin.
-- Built with Claude (Anthropic) for decompilation, prefab work and asset generation. Direction and testing by the author.
+- Meapy's Tourism Overhaul: studied for how tourism and attractions work. Not required. Works alongside this mod.
+- All assets (chairs, lodges, patrol huts) are based on real places: {{DOCS_URL}}/credits/#asset-inspirations
+- Built with Claude (Anthropic) for decompilation, prefab work and asset generation. Direction and many, many hours of testing by the author.
 - Full credits and licenses: {{DOCS_URL}}/credits/
 
 **License**: code MIT. Art assets (meshes, textures): CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/). Reuse them in free mods with credit to "Modular Ski Resort by theotherwildcathighboy", share your changes under the same license, no commercial use.
