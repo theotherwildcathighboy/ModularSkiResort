@@ -2,7 +2,7 @@
 
 *This is the listing's front page: a scan-in-30-seconds summary. The depth (numbers, every setting, troubleshooting, how it was made) lives on the docs site; the front page links to it. Every claim is traced to its source in release/LISTING-NOTES-2026-10-22.md. Sizing and structure follow docs/research/release-preview-2026-10-22.md section 4.*
 
-*Four tokens must be replaced before the PUBLIC flip and checked by `node tools/sync-listing.js --check --public`, docs/RELEASE-CHECKLIST.md section 7: `{{DOCS_URL}}` (the GitHub Pages address, no trailing slash) and `{{GITHUB_URL}}` (the repository address), which exist only once the repository is public, and `{{FORUM_URL}}` / `{{DISCORD_URL}}` (the Paradox forum and Discord bug-report threads; if only one is used, delete the other's clause). The two thread tokens also stand in PublishConfiguration.xml (`ForumLink`, `ExternalLink Type="discord"`) and in docs-site `guides/troubleshooting.mdx` (Bug Reports). The text between the two horizontal rules below is exactly what goes into LongDescription in `mod/SkiResortMod/Properties/PublishConfiguration.xml` (edit this file only, then run `node tools/sync-listing.js` to copy it; no angle brackets, ampersands or backticks inside the text, the file is XML and the page takes a small markdown subset).*
+*Four tokens must be replaced before the PUBLIC flip and checked by `node tools/sync-listing.js --check --public`, docs/RELEASE-CHECKLIST.md section 7: `{{DOCS_URL}}` (the GitHub Pages address, no trailing slash) and `{{GITHUB_URL}}` (the repository address), which exist only once the repository is public, and `{{FORUM_URL}}` / `{{DISCORD_URL}}` (the Paradox forum and Discord bug-report threads; if only one is used, delete the other's clause). The two thread tokens also stand in PublishConfiguration.xml (`ForumLink`, `ExternalLink Type="discord"`) and in docs-site `guides/troubleshooting.mdx` (Bug Reports). The text between the last two horizontal rules below is exactly what goes into LongDescription in `mod/SkiResortMod/Properties/PublishConfiguration.xml` (edit this file only, then run `node tools/sync-listing.js` to copy it; no angle brackets, ampersands or backticks inside the text, the file is XML and the page takes a small markdown subset).*
 
 ---
 
@@ -12,7 +12,7 @@ Ski resorts: lifts that fit your terrain, runs on natural or machine-made snow, 
 
 ---
 
-**Long description** (6,528 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
+**Long description** (5,697 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
 
 ---
 
@@ -59,18 +59,12 @@ Guides, every number, settings and troubleshooting are on the docs site: https:/
 Start with the Resort Quickstart at https://theotherwildcathighboy.github.io/ModularSkiResort/quickstart/ and the Lifts guide at https://theotherwildcathighboy.github.io/ModularSkiResort/guides/lifts/.
 Bug reports: the Paradox forum thread {{FORUM_URL}} or the Discord thread {{DISCORD_URL}}. Paste the text from the Copy diagnostics button in the mod's Options. Source code: https://github.com/theotherwildcathighboy/ModularSkiResort
 
-## Works with
-Nothing else is required, but Anarchy and Move It are highly recommended: Anarchy turns off the game's placement errors, and Move It gives exact placement of every building and station. Write Everywhere is recommended too: with it, the Welcome Sign shows your ski area's name (without it, the name board stays plain). If Tourism Overhaul, Realistic Workplaces and Households or a trip-planner mod is installed, the hub shows a notice and changes nothing in them.
-Realistic Trips replaces the game's leisure system that ski days need: with it, the resort sends no skiers of its own. Lifts, runs, snow and buildings still work.
-
 ## Credits
 - Modular Golf Course Pack by joergeske: the modular recreation idea this mod grew from.
 - Meapy's Tourism Overhaul: studied for how tourism and attractions work. Not required. Works alongside this mod.
 - All assets (chairs, lodges, patrol huts) are based on real places: https://theotherwildcathighboy.github.io/ModularSkiResort/credits/#asset-inspirations
 - Built with Claude (Anthropic) for decompilation, prefab work and asset generation. Direction and many, many hours of testing by the author.
 - Full credits and licenses: https://theotherwildcathighboy.github.io/ModularSkiResort/credits/
-
-**License**: code MIT. Art assets (meshes, textures): CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/). Reuse them in free mods with credit to "Modular Ski Resort by theotherwildcathighboy", share your changes under the same license, no commercial use.
 
 ---
 

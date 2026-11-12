@@ -7,6 +7,8 @@
 	<ShortDescription Value="Ski resorts: lifts that fit your terrain, runs on natural or machine-made snow, lodges, ski school and patrol, a resort planner, resort economics, and merging your own buildings." />
 	<!--Long description of the mod. Single line or multi line. Supports minimal markdown subset. Source: release/DESCRIPTION.md (keep the two in step; no angle brackets or ampersands in the text, this is XML)-->
 	<LongDescription>
+[Trailer](https://youtu.be/NJvzaxwGfa4) | [Features](https://youtu.be/mkysRTD0zmQ)
+
 **Build a ski resort in Cities: Skylines II.**
 
 Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it, and natural or artificial snow will open the runs. Guests ski (simulated, not visualized, yet), buy tickets and lessons, and the resort draws tourists to your city. No mods required, but Anarchy and Move It are highly recommended, along with Write Everywhere.
@@ -48,18 +50,12 @@ Guides, every number, settings and troubleshooting are on the docs site: https:/
 Start with the Resort Quickstart at https://theotherwildcathighboy.github.io/ModularSkiResort/quickstart/ and the Lifts guide at https://theotherwildcathighboy.github.io/ModularSkiResort/guides/lifts/.
 Bug reports: the Paradox forum thread {{FORUM_URL}} or the Discord thread {{DISCORD_URL}}. Paste the text from the Copy diagnostics button in the mod's Options. Source code: https://github.com/theotherwildcathighboy/ModularSkiResort
 
-## Works with
-Nothing else is required, but Anarchy and Move It are highly recommended: Anarchy turns off the game's placement errors, and Move It gives exact placement of every building and station. Write Everywhere is recommended too: with it, the Welcome Sign shows your ski area's name (without it, the name board stays plain). If Tourism Overhaul, Realistic Workplaces and Households or a trip-planner mod is installed, the hub shows a notice and changes nothing in them.
-Realistic Trips replaces the game's leisure system that ski days need: with it, the resort sends no skiers of its own. Lifts, runs, snow and buildings still work.
-
 ## Credits
 - Modular Golf Course Pack by joergeske: the modular recreation idea this mod grew from.
 - Meapy's Tourism Overhaul: studied for how tourism and attractions work. Not required. Works alongside this mod.
 - All assets (chairs, lodges, patrol huts) are based on real places: https://theotherwildcathighboy.github.io/ModularSkiResort/credits/#asset-inspirations
 - Built with Claude (Anthropic) for decompilation, prefab work and asset generation. Direction and many, many hours of testing by the author.
 - Full credits and licenses: https://theotherwildcathighboy.github.io/ModularSkiResort/credits/
-
-**License**: code MIT. Art assets (meshes, textures): CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/). Reuse them in free mods with credit to "Modular Ski Resort by theotherwildcathighboy", share your changes under the same license, no commercial use.
 </LongDescription>
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />
@@ -78,8 +74,8 @@ Realistic Trips replaces the game's leisure system that ski days need: with it, 
 	<Tag Value="Code Mod" />
 	<Tag Value="Prefab" />
 	<Tag Value="Building" />
-	<!--Link to the forum post where the mod can be discussed. PLACEHOLDER: the FORUM_URL token stands for the Paradox forum bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or empty the value if only Discord is used: the public gate of tools/sync-listing.js fails while any token is left. Whether the publisher accepts a token here at the unlisted upload is UNVERIFIED: if the publish refuses it, fill or empty the value first-->
-	<ForumLink Value="{{FORUM_URL}}" />
+	<!--Link to the forum post where the mod can be discussed. PLACEHOLDER: the FORUM_URL token stands for the Paradox forum bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or empty the value if only Discord is used: the public gate of tools/sync-listing.js fails while any token is left. Whether the publisher accepts a token here at the unlisted upload is UNVERIFIED: if the publish refuses it, fill or empty the value first. VERIFIED 2026-11-12: the publisher refuses the token ("forumLinks: Must be of acceptable format for a Paradox forum url"), so the value stays empty until the flip-->
+	<ForumLink Value="" />
 	<!--Version of the mod. Semver MAJOR.MINOR.PATCH (RELEASE-CHECKLIST section 0); first public upload = 1.0.0-->
 	<ModVersion Value="1.0.0" />
 	<!--Recommended version of the base game. A label shown on the mod page, not a gate: the publisher only checks that it is not empty and no game code compares it. Exact patch string, as 13 live CS2 mods use (for example 1.6.4f1); the wildcard form MAJOR.MINOR.* (1.6.* is what the in-game asset publisher writes and what 770 of 1426 cached mods use) is the alternative. Bump after each CS2 patch is checked; a metadata Update fixes it without a new version-->
@@ -118,7 +114,7 @@ First public release.
 - Known limitations: the Resort Planner's Undo ends when the tool closes, a scan of a large outline can take about 30 seconds, a hill far from the city's homes and hotels gets few ski-day guests (the panel shows the distance), chairs carry no riders, two lifts of the same type cannot cross, a cat track cannot pass under a lift that is already built, the fixed-grip top station and the aerial tram's top terminal keep the slope and can sit partly in the hillside on steep ground, chairlifts and gondolas stop in summer.
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme". PLACEHOLDER: the DISCORD_URL token stands for the Discord bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or delete this line if only the forum thread is used (the same gate and the same UNVERIFIED publisher behavior as ForumLink)-->
-	<ExternalLink Type="discord" Url="{{DISCORD_URL}}" />
+	<!--At the flip, add: <ExternalLink Type="discord" Url="DISCORD_URL" /> (left out of the first upload: the publisher refuses tokens in link fields)-->
 	<ExternalLink Type="youtube" Url="https://www.youtube.com/watch?v=NJvzaxwGfa4" />
 	<ExternalLink Type="github" Url="https://github.com/theotherwildcathighboy/ModularSkiResort" />
 	<!--Supported values Public, Private, Unlisted. CASE-SENSITIVE: anything else, such as unlisted in lowercase, silently becomes Public. Unlisted for the proofreading upload; to go public change this to Public and run the Update profile (UpdatePublishedConfiguration), no new version needed-->

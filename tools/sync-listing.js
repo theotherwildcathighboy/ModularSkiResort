@@ -12,7 +12,7 @@
  *                                         - the short description is over 200 characters (the longest on any live listing)
  *                                         The check also prints the unresolved link tokens ({{DOCS_URL}}, {{GITHUB_URL}}).
  *   node tools/sync-listing.js --public   with --check: also FAIL while a {{token}} is left or AccessLevel is not Public (the flip gate).
- * Source text: from the line "**Build a ski resort in" up to the end of the line that starts "**License**:". The short description is the
+ * Source text: everything between the 3rd and 4th "---" lines (the block after the "Long description" label). The short description is the
  * first non-empty line after the "**Short description**" label.
  */
 "use strict";
@@ -27,12 +27,11 @@ const check = args.includes("--check");
 const publicGate = args.includes("--public");
 
 const d = fs.readFileSync(DESC, "utf8").replace(/\r\n/g, "\n");
-const a = d.indexOf("**Build a ski resort in");
-const licStart = d.indexOf("**License**:");
-if (a < 0 || licStart < 0) { console.error("DESCRIPTION.md: long description markers not found"); process.exit(2); }
-let licEnd = d.indexOf("\n", licStart);
-if (licEnd < 0) licEnd = d.length;
-const long = d.slice(a, licEnd).trim();
+// The long description is the text between the 3rd and 4th horizontal rules ("---" lines):
+// rules 1-2 wrap the short description, rule 3 follows the "Long description" label.
+const rules = d.split(/^---[ \t]*$/m);
+if (rules.length < 5 || !rules[3].trim()) { console.error("DESCRIPTION.md: long description markers not found (needs 4 '---' lines)"); process.exit(2); }
+const long = rules[3].trim();
 const sm = d.match(/\*\*Short description\*\*[^\n]*\n\n([^\n]+)\n/);
 if (!sm) { console.error("DESCRIPTION.md: short description not found"); process.exit(2); }
 const short = sm[1].trim();
