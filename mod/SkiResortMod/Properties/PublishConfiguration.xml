@@ -119,6 +119,7 @@ First public release.
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme". PLACEHOLDER: the DISCORD_URL token stands for the Discord bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or delete this line if only the forum thread is used (the same gate and the same UNVERIFIED publisher behavior as ForumLink)-->
 	<ExternalLink Type="discord" Url="{{DISCORD_URL}}" />
+	<ExternalLink Type="youtube" Url="https://www.youtube.com/watch?v=NJvzaxwGfa4" />
 	<!--Supported values Public, Private, Unlisted. CASE-SENSITIVE: anything else, such as unlisted in lowercase, silently becomes Public. Unlisted for the proofreading upload; to go public change this to Public and run the Update profile (UpdatePublishedConfiguration), no new version needed-->
 	<AccessLevel Value="Unlisted" />
 </Publish>
