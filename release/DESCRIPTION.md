@@ -12,7 +12,7 @@ Ski resorts: lifts that fit your terrain, runs on natural or machine-made snow, 
 
 ---
 
-**Long description** (6,259 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
+**Long description** (6,528 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
 
 ---
 
@@ -55,9 +55,9 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 - Resorts cost money all year and earn in winter. Build in steps if budget-constrained. Welcome to ski resort economics!
 
 ## Guides and details
-Guides, every number, settings and troubleshooting are on the docs site: {{DOCS_URL}}
-Start with the Resort Quickstart at {{DOCS_URL}}/quickstart/ and the Lifts guide at {{DOCS_URL}}/guides/lifts/.
-Bug reports: the Paradox forum thread {{FORUM_URL}} or the Discord thread {{DISCORD_URL}}. Paste the text from the Copy diagnostics button in the mod's Options. Source code: {{GITHUB_URL}}
+Guides, every number, settings and troubleshooting are on the docs site: https://theotherwildcathighboy.github.io/ModularSkiResort
+Start with the Resort Quickstart at https://theotherwildcathighboy.github.io/ModularSkiResort/quickstart/ and the Lifts guide at https://theotherwildcathighboy.github.io/ModularSkiResort/guides/lifts/.
+Bug reports: the Paradox forum thread {{FORUM_URL}} or the Discord thread {{DISCORD_URL}}. Paste the text from the Copy diagnostics button in the mod's Options. Source code: https://github.com/theotherwildcathighboy/ModularSkiResort
 
 ## Works with
 Nothing else is required, but Anarchy and Move It are highly recommended: Anarchy turns off the game's placement errors, and Move It gives exact placement of every building and station. Write Everywhere is recommended too: with it, the Welcome Sign shows your ski area's name (without it, the name board stays plain). If Tourism Overhaul, Realistic Workplaces and Households or a trip-planner mod is installed, the hub shows a notice and changes nothing in them.
@@ -66,9 +66,9 @@ Realistic Trips replaces the game's leisure system that ski days need: with it, 
 ## Credits
 - Modular Golf Course Pack by joergeske: the modular recreation idea this mod grew from.
 - Meapy's Tourism Overhaul: studied for how tourism and attractions work. Not required. Works alongside this mod.
-- All assets (chairs, lodges, patrol huts) are based on real places: {{DOCS_URL}}/credits/#asset-inspirations
+- All assets (chairs, lodges, patrol huts) are based on real places: https://theotherwildcathighboy.github.io/ModularSkiResort/credits/#asset-inspirations
 - Built with Claude (Anthropic) for decompilation, prefab work and asset generation. Direction and many, many hours of testing by the author.
-- Full credits and licenses: {{DOCS_URL}}/credits/
+- Full credits and licenses: https://theotherwildcathighboy.github.io/ModularSkiResort/credits/
 
 **License**: code MIT. Art assets (meshes, textures): CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/). Reuse them in free mods with credit to "Modular Ski Resort by theotherwildcathighboy", share your changes under the same license, no commercial use.
 
