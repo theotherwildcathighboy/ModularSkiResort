@@ -17,15 +17,21 @@ The save must exercise every persisted thing:
 
 - a Welcome Sign with bound runs (SkiRunBinding)
 - glade trees on a run (SkiRunTreeMember)
-- sold season passes (SkiSeasonPass)
+- sold season passes (SkiSeasonPass): play through a pass sale, in season
 - at least two closed months of history plus a month in progress (SkiResortHistoryMonth, SkiResortMonthInProgress)
-- one of every lift type with chairs moving
-- a hosted tram
-- a lodge of each tier
-- a painted run of each surface
+- snow guns and lights on a run (SkiRunPropMember, SkiRunPropSettings)
+- a cat track with snowmaking (SkiTrackSnow)
+- runs with names from the hub (SkiRunName)
+- two or more lodges, so they carry numbers (SkiLodgeNumber), and one merged lodge (SkiMergedLodge)
+- one of every lift type with chairs moving, a hosted tram
+- a lodge of each tier, a painted run of each surface, one run and one lift built by the Resort Planner
+- the ski bus depot with a working route
 
-Make it in a NEW city on that release. Use no older saves. The memory "no save compat before release" ends at the
-first upload.
+Every row of `mod/SkiResortMod/Systems/SaveLayouts.cs` must appear in the save: a new persisted type means a new item here.
+
+Make it in a NEW city on that release, with the PUBLISHED build (subscribed from Paradox Mods, dev copy parked), not a
+dev build. Use no older saves. After the copy, set the file read-only: a save loaded and saved again on a newer build is
+no longer a save of that release.
 
 ## Use
 
