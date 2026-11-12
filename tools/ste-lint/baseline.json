@@ -12,14 +12,14 @@
   "docs-site/src/content/docs/guides/economy-panel.mdx": 4,
   "docs-site/src/content/docs/guides/hub-panel.mdx": 4,
   "docs-site/src/content/docs/guides/lifts.mdx": 9,
-  "docs-site/src/content/docs/guides/lodges-school-patrol.mdx": 11,
+  "docs-site/src/content/docs/guides/lodges-school-patrol.mdx": 12,
   "docs-site/src/content/docs/guides/passes-and-lessons.mdx": 1,
   "docs-site/src/content/docs/guides/runs-and-snow.mdx": 19,
   "docs-site/src/content/docs/guides/troubleshooting.mdx": 6,
-  "docs-site/src/content/docs/index.mdx": 2,
+  "docs-site/src/content/docs/index.mdx": 4,
   "docs-site/src/content/docs/quickstart.mdx": 3,
   "docs-site/src/content/docs/reference/attraction.mdx": 1,
-  "docs-site/src/content/docs/reference/buildings.mdx": 2,
+  "docs-site/src/content/docs/reference/buildings.mdx": 3,
   "docs-site/src/content/docs/reference/lifts.mdx": 4,
   "docs-site/src/content/docs/reference/settings.mdx": 6,
   "docs/DESIGN-SYSTEM.md": 0,
@@ -169,5 +169,5 @@
   "mod/SkiResortMod/EngineNotes/layoutReport.ts.md": 1,
   "mod/SkiResortMod/EngineNotes/parts.tsx.md": 0,
   "player-text": 1,
-  "release/DESCRIPTION.md": 12
+  "release/DESCRIPTION.md": 14
 }
