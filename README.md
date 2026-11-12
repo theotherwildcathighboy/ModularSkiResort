@@ -1,5 +1,7 @@
 # Modular Ski Resort — a Cities: Skylines II mod
 
+**[Get it on Paradox Mods](https://mods.paradoxplaza.com/mods/167215/Windows)** · [Trailer](https://youtu.be/NJvzaxwGfa4) · [Docs](https://theotherwildcathighboy.github.io/ModularSkiResort)
+
 Build a ski resort in CS2:
 
 - Draw fixed-grip and detachable chairlifts, gondolas and an aerial tram with one lift tool. The tool gives numbered
