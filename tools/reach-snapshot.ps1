@@ -24,8 +24,9 @@ $out = Join-Path $root 'docs\reach'
 $taskName = 'ModularSkiResort reach snapshot'
 
 if ($Register) {
-    $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
-        -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    # conhost --headless: no console window at all (-WindowStyle Hidden still flashes one for an Interactive task).
+    $action = New-ScheduledTaskAction -Execute 'conhost.exe' `
+        -Argument "--headless powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`""
     $trigger = New-ScheduledTaskTrigger -Daily -At $Time
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
