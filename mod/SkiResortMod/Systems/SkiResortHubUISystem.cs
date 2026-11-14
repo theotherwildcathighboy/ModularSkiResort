@@ -2647,6 +2647,22 @@ namespace SkiResortMod.Systems
                 LastTriggerText = $"focusLift {Ent(id)}: the low span {row.LowFrom}-{row.LowTo}";
                 return;
             }
+            // T169: a lone base and a lone top of one type are ONE hub row (SkiResortStatsSystem.MergeLoneStationPairs: entity = the base,
+            // top = the top), but two census rows: (base, Null) and (top, top). Fly to the pair: the line still to draw lies between them.
+            if (!found && top != Entity.Null && TryLonePairFocus(id, top, out float3 pairAt, out float pairRadius, out string pairWhat))
+            {
+                float pairWanted = math.max(pairRadius * Tuning.FocusZoomFactor, Tuning.FocusLiftMinZoomM);
+                if (!Fly(Entity.Null, pairAt, pairWanted, out float pairZoom, out string pairFailure))
+                {
+                    Mod.Log.Warn($"Hub [focus] lift stations {Ent(id)} / {Ent(top)} refused — {pairFailure} ({source})");
+                    LastTriggerText = $"focusLift {Ent(id)}: {pairFailure}";
+                    return;
+                }
+                Mod.Log.Info($"Hub [focus] lift stations (no line yet): {pairWhat} base {Ent(id)}, top {Ent(top)} → " +
+                             $"({pairAt.x:F0}, {pairAt.z:F0}) radius {pairRadius:F0} m zoom={pairZoom:F0} ({source})");
+                LastTriggerText = $"focusLift {Ent(id)}: the stations ({pairWhat})";
+                return;
+            }
             if (!found)
             {
                 Mod.Log.Info($"Hub [focus] lift refused — no lift row ({Ent(id)}, top {Ent(top)}) in the census (stale row?) " +
@@ -2678,6 +2694,34 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"Hub [focus] lift '{LiftName(id, top)}' (base {Ent(ToEntity(row.Base))}, top {Ent(ToEntity(row.Top))}, " +
                          $"{row.State}) → {where} zoom={zoom:F0} ({source})");
             LastTriggerText = $"focusLift {Ent(id)}: {where}";
+        }
+
+        /// <summary>T169: the focus of a hub row that pairs a lone base and a lone top (no line yet). The census holds them as (base, Null)
+        /// and (top, top). Both found: their midpoint, radius half their distance plus each row's radius. One found: that station.
+        /// <paramref name="what"/> = "both", "base only" or "top only" for the log. False when neither row exists (a stale row).</summary>
+        private bool TryLonePairFocus(Entity baseStation, Entity top, out float3 center, out float radius, out string what)
+        {
+            bool hasBase = m_Census.TryGetRow(baseStation, Entity.Null, out LiftCensus.Row b);
+            bool hasTop = m_Census.TryGetRow(top, top, out LiftCensus.Row t);
+            if (hasBase && hasTop)
+            {
+                center = (b.FocusCenter + t.FocusCenter) * 0.5f;
+                radius = math.distance(b.FocusCenter, t.FocusCenter) * 0.5f + math.max(b.FocusRadius, t.FocusRadius);
+                what = "both";
+                return true;
+            }
+            if (hasBase || hasTop)
+            {
+                LiftCensus.Row one = hasBase ? b : t;
+                center = one.FocusCenter;
+                radius = one.FocusRadius;
+                what = hasBase ? "base only" : "top only";
+                return true;
+            }
+            center = default;
+            radius = 0f;
+            what = null;
+            return false;
         }
 
         /// <summary>The shared camera move (Engine notes: Focus). follow != Null: the orbit camera follows it.

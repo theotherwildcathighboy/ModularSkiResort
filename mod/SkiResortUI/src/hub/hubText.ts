@@ -191,7 +191,7 @@ export const HUB_LOC = {
   noSchool: ["SkiResort.Hub.NO_SCHOOL", "No ski school"],
   schoolNoGreen: ["SkiResort.Hub.SCHOOL_NO_GREEN", "No green run"],
   /* a school that is built but adds 0 says why (hubRules.schoolState "off" / "waiting") */
-  schoolOff: ["SkiResort.Hub.SCHOOL_OFF", "Deactivated"],
+  schoolOff: ["SkiResort.Hub.SCHOOL_OFF", "School deactivated"],
   schoolWaiting: ["SkiResort.Hub.SCHOOL_WAITING", "No run open yet"],
   receiptOpenNone: ["SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –"],
   receiptEfficiency: ["SkiResort.Hub.RECEIPT[Efficiency]", "Efficiency"],
@@ -240,6 +240,18 @@ export const HUB_LOC = {
   // Snow is always two numbers: depth in cm and run coverage in %. "≈" marks an estimate. tools/test-hub-rules.js T18 guards it.
   mountainSnowDepth: ["SkiResort.Hub.MOUNTAIN[SnowDepth]", "Snow depth"],
   mountainSnowCover: ["SkiResort.Hub.MOUNTAIN[SnowCover]", "Run coverage"],
+  /* T177: the Mountain fold's fact sheet (hubRules.mountainFacts) */
+  mountainRuns: ["SkiResort.Hub.MOUNTAIN[Runs]", "Runs"],
+  mountainTipRuns: ["SkiResort.Hub.MOUNTAIN_TIP[Runs]", "Runs of the area, open or closed. The legend above counts them by rating."],
+  mountainLongest: ["SkiResort.Hub.MOUNTAIN[Longest]", "Longest run"],
+  mountainTipLongest: ["SkiResort.Hub.MOUNTAIN_TIP[Longest]", "Measured flat on the map, not along the slope."],
+  mountainLifts: ["SkiResort.Hub.MOUNTAIN[Lifts]", "Lifts"],
+  mountainTipLifts: ["SkiResort.Hub.MOUNTAIN_TIP[Lifts]", "Complete lifts, by type."],
+  mountainCapacity: ["SkiResort.Hub.MOUNTAIN[Capacity]", "Uphill capacity"],
+  mountainSnowmaking: ["SkiResort.Hub.MOUNTAIN[Snowmaking]", "Snowmaking"],
+  mountainTipSnowmaking: ["SkiResort.Hub.MOUNTAIN_TIP[Snowmaking]", "Share of the run area with snow guns on."],
+  mountainNight: ["SkiResort.Hub.MOUNTAIN[Night]", "Lit runs"],
+  mountainTipNight: ["SkiResort.Hub.MOUNTAIN_TIP[Night]", "Runs with floodlights on, open for night skiing."],
   mountainTipDepth: ["SkiResort.Hub.MOUNTAIN_TIP[Depth]", "Average snow depth on the runs."],
   mountainTipSnow: ["SkiResort.Hub.MOUNTAIN_TIP[Snow]", "Share of the run area with enough snow to ski."],
   unlinkedNote: ["SkiResort.Hub.UNLINKED_NOTE", "These runs and lifts belong to no ski area, so they score nothing and draw no guests."],
@@ -288,6 +300,8 @@ export const HUB_LOC = {
   runPropsLightsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_LIGHTS_TIP[CatTrack]", "Distance between floodlight masts on this cat track's edge. Lit tracks pay lighting upkeep in the snow season. Off: no lights and no lighting upkeep."],
   /* run types R3: the Groomed row (a re-emit, DECISIONS 577) and the paid-once note (RunRow.paidSteps) */
   runPropsGroomed: ["SkiResort.Hub.RUN_PROPS_GROOMED", "Groomed"],
+  runPropsReshape: ["SkiResort.Hub.RUN_PROPS_RESHAPE", "Reshape"],
+  runPropsReshapeTip: ["SkiResort.Hub.RUN_PROPS_RESHAPE_TIP", "Opens the Run tool. It moves the corners of any run on the map. Reshaping costs nothing more."],
   drawRunTitle: ["SkiResort.Hub.DRAW_RUN_TITLE", "New run"],
   runPropsOn: ["SkiResort.Hub.RUN_PROPS_ON", "On"],
   runPropsGroomedTip: ["SkiResort.Hub.RUN_PROPS_GROOMED_TIP", "A groomed run counts in full and can carry snow guns and lights. Off: no upkeep, nothing drawn on the ground, natural snow only."],
@@ -573,6 +587,7 @@ export const HUB_LOC = {
 
 /* Placeholder entries: only as <LocText entry={HUB_FMT.x} args={...} /> (gate R5, R13). */
 export const HUB_FMT = {
+  mountainCatTracks: ["SkiResort.Hub.MOUNTAIN_FMT[CatTracks]", "Cat tracks: {N}"],
   // folded per-lift band rows (hubRules.foldBandRows), the Lifts tile's power line, the list pager
   problemGroupLiftUnfinished: ["SkiResort.Hub.PROBLEM_GROUP[LiftUnfinished]", "Unfinished: {NAMES}"],
   problemGroupLiftNoPower: ["SkiResort.Hub.PROBLEM_GROUP[LiftNoPower]", "No power: {NAMES}"],

@@ -261,16 +261,17 @@ function PassRows({ l, month, samples, t }: { l: ResortLive | null; month: strin
   );
 }
 
-/** The lessons booked this month, drawn once a lesson was taken or while there is no ski school (0 + flag). */
+/** The lessons booked this month, drawn once a lesson was taken, or as a 0 with its cause: no ski school, no counted green run, the school
+ *  switched off (T186). No row while no run counts at all (summer): nothing to explain then. */
 function LessonRow({ l, city, school, samples, t }: {
   l: ResortLive | null; city: CityStats; school: SchoolState; samples: NumberSamples; t: Translate;
 }): JSX.Element | null {
-  // Lessons need an installed, switched-on school (no green run): "none" and "off" are the 0s with a cause.
-  if (!l || (!netRowShown("lessons", l, city) && school !== "none" && school !== "off")) return null;
+  // Lessons need an installed, switched-on school and a counted green run: "none", "noGreen" and "off" are the 0s with a cause.
+  if (!l || (!netRowShown("lessons", l, city) && school !== "none" && school !== "noGreen" && school !== "off")) return null;
   return (
     <InfoLine
       sub
-      flag={school === "none" ? t(HUB_LOC.noSchool) : school === "off" ? t(HUB_LOC.schoolOff) : undefined}
+      flag={school === "none" ? t(HUB_LOC.noSchool) : school === "noGreen" ? t(HUB_LOC.schoolNoGreen) : school === "off" ? t(HUB_LOC.schoolOff) : undefined}
       label={<LocText entry={HUB_FMT.moneyRowLessons} args={{ N: numArg(Math.max(0, l.lessonsThisMonth), Unit.Integer) }} />}
       value={<Cell samples={samples}>{incomeValue(l.lessonIncomeMonth)}</Cell>}
       tip={t(HUB_LOC.moneyTipLessons)}
