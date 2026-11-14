@@ -4,7 +4,9 @@
 // ground + E, Elevation = (E, E), E = TopM[member] - TopM[0]). It sets a straight Curve on each touched edge. Station stub, branch and
 // owned nodes are never touched.
 // Phase (Mod.cs): UpdateAt Modification1: every consumer of the Updated tag runs later in the frame, CleanUp wipes it at frame end.
-// Triggered by LiftCensusSystem.OnCensusBuilt after a quiet period. It is a fixed point, with a write guard. Tool lines (LiftToolLines) are
+// Triggered by LiftCensusSystem.OnCensusBuilt after a quiet period, one line per update (a load's lines never all fit in one frame). On
+// the load build a line that stands as a fit built it (Built) is kept as saved, not re-fitted (opt pass 2026-11-14 lifts-02 a + b). It is a
+// fixed point, with a write guard. Tool lines (LiftToolLines) are
 // fitted heights-only. A BUILT line is judged at its towers' feet (node y - E), never on the ground our own cut sank under them (FIX-LIST
 // 57: a reload wrote a tram tower 1.05 m lower). Logs: silence is impossible. An exception disables the system until the next load.
 // Engine notes: EngineNotes/LiftTowerFitSystem.md
@@ -45,7 +47,9 @@ namespace SkiResortMod.Systems
         private int m_Frame, m_LastQueueFrame;
         private readonly HashSet<uint> m_Seen = new HashSet<uint>();
         private readonly HashSet<EntityRef> m_StationNodes = new HashSet<EntityRef>();   // the last census build's station connection nodes
-        private readonly List<List<LiftCensus.Edge>> m_Pending = new List<List<LiftCensus.Edge>>();
+        // Queued lines, fitted one per update. Load = queued by the load (baseline) census build: a built line is kept as saved.
+        private readonly List<(List<LiftCensus.Edge> Comp, bool Load)> m_Pending = new List<(List<LiftCensus.Edge> Comp, bool Load)>();
+        private int m_LoadKept, m_LoadFitted;   // this load's baseline lines: kept as saved / fitted (one summary line when the last is done)
         private readonly Dictionary<Entity, int2> m_Writes = new Dictionary<Entity, int2>();   // first inner node -> (count, first frame)
         // Each line tower's train kind as last classified (breakover-holddown-plan-2026-11-03, phase B1: computed and logged only, no head
         // change): the hysteresis input (LiftAlignMath.KindHystDeg) and the "Towers [angles]" change detector. In session only. Never
@@ -75,6 +79,7 @@ namespace SkiResortMod.Systems
             m_Writes.Clear();
             m_Kinds.Clear();
             m_Fitted = m_Written = m_Short = 0;
+            m_LoadKept = m_LoadFitted = 0;
             LoadTwins();
             if (m_Armed)
                 Mod.Log.Info($"Towers [fit]: ARMED — fits new / changed lift lines {SettleFrames} quiet census updates after the edit " +
@@ -111,8 +116,8 @@ namespace SkiResortMod.Systems
         /// <summary>Called by LiftCensusSystem after each build with its line edges and nodes (main thread, no ECS read here). The key of a
         /// line is its edges and node positions plus which of its nodes are station connections (LiftCensus.Node.Station). A station
         /// attached line-first to a built line changes no edge or node, but changes the line's ends. So the line is re-fitted in session as
-        /// after a load (FIX-LIST 52).</summary>
-        internal void OnCensusBuilt(List<LiftCensus.Edge> edges, List<LiftCensus.Node> nodes)
+        /// after a load (FIX-LIST 52). <paramref name="baseline"/>: the load's census build (its built lines are kept as saved).</summary>
+        internal void OnCensusBuilt(List<LiftCensus.Edge> edges, List<LiftCensus.Node> nodes, bool baseline)
         {
             if (!m_Armed || m_Disabled)
                 return;
@@ -127,7 +132,7 @@ namespace SkiResortMod.Systems
                 {
                     if (m_Seen.Add(LiftTowerDiagSystem.Signature(comps[c]) ^ StationKey(comps[c])))
                     {
-                        m_Pending.Add(comps[c]);
+                        m_Pending.Add((comps[c], baseline));
                         m_LastQueueFrame = m_Frame;
                     }
                 }
@@ -173,9 +178,17 @@ namespace SkiResortMod.Systems
                 TerrainHeightData hd = m_TerrainSystem.GetHeightData();
                 if (!hd.isCreated)
                     return;   // keep the queue; the heightmap comes with the first frames of a load
-                for (int i = 0; i < m_Pending.Count; i++)
-                    FitLine(m_Pending[i], ref hd);
-                m_Pending.Clear();
+                // One line per update: same total work, no single long frame (a load queues every line at once). Each write tags only
+                // its own line, so the lines left in the queue stay valid (FitLine skips a stale one).
+                (List<LiftCensus.Edge> comp, bool load) = m_Pending[0];
+                m_Pending.RemoveAt(0);
+                FitLine(comp, load, ref hd);
+                if (load && !m_Pending.Exists(p => p.Load) && m_LoadKept + m_LoadFitted > 0)
+                {
+                    Mod.Log.Info($"Towers [fit]: load — {m_LoadKept} line(s) kept as saved (they stand as a fit built them), {m_LoadFitted} " +
+                                 "line(s) taken to the fit");
+                    m_LoadKept = m_LoadFitted = 0;
+                }
             }
             catch (Exception e)
             {
@@ -206,7 +219,7 @@ namespace SkiResortMod.Systems
             public bool Write;
         }
 
-        private void FitLine(List<LiftCensus.Edge> comp, ref TerrainHeightData hd)
+        private void FitLine(List<LiftCensus.Edge> comp, bool load, ref TerrainHeightData hd)
         {
             for (int i = 0; i < comp.Count; i++)
             {
@@ -301,6 +314,17 @@ namespace SkiResortMod.Systems
             // Never a worse plan over a built line (FIX-LIST 52): a line whose every inner node carries a fit's exact elevation is the line
             // as built (before = its own members and heads, read back by MemberOf). An unsound fit worse on any axis is not written.
             bool built = Built(path, c, oldMembers, oldHeads);
+            if (load)
+            {
+                // The load keeps a line that stands as a fit built it: no planner run, and a save made by an older planner keeps its
+                // towers (opt pass lifts-02 b). An edit of the line later queues it again (new signature) and fits it as usual.
+                if (built)
+                {
+                    m_LoadKept++;
+                    return;
+                }
+                m_LoadFitted++;
+            }
             // A built tower's ground is its foot (node y - E: the ground the fit stood it on, plus a tram tower's pedestal float), unless
             // the ground now under it is higher (FIX-LIST 57). The line's own cut sinks the ground under its towers after the fit that
             // placed them. So the load re-fit read the T60 of a tram 1.05 m lower than its build, judged its rope that much low and

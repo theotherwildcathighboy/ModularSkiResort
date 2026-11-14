@@ -1153,7 +1153,7 @@ namespace SkiResortMod.Systems
             // them after the census has been quiet. No ECS read here.
             m_TowerDiag?.OnCensusBuilt(m_Edges);
             // The same edges and nodes to LiftTowerFitSystem. It queues new signatures (station ends included) and fits them once quiet
-            m_TowerFit?.OnCensusBuilt(m_Edges, m_Nodes);
+            m_TowerFit?.OnCensusBuilt(m_Edges, m_Nodes, baseline);
             // The same edges to TowerNumberTileSystem. It renumbers and reconciles the tower number tiles once quiet
             m_TowerNumbers?.OnCensusBuilt(m_Edges);
             // The same edges to TrainPitchSystem. It pitches the rigged towers' trains to their rope lanes
