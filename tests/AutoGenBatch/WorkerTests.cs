@@ -6,6 +6,8 @@
 // - the snapshot contract: a published result does not change when a later job runs. A job from the cached plan gives the same result,
 // - a Kinds change realizes the cached plan again (the plan hash stays),
 // - empty planner inputs keep the golden hash. A blocked disc moves the plan and no run, lift or connector enters it,
+// - existing stations (post-release round 1, T171): the lot of a station from its stub tip, a row with no line still gives its
+//   stations, and no planned station lot overlaps the lot of a station the game already has,
 // - a dump (QuickRunsScanDump) read back plans and realizes to the same hashes (the rf-replay contract).
 // The planner object itself (two threads, cancel per pass, progress over the pass list) is RunsFirstPlannerTests.cs.
 
@@ -189,6 +191,85 @@ namespace AutoGenBatch
             Check(inside == 0, where, $"{inside} plan point(s) inside the blocked disc");
             Console.WriteLine($"REPORT worker job inputs: blocked disc {r} m, {b.Plan.BlockedCells} of {b.Plan.OpenCells} cells, " +
                 $"plan {b.Plan.Hash:x16} ({p.Runs.Count} runs, {p.Lifts.Count} lifts), 0 points inside: {inside == 0}");
+            WorkerStations(snap, ring, golden);
+        }
+
+        /// <summary>T171. The lot of an existing station from its stub tip (QuickRunsScanJob.StationSpot), and a plan made around the
+        /// stations of the golden plan's first lift as if the game had them already (placed, no line yet: a census row with no chord):
+        /// no planned station lot overlaps one of them, and no two planned lots overlap.</summary>
+        private static void WorkerStations(HeightSnapshot snap, float2[] ring, RunsFirstResult golden)
+        {
+            const string where = "worker job stations";
+            // the lot from the tips: a detachable (stub 16 m, lot half diagonal 17.9 m) climbing +z
+            var line = new PinnedLift { TypeIndex = 1, Bottom = new float3(100f, 0f, 200f), Top = new float3(100f, 0f, 700f) };
+            RunsFirstInputs.Station sb = QuickRunsScanJob.StationSpot(line, false, true), st = QuickRunsScanJob.StationSpot(line, true, true);
+            float stub = Math.Abs(SkiCatalog.StationOf(1, StationRole.Base).StubTipLocalZ), lot = PlanGeometry.StationHalfDiagonalOf(1);
+            Check(math.distance(sb.Xz, new float2(100f, 200f - stub)) < 0.01f && math.distance(st.Xz, new float2(100f, 700f + stub)) < 0.01f, where,
+                $"lot centers ({sb.Xz.x:F1}, {sb.Xz.y:F1}) / ({st.Xz.x:F1}, {st.Xz.y:F1}): want the tips moved {stub:F0} m back out along the line");
+            Check(Math.Abs(sb.RadiusM - lot) < 0.01f && Math.Abs(st.RadiusM - lot) < 0.01f, where, $"lot radius {sb.RadiusM:F1} / {st.RadiusM:F1}, want {lot:F1}");
+            RunsFirstInputs.Station lone = QuickRunsScanJob.StationSpot(line, false, false);
+            Check(math.distance(lone.Xz, line.Bottom.xz) < 0.01f && Math.Abs(lone.RadiusM - (lot + stub)) < 0.01f, where,
+                $"a station with no line: center ({lone.Xz.x:F1}, {lone.Xz.y:F1}) radius {lone.RadiusM:F1}, want the tip and {lot + stub:F1} m");
+
+            // the golden plan's first lift as two placed stations with no line (no chord): the planner wants that line again
+            RunsFirstResult.Lift g0 = golden.Lifts[0];
+            byte type = RunsFirstRealizer.TypeIndexOf(g0.Type);
+            AutoPlanInput input = JobInput(snap, ring);
+            input.Pinned = new List<PinnedLift> { new PinnedLift { Key = 1u, TypeIndex = type, Bottom = g0.Bottom, Top = g0.Top } };
+            RunsFirstInputs inp = QuickRunsScanJob.InputsFrom(input, false);
+            Check(inp != null && inp.Stations.Count == 2 && inp.Blocked.Count == 2, where,
+                $"a row with no chord gave {inp?.Stations.Count} station(s) and {inp?.Blocked.Count} blocked shape(s), want 2 and 2");
+            var job = new QuickRunsScanJob(input, null, inp, null, "w-stations");
+            job.Run();
+            Check(job.Plan != null && job.Plan.Plan.Lifts.Count > 0, where, "no plan around the existing stations");
+            if (job.Plan == null || inp == null)
+                return;
+            RunsFirstResult p = job.Plan.Plan;
+            int OnExisting(RunsFirstResult plan, out float nearest)
+            {
+                int n = 0;
+                nearest = float.PositiveInfinity;
+                foreach (RunsFirstResult.Lift l in plan.Lifts)
+                    foreach (float2 q in new[] { l.Bottom.xz, l.Top.xz })
+                        foreach (RunsFirstInputs.Station s in inp.Stations)
+                        {
+                            float gap = math.distance(q, s.Xz) - s.RadiusM - PlanGeometry.StationHalfDiagonalOf(RunsFirstRealizer.TypeIndexOf(l.Type));
+                            nearest = Math.Min(nearest, gap);
+                            if (gap < 0f)
+                                n++;
+                        }
+                return n;
+            }
+            int onExisting = OnExisting(p, out float nearestGap);
+            Check(onExisting == 0, where, $"{onExisting} planned station lot(s) overlap an existing station's lot (nearest gap {nearestGap:F1} m)");
+            Check(LotOverlaps(p) == 0, where, $"{LotOverlaps(p)} pair(s) of planned station lots overlap");
+            // The same stations the way the tool passed them before this round (a report, no check): a blocked disc of the lot's size
+            // around each stub tip, and no station list
+            var old = new RunsFirstInputs();
+            foreach (float3 tip in new[] { g0.Bottom, g0.Top })
+                old.Blocked.Add(new RunsFirstInputs.Shape { Pts = new[] { tip.xz }, ClearM = PlanGeometry.StationHalfDiagonalOf(type) });
+            var before = new QuickRunsScanJob(JobInput(snap, ring), null, old, null, "w-stations-old");
+            before.Run();
+            int oldOn = before.Plan != null ? OnExisting(before.Plan.Plan, out float oldGap) : -1;
+            Console.WriteLine($"REPORT worker job stations: {p.Lifts.Count} lifts around 2 existing stations, nearest lot gap {nearestGap:F0} m, plan {job.Plan.Hash:x16}; " +
+                $"the inputs of before T171 (a disc at each stub tip): {oldOn} planned lot(s) on an existing lot");
+        }
+
+        /// <summary>T171: the pairs of stations of two planned lifts (any ends) whose lot discs overlap.</summary>
+        internal static int LotOverlaps(RunsFirstResult p)
+        {
+            int n = 0;
+            for (int a = 0; a < p.Lifts.Count; a++)
+                for (int b = 0; b < a; b++)
+                {
+                    float need = PlanGeometry.StationHalfDiagonalOf(RunsFirstRealizer.TypeIndexOf(p.Lifts[a].Type)) +
+                        PlanGeometry.StationHalfDiagonalOf(RunsFirstRealizer.TypeIndexOf(p.Lifts[b].Type));
+                    foreach (float2 x in new[] { p.Lifts[a].Bottom.xz, p.Lifts[a].Top.xz })
+                        foreach (float2 y in new[] { p.Lifts[b].Bottom.xz, p.Lifts[b].Top.xz })
+                            if (math.distance(x, y) < need)
+                                n++;
+                }
+            return n;
         }
 
         /// <summary>The dump of a published scan, read back and run again, gives the same plan and result (rf-replay).</summary>

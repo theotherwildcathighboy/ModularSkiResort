@@ -17,7 +17,78 @@ namespace SkiResortMod.Systems
         private const float LaySameSpotM = 40f, LayHubM = 300f, LayParallelDeg = 20f, LayParallelM = 250f, LayParallelShare = 0.4f;
         // a station that shares its spot moves to a pad of its own this far away, the nearest first
         private const float SpreadMinM = 46f, SpreadMaxM = 130f;
+        private const float LotMoveMinM = 18f;   // a station that only leaves another lot starts looking this near (T171)
         private readonly List<string> EarlyLog = new List<string>();   // what the lift placement did, for the plan's log
+
+        // Station lots (post-release round 1, T171). A station is a building on a lot (16 x 24 to 48 x 24 m by lift type). The layout
+        // rules above read stations as points: two bottoms (or two tops) keep SpreadMinM, but a top beside another lift's bottom (a
+        // transfer) had no distance at all, and a station the game already has was only a blocked disc of its own size around its
+        // stub tip. So a planned top could sit on a bottom station. The rule: the discs that hold two lots (PlanGeometry.
+        // StationHalfDiagonalOf) do not overlap, whatever the ends, and a station that moves or is placed keeps LotGapM more.
+        private const float LotGapM = 4f;
+        private const float LotMaxR = 26.8f;   // the largest lot's half diagonal (the tram's): a station spot picked before its lift has a type
+
+        /// <summary>The half diagonal of a lift type's station lot.</summary>
+        private static float LotR(string type) => PlanGeometry.StationHalfDiagonalOf(TowerTypeOf(type));
+
+        /// <summary>A station lot of half diagonal r at p keeps LotGapM from every station the game already has.</summary>
+        private static bool PadFree(Grid g, float2 p, float r)
+        {
+            if (g.Stations != null)
+                foreach (RunsFirstInputs.Station s in g.Stations)
+                    if (math.distance(s.Xz, p) < s.RadiusM + r + LotGapM)
+                        return false;
+            return true;
+        }
+
+        /// <summary>A station lot of half diagonal r at p is closer than LotGapM to the lot of one of these lifts' stations (either end),
+        /// or to a station the game already has.</summary>
+        private static bool LotBlocked(Grid g, List<Lift> others, float2 p, float r)
+        {
+            foreach (Lift o in others)
+            {
+                float need = LotR(o.Type) + r + LotGapM;
+                if (math.distance(o.Bottom.xz, p) < need || math.distance(o.Top.xz, p) < need)
+                    return true;
+            }
+            return !PadFree(g, p, r);
+        }
+
+        /// <summary>The station lots that overlap: each pair of stations of two lifts (any ends), and each planned station on a station
+        /// the game already has.</summary>
+        private static int LotClashes(Grid g, List<Lift> lifts)
+        {
+            int n = 0;
+            for (int a = 0; a < lifts.Count; a++)
+            {
+                float ra = LotR(lifts[a].Type);
+                float2 ab = lifts[a].Bottom.xz, at = lifts[a].Top.xz;
+                for (int b = 0; b < a; b++)
+                {
+                    float need = ra + LotR(lifts[b].Type), need2 = need * need;
+                    float2 bb = lifts[b].Bottom.xz, bt = lifts[b].Top.xz;
+                    n += (math.distancesq(ab, bb) < need2 ? 1 : 0) + (math.distancesq(ab, bt) < need2 ? 1 : 0)
+                        + (math.distancesq(at, bb) < need2 ? 1 : 0) + (math.distancesq(at, bt) < need2 ? 1 : 0);
+                }
+                if (g.Stations != null)
+                    foreach (RunsFirstInputs.Station s in g.Stations)
+                        n += (math.distance(s.Xz, ab) < s.RadiusM + ra ? 1 : 0) + (math.distance(s.Xz, at) < s.RadiusM + ra ? 1 : 0);
+            }
+            return n;
+        }
+
+        /// <summary>The last word on station lots, after the passes that add, retype and shift lifts (T171): a station whose lot still
+        /// overlaps another lot moves to a pad of its own (SpreadTerminals, lots only: its tower plan gets no worse). What cannot move
+        /// stays and is named in the log.</summary>
+        private void ClearLots(Grid g, PlanDraft plan, List<Lift> lifts)
+        {
+            int before = LotClashes(g, lifts);
+            if (before == 0)
+                return;
+            int moved = O.Spread ? SpreadTerminals(g, lifts, plan, null, false, true) : 0;
+            int after = LotClashes(g, lifts);
+            plan.Log.Add($"station lots: {before} overlap(s), {moved} station(s) moved, {after} left" + (after > 0 ? " (place those stations by hand)" : ""));
+        }
 
         /// <summary>Scorecard v4's parallel test: the two lines climb the same way within 20 degrees, overlap 40 % of the longer one
         /// along it, and lie under 250 m apart at the overlap's middle.</summary>
@@ -187,18 +258,20 @@ namespace SkiResortMod.Systems
         /// - the layout gets no worse (crowded terminals, parallel lines)
         /// - once there is a plan, the ski graph loses nothing.
         /// Before the plan (plan null) the code holds the line off the picked lines instead. Returns the stations moved.</summary>
-        private int SpreadTerminals(Grid g, List<Lift> lifts, PlanDraft plan, PointHash runs, bool bottomsOnly = false)
+        private int SpreadTerminals(Grid g, List<Lift> lifts, PlanDraft plan, PointHash runs, bool bottomsOnly = false, bool lotsOnly = false)
         {
             int moved = 0;
             SkiRead before = null;
             var els = plan != null ? ChordEls(g, plan) : null;
-            bool TryMove(Lift lf, int end)
+            // lot: the station moves off another lot (T171). A short move is enough, so the spots start nearer
+            bool TryMove(Lift lf, int end, bool lot)
             {
                 float2 at = end == 0 ? lf.Bottom.xz : lf.Top.xz;
                 float hAt = RawH(g, at);
                 var moves = new List<(float Cost, int C)>();
                 var seen = new HashSet<int>();
-                for (float r = SpreadMinM; r <= SpreadMaxM; r += 7f)
+                float rMin = lot ? LotMoveMinM : SpreadMinM;
+                for (float r = rMin; r <= SpreadMaxM; r += 7f)
                     for (int k = 0; k < 24; k++)
                     {
                         float a = k * (float)Math.PI / 12f;
@@ -216,7 +289,7 @@ namespace SkiResortMod.Systems
                 if (SpreadAxis)
                 {
                     float2 to = end == 0 ? lf.Top.xz : lf.Bottom.xz, u = math.normalize(to - at);
-                    for (float r = SpreadMinM; r <= SpreadMaxM; r += 7f)
+                    for (float r = rMin; r <= SpreadMaxM; r += 7f)
                     {
                         int c = CellOf(g, at + r * u);
                         if (c < 0 || !g.In[c] || !seen.Add(c))
@@ -229,7 +302,11 @@ namespace SkiResortMod.Systems
                 }
                 SortStable(moves, (x, y) => x.Cost.CompareTo(y.Cost));
                 var others = lifts.Where(o => o != lf).ToList();
-                int parBefore = ParallelsOf(lifts, lf, lf.Bottom.xz, lf.Top.xz), hubBefore = HubExcess(g, lifts);
+                int parBefore = ParallelsOf(lifts, lf, lf.Bottom.xz, lf.Top.xz), hubBefore = HubExcess(g, lifts), lotBefore = LotClashes(g, lifts);
+                float lotR = LotR(lf.Type);
+                // lots only (after the tower pass): the move may not cost the lift its tower plan
+                bool towers = lotsOnly && O.Towers;
+                TowerFit fitBefore = towers ? FitOf(g, lf.Type, lf.Bottom, lf.Top, out _) : TowerFit.HandFit;
                 float shareBefore = els != null ? ChordShareV3(lf, els, out _) : 0f;
                 var (ob, ot, obc, otc, oRise, oLen) = (lf.Bottom, lf.Top, lf.BottomCell, lf.TopCell, lf.Rise, lf.Length);
                 void Restore() => (lf.Bottom, lf.Top, lf.BottomCell, lf.TopCell, lf.Rise, lf.Length) = (ob, ot, obc, otc, oRise, oLen);
@@ -238,7 +315,7 @@ namespace SkiResortMod.Systems
                 foreach (var (cost, c) in moves)
                 {
                     float2 p = g.World(c);
-                    if (others.Exists(o => math.distance(end == 0 ? o.Bottom.xz : o.Top.xz, p) < SpreadMinM))
+                    if (others.Exists(o => math.distance(end == 0 ? o.Bottom.xz : o.Top.xz, p) < SpreadMinM) || LotBlocked(g, others, p, lotR))
                     {
                         why[0]++;
                         continue;
@@ -286,9 +363,18 @@ namespace SkiResortMod.Systems
                     }
                     lf.Rise = lf.Top.y - lf.Bottom.y;
                     lf.Length = math.distance(lf.Top, lf.Bottom);
-                    if (HubExcess(g, lifts) >= hubBefore || (els != null && ChordShareV3(lf, els, out _) > Math.Max(ChordShareMax, shareBefore)))
+                    // the move must pay: fewer crowded terminals (and no new lot overlap), or fewer lot overlaps (and no more crowding)
+                    int hubNow = HubExcess(g, lifts), lotNow = LotClashes(g, lifts);
+                    bool pays = (!lot && hubNow < hubBefore && lotNow <= lotBefore) || (lotNow < lotBefore && hubNow <= hubBefore);
+                    if (!pays || (els != null && ChordShareV3(lf, els, out _) > Math.Max(ChordShareMax, shareBefore)))
                     {
                         why[6]++;
+                        Restore();
+                        continue;
+                    }
+                    if (towers && FitOf(g, lf.Type, lf.Bottom, lf.Top, out _) > fitBefore)
+                    {
+                        why[2]++;
                         Restore();
                         continue;
                     }
@@ -304,7 +390,7 @@ namespace SkiResortMod.Systems
                         before = after;
                     }
                     moved++;
-                    (plan?.Log ?? EarlyLog).Add($"L{lf.Id}'s {(end == 0 ? "bottom" : "top")} station moved {math.distance(p, at):F0} m to a terminal of its own " +
+                    (plan?.Log ?? EarlyLog).Add($"L{lf.Id}'s {(end == 0 ? "bottom" : "top")} station moved {math.distance(p, at):F0} m to {(lot ? "a lot" : "a terminal")} of its own " +
                         $"({RawH(g, p) - hAt:+0;-0} m)");
                     return true;
                 }
@@ -317,9 +403,25 @@ namespace SkiResortMod.Systems
                 for (int end = 0; end < (bottomsOnly ? 1 : 2); end++)
                 {
                     float2 at = end == 0 ? lifts[L].Bottom.xz : lifts[L].Top.xz;
-                    int o = FirstOr(Enumerable.Range(0, L), M => math.distance(end == 0 ? lifts[M].Bottom.xz : lifts[M].Top.xz, at) < LaySameSpotM + 2f, -1);
-                    if (o >= 0 && !TryMove(lifts[L], end))
-                        TryMove(lifts[o], end);
+                    int o = lotsOnly ? -1 : FirstOr(Enumerable.Range(0, L), M => math.distance(end == 0 ? lifts[M].Bottom.xz : lifts[M].Top.xz, at) < LaySameSpotM + 2f, -1);
+                    if (o >= 0)
+                    {
+                        if (!TryMove(lifts[L], end, false))
+                            TryMove(lifts[o], end, false);
+                        continue;
+                    }
+                    // T171: the lot on the lot of an earlier lift's station (either end), or on a station the game already has
+                    int oEnd = -1;
+                    float r = LotR(lifts[L].Type);
+                    for (int M = 0; M < L && o < 0; M++)
+                        for (int e2 = 0; e2 < 2 && o < 0; e2++)
+                            if (math.distance(e2 == 0 ? lifts[M].Bottom.xz : lifts[M].Top.xz, at) < r + LotR(lifts[M].Type))
+                            {
+                                o = M;
+                                oEnd = e2;
+                            }
+                    if ((o >= 0 || !PadFree(g, at, r)) && !TryMove(lifts[L], end, true) && o >= 0)
+                        TryMove(lifts[o], oEnd, true);
                 }
             return moved;
         }

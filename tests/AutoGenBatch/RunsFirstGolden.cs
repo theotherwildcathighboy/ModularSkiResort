@@ -42,6 +42,7 @@ namespace AutoGenBatch
                 Check(a == b, where, $"second run {b:x16} != first {a:x16}");
                 Check(a == s, where, $"1 thread {s:x16} != 4 threads {a:x16}");
                 Check(a == want, where, $"hash {a:x16} != recorded {want:x16}");
+                Check(LotOverlaps(first) == 0, where, $"{LotOverlaps(first)} pair(s) of station lots overlap (T171)");
                 // port step R2-p1: a plain run's band in the plan is the band scorecard v7 gives it (the rater on its ribbon)
                 int differ = RunsFirst.BandDiffers(snap, first, out int plain, out double dkm);
                 Check(differ == 0, where, $"the plan's band differs from the scorecard's on {differ} of {plain} plain run(s) ({dkm:F2} km)");

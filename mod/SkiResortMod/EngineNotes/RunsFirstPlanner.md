@@ -156,8 +156,32 @@ It has a list of blocked shapes, a water flag and the access points.
 - The open area of the region does not include the blocked cells. The density caps use the open area.
 - The way to the bottom reads the access points (landing class 2). No other pass reads them.
 - The planner has no fixed lift. The tool blocks the stations and the line of each existing lift.
+- `Stations` holds the lot of each existing station: its center and the radius of the disc that holds the lot. See "Station lots".
 
 Null inputs or empty inputs change nothing. Access points alone can change only the landing of the way to the bottom. The golden hashes stay the same (`tests/AutoGenBatch/WorkerTests.cs` checks it).
+
+## Station lots
+
+A station is a building on a lot. The lots are 16 x 24 m to 48 x 24 m (`PlanGeometry.StationHalfDiagonalOf`). The layout rules read
+a station as a point. Two bottoms (or two tops) keep 46 m. A top beside the bottom of another lift is a transfer, and it had no
+minimum distance. A station that the game already has was a blocked disc around its stub tip. The stub tip is 12 or 16 m from the
+center of the lot. The disc was as large as that lot only, so the lot of a planned station could lie over it. A station with no
+line was not an input at all. So a new scan could put a top station on a bottom station (post-release round 1, T171).
+
+The rule (`RunsFirstPlanner.Layout.cs`): the discs of two lots do not overlap, for all ends. A station that the planner places or
+moves keeps 4 m more (`LotGapM`).
+
+- `QuickRunsScanJob.StationSpot` gives the lot of an existing station from its stub tip. With both tips of a lift, the center is
+  the tip moved back out along the line. With one tip, the direction is unknown, and the disc around the tip is larger by the stub.
+- `FlatCell` gives no station spot on an existing lot. `LineFits` refuses a line with a station on one.
+- `SpreadTerminals` also moves a station whose lot is on the lot of an earlier lift (either end) or on an existing lot. A move must
+  not make a new overlap.
+- `FitTowers` keeps a station shift only when it makes no new overlap.
+- `ClearLots` is the last step. It moves the stations that still overlap after the lifts were added, retyped and shifted. The
+  tower plan of the lift must not get worse. The log names what is left.
+
+With no existing station, the plans of the golden regions and of the real sets are the same as before: none of them had two lots
+that overlap.
 
 ## The golden
 

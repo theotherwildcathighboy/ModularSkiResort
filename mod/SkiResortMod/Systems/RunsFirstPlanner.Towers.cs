@@ -220,7 +220,7 @@ namespace SkiResortMod.Systems
                         home.Add(i);
                 }
                 float share0 = ChordShareV3(lf, els, out _);
-                int hub0 = HubExcess(g, lifts), rope0 = RopeFaults(lifts);
+                int hub0 = HubExcess(g, lifts), rope0 = RopeFaults(lifts), lot0 = LotClashes(g, lifts);
                 var (stack0, par0) = PairFaults(lifts);
                 var (ob, ot, obc, otc, oRise, oLen, oType) = (lf.Bottom, lf.Top, lf.BottomCell, lf.TopCell, lf.Rise, lf.Length, lf.Type);
                 void Restore()
@@ -241,7 +241,7 @@ namespace SkiResortMod.Systems
                 {
                     if (ChordShareV3(lf, els, out _) > math.max(ChordShareMax, share0) + 1e-4f)
                         return null;
-                    if (HubExcess(g, lifts) > hub0 || RopeFaults(lifts) > rope0)
+                    if (HubExcess(g, lifts) > hub0 || RopeFaults(lifts) > rope0 || LotClashes(g, lifts) > lot0)
                         return null;
                     var (stack, par) = PairFaults(lifts);
                     if (stack > stack0 || par > par0)
