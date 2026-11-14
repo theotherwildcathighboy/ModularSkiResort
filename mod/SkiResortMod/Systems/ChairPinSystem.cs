@@ -43,9 +43,30 @@ namespace SkiResortMod.Systems
         internal static bool MovingChairsOn => MovingChairs;
         /// <summary>Chair speed along the loop, meters per second of the render clock.</summary>
         internal const float ChairSpeedMps = ChairSpeedMetersPerSecond;
-        /// <summary>The system increments this on EVERY BuildLoopCache. It is not tied to the count signature, which contains no station
-        /// identities.</summary>
+        /// <summary>Moves when a rebuild changed what TryGetLoop answers (a loop's station pair, chair count or length), and at every load.
+        /// An identity rebuild (watchdog self-heal, reconnect no-op) leaves it alone (opt pass movers-18: it used to move on every rebuild,
+        /// and every move cost the hub a stats rebuild).</summary>
         internal int LoopGeneration { get; private set; }
+
+        // The loop fingerprint of the last rebuild (LoopFingerprint); 0 after a load, so the first rebuild always moves the generation.
+        private ulong m_LoopFingerprint;
+
+        /// <summary>FNV-1a over every loop's station pair, chair count and length (cm). What TryGetLoop answers, nothing else.</summary>
+        private ulong LoopFingerprint()
+        {
+            ulong h = 14695981039346656037UL;
+            void Mix(long v) { h = (h ^ (ulong)v) * 1099511628211UL; }
+            Mix(m_LoopCache.m_Loops.Count);
+            for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
+            {
+                LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
+                Mix(loop.m_BaseStation.Index); Mix(loop.m_BaseStation.Version);
+                Mix(loop.m_TopStation.Index); Mix(loop.m_TopStation.Version);
+                Mix(loop.m_Chairs.Count);
+                Mix((long)System.Math.Round(loop.m_Length * 100.0));
+            }
+            return h == 0 ? 1 : h;
+        }
 
         /// <summary>ADDITIVE: the fixed-grip line (SkiChairliftHV) prefab entity. It is Entity.Null when MISSING or before the first game /
         /// editor load.</summary>
@@ -372,6 +393,7 @@ namespace SkiResortMod.Systems
             MoverReset();      // the last job completed, flat arrays dirty, cost window and harvest watchdog re-armed
             m_LoopCache.Clear();
             LoopGeneration++;
+            m_LoopFingerprint = 0;
             CableLanePrefabs.Clear();
             m_LoopCacheDirty = true;
             m_RebuildCooldown = 0;
@@ -934,6 +956,12 @@ namespace SkiResortMod.Systems
                 m_ImmediateRebuild = false;
                 m_RebuildCooldown = RebuildCooldownFrames;
                 BuildLoopCache();
+                ulong fingerprint = LoopFingerprint();
+                if (fingerprint != m_LoopFingerprint)
+                {
+                    m_LoopFingerprint = fingerprint;
+                    LoopGeneration++;
+                }
                 rebuilt = true;
             }
 
@@ -1080,7 +1108,6 @@ namespace SkiResortMod.Systems
         private void BuildLoopCache()
         {
             m_LoopCacheDirty = false;
-            LoopGeneration++;   // every rebuild, whatever it finds
 
             // Carry-forward snapshot: identity rebuilds (watchdog self-heal, reconnect no-ops) keep every surviving chair's offset when its
             // loop length is unchanged. Zero jump by construction. Keyed by entity.
