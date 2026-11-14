@@ -9,7 +9,11 @@
 // MountainJobsRules.CarrierTarget). An off-road lodge on a cat track chain hands its own jobs to the carrier. Its target goes to 0, and the
 // game's tick lays the staff off. Once no staff is listed, its WorkProvider and FreeWorkplaces are removed (the shape the utility-switch
 // prototype measured: no worker icons, no staffing factor). Back at a road, or off the chain, the WorkProvider returns.
-// Logs: "created", ARMED once per load, one "OffSeason [area]" per transition, one "OffSeason [staff]" per write, "!!!" once on a throw.
+// Closing (setting SkiResortSettings.OffSeasonCloseLodges): when an area turns off-season, its seasonal buildings get vanilla's Inactive option
+// through the info panel's own policy event, marked as the mod's (OffSeasonRules.CloseMarker). In season, or with the setting off, the
+// marked ones are activated again. The player's own choices are never touched (OffSeasonRules.CloseActionOf).
+// Logs: "created", ARMED once per load, one "OffSeason [area]" per transition, one "OffSeason [staff]" per write, one "OffSeason [close]"
+// per closing or opening, "!!!" once on a throw.
 // Engine notes: EngineNotes/OffSeasonStaffSystem.md
 
 using System;
@@ -23,6 +27,7 @@ using Game.Buildings;
 using Game.Common;
 using Game.Companies;
 using Game.Notifications;
+using Game.Policies;
 using Game.Prefabs;
 using Game.Simulation;
 using Game.Tools;
@@ -42,8 +47,13 @@ namespace SkiResortMod.Systems
         private EntityQuery m_EfficiencyParamQuery;
         private EntityQuery m_WorkProviderParamQuery;
 
-        private bool m_Armed, m_Disabled, m_ErrorLogged, m_LastEnabled;
-        private int m_Frame, m_Writes, m_Polls;
+        private EntityQuery m_PolicyQuery;              // building policies (PoliciesUISystem's m_BuildingPoliciesQuery, options half)
+        private EntityArchetype m_PolicyEventArchetype; // Event + Modify, as PoliciesUISystem.OnCreate builds it
+
+        private bool m_Armed, m_Disabled, m_ErrorLogged, m_LastEnabled, m_LastCloseEnabled, m_PolicyLogged;
+        private int m_Frame, m_Writes, m_Polls, m_Closes, m_Opens;
+        private Entity m_InactivePolicy;
+        private readonly HashSet<Entity> m_CloseDue = new HashSet<Entity>();   // areas whose off-season edge this poll closes
 
         private readonly Dictionary<Entity, OffSeasonState> m_Areas = new Dictionary<Entity, OffSeasonState>();
         private readonly List<Entity> m_Buildings = new List<Entity>(16);
@@ -54,6 +64,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>The setting, read live (on when settings are not loaded).</summary>
         internal static bool EnabledSetting => Mod.Settings?.OffSeasonHalfStaff ?? OffSeasonRules.DefaultEnabled;
+
+        /// <summary>The closing setting, read live (on when settings are not loaded).</summary>
+        internal static bool CloseSetting => Mod.Settings?.OffSeasonCloseLodges ?? OffSeasonRules.DefaultCloseLodges;
 
         /// <summary>True while <paramref name="sign"/>'s area is off-season and the setting is on (MountainJobsSystem halves the
         /// hut's and the summit lodge's sign jobs then). False for Entity.Null, an unknown area, or before the first poll.</summary>
@@ -92,7 +105,9 @@ namespace SkiResortMod.Systems
                 All = new[] { ComponentType.ReadOnly<WorkProviderParameterData>() },
                 Options = EntityQueryOptions.IncludeSystems,
             });
-            Mod.Log.Info($"{nameof(OffSeasonStaffSystem)} created (lodges and the ski school at half staff off-season)");
+            m_PolicyQuery = GetEntityQuery(ComponentType.ReadOnly<PolicyData>(), ComponentType.ReadOnly<BuildingOptionData>());
+            m_PolicyEventArchetype = EntityManager.CreateArchetype(ComponentType.ReadWrite<Game.Common.Event>(), ComponentType.ReadWrite<Modify>());
+            Mod.Log.Info($"{nameof(OffSeasonStaffSystem)} created (lodges and the ski school at half staff off-season, closed off-season)");
         }
 
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
@@ -100,16 +115,22 @@ namespace SkiResortMod.Systems
             base.OnGameLoadingComplete(purpose, mode);
             m_Armed = mode == GameMode.Game;
             m_Disabled = m_ErrorLogged = false;
-            m_Frame = m_Writes = m_Polls = 0;
+            m_Frame = m_Writes = m_Polls = m_Closes = m_Opens = 0;
             m_Areas.Clear();
+            m_CloseDue.Clear();
+            m_InactivePolicy = Entity.Null;
+            m_PolicyLogged = false;
             m_LastEnabled = EnabledSetting;
+            m_LastCloseEnabled = CloseSetting;
             if (m_Armed)
                 Mod.Log.Info($"OffSeason: ARMED — setting {(m_LastEnabled ? "on" : "off")}; an area is off-season after " +
                              $"{OffSeasonRules.HoldToOffFrames} sim frames (12 game hours) with no open run, in season after " +
                              $"{OffSeasonRules.HoldToOnFrames} (one game hour) with one; off-season the A-frame, chalet, grand lodge and " +
                              "school keep half their workplaces (rounded up) and the hut / summit jobs on the sign halve; patrol stays full; " +
                              "upkeep is not halved (vanilla's budget formula has no honest half for it; Inactive = upkeep x0.1, no wages); " +
-                             "a carrier lodge's workplaces = its own plus what it carries; an off-road lodge on a cat track chain hands its own on");
+                             "a carrier lodge's workplaces = its own plus what it carries; an off-road lodge on a cat track chain hands its own on; " +
+                             $"closing {(m_LastCloseEnabled ? "on" : "off")}: lodges and school deactivated when the area turns off-season, " +
+                             "the ones the mod deactivated activated in season, the player's own choices left alone");
         }
 
         protected override void OnUpdate()
@@ -166,6 +187,23 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < m_GoneSigns.Count; i++)
                 m_Areas.Remove(m_GoneSigns[i]);
 
+            bool closeEnabled = CloseSetting;
+            if (closeEnabled != m_LastCloseEnabled)
+            {
+                m_LastCloseEnabled = closeEnabled;
+                Mod.Log.Info($"OffSeason: closing turned {(closeEnabled ? "on — off-season areas close now" : "off — the lodges it closed open now")}");
+                if (closeEnabled)
+                {
+                    foreach (KeyValuePair<Entity, OffSeasonState> kv in m_Areas)
+                    {
+                        if (kv.Value.Known && kv.Value.Off)
+                            m_CloseDue.Add(kv.Key);
+                    }
+                }
+            }
+            SyncClosing(closeEnabled);
+            m_CloseDue.Clear();
+
             if (!m_MountainJobs.TargetsReady)
                 return;   // a carrier's sum is not known yet this load: writing its own target alone would lay the carried staff off
             for (int i = 0; i < m_Buildings.Count; i++)
@@ -211,6 +249,95 @@ namespace SkiResortMod.Systems
                 if (MountainJobsRules.CanDropProvider(moved, wp.m_MaxWorkers, staff))
                     DropProvider(b, name);
             }
+        }
+
+        /// <summary>Closes and opens the seasonal buildings by OffSeasonRules.CloseActionOf. The lever is the info panel's own event
+        /// (PoliciesUISystem.ModifyPolicy: an Event + Modify entity). ModifiedSystem (Modification4) writes the Policy buffer and
+        /// Building.m_OptionMask on the next frame, BuildingPoliciesSystem the turned-off icon, and the cleanup destroys the event.</summary>
+        private void SyncClosing(bool enabled)
+        {
+            if (!ResolveInactivePolicy())
+                return;
+            for (int i = 0; i < m_Buildings.Count; i++)
+            {
+                Entity b = m_Buildings[i];
+                if (!EntityManager.Exists(b) || EntityManager.HasComponent<Deleted>(b) || EntityManager.HasComponent<Temp>(b) ||
+                    EntityManager.HasComponent<Destroyed>(b))
+                    continue;
+                if (!EntityManager.TryGetComponent(b, out PrefabRef pr) || !IsSeasonal(pr.m_Prefab, out string name))
+                    continue;
+                Entity sign = m_Signs[i];
+                bool linked = sign != Entity.Null;
+                if (linked && AwaitsFirstObservation(sign))
+                    continue;   // its area's state after this load is not known yet: keep what the save holds
+                bool known = linked && m_Areas.TryGetValue(sign, out OffSeasonState st) && st.Known;
+                bool off = known && m_Areas[sign].Off;
+                bool inactive = EntityManager.TryGetComponent(b, out Building building) && BuildingUtils.CheckOption(building, BuildingOption.Inactive);
+                bool ours = ClosedByResort(b);
+                OffSeasonRules.CloseAction action = OffSeasonRules.CloseActionOf(enabled, linked, known, off, linked && m_CloseDue.Contains(sign),
+                    inactive, ours);
+                if (action == OffSeasonRules.CloseAction.None)
+                    continue;
+                bool close = action == OffSeasonRules.CloseAction.Close;
+                Entity e;
+                using (var created = new Unity.Collections.NativeArray<Entity>(1, Unity.Collections.Allocator.Temp))
+                {
+                    EntityManager.CreateEntity(m_PolicyEventArchetype, created);   // the single-entity overload needs ReadOnlySpan, absent from this target
+                    e = created[0];
+                }
+                EntityManager.SetComponentData(e, new Modify(b, m_InactivePolicy, close, close ? OffSeasonRules.CloseMarker : 0f));
+                if (close)
+                    m_Closes++;
+                else
+                    m_Opens++;
+                Mod.Log.Info($"OffSeason [close] {name} {Id(b)} " +
+                             (close
+                                 ? $"deactivated: ski area {Id(sign)} off-season (vanilla Inactive: upkeep x0.1, no wages)"
+                                 : "activated again: " + (!enabled ? "closing turned off" : !linked ? "not linked to a ski area" : $"ski area {Id(sign)} in season")));
+            }
+        }
+
+        /// <summary>The Inactive policy entry this mod wrote (OffSeasonRules.ClosedByResort on the building's Policy buffer).</summary>
+        private bool ClosedByResort(Entity b)
+        {
+            if (!EntityManager.TryGetBuffer(b, isReadOnly: true, out DynamicBuffer<Policy> policies))
+                return false;
+            for (int i = 0; i < policies.Length; i++)
+            {
+                Policy p = policies[i];
+                if (p.m_Policy == m_InactivePolicy)
+                    return OffSeasonRules.ClosedByResort((p.m_Flags & PolicyFlags.Active) != 0, p.m_Adjustment);
+            }
+            return false;
+        }
+
+        /// <summary>The building policy whose option is Inactive (the panel's on / off toggle), found once per load. Logs once if missing:
+        /// then nothing closes.</summary>
+        private bool ResolveInactivePolicy()
+        {
+            if (m_InactivePolicy != Entity.Null && EntityManager.Exists(m_InactivePolicy))
+                return true;
+            m_InactivePolicy = Entity.Null;
+            using (var entities = m_PolicyQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    BuildingOptionData d = EntityManager.GetComponentData<BuildingOptionData>(entities[i]);
+                    if (BuildingUtils.HasOption(d, BuildingOption.Inactive))
+                    {
+                        m_InactivePolicy = entities[i];
+                        break;
+                    }
+                }
+            }
+            if (!m_PolicyLogged)
+            {
+                m_PolicyLogged = true;
+                Mod.Log.Info(m_InactivePolicy != Entity.Null
+                    ? $"OffSeason: closing uses the building policy {Id(m_InactivePolicy)} (option Inactive)"
+                    : "OffSeason: no building policy with the Inactive option found — closing lodges off-season does nothing this load");
+            }
+            return m_InactivePolicy != Entity.Null;
         }
 
         private bool IsRoadOptional(Entity prefab)
@@ -265,6 +392,8 @@ namespace SkiResortMod.Systems
             m_Areas[sign] = st;
             if (!wasKnown && st.Known)
                 m_ObservedThisPoll.Add(sign);
+            if (st.Known && st.Off && (!wasKnown || !wasOff))
+                m_CloseDue.Add(sign);   // the off-season edge (or the first observation after a load reads off-season)
             if (wasKnown && wasOff == st.Off)
                 return;
             Mod.Log.Info($"OffSeason [area] Welcome Sign {Id(sign)}: " +
@@ -302,7 +431,8 @@ namespace SkiResortMod.Systems
         {
             sb.Append("  off-season staff: armed ").Append(m_Armed).Append(", disabled ").Append(m_Disabled)
               .Append(", setting ").Append(EnabledSetting ? "on" : "off").Append(", polls ").Append(m_Polls)
-              .Append(", writes ").Append(m_Writes).Append(';');
+              .Append(", writes ").Append(m_Writes).Append("; closing ").Append(CloseSetting ? "on" : "off")
+              .Append(", closed ").Append(m_Closes).Append(", opened ").Append(m_Opens).Append(';');
             if (m_Areas.Count == 0)
                 sb.Append(" no area observed");
             foreach (KeyValuePair<Entity, OffSeasonState> kv in m_Areas)

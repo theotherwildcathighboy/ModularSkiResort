@@ -518,7 +518,39 @@ namespace SkiResortMod.Systems
         {
             public float Share;       // 0..1 of the track's vertical holding made snow (top down, as the estimate)
             public ProtectRun Spell;  // the protection spell over it. Runtime only (a load refills the budget, as for a run)
+            public float GunWorkHours; // game hours its guns still work on snow they just raised (StepTrackGunWork). Runtime only
         }
+
+        // A track's model raises its made snow at once, but a run's guns take time to build a pack and then stop at depth: they bill
+        // snowmaking only while they run. So each raise of the track's made share counts the hours a run's guns would need to build that
+        // share from bare ground to the gun stop depth: a mean texel (rate RampRateMin + RampRateSpan / 2) at half the chill span, about
+        // 1.06 game hours for the whole vertical. The snowmaking step bills while that work lasts (SkiRunUpkeepRates.TrackUpkeep).
+        public static readonly float TrackBuildHours = WindowsToGameHours(
+            GunWindowsToReach(GunStopDepthM, -0.5f * RampChillSpanC, 0f, RampRateMin + 0.5f * RampRateSpan));
+
+        /// <summary>One pass of a track's gun work, after StepTrackMadeSnow. The work left drops by <paramref name="dtHours"/>. A raise of
+        /// the made share above what was there (<paramref name="madeBefore"/>) and above the natural snow under the track
+        /// (<paramref name="naturalShare"/>, NaN = none measured) adds raise x TrackBuildHours, capped at TrackBuildHours. Guns that make no
+        /// snow now (<paramref name="gunShare"/> 0: off season, switch Off, too warm) do no work.</summary>
+        public static void StepTrackGunWork(ref TrackMadeSnow track, float madeBefore, float gunShare, float naturalShare, float dtHours)
+        {
+            if (!(gunShare > 0f))
+            {
+                track.GunWorkHours = 0f;
+                return;
+            }
+            float left = track.GunWorkHours - Math.Max(0f, dtHours);
+            if (!(left > 0f))
+                left = 0f;
+            float covered = Math.Max(Clamp01(madeBefore), Clamp01(naturalShare));
+            float raised = Clamp01(track.Share) - covered;
+            if (raised > TrackWarmEpsilon)
+                left += raised * TrackBuildHours;
+            track.GunWorkHours = Math.Min(left, TrackBuildHours);
+        }
+
+        /// <summary>The track's guns are building snow now: the snowmaking step bills (SkiRunUpkeepRates.TrackUpkeep).</summary>
+        public static bool TrackGunsWorking(in TrackMadeSnow track) => track.GunWorkHours > 0f;
 
         /// <summary>The share of a track's vertical its guns cover now: the estimate at freezing + the margin while they make snow (the gun
         /// season and the switch, GunsMakeSnow), else 0.</summary>

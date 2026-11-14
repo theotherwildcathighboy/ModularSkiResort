@@ -185,6 +185,16 @@ namespace SkiResortMod.Settings
                     "deactivated lodge costs a tenth of its upkeep and no wages. Default on."
                 },
                 {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.OffSeasonCloseLodges)),
+                    "Close lodges off-season"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.OffSeasonCloseLodges)),
+                    "On: when a ski area turns off-season, its lodges and ski school are deactivated. A deactivated building costs a " +
+                    "tenth of its upkeep and pays no wages. They open again an hour after a run opens. A building you deactivate or " +
+                    "activate yourself stays as you set it. Default on."
+                },
+                {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassShare)),
                     "Season pass share"
                 },

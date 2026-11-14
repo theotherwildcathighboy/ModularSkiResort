@@ -311,6 +311,9 @@ type Game.Pathfind.SetupQueueItem struct bb42b3f03c m_Owner:Entity m_Parameters:
 type Game.Pathfind.SetupQueueTarget struct 586e0e43cc m_Type:SetupTargetType m_Methods:PathMethod m_Entity:Entity m_Entity2:Entity m_Resource:Resource m_ActivityMask:ActivityMask m_MaintenanceType:MaintenanceType m_Flags:SetupTargetFlags m_TrackTypes:TrackTypes m_RoadTypes:RoadTypes m_FlyingTypes:RoadTypes m_Value:int m_Value2:float m_RandomCost:float m_Value3:int
 type Game.Pathfind.SetupTargetFlags enum 3e986230e3 None=0 Industrial=1 Commercial=2 Import=4 Service=8 Residential=16 Export=32 SecondaryPath=64 RequireTransport=128 PathEnd=256 BuildingUpkeep=512
 type Game.Pathfind.SetupTargetType enum f1ec877f8c None=-1 CurrentLocation=0 ResourceSeller=1 RouteWaypoints=2 TransportVehicle=3 GarbageCollector=4 RandomTraffic=5 JobSeekerTo=6 SchoolSeekerTo=7 FireEngine=8 PolicePatrol=9 Leisure=10 Taxi=11 ResourceExport=12 Ambulance=13 StorageTransfer=14 Maintenance=15 PostVan=16 MailTransfer=17 MailBox=18 OutsideConnection=19 AccidentLocation=20 Hospital=21 Safety=22 EmergencyShelter=23 EvacuationTransport=24 Hearse=25 CrimeProducer=26 PrisonerTransport=27 WoodResource=28 AreaLocation=29 Sightseeing=30 Attraction=31 GarbageTransfer=32 HomelessShelter=33 FindHome=34 TransportVehicleRequest=35 TaxiRequest=36 PrisonerTransportRequest=37 EvacuationRequest=38 GarbageCollectorRequest=39 PoliceRequest=40 FireRescueRequest=41 PostVanRequest=42 MaintenanceRequest=43 HealthcareRequest=44 TouristFindTarget=45 GoodsDelivery=46
+type Game.Policies.Modify struct 3f563fbe28 m_Entity:Entity m_Policy:Entity m_Flags:PolicyFlags m_Adjustment:float
+type Game.Policies.Policy struct 2b07f5105c m_Policy:Entity m_Flags:PolicyFlags m_Adjustment:float
+type Game.Policies.PolicyFlags enum 627c9fd6dd Active=1
 type Game.Prefabs.ActivityLocation class c659e93c23
 type Game.Prefabs.ActivityMask struct f186f0acbd m_Mask:uint
 type Game.Prefabs.ActivityType enum 482b8319b4 None=0 Standing=1 Walking=2 Running=3 BenchSitting=4 GroundSitting=5 GroundLaying=6 Selfies=7 Swimming=8 Flying=9 Enter=10 Exit=11 GarageSpot=12 Producing=13 Driving=14 PushUps=15 PullUps=16 SitUps=17 JumpingJacks=18 JumpingLunges=19 Squats=20 Mood=21 Yoga=22 Reading=23 Fishing=24 Biking=25
@@ -324,6 +327,7 @@ type Game.Prefabs.BuildingData struct 4dc7a131fc m_LotSize:int2 m_Flags:Building
 type Game.Prefabs.BuildingEfficiencyParameterData struct c90827afa9 m_ServiceBudgetEfficiencyFactor:AnimationCurve1 m_LowEfficiencyThreshold:float m_ElectricityPenalty:float m_ElectricityPenaltyDelay:float m_ElectricityFeeFactor:AnimationCurve1 m_WaterPenalty:float m_WaterPenaltyDelay:float m_WaterPollutionPenalty:float m_SewagePenalty:float m_SewagePenaltyDelay:float m_WaterFeeFactor:AnimationCurve1 m_GarbagePenalty:float m_NegligibleMail:int m_MailEfficiencyPenalty:float m_TelecomBaseline:float m_MissingEmployeesEfficiencyPenalty:float m_MissingEmployeesEfficiencyDelay:float m_ServiceBuildingEfficiencyGracePeriod:short m_SickEmployeesEfficiencyPenalty:float
 type Game.Prefabs.BuildingFlags enum d4f2be419a RequireRoad=1 NoRoadConnection=2 LeftAccess=4 RightAccess=8 BackAccess=16 RestrictedPedestrian=32 RestrictedCar=64 ColorizeLot=128 HasLowVoltageNode=256 HasWaterNode=512 HasSewageNode=1024 HasInsideRoom=2048 RestrictedParking=4096 RestrictedTrack=8192 CanBeOnRoad=16384 CanBeOnRoadArea=32768 RequireAccess=65536 CanBeRoadSide=131072 HasResourceNode=262144
 type Game.Prefabs.BuildingInitializeSystem class 2004b3279b
+type Game.Prefabs.BuildingOptionData struct a312038522 m_OptionMask:uint
 type Game.Prefabs.BuildingPrefab class 3fe8512563
 type Game.Prefabs.BuildingTerraformData struct 8181fae786 m_FlatX0:float3 m_FlatZ0:float3 m_FlatX1:float3 m_FlatZ1:float3 m_Smooth:float4 m_HeightOffset:float m_DontRaise:bool m_DontLower:bool
 type Game.Prefabs.CarData struct 17e6a1fbf0 m_SizeClass:SizeClass m_EnergyType:EnergyTypes m_MaxSpeed:float m_Acceleration:float m_Braking:float m_PivotOffset:float m_Turning:float2
@@ -379,6 +383,7 @@ type Game.Prefabs.PlaceableNetData struct e71927f763 m_ElevationRange:Bounds1 m_
 type Game.Prefabs.PlaceableObjectData struct 69445f7ce5 m_PlacementOffset:float3 m_ConstructionCost:uint m_XPReward:int m_DefaultProbability:byte m_RotationSymmetry:RotationSymmetry m_SubReplacementType:SubReplacementType m_Flags:Game.Objects.PlacementFlags
 type Game.Prefabs.PlaceholderObjectData struct b09a48713c m_RequirementMask:ObjectRequirementFlags m_RandomizeGroupIndex:bool
 type Game.Prefabs.PlaceholderObjectElement struct 6e29bfe4f0 m_Object:Entity
+type Game.Prefabs.PolicyData struct 5c816eb40c m_Visibility:int
 type Game.Prefabs.PowerLinePrefab class dc12fe4361
 type Game.Prefabs.PrefabBase class 5e8b147f2a
 type Game.Prefabs.PrefabData struct d85a0fd8be m_Index:int
@@ -635,6 +640,7 @@ type Game.UI.InGame.InfoviewsUISystem class f419dbcd6f
 type Game.UI.InGame.MilestoneUISystem class 72934ba305
 type Game.UI.InGame.Notification struct f3f32a6a38 entity:Entity target:Entity priority:IconPriority
 type Game.UI.InGame.NotificationsSection class 3074d5340c
+type Game.UI.InGame.PoliciesUISystem class 6cf6b002be
 type Game.UI.InGame.PrefabUISystem class 7aafda39ff
 type Game.UI.InGame.RoadsInfoviewUISystem class 070563c361
 type Game.UI.InGame.SelectedInfoUISystem class 531ae549b4

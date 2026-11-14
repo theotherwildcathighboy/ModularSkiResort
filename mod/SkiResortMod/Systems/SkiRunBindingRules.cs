@@ -211,6 +211,28 @@ namespace SkiResortMod.Systems
             return planAreaM2 / 10000f;
         }
 
+        /// <summary>One cat track's monthly upkeep by feature, the one rule the upkeep charge, its per-area booking and the hub read. A track
+        /// has no texels, so its plan area (m2) stands in. Grooming bills it while its guns can run and are not Off (SnowGunPlumeRules
+        /// .TrackBilledHa, DECISIONS 563). Snowmaking bills it only while its guns build made snow (<paramref name="gunsWorking"/> =
+        /// RunSnowRules.TrackGunsWorking), as a piste's guns bill only below the stop depth. Lights: TrackLitHa.</summary>
+        public static RunUpkeep TrackUpkeep(RunFeatures f, float planAreaM2, bool gunsCanRun, bool gunsOn, bool gunsWorking)
+        {
+            RunUpkeep u = default;
+            if (!f.IsCatTrack)
+                return u;
+            float ha = gunsCanRun && gunsOn ? Finite0(planAreaM2) / 10000f : 0f;   // = SnowGunPlumeRules.TrackBilledHa (ResortBatch pins it)
+            u.GroomedHa = ha;
+            u.Grooming = ha * GroomedPerHaMonth;
+            if (gunsWorking)
+            {
+                u.SnowmakingHa = ha;
+                u.Snowmaking = ha * SnowmakingStepPerHaMonth;
+            }
+            u.LitHa = TrackLitHa(f, planAreaM2, gunsCanRun);
+            u.Lights = u.LitHa * LightsStepPerHaMonth;
+            return u;
+        }
+
         private static float Finite0(float v) => float.IsNaN(v) || float.IsInfinity(v) || v < 0f ? 0f : v;
     }
 
