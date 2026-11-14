@@ -604,8 +604,8 @@ namespace SkiResortMod.Systems
                     m_ShownSnow = snow;
                     m_ShownGuns = guns;
                     m_Line.value = LocalizedString.Id(KeySnowLine,
-                        ("SNOW_LINE", new LocalizedNumber<int>(snow, "integer")),
-                        ("GUN_LINE", new LocalizedNumber<int>(guns, "integer")));
+                        ("SNOW_LINE", DisplayText.Height(snow)),
+                        ("GUN_LINE", DisplayText.Height(guns)));
                 }
                 AddMouseTooltip(m_Line);
 
@@ -617,8 +617,8 @@ namespace SkiResortMod.Systems
                         m_ShownHere = here;
                         m_ShownDiff = diff;
                         m_Here.value = LocalizedString.Id(diff >= 0 ? KeyHereAbove : KeyHereBelow,
-                            ("HERE", new LocalizedNumber<int>(here, "integer")),
-                            ("DIFF", new LocalizedNumber<int>(Math.Abs(diff), "integer")));
+                            ("HERE", DisplayText.Height(here)),
+                            ("DIFF", DisplayText.Height(Math.Abs(diff))));
                     }
                     AddMouseTooltip(m_Here);
                 }
@@ -631,21 +631,21 @@ namespace SkiResortMod.Systems
                     {
                         m_ShownRadiusKm = km;
                         m_ShownSurvey = r;
-                        var radius = ("RADIUS", (ILocElement)new LocalizedNumber<float>(km, "floatSingleFraction"));
+                        var radius = ("RADIUS", DisplayText.Length(km * 1000f));   // km / mi by the game's unit setting (T161)
                         int ski = (int)Math.Round(r.SkiableVerticalM);
                         m_Survey.value = r.Samples == 0
                             ? LocalizedString.Id(KeySurveyWet, radius)
                             : ski > 0
                                 ? LocalizedString.Id(KeySurvey, radius,
-                                    ("LOW", new LocalizedNumber<int>((int)Math.Round(r.MinM), "integer")),
-                                    ("HIGH", new LocalizedNumber<int>((int)Math.Round(r.MaxM), "integer")),
-                                    ("VERT", new LocalizedNumber<int>((int)Math.Round(r.VerticalM), "integer")),
-                                    ("SKI", new LocalizedNumber<int>(ski, "integer")),
+                                    ("LOW", DisplayText.Height(r.MinM)),
+                                    ("HIGH", DisplayText.Height(r.MaxM)),
+                                    ("VERT", DisplayText.Height(r.VerticalM)),
+                                    ("SKI", DisplayText.Height(ski)),
                                     ("PCT", new LocalizedNumber<int>(r.PctAboveSnow, "percentage")))
                                 : LocalizedString.Id(KeySurveyNoSnow, radius,
-                                    ("LOW", new LocalizedNumber<int>((int)Math.Round(r.MinM), "integer")),
-                                    ("HIGH", new LocalizedNumber<int>((int)Math.Round(r.MaxM), "integer")),
-                                    ("VERT", new LocalizedNumber<int>((int)Math.Round(r.VerticalM), "integer")));
+                                    ("LOW", DisplayText.Height(r.MinM)),
+                                    ("HIGH", DisplayText.Height(r.MaxM)),
+                                    ("VERT", DisplayText.Height(r.VerticalM)));
                     }
                     AddMouseTooltip(m_Survey);
                 }

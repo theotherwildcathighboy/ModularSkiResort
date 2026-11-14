@@ -11,7 +11,9 @@
  * check-bundle R10 (every Media/ path exists in the installed game).
  */
 import type { LocEntry } from "../l10n";
-import { HUB_LOC } from "./hubText";
+import { gradeScheme$ } from "../bindings";
+import { EU_TEXT, HUB_LOC } from "./hubText";
+import { isEuropean, schemeEntry } from "./units";
 import iconGreen from "./icons/green.svg";
 import iconBlue from "./icons/blue.svg";
 import iconBlack from "./icons/black.svg";
@@ -22,6 +24,10 @@ import iconClosed from "./icons/closed.svg";
 import iconOpenpatchy from "./icons/openpatchy.svg";
 import iconLift from "./icons/lift.svg";
 import iconSchool from "./icons/school.svg";
+import iconEuBlue from "./icons/eublue.svg";
+import iconEuRed from "./icons/eured.svg";
+import iconEuBlack from "./icons/eublack.svg";
+import iconEuDblack from "./icons/eudblack.svg";
 
 export interface HubIcon {
   /** The image URL: a webpack asset (coui://ui-mods/SkiResortMod-img/...) or a vanilla Media/ path. */
@@ -30,15 +36,17 @@ export interface HubIcon {
   wide: boolean;
   /** The icon's word (its word form). */
   word: LocEntry;
+  /** European grading (T162): the art of the same rating as a piste disc (the word is word's "@EU" variant, hubText EU_TEXT). */
+  eu?: string;
 }
 
 export type HubIconName = "green" | "blue" | "black" | "dblack" | "open" | "patchy" | "closed" | "openpatchy" | "school" | "lift" | "power" | "snow";
 
 export const HUB_ICON: Readonly<Record<HubIconName, HubIcon>> = {
-  green: { src: iconGreen, wide: false, word: HUB_LOC.iconGreen },
-  blue: { src: iconBlue, wide: false, word: HUB_LOC.iconBlue },
-  black: { src: iconBlack, wide: false, word: HUB_LOC.iconBlack },
-  dblack: { src: iconDblack, wide: true, word: HUB_LOC.iconDblack },
+  green: { src: iconGreen, wide: false, word: HUB_LOC.iconGreen, eu: iconEuBlue },
+  blue: { src: iconBlue, wide: false, word: HUB_LOC.iconBlue, eu: iconEuRed },
+  black: { src: iconBlack, wide: false, word: HUB_LOC.iconBlack, eu: iconEuBlack },
+  dblack: { src: iconDblack, wide: true, word: HUB_LOC.iconDblack, eu: iconEuDblack },
   open: { src: iconOpen, wide: false, word: HUB_LOC.iconOpen },
   patchy: { src: iconPatchy, wide: false, word: HUB_LOC.iconPatchy },
   closed: { src: iconClosed, wide: false, word: HUB_LOC.iconClosed },
@@ -60,8 +68,10 @@ export const HUB_ICON_GROUPS: ReadonlyArray<{ title: LocEntry; names: readonly H
 /** The table entry of a NAME, or null (unknown: the renderer shows the word form and reports it once). A NAME with "/" is a vanilla
  *  path, as in vanilla text: a translator may reuse a vanilla icon. Its word is the file name. */
 export function hubIconOf(name: string): HubIcon | null {
-  if (Object.prototype.hasOwnProperty.call(HUB_ICON, name)) return HUB_ICON[name as HubIconName];
-  return null;
+  if (!Object.prototype.hasOwnProperty.call(HUB_ICON, name)) return null;
+  const ic = HUB_ICON[name as HubIconName];
+  const scheme = gradeScheme$.value;
+  return ic.eu && isEuropean(scheme) ? { src: ic.eu, wide: ic.wide, word: schemeEntry(ic.word, scheme, EU_TEXT) } : ic;
 }
 
 /**

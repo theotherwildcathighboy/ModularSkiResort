@@ -418,6 +418,7 @@ type Game.Prefabs.SurfacePrefab class 4e79d8784d
 type Game.Prefabs.TaxiwayData struct d29fe60af9 m_SpeedLimit:float m_Flags:TaxiwayFlags
 type Game.Prefabs.TaxiwayFlags enum b940614bbc Runway=1 Airspace=2
 type Game.Prefabs.TerrainComposition struct cdaa4110fe m_WidthOffset:float2 m_ClipHeightOffset:float2 m_MinHeightOffset:float3 m_MaxHeightOffset:float3
+type Game.Prefabs.ThemePrefab class c18c0532da
 type Game.Prefabs.ToolErrorData struct 3488cdeabc m_Error:ErrorType m_Flags:ToolErrorFlags
 type Game.Prefabs.ToolErrorFlags enum 41a8ba1cb1 TemporaryOnly=1 DisableInGame=2 DisableInEditor=4
 type Game.Prefabs.TrackData struct 5aae0d20d0 m_TrackType:TrackTypes m_SpeedLimit:float
@@ -495,6 +496,7 @@ type Game.Serialization.SubObjectSystem class d2ea38d94d
 type Game.Settings.GameplaySettings class 06d8571ad3
 type Game.Settings.GeneralSettings class fa89f80ed7
 type Game.Settings.GraphicsSettings class ecde9d6d5f
+type Game.Settings.InterfaceSettings class be7bbce9f5
 type Game.Settings.SettingsUIInputActionAttribute class 8474df4309
 type Game.Settings.SettingsUIKeyboardActionAttribute class bb4c15364d
 type Game.Settings.SettingsUIKeyboardBindingAttribute class e9c35a3a28
@@ -671,7 +673,6 @@ type Game.UI.Tooltip.TooltipColor enum 6b73c6c076 Info=0 Success=1 Warning=2 Err
 type Game.UI.Tooltip.TooltipGroup class 2f981bdea5
 type Game.UI.Tooltip.TooltipSystemBase class 1d78b684af
 type Game.UI.Tooltip.TooltipUISystem class c3d8655855
-type Game.UI.Tooltip.WaterSourceTooltipSystem class fdb63576bd
 type Game.UI.UISystemBase class 35bff48b2e
 type Game.UI.UIUpdateSystem class 26a9094fc5
 type Game.UI.Unit class a88cd2dede

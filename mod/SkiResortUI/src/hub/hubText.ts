@@ -585,7 +585,7 @@ export const HUB_FMT = {
   resortCountsLodgeOne: ["SkiResort.Hub.RESORT_COUNTS[LodgeOne]", "{RUNS} runs · 1 lodge"],
   contractMismatchCore: ["SkiResort.Hub.CONTRACT_MISMATCH_CORE", "This panel (version {UI}) and the mod's DLL (version {DLL}) come from different builds. Building still works. The resort statistics stay hidden until the mod is reinstalled."],
   /* contract 39: the one warning of the merge card and the Mergeable buildings status line while no ski area has a run or a lift station ({M} = SlopesideMaxM) */
-  mergeWarnNoGeometry: ["SkiResort.Hub.MERGE_WARN[NoGeometry]", "No runs or lifts yet. Merges need one within {M} m."],
+  mergeWarnNoGeometry: ["SkiResort.Hub.MERGE_WARN[NoGeometry]", "No runs or lifts yet. Merges need one within {M}."],
   statusLine: ["SkiResort.Hub.STATUS_LINE", "{STATE}"],
   statusLineOne: ["SkiResort.Hub.STATUS_LINE_ONE", "{STATE}"],
   statusLineEst: ["SkiResort.Hub.STATUS_LINE_EST", "{STATE} ≈"],
@@ -607,19 +607,19 @@ export const HUB_FMT = {
   problemLiftNoPower: ["SkiResort.Hub.PROBLEM[LiftNoPower]", "{NAME}: no power"],
   problemLiftSectionMissing: ["SkiResort.Hub.PROBLEM[LiftSectionMissing]", "{NAME}: section missing"],
   problemLiftUnfinished: ["SkiResort.Hub.PROBLEM[LiftUnfinished]", "{NAME}: unfinished"],
-  problemSkiDaysNoGuestsNear: ["SkiResort.Hub.PROBLEM[SkiDaysNoGuestsNear]", "Nearest guests: {KM} km"],
+  problemSkiDaysNoGuestsNear: ["SkiResort.Hub.PROBLEM[SkiDaysNoGuestsNear]", "Nearest guests: {KM}"],
   problemStationsPair: ["SkiResort.Hub.PROBLEM[StationsPair]", "{NAME}: no lift line yet"],
   problemStationsBaseOnly: ["SkiResort.Hub.PROBLEM[StationsBaseOnly]", "{NAME}: no top station yet"],
   problemStationsTopOnly: ["SkiResort.Hub.PROBLEM[StationsTopOnly]", "{NAME}: no base station yet"],
   problemLiftChairsStopped: ["SkiResort.Hub.PROBLEM[LiftChairsStopped]", "{NAME}: chairs stopped"],
   problemMixedLiftTypes: ["SkiResort.Hub.PROBLEM[MixedLiftTypes]", "{NAME} mixes lift types"],
   /* {DEG} = the bend in tenths shown with one decimal (detail / 10), {N} = the tower number (count) */
-  problemLiftBend: ["SkiResort.Hub.PROBLEM[LiftBend]", "{NAME}: rope turns {DEG}° at tower {N}"],
+  problemLiftBend: ["SkiResort.Hub.PROBLEM[LiftBend]", "{NAME}: rope turns {DEG} at tower {N}"],
   /* {N} = the number of the tower whose rope goes furthest past what its sheave train follows (count) */
   problemLiftTrainLimit: ["SkiResort.Hub.PROBLEM[LiftTrainLimit]", "{NAME}: tower {N}'s wheels cannot follow the rope"],
   /* {CARRIERS} = CARRIERS[Chairs] or [Cabins], {M} = their height above the ground in tenths shown with one decimal (detail / 10). The
      tip names the span (a 1080 band row fits about 49 characters) */
-  problemLiftLowSpan: ["SkiResort.Hub.PROBLEM[LiftLowSpan]", "{NAME}: {CARRIERS} pass {M} m above the ground"],
+  problemLiftLowSpan: ["SkiResort.Hub.PROBLEM[LiftLowSpan]", "{NAME}: {CARRIERS} pass {M} above the ground"],
   /* the same at or below the ground (detail 0) */
   problemLiftLowSpanGround: ["SkiResort.Hub.PROBLEM[LiftLowSpanGround]", "{NAME}: {CARRIERS} touch the ground"],
   /* C# HubProblemCode LiftLowSpan (LiftClearanceSystem: the planner's floor, LiftTowerPlanConstants FloorM). Shown only. The lift is
@@ -684,6 +684,10 @@ export const HUB_FMT = {
   diffTipPending: ["SkiResort.Hub.DIFF_TIP_PENDING", "Being rated: {N}"],
   diffTipUnrateable: ["SkiResort.Hub.DIFF_TIP_UNRATEABLE", "Cannot be rated: {N}"],
   areaHa: ["SkiResort.Hub.AREA_HA", "{HA} ha"],
+  /** The game's unit setting is US customary (T161, parts.tsx areaArg / speedArg). */
+  areaAcres: ["SkiResort.Hub.AREA_ACRES", "{HA} acres"],
+  speedMps: ["SkiResort.Hub.SPEED_MPS", "{N} m/s"],
+  speedFpm: ["SkiResort.Hub.SPEED_FPM", "{N} ft/min"],
   snowDepth: ["SkiResort.Hub.SNOW_DEPTH", "{DEPTH} cm"],
   // the depth under vanilla's US customary units (parts.tsx useInches / depthValue: whole inches)
   snowDepthIn: ["SkiResort.Hub.SNOW_DEPTH_IN", "{DEPTH} in"],
@@ -702,9 +706,9 @@ export const HUB_FMT = {
   liftDetailNone: ["SkiResort.Hub.LIFT_DETAIL_NONE", "{CAP} skiers/h · no runs"],
   liftRideMin: ["SkiResort.Hub.LIFT_RIDE_MIN", "{MIN} min"],
   // LiftRow.seats / speedMps per lift type. Both texts hold for the tram too
-  liftRideTip: ["SkiResort.Hub.LIFT_RIDE_TIP", "Base to top at {SPEED} m/s line speed, at 1× game speed."],
+  liftRideTip: ["SkiResort.Hub.LIFT_RIDE_TIP", "Base to top at {SPEED} line speed, at 1× game speed."],
   // an unpowered lift counts none
-  liftCapacityTip: ["SkiResort.Hub.LIFT_CAPACITY_TIP", "{SEATS} seats per chair or cabin at {SPEED} m/s. Tram: time at stops included. None without power or an open run. Riders are not simulated."],
+  liftCapacityTip: ["SkiResort.Hub.LIFT_CAPACITY_TIP", "{SEATS} seats per chair or cabin at {SPEED}. Tram: time at stops included. None without power or an open run. Riders are not simulated."],
   capacityValue: ["SkiResort.Hub.CAPACITY_VALUE", "{CAP} skiers/h"],
   // The Guests view names a month bare, "{MONTH}" (bars, column heads and their tooltips). {MONTH} = monthName(city.month), last month's = city.month - 1.
   guestsMonthThis: ["SkiResort.Hub.GUESTS_MONTH[This]", "{MONTH}"],
@@ -750,11 +754,11 @@ export const HUB_FMT = {
   moneyPriceTipCurve: ["SkiResort.Hub.MONEY_PRICE_TIP[Curve]", "Ski days: as many at any price up to {FULL}, then fewer: {F1} as many at {P1}, {F2} at {P2}, {F3} at {P3}."],
   /* {FULL} = 40 + priceTolerance (not "Luxury lodges": the Chalet has 20) */
   moneyPriceTipTolerance: ["SkiResort.Hub.MONEY_PRICE_TIP[Tolerance]", "This ski area's lodges keep ski days full up to {FULL}."],
-  moneyRowNatural: ["SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA} ha"],
-  moneyRowGrooming: ["SkiResort.Hub.MONEY_ROW[Grooming]", "Grooming · {HA} ha with snow"],
-  moneyRowSnowmaking: ["SkiResort.Hub.MONEY_ROW[Snowmaking]", "Snowmaking · {HA} ha where the guns run"],
-  moneyRowLights: ["SkiResort.Hub.MONEY_ROW[Lights]", "Lights · {HA} ha with snow"],
-  moneyRowCatTracks: ["SkiResort.Hub.MONEY_ROW[CatTracks]", "Cat tracks · {HA} ha with guns on"],
+  moneyRowNatural: ["SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA}"],
+  moneyRowGrooming: ["SkiResort.Hub.MONEY_ROW[Grooming]", "Grooming · {HA} with snow"],
+  moneyRowSnowmaking: ["SkiResort.Hub.MONEY_ROW[Snowmaking]", "Snowmaking · {HA} where the guns run"],
+  moneyRowLights: ["SkiResort.Hub.MONEY_ROW[Lights]", "Lights · {HA} with snow"],
+  moneyRowCatTracks: ["SkiResort.Hub.MONEY_ROW[CatTracks]", "Cat tracks · {HA} with guns on"],
   moneyRowLifts: ["SkiResort.Hub.MONEY_ROW[Lifts]", "Lifts · {N} · {LEN}"],
   // an unpowered lift still pays in full. The two remaining reductions are unfinished and no open run
   // (SkiMoneyRules.LiftUpkeepBillingOf)
@@ -802,7 +806,7 @@ export const HUB_FMT = {
   quickPodMid: ["SkiResort.Tooltip.QUICK_POD[MidStation]", "Mid-station here: {N} runs"],
   // Resort Planner: the plan and lift lines (the tooltip's too). {TYPE} = HUB_LOC lift type, {CLASS} / {VERDICT} = SENT_KEYS
   quickMixHonest: ["SkiResort.Tooltip.QUICK_MIX_HONEST", "Terrain: green {G} % · blue {B} % · black {K} %"],
-  quickLiftLine: ["SkiResort.Tooltip.QUICK_LIFT_LINE", "{ID} · {TYPE} · {LENGTH} km · {RISE} m up"],
+  quickLiftLine: ["SkiResort.Tooltip.QUICK_LIFT_LINE", "{ID} · {TYPE} · {LENGTH} · {RISE} up"],
   quickBuildProgress: ["SkiResort.Tooltip.QUICK_BUILDING_PROGRESS", "Building cat tracks and runs {N} / {M}"],
   quickPlantProgress: ["SkiResort.Tooltip.QUICK_PLANTING_PROGRESS", "Planting trees {N} / {M}"],
   quickRemoveProgress: ["SkiResort.Tooltip.QUICK_REMOVING_PROGRESS", "Removing trees {N} / {M}"],
@@ -811,14 +815,14 @@ export const HUB_FMT = {
   quickLiftsAllBuilt: ["SkiResort.Hub.QUICK_LIFTS_ALL_BUILT", "All {N} lifts built."],
   quickBuildingLift: ["SkiResort.Tooltip.QUICK_BUILDING_LIFT", "Building lift {N} / {M}"],
   quickStoppingLift: ["SkiResort.Tooltip.QUICK_STOPPING_LIFT", "Stopping after lift {N} / {M}"],
-  quickSheetLine: ["SkiResort.Tooltip.QUICK_SHEET_LINE", "{ID} · {TYPE} · {LENGTH} km · {RISE} m up · {COST}"],
+  quickSheetLine: ["SkiResort.Tooltip.QUICK_SHEET_LINE", "{ID} · {TYPE} · {LENGTH} · {RISE} up · {COST}"],
   quickLiftPlacedWhy: ["SkiResort.Tooltip.QUICK_LIFT_STATE[StationsPlacedWhy]", "Stations placed, no line: {WHY}"],
   quickLiftRefused: ["SkiResort.Tooltip.QUICK_LIFT_STATE[Refused]", "Not built: {WHY}"],
   quickLiftFitting: ["SkiResort.Tooltip.QUICK_LIFT_STATE[NeedsFitting]", "Towers need fitting by hand: {WHY}"],
   quickLiftBuiltFlagged: ["SkiResort.Tooltip.QUICK_LIFT_STATE[BuiltFlagged]", "Built. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
   quickLiftFlaggedAt: ["SkiResort.Tooltip.QUICK_LIFT_STATE[FlaggedAt]", "Builds flagged. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
   quickLiftFittingAt: ["SkiResort.Tooltip.QUICK_LIFT_STATE[FittingAt]", "Towers need fitting by hand. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
-  quickLiftFlagTip: ["SkiResort.Hub.QUICK_LIFT_FLAG_TIP", "Tower {TOWER} stands {ALONG} m from the base station. The rope bends more there than its wheels can follow."],
+  quickLiftFlagTip: ["SkiResort.Hub.QUICK_LIFT_FLAG_TIP", "Tower {TOWER} stands {ALONG} from the base station. The rope bends more there than its wheels can follow."],
 } as const;
 
 /* STATUS_WORD by hubRules.statusWord. */
@@ -843,10 +847,10 @@ export const QUICK_REJECT_TEXT: readonly LocEntry[] = [
 /* The site verdict (contract 21), index = QuickRunsState.siteTier - 1 (QuickRunsRules.SiteTier Gentle .. Beyond). {N} = the mean grade in percent.
    The same text is the tool tooltip's (SkiResort.Tooltip.QUICK_SITE[*]). */
 export const QUICK_SITE_TEXT: readonly LocEntry[] = [
-  ["SkiResort.Tooltip.QUICK_SITE[Gentle]", "Gentle slope, {N} % average: green and blue runs."],
-  ["SkiResort.Tooltip.QUICK_SITE[Steep]", "Steep slope, {N} % average: mostly blue and black runs."],
-  ["SkiResort.Tooltip.QUICK_SITE[VerySteep]", "Very steep, {N} % average: mostly black runs, few greens."],
-  ["SkiResort.Tooltip.QUICK_SITE[Beyond]", "Steeper than any real ski area, {N} % average: black and double black runs only."],
+  ["SkiResort.Tooltip.QUICK_SITE[Gentle]", "Gentle slope, {N} average: green and blue runs."],
+  ["SkiResort.Tooltip.QUICK_SITE[Steep]", "Steep slope, {N} average: mostly blue and black runs."],
+  ["SkiResort.Tooltip.QUICK_SITE[VerySteep]", "Very steep, {N} average: mostly black runs, few greens."],
+  ["SkiResort.Tooltip.QUICK_SITE[Beyond]", "Steeper than any real ski area, {N} average: black and double black runs only."],
 ];
 
 /* SEASON_HINT words, index = SEASON_HINT value (0 None = no text). */
@@ -1258,3 +1262,38 @@ const MONTH_SHORT_FALLBACK: readonly string[] = ["Jan", "Feb", "Mar", "Apr", "Ma
 export function monthShortName(month: number, t: (e: LocEntry) => string): string {
   return Number.isInteger(month) && month >= 0 && month < 12 ? t([`Common.MONTH_SHORT:${month}`, MONTH_SHORT_FALLBACK[month]]) : "–";
 }
+
+/* European grading (T162, binding gradeScheme): the variant of every text that names a run color, key + "@EU" (src/hub/units.ts
+ * schemeEntry). useT, LocText and the icon table pick it while the scheme is European. Mirrored in LocaleEN.cs (gate R4). Band names
+ * (SkiResort.SlopeBand[*]@EU) are listed too: the hub's run rows and the drawing tooltip share them. */
+export const EU_TEXT_ENTRIES: readonly LocEntry[] = [
+  ["SkiResort.SlopeBand[Green]@EU", "Blue piste"],
+  ["SkiResort.SlopeBand[Blue]@EU", "Red piste"],
+  ["SkiResort.SlopeBand[Black]@EU", "Black piste"],
+  ["SkiResort.SlopeBand[DoubleBlack]@EU", "Expert black piste"],
+  ["SkiResort.Hub.QUICK_KIND_TIP[Snowmaking]@EU", "Blue runs that reach the base get snow guns."],
+  ["SkiResort.Hub.QUICK_KIND_TIP[Night]@EU", "Up to two base runs, red or easier with the lowest tops, get snow guns and lights."],
+  ["SkiResort.Tooltip.QUICK_SITE[Gentle]@EU", "Gentle slope, {N} average: blue and red runs."],
+  ["SkiResort.Tooltip.QUICK_SITE[Steep]@EU", "Steep slope, {N} average: mostly red and black runs."],
+  ["SkiResort.Tooltip.QUICK_SITE[VerySteep]@EU", "Very steep, {N} average: mostly black runs, few blues."],
+  ["SkiResort.Tooltip.QUICK_SITE[Beyond]@EU", "Steeper than any real ski area, {N} average: black and expert black runs only."],
+  ["SkiResort.Tooltip.QUICK_WARN[NoGreen]@EU", "No blue runs: too steep, or too little gentle ground at the bottom."],
+  ["SkiResort.Tooltip.QUICK_WARN[NoBlue]@EU", "No red runs: the slope gives none."],
+  ["SkiResort.Tooltip.QUICK_WARN[NoEasyWayHome]@EU", "A lift top here has no blue way down."],
+  ["SkiResort.Tooltip.QUICK_VERDICT[Green]@EU", "Blue way home"],
+  ["SkiResort.Tooltip.QUICK_VERDICT[Blue]@EU", "Red way home"],
+  ["SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]@EU", "Expert black only"],
+  ["SkiResort.Tooltip.QUICK_MIX_HONEST@EU", "Terrain: blue {G} % · red {B} % · black {K} %"],
+  ["SkiResort.Hub.PROBLEM[SchoolNoGreenRun]@EU", "Ski school: no blue run"],
+  ["SkiResort.Hub.SCHOOL_NO_GREEN@EU", "No blue run"],
+  ["SkiResort.Hub.ICON[green]@EU", "blue"],
+  ["SkiResort.Hub.ICON[blue]@EU", "red"],
+  ["SkiResort.Hub.ICON[dblack]@EU", "expert black"],
+  ["SkiResort.Hub.RUN_TYPE_NOTE@EU", "Natural blue and red runs count less. A groomed run counts in full."],
+  ["SkiResort.Hub.RUN_CAT_TRACK_NOTE@EU", "A cat track always rates blue and counts a quarter of a run its size, in the score and the skier room."],
+  ["SkiResort.Hub.BUILD_SHORT[School]@EU", "Teaches on blue runs."],
+  ["SkiResort.Hub.BUILD_SHORT[CatTrack]@EU", "Graded as you draw it. Always blue, counts a quarter."],
+];
+
+/** EU_TEXT_ENTRIES by key. */
+export const EU_TEXT: Readonly<Record<string, string>> = EU_TEXT_ENTRIES.reduce<Record<string, string>>((m, e) => { m[e[0]] = e[1]; return m; }, {});

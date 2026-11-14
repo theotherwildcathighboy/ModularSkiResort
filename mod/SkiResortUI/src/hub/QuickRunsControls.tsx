@@ -37,6 +37,7 @@ import type { LocEntry, Translate } from "../l10n";
 import { rejectSummary } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, QUICK_REJECT_TEXT, QUICK_SITE_TEXT, gladeLevelEntry, sentKeyEntry } from "./hubText";
 import { BandMarker, CheckBox, LocText, Tip, TipLines, cx, numArg } from "./parts";
+import { pctToDeg1 } from "./units";
 import styles from "./hub.module.scss";
 
 /* QuickRunsRules.TreeLineStepM, and the coarse step. */
@@ -134,7 +135,7 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
   const lines: JSX.Element[] = [];
   /* The site verdict: one plain line beside the mix line (Preview) or under the region line (Region step). There is none while the grade is unknown. */
   const siteEntry = q.siteTier >= 1 && q.siteTier <= QUICK_SITE_TEXT.length ? QUICK_SITE_TEXT[q.siteTier - 1] : null;
-  const site = siteEntry ? <LocText key="site" entry={siteEntry} args={{ N: numArg(q.sitePercent, Unit.Integer) }} /> : null;
+  const site = siteEntry ? <LocText key="site" entry={siteEntry} args={{ N: numArg(pctToDeg1(q.sitePercent), Unit.Angle) }} /> : null;
   if (q.phase === "Scanning") {
     lines.push(<LocText key="scan" entry={HUB_FMT.quickScanning} args={{ P: numArg(Math.round(q.progress * 100), Unit.Percentage) }} />);
   } else if (q.phase === "Preview") {
@@ -269,7 +270,7 @@ function LiftPlanRow({ l, pod, t, wait }: { l: QuickRunsLift; pod: QuickRunsPod 
   const id = l.origin === 1 ? t(HUB_LOC.quickLiftIdPinned) : "P" + String(l.ordinal);
   const first = (
     <LocText entry={HUB_FMT.quickLiftLine} args={{
-      ID: id, TYPE: type ? t(type) : l.typeKey, LENGTH: numArg(l.lengthM / 1000, Unit.FloatSingleFraction), RISE: numArg(Math.round(l.riseM), Unit.Integer),
+      ID: id, TYPE: type ? t(type) : l.typeKey, LENGTH: numArg(Math.round(l.lengthM), Unit.Length), RISE: numArg(Math.round(l.riseM), Unit.Height),
     }} />
   );
   const second = (
@@ -451,15 +452,15 @@ function SheetRow({ r, t, blocked }: { r: QuickRunsSheetRow; t: Translate; block
   const sub = <div className={cx(styles.planRowSub, state.warn && styles.warnText)}>{state.text}</div>;
   /* A flagged built line says where its tower stands (one text node: a <LocText>) */
   const flagTip = r.state === "Built" && r.overLimitTowers > 0 && !r.step
-    ? <TipLines lines={[<LocText entry={HUB_FMT.quickLiftFlagTip} args={{ TOWER: numArg(r.overLimitTower, Unit.Integer), ALONG: numArg(Math.round(r.overLimitAlongM), Unit.Integer) }} />]} />
+    ? <TipLines lines={[<LocText entry={HUB_FMT.quickLiftFlagTip} args={{ TOWER: numArg(r.overLimitTower, Unit.Integer), ALONG: numArg(Math.round(r.overLimitAlongM), Unit.Length) }} />]} />
     : undefined;
   return (
     <div className={cx(styles.sheetRow, !r.on && r.state !== "Built" && styles.planRowOff)}>
       <div className={styles.planRowText}>
         <div>
           <LocText entry={HUB_FMT.quickSheetLine} args={{
-            ID: r.name, TYPE: type ? t(type) : r.typeKey, LENGTH: numArg(r.lengthM / 1000, Unit.FloatSingleFraction),
-            RISE: numArg(Math.round(r.riseM), Unit.Integer), COST: numArg(r.cost, Unit.Money),
+            ID: r.name, TYPE: type ? t(type) : r.typeKey, LENGTH: numArg(Math.round(r.lengthM), Unit.Length),
+            RISE: numArg(Math.round(r.riseM), Unit.Height), COST: numArg(r.cost, Unit.Money),
           }} />
         </div>
         {flagTip ? <Tip tip={flagTip}>{sub}</Tip> : sub}

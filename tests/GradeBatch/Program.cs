@@ -655,6 +655,11 @@ namespace GradeBatch
                 if (!GradeGuards.Reason(g).IsEmpty)
                     used.Add(GradeGuards.Reason(g).Key);
             var args = new HashSet<string> { "LENGTH", "MAX", "LIMIT", "CUT", "FILL", "SHORT" };
+            // T160 T161: each argument's display unit (GradeMsg.UnitOf): lengths follow the unit setting, slopes are degrees, earthwork m³ / yd³
+            Check(GradeMsg.UnitOf("LENGTH") == GradeArgUnit.Length && GradeMsg.UnitOf("SHORT") == GradeArgUnit.Length
+                  && GradeMsg.UnitOf("MAX") == GradeArgUnit.Degrees && GradeMsg.UnitOf("LIMIT") == GradeArgUnit.Degrees
+                  && GradeMsg.UnitOf("CUT") == GradeArgUnit.Volume && GradeMsg.UnitOf("FILL") == GradeArgUnit.Volume
+                  && GradeMsg.UnitOf("N") == GradeArgUnit.Whole, W, "GradeMsg.UnitOf maps an argument to the wrong unit");
             int worst = 0;
             foreach (string key in used)
             {
@@ -670,6 +675,8 @@ namespace GradeBatch
                     Check(!low.Contains(brit), W, key + " is not US English: " + brit);
                 foreach (Match a in Regex.Matches(text, "\\{([A-Z]+)\\}"))
                     Check(args.Contains(a.Groups[1].Value), W, key + " names {" + a.Groups[1].Value + "}, which the code never passes");
+                // T160 T161: an argument carries its own unit (the game's unit setting, slopes in degrees), so the text names none
+                Check(!Regex.IsMatch(text, "\\}\\s*(m|km|%|°|m³)(?![A-Za-z])"), W, key + " bakes a unit in after an argument: " + text);
             }
             foreach (string key in loc.Keys)
                 Check(used.Contains(key), W, prefix + key + " in LocaleEN is never shown (stale)");

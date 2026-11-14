@@ -7,8 +7,12 @@
  * a t(...) call on it. Numbers: put <LocalizedNumber value unit={Unit.X} /> (parts.tsx Num) beside the text. Never bake a number into a string.
  */
 import { useCallback } from "react";
+import { useValue } from "cs2/api";
 import { useLocalization } from "cs2/l10n";
+import { gradeScheme$ } from "./bindings";
 import { unitNbsp } from "./hub/hubRules";
+import { EU_TEXT } from "./hub/hubText";
+import { schemeEntry } from "./hub/units";
 
 /** [locale key, English fallback]. */
 export type LocEntry = readonly [key: string, english: string];
@@ -24,8 +28,13 @@ export const LOC = {
 
 export type Translate = (entry: LocEntry) => string;
 
-/** translate(key, fallback) bound to the active dictionary. A number keeps its unit on one line (hubRules unitNbsp, render time only). */
+/** translate(key, fallback) bound to the active dictionary. A number keeps its unit on one line (hubRules unitNbsp, render time only).
+ *  The run grading (T162) picks an entry's European variant (key + "@EU", hubText EU_TEXT) while the scheme is European. */
 export function useT(): Translate {
   const { translate } = useLocalization();
-  return useCallback((entry: LocEntry) => unitNbsp(translate(entry[0], entry[1]) ?? entry[1]), [translate]);
+  const scheme = useValue(gradeScheme$);
+  return useCallback((entry: LocEntry) => {
+    const e = schemeEntry(entry, scheme, EU_TEXT);
+    return unitNbsp(translate(e[0], e[1]) ?? e[1]);
+  }, [translate, scheme]);
 }

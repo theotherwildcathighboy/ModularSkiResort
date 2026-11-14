@@ -52,12 +52,12 @@ function load(srcDir, ts) {
   // (the purity check above applies to hubRules.ts only). The last is historyRules.ts for T20, pure like hubRules.ts (its own
   // purity check is in tools/test-history-rules.js).
   return { rules, bindings: compile(path.join(srcDir, "bindings.ts")), items: compile(path.join(srcDir, "hub", "buildItems.ts")),
-    history: compile(path.join(srcDir, "hub", "historyRules.ts")) };
+    history: compile(path.join(srcDir, "hub", "historyRules.ts")), units: compile(path.join(srcDir, "hub", "units.ts")) };
 }
 
 function run(srcDir) {
   const ts = require("typescript");
-  const { rules: R, bindings: BIND, items: ITEMS, history: HR } = load(srcDir, ts);
+  const { rules: R, bindings: BIND, items: ITEMS, history: HR, units: U } = load(srcDir, ts);
   const failures = [];
   let checks = 0;
   const eq = (name, got, want) => {
@@ -822,7 +822,7 @@ function run(srcDir) {
   {
     const status = read(path.join("hub", "StatusBlock.tsx"));
     eq("T36.2 row 30 drawn with its FMT text (DEG from detail / 10, N from count) and its tip",
-      [status.includes("HUB_FMT.problemLiftBend} args={{ NAME, DEG: numArg(p.detail / 10, Unit.FloatSingleFraction), N }}"),
+      [status.includes("HUB_FMT.problemLiftBend} args={{ NAME, DEG: numArg(p.detail / 10, Unit.Angle), N }}"),
         status.includes("HUB_LOC.problemTipLiftBend")], [true, true]);
   }
   // T37 code 31 LiftTrainLimit: a dim band row naming the lift and the tower (count) whose rope goes past what its sheave train follows.
@@ -848,7 +848,7 @@ function run(srcDir) {
         status.includes("HUB_FMT.lowSpanTowers} args={{ A: numArg(p.count, Unit.Integer), B: numArg(p.more, Unit.Integer) }}"),
         status.includes("HUB_FMT.lowSpanStation} args={{ N: numArg(Math.max(p.count, p.more), Unit.Integer) }}"),
         status.includes("t(HUB_LOC.lowSpanStations)"),
-        status.includes("HUB_FMT.problemLiftLowSpan} args={{ NAME, CARRIERS, M: numArg(p.detail / 10, Unit.FloatSingleFraction) }}"),
+        status.includes("HUB_FMT.problemLiftLowSpan} args={{ NAME, CARRIERS, M: numArg(p.detail / 10, Unit.Height) }}"),
         status.includes("HUB_FMT.problemLiftLowSpanGround} args={{ NAME, CARRIERS }}"),
         status.includes("p.pct === 1 ? HUB_LOC.carriersCabins : HUB_LOC.carriersChairs"),
         status.includes('case "liftLowSpan": body = <LowSpanTip p={p} t={t} />;') && status.includes("HUB_FMT.problemTipLiftLowSpan} args={{ WHERE }}")],
@@ -1060,8 +1060,8 @@ function run(srcDir) {
       onDark[m[1]] = key(m[2], m[3], m[4], m[5] ?? 1);
       allowed.add(onDark[m[1]]);
     }
-    eq("T42.16 the on-dark palette: one token per icon color (ratings, edge, open, closed, caution)", Object.keys(onDark).sort(),
-      ["hubOnDarkBlack", "hubOnDarkBlue", "hubOnDarkCaution", "hubOnDarkClosed", "hubOnDarkDoubleBlack", "hubOnDarkEdge", "hubOnDarkGreen", "hubOnDarkOpen"]);
+    eq("T42.16 the on-dark palette: one token per icon color (ratings, the European red, edge, open, closed, caution)", Object.keys(onDark).sort(),
+      ["hubOnDarkBlack", "hubOnDarkBlue", "hubOnDarkCaution", "hubOnDarkClosed", "hubOnDarkDoubleBlack", "hubOnDarkEdge", "hubOnDarkGreen", "hubOnDarkOpen", "hubOnDarkRed"]);
     const VANILLA = { normalTextColor: [240, 251, 255], highlightYellow: [255, 203, 0] };
     eq("T42.17 hubOnDarkOpen / hubOnDarkCaution repeat normalTextColor / highlightYellow", [onDark.hubOnDarkOpen, onDark.hubOnDarkCaution],
       Object.values(VANILLA).map((c) => key(c[0], c[1], c[2], 1)));
@@ -1106,9 +1106,11 @@ function run(srcDir) {
       }
     }
     const imported = [...iconSrc.matchAll(/from "\.\/icons\/([\w-]+\.svg)"/g)].map((m) => m[1]).sort();
-    eq("T42.12 icon SVGs: 10 files, every one imported by hubIcons.ts, well-formed, colors only from the on-dark tokens", [svgs, imported, svgBad],
-      [["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "lift.svg", "open.svg", "openpatchy.svg", "patchy.svg", "school.svg"],
-        ["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "lift.svg", "open.svg", "openpatchy.svg", "patchy.svg", "school.svg"], []]);
+    eq("T42.12 icon SVGs: 10 files plus the 4 European rating discs (T162), every one imported by hubIcons.ts, well-formed, colors only from the on-dark tokens", [svgs, imported, svgBad],
+      [["black.svg", "blue.svg", "closed.svg", "dblack.svg", "eublack.svg", "eublue.svg", "eudblack.svg", "eured.svg", "green.svg", "lift.svg", "open.svg",
+        "openpatchy.svg", "patchy.svg", "school.svg"],
+        ["black.svg", "blue.svg", "closed.svg", "dblack.svg", "eublack.svg", "eublue.svg", "eudblack.svg", "eured.svg", "green.svg", "lift.svg", "open.svg",
+        "openpatchy.svg", "patchy.svg", "school.svg"], []]);
     // The harness base scenario sends the contract number. A stale one shows the mismatch card in every harness scenario, and the
     // layout test then fails with "reading 'click'" instead of a clear message (round 620 hit this). The harness sits next to src/;
     // a --src= copy without it (tools/test-gate-fixtures.js) skips the check.
@@ -1191,6 +1193,41 @@ function run(srcDir) {
     const scoped = allSrc.concat(fs.existsSync(helpersJs) ? [[helpersJs, fs.readFileSync(helpersJs, "utf8")]] : [])
       .filter(([, s]) => /:scope\b/.test(s)).map(([p]) => path.basename(p));
     eq("T43.8 no :scope selector in src/ or tools/testbridge/helpers.js (Gameface rejects it)", scoped, []);
+  }
+
+  // T60 the display layer (src/hub/units.ts, post-release round 1 T160 T161 T162). Literal oracles, the same numbers as ResortBatch
+  // DisplayUnitsTests (DU-*) pins on the C# twin DisplayUnits.cs.
+  {
+    eq("T60.1 deg1: the band thresholds 6 / 25 / 40 / 60 % read 3.4 / 14 / 21.8 / 31 deg; sign kept; not finite gives NaN",
+      [U.deg1(0.06), U.deg1(0.25), U.deg1(0.40), U.deg1(0.60), U.deg1(-0.25), U.deg1(1), Number.isNaN(U.deg1(NaN)), Number.isNaN(U.deg1(Infinity))],
+      [3.4, 14, 21.8, 31, -14, 45, true, true]);
+    eq("T60.2 pctToDeg1: percent grade to shown degrees; unknown (negative) stays -1",
+      [U.pctToDeg1(25), U.pctToDeg1(35), U.pctToDeg1(0), U.pctToDeg1(-1), U.pctToDeg1(NaN)], [14, 19.3, 0, -1, -1]);
+    eq("T60.3 round1 half away from zero (C# MidpointRounding.AwayFromZero)", [U.round1(2.25), U.round1(-2.25), U.round1(0.04)], [2.3, -2.3, 0]);
+    eq("T60.4 areaHa / speed / depth: metric and US customary",
+      [U.areaHa(3.24, false), U.areaHa(1, true), U.speed(5, false), U.speed(5, true), U.speed(2.3, true), U.depth(254, true), U.depth(100, true), U.depth(80, false)],
+      [3.2, 2.5, 5, 984, 453, 100, 39, 80]);
+    eq("T60.5 the factors equal DisplayUnits.cs", [U.FEET_PER_METER, U.ACRES_PER_HECTARE, U.CM_PER_INCH, U.FEET_PER_MINUTE_PER_MPS, U.EU_SUFFIX],
+      [3.28084, 2.471054, 2.54, 196.8504, "@EU"]);
+    const EU = { "K[a]@EU": "eu a" };
+    eq("T60.6 schemeEntry: the @EU variant only while European and only when the table has it",
+      [U.schemeEntry(["K[a]", "a"], 0, EU), U.schemeEntry(["K[a]", "a"], 1, EU), U.schemeEntry(["K[b]", "b"], 1, EU), U.schemeEntry(["K[a]", "a"], 7, EU)],
+      [["K[a]", "a"], ["K[a]@EU", "eu a"], ["K[b]", "b"], ["K[a]", "a"]]);
+    eq("T60.7 GRADE_SCHEME values equal C# GradeScheme (0 / 1); the fallback is North American",
+      [BIND.GRADE_SCHEME.NorthAmerican, BIND.GRADE_SCHEME.European, BIND.FALLBACK.gradeScheme], [0, 1, 0]);
+    const B = BIND.BAND;
+    eq("T60.8 bandShape: North American shapes, European discs for the same bands; flat, pending and cannot-be-rated unchanged",
+      [[B.Flat, B.Green, B.Blue, B.Black, B.DoubleBlack, B.Unrateable, -1].map((b) => U.bandShape(b, 0)),
+        [B.Flat, B.Green, B.Blue, B.Black, B.DoubleBlack, B.Unrateable, -1].map((b) => U.bandShape(b, 1))],
+      [["flat", "green", "blue", "black", "dblack", "unrateable", "pending"], ["flat", "euBlue", "euRed", "euBlack", "euDblack", "unrateable", "pending"]]);
+    eq("T60.9 schemeIconName swaps only the four rating icons", [["green", "blue", "black", "dblack", "open", "snow"].map((n) => U.schemeIconName(n, 1)),
+      U.schemeIconName("green", 0)], [["euBlue", "euRed", "euBlack", "euDblack", "open", "snow"], "green"]);
+    // Every European text has its base entry in hubText.ts (a variant never stands alone), and only texts that name a run color have one.
+    const hubTextSrc = fs.readFileSync(path.join(srcDir, "hub", "hubText.ts"), "utf8");
+    const allKeys = new Set([...hubTextSrc.matchAll(/\["((?:SkiResort|Assets)\.[^"]+)", "/g)].map((m) => m[1]));
+    const euKeys = [...allKeys].filter((k) => k.endsWith("@EU"));
+    const orphans = euKeys.filter((k) => !allKeys.has(k.slice(0, -3)) && !k.startsWith("SkiResort.SlopeBand["));
+    eq("T60.10 every @EU entry of hubText.ts has its base entry (band names: the C# drawing tooltip's), at least 20 of them", [orphans, euKeys.length >= 20], [[], true]);
   }
 
   const hr = require("./test-history-rules").run(srcDir);

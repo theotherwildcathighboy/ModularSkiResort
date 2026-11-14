@@ -57,7 +57,7 @@ namespace SkiResortMod.Systems
                     Show(m_Notice, ref m_LastNotice, notice.Value);
                 if (m_Tool.Step == LiftLineStep.PickBase && m_Tool.SectionHovered)   // the section a click removes (the rope pick)
                     Show(m_Hover, ref m_LastHover, LiftLineToolSystem.T("SECTION", ("TYPE", TypeText(m_Tool.HoverSectionTypeId)),
-                        ("LENGTH", LiftLineToolSystem.N(m_Tool.HoverSectionLengthM))));
+                        ("LENGTH", LiftLineToolSystem.M(m_Tool.HoverSectionLengthM))));
                 if (e?.Plan != null)
                 {
                     Show(m_Plan, ref m_LastPlan, PlanText(e.Plan, out bool clear));
@@ -87,8 +87,8 @@ namespace SkiResortMod.Systems
         {
             string key = LiftLineInput.PlanKey(plan, out float length);
             clear = key == "PLAN_CLEAR";
-            return LiftLineToolSystem.T(key, ("TOWERS", LiftLineToolSystem.N(plan.LineTowers)), ("LENGTH", LiftLineToolSystem.N(length)),
-                ("TYPE", TypeText(plan.Constants.TypeId)), ("CAP", LiftLineToolSystem.N(plan.Constants.PitchCapDeg)));
+            return LiftLineToolSystem.T(key, ("TOWERS", LiftLineToolSystem.N(plan.LineTowers)), ("LENGTH", LiftLineToolSystem.M(length)),
+                ("TYPE", TypeText(plan.Constants.TypeId)), ("CAP", LiftLineToolSystem.A(plan.Constants.PitchCapDeg)));
         }
 
         /// <summary>Over a tower: its number, its height (the ladder member's tower top above its base) and the lowest chair or cabin
@@ -102,8 +102,8 @@ namespace SkiResortMod.Systems
             string key = LiftLineInput.TowerKey(plan, t, e.IsPinned(plan.Nodes[t].AlongM), out float height, out float clear,
                                                 out float bend, out float cap);
             return LiftLineToolSystem.T(key, ("N", LiftLineToolSystem.N(t)), ("COUNT", LiftLineToolSystem.N(plan.LineTowers)),
-                ("HEIGHT", LiftLineToolSystem.N(height)), ("CLEAR", LiftLineToolSystem.N(clear)), ("DEG", LiftLineToolSystem.Deg(bend)),
-                ("CAP", LiftLineToolSystem.N(cap)), ("LIMIT", LiftLineToolSystem.Deg(cap)));   // LIMIT: TOWER_CLEARANCE's 41.5 / 57.5
+                ("HEIGHT", LiftLineToolSystem.H(height)), ("CLEAR", LiftLineToolSystem.H(clear)), ("DEG", LiftLineToolSystem.Deg(bend)),
+                ("CAP", LiftLineToolSystem.A(cap)), ("LIMIT", LiftLineToolSystem.Deg(cap)));   // LIMIT: TOWER_CLEARANCE's 41.5 / 57.5
         }
 
         private void Show(StringTooltip tip, ref LocalizedString last, LocalizedString text)

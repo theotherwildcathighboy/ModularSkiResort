@@ -1146,7 +1146,7 @@ namespace SkiResortMod.Systems
             if (math.distance(a.xz, b.xz) < min)
             {
                 Say($"LiftLine [pick]: the ends are {math.distance(a.xz, b.xz):F0} m apart — under {min:F0} m, too short for a line",
-                    T("TOO_SHORT", ("MIN", N(min))));
+                    T("TOO_SHORT", ("MIN", M(min))));
                 return false;
             }
             m_Top = end;
@@ -1517,8 +1517,8 @@ namespace SkiResortMod.Systems
         {
             switch (r)
             {
-                case LiftLineEditResult.TooCloseToStation: return T("ADD_TOO_CLOSE_END", ("M", N(m_Edit?.LastEndMarginM ?? 0f)));
-                case LiftLineEditResult.TooCloseToPin: return T("ADD_TOO_CLOSE_TOWER", ("M", N(m_C?.MinSpanM ?? 0f)));
+                case LiftLineEditResult.TooCloseToStation: return T("ADD_TOO_CLOSE_END", ("M", M(m_Edit?.LastEndMarginM ?? 0f)));
+                case LiftLineEditResult.TooCloseToPin: return T("ADD_TOO_CLOSE_TOWER", ("M", M(m_C?.MinSpanM ?? 0f)));
                 case LiftLineEditResult.NoTower: return T("NO_TOWER");
                 default: return null;
             }
@@ -1546,12 +1546,22 @@ namespace SkiResortMod.Systems
         /// <summary>A lift-tool player text: LocaleEN key SkiResort.LiftTool.<paramref name="key"/> with its {ARG} values.</summary>
         internal static LocalizedString T(string key, params (string, ILocElement)[] args) => LocalizedString.Id(LocPrefix + key, args);
 
-        /// <summary>A bend for a player text: one decimal, rounded up like the hub's LiftBend row (LiftCensus.BendWarnTenths).</summary>
+        /// <summary>A bend for a player text: one decimal, rounded up like the hub's LiftBend row (LiftCensus.BendWarnTenths), with the
+        /// degree sign (vanilla "angle", T160).</summary>
         internal static ILocElement Deg(float deg) =>
-            new LocalizedNumber<float>(math.max(LiftCensus.BendWarnTenths(deg), 0) / 10f, "floatSingleFraction");
+            new LocalizedNumber<float>(math.max(LiftCensus.BendWarnTenths(deg), 0) / 10f, "angle");
 
-        /// <summary>A whole number for a player text (meters, counts), rounded.</summary>
+        /// <summary>A whole number for a player text (counts), rounded.</summary>
         internal static ILocElement N(float v) => new LocalizedNumber<int>((int)math.round(v), "integer");
+
+        /// <summary>A distance along the ground in meters, in the game's unit setting (T161).</summary>
+        internal static ILocElement M(float m) => DisplayText.Length(m);
+
+        /// <summary>A height or clearance in meters, in the game's unit setting (T161).</summary>
+        internal static ILocElement H(float m) => DisplayText.Height(m);
+
+        /// <summary>An angle limit in degrees, one decimal (T160).</summary>
+        internal static ILocElement A(float deg) => DisplayText.Angle(deg);
 
         private string Reason(LiftLineEditResult r)
         {
@@ -1903,7 +1913,7 @@ namespace SkiResortMod.Systems
                 case "CROSS_TOWER": return T("CROSS_TOWER");
                 case "CROSS_OWN_TOWER": return T("CROSS_OWN_TOWER");
                 case "CROSS_SAME_TYPE": return T("CROSS_SAME_TYPE");
-                case "CROSS_CLEARANCE": return T("CROSS_CLEARANCE", ("M", N(m_CrossNeedM)));
+                case "CROSS_CLEARANCE": return T("CROSS_CLEARANCE", ("M", H(m_CrossNeedM)));
                 case "CROSSES_OVER": return T("CROSSES_OVER");
                 case "CROSSES_UNDER": return T("CROSSES_UNDER");
                 default: return T("CROSSES");

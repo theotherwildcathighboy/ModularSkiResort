@@ -604,3 +604,10 @@ Task R2-b changed what `WriteQuickRuns` writes for the runs-first planner. Every
 ## Unbound pistes (contract 43)
 `unbound` is `QuickRunsToolSystem.UnboundPistes` while a preview shows, else 0. It is the N of QUICK_WARN[NoSignSome] ("N of M runs",
 M = `enabled`). The warnings array holds keys only, so the number needs its own field.
+
+## Run grading (contract 44)
+`gradeScheme` (int, `GradeScheme`: 0 North American, 1 European) is the run grading the player sees (T162, post-release round 1).
+OnUpdate pushes `DisplayState.Refresh` every frame. That call only compares values. It reads the theme prefab only when Options > Run
+grading or the city theme entity changes. Auto follows `CityConfigurationSystem.defaultTheme`: the ThemePrefab name "European" gives
+European, any other name gives North American. The scheme changes names, markers, icons and colors only. Bands, run kinds and saved data
+stay the same. The hub maps names, markers and icons through src/hub/units.ts. The C# overlays read DisplayState.Scheme.

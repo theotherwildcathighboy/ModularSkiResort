@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using Colossal;
+using SkiResortMod.Systems;
 
 namespace SkiResortMod.Settings
 {
@@ -48,6 +49,19 @@ namespace SkiResortMod.Settings
                     "Selecting a Ski Area Welcome Sign opens the Ski Resort hub beside its panel. " +
                     "It never closes the hub. The hub closes with its X or Escape."
                 },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.RunGradeScheme)),
+                    "Run grading"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.RunGradeScheme)),
+                    "How run difficulty is named and marked. North American: green circle, blue square, black diamond, " +
+                    "double black diamond. European: blue, red, black and expert black pistes. Auto follows the city's " +
+                    "map theme. Only names, markers and colors change: ratings, the score and saves stay the same."
+                },
+                { m_Setting.GetEnumValueLocaleID(GradeSchemeOption.Auto), "Auto (city theme)" },
+                { m_Setting.GetEnumValueLocaleID(GradeSchemeOption.NorthAmerican), "North American" },
+                { m_Setting.GetEnumValueLocaleID(GradeSchemeOption.European), "European" },
 
                 // --- Balance and Snow ---
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupBalance), "Ski area balance" },
@@ -334,13 +348,13 @@ namespace SkiResortMod.Settings
                 },
                 // The cat track tool's knobs
                 {
-                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackGradeMaxPct)),
-                    "Cat track: max grade"
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackGradeMaxDeg)),
+                    "Cat track: max slope"
                 },
                 {
-                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackGradeMaxPct)),
-                    "The steepest a cat track may climb. A track that cannot stay under it turns red and asks for " +
-                    "more length (a switchback). Default 25 %."
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackGradeMaxDeg)),
+                    "The steepest a cat track may climb, in degrees. A track that cannot stay under it turns red and asks for " +
+                    "more length (a switchback). Default 14°."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackWidthM)),

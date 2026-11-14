@@ -214,7 +214,16 @@ namespace SkiResortMod.Systems
             return (byte)Math.Round(255.0 * step / AlphaSteps);
         }
 
-        /// <summary>The piste map's fill color of a catalog band (SkiPisteMapSystem.s_Fill, alpha dropped).</summary>
+        /// <summary>The piste map's fill color of a catalog band in a run grading (T162): European grading shows the band the North American
+        /// scheme calls green as a blue piste and its blue as a red piste (SkiPisteMapSystem.s_FillEu). Display only.</summary>
+        public static void BandRgb(int band, GradeScheme scheme, out byte r, out byte g, out byte b)
+        {
+            if (scheme == GradeScheme.European && band == 1) { r = 52; g = 120; b = 220; return; }
+            if (scheme == GradeScheme.European && band == 2) { r = 214; g = 48; b = 40; return; }
+            BandRgb(band, out r, out g, out b);
+        }
+
+        /// <summary>The piste map's fill color of a catalog band (SkiPisteMapSystem.s_Fill, alpha dropped), North American grading.</summary>
         public static void BandRgb(int band, out byte r, out byte g, out byte b)
         {
             switch (band)

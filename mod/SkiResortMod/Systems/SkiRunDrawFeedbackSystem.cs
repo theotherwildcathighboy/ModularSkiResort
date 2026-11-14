@@ -104,6 +104,19 @@ namespace SkiResortMod.Systems
             new UnityEngine.Color(0.85f, 0.20f, 0.10f, Tuning.FillAlpha),
         };
 
+        /// <summary>The same in European grading (T162, display only): green band = blue piste, blue band = red piste. The double-black
+        /// band leaves red (now the red piste) for orange, the color of an expert route on European maps.</summary>
+        private static readonly UnityEngine.Color[] BandColorsEu =
+        {
+            new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.FillAlpha),
+            new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.FillAlpha),
+            new UnityEngine.Color(0.85f, 0.15f, 0.12f, Tuning.FillAlpha),
+            new UnityEngine.Color(0.08f, 0.08f, 0.08f, Tuning.FillAlpha),
+            new UnityEngine.Color(0.95f, 0.55f, 0.05f, Tuning.FillAlpha),
+        };
+
+        private static UnityEngine.Color[] Bands => DisplayState.Scheme == GradeScheme.European ? BandColorsEu : BandColors;
+
         /// <summary>Crux ring: white outline, no fill (fill = outline with alpha 0, the vanilla
         /// range-circle style, EffectRangeRenderSystem.cs:166-169).</summary>
         private static readonly UnityEngine.Color CruxOutlineColor = new UnityEngine.Color(1f, 1f, 1f, 0.9f);
@@ -1663,7 +1676,7 @@ namespace SkiResortMod.Systems
                             A = pts[s],
                             B = pts[s + 1],
                             Width = Tuning.PolylineWidthM,
-                            Color = BandColors[b],
+                            Color = Bands[b],
                         };
                         m_StripCount++;
                     }
@@ -1786,7 +1799,7 @@ namespace SkiResortMod.Systems
                             A = new float3(xa, y, wz),
                             B = new float3(xb, y, wz),
                             Width = width,
-                            Color = BandColors[b],
+                            Color = Bands[b],
                         };
                         m_StripCount++;
                     }

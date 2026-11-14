@@ -12,7 +12,7 @@
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
-import { BAND, PROBLEM, build$, city$, problems$, resortLive$, resorts$, runs$, sameEntity, selectedResort$ } from "../bindings";
+import { BAND, GRADE_SCHEME, PROBLEM, build$, city$, gradeScheme$, problems$, resortLive$, resorts$, runs$, sameEntity, selectedResort$ } from "../bindings";
 import type { BuildItem, CityStats, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
@@ -25,7 +25,7 @@ import { IconText, MissingLine } from "./iconText";
 import { BAND_NAME, HUB_FMT, HUB_LOC, LODGE_TIER, factorEntry } from "./hubText";
 import type { BuildItemId } from "../bindings";
 import {
-  BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, cx, depthValue, numArg, useInches,
+  BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, areaArg, cx, depthValue, numArg, useInches,
 } from "./parts";
 import { currentResort, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
@@ -36,6 +36,8 @@ const DASH = "–";
 
 
 const BAND_SEGMENT = ["segFlat", "segGreen", "segBlue", "segBlack", "segDoubleBlack"] as const;
+/** European grading (T162): blue, red and black pistes for the same bands. */
+const BAND_SEGMENT_EU = ["segFlat", "segBlue", "segRed", "segBlack", "segDoubleBlack"] as const;
 
 function bandCounts(row: ResortRow): number[] {
   return [row.flat | 0, row.green | 0, row.blue | 0, row.black | 0, row.doubleBlack | 0];
@@ -58,11 +60,12 @@ function pendingCount(row: ResortRow, unrateable: number): number {
 function DifficultyBar({ row, unrateable, tip }: { row: ResortRow; unrateable: number; tip: JSX.Element }): JSX.Element {
   const counts = bandCounts(row);
   const pending = pendingCount(row, unrateable);
+  const segments = useValue(gradeScheme$) === GRADE_SCHEME.European ? BAND_SEGMENT_EU : BAND_SEGMENT;
   return (
     <Tip tip={tip}>
       <div className={styles.diffBar}>
         {counts.map((n, band) =>
-          n > 0 ? <div key={band} className={cx(styles.diffSeg, styles[BAND_SEGMENT[band]])} style={{ flexGrow: n }} /> : null)}
+          n > 0 ? <div key={band} className={cx(styles.diffSeg, styles[segments[band]])} style={{ flexGrow: n }} /> : null)}
         {pending > 0 && <div className={cx(styles.diffSeg, styles.segPending)} style={{ flexGrow: pending }} />}
         {unrateable > 0 && <div className={cx(styles.diffSeg, styles.segUnrateable)} style={{ flexGrow: unrateable }} />}
       </div>
@@ -128,7 +131,7 @@ function MountainSection({ row, live, city, unrateable, t, folded }: {
       <DifficultyLegend row={row} unrateable={unrateable} t={t} />
       <InfoLine
         label={t(HUB_LOC.area)}
-        value={<LocText entry={HUB_FMT.areaHa} args={{ HA: numArg(hectares(row.areaM2), Unit.FloatSingleFraction) }} />}
+        value={areaArg(hectares(row.areaM2), inches)}
         tip={t(HUB_LOC.areaTip)}
       />
       {!folded && <InfoLine

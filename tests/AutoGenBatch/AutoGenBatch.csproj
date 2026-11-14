@@ -81,6 +81,7 @@
     <!-- The rater and classifier the labels come from; GradePath / GradeRibbon for centerlines and outlines -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSlopeClassifier.cs" Link="SkiSlopeClassifier.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunRater.cs" Link="SkiRunRater.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\DisplayUnits.cs" Link="DisplayUnits.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\CatTrackGrade.cs" Link="CatTrackGrade.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunRatingRules.cs" Link="SkiRunRatingRules.cs" />
     <!-- Score terms (SizeFactor, BandValueOf, VerticalRefM) and RunKind -->

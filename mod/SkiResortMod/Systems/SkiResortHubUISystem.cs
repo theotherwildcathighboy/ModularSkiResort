@@ -17,6 +17,7 @@ using Colossal.Mathematics;        // MathUtils.Extents, Bounds3.xz
 using Colossal.Serialization.Entities;
 using Colossal.UI.Binding;
 using Game;
+using Game.City;
 using Game.Common;
 using Game.Prefabs;
 using Game.Rendering;
@@ -42,7 +43,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 43;
+        public const int HubContract = 44;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -568,6 +569,8 @@ namespace SkiResortMod.Systems
         private ValueBinding<bool> m_PisteMapBinding;
         private ValueBinding<bool> m_CatTrackDeleteBinding;   // contract 19: the cat track tool is open AND in Delete mode
         private ValueBinding<int> m_FollowBinding;
+        private ValueBinding<int> m_GradeSchemeBinding;   // contract 44: the run grading the player sees (GradeScheme: 0 North American, 1 European). Always observed, a compare per frame
+        private CityConfigurationSystem m_CityConfigForScheme;
         private ValueBinding<HubRunReplaced> m_RunReplaced;   // contract 32: not a panel binding (HubPanel moves its focus)
         private int m_RunReplacedSeq;
         // Custom names of re-emitted runs, set here at UIUpdate. NameSystem.SetCustomName takes an EndFrameBarrier buffer. The
@@ -803,6 +806,8 @@ namespace SkiResortMod.Systems
                 new CityStatsComparer()));
             AddBinding(m_PisteMapBinding = new ValueBinding<bool>(Group, "pisteMap", true));
             AddBinding(m_FollowBinding = new ValueBinding<int>(Group, "follow", 0));
+            AddBinding(m_GradeSchemeBinding = new ValueBinding<int>(Group, "gradeScheme", 0));
+            m_CityConfigForScheme = World.GetOrCreateSystemManaged<CityConfigurationSystem>();
             AddBinding(m_History);   // panel binding, no Demand
             AddBinding(m_LiftLine = new ValueBinding<HubLiftLineState>(Group, "liftLine",
                 new HubLiftLineState(false, false, "")));   // panel binding, no Demand
@@ -990,7 +995,7 @@ namespace SkiResortMod.Systems
                              $"bundled at build: {BuildStamp.UiBundled}); bindings hubOpen, contract, buildStamp, " +
                              "showHubButton (always observed), build, glade, resorts, resortLive, selectedResort, runs, " +
                              "runLive, lifts, problems, city (panel bindings: catalog and stats Demand follow them, nothing " +
-                             "is computed while closed), pisteMap and follow (panel values, no Demand), liftLine (contract 12: the Lifts " +
+                             "is computed while closed), pisteMap and follow (panel values, no Demand), gradeScheme (contract 44, always observed), liftLine (contract 12: the Lifts " +
                              "tab toggle, no Demand), catTrackDeleteMode (contract 19: the Runs tab chip, no Demand), history (contract 10: " +
                              "the History view only, no Demand; pushed when a stored month or the area set changed, the month " +
                              $"in progress at most every {Tuning.HistoryProgressPushS:0.#} s, HistoryProgressPushS); arrays pushed per " +
@@ -1062,6 +1067,9 @@ namespace SkiResortMod.Systems
 
                 // Setting → binding (a bool read, the binding pushes only on a change).
                 m_ShowHubButton.Update(Mod.Settings == null || Mod.Settings.ShowHubButton);
+                // The run grading (T162): re-resolved only when the option or the city theme changes (DisplayState.Refresh).
+                m_GradeSchemeBinding.Update((int)DisplayState.Refresh(m_CityConfigForScheme, m_PrefabSystem,
+                    Mod.Settings?.RunGradeScheme ?? GradeSchemeOption.Auto));
 
                 // World selection: selected-resort mapping (rule 2), then auto-open (one compare per frame).
                 Entity selected = m_ToolSystem.selected;

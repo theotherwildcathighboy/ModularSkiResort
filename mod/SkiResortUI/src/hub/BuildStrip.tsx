@@ -322,7 +322,7 @@ function MergeChip({ on, overlay, t }: { on: boolean; overlay: MergeOverlayState
     <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 2 }}>
       <div className={styles.pickerCell}>
         <Tip tip={<TipLines lines={[t(HUB_LOC.mergeTileFact), on && !noGeometry && t(HUB_LOC.mergeTileArmed),
-          noGeometry && <LocText entry={HUB_FMT.mergeWarnNoGeometry} args={{ M: numArg(overlay?.reachM ?? 0, Unit.Integer) }} />]} />}>
+          noGeometry && <LocText entry={HUB_FMT.mergeWarnNoGeometry} args={{ M: numArg(overlay?.reachM ?? 0, Unit.Length) }} />]} />}>
           <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pickerChip, on && styles.pickerChipOn) }} selected={on}
             onSelect={() => hubTriggers.armMergeOverlay(!on)}>
             <div className={styles.pickerLabel}>{t(HUB_LOC.mergeOverlay)}</div>
@@ -502,7 +502,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   } else if (state === "locked" && lockedEntry) {
     line = <>{t(sentKeyEntry(lockedEntry.item.reason, HUB_LOC.locked))}</>; lineCls = styles.buildLineLocked;
   } else if (mergeOn && info.mergeOverlay?.geometry === false) {
-    line = <LocText entry={HUB_FMT.mergeWarnNoGeometry} args={{ M: numArg(info.mergeOverlay.reachM, Unit.Integer) }} />; lineCls = styles.buildLineWarn;
+    line = <LocText entry={HUB_FMT.mergeWarnNoGeometry} args={{ M: numArg(info.mergeOverlay.reachM, Unit.Length) }} />; lineCls = styles.buildLineWarn;
   } else if (mergeOn) {
     line = <MergeLegend overlay={info.mergeOverlay} t={t} />;
   } else {

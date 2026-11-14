@@ -128,7 +128,7 @@ namespace SkiResortMod.Systems
             {
                 path = "skiLiftAlignRise",
                 label = LocalizedString.Id(KeyAlignRise),
-                unit = "length",
+                unit = "height",   // a height difference: m or ft (T161)
                 signed = true,
             };
             m_AlignGroup = new TooltipGroup

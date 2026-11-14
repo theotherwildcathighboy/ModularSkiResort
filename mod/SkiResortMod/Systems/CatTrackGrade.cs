@@ -1240,6 +1240,26 @@ namespace SkiResortMod.Systems
 
         public static GradeMsg Of(string key, params (string, float)[] args) => new GradeMsg(key, args);
 
+        /// <summary>How an {ARG} is shown (T160 / T161): LENGTH and SHORT are meters (the game's length unit), MAX and LIMIT are
+        /// slopes already in degrees (DisplayUnits.Deg1), CUT and FILL are earthwork in m³ (m³ or yd³). Anything else is a whole number.</summary>
+        public static GradeArgUnit UnitOf(string name)
+        {
+            switch (name)
+            {
+                case "LENGTH":
+                case "SHORT":
+                    return GradeArgUnit.Length;
+                case "MAX":
+                case "LIMIT":
+                    return GradeArgUnit.Degrees;
+                case "CUT":
+                case "FILL":
+                    return GradeArgUnit.Volume;
+                default:
+                    return GradeArgUnit.Whole;
+            }
+        }
+
         /// <summary>Equal messages have equal signatures (the tooltip re-sets its text only when this changes).</summary>
         public string Signature
         {
@@ -1249,10 +1269,19 @@ namespace SkiResortMod.Systems
                     return string.Empty;
                 var sb = new System.Text.StringBuilder(Key);
                 for (int i = 0; Args != null && i < Args.Length; i++)
-                    sb.Append('|').Append(Args[i].Name).Append('=').Append(((int)Math.Round(Args[i].Value)).ToString(CultureInfo.InvariantCulture));
+                    sb.Append('|').Append(Args[i].Name).Append('=').Append(((int)Math.Round(Args[i].Value * 10f)).ToString(CultureInfo.InvariantCulture));
                 return sb.ToString();
             }
         }
+    }
+
+    /// <summary>The display unit of a GradeMsg {ARG} (GradeMsg.UnitOf).</summary>
+    public enum GradeArgUnit : byte
+    {
+        Whole,
+        Length,
+        Degrees,
+        Volume,
     }
 
     public enum GradeStep : byte
@@ -1413,7 +1442,7 @@ namespace SkiResortMod.Systems
         {
             if (path == null || prof == null)
                 return GradeMsg.Empty;
-            float max = prof.MaxGradeAbs * 100f, limit = p.MaxGrade * 100f;
+            float max = DisplayUnits.Deg1(prof.MaxGradeAbs), limit = DisplayUnits.Deg1(p.MaxGrade);   // degrees (T160)
             if (prof.ShortfallM > 0f)
                 return GradeMsg.Of("PLAN_STEEP", ("MAX", max), ("LIMIT", limit), ("SHORT", (float)Math.Ceiling(prof.ShortfallM)));
             if (raster == null)

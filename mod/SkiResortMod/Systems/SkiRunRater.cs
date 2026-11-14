@@ -237,24 +237,21 @@ namespace SkiResortMod.Systems
             return ToRateStatus(detail.PlanStatus, status);
         }
 
-        /// <summary>The drawing tooltip's "avg N° (P %) · steepest N° (P %)" numbers. Average = the classifier's MeanGrade (the
+        /// <summary>The drawing tooltip's "avg N° · steepest N°" numbers (degrees, one decimal: DisplayUnits.Deg1, T160). Average = the classifier's MeanGrade (the
         /// mean of |g| over the run's inside cells, polyline: the length-weighted mean segment grade). Steepest = the largest of
         /// SteepestGrade (the k-th largest 20 m window), RatingGrade (the crux) and the average itself. So the line never reads
         /// below the crux row or its own average (the window statistic can sit under the crux when the crux came from a shorter
-        /// fallback window). Percent = grade × 100 rounded. Degrees = atan(grade) rounded (atan of the mean grade, not the mean
-        /// of the angles). False (all zero) when an input is not finite or negative.</summary>
-        public static bool SlopeReadout(float meanGrade, float ratingGrade, float steepestGrade,
-            out int avgDeg, out int avgPct, out int maxDeg, out int maxPct)
+        /// fallback window). Degrees = atan(grade) to one decimal (atan of the mean grade, not the mean of the angles). False (all
+        /// zero) when an input is not finite or negative.</summary>
+        public static bool SlopeReadout(float meanGrade, float ratingGrade, float steepestGrade, out float avgDeg, out float maxDeg)
         {
-            avgDeg = avgPct = maxDeg = maxPct = 0;
+            avgDeg = maxDeg = 0f;
             if (!(meanGrade >= 0f) || !(ratingGrade >= 0f) || !(steepestGrade >= 0f) ||
                 float.IsInfinity(meanGrade) || float.IsInfinity(ratingGrade) || float.IsInfinity(steepestGrade))
                 return false;
             float steep = Math.Max(steepestGrade, Math.Max(ratingGrade, meanGrade));
-            avgPct = (int)Math.Round(100.0 * meanGrade, MidpointRounding.AwayFromZero);
-            maxPct = (int)Math.Round(100.0 * steep, MidpointRounding.AwayFromZero);
-            avgDeg = (int)Math.Round(Math.Atan(meanGrade) * (180.0 / Math.PI), MidpointRounding.AwayFromZero);
-            maxDeg = (int)Math.Round(Math.Atan(steep) * (180.0 / Math.PI), MidpointRounding.AwayFromZero);
+            avgDeg = DisplayUnits.Deg1(meanGrade);
+            maxDeg = DisplayUnits.Deg1(steep);
             return true;
         }
 
@@ -265,17 +262,18 @@ namespace SkiResortMod.Systems
             None = 0,
             Narrow = 1,   // "· narrow 14 m at the crux": the cap would have applied, the width kept the band
             Wide = 2,     // "· wide 72 m at the crux": the width eased the green/blue boundary
-            Share = 3,    // "· only 6 % of the run is steeper than 40 %": the steep-share cap rated the run one band lower
+            Share = 3,    // "· only 6 % of the run is steeper than 21.8°": the steep-share cap rated the run one band lower
             Gentle = 4,   // "· gentle run, short steep pitch": a green-mean run rated at most blue
         }
 
         /// <summary>Maps a classifier note to the tooltip suffix and its numbers: widthM rounded (Narrow / Wide), the steep
-        /// share and the threshold in percent (Share: share at least 1 %, threshold 40 for a black crux, 60 for a double black
-        /// one). None, with all numbers 0, when there is nothing to say or an input is not finite.</summary>
+        /// share in percent and the threshold slope in degrees (Share: share at least 1 %, threshold 21.8 for a black crux (40 % grade),
+        /// 31 for a double black one (60 %)). None, with all numbers 0, when there is nothing to say or an input is not finite.</summary>
         public static SlopeNoteLine NoteLine(SlopeNote note, float widthM, float steepShare, SlopeBand cruxBand,
-            out int widthRounded, out int sharePct, out int thresholdPct)
+            out int widthRounded, out int sharePct, out float thresholdDeg)
         {
-            widthRounded = sharePct = thresholdPct = 0;
+            widthRounded = sharePct = 0;
+            thresholdDeg = 0f;
             switch (note)
             {
                 case SlopeNote.NarrowKept:
@@ -288,8 +286,7 @@ namespace SkiResortMod.Systems
                     if (!(steepShare >= 0f) || float.IsInfinity(steepShare))
                         return SlopeNoteLine.None;
                     sharePct = Math.Max(1, (int)Math.Round(100.0 * steepShare, MidpointRounding.AwayFromZero));
-                    thresholdPct = (int)Math.Round(100.0 * (cruxBand == SlopeBand.DoubleBlack ? SkiSlopeClassifier.GradeDoubleBlack : SkiSlopeClassifier.GradeBlack),
-                        MidpointRounding.AwayFromZero);
+                    thresholdDeg = DisplayUnits.Deg1(cruxBand == SlopeBand.DoubleBlack ? SkiSlopeClassifier.GradeDoubleBlack : SkiSlopeClassifier.GradeBlack);
                     return SlopeNoteLine.Share;
                 case SlopeNote.GreenMean:
                     return SlopeNoteLine.Gentle;

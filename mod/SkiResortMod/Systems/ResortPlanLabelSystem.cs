@@ -72,6 +72,7 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<Texture, Material> m_Materials = new Dictionary<Texture, Material>();
         private Material m_TextMaterialSource;
         private ResortPlan m_BuiltFor;               // reference compare: m_Published is an immutable snapshot per publish
+        private bool m_BuiltImperial;                // the unit setting the lift labels were written in (T161): a change rebuilds
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_NoMaterialLogged;
         private int m_Dropped;                       // labels the cap refused in the last rebuild
 
@@ -152,7 +153,7 @@ namespace SkiResortMod.Systems
                     LastDrawn = 0;   // zoomed in or out of the labels' range: nothing to build or draw
                     return;
                 }
-                if (!ReferenceEquals(plan, m_BuiltFor))
+                if (!ReferenceEquals(plan, m_BuiltFor) || m_BuiltImperial != DisplayState.Imperial)
                     Rebuild(result, plan);
                 if (m_Labels.Count != 0)
                     Draw(cam);
@@ -181,6 +182,7 @@ namespace SkiResortMod.Systems
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             m_Dropped = 0;
             m_BuiltFor = plan;
+            bool imperial = m_BuiltImperial = DisplayState.Imperial;
             Rebuilds++;
             ReleaseLabels();
             TerrainHeightData hd = m_Terrain.GetHeightData();
@@ -195,8 +197,8 @@ namespace SkiResortMod.Systems
                 string type = SkiCatalog.Lifts[Math.Min((int)l.TypeIndex, SkiCatalog.Lifts.Count - 1)].Id;
                 string text = liftT.Replace("{ID}", "P" + QuickRunsPlanRules.Ordinal(plan, li).ToString(CultureInfo.InvariantCulture))
                     .Replace("{TYPE}", Template("SkiResort.Hub.LIFT_TYPE[" + type + "]"))
-                    .Replace("{LENGTH}", (l.LengthM / 1000f).ToString("0.0", CultureInfo.InvariantCulture))
-                    .Replace("{RISE}", l.RiseM.ToString("0", CultureInfo.InvariantCulture))
+                    .Replace("{LENGTH}", DisplayUnits.LengthText(l.LengthM, imperial))
+                    .Replace("{RISE}", DisplayUnits.HeightText(l.RiseM, imperial))
                     .Replace("{RUNS}", l.Serves.ToString(CultureInfo.InvariantCulture));
                 Add(ref hd, mid, text, new Color32(255, 255, 255, 255), math.distance(l.Bottom.xz, l.Top.xz));
             }
@@ -208,7 +210,7 @@ namespace SkiResortMod.Systems
                             : "P" + QuickRunsPlanRules.Ordinal(plan, pod.Lift).ToString(CultureInfo.InvariantCulture))
                         .Replace("{CLASS}", Template("SkiResort.Tooltip.QUICK_CLASS[" + pod.PrimaryClass + "]"))
                     : otherT;
-                RunLabelRules.BandRgb(PlanGeometry.ScoreBandOf(pod.PrimaryClass), out byte r, out byte g, out byte b);
+                RunLabelRules.BandRgb(PlanGeometry.ScoreBandOf(pod.PrimaryClass), DisplayState.Scheme, out byte r, out byte g, out byte b);
                 Add(ref hd, pod.TopCenter, text, new Color32(r, g, b, 255), 2f * QuickRunsPlanRules.PodPickM);
             }
             AddTrackLabels(ref hd, result, trackT);

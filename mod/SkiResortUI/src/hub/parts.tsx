@@ -11,13 +11,16 @@
  */
 import { isValidElement, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { useValue } from "cs2/api";
 import { Tooltip } from "cs2/ui";
 import { Unit, useLocalization } from "cs2/l10n";
 import type { LocStringRenderer, LocalizedStringProps, PropsAreEqual } from "cs2/l10n";
 import { LocalizedNumber, LocalizedString } from "../cs2shim";
-import { BAND } from "../bindings";
+import { gradeScheme$ } from "../bindings";
 import type { LocEntry } from "../l10n";
 import { GLYPH_INFO, unitNbsp } from "./hubRules";
+import { EU_TEXT, HUB_FMT } from "./hubText";
+import { areaHa, bandShape, schemeEntry, speed } from "./units";
 import { IconKey, iconKeyOf } from "./iconKey";
 import styles from "./hub.module.scss";
 
@@ -49,14 +52,17 @@ export function Num({ value, unit, signed }: { value: number; unit: Unit; signed
 
 type LocTextProps = { entry: LocEntry; args: Record<string, string | JSX.Element> };
 
+/** The run grading (T162) reads the binding's current value here (renderString runs outside a component); LocTextView subscribes. */
 function stringProps(p: LocTextProps): LocalizedStringProps {
-  return { id: p.entry[0], fallback: p.entry[1], args: p.args };
+  const e = schemeEntry(p.entry, gradeScheme$.value, EU_TEXT);
+  return { id: e[0], fallback: e[1], args: p.args };
 }
 
 /** LocalizedString's own text (its component renders exactly its renderString, index.js@434221), with every number kept on one line
  *  with its unit (hubRules unitNbsp, render time only: the locale string stays ASCII). */
 function LocTextView(p: LocTextProps): JSX.Element {
   const loc = useLocalization();
+  useValue(gradeScheme$);   // re-render when the run grading changes (stringProps reads it)
   return <>{renderLocText(loc, p)}</>;
 }
 
@@ -230,16 +236,18 @@ export function NumCell({ samples, kind, fallbackClass, className, children }: {
 /**
  * Difficulty marker: CSS shapes in em, outlines with border longhands. Flat = hollow gray circle, green circle, blue
  * square, black diamond (rotated square with a light outline), double black = two diamonds, pending (-1) = hollow at
- * 0.4 opacity, cannot be rated (-2) = a hollow circle in the warning color.
+ * 0.4 opacity, cannot be rated (-2) = a hollow circle in the warning color. European grading (T162, units.ts bandShape): blue, red
+ * and black discs, two black discs for the expert band.
  */
 export function BandMarker({ band }: { band: number }): JSX.Element {
+  const scheme = useValue(gradeScheme$);
   let inner: JSX.Element;
-  switch (band) {
-    case BAND.Flat: inner = <div className={cx(styles.bandShape, styles.bandFlat)} />; break;
-    case BAND.Green: inner = <div className={cx(styles.bandShape, styles.bandGreen)} />; break;
-    case BAND.Blue: inner = <div className={cx(styles.bandShape, styles.bandBlue)} />; break;
-    case BAND.Black: inner = <div className={cx(styles.bandShape, styles.bandBlack)} />; break;
-    case BAND.DoubleBlack:
+  switch (bandShape(band, scheme)) {
+    case "flat": inner = <div className={cx(styles.bandShape, styles.bandFlat)} />; break;
+    case "green": inner = <div className={cx(styles.bandShape, styles.bandGreen)} />; break;
+    case "blue": inner = <div className={cx(styles.bandShape, styles.bandBlue)} />; break;
+    case "black": inner = <div className={cx(styles.bandShape, styles.bandBlack)} />; break;
+    case "dblack":
       inner = (
         <>
           <div className={cx(styles.bandShape, styles.bandBlack, styles.bandSmall)} />
@@ -247,7 +255,18 @@ export function BandMarker({ band }: { band: number }): JSX.Element {
         </>
       );
       break;
-    case BAND.Unrateable: inner = <div className={cx(styles.bandShape, styles.bandUnrateable)} />; break;
+    case "euBlue": inner = <div className={cx(styles.bandShape, styles.bandEuBlue)} />; break;
+    case "euRed": inner = <div className={cx(styles.bandShape, styles.bandEuRed)} />; break;
+    case "euBlack": inner = <div className={cx(styles.bandShape, styles.bandEuBlack)} />; break;
+    case "euDblack":
+      inner = (
+        <>
+          <div className={cx(styles.bandShape, styles.bandEuBlack, styles.bandSmall)} />
+          <div className={cx(styles.bandShape, styles.bandEuBlack, styles.bandSmall, styles.bandSecond)} />
+        </>
+      );
+      break;
+    case "unrateable": inner = <div className={cx(styles.bandShape, styles.bandUnrateable)} />; break;
     default: inner = <div className={cx(styles.bandShape, styles.bandPending)} />; break;
   }
   return <div className={styles.bandMarker}>{inner}</div>;
@@ -264,6 +283,23 @@ export function BandMarker({ band }: { band: number }): JSX.Element {
 export function numArg(value: number, unit: Unit, signed?: boolean, minusIsUnknown = true): JSX.Element | string {
   if (typeof value !== "number" || !Number.isFinite(value) || (minusIsUnknown && value < 0 && !signed)) return "–";
   return <LocalizedNumber value={value} unit={unit} signed={!!signed && value !== 0} />;
+}
+
+/** An area in hectares as a value or a <LocText> argument: "3.2 ha", or "7.9 acres" while the game's unit setting is US customary
+ *  (T161; vanilla's own area unit would show m² / ft² for a run). Unknown (negative, missing) gives "–". */
+export function areaArg(ha: number | undefined, imperial: boolean): JSX.Element | string {
+  const v = ha ?? -1;
+  if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return "–";
+  const HA = numArg(areaHa(v, imperial), Unit.FloatSingleFraction);
+  return imperial ? <LocText entry={HUB_FMT.areaAcres} args={{ HA }} /> : <LocText entry={HUB_FMT.areaHa} args={{ HA }} />;
+}
+
+/** A lift's line speed as a <LocText> argument: "5 m/s", or "984 ft/min" while the unit setting is US customary (T161; US lifts quote
+ *  ft/min, vanilla has no speed unit). Not positive gives "–". */
+export function speedArg(mps: number, imperial: boolean): JSX.Element | string {
+  if (typeof mps !== "number" || !Number.isFinite(mps) || mps <= 0) return "–";
+  const N = numArg(speed(mps, imperial), imperial ? Unit.Integer : Unit.FloatSingleFraction);
+  return imperial ? <LocText entry={HUB_FMT.speedFpm} args={{ N }} /> : <LocText entry={HUB_FMT.speedMps} args={{ N }} />;
 }
 
 /** A display number (not an argument): like Num, with the signed-zero rule of numArg */

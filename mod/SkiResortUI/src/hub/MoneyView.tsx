@@ -20,7 +20,7 @@ import {
 } from "./hubRules";
 import type { SchoolState } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, monthName } from "./hubText";
-import { Divider, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, TipLines, numArg, useNumberSamples } from "./parts";
+import { Divider, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, TipLines, areaArg, numArg, useInches, useNumberSamples } from "./parts";
 import type { NumberSamples } from "./parts";
 import { currentResort, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
@@ -162,7 +162,8 @@ function BusRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats
 
 /** Run upkeep booked this month. The tooltip lists today's rate per month for each feature the area's runs have (or that bills now). */
 function RunsRow({ l, feats, samples, t }: { l: ResortLive | null; feats: RunFeatureSet; samples: NumberSamples; t: Translate }): JSX.Element {
-  const ha = (v: number | undefined): JSX.Element | string => numArg(v ?? -1, Unit.FloatSingleFraction);
+  const imperial = useInches();
+  const ha = (v: number | undefined): JSX.Element | string => areaArg(v, imperial);   // ha or acres (T161)
   return (
     <InfoLine
       sub
