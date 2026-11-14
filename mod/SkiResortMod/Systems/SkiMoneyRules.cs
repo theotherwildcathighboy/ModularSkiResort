@@ -16,7 +16,7 @@ namespace SkiResortMod.Systems
         public const float LiftFixedPerMonth = SkiCatalog.FixedGrip.FixedPerMonth;
         public const float LiftPerKmPerMonth = SkiCatalog.FixedGrip.PerKmPerMonth;
         public const float LiftReducedShare = 0.25f;
-        public const int TicketPriceDefault = 80; // the ski-day price factor at 80 is 0.8
+        public const int TicketPriceDefault = 100; // the ski-day price factor at 100 is 0.7 (residents only; tourists pay any price)
         public const int TicketPriceMax = 200;
         public const int TicketPriceStep = 5;
         // time (TimeSystem.kTicksPerDay, Game.Simulation/TimeSystem.cs:18). The ECS systems assert it at arm time
@@ -154,7 +154,7 @@ namespace SkiResortMod.Systems
 
         public const int PassMultiplierMin = 2;
         public const int PassMultiplierMax = 10;
-        public const int PassMultiplierDefault = 2; // a season is about six ski days
+        public const int PassMultiplierDefault = 4; // a holder skis well under once a season on average, so the pass is income, not a discount
         public const int PassShareMax = 100;
         public const int PassShareStep = 5;
         public const int PassShareDefault = 50;   // 0 = passes off
