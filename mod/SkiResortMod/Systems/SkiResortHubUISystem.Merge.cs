@@ -330,6 +330,14 @@ namespace SkiResortMod.Systems
             return card;
         }
 
+        /// <summary>True when the merge card shows a merged building: only its card reads the stats rows (AreaNameOf). An unmerged
+        /// building's card needs no catalog or stats rebuild (opt pass hub-01).</summary>
+        private bool MergeCardNeedsStats()
+        {
+            Entity b = m_MergeCardBuilding;
+            return b != Entity.Null && EntityManager.Exists(b) && EntityManager.HasComponent<SkiMergedLodge>(b);
+        }
+
         private string AreaNameOf(Entity sign)
         {
             if (sign == Entity.Null)

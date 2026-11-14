@@ -2874,7 +2874,7 @@ namespace SkiResortMod.Systems
             bool demand = buildActive || resortsActive || resortLiveActive || runsActive || runLiveActive ||
                           liftsActive || problemsActive || cityActive ||     // pisteMap and follow do NOT demand
                           m_BusCardDepot != Entity.Null ||                    // the card's ski area name comes from the stats rows
-                          m_MergeCardBuilding != Entity.Null;                // the merge card too
+                          MergeCardNeedsStats();                             // a merged building's card names its area
             m_Catalog.Demand = demand;   // catalog and stats follow every panel binding
             m_Stats.Demand = demand;
 
