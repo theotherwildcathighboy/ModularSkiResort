@@ -225,9 +225,9 @@ namespace SkiResortMod.Systems
             {
                 EntityManager.AddComponentData(grip, new InterpolatedTransform(EntityManager.GetComponentData<Transform>(grip)));
                 m_DiagGripEnrolled++;
+                m_RebuildFresh.Add(grip);
             }
-            if (!EntityManager.HasComponent<Updated>(grip) && !EntityManager.HasComponent<Created>(grip))
-                EntityManager.AddComponent<Updated>(grip);
+            // The bounds tag comes with the rebuild's one batched call (BuildLoopCache, movers-03)
         }
 
         /// <summary>The loop's wind state, kept per base station across rebuilds.</summary>

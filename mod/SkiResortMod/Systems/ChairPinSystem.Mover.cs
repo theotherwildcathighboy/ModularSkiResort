@@ -567,7 +567,8 @@ namespace SkiResortMod.Systems
                     bool write, tag;
                     if (rebuilt)
                     {
-                        // A rebuild writes every running loop (the new offsets) and has tagged every rider Updated itself.
+                        // A rebuild writes every running loop (the new offsets). It tagged the riders of every re-slotted loop Updated itself; a carried
+                        // loop kept its bounds clock, and its next Decide tags it on the usual travel (movers-03).
                         write = true;
                         tag = false;
                         loop.m_Pace.Stride = stride;

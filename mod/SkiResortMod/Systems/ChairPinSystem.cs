@@ -205,6 +205,8 @@ namespace SkiResortMod.Systems
         private int m_DiagStations;                // station buildings found
         private int m_DiagChairsMatched;           // chair-prefab entities found by the rebuild
         private int m_DiagEnrolled;                // InterpolatedTransform enrollments, last rebuild
+        // The rebuild's newly enrolled riders (chairs and grips): always bounds-tagged, in the one batched call (opt pass movers-03)
+        private readonly List<Entity> m_RebuildFresh = new List<Entity>();
         private readonly List<string> m_DiagStationLines = new List<string>(); // per-station census, last rebuild
 
         // The bullwheel centers are SkiCatalog.Stations[*].WheelLocal (base (0, 3.55, 0.2), top (0, 3.75, 0)). BuildLoopCache reads them
@@ -1097,6 +1099,14 @@ namespace SkiResortMod.Systems
             return count;
         }
 
+        /// <summary>Collects one rider for the rebuild's batched bounds tag (skips a gone, Created or already-Updated entity).</summary>
+        private void AddBoundsTag(ref NativeList<Entity> tags, Entity e)
+        {
+            if (e == Entity.Null || !EntityManager.Exists(e) || EntityManager.HasComponent<Updated>(e) || EntityManager.HasComponent<Created>(e))
+                return;
+            tags.Add(e);
+        }
+
         // Loop-cache rebuild: harvest stations + cable lanes, chain into loops, roster the chairs, enroll them for per-frame rendering,
         // assign even loop offsets. Main-thread EntityManager on small counts. It runs only on load / lift edits / watchdog cadence.
         private struct PrevSlot
@@ -1108,13 +1118,17 @@ namespace SkiResortMod.Systems
         private void BuildLoopCache()
         {
             m_LoopCacheDirty = false;
+            long rebuildT0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            m_RebuildFresh.Clear();
 
             // Carry-forward snapshot: identity rebuilds (watchdog self-heal, reconnect no-ops) keep every surviving chair's offset when its
             // loop length is unchanged. Zero jump by construction. Keyed by entity.
             var previousSlots = new Dictionary<Entity, PrevSlot>();
+            var previousBounds = new Dictionary<(Entity, Entity), double>();   // a carried loop keeps its bounds clock (no tag at rebuild)
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
             {
                 LiftLoopCache.Loop old = m_LoopCache.m_Loops[l];
+                previousBounds[(old.m_BaseStation, old.m_TopStation)] = old.m_Pace.LastBoundsTimeS;
                 for (int i = 0; i < old.m_Chairs.Count; i++)
                 {
                     previousSlots[old.m_Chairs[i]] = new PrevSlot
@@ -1325,12 +1339,9 @@ namespace SkiResortMod.Systems
                         var transform = EntityManager.GetComponentData<Transform>(chair);
                         EntityManager.AddComponentData(chair, new InterpolatedTransform(transform));
                         enrolled++;
+                        m_RebuildFresh.Add(chair);
                     }
-                    if (!EntityManager.HasComponent<Updated>(chair) &&
-                        !EntityManager.HasComponent<Created>(chair))
-                    {
-                        EntityManager.AddComponent<Updated>(chair);
-                    }
+                    // The bounds tag waits for the slot pass below: one batched call, and none for a carried loop (movers-03)
                 }
             }
             finally
@@ -1393,6 +1404,7 @@ namespace SkiResortMod.Systems
             m_SeedLoadPass = false;
             m_SeedRefusalText?.Clear();
             m_RebuildUncarried.Clear();   // this rebuild's record only
+            var carriedLoops = new HashSet<int>();      // loops whose every chair kept its slot: nothing moved, no bounds tag
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
             {
                 LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
@@ -1417,6 +1429,7 @@ namespace SkiResortMod.Systems
                 {
                     for (int i = 0; i < n; i++)
                         loop.m_Offsets.Add(previousSlots[loop.m_Chairs[i]].m_Offset);
+                    carriedLoops.Add(l);
                     continue;
                 }
 
@@ -1448,10 +1461,43 @@ namespace SkiResortMod.Systems
                     loop.m_Offsets[order[rank]] = rank * spacing;
             }
 
-            // Every loop's far-loop pace starts fresh (staggered, bounds clock = now: the roster pass above tagged every rider Updated).
+            // The bounds tags: ONE structural change for the riders of every loop that did not carry its slots, plus every newly enrolled
+            // rider. A carried loop (identity rebuild: watchdog self-heal, reconnect no-op) moved nothing and gets no tag (opt pass movers-03).
+            int boundsTagged = 0;
+            var tags = new NativeList<Entity>(Allocator.Temp);
+            try
+            {
+                for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
+                {
+                    if (carriedLoops.Contains(l))
+                        continue;
+                    LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
+                    for (int i = 0; i < loop.m_Chairs.Count; i++)
+                        AddBoundsTag(ref tags, loop.m_Chairs[i]);
+                    for (int i = 0; i < loop.m_Grips.Count; i++)
+                        AddBoundsTag(ref tags, loop.m_Grips[i]);
+                }
+                for (int i = 0; i < m_RebuildFresh.Count; i++)
+                    AddBoundsTag(ref tags, m_RebuildFresh[i]);
+                if (tags.Length > 0)
+                    EntityManager.AddComponent<Updated>(tags.AsArray());
+                boundsTagged = tags.Length;
+            }
+            finally
+            {
+                tags.Dispose();
+                m_RebuildFresh.Clear();
+            }
+
+            // Every loop's far-loop pace starts fresh (staggered). Bounds clock: now for a tagged loop, the old loop's clock for a carried one.
             // The Burst job's flat arrays are rebuilt before the next move pass (ChairPinSystem.Mover.cs).
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
-                m_LoopCache.m_Loops[l].m_Pace = LiftMoverMath.Seed(l, s_Pace.MaxStride, seedTimeS);
+            {
+                LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
+                loop.m_Pace = LiftMoverMath.Seed(l, s_Pace.MaxStride, seedTimeS);
+                if (carriedLoops.Contains(l) && previousBounds.TryGetValue((loop.m_BaseStation, loop.m_TopStation), out double lastBounds))
+                    loop.m_Pace.LastBoundsTimeS = lastBounds;
+            }
             m_MoverArraysDirty = true;
 
             // 5. Deletion-gap retry (reconnect rebuilds can land between vanilla deleting old chairs and spawning replacements): loops
@@ -1485,8 +1531,10 @@ namespace SkiResortMod.Systems
             if (signature != m_LastBuildSignature)
             {
                 m_LastBuildSignature = signature;
+                double rebuildMs = (System.Diagnostics.Stopwatch.GetTimestamp() - rebuildT0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
                 Mod.Log.Info($"{nameof(ChairPinSystem)} [moving] cache rebuilt: {signature}" +
                              (enrolled > 0 ? $" ({enrolled} newly enrolled)" : string.Empty) +
+                             $"; {rebuildMs:F1} ms, {boundsTagged} bounds tag(s), {carriedLoops.Count} loop(s) carried" +
                              (seededChairs > 0 ? $"; {seededChairs} chair(s) start from where they stood (OD-7)" : string.Empty));
             }
 

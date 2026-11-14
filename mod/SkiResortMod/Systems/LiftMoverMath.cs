@@ -90,7 +90,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Rebuild seed: far loops are staggered across passes (loop index x 3 mod MaxStride passes already "elapsed"). The bounds
-        /// clock starts at the rebuild (the rebuild tags every rider Updated itself).</summary>
+        /// clock starts at the rebuild (the rebuild tags the riders of a re-slotted loop Updated itself; a carried loop keeps its old clock).</summary>
         public static LoopPace Seed(int loopIndex, int maxStride, double timeS)
         {
             int m = maxStride > 1 ? maxStride : 1;
