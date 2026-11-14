@@ -604,7 +604,7 @@ namespace SkiResortMod.Systems
         /// <summary>The plan bend, in degrees, that the drawn line makes where it joins a built line at a loose end.
         /// <paramref name="builtFar"/> = the built edge's other node, <paramref name="joint"/> = the loose end, <paramref name="otherEnd"/>
         /// = the drawn line's other end (the tool's line is straight, so its first tower lies on that heading). The value is 0 when the
-        /// bend is at or under LiftAlignMath.BendWarnDeg: the tool warns over it and never refuses (owner verdict 2026-11-02).</summary>
+        /// bend is at or under LiftAlignMath.BendWarnDeg: the tool warns over it and never refuses (DECISIONS 600).</summary>
         public static float JoinBendWarnDeg(float3 builtFar, float3 joint, float3 otherEnd)
         {
             float bend = LiftAlignMath.PlanBendDeg(builtFar, joint, otherEnd);

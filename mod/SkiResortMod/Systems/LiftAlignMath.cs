@@ -25,7 +25,7 @@ namespace SkiResortMod.Systems
 
     internal static class LiftAlignMath
     {
-        /// <summary>Plan bend above which the lift tool and the hub warn (owner verdict 2026-11-02: warn, never refuse). Real lines turn
+        /// <summary>Plan bend above which the lift tool and the hub warn (geometry limits warn, never refuse: DECISIONS 600). Real lines turn
         /// with sheaves only by a few degrees. Larger turns are angle stations.</summary>
         public const float BendWarnDeg = 5f;
 
@@ -400,7 +400,7 @@ namespace SkiResortMod.Systems
         /// rope's break at the tower over 2). The tower art clears it at any pitch (G6 joint sweep: inner wheels 0.06 m further out).</summary>
         public const float MaxHalfBreakDeg = 20f;
 
-        /// <summary>The two half-train pitches of an articulated tower (owner verdict 2026-11-02, option C: halves hinged on the main pin,
+        /// <summary>The two half-train pitches of an articulated tower (DECISIONS 570, option C: halves hinged on the main pin,
         /// the rope corners there). <paramref name="front"/> / <paramref name="back"/> are the mean lane-end pitches (LaneEndPitch, nose up
         /// along +z) of the ropes leaving toward +z / -z. <paramref name="nFront"/> / <paramref name="nBack"/> are how many. A side without
         /// a rope takes the other's pitch (a straight train). Each half clamps to ±<paramref name="maxPitch"/>. The half-break clamps to
@@ -747,7 +747,7 @@ namespace SkiResortMod.Systems
             return math.atan(slopeMax);
         }
 
-        /// <summary>The steepest a train half tilts, degrees, on any lift type (owner verdict 2026-11-02: "more like 30", steeper looks
+        /// <summary>The steepest a train half tilts, degrees, on any lift type (30: steeper looks
         /// absurd on an upright tower). Tilted tower bodies are a later idea. Past it the rope leaves the outer wheels.</summary>
         public const float TrainPitchLimitDeg = 30f;
 

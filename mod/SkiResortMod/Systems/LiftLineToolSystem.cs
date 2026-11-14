@@ -1624,7 +1624,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The line is straight, so the only plan bend the tool makes is where it joins a built line at a loose end. The bend runs
         /// over these points: the built edge's far node, the loose end and this line's other end (LiftLineInput.JoinBendWarnDeg). Over
-        /// LiftAlignMath.BendWarnDeg the tooltip keeps the BEND notice standing. Building stays allowed (owner verdict 2026-11-02: warn,
+        /// LiftAlignMath.BendWarnDeg the tooltip keeps the BEND notice standing. Building stays allowed (DECISIONS 600: warn,
         /// never refuse). The hub's LiftBend row reports bends on built lines (LiftCensus.MeasureBends). Logged on every plan that has
         /// one.</summary>
         private void WarnBend()
