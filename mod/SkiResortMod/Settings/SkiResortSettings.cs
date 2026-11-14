@@ -37,7 +37,6 @@ namespace SkiResortMod.Settings
         public const string GroupBalance = "Balance";
         public const string GroupSkiDays = "SkiDays";
         public const string GroupSnow = "Snow";
-        public const string GroupTerrain = "Terrain";
         public const string GroupRuns = "Runs";
         public const string GroupLifts = "Lifts";
         public const string GroupKeybindings = "Keybindings";

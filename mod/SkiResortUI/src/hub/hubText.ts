@@ -141,7 +141,6 @@ export const HUB_LOC = {
   problemTipSchoolNoGreenRun: ["SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while at least one <icon:green> run is <icon:openpatchy>."],
   pagePrev: ["SkiResort.Hub.PAGE_PREV", "Previous page"],
   pageNext: ["SkiResort.Hub.PAGE_NEXT", "Next page"],
-  lodgeGroup: ["SkiResort.Hub.BUILD_GROUP[Lodges]", "Lodges"],
   liftTool: ["SkiResort.Hub.LIFT_TOOL", "Lift tool"],
   liftToolTip: ["SkiResort.Hub.LIFT_TOOL_TIP", "Plan a lift line between two stations: Ctrl+Shift+L"],
   liftToolUnavailable: ["SkiResort.Hub.LIFT_TOOL_UNAVAILABLE", "Available once a city is loaded."],
