@@ -919,6 +919,18 @@ namespace SkiResortMod.Systems
             return PinResult.Pinned;
         }
 
+        /// <summary>True in game mode when the city holds no lift: no loop, no cable lane at the last rebuild, and a census built this load
+        /// with no row. False whenever unsure (Editor, census not armed or not built yet).</summary>
+        private bool NoLiftInCity()
+        {
+            if (!m_HoldInGame || m_LoopCache.m_Loops.Count > 0 || m_LastBuildHadLanes)
+                return false;
+            if (m_HoldCensus == null)
+                m_HoldCensus = World.GetExistingSystemManaged<LiftCensusSystem>();
+            LiftCensusSystem census = m_HoldCensus;
+            return census != null && census.IsArmed && census.Builds > 0 && census.CensusRows.Count == 0;
+        }
+
         // The moving-chairs pass (every Unity frame). Design: EngineNotes/ChairPinSystem.md. Runs only when the chairlift net prefab
         // resolved.
         private void UpdateMovingChairs()
@@ -926,7 +938,10 @@ namespace SkiResortMod.Systems
             // Change detection: any created/updated real chair this frame means vanilla touched the fleet (lift edit, respawn after
             // reconnect). In that case, rebuild the cache. Our own bounds-refresh Updated tags can never re-enter here: CleanUpSystem
             // strips tags added at Modification4B at the end of the same frame.
-            m_DiagProbeUpdatedChairs = m_UpdatedChairQuery.IsEmptyIgnoreFilter
+            // A city without a lift skips the probe (opt pass movers-04): no loop, the last rebuild found no cable lane and the census
+            // (built this load) holds no lift line. The first lift line moves the census, whose "lift topology" call rebuilds at once.
+            // The Editor keeps the probe (no census there).
+            m_DiagProbeUpdatedChairs = NoLiftInCity() || m_UpdatedChairQuery.IsEmptyIgnoreFilter
                 ? 0
                 : CountMatchingChairs(m_UpdatedChairQuery);
             if (m_DiagProbeUpdatedChairs > 0)
