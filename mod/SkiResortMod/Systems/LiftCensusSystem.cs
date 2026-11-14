@@ -584,6 +584,44 @@ namespace SkiResortMod.Systems
         /// <summary>Stations of the last build (positions may lag a moving station by up to CoalesceFrames). The aid reads live Transforms
         /// for the pair it uses.</summary>
         internal int StationCount => m_StationEntities.Count;
+
+        /// <summary>The station entities and prefabs for a per-pass reader (opt pass lifts-03: the icon and power-cue passes scanned every
+        /// building). From the last build when it is current: armed, built this load, and no build pending (a station placed, moved or
+        /// removed sets the pending flag in Modification4B, before the readers run). Otherwise from <paramref name="fallback"/>, the
+        /// caller's building query. <paramref name="requireSubNet"/> keeps only stations with a Game.Net.SubNet buffer (the fallback
+        /// query's own filter). Both arrays are Allocator.Temp, the caller disposes them. Main thread.</summary>
+        internal static void StationArrays(LiftCensusSystem census, EntityManager em, EntityQuery fallback, bool requireSubNet,
+                                           out NativeArray<Entity> entities, out NativeArray<PrefabRef> prefabs)
+        {
+            if (census == null || !census.IsArmed || census.Builds == 0 || census.m_CoalescePending || census.m_RequestedWhy != null)
+            {
+                entities = fallback.ToEntityArray(Allocator.Temp);
+                prefabs = fallback.ToComponentDataArray<PrefabRef>(Allocator.Temp);
+                return;
+            }
+            List<Entity> list = census.m_StationEntities;
+            var e = new NativeList<Entity>(list.Count, Allocator.Temp);
+            var p = new NativeList<PrefabRef>(list.Count, Allocator.Temp);
+            try
+            {
+                for (int i = 0; i < list.Count; i++)
+                {
+                    Entity s = list[i];
+                    if (!em.Exists(s) || em.HasComponent<Deleted>(s) || !em.HasComponent<PrefabRef>(s) ||
+                        (requireSubNet && !em.HasBuffer<Game.Net.SubNet>(s)))
+                        continue;
+                    e.Add(s);
+                    p.Add(em.GetComponentData<PrefabRef>(s));
+                }
+                entities = e.ToArray(Allocator.Temp);
+                prefabs = p.ToArray(Allocator.Temp);
+            }
+            finally
+            {
+                e.Dispose();
+                p.Dispose();
+            }
+        }
         internal Entity StationEntityAt(int i) => m_StationEntities[i];
         internal LiftCensus.Station StationAt(int i) => m_Stations[i];
 
