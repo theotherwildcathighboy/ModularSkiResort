@@ -167,7 +167,7 @@ namespace SkiResortMod.Systems
                              (unnamed > 0 ? $", {unnamed} without a name (all {SkiRunNameRules.Count} taken: \"Run N\")" : "") +
                              (untraited ? " without traits (no rating)" : "") + (load ? " (load pass)" : "") +
                              $"; {m_Pending.Count} waiting; this load {Named} named, {Unnamed} without");
-                m_Catalog.RequestRebuild("trail names");
+                m_Catalog.RequestRebuildSoon("trail names");   // coalesced with the bind / run-changed rebuild (runs-12)
             }
             catch (Exception e)
             {
