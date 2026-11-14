@@ -2451,6 +2451,8 @@ namespace SkiResortMod.Systems
 
         private string CensusText()
         {
+            if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
+                return "tourists: census off (Measurement diagnostics), no exit, follow or late watch";
             if (!m_CensusKnown)
                 return "tourists (no census yet)";
             int[] k = m_CensusLast;
@@ -3298,6 +3300,7 @@ namespace SkiResortMod.Systems
                 LiveKnown = (byte)(live ? 1 : 0),
                 FollowingLast = m_FollowingLast,
                 FollowCap = Tuning.FollowCap,
+                Watch = (byte)(SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn ? 1 : 0),
                 TripKnobs = m_TripKnobs,
             };
             h = resolve.Schedule(h);
@@ -3401,8 +3404,12 @@ namespace SkiResortMod.Systems
                 m_Behavior.AddCarReserveWriter(h);   // CBS :1100-1103, 1.6.2 :1132-1135
                 chunks.Dispose(h);
 
-                if (m_CensusDue)
+                // The hourly census is measure only (read by the [day] line and the DUMP): behind Options > Diagnostics like the walker scan
+                // below (opt pass sim-04). Off, the [day] line says "census off".
+                if (m_CensusDue && SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
                     ScheduleCensus(ref all, now);
+                else
+                    m_CensusDue = false;
                 // A walker scan every Tuning.NearScanPasses passes with an area, on the hour and on the timed pass, after the census (it
                 // reads the claims ClaimJob just appended). It is measure-only and makes ResidentAISystem wait on our chain. It is behind
                 // Options > Diagnostics, off by default.

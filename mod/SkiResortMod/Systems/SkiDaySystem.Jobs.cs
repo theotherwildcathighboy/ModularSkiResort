@@ -37,7 +37,7 @@ namespace SkiResortMod.Systems
         /// - 2 visit over and still inside (watched until the guest leaves the lodge, at most SkiDayTiming.ExitWatchFrames)
         /// - 3 expired and watched for a late arrival (at most SkiDayTiming.LateWatchFrames)
         /// - 4 followed after leaving the lodge for home, the map exit or with no trip purpose (at most SkiDayTiming.FollowWatchFrames)
-        /// States 2, 3 and 4 are measure only: never in OnTheWay, OnSite, ActiveNow or the hub view. A late arrival feeds only the
+        /// States 2, 3 and 4 are measure only and entered only with Measurement diagnostics on (ResolveJob.Watch): never in OnTheWay, OnSite, ActiveNow or the hub view. A late arrival feeds only the
         /// all-outcomes speed, never confidence. Sequential layout, field order as written (128 bytes, 32,768 at the cap: 4.0 MiB).
         /// Measure fields are valid when Flags / FollowFlags say so (frames 0 otherwise). ClaimJob starts RemoveWhy, MoveReason, ExitAt at 255.</summary>
         internal struct SkiDayClaim
@@ -471,6 +471,9 @@ namespace SkiResortMod.Systems
             public Entity PopulationEntity;
             public byte LiveKnown;
             public int FollowingLast, FollowCap;
+            // 1 = Options > Diagnostics > Measurement diagnostics on: claims may enter the measure-only states 2, 3 and 4. 0: a day ends at
+            // the visit end or the failure (no exit watch, no follow, no late watch), so no claim waits in a measure-only state (opt pass sim-05).
+            public byte Watch;
             public SkiDayRules.TripKnobs TripKnobs;
             public NativeList<SkiDayClaim> Claims;
             public NativeArray<SkiDayRules.ClassTrack> Tracks;   // areas × 3
@@ -700,10 +703,13 @@ namespace SkiResortMod.Systems
                             failO = 2;
                             ro.Expired++;
                             Failure(ref c, mb, hb, cls, kind, 2, gone, inBuilding, atOrigin, at, hasTp, purpose);
-                            c.State = 3;   // watched for a late arrival (measure only, the ring record is written at its end)
-                            keep = true;
-                            ro.Watching++;   // counted in its new bucket this pass
-                            break;
+                            if (Watch != 0)
+                            {
+                                c.State = 3;   // watched for a late arrival (measure only, the ring record is written at its end)
+                                keep = true;
+                                ro.Watching++;   // counted in its new bucket this pass
+                            }
+                            break;   // Watch 0: dropped at the expiry (the late watch feeds only the all-outcomes speed, unread by default)
                     }
 
                     // The deadline pull, the job's one write to vanilla state.
@@ -1165,6 +1171,8 @@ namespace SkiResortMod.Systems
             private byte Exit(ref SkiDayClaim c, ref ResolveOut ro, ref int started, int mb, int hb, int cls, bool gone, bool at,
                               bool inBuilding, Entity building, bool atOrigin, bool hasTp, byte purpose)
             {
+                if (Watch == 0)
+                    return 1;   // diagnostics off: no exit watch (state 2) and no follow (state 4). The day ends at the visit end, unrecorded
                 if (!SkiDayTiming.TryExit(gone, at, hasTp, purpose, Now, c.EndFrame, out SkiDayTiming.ExitWay way))
                     return 0;
                 int cause = math.min((int)c.EndCause, SkiDayTiming.EndCauseCount - 1);
