@@ -377,8 +377,8 @@ before-entries of a system, then the system itself, then its after-entries. The 
 
 ## Near LiftTowerDiagSystem
 
-Read-only tower diagnostic ("Towers [nodes]" blocks: node y / terrain / Elevation, chord clearance, the tower the engine spawned,
-placeholder scores). `LiftCensusSystem.BuildCensus` (`OnCensusBuilt`) feeds it. It prints from here after the census has been quiet.
+Read-only tower diagnostic ("Towers [summary]" lines: towers spawned, leg gap, chord clearance, node Elevation; the per-node dump
+was cut in the 2026-11-14 opt pass). `LiftCensusSystem.BuildCensus` (`OnCensusBuilt`) feeds it. It prints from here after the census has been quiet.
 `DumpAll` on DUMP. The anchor is load-bearing like the anchor of `TramShuttleSystem`: AFTER `LiftCensusSystem` at Modification4B. Then
 the towers of a line are readable (created at 2B, in the node SubObject buffers by Modification3, SystemOrder.cs:131, :136). The phase
 must stay Modification4B. Otherwise the anchor is skipped and the system silently never prints.

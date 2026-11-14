@@ -1,9 +1,11 @@
 // Read-only diagnostic: what the engine actually did at every node of a lift line. It changes nothing: no command buffer, no
 // component write, no prefab touch, no per-frame work (an int compare while nothing is pending).
 // LiftCensusSystem.BuildCensus calls OnCensusBuilt(edges) after every build. A queued line prints once the census has been quiet for
-// SettleFrames updates (a drag prints one block). It logs "Towers [nodes]" (replicating the engine's SubObjectSystem placeholder scoring)
-// and "Towers [plan]" (a re-plan by the pure LiftTowerPlanner on the real terrain, cached for LiftTowerPlanOverlaySystem). The blocks run
-// to dozens of lines per lift, so they print only with the diagnostics option on (or in a hub DUMP). The plan cache fills either way.
+// SettleFrames updates (a drag prints one block). It logs one "Towers [summary]" line per lift line (towers spawned, nodes without one,
+// the highest node Elevation, the largest leg gap, the lowest chord clearance) and "Towers [plan]" (a re-plan by the pure LiftTowerPlanner
+// on the real terrain, cached for LiftTowerPlanOverlaySystem). Both print only with the diagnostics option on (or in a hub DUMP). With the
+// option off nothing is planned on an edit: the overlay asks for its plan on demand (RequestPlan). Opt pass 2026-11-14 lifts-01, lifts-08 b
+// (the per-node dump and its engine placeholder-scoring replica were cut to the summary line).
 // Mod.cs: UpdateAfter<LiftTowerDiagSystem, LiftCensusSystem>(Modification4B), the same anchor family as TramShuttleSystem.
 // Engine notes: EngineNotes/LiftTowerDiagSystem.md
 
@@ -27,10 +29,9 @@ namespace SkiResortMod.Systems
     {
         /// <summary>Census-quiet updates before a queued line is printed (towers exist by then. A drag keeps resetting it).</summary>
         internal const int SettleFrames = 30;
-        internal const int MaxNodes = 64;
         internal const int MaxBlocksPerEmit = 12;
         internal const int MaxBlocksPerDump = 24;
-        private static readonly float[] SampleT = { 0.2f, 0.4f, 0.6f, 0.8f };
+        private static readonly float[] SampleT = { 0.2f, 0.4f, 0.6f, 0.8f };   // chord clearance samples per span
 
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private PrefabSystem m_PrefabSystem;
@@ -101,8 +102,14 @@ namespace SkiResortMod.Systems
                 return;
             try
             {
-                // The blocks are a developer dump: without the diagnostics option the pass only fills the plan cache the overlay reads.
-                bool log = SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn;
+                // The blocks are a developer dump. Without the diagnostics option nothing is planned here: the overlay, the only other reader,
+                // asks for its plan on demand (RequestPlan, PlanSelected), so a line edit costs no planner run (opt pass lifts-01).
+                if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
+                {
+                    m_Pending.Clear();
+                    return;
+                }
+
                 int printed = 0;
                 int skipped = 0;
                 for (int i = 0; i < m_Pending.Count; i++)
@@ -112,11 +119,11 @@ namespace SkiResortMod.Systems
                         skipped++;
                         continue;
                     }
-                    if (WriteLine(m_Pending[i], "new or changed", log))
+                    if (WriteLine(m_Pending[i], "new or changed", log: true))
                         printed++;
                 }
-                if (skipped > 0 && log)
-                    Mod.Log.Info($"Towers [nodes]: {skipped} more new or changed line(s) not printed (cap {MaxBlocksPerEmit} per emission); the DUMP prints every line");
+                if (skipped > 0)
+                    Mod.Log.Info($"Towers [summary]: {skipped} more new or changed line(s) not printed (cap {MaxBlocksPerEmit} per emission); the DUMP prints every line");
                 m_Pending.Clear();
             }
             catch (Exception e)
@@ -156,6 +163,15 @@ namespace SkiResortMod.Systems
                     {
                         m_Pending.Add(comps[c]);
                         m_LastQueueFrame = m_Frame;
+                        // A new or changed line drops its cached plan: with diagnostics off nothing re-plans it here, so the overlay
+                        // (Settings > Lifts > LiftBuildAids) re-asks on demand instead of drawing the old plan.
+                        List<LiftCensus.Edge> comp = comps[c];
+                        for (int i = 0; i < comp.Count; i++)
+                        {
+                            m_Draws.Remove(LiftCensusSystem.Ent(comp[i].Id));
+                            m_Draws.Remove(LiftCensusSystem.Ent(comp[i].Start));
+                            m_Draws.Remove(LiftCensusSystem.Ent(comp[i].End));
+                        }
                     }
                 }
             }
@@ -170,7 +186,7 @@ namespace SkiResortMod.Systems
         {
             if (!m_Armed)
             {
-                Mod.Log.Info($"Towers [nodes]: DUMP ({reason}) — not armed (no game loaded)");
+                Mod.Log.Info($"Towers [summary]: DUMP ({reason}) — not armed (no game loaded)");
                 return;
             }
             try
@@ -185,13 +201,13 @@ namespace SkiResortMod.Systems
                     if (WriteLine(comps[c], "dump: " + reason, log: true))
                         printed++;
                 }
-                Mod.Log.Info($"Towers [nodes]: DUMP ({reason}) — {printed} of {comps.Count} line(s) printed " +
+                Mod.Log.Info($"Towers [summary]: DUMP ({reason}) — {printed} of {comps.Count} line(s) printed " +
                              $"(cap {MaxBlocksPerDump}); {m_Blocks} block(s) this load, {m_Dumps} dump(s), {m_Logged.Count} signature(s) seen, " +
                              $"{m_Pending.Count} queued{(m_Disabled ? "; DISABLED after an exception" : string.Empty)}");
             }
             catch (Exception e)
             {
-                Mod.Log.Warn($"Towers [nodes]: DUMP ({reason}) failed ({e.GetType().Name}: {e.Message}) — non-fatal");
+                Mod.Log.Warn($"Towers [summary]: DUMP ({reason}) failed ({e.GetType().Name}: {e.Message}) — non-fatal");
             }
         }
 
@@ -275,7 +291,7 @@ namespace SkiResortMod.Systems
             public Entity NextNode;
         }
 
-        /// <summary>Prints the [nodes] and [plan] blocks of one line when <paramref name="log"/> is true. Always refreshes the plan
+        /// <summary>Prints the [summary] line and the [plan] block of one line when <paramref name="log"/> is true. Always refreshes the plan
         /// cache.</summary>
         private bool WriteLine(List<LiftCensus.Edge> comp, string why, bool log)
         {
@@ -290,7 +306,7 @@ namespace SkiResortMod.Systems
             if (!hd.isCreated)
             {
                 if (log)
-                    Mod.Log.Info("Towers [nodes]: terrain heightmap not ready — line skipped (DUMP again later)");
+                    Mod.Log.Info("Towers [summary]: terrain heightmap not ready — line skipped (DUMP again later)");
                 return false;
             }
 
@@ -319,43 +335,21 @@ namespace SkiResortMod.Systems
                 return true;
             }
 
-            var sb = new StringBuilder(2048);
-            sb.Append("Towers [nodes]: line ").Append(typeName).Append(" edge ").Append(Fmt(LiftCensusSystem.Ent(comp[0].Id)))
-              .Append(" (").Append(why).Append(") — ").Append(nodeTotal).Append(" node(s), ").Append(comp.Count)
-              .Append(" span(s), ").Append(F(totalLen, "F0")).Append(" m of curve");
+            var towerCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
+            int noTower = 0;
+            float maxFloat = float.NegativeInfinity, minClr = float.PositiveInfinity, maxElev = 0f;
+            IReadOnlyDictionary<Entity, float> carriers = m_PrefabCatalog.CarrierGripTops;
+            for (int p = 0; p < paths.Count; p++)
+                for (int i = 0; i < paths[p].Count; i++)
+                    SummarizeNode(ref hd, paths[p][i], carriers, towerCounts, ref noTower, ref maxFloat, ref minClr, ref maxElev);
+
+            var sb = new StringBuilder(512);
+            sb.Append("Towers [summary]: line ").Append(typeName).Append(" edge ").Append(Fmt(LiftCensusSystem.Ent(comp[0].Id)))
+              .Append(" (").Append(why).Append("): ").Append(nodeTotal).Append(" node(s), ").Append(comp.Count).Append(" span(s), ")
+              .Append(F(totalLen, "F0")).Append(" m of curve");
             if (paths.Count > 1)
                 sb.Append(", ").Append(paths.Count).Append(" paths (branches)");
-            sb.Append('\n');
-
-            var towerCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
-            int noTower = 0, mismatches = 0, ladderMissed = 0, shown = 0, nodesDone = 0;
-            float maxFloat = float.NegativeInfinity, minClr = float.PositiveInfinity, maxElev = 0f;
-            string minClrWhere = "-", maxFloatWhere = "-";
-
-            for (int p = 0; p < paths.Count && shown < MaxNodes; p++)
-            {
-                if (paths.Count > 1)
-                    sb.Append("  -- path ").Append(p).Append(" --\n");
-                List<Hop> path = paths[p];
-                for (int i = 0; i < path.Count; i++)
-                {
-                    nodesDone++;
-                    Hop hop = path[i];
-                    string label = "n" + nodesDone.ToString(CultureInfo.InvariantCulture);
-                    if (shown >= MaxNodes)
-                        break;
-                    shown++;
-                    DescribeNode(sb, ref hd, label, hop, towerCounts, ref noTower, ref mismatches, ref ladderMissed,
-                                 ref maxFloat, ref maxFloatWhere, ref minClr, ref minClrWhere, ref maxElev);
-                }
-            }
-            if (nodeTotal > shown)
-                sb.Append("  … ").Append(nodeTotal - shown).Append(" more node(s) not printed (cap ").Append(MaxNodes).Append(")\n");
-            for (int p = 0; p < paths.Count; p++)
-                AppendOrder(sb, paths[p], ref hd, LiftCensusSystem.Ent(comp[0].Id));
-
-            sb.Append("Towers [summary]: line ").Append(typeName).Append(" edge ").Append(Fmt(LiftCensusSystem.Ent(comp[0].Id)))
-              .Append(": ").Append(nodeTotal).Append(" node(s); towers {");
+            sb.Append("; towers {");
             bool first = true;
             foreach (KeyValuePair<string, int> kv in towerCounts)
             {
@@ -368,13 +362,12 @@ namespace SkiResortMod.Systems
             if (noTower > 0)
                 sb.Append(", ").Append(noTower).Append(" node(s) without a tower");
             sb.Append("; max node Elevation ").Append(F(maxElev, "F1")).Append(" m")
-              .Append("; max pivot-above-terrain (leg gap) ").Append(maxFloat > float.NegativeInfinity ? F(maxFloat, "F1") + " m at " + maxFloatWhere : "n/a")
-              .Append("; min chord clearance ").Append(minClr < float.PositiveInfinity ? F(minClr, "F1") + " m at " + minClrWhere : "n/a")
-              .Append("; formula MISMATCH ").Append(mismatches).Append(" node(s); elevation>=4 but shortest member chosen ").Append(ladderMissed).Append(" node(s)");
+              .Append("; max pivot-above-terrain (leg gap) ").Append(maxFloat > float.NegativeInfinity ? F(maxFloat, "F1") + " m" : "n/a")
+              .Append("; min chord clearance ").Append(minClr < float.PositiveInfinity ? F(minClr, "F1") + " m" : "n/a");
             Mod.Log.Info(sb.ToString());
             m_Blocks++;
 
-            // The planned line beside the actual one (its own try: a planner fault must not cost the [nodes] block)
+            // The planned line beside the actual one (its own try: a planner fault must not cost the [summary] line)
             try
             {
                 WritePlans(comp, paths, typeDef, typeName, why, ref hd, log: true);
@@ -382,94 +375,9 @@ namespace SkiResortMod.Systems
             catch (Exception e)
             {
                 Mod.Log.Warn($"Towers [plan]: line {typeName} edge {Fmt(LiftCensusSystem.Ent(comp[0].Id))} — planner failed " +
-                             $"({e.GetType().Name}: {e.Message}); the [nodes] block above is unaffected\n{e}");
+                             $"({e.GetType().Name}: {e.Message}); the [summary] line above is unaffected\n{e}");
             }
             return true;
-        }
-
-        /// <summary>One "order" line per path. It lists: the line towers numbered base to top by distance along the line
-        /// (LiftTowerNumbering, the plates still show the baked height numeral), a tower on a station's stub node, and nodes whose ground
-        /// sits at this line's own cut ceiling (LiftTowerEdit).
-        /// The stub node takes the prefab of the connected net with the highest NetData.m_NodePriority (GenerateNodesSystem.cs:1690-1765).
-        /// The priority adds the composition width (NetInitializeSystem.cs:135). The marker stub's section, SkiChairliftPiece, is 6 m. It
-        /// ties FG / DQ and loses to the gondola, 8.2 m, and the tram, 15 m. So their stub node is a line node and spawns a pillar
-        /// (SubObjectSystem.cs:1580-1760).</summary>
-        private void AppendOrder(StringBuilder sb, List<Hop> path, ref TerrainHeightData hd, Entity lineEdge)
-        {
-            int n = path.Count;
-            if (n < 2)
-                return;
-            int roleA = StationRoleOf(path[0].Node), roleB = StationRoleOf(path[n - 1].Node);
-            bool baseFirst = !(roleA == (int)StationRole.Top || roleB == (int)StationRole.Base);
-            float cutOff = LiftTowerEdit.PieceMinHeightOffsetM + 4f;
-            if (EntityManager.TryGetComponent<PrefabRef>(lineEdge, out var lp) && EntityManager.TryGetComponent<NetGeometryData>(lp.m_Prefab, out var ng))
-                cutOff = ng.m_DefaultHeightRange.min + LiftTowerEdit.PieceMinHeightOffsetM;
-            var along = new List<float>();
-            var labels = new List<string>();
-            var stub = new StringBuilder();
-            var cut = new StringBuilder();
-            float s = 0f;
-            float3 prev = default;
-            for (int i = 0; i < n; i++)
-            {
-                if (!EntityManager.TryGetComponent<Game.Net.Node>(path[i].Node, out var node))
-                    continue;
-                if (i > 0)
-                    s += math.distance(prev.xz, node.m_Position.xz);
-                prev = node.m_Position;
-                string tower = TowerName(path[i].Node);
-                bool end = i == 0 || i == n - 1;
-                if (tower != null && end)
-                    stub.Append(stub.Length > 0 ? ", " : string.Empty).Append(i == 0 ? "first" : "last").Append(" node ").Append(Fmt(path[i].Node))
-                        .Append(" carries ").Append(tower);
-                if (tower != null && !end)
-                {
-                    along.Add(s);
-                    labels.Add("n" + (i + 1).ToString(CultureInfo.InvariantCulture) + " " + tower.Replace("SkiLiftTower", string.Empty).Replace("SkiTramTower", "T"));
-                }
-                float terrain = TerrainUtils.SampleHeight(ref hd, node.m_Position);
-                if (!end && math.abs(terrain - (node.m_Position.y + cutOff)) <= LiftTowerEdit.OwnCutTolM)
-                    cut.Append(cut.Length > 0 ? ", " : string.Empty).Append('n').Append(i + 1);
-            }
-            if (!baseFirst)
-                for (int i = 0; i < along.Count; i++)
-                    along[i] = s - along[i];
-            int[] num = LiftTowerNumbering.Numbers(along);
-            var order = new string[along.Count];
-            for (int i = 0; i < along.Count; i++)
-                order[num[i] - 1] = "#" + num[i] + " " + labels[i] + " @" + F(along[i], "F0");
-            sb.Append("  order (T123): towers base -> top ").Append(roleA < 0 && roleB < 0 ? "(no station role found: from the path's first node) " : string.Empty)
-              .Append(order.Length == 0 ? "none" : string.Join(", ", order)).Append(" m\n");
-            if (stub.Length > 0)
-                sb.Append("  STATION STUB TOWER (T126): ").Append(stub).Append(" — the stub node took the line prefab (NodePriority), the engine stands a pillar there\n");
-            if (cut.Length > 0)
-                sb.Append("  OWN CUT (T127): the ground at ").Append(cut).Append(" sits at this line's cut ceiling (node y ").Append(Sg(cutOff))
-                  .Append(" m): a pit dug by the line itself\n");
-        }
-
-        /// <summary>StationRole of the station whose sub-net owns <paramref name="node"/> (-1 = not a catalog station's node).</summary>
-        private int StationRoleOf(Entity node)
-        {
-            if (!EntityManager.TryGetComponent<Owner>(node, out var owner) || !EntityManager.TryGetComponent<PrefabRef>(owner.m_Owner, out var op))
-                return -1;
-            StationDef st = SkiCatalog.StationByPrefab(m_PrefabSystem.GetPrefabName(op.m_Prefab));
-            return st != null ? (int)st.Role : -1;
-        }
-
-        /// <summary>The prefab name of the (first) tower in the node's SubObject buffer, carriers skipped. Null when none.</summary>
-        private string TowerName(Entity node)
-        {
-            if (!EntityManager.TryGetBuffer(node, true, out DynamicBuffer<Game.Objects.SubObject> subs))
-                return null;
-            IReadOnlyDictionary<Entity, float> carriers = m_PrefabCatalog.CarrierGripTops;
-            for (int i = 0; i < subs.Length; i++)
-            {
-                Entity sub = subs[i].m_SubObject;
-                if (EntityManager.HasComponent<Deleted>(sub) || !EntityManager.TryGetComponent<PrefabRef>(sub, out var sp) || carriers.ContainsKey(sp.m_Prefab))
-                    continue;
-                return m_PrefabSystem.GetPrefabName(sp.m_Prefab);
-            }
-            return null;
         }
 
         /// <summary>The overlay's lookup: the cached plan of the line that <paramref name="e"/> (edge, node) belongs to.</summary>
@@ -710,77 +618,24 @@ namespace SkiResortMod.Systems
             return EntityManager.TryGetComponent<Game.Net.Node>(node, out var n) ? n.m_Position.y : 0f;
         }
 
-        private void DescribeNode(StringBuilder sb, ref TerrainHeightData hd, string label, Hop hop,
-                                  SortedDictionary<string, int> towerCounts, ref int noTower, ref int mismatches, ref int ladderMissed,
-                                  ref float maxFloat, ref string maxFloatWhere, ref float minClr, ref string minClrWhere, ref float maxElev)
+        /// <summary>One node into the [summary] totals: its Elevation, the chord clearance of the span to the next node (SampleT), and the
+        /// towers the engine spawned in its SubObject buffer (carriers and deleted skipped) with their pivot height above the terrain.</summary>
+        private void SummarizeNode(ref TerrainHeightData hd, Hop hop, IReadOnlyDictionary<Entity, float> carriers,
+                                   SortedDictionary<string, int> towerCounts, ref int noTower, ref float maxFloat, ref float minClr, ref float maxElev)
         {
             if (!EntityManager.TryGetComponent<Game.Net.Node>(hop.Node, out var node))
-            {
-                sb.Append("  ").Append(label).Append(' ').Append(Fmt(hop.Node)).Append(": no Node component\n");
                 return;
-            }
             float3 pos = node.m_Position;
-            float terr = TerrainUtils.SampleHeight(ref hd, pos);
-            float2 netElev = EntityManager.TryGetComponent<Game.Net.Elevation>(hop.Node, out var ne) ? ne.m_Elevation : default;
-            float ownerElev = math.cmin(netElev);
-            if (ownerElev > maxElev)
-                maxElev = ownerElev;
-            sb.Append("  ").Append(label).Append(' ').Append(Fmt(hop.Node))
-              .Append(": y ").Append(F(pos.y, "F2")).Append(", terrain ").Append(F(terr, "F2"))
-              .Append(", clearance ").Append(Sg(pos.y - terr)).Append(", net Elevation (").Append(F(netElev.x, "F2")).Append(", ")
-              .Append(F(netElev.y, "F2")).Append(") -> engine uses ").Append(F(ownerElev, "F2")).Append('\n');
-
-            // Span to the next node.
+            if (EntityManager.TryGetComponent<Game.Net.Elevation>(hop.Node, out var ne))
+                maxElev = math.max(maxElev, math.cmin(ne.m_Elevation));
             if (hop.NextEdge != Entity.Null && EntityManager.TryGetComponent<Game.Net.Node>(hop.NextNode, out var nextNode))
             {
-                float3 p1 = nextNode.m_Position;
-                float minHere = float.PositiveInfinity, minAt = 0f;
-                var samples = new StringBuilder();
-                float spanXz = math.distance(pos.xz, p1.xz);
-                float droop = 0f;
-                bool haveCurve = EntityManager.TryGetComponent<Game.Net.Curve>(hop.NextEdge, out var curve);
-                bool reversed = false;
-                if (haveCurve && EntityManager.TryGetComponent<Game.Net.Edge>(hop.NextEdge, out var topo))
-                    reversed = topo.m_End == hop.Node;
                 for (int s = 0; s < SampleT.Length; s++)
                 {
-                    float t = SampleT[s];
-                    float3 q = math.lerp(pos, p1, t);
-                    float clr = q.y - TerrainUtils.SampleHeight(ref hd, q);
-                    if (samples.Length > 0)
-                        samples.Append(' ');
-                    samples.Append(Sg(clr));
-                    if (clr < minHere)
-                    {
-                        minHere = clr;
-                        minAt = t;
-                    }
-                    if (haveCurve)
-                    {
-                        float tc = reversed ? 1f - t : t;
-                        float3 c = MathUtils.Position(curve.m_Bezier, tc);
-                        droop = math.max(droop, math.abs(c.y - q.y));
-                    }
-                }
-                sb.Append("      span -> ").Append(Fmt(hop.NextNode)).Append(": ").Append(F(spanXz, "F0")).Append(" m xz, dy ")
-                  .Append(Sg(p1.y - pos.y)).Append(", chord clearance samples at 20/40/60/80 %: ").Append(samples)
-                  .Append(" -> min ").Append(Sg(minHere)).Append(" at ").Append(F(minAt * spanXz, "F0")).Append(" m (")
-                  .Append(F(minAt * 100f, "F0")).Append(" %)");
-                if (droop > 0.25f)
-                    sb.Append("; curve differs from chord by up to ").Append(F(droop, "F1")).Append(" m");
-                sb.Append('\n');
-                if (minHere < minClr)
-                {
-                    minClr = minHere;
-                    minClrWhere = "span after " + label + ", " + F(minAt * spanXz, "F0") + " m along";
+                    float3 q = math.lerp(pos, nextNode.m_Position, SampleT[s]);
+                    minClr = math.min(minClr, q.y - TerrainUtils.SampleHeight(ref hd, q));
                 }
             }
-
-            // The towers actually spawned at this node.
-            EntityManager.TryGetComponent<PrefabRef>(hop.Node, out var nodePrefab);
-            IReadOnlyDictionary<Entity, float> carriers = m_PrefabCatalog.CarrierGripTops;
-            string spawnedName = null;
-            Entity spawnedPrefab = Entity.Null;
             int towers = 0;
             if (EntityManager.TryGetBuffer(hop.Node, true, out DynamicBuffer<Game.Objects.SubObject> subs))
             {
@@ -792,161 +647,14 @@ namespace SkiResortMod.Systems
                         continue;
                     towers++;
                     string name = m_PrefabSystem.GetPrefabName(subPrefab.m_Prefab);
-                    spawnedName = name;
-                    spawnedPrefab = subPrefab.m_Prefab;
                     towerCounts.TryGetValue(name, out int count);
                     towerCounts[name] = count + 1;
-                    DescribeTower(sb, ref hd, sub, subPrefab.m_Prefab, name, pos, label, ref maxFloat, ref maxFloatWhere);
+                    if (EntityManager.TryGetComponent<Game.Objects.Transform>(sub, out var tr))
+                        maxFloat = math.max(maxFloat, tr.m_Position.y - TerrainUtils.SampleHeight(ref hd, tr.m_Position));
                 }
             }
             if (towers == 0)
-            {
                 noTower++;
-                sb.Append("      tower: none in the node's SubObject buffer\n");
-            }
-
-            DescribePlaceholder(sb, nodePrefab.m_Prefab, node, ownerElev, spawnedPrefab, spawnedName, ref mismatches, ref ladderMissed);
-        }
-
-        private void DescribeTower(StringBuilder sb, ref TerrainHeightData hd, Entity sub, Entity prefab, string name, float3 nodePos,
-                                   string label, ref float maxFloat, ref string maxFloatWhere)
-        {
-            sb.Append("      tower: '").Append(name).Append("' ").Append(Fmt(sub)).Append(" prefab ").Append(Fmt(prefab));
-            if (!EntityManager.TryGetComponent<Game.Objects.Transform>(sub, out var tr))
-            {
-                sb.Append(" (no Transform)\n");
-                return;
-            }
-            float terrAt = TerrainUtils.SampleHeight(ref hd, tr.m_Position);
-            float pivotAbove = tr.m_Position.y - terrAt;
-            sb.Append(": pivot y ").Append(F(tr.m_Position.y, "F2")).Append(" (").Append(Sg(tr.m_Position.y - nodePos.y)).Append(" vs node), terrain there ")
-              .Append(F(terrAt, "F2")).Append(", pivot above terrain ").Append(Sg(pivotAbove));
-            if (pivotAbove > maxFloat)
-            {
-                maxFloat = pivotAbove;
-                maxFloatWhere = label;
-            }
-            if (EntityManager.TryGetComponent<ObjectGeometryData>(prefab, out var geo))
-            {
-                sb.Append("; m_Size.y ").Append(F(geo.m_Size.y, "F2")).Append(", bounds y [").Append(F(geo.m_Bounds.min.y, "F2")).Append(", ")
-                  .Append(F(geo.m_Bounds.max.y, "F2")).Append("], top above node ").Append(Sg(tr.m_Position.y + geo.m_Bounds.max.y - nodePos.y))
-                  .Append(", m_LegSize (").Append(F(geo.m_LegSize.x, "F1")).Append(", ").Append(F(geo.m_LegSize.y, "F2")).Append(", ")
-                  .Append(F(geo.m_LegSize.z, "F1")).Append(") flags ").Append(GeoFlags(geo.m_Flags));
-            }
-            else
-            {
-                sb.Append("; no ObjectGeometryData");
-            }
-            if (EntityManager.TryGetComponent<Game.Objects.Elevation>(sub, out var el))
-                sb.Append("; tower Elevation ").Append(F(el.m_Elevation, "F2")).Append(" flags ").Append(el.m_Flags);
-            else
-                sb.Append("; tower has no Elevation component");
-            if (EntityManager.TryGetComponent<Game.Objects.Stack>(sub, out var stack))
-                sb.Append("; Stack range [").Append(F(stack.m_Range.min, "F2")).Append(", ").Append(F(stack.m_Range.max, "F2")).Append(']');
-            if (EntityManager.TryGetComponent<PillarData>(prefab, out var pillar))
-                sb.Append("; PillarData ").Append(pillar.m_Type);
-            sb.Append('\n');
-        }
-
-        private void DescribePlaceholder(StringBuilder sb, Entity linePrefab, Game.Net.Node node, float ownerElev, Entity spawned,
-                                         string spawnedName, ref int mismatches, ref int ladderMissed)
-        {
-            if (linePrefab == Entity.Null ||
-                !EntityManager.TryGetBuffer(linePrefab, true, out DynamicBuffer<Game.Prefabs.SubObject> specs))
-            {
-                sb.Append("      placeholder: line prefab has no SubObject buffer\n");
-                return;
-            }
-            bool any = false;
-            for (int i = 0; i < specs.Length; i++)
-            {
-                Game.Prefabs.SubObject spec = specs[i];
-                if ((spec.m_Flags & SubObjectFlags.EdgePlacement) != 0)
-                    continue;
-                if (!EntityManager.TryGetBuffer(spec.m_Prefab, true, out DynamicBuffer<PlaceholderObjectElement> members))
-                    continue;
-                any = true;
-                string phName = m_PrefabSystem.GetPrefabName(spec.m_Prefab);
-                float dy = math.rotate(node.m_Rotation, spec.m_Position).y;
-                float required = ownerElev + dy;
-                sb.Append("      placeholder '").Append(phName).Append("': spec y ").Append(F(spec.m_Position.y, "F3"))
-                  .Append(", required = Elevation ").Append(F(ownerElev, "F2")).Append(" + world dy ").Append(F(dy, "F3"))
-                  .Append(" = ").Append(F(required, "F2")).Append("; members (m_Size.y -> score):");
-                float best = -1f, shortest = float.PositiveInfinity;
-                Entity winner = Entity.Null, shortestPrefab = Entity.Null;
-                string winnerName = "-";
-                int ties = 0;
-                var scores = new float[members.Length];
-                var names = new string[members.Length];
-                var sizes = new float[members.Length];
-                for (int m = 0; m < members.Length; m++)
-                {
-                    Entity member = members[m].m_Object;
-                    names[m] = m_PrefabSystem.GetPrefabName(member);
-                    float sizeY = 0f, offY = 0f;
-                    if (EntityManager.TryGetComponent<ObjectGeometryData>(member, out var g))
-                        sizeY = g.m_Size.y;
-                    if (EntityManager.TryGetComponent<PlaceableObjectData>(member, out var po))
-                        offY = po.m_PlacementOffset.y;
-                    sizes[m] = sizeY - offY;
-                    float score = 0f;
-                    if (EntityManager.TryGetComponent<PillarData>(member, out var pd) &&
-                        (pd.m_Type == PillarType.Standalone || pd.m_Type == PillarType.Base || pd.m_Type == PillarType.Vertical))
-                    {
-                        float spare = sizes[m] - required;
-                        score = 1f / (1f + (spare >= 0f ? 2f * spare : -spare));
-                    }
-                    scores[m] = score;
-                    if (sizes[m] < shortest)
-                    {
-                        shortest = sizes[m];
-                        shortestPrefab = member;
-                    }
-                    if (score > best + 1e-6f)
-                    {
-                        best = score;
-                        winner = member;
-                        winnerName = names[m];
-                        ties = 1;
-                    }
-                    else if (math.abs(score - best) <= 1e-6f)
-                    {
-                        ties++;
-                    }
-                }
-                for (int m = 0; m < members.Length; m++)
-                {
-                    sb.Append(' ').Append(names[m]).Append(' ').Append(F(sizes[m], "F2")).Append("->").Append(F(scores[m], "F3"))
-                      .Append(members[m].m_Object == winner ? "*WIN" : string.Empty);
-                }
-                sb.Append("; formula winner ").Append(winnerName).Append(ties > 1 ? " (TIE of " + ties + ", engine picks by probability-weighted random)" : string.Empty);
-                if (spawned != Entity.Null)
-                {
-                    bool match = spawned == winner;
-                    sb.Append("; spawned ").Append(spawnedName).Append(match ? " = MATCH" : " = MISMATCH (formula predicted " + winnerName + ")");
-                    if (!match && ties <= 1)
-                        mismatches++;
-                    if (ownerElev >= 4f && spawned == shortestPrefab)
-                        ladderMissed++;
-                }
-                sb.Append('\n');
-            }
-            if (!any)
-                sb.Append("      placeholder: none (the line prefab names no placeholder at node placement)\n");
-        }
-
-        private static string GeoFlags(Game.Objects.GeometryFlags f)
-        {
-            var sb = new StringBuilder();
-            if ((f & Game.Objects.GeometryFlags.Standing) != 0) sb.Append("Standing,");
-            if ((f & Game.Objects.GeometryFlags.HasBase) != 0) sb.Append("HasBase,");
-            if ((f & Game.Objects.GeometryFlags.CircularLeg) != 0) sb.Append("CircularLeg,");
-            if ((f & Game.Objects.GeometryFlags.IgnoreSecondaryCollision) != 0) sb.Append("IgnoreSecondaryCollision,");
-            if ((f & Game.Objects.GeometryFlags.BaseCollision) != 0) sb.Append("BaseCollision,");
-            if (sb.Length == 0)
-                return "(none)";
-            sb.Length--;
-            return sb.ToString();
         }
 
         private static string F(float v, string format) => v.ToString(format, CultureInfo.InvariantCulture);

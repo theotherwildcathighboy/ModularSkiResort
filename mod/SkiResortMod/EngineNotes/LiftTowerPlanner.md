@@ -92,7 +92,7 @@ Constants provenance:
     So sharper FG crests stay single and flagged.
 - (e) Output: ordered nodes (along, ground, high side, member, rope y, flags) plus the per-span clearance profile. On every judged node
   (every plan, the fit's included), the output also has the deflection, the two load cases, the train kind and the cap (`SetAngles`).
-  `AppendLog` writes a "Towers [plan]" block in the "Towers [nodes]" format of `LiftTowerDiagSystem`, so the two compare line by line.
+  `AppendLog` writes a "Towers [plan]" block (`LiftTowerDiagSystem`, Measurement diagnostics on).
   Each tower has its angle text ("d +12.3 (tight +9.1 / heavy +17.0) S [pair]", "OVER CAP" when flagged).
 
 ### Heads: twins as members (B2, breakover-holddown-plan-2026-11-03 section 3)
