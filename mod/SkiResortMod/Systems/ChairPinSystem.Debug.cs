@@ -409,7 +409,7 @@ namespace SkiResortMod.Systems
                               $"lastExit=\"{LastExitText()}\"");
                 // Clock in seconds (phases are per loop, below). fgPhase is the fixed-grip phase
                 sb.AppendLine($"  timeS={m_DiagLastTimeS:F2} fgPhase={m_DiagLastTimeS * SkiCatalog.FixedGrip.SpeedMps:F2} " +
-                              $"lastMoveTimeS={m_LastMoveTimeS:F2} boundsTimeS={m_LastBoundsTimeS:F2} maxLoopSpeed={m_MaxLoopSpeedMps:F2} " +
+                              $"lastMoveTimeS={m_LastMoveTimeS:F2} " +
                               $"mixedLoops={m_DiagMixedLoops} shuttleCarriers={m_DiagShuttleCarriers} typeMismatch={m_DiagTypeMismatch} " +
                               $"spacingWarned={m_SpacingWarned.Count} upLanesLogged={m_UpLaneLogged.Count}");
                 sb.AppendLine($"  " +

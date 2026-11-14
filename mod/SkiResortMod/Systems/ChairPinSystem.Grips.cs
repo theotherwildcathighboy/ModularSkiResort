@@ -34,13 +34,6 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class ChairPinSystem
     {
-        // ---- the fallback hooks (the owner's order if the cost is over budget, plan section 4). NOT switched on: the field test flips
-        // them
-        /// <summary>Fallback (1): grips are posed and bounds-tagged only on near loops (closer than the far-loop pace boundary,
-        /// LiftMoverMath FarMinM). A far loop's grips keep their last pose while the bodies keep moving.</summary>
-        private static readonly bool GripNearOnly = false;
-        /// <summary>Fallback (3): grips are written every second pass only.</summary>
-        private static readonly bool GripHalfRate = false;
         /// <summary>The wind poll cadence in render frames: WindSystem.kUpdateInterval (WindSystem.cs:45 in 1.6.2f1).</summary>
         private const int WindPollFrames = 512;
 
@@ -48,7 +41,6 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<Entity, CarrierWind> m_WindByStation = new Dictionary<Entity, CarrierWind>();
         private uint m_WindPollFrame = uint.MaxValue;
         private bool m_WindErrorLogged;
-        private bool m_GripHalfOdd;
 
         // the pairing index (one rebuild or static pass): (edge, slot, side) maps to grip. It is built per edge on first use
         private readonly Dictionary<GripKey, Entity> m_GripIndex = new Dictionary<GripKey, Entity>();

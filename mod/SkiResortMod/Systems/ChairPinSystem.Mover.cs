@@ -418,11 +418,9 @@ namespace SkiResortMod.Systems
             int moved = 0, inPlace = 0, missing = 0, riding = 0, heldWrites = 0;
             int near = 0, far = 0, written = 0, tags = 0;
             int heldSway = 0, heldSwayFar = 0, heldSwayWritten = 0;   // held loops that keep swinging (DECISIONS 619)
-            // The carrier grip round: the toggle (one read per pass), the wind poll (every WindPollFrames, and at a rebuild), fallback (3).
+            // The carrier grip round: the toggle (one read per pass) and the wind poll (every WindPollFrames, and at a rebuild).
             bool animated = AnimatedOn;
             PollWind(timeS, rebuilt);
-            m_GripHalfOdd = !m_GripHalfOdd;
-            bool gripPass = !GripHalfRate || m_GripHalfOdd || rebuilt;
             int gripsRiding = 0, gripsWritten = 0, gripTags = 0;
             bool anyActive = false;
             long boundsTicks = 0;
@@ -483,7 +481,7 @@ namespace SkiResortMod.Systems
                             {
                                 written += loop.m_Chairs.Count;
                                 heldSwayWritten += loop.m_Chairs.Count;
-                                bool heldGrips = loop.m_GripCount > 0 && (forced || (gripPass && !(GripNearOnly && heldStride > 1)));
+                                bool heldGrips = loop.m_GripCount > 0;
                                 if (heldGrips)
                                     gripsWritten += loop.m_GripCount;
                                 double frozen = LiftLoopHold.FrozenPhase(loop.m_SpeedMps, hold.FrozenTimeS);
@@ -587,8 +585,7 @@ namespace SkiResortMod.Systems
                         continue;
                     }
                     written += loop.m_Chairs.Count;
-                    // Fallback (1): a far loop's grips keep their last pose (and get no bounds tag) when GripNearOnly is on.
-                    bool gripWrite = loop.m_GripCount > 0 && gripPass && !(GripNearOnly && stride > 1);
+                    bool gripWrite = loop.m_GripCount > 0;
                     if (gripWrite)
                         gripsWritten += loop.m_GripCount;
                     if (tag)
@@ -604,7 +601,6 @@ namespace SkiResortMod.Systems
                         }
                         tags += tagChairs.Length - before;
                         boundsTicks += Stopwatch.GetTimestamp() - c0;
-                        m_LastBoundsTimeS = timeS;   // dump only (the cadence is per loop now)
                     }
 
                     double phase = PhaseOf(loop, timeS);
@@ -836,8 +832,8 @@ namespace SkiResortMod.Systems
                 "{8} sample(s)) over {9} chair(s) in {10} loop(s); last pass {11} near / {12} far loop(s), {13:F0} chair(s) written " +
                 "per pass on average; bounds refresh: {14} tag pass(es), mean {15:F3} ms each (collect + one batched AddComponent), " +
                 "{16} Updated tag(s) in {17:F1} s = {18:F0} per second; far-loop pace {19}; grips (the carrier grip round, counted " +
-                "apart): {20} paired, {21:F0} written per pass on average, {22} of the Updated tags; animated {23}{24}; held loops " +
-                "swinging (stopped lift sway, counted in the written chairs): last pass {25} ({26} far), {27:F0} chair(s) written per pass " +
+                "apart): {20} paired, {21:F0} written per pass on average, {22} of the Updated tags; animated {23}; held loops " +
+                "swinging (stopped lift sway, counted in the written chairs): last pass {24} ({25} far), {26:F0} chair(s) written per pass " +
                 "on average",
                 nameof(ChairPinSystem), window, m_DiagMoverPath, s_StressFactor > 1 ? $", stress x{s_StressFactor}" : string.Empty,
                 p50, p95, max, mean, m_CostCount, m_PassRiding, m_LoopCache.m_Loops.Count, m_PassNear, m_PassFar, writtenPerPass,
@@ -848,9 +844,6 @@ namespace SkiResortMod.Systems
                                     pace.FarMinM, pace.MaxStride, pace.MaxStepRadians * 1000.0)
                     : "off",
                 m_PassGrips, gripWrittenPerPass, m_GripTagTotal, AnimatedOn ? "on" : "off",
-                GripNearOnly || GripHalfRate
-                    ? " (fallback: " + (GripNearOnly ? "near only" : "") + (GripNearOnly && GripHalfRate ? ", " : "") + (GripHalfRate ? "half rate" : "") + ")"
-                    : "",
                 m_PassHeldSway, m_PassHeldSwayFar,
                 m_SampledPasses > 0 ? (double)m_HeldSwayWrittenTotal / m_SampledPasses : 0.0);
         }

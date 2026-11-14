@@ -90,11 +90,8 @@ namespace SkiResortMod.Systems
         private int m_DiagSeededChairs;
         private int m_DiagGridLoops;               // non-identity loops given the entity-index grid
 
-        // Moving-mode tuning. Bounds refresh: the system refreshes the chairs' CullingInfo/search-tree entries (one Updated tag per riding
-        // chair) every this-many meters of loop travel. 2 m keeps stale bounds inside a chair's own extents at any sim speed, because the distance
-        // per sim frame is speed-independent. Rebuild cooldown: the system debounces cache rebuild requests (lift edits, reconnect poke
-        // storms) to at most one rebuild per window.
-        private const double BoundsRefreshMeters = 2.0;
+        // Rebuild cooldown: the system debounces cache rebuild requests (lift edits, reconnect poke storms) to at most one rebuild per
+        // window. (The bounds refresh distance is LiftMoverMath.BoundsRefreshMeters.)
         private const int RebuildCooldownFrames = 30;
         private const int EmptyRosterRetryLimit = 10;
 
@@ -145,16 +142,14 @@ namespace SkiResortMod.Systems
         private int m_EmptyRosterRetries;
         // The render clock in seconds: each loop's phase is its speed x this clock.
         private double m_LastMoveTimeS = -1.0;     // seconds. -1 forces the first mover pass
-        private double m_LastBoundsTimeS;          // seconds at the last bounds-refresh burst
         // Per load: lift types whose spacing WARN fired (once per type), station pairs whose up lane was logged (once per loop), the last
-        // mixed-loop WARN signature, the carriers riding a loop of another type (dump), the fastest moving loop's speed.
+        // mixed-loop WARN signature, the carriers riding a loop of another type (dump).
         private readonly HashSet<int> m_SpacingWarned = new HashSet<int>();
         private readonly HashSet<long> m_UpLaneLogged = new HashSet<long>();
         private string m_MixedLoopSignature;
         private int m_DiagTypeMismatch;
         private int m_DiagMixedLoops;
         private int m_DiagShuttleCarriers;
-        private double m_MaxLoopSpeedMps;
         private bool m_MovingAliveLogged;          // one-time "[moving] pass alive" per load
         private bool m_LoopWarnLogged;             // one-time unclosed-chain warning per load
         private int m_StaticFallbackChairs;        // chairs static-pinned by the last rebuild
@@ -382,12 +377,10 @@ namespace SkiResortMod.Systems
             m_RebuildCooldown = 0;
             m_EmptyRosterRetries = 0;
             m_LastMoveTimeS = -1.0;
-            m_LastBoundsTimeS = 0.0;
             m_SpacingWarned.Clear();       // per-load WARN / log latches
             m_UpLaneLogged.Clear();
             m_MixedLoopSignature = null;
             m_DiagTypeMismatch = m_DiagMixedLoops = m_DiagShuttleCarriers = 0;
-            m_MaxLoopSpeedMps = 0.0;
             m_MovingAliveLogged = false;
             m_LoopWarnLogged = false;
             m_LaneScanLogged = false;
@@ -1181,9 +1174,7 @@ namespace SkiResortMod.Systems
             m_LoopCache.Build(lanes, stations, stationPositions, stationByOwnerIndex, stationWheels, stationRoles);
 
             // Each loop's speed comes from its lift type. A loop whose lanes span several types moves nothing (no roster below, its chairs
-            // static-pin), with one WARN per rebuild signature. The fastest speed drives the bounds refresh. The up-lane line is written
-            // once per loop per load.
-            m_MaxLoopSpeedMps = 0.0;
+            // static-pin), with one WARN per rebuild signature. The up-lane line is written once per loop per load.
             int mixedLoops = 0;
             System.Text.StringBuilder mixedText = null;
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
@@ -1191,8 +1182,6 @@ namespace SkiResortMod.Systems
                 LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
                 LiftTypeDef def = SkiCatalog.LiftByIndex(loop.m_TypeIndex);
                 loop.m_SpeedMps = def != null && def.Mover == MoverKind.Loop && def.SpeedMps > 0f ? def.SpeedMps : 0.0;
-                if (loop.m_SpeedMps > m_MaxLoopSpeedMps)
-                    m_MaxLoopSpeedMps = loop.m_SpeedMps;
                 if (def == null)
                 {
                     mixedLoops++;
