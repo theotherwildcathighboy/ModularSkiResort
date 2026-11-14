@@ -59,6 +59,7 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Learning.cs" Link="RunsFirstPlanner.Learning.cs" />
     <Compile Include="RealizerTests.cs" />
     <Compile Include="RealizerHost.cs" />
+    <Compile Include="RealizerHost.Seen.cs" />
     <Compile Include="GamePlans.cs" />
     <Compile Include="ScanHost.cs" />
     <!-- The tool's scan job (planner + realizer in one call), its dump, and the planner's inputs from the game (port round R2-a) -->
@@ -75,6 +76,7 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Tracks.cs" Link="RunsFirstRealizer.Tracks.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Lifts.cs" Link="RunsFirstRealizer.Lifts.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Graph.cs" Link="RunsFirstRealizer.Graph.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstRealizer.Close.cs" Link="RunsFirstRealizer.Close.cs" />
     <!-- The resort plan types (the realizer fills them) and the height snapshot -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Snapshot.cs" Link="SkiRunAutoPlanner.Snapshot.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Plan.cs" Link="SkiRunAutoPlanner.Plan.cs" />

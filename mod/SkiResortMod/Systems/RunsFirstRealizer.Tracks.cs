@@ -415,6 +415,7 @@ namespace SkiResortMod.Systems
             }
             MergedSpurs();
             ReachPisteEnds();
+            CloseEnds();   // every end onto the outline it meets (RunsFirstRealizer.Close.cs)
             // A piste a new track crosses (informational, AutoRun.CrossesCatTrack)
             foreach (Area p in m_P)
                 foreach (Area t in m_T)
@@ -439,7 +440,7 @@ namespace SkiResortMod.Systems
                 return CRegion;
             byte f = m_Flags[c];
             // the ribbon is TrackHalfWidthM each side of the centerline: near the edge, test it exactly (iteration 2, item 5)
-            if ((f & FBlockRegion) != 0 || ((f & FNearEdge) != 0 && !InRegion(p, EdgeBlockM + TrackHalfWidthM)))
+            if (!RegionOpen(f, p, EdgeBlockM + TrackHalfWidthM))
                 return CRegion;
             if ((f & FBlockHard) != 0)
                 return CObstacle;
@@ -456,7 +457,7 @@ namespace SkiResortMod.Systems
 
         private void RealizeTrack(Elem e)
         {
-            GradePath path = GradePath.Build(e.Pts, SampleM);
+            GradePath path = GradePath.Build(OffEdge(e, EdgeBlockM + TrackHalfWidthM + EdgeNudgeM), SampleM);
             if (path == null)
             {
                 DropElem(e, AutoReject.TooShort, "no centerline");
@@ -1106,8 +1107,8 @@ namespace SkiResortMod.Systems
         private static bool Linked(float2 q, Area target) => GradeRaster.Inside(target.Ring, q) || PlanGeometry.PointRingDistance(target.Ring, q) <= TrackReachM;
 
         /// <summary>6.2 checks: region, unowned tiles (their clearance), and ExactGapShare x MergeGapM from every accepted and existing cat
-        /// track. Pistes never block a track.</summary>
-        private AutoReject CheckTrack(float2[] ring)
+        /// track (self: the accepted track this ring replaces, skipped). Pistes never block a track.</summary>
+        private AutoReject CheckTrack(float2[] ring, int self = -1)
         {
             if (!RegionOk(ring))
                 return AutoReject.Region;
@@ -1122,9 +1123,10 @@ namespace SkiResortMod.Systems
                 }
             PlanGeometry.BBox(ring, out float2 lo, out float2 hi);
             float need = ExactGapShare * MergeGapM;
-            foreach (Area t in m_T)
+            for (int k = 0; k < m_T.Count; k++)
             {
-                if (math.any(t.Hi < lo - need) || math.any(t.Lo > hi + need))
+                Area t = m_T[k];
+                if (k == self || math.any(t.Hi < lo - need) || math.any(t.Lo > hi + need))
                     continue;
                 if (PlanGeometry.RingDistance(ring, t.Ring, need, out _, out _, out _, out _) < need)
                     return AutoReject.Overlap;

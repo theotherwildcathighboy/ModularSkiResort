@@ -4,7 +4,8 @@
 //   the game refuses, the relation gate, the same hash on a second run;
 // - the easiest descent on a hand graph with known answers, and against a reference linear-scan Dijkstra on random graphs (both
 //   moved from the deleted v2 FlowTests in port round R2-d);
-// - hand fixtures: hand-made plans on a plane, each with the expected pieces, junctions and links.
+// - hand fixtures: hand-made plans on a plane, each with the expected pieces, junctions and links. Post-release round 1 (T172, T176):
+//   a merge, a branch, a cut diagonal and a track fork end ON the outline they join (Touch), and a run along the region's edge stays whole.
 // The real sets run in the rf-realize host mode (RealizerHost.cs): numbers only, no checks.
 
 using System;
@@ -455,6 +456,11 @@ namespace AutoGenBatch
 
         private static bool Linked(AutoRun a, AutoRun b) => a != null && b != null && LiftServedRule.OutlinesLinked(a.Ring, b.Ring);
 
+        /// <summary>T172 / T176: the two outlines meet as a player sees it: no farther apart than a closed end leaves them
+        /// (RunsFirstRealizer.CloseGapM). The game's link rule (Linked) is satisfied 25 m apart, which reads as a hole in the snow.</summary>
+        private static bool Touch(AutoRun a, AutoRun b) => a != null && b != null &&
+            PlanGeometry.RingDistance(a.Ring, b.Ring, 60f, out _, out _, out _, out _) <= RunsFirstRealizer.CloseGapM + 0.01f;
+
         private static string Areas(Hand h) => string.Join(", ", h.Res.Runs.Select(r => $"src {r.Source}/{r.Segment} {r.Kind} {r.LengthM:F0} m")) +
             " | " + string.Join("; ", h.Rep.Lines.Where(l => !l.StartsWith("lift ")).Take(4));
 
@@ -480,6 +486,8 @@ namespace AutoGenBatch
                 RealizerInvariants(w, h.Res, h.Input, h.Rep);
                 List<AutoRun> a = h.Of(1), b = h.Of(0);
                 Check(a.Count == 1 && b.Count == 1 && Linked(a[0], b[0]), w, $"want the merge linked ({h.Rep.Extensions} extension(s)): " + Areas(h));
+                Check(a.Count == 1 && b.Count == 1 && Touch(a[0], b[0]) && h.Rep.PisteEndsClosed >= 1, w,
+                    $"the merging run ends before the run it joins (T172; {h.Rep.PisteEndsClosed} end(s) closed): " + Areas(h));
             }
             // 3. A branch listed before its parent: the parent is realized first and stays whole, the branch links to it
             {
@@ -489,6 +497,7 @@ namespace AutoGenBatch
                 List<AutoRun> parent = h.Of(1), branch = h.Of(0);
                 Check(parent.Count == 1 && parent[0].LengthM > 850f, w, "the parent is not whole: " + Areas(h));
                 Check(branch.Count == 1 && parent.Count == 1 && Linked(branch[0], parent[0]), w, "the branch does not link to its parent: " + Areas(h));
+                Check(branch.Count == 1 && parent.Count == 1 && Touch(branch[0], parent[0]), w, "the branch starts away from its parent (T172): " + Areas(h));
             }
             // 4. A graded diagonal across two runs: cut at each run into pieces, each piece links to the runs it touches
             {
@@ -500,6 +509,8 @@ namespace AutoGenBatch
                 Check(d.Count == 3, w, "want three diagonal pieces: " + Areas(h));
                 if (d.Count == 3 && h.Of(0).Count == 1 && h.Of(1).Count == 1)
                     Check(Linked(d[0], h.Of(0)[0]) && Linked(d[1], h.Of(0)[0]) && Linked(d[1], h.Of(1)[0]) && Linked(d[2], h.Of(1)[0]), w, "a piece does not link to a run it touches");
+                if (d.Count == 3 && h.Of(0).Count == 1 && h.Of(1).Count == 1)
+                    Check(Touch(d[0], h.Of(0)[0]) && Touch(d[1], h.Of(0)[0]) && Touch(d[1], h.Of(1)[0]) && Touch(d[2], h.Of(1)[0]), w, "a piece ends before the run that cuts it (T172): " + Areas(h));
             }
             // 5. Two runs from one lift top: both kept, linked to each other, both served
             {
@@ -528,6 +539,42 @@ namespace AutoGenBatch
                 AutoRun trunk = t.OrderByDescending(r => r.LengthM).FirstOrDefault();
                 Check(trunk != null && trunk.LengthM > 650f, w, "the trunk is not whole");
                 Check(t.Where(r => r != trunk).All(r => Linked(r, trunk)), w, "a fork does not link to the trunk");
+                Check(t.Where(r => r != trunk).All(r => Touch(r, trunk)) && h.Rep.TrackEndsClosed >= 3, w,
+                    $"a fork ends before the trunk: the track is in pieces (T176; {h.Rep.TrackEndsClosed} end(s) closed): " + Areas(h));
+            }
+            // 6b. T172: a run 4 m inside a slanted edge of the region. The cells along the edge (3.5 m) close single samples of its line.
+            // The exact test at the sample keeps the run whole. 6c: the same run 1.5 m inside the edge (the planner's cells are 10 m): no
+            // outline fits there, so its line moves in to the clearance and the run stays whole
+            {
+                const string w = "Realizer hand: run along the region edge";
+                var h = new Hand { F = Terrain.Plane(0.2f), Region = L(-600f, -600f, 500f, -600f, 600f, 600f, -600f, 600f).ToArray() };
+                float2 e0 = new float2(500f, -600f), e1 = new float2(600f, 600f), along = math.normalize(e1 - e0), inward = new float2(-along.y, along.x);
+                float2 a = e0 + along * 120f + inward * 4f, b = e0 + along * 1080f + inward * 4f;
+                h.Run(Line(a.x, a.y, b.x, b.y), SlopeBand.Blue).Realize();
+                RealizerInvariants(w, h.Res, h.Input, h.Rep);
+                Check(h.Of(0).Count == 1 && h.Of(0)[0].LengthM > 0.95f * math.distance(a, b), w, "the run is not whole (T172, the edge cells cut it): " + Areas(h));
+                var h2 = new Hand { F = Terrain.Plane(0.2f), Region = h.Region };
+                float2 a2 = e0 + along * 120f + inward * 1.5f, b2 = e0 + along * 1080f + inward * 1.5f;
+                h2.Run(Line(a2.x, a2.y, b2.x, b2.y), SlopeBand.Blue).Realize();
+                RealizerInvariants(w + " (1.5 m inside)", h2.Res, h2.Input, h2.Rep);
+                Check(h2.Of(0).Count == 1 && h2.Of(0)[0].LengthM > 0.95f * math.distance(a2, b2) && h2.Rep.EdgeNudged == 1, w + " (1.5 m inside)",
+                    $"the run is not whole (T172; {h2.Rep.EdgeNudged} line(s) moved off the edge): " + Areas(h2));
+            }
+            // 6d. T172: a run that starts with a spur out and back (the planner skis a spur as the start of its run): 150 m out along the
+            // contour, back past its own start, then down. One outline cannot hold both legs. The run is kept from where it passes its
+            // start, where before the whole run was dropped (Crosses) and the runs that end onto it ended nowhere
+            {
+                const string w = "Realizer hand: run with a spur out and back";
+                List<float2> pts = Line(0f, -300f, -150f, -303f);
+                pts.AddRange(Line(-150f, -303f, -20f, -285f).Skip(1));
+                pts.AddRange(Line(-20f, -285f, 0f, 300f).Skip(1));
+                Hand h = NewHand().Run(pts, SlopeBand.Blue).Run(Line(200f, -200f, 20f, 100f), SlopeBand.Blue).Realize();
+                RealizerInvariants(w, h.Res, h.Input, h.Rep);
+                List<AutoRun> a = h.Of(0), b = h.Of(1);
+                Check(a.Count == 1 && a[0].LengthM > 550f && h.Rep.PisteBendSplits == 1 && h.Rep.PisteDrops.Sum() == 0, w,
+                    $"want the run kept as one area past the bend ({h.Rep.PisteBendSplits} bend split(s), {h.Rep.PisteDrops.Sum()} dropped): " + Areas(h));
+                Check(a.Count == 1 && math.distance(a[0].Centerline[0], new float2(0f, -300f)) < 70f, w, "the run does not start where it passes its own start: " + Areas(h));
+                Check(a.Count == 1 && b.Count == 1 && Touch(b[0], a[0]), w, "the run that ends onto it ends before it (T172): " + Areas(h));
             }
             // 7. A hairpin track: one chain that doubles back. Kept, as one area or two linked halves (split at the bend)
             {

@@ -15,6 +15,7 @@ by a few meters, or drop it. The `RealizeReport` records each loss. The tool doe
 - `RunsFirstRealizer.Tracks.cs`: cat tracks. It rebuilds the traverse trees as chains.
 - `RunsFirstRealizer.Lifts.cs`: one `PlanLift` row for each planner lift, with the tower plan of the lift tool.
 - `RunsFirstRealizer.Graph.cs`: groups, pads, clusters, the served rule, the way home, dead ends, the mix, the relation gate.
+- `RunsFirstRealizer.Close.cs`: the closed ends. It moves each end cap onto the outline that the end meets.
 
 The files are pure C# 9 for net48. The parts they took from the v1 / v2 planner are copies. That planner was deleted in port round R2-d.
 
@@ -25,7 +26,8 @@ The files are pure C# 9 for net48. The parts they took from the v1 / v2 planner 
    must clear. No tower can be over the cap of its sheave train, too steep, or past its carrier clearance. A lift that is not
    clear stays in the plan. It gets the flags `TowersUnchecked` and `HandFit`. The lift tool does not build it without the player.
 3. Pistes. A run goes before the runs that start off it or end onto it. A cycle uses the list order.
-4. Cat tracks. First the tree chains of each lift, then the graded runs under the blue line, then the links.
+4. Cat tracks. First the tree chains of each lift, then the graded runs under the blue line, then the links. The closed ends are the
+   last step of this pass (see "Closed ends").
 5. Groups and the graph. The planner sets `ToBottom` on each lift (the way to the bottom). The realizer measures the way to the
    bottom again on its own descent graph (the game's link rule, no lift ride). A lift reaches the bottom when a descent from its top
    ends on an area with its end in the base band. The band is the same as in `RunsFirstPlanner.Bottom.cs` (`m_BottomTop`).
@@ -80,6 +82,57 @@ piste becomes a partner.
 The exact check tests each pair of areas by the rule that accepted the pair. A piste that was accepted after the extended piste
 uses its own partners and its own gap. Such a piste can converge on the extended piste as a partner, with only the merge gap.
 The rule of the extended piste would call that an overlap, far from the extension.
+
+## Closed ends
+
+The passes above stop an end when the game links it. The game links two outlines that are 25 m apart (`LiftServedRule.LinkMeters`).
+So a piste ended as far as 20 m from the piste it joins, and a track piece ended 7 m or more from the track that cuts it. A player
+saw runs that end before they connect, and cat tracks in pieces (post-release round 1, T172 and T176).
+
+`CloseEnds` runs after all pistes and tracks are accepted. It looks at each end of each area:
+
+1. It finds the cap: the outline edge across the end of the centerline.
+2. It puts a node on the cap every 2.5 m (`CloseNodeM`).
+3. It moves each node along the direction of the end, at most 40 m (`CloseMaxM`). A node stops 3 m (`CloseGapM`) from an outline
+   of its own kind. The game refuses two areas of one kind that touch. A node stops just inside an outline of the other kind. A piste
+   and a cat track can overlap.
+4. A node that meets nothing moves as far as the nearest node that met an outline. The cap stays one edge.
+5. The new outline gets the same exact checks as the first outline. A piste must also keep its band. If a check fails, the pass tries
+   the nodes that met an outline alone, then a straight cap moved to the first contact. If all fail, the end keeps its outline, and the
+   report has one line.
+
+Only the cap moves. The centerline, the half widths and the other nodes do not change.
+
+A piste closes onto its partners only. Two pistes with no relation keep the gap of the density. A piste closes onto each track. A
+track closes onto each piste and each track.
+
+The report counts `PisteEndsClosed`, `TrackEndsClosed` and `CloseFailed`. The test host prints the result as a player sees it
+(the SEEN line of `rf-realize`, `tests/AutoGenBatch/RealizerHost.Seen.cs`).
+
+## The edge of the region
+
+A cell within 2 m of the edge of the region is blocked. The cells are 3.5 m. A line that runs 2 to 5 m inside the edge passed
+through blocked cells at some samples. Each such sample cut the run. The pieces were too short, and the realizer dropped them.
+The upper part of the run then ended in the middle of the slope (T172).
+
+The free tests (`FreePiste`, `FreeTrack`) now use `RegionOpen`. For a cell near the edge, it tests the sample itself: the
+sample must be inside the region and clear of its edge. For each other cell, it reads the flag.
+
+The planner's mask is its 10 m cells, so a planned line can run 1 to 3 m inside the edge. No outline fits there: the edge
+clearance is 2 m, and a half width is 1 m or more. `OffEdge` moves each point of such a line straight in, to the clearance plus
+1.5 m (`EdgeNudgeM`). A cat track needs its half width more. The move is small and happens only at the edge of the region.
+A point outside the region does not move. The contact samples of the planner keep the planned line. The report counts the
+lines in `EdgeNudged`.
+
+## A piste that doubles back
+
+The planner can ski a spur as the start of a run: the line goes out from the lift top, turns back, and passes its own start. One
+outline cannot hold both legs, so the ring crossed itself, and the whole run was dropped (`Crosses`). The runs that ended onto it
+then ended nowhere (T172).
+
+`BendSplit` cuts such a stretch at its sharpest bend (90 degrees or more). The cut widens until its two ends are 19 m apart
+(`BendOpenM`). If the line comes back within 60 m of its own start (`BendBackM`), the run starts there, and the way out is left
+out. If not, both sides are pieces, and the second piece takes the first as a junction. A stretch is split at most twice.
 
 ## Two tracks in one corridor
 
