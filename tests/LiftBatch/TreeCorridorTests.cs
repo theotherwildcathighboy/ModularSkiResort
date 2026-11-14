@@ -36,6 +36,7 @@ namespace LiftBatch
             Tc4BentLineAndStub();
             Tc5Tram();
             Tc6Degenerate();
+            Tc7FillerHole();
             s_Check = null;
         }
 
@@ -154,6 +155,41 @@ namespace LiftBatch
             Check(!LiftTreeCorridor.Fells(float.NaN, 2f, 2.7f), W, "a NaN distance fells nothing");
             Check(LiftTreeCorridor.Fells(new float2(1f, 1f), -3f, Line(0f, 0f, 0f, 0f), fg), W,
                   "a zero-length line is its point; a negative crown reads 0");
+        }
+
+        // T184: the tree filler's hole of a lift chord covers the rope line and the carrier envelope. The filler's 3 m hole margin adds the
+        // rest of the trunk test's corridor.
+        private static void Tc7FillerHole()
+        {
+            const string W = "trees/TC-7";
+            LiftTypeDef tram = Type("tram");
+            float half = LiftTreeCorridor.EnvelopeHalfM(tram);
+            float3[] ring = LiftTreeCorridor.HoleRing(new float2(0f, 0f), new float2(700f, 700f), half);
+            Check(ring != null && ring.Length == 4, W, "a span gives a 4-point ring");
+            if (ring == null)
+                return;
+            float2 mid = new float2(350f, 350f);
+            float2 side = math.normalize(new float2(1f, -1f));
+            Check(Inside(ring, mid), W, "the rope line is inside the hole");
+            Check(Inside(ring, mid + side * (half - 0.1f)), W, "the envelope edge is inside the hole");
+            Check(!Inside(ring, mid + side * (half + 0.1f)), W, "just past the envelope is outside (the hole margin covers the rest)");
+            Check(Inside(ring, new float2(-half * 0.5f, -half * 0.5f)), W, "past the bottom end within the half width: inside");
+            float3[] dot = LiftTreeCorridor.HoleRing(new float2(5f, 5f), new float2(5f, 5f), 2f);
+            Check(dot != null && Inside(dot, new float2(6f, 6f)) && !Inside(dot, new float2(8f, 5f)), W, "a zero-length chord gives its square");
+            Check(LiftTreeCorridor.HoleRing(new float2(float.NaN, 0f), new float2(1f, 1f), 2f) == null, W, "a NaN end gives no hole");
+            Check(LiftTreeCorridor.HoleRing(new float2(0f, 0f), new float2(1f, 1f), 0f) == null, W, "a zero half width gives no hole");
+        }
+
+        private static bool Inside(float3[] ring, float2 p)
+        {
+            bool inside = false;
+            for (int i = 0, j = ring.Length - 1; i < ring.Length; j = i++)
+            {
+                float2 a = ring[i].xz, b = ring[j].xz;
+                if ((a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x)
+                    inside = !inside;
+            }
+            return inside;
         }
     }
 }

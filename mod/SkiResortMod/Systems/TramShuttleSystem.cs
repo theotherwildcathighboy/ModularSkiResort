@@ -2047,8 +2047,52 @@ namespace SkiResortMod.Systems
                     };
                 }
             }
+            AddHostedAliases();
             MarkDirty("prefab catalog resolved", immediate: true);
         }
+
+        /// <summary>T185: a game that loads our prefabs twice (a local ImportedData copy beside the published package) has two
+        /// 'SkiTramCabin' prefab entities. The catalog's name scan keeps one. The station's CID sub-object can resolve to the other, and
+        /// then the base hosts "0 cabins" and the tram never moves (the 2026-11-14 log: catalog 46419:1, station hosts 0). So every
+        /// Shuttle station's sub-object whose prefab has a carrier's NAME counts as that carrier. One buffer walk per catalog generation,
+        /// logged once when an alias is found. With one copy (a player's game) nothing is added.</summary>
+        private void AddHostedAliases()
+        {
+            if (m_Carriers.Count == 0)
+                return;
+            if (m_PrefabSystem == null)
+                m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
+            var byName = new Dictionary<string, CarrierInfo>(StringComparer.Ordinal);
+            foreach (KeyValuePair<Entity, CarrierInfo> kv in m_Carriers)
+                byName[kv.Value.Carrier.Prefab] = kv.Value;
+            IReadOnlyList<StationDef> stations = SkiCatalog.Stations;
+            StringBuilder found = null;
+            for (int s = 0; s < stations.Count; s++)
+            {
+                LiftTypeDef def = SkiCatalog.LiftByIndex(stations[s].LiftTypeIndex);
+                if (def == null || def.Mover != MoverKind.Shuttle)
+                    continue;
+                Entity stationPrefab = m_PrefabCatalog.EntityOf(stations[s].Prefab);
+                if (stationPrefab == Entity.Null ||
+                    !EntityManager.TryGetBuffer<Game.Prefabs.SubObject>(stationPrefab, isReadOnly: true, out var entries))
+                    continue;
+                for (int i = 0; i < entries.Length; i++)
+                {
+                    Entity sub = entries[i].m_Prefab;
+                    if (m_Carriers.ContainsKey(sub) || !m_PrefabSystem.TryGetPrefab(sub, out PrefabBase pb) || pb == null ||
+                        pb.name == null || !byName.TryGetValue(pb.name, out CarrierInfo info))
+                        continue;
+                    m_Carriers[sub] = info;
+                    (found ??= new StringBuilder()).Append(found.Length > 0 ? ", " : "")
+                        .Append('\'').Append(pb.name).Append("' ").Append(Ent(sub)).Append(" on '").Append(stations[s].Prefab).Append('\'');
+                }
+            }
+            if (found != null)
+                Mod.Log.Info($"TramShuttle [alias]: hosted carrier prefab(s) {found} differ from the catalog's entity (our prefabs load twice, " +
+                             "e.g. ImportedData beside the published package): matched by name");
+        }
+
+        private PrefabSystem m_PrefabSystem;  // resolved lazily (AddHostedAliases)
 
         /// <summary>The idle line, once per load (no Shuttle carrier prefab FOUND).</summary>
         private void LogIdle()

@@ -1761,7 +1761,10 @@ namespace SkiResortMod.Systems
             if (stats.MaskTexels == 0 && stats.DecayTexels == 0 && stats.ProtectedTexels == 0 && stats.StoppedTexels == 0)
             {
                 EndSkipIfOpen(stats, now);
-                MaybeRequestMeasure(frame, "no managed texel to top up", stats.NaturalScheduled, now);
+                // T183: no real pass runs here, so the bound injected runs need the measure-only readback too. Without it their snapshot
+                // expires after MaxSnapshotAgeFrames and they fall to the day-mean estimate, which can call a bare run open (a summer city
+                // with no natural run). BuildMask measures them from the measure-only snapshot (ChooseSnapshot).
+                MaybeRequestMeasure(frame, "no managed texel to top up", stats.NaturalScheduled + (totalRuns - stats.UnboundRuns), now);
                 SetIdle(stats.UnboundRuns == totalRuns
                     ? $"all {totalRuns} run(s) UNBOUND — no Ski Area Welcome Sign within " +
                       "5 km owns them; place a gate and the next sweep arms them"
@@ -2122,16 +2125,16 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A non-blocking measure-only readback into m_MeasureReadback. It runs only on an evaluated pass without a real pass, only with
-        /// natural runs to measure, and only when no snapshot is younger than MeasureIntervalFrames. At most one request is in flight. In a skip episode
+        /// runs to measure (natural runs; on the inert path the bound injected runs too, T183), and only when no snapshot is younger than MeasureIntervalFrames. At most one request is in flight. In a skip episode
         /// (dry or packed) the forced real pass refreshes m_Readback every 1,024 frames, so `fresh` holds and no request is made: a packed
-        /// spell adds no GPU work. Called only after BuildMask's chains completed (no job reads the array). With no natural run an open
+        /// spell adds no GPU work. Called only after BuildMask's chains completed (no job reads the array). With no run to measure an open
         /// measure-only episode ends.</summary>
         private void MaybeRequestMeasure(uint frame, string reason, int runs, float now)
         {
             if (runs == 0)
             {
                 if (m_InMeasureOnly)
-                    EndMeasureOnly("no natural run to measure", now, force: false);
+                    EndMeasureOnly("no run to measure", now, force: false);
                 return;
             }
             if (m_MeasureStopped || m_MeasurePending)

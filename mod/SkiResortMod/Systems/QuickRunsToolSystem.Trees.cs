@@ -972,6 +972,7 @@ namespace SkiResortMod.Systems
                         holes.Add(ring);
                 }
             }
+            AddLiftCorridorHoles(holes, rb);
             if (m_Phase == ToolPhase.Preview)
             {
                 AutoPlanResult r = m_Published;
@@ -981,6 +982,54 @@ namespace SkiResortMod.Systems
             }
             return holes.Count > 0 ? holes.ToArray() : null;
         }
+
+        private readonly List<LiftServedRule.Lift> m_HoleLifts = new List<LiftServedRule.Lift>();
+        private readonly List<LiftServedRule.Chord> m_HoleChords = new List<LiftServedRule.Chord>();
+        private readonly List<LiftCensus.Row> m_HoleRows = new List<LiftCensus.Row>();
+
+        /// <summary>T184: one hole per chord of every built lift line near the region (the census rows, any state), as wide as the lift
+        /// tool's tree corridor (LiftTreeCorridor.HoleRing: the carrier envelope, + the hole margin = the corridor's trunk test). Before,
+        /// the filler planted into a corridor the lift build had cut. An unknown type uses the fixed-grip width. No census: no lift
+        /// holes.</summary>
+        private void AddLiftCorridorHoles(List<float3[]> holes, Bounds2 rb)
+        {
+            if (m_LiftCensus == null)
+                m_LiftCensus = World.GetExistingSystemManaged<LiftCensusSystem>();
+            if (m_LiftCensus == null || !m_LiftCensus.IsArmed)
+                return;
+            int n = m_LiftCensus.CopyServeLifts(m_HoleLifts, m_HoleChords);
+            m_LiftCensus.CopyRows(m_HoleRows);
+            if (n == 0 || m_HoleRows.Count != n)
+                return;
+            int added = 0;
+            for (int r = 0; r < n; r++)
+            {
+                LiftServedRule.Lift lift = m_HoleLifts[r];
+                LiftTypeDef def = SkiCatalog.LiftByIndex(m_HoleRows[r].Type) ?? SkiCatalog.Lifts[0];
+                // The hole margin (HoleMarginM) stands in for the corridor's MarginM: the hole itself is the envelope, or more when the
+                // two margins ever differ.
+                float half = LiftTreeCorridor.EnvelopeHalfM(def) + math.max(0f, LiftTreeCorridor.MarginM - HoleMarginM);
+                for (int c = 0; c < lift.ChordCount; c++)
+                {
+                    LiftServedRule.Chord ch = m_HoleChords[lift.FirstChord + c];
+                    var cb = new Bounds2(math.min(ch.A, ch.B) - (half + HoleMarginM), math.max(ch.A, ch.B) + (half + HoleMarginM));
+                    if (!MathUtils.Intersect(cb, rb))
+                        continue;
+                    float3[] ring = LiftTreeCorridor.HoleRing(ch.A, ch.B, half);
+                    if (ring == null)
+                        continue;
+                    holes.Add(ring);
+                    added++;
+                }
+            }
+            if (added > 0 && !m_LiftHolesLogged)
+            {
+                m_LiftHolesLogged = true;
+                Say($"QuickRuns [trees]: {added} lift corridor hole(s) keep the filler out of the lift lines' tree corridors (first this session)");
+            }
+        }
+
+        private bool m_LiftHolesLogged;
 
         private void SearchTrees(Bounds2 area, List<Entity> results)
         {

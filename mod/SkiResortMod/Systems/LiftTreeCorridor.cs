@@ -74,6 +74,23 @@ namespace SkiResortMod.Systems
             return distanceM - crown <= envelopeHalfM + CrownClearM;
         }
 
+        /// <summary>T184: the tree filler's hole for one segment of a built lift line, so the filler never plants into the cut corridor.
+        /// A rectangle around a → b, <paramref name="halfM"/> to each side and past each end (the rule's round ends fit inside it). y = 0:
+        /// the glade planner reads x and z only. A zero-length segment gives the square around its point. Null for a non-finite input
+        /// or a half width that is not positive.</summary>
+        public static float3[] HoleRing(float2 a, float2 b, float halfM)
+        {
+            if (!math.all(math.isfinite(a)) || !math.all(math.isfinite(b)) || !(halfM > 0f) || float.IsInfinity(halfM))
+                return null;
+            float2 d = b - a;
+            float len = math.length(d);
+            float2 u = len > 1e-4f ? d / len : new float2(0f, 1f);
+            float2 n = new float2(-u.y, u.x) * halfM;
+            float2 e = u * halfM;
+            float2 p0 = a - e - n, p1 = b + e - n, p2 = b + e + n, p3 = a - e + n;
+            return new[] { new float3(p0.x, 0f, p0.y), new float3(p1.x, 0f, p1.y), new float3(p2.x, 0f, p2.y), new float3(p3.x, 0f, p3.y) };
+        }
+
         /// <summary>Fells for a tree at p against a line of lift type d.</summary>
         public static bool Fells(float2 p, float crownRadiusM, IReadOnlyList<Segment> line, LiftTypeDef d)
         {
