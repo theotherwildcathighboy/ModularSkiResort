@@ -577,7 +577,8 @@ namespace SkiResortMod.Systems
 
         private static float Finite(float v) => float.IsNaN(v) || float.IsInfinity(v) ? 0f : v;
 
-        /// <summary>The DUMP line.</summary>
+#if SKI_DEV
+        /// <summary>The DUMP line (dev builds only, SKI_DEV).</summary>
         private void AppendQuickRunsDump(StringBuilder sb)
         {
             QuickRunsToolSystem t = m_QuickRunsTool;
@@ -594,5 +595,6 @@ namespace SkiResortMod.Systems
                   .Append(", to build ").Append(lb.Sheet.CountToBuild()).Append(" (about ").Append(lb.Sheet.CostToBuild().ToString(CultureInfo.InvariantCulture))
                   .Append(")\n");
         }
+#endif
     }
 }

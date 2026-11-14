@@ -1,3 +1,5 @@
+#if SKI_DEV
+// Dev builds only (SKI_DEV, SkiResortMod.csproj): the published Release DLL does not contain this file.
 // The "Ski Resort" tab of the game's developer menu, a partial of ChairPinSystem so it reads the mover's private state.
 // DebugSystem.RegisterDebug sweeps all loaded non-Unity assemblies on every menu open for [DebugContainer] classes. It invokes each
 // [DebugTab] method (decompile 1.6.2:1025-1044) on the live system instance (:1005-1009), so nothing is registered in Mod.cs.
@@ -543,3 +545,4 @@ namespace SkiResortMod.Systems
         }
     }
 }
+#endif

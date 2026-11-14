@@ -4461,6 +4461,9 @@ namespace SkiResortMod.Systems
             return e == Entity.Null ? "null" : $"{e.Index}:{e.Version}";
         }
 
+#if SKI_DEV
+        // Dev surface (dev tab + DUMP), compiled only into dev builds (SKI_DEV, SkiResortMod.csproj): the published Release DLL has none of
+        // it. The dumpHub trigger stays in the contract; a release build answers it with one line (DumpToLog below).
         /// <summary>Observer counts of every value binding (dev tab, DUMP).</summary>
         public string ObserverText()
         {
@@ -4744,6 +4747,15 @@ namespace SkiResortMod.Systems
             if (value != -1)
                 sb.Append(", ").Append(name).Append(' ').Append(value.ToString(CultureInfo.InvariantCulture));
         }
+#else
+        /// <summary>Release build: the DUMP and the dev tab exist only in dev builds (SKI_DEV). One line, so a dumpHub call is never silent.</summary>
+        private void DumpToLog(string source)
+        {
+            Mod.Log.Info($"Hub: DUMP ({source}) — not in this build (dev builds only); armed {m_Armed}, disabled {m_Disabled}, open {IsOpen}, " +
+                         $"contract {HubContract}, DLL stamp {s_DllStamp}, commit {BuildStamp.Commit}");
+            LastTriggerText = $"dumpHub ({source})";
+        }
+#endif
 
         private void HandleException(Exception e, string where)
         {

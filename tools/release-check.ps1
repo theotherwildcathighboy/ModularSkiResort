@@ -15,6 +15,8 @@
 #   textures    at least 8 Textures\*.png (the run textures. mod/SkiResortMod/Textures is git-ignored, release review S4)
 #   layouts     K45_WE\layouts\*.wedefault.xml: the same file names as the repo's assets\we\K45_WE\layouts
 #   dll         SkiResortMod.dll and SkiResortMod_win_x86_64.dll (the Burst library the game loads)
+#   devsurface  SkiResortMod.dll is a Release build: none of the dev-only names (SKI_DEV, mod/SkiResortMod/SkiResortMod.csproj) is in its
+#               metadata. A Debug DLL here means the publish profile lost its <Configuration>Release</Configuration>
 #   bundle      SkiResortMod.mjs + .css, and the bundle's build stamp equals the DLL's (a mismatched pair blanks the hub)
 #   profile     no file holds the Windows profile folder name or its 8.3 short form, as UTF-8 or UTF-16 bytes, any case. The check
 #               reads a .cok entry by entry (names and inflated contents). It prints file names only, never the name.
@@ -100,6 +102,18 @@ else { Add-Result "layouts" "FAIL" ("K45_WE\layouts\ lacks {0} of the repo's {1}
 $dllMissing = @("SkiResortMod.dll", "SkiResortMod_win_x86_64.dll" | Where-Object { -not (Test-Path -LiteralPath (Join-Path $DeployDir $_)) })
 if ($dllMissing.Count -eq 0) { Add-Result "dll" "PASS" "SkiResortMod.dll and SkiResortMod_win_x86_64.dll present" }
 else { Add-Result "dll" "FAIL" ("missing: {0}" -f ($dllMissing -join ", ")) }
+
+# devsurface: member and type names live in the metadata string heap as UTF-8, so a Latin-1 read finds them as plain text
+$devNames = @("QuickRunsDevUISystem", "BuildSkiResortDebugUI", "BuildSkiResortHubDebugUI", "DevRequest", "OnProbePlaceStation")
+$dllPath = Join-Path $DeployDir "SkiResortMod.dll"
+if (-not (Test-Path -LiteralPath $dllPath)) {
+    Add-Result "devsurface" "FAIL" "no SkiResortMod.dll to check"
+} else {
+    $dllText = [System.Text.Encoding]::GetEncoding(28591).GetString([System.IO.File]::ReadAllBytes($dllPath))
+    $devFound = @($devNames | Where-Object { $dllText.Contains($_) })
+    if ($devFound.Count -eq 0) { Add-Result "devsurface" "PASS" ("none of the {0} dev-only names in SkiResortMod.dll (a Release build)" -f $devNames.Count) }
+    else { Add-Result "devsurface" "FAIL" ("SkiResortMod.dll holds dev-only name(s) {0}: a Debug build. Publish with -c Release (the .pubxml Configuration)" -f ($devFound -join ", ")) }
+}
 
 # bundle: the build stamp in the DLL (a UTF-16 const string, at either byte alignment) vs the one in SkiResortMod.mjs
 $stampRe = '(?:ui-)?\d{8}-\d{6}-[0-9a-f]{6}'

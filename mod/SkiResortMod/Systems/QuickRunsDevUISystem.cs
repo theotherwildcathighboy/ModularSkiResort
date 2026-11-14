@@ -1,3 +1,5 @@
+#if SKI_DEV
+// Dev builds only (SKI_DEV, SkiResortMod.csproj): the published Release DLL does not contain this file.
 // Dev-only trigger of the Resort Planner tool (port round R2-a, the bridge sheet's cross-runtime gate). One TriggerBinding in the group
 // "skiResortDev" (not the hub's contract: bindings.ts never calls it, and tools/check-bundle.js reads only SkiResortHubUISystem.cs):
 //   engine.trigger("skiResortDev.quickRuns", "<command>"), commands:
@@ -161,3 +163,4 @@ namespace SkiResortMod.Systems
         }
     }
 }
+#endif

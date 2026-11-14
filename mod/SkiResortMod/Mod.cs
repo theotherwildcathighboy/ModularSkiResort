@@ -383,7 +383,9 @@ namespace SkiResortMod
             updateSystem.UpdateAt<QuickRunsHotkeySystem>(SystemUpdatePhase.UIUpdate);
             // Its dev trigger (scan a ring, dump the last scan for the host replay; Measurement diagnostics only) runs at UIUpdate and only
             // queues for the tool's own update (the hub's idiom).
-            updateSystem.UpdateAt<QuickRunsDevUISystem>(SystemUpdatePhase.UIUpdate);
+#if SKI_DEV
+            updateSystem.UpdateAt<QuickRunsDevUISystem>(SystemUpdatePhase.UIUpdate);   // dev builds only (SKI_DEV)
+#endif
             updateSystem.UpdateAfter<QuickRunsTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
 
             // Station placer (P0 probe of the Resort Planner round): a scripted ObjectToolBaseSystem subclass. ToolUpdate is load-bearing:
