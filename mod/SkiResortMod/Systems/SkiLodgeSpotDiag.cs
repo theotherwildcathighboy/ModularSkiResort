@@ -5,7 +5,8 @@
 // - the registered count per lodge: spawn / hangaround / parking,
 // - how many spawn entries are seats and how many are linked to a lane,
 // - then the sign's totals.
-// The system polls the signature every PollFrames. It writes the line again when the signature changes (at most MaxChangeLines per load).
+// With Measurement diagnostics on, the system polls the signature every PollFrames (a whole-city building scan; off by default since the
+// 2026-11-14 opt pass, shared-02). It writes the line again when the signature changes (at most MaxChangeLines per load).
 // The hub dev-tab dump (SkiResortHubUISystem.DumpToLog) adds a header per lodge and a line per spot. Positions are in the
 // lodge's frame (+Z = road side, the frame the prefab JSON rows use).
 // Engine notes: EngineNotes/SkiLodgeSpotDiag.md
@@ -106,7 +107,7 @@ namespace SkiResortMod.Systems
         {
             if (!m_Armed || m_Disabled)
                 return;
-            if (++m_Frame % PollFrames != 0)
+            if (++m_Frame % PollFrames != 0 || !SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
                 return;
             try
             {
