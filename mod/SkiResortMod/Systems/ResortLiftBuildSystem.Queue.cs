@@ -14,6 +14,10 @@
 //    sound, a notice stands, or the game refused the line): NeedsFitting with the row's own reason, and the next lift starts (task 2b-l:
 //    the queue never stops on a waiting line; the next lift's tools drop the line from the lift tool). Refused (the ends could not be
 //    picked): Refused LINE[PICK], the next lift starts. Abandoned (the player took another tool): the queue stops.
+// The planner (T168, post-release round 1): a run started while the Resort Planner is open closes it (the station placer takes the tool).
+// The planner keeps its region for that close (QuickRunsToolSystem.KeepRegionForLiftBuild), and TickReturnToPlanner opens it again once the
+// queue has ended and the default tool is back: at once when no line waits, or after the player's hand fit (or Escape) in the lift tool.
+// A tool the player took cancels the return.
 // 6. Hand-over: when the last lift of the run did not leave a waiting line in the lift tool, the first row that waited in this run runs
 //    once more (its stations stand: settle, then line). It waits again with the tool open in Edit for the player's hand fit. It never
 //    starts another hand-over. "Build lifts" puts NeedsFitting rows after every other row (ResortPlanSheet.BuildAllKeys).
@@ -95,7 +99,9 @@ namespace SkiResortMod.Systems
         // is in flight, and a revision that moves with every change the hub shows (no sheet row changes with them).
         private int m_QueueTotal, m_QueueDone, m_QueueRev;
         private bool m_StopAsked;
+        private bool m_ReturnToPlanner;   // T168: this run started while the planner was open: open it again when the run is over
 
+        private QuickRunsToolSystem m_Planner;
         private StationPlaceToolSystem m_Placer;
         private LiftLineToolSystem m_LiftTool;
         private SkiPrefabCatalogSystem m_Catalog;
@@ -124,6 +130,7 @@ namespace SkiResortMod.Systems
 
         private void CreateQueue()
         {
+            m_Planner = World.GetOrCreateSystemManaged<QuickRunsToolSystem>();
             m_Placer = World.GetOrCreateSystemManaged<StationPlaceToolSystem>();
             m_LiftTool = World.GetOrCreateSystemManaged<LiftLineToolSystem>();
             m_Catalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
@@ -138,6 +145,7 @@ namespace SkiResortMod.Systems
             m_Job = null;
             m_Running = false;
             m_StopAsked = false;
+            m_ReturnToPlanner = false;
             m_QueueTotal = m_QueueDone = 0;
             m_QueueRev++;
             StationHeight = DefaultStationHeight;
@@ -240,6 +248,11 @@ namespace SkiResortMod.Systems
         {
             if (!m_Running && m_Pending.Count > 0)
             {
+                if (m_Planner != null && m_Planner.IsActive)
+                {
+                    m_ReturnToPlanner = true;
+                    m_Planner.KeepRegionForLiftBuild();
+                }
                 m_Running = true;
                 m_QueueBuilt = m_QueueFitting = m_QueueRefused = m_QueueFlagged = 0;
                 m_RunWaiting.Clear();
@@ -319,6 +332,31 @@ namespace SkiResortMod.Systems
             }
             tools.activeTool = defaultTool;
             Mod.Log.Info($"ResortLifts [queue]: the tool goes back to the default tool (was {(placerIdle ? m_Placer.toolID : m_LiftTool.toolID)})");
+        }
+
+        /// <summary>T168: the planner that started this run of the queue opens again. Every tick while armed: nothing while the queue runs or
+        /// the station placer / lift-line tool is active (a line may wait for the player's hand fit). Then once: the default tool active =
+        /// the planner opens with its kept region, any other tool = the player moved on and the planner stays closed.</summary>
+        private void TickReturnToPlanner()
+        {
+            if (!m_ReturnToPlanner || m_Running)
+                return;
+            Game.Tools.ToolBaseSystem active = World.GetExistingSystemManaged<Game.Tools.ToolSystem>()?.activeTool;
+            if (active == m_Placer || active == m_LiftTool)
+                return;
+            m_ReturnToPlanner = false;
+            if (active == m_Planner)
+                return;
+            if (active == World.GetExistingSystemManaged<Game.Tools.DefaultToolSystem>())
+            {
+                bool opened = m_Planner.TryActivate("back after the lift build");
+                Mod.Log.Info($"ResortLifts [queue]: the Resort Planner {(opened ? "opens again" : "could not open again")} after the lift build");
+            }
+            else
+            {
+                m_Planner.DropKeptRegion("another tool");
+                Mod.Log.Info($"ResortLifts [queue]: the Resort Planner stays closed — the player took another tool ({active?.toolID ?? "none"})");
+            }
         }
 
         // ---------------------------------------------------------------- the station height rule (one switch, compared in game)

@@ -67,6 +67,7 @@ namespace SkiResortMod.Settings
         public const bool DefaultGroomers = true;
         public const bool DefaultDiagnosticMeasurements = false;
         public const bool DefaultAnimatedLiftCarriers = true;
+        public const bool DefaultQuickRunsEnabled = true;   // T193: the Resort Planner is on by default (DECISIONS 659)
         public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;
         public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;
         public const int DefaultLessonShare = SkiMoneyRules.LessonShareDefault;
@@ -319,9 +320,13 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool CatTrackGradeConstant { get; set; }
 
-        /// <summary>The Resort Planner tool (code name Quick runs, experimental, DECISIONS 404, 443). Outline a region. The planner
-        /// proposes runs. Enter builds them. Off (default) = the tool cannot open, its key is inert and the hub button is grayed with the
-        /// reason. Read live by QuickRunsToolSystem.OptionOn.</summary>
+        /// <summary>The Resort Planner tool (code name Quick runs, DECISIONS 404). Outline a region. The planner proposes runs, cat tracks
+        /// and lifts. Enter builds them. On by default since post-release round 1 (DECISIONS 659 ruling 6, T193; before: off, 443). Off = the
+        /// tool cannot open, its key is inert and the hub button is grayed with the reason. Read live by QuickRunsToolSystem.OptionOn.
+        /// The settings file stores a diff against the defaults it was saved with (Colossal SettingAsset.cs:184, DiffWithForceSave). A player
+        /// who never turned it on has no stored value and gets the new default (on). A stored true stays on. A false written while off was
+        /// the default is not in the file, so it also turns on (UNVERIFIED: DiffUtility is not decompiled; the force-save of keys read from
+        /// the file may keep it).</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool QuickRunsEnabled { get; set; }
 
@@ -490,7 +495,7 @@ namespace SkiResortMod.Settings
             CatTrackGradeCutRun = 1.5f;
             CatTrackGradeFillRun = 2f;
             CatTrackGradeConstant = false;
-            QuickRunsEnabled = false;   // experimental: off until the player turns it on (DECISIONS 443)
+            QuickRunsEnabled = DefaultQuickRunsEnabled;
             ShowHubButton = true;
             OpenHubOnSignSelect = true;
             LiftBuildAids = true;

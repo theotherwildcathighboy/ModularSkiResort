@@ -70,3 +70,9 @@ No line per frame, hover, toggle (the hub writes it) or later build (counted, in
 `ToolHidesMap`: the map hides while the glade tool or the Quick runs tool is open, or the cat track tool is in Delete mode. The Quick
 runs preview draws runs in the own palette of the map (`PisteFill / PisteOutline / PisteOutlineWidth`), which are internal for that
 reason.
+
+## Cat tracks (T165, post-release round 1)
+A cat track is a 10-20 m strip. Its ring at `BaseWidthM` x the zoom scale (up to 18 m per edge) read as one fat band in the green of the
+green runs: after a planner build of 44 tracks the owner saw "huge green lines". A row with `Features.IsCatTrack` now draws both edges at
+`CatTrackWidthM` (0.8 m) in `CatTrackLine` (the Resort Planner preview's cat-track color, one constant for both) and stops growing at
+`CatTrackMaxScale` (2.5, per segment `MaxScale`; runs keep `PisteMapRules.MaxWidthScale`). The hover still doubles the width.

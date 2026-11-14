@@ -12,11 +12,12 @@ an overlay, a mouse tooltip, emit -> Temp -> Apply, and one hotkey system. The p
 - The hub side in `SkiResortHubUISystem.QuickRuns.cs` (SkiResortHubUISystem.md)
 
 ## Off switch and gating
-- The setting `QuickRunsEnabled` ("Resort Planner (experimental)", Options > Modular Ski Resort > Runs) is OFF by default since
-  DECISIONS 443. `OptionOn` reads it. `OptionOn` falls back to false when Mod.Settings is null. When the setting is off:
+- The setting `QuickRunsEnabled` ("Resort Planner", Options > Modular Ski Resort > Runs) is ON by default since post-release round 1
+  (T193, DECISIONS 659 ruling 6; OFF from DECISIONS 443 to then). `OptionOn` reads it and falls back to `DefaultQuickRunsEnabled` (true)
+  when Mod.Settings is null. A player who never stored a value gets the new default. When the setting is off:
   - `TryActivate` refuses and logs.
   - The hotkey is inert.
-  - The hub chip stays visible but disabled with `SkiResort.Hub.QUICK_REASON[Off]` ("Resort Planner is experimental and off. Its switch is in Options > Modular Ski Resort > Runs."). The hotkey path only logs the same hint.
+  - The hub chip stays visible but disabled with `SkiResort.Hub.QUICK_REASON[Off]` ("Resort Planner is off. Its switch is in Options > Modular Ski Resort > Runs."). The hotkey path only logs the same hint.
 
   Turning it off while the tool is open closes the tool on its next frame.
 - `UnavailableReasonKey`: Off, then Disabled (an exception, until the next load), then NotArmed (no city loaded, run prefabs not
@@ -106,7 +107,7 @@ It holds no state: each tool keeps its own phases, queries and logs.
 - Build refuses when the city cannot pay the preview total (`QuickRunsRules.CanPay`, unlimited money reads 2e9, PlayerMoney.kMaxMoney).
   With a Resort plan, the total is the fee of the runs plus the estimate of the proposed lifts that are on (`LiftCostOn`, plan 3.3).
   The MoneyShort warning uses the same sum.
-- After the build (`FinishBuild`), the lift build queue builds the proposed lifts that are on (`ResortLiftBuildSystem.BuildAll`, plan
+- After the build (`FinishBuild`), the lifts do NOT follow on their own (the code comment in FinishBuild): the hub's Build lifts starts the queue (`ResortLiftBuildSystem.BuildAll`, plan
   3.2: runs first, then lifts). A stopped build does not start it. The plan sheet stays (StationPlaceToolSystem.md).
 - Trees and run definitions never share a frame: a build with the tree filler on clears the tree preview and builds on the next frame.
 - The build is staged. Smoothness wins over speed. A large area may take tens of seconds, like Parking Lot Tool and ParkManager.
@@ -261,3 +262,17 @@ The `[probe]` lines are:
 
 The end line of the build and the end line of the planting always give the total wall time (diagnostics off too). So the field test
 reports the real number. UNVERIFIED: the chunk and slice sizes (4 runs, 2000 trees) are first guesses. Tune them from these lines.
+
+## Post-release round 1 (T165-T168)
+- T168, the lift build closes the planner: Build lifts (or a row's Build) makes the station placer the active tool, which closes this tool
+  (`OnStopRunning`: region, toggles and Undo end). A queue run started while this tool is open (`ResortLiftBuildSystem.StartQueue` calls
+  `KeepRegionForLiftBuild`) keeps the region's corners over that close (`m_KeptCorners`, only while `QueueRunning`). The next open restores
+  them (`RestoreKeptRegion`, the `[tool] running` line says "the region ... is back"). `ResortLiftBuildSystem.TickReturnToPlanner` opens this
+  tool again once the queue has ended and the default tool is active. A line that waits for a hand fit keeps the lift tool open; the planner
+  comes back after the player's build or Escape. Another tool taken by the player drops the kept corners (`DropKeptRegion`). The Undo of the
+  run build still ends with the close (DECISIONS 418). A load clears the kept corners.
+- T167, the order: Region, Scan, Build runs, Trees, Lifts (`hubRules.PLANNER_STEPS`). Trees come before the lifts because a lift line fells
+  the trees in its corridor when it builds (LiftLineToolSystem.Trees.cs) and the filler's holes are the runs only: trees planted after a lift
+  grow back into its line (likely the field note behind T184). The hub draws the step strip (QuickRunsControls.tsx.md).
+- T165: the "huge green lines" after Build were the piste map (it hides only while this tool is open): the new cat tracks drew as green
+  band rings at the zoom-scaled run width. The map now draws cat tracks thin in this tool's cat-track color (SkiPisteMapSystem.md).

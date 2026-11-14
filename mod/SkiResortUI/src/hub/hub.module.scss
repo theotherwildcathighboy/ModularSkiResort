@@ -2133,6 +2133,59 @@
   font-size: var(--fontSizeS);
 }
 
+// T167: the Resort Planner's steps in order (QuickRunsControls.tsx StepStrip). The next step has the selected look of .buttonOn, the
+// steps before it are dimmed. Labels only, no separators (a glyph would be untranslated text, gate R14): the order reads left to right.
+.stepStrip {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  flex-shrink: 0;
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+  padding-left: 10rem;
+  padding-right: 8rem;
+  font-size: var(--fontSizeXS);
+}
+
+.stepCell {
+  display: flex;
+}
+
+.stepItem {
+  margin-right: 4rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  padding-left: 6rem;
+  padding-right: 6rem;
+  border-radius: 3rem;
+  white-space: nowrap;
+  color: var(--normalTextColor);
+  opacity: 0.75;
+  border-style: solid;
+  border-top-width: 1rem;
+  border-right-width: 1rem;
+  border-bottom-width: 1rem;
+  border-left-width: 1rem;
+  border-top-color: rgba(0, 0, 0, 0);
+  border-right-color: rgba(0, 0, 0, 0);
+  border-bottom-color: rgba(0, 0, 0, 0);
+  border-left-color: rgba(0, 0, 0, 0);
+}
+
+.stepDone {
+  opacity: 0.4;
+}
+
+.stepNow {
+  opacity: 1;
+  background-color: var(--selectedColor);
+  border-top-color: var(--accentColorNormal);
+  border-right-color: var(--accentColorNormal);
+  border-bottom-color: var(--accentColorNormal);
+  border-left-color: var(--accentColorNormal);
+}
+
 .quickCaption {
   flex-grow: 0;
   flex-shrink: 0;
@@ -3244,14 +3297,13 @@
   margin-left: 8rem;
 }
 
-// The plan under the planner's knobs. A long plan scrolls here with the wheel, so it never pushes the knobs or the run list out of the panel.
+// The plan under the planner's knobs: no height cap and no inner scroll, like .sheetList. T166 (post-release round 1): the inner box
+// (200 rem, overflow-y scroll) scrolled in the harness but not in game: the wheel scrolled nothing there, and lift rows past the fifth
+// could not be reached. The Runs view scrolls as a whole (listAll, the panel's Scrollable, which works in game).
 .planList {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  max-height: 200rem;
-  overflow-x: hidden;
-  overflow-y: scroll;
 }
 
 // Resort Planner v2 plan rows (QuickRunsControls.tsx PlanRows): one toggle row per lift and per pod without a lift.

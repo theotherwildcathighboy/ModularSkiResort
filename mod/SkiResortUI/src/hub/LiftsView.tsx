@@ -5,6 +5,7 @@
  * two census rows with the same (entity, top).
  * Click -> focused$ + focusLift (C# flies to the gap while a section is missing).
  * Pen -> rename(row.entity, text). C# renames the base station, else the top.
+ * T168: the Resort Planner's plan sheet (LiftSheetAside) sits on top while the planner is closed and lifts are planned.
  * One list, no pager: this view and the Runs view may scroll. Panel file (gate R11): subscribes resorts$, selectedResort$, lifts$.
  */
 import { useCallback, useMemo, useState } from "react";
@@ -19,6 +20,7 @@ import { focused$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, LIFT_STATUS_TEXT, LIFT_TYPE } from "./hubText";
 import { LiftLine2, liftId } from "./LiftTable";
 import { Divider, InfoLine, LocText, Num, TipLines, cx, numArg } from "./parts";
+import { LiftSheetAside } from "./QuickRunsControls";
 import { currentResort, liftsOf, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
 
@@ -57,6 +59,7 @@ export function LiftsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): 
 
   return (
     <>
+      <LiftSheetAside />
       {lifts.length === 0 ? (
         <div className={styles.dimLine}>{t(HUB_LOC.liftsEmpty)}</div>
       ) : (

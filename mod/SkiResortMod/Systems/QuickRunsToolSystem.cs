@@ -62,8 +62,8 @@ namespace SkiResortMod.Systems
         public bool IsArmed => m_Armed;
         public bool IsDisabled => m_Disabled;
 
-        /// <summary>The setting (Options, Runs: "Resort Planner (experimental)"). It is read live, null-tolerant (default off).</summary>
-        public static bool OptionOn => Mod.Settings?.QuickRunsEnabled ?? false;
+        /// <summary>The setting (Options, Runs: "Resort Planner"). It is read live, null-tolerant (the default, on since T193).</summary>
+        public static bool OptionOn => Mod.Settings?.QuickRunsEnabled ?? SkiResortSettings.DefaultQuickRunsEnabled;
 
         /// <summary>Null when the tool can open. Otherwise the hub reason key (the button stays visible, grayed with this
         /// reason).</summary>
@@ -172,6 +172,8 @@ namespace SkiResortMod.Systems
             ClearBatch("load");
             ClearTreeBatch("load");
             ResetAll("load");
+            m_KeepRegionOnClose = false;
+            m_KeptCorners = null;
             m_SpeciesResolved = false;
             if (mode != GameMode.Game)
             {
@@ -194,7 +196,43 @@ namespace SkiResortMod.Systems
             base.OnStartRunning();
             applyMode = ApplyMode.None;
             ResetAll(null);
-            Mod.Log.Info($"QuickRuns [tool]: running — knobs {KnobsText(m_Knobs)}");
+            string kept = RestoreKeptRegion();
+            Mod.Log.Info($"QuickRuns [tool]: running — knobs {KnobsText(m_Knobs)}{kept}");
+        }
+
+        // T168: the lift build queue takes the tool (the station placer), which closes this tool. A run of the queue started from here keeps
+        // the region's corners for that close, and the next open (the queue's return, or the player's) gets them back: the player goes on with
+        // Trees or Build lifts on the same region. The Undo of the run build still ends with the close (DECISIONS 418: per tool session).
+        private bool m_KeepRegionOnClose;
+        private float2[] m_KeptCorners;
+
+        /// <summary>ResortLiftBuildSystem: a queue run starts while this tool is open. The close it causes keeps the region.</summary>
+        internal void KeepRegionForLiftBuild()
+        {
+            m_KeepRegionOnClose = true;
+        }
+
+        /// <summary>ResortLiftBuildSystem: the player took another tool after the lift build. The kept region is dropped.</summary>
+        internal void DropKeptRegion(string why)
+        {
+            if (m_KeptCorners != null)
+                Mod.Log.Info($"QuickRuns [region]: the kept region of {m_KeptCorners.Length} corner(s) is dropped ({why})");
+            m_KeptCorners = null;
+        }
+
+        private string RestoreKeptRegion()
+        {
+            float2[] corners = m_KeptCorners;
+            m_KeptCorners = null;
+            if (corners == null || corners.Length < 3)
+                return string.Empty;
+            m_Edit.Clear();
+            foreach (float2 p in corners)
+                m_Edit.Add(p);
+            m_RegionClosed = true;
+            UpdateReadout();
+            Bump();
+            return $"; the region of {corners.Length} corner(s) kept over the lift build is back ({ReadoutText()})";
         }
 
         protected override void OnStopRunning()
@@ -224,6 +262,11 @@ namespace SkiResortMod.Systems
                 // DefaultToolSystem.cs:973-980). Never hand-delete thinning Temps.
                 ClearBatch(null);
                 ClearTreeBatch(null);
+                bool keep = m_KeepRegionOnClose && m_Edit.Count >= 3 && LiftBuild() != null && LiftBuild().QueueRunning;
+                m_KeepRegionOnClose = false;
+                m_KeptCorners = keep ? CornerArray() : null;
+                if (keep)
+                    Mod.Log.Info($"QuickRuns [region]: {m_KeptCorners.Length} corner(s) kept over the lift build (the planner opens again with them)");
                 ResetAll("stopped");
                 if (!m_DefinitionQuery.IsEmptyIgnoreFilter)
                     EntityManager.DestroyEntity(m_DefinitionQuery);

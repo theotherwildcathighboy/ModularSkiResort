@@ -3,7 +3,8 @@
  * The file draws two things.
  * 1. The Build strip's Runs-tab chip (QuickRunsChip, the lift generator chip's pattern: grayed with the reason while unavailable).
  * 2. While the tool is open, the rows at the top of the Runs view, in place of the tree tool's (QuickRunsRows). From top to bottom:
- *    - Scan / Build / Undo, the Density (how many) and Kinds knobs. The Lifts, Mix, Shuffle and Way home knobs are gone (round R2-b, DECISIONS
+ *    - Scan / Build / Undo, then the step strip (T167: Region, Scan, Build runs, Trees, Lifts, the next one highlighted).
+ *    - The Density (how many) and Kinds knobs. The Lifts, Mix, Shuffle and Way home knobs are gone (round R2-b, DECISIONS
  *      632): the runs-first planner ignores them.
  *    - The step's lines (region size, scan progress), warnings and clusters. With a plan (DECISIONS 648, "no wall of text"): the runs by color
  *      and the totals, the runs' cost, the lifts total, the terrain's mix, then the warnings. One short line each: no how-to, no site verdict, no
@@ -15,7 +16,7 @@
  * "Planting trees 2,400 / 9,000") show while either is in flight. Stop sits beside Undo (building) or in place of Plant (planting).
  * The plan sheet's lifts block (R1-d, contract 41, LiftSheetBlock) shows the lifts the planner proposed with their build state, a Build button
  * per lift, Build lifts / Stop, the lifts total and Clear list. It reads `quickRuns.sheet`, so it stays after the run build and with the tool
- * closed (RunsView mounts LiftSheetRows then). Every action there is quickLiftsAct(action, key) and C# refuses a call it cannot take with a notice.
+ * closed (RunsView mounts LiftSheetRows then, and LiftsView mounts LiftSheetAside, T168). Every action there is quickLiftsAct(action, key) and C# refuses a call it cannot take with a notice.
  * Contract 42: a Built row whose line has a tower over its sheave-train limit reads in the warning style with one fact line (tower, bend,
  * limit) and the tower's distance in its tooltip. A Proposed row and a lift row of the preview say how the line builds: with one tower over its
  * limit (flagged), or waiting for a hand fit in the lift tool.
@@ -34,9 +35,10 @@ import { BAND } from "../bindings";
 import type { QuickLiftsAction, QuickRunsKey, QuickRunsLift, QuickRunsPod, QuickRunsSheetRow, QuickRunsState } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
-import { rejectSummary } from "./hubRules";
+import { PLANNER_STEPS, plannerStepIndex, rejectSummary } from "./hubRules";
+import type { PlannerStep } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, QUICK_REJECT_TEXT, QUICK_SITE_TEXT, gladeLevelEntry, sentKeyEntry } from "./hubText";
-import { BandMarker, CheckBox, LocText, Tip, TipLines, cx, numArg } from "./parts";
+import { BandMarker, CheckBox, Divider, LocText, Tip, TipLines, cx, numArg } from "./parts";
 import styles from "./hub.module.scss";
 
 /* QuickRunsRules.TreeLineStepM, and the coarse step. */
@@ -127,6 +129,31 @@ export function Act({ label, tip, on, disabled, onSelect, next }: {
 
 export function Caption({ text }: { text: string }): JSX.Element {
   return <div className={styles.quickCaption}>{text}</div>;
+}
+
+/* T167: the steps in order, the next one highlighted, the ones before it dimmed (hubRules.plannerStepIndex). Two steps carry a fact in a
+   tooltip: why Trees come before Lifts, and what happens to a lift that needs a hand fit. No how-to text. */
+const STEP_TEXT: Record<PlannerStep, LocEntry> = {
+  region: HUB_LOC.quickStepRegion, scan: HUB_LOC.quickStepScan, build: HUB_LOC.quickStepBuild, trees: HUB_LOC.quickStepTrees, lifts: HUB_LOC.quickStepLifts,
+};
+const STEP_TIP: Partial<Record<PlannerStep, LocEntry>> = { trees: HUB_LOC.quickStepTipTrees, lifts: HUB_LOC.quickStepTipLifts };
+
+function StepStrip({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
+  const s = q.sheet;
+  const liftsStarted = s.rows.some((r) => r.state !== "Proposed" || !!r.step);
+  const now = plannerStepIndex({
+    phase: q.phase, corners: q.corners, batchRuns: q.batchRuns, treesPlanted: q.treesUndo > 0, treeJob: treeJob(q),
+    liftsToBuild: s.toBuild, liftsRunning: s.running, liftsStarted,
+  });
+  return (
+    <div className={styles.stepStrip}>
+      {PLANNER_STEPS.map((step, i) => {
+        const tip = STEP_TIP[step];
+        const item = <div className={cx(styles.stepItem, i < now && styles.stepDone, i === now && styles.stepNow)}>{t(STEP_TEXT[step])}</div>;
+        return tip ? <Tip key={step} tip={t(tip)}>{item}</Tip> : <div key={step} className={styles.stepCell}>{item}</div>;
+      })}
+    </div>
+  );
 }
 
 /* The step's line: what the tool is doing and the numbers of the region or the preview. */
@@ -292,8 +319,8 @@ function OtherRunsRow({ p, t, wait }: { p: QuickRunsPod; t: Translate; wait: boo
 }
 
 /* The plan's rows: one per lift (with the band counts and cat tracks of the group it starts, and its way home), then "Other runs". The totals,
-   the lifts total and the terrain's mix are the step lines above (PreviewLines). Up to 15 lift rows: the list scrolls in its own box. Nothing is
-   drawn without a plan. */
+   the lifts total and the terrain's mix are the step lines above (PreviewLines). No box of its own (T166): the Runs view scrolls as a whole.
+   Nothing is drawn without a plan. */
 function PlanRows({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: boolean }): JSX.Element | null {
   if (q.phase !== "Preview" || (q.pods.length === 0 && q.planLifts.length === 0)) return null;
   return (
@@ -505,6 +532,15 @@ export function LiftSheetRows(): JSX.Element | null {
   return <LiftSheetBlock q={q} t={t} />;
 }
 
+/* T168: the plan sheet's lifts at the top of the Lifts view while the planner is closed. The lift tool the queue leaves open for a hand fit
+   turns the hub to the Lifts view (HubPanel RunsTabFollow), and the lifts still to build stay in reach there. */
+export function LiftSheetAside(): JSX.Element | null {
+  const t = useT();
+  const q = useValue(quickRuns$);
+  if (!q || q.active || !sheetShows(q)) return null;
+  return <><LiftSheetBlock q={q} t={t} /><Divider /></>;
+}
+
 /* The Runs view's top rows while the Quick runs tool is open (RunsView draws TreeRows otherwise). */
 export function QuickRunsRows(): JSX.Element {
   const t = useT();
@@ -523,6 +559,7 @@ export function QuickRunsRows(): JSX.Element {
         <Act label={t(HUB_LOC.quickUndo)} tip={t(HUB_LOC.quickUndoTip)} next disabled={wait || q.batchRuns <= 0} onSelect={() => set("undo")} />
         {building(q) && <Act label={t(HUB_LOC.quickStop)} tip={t(HUB_LOC.quickStopTip)} next onSelect={() => set("stop")} />}
       </div>
+      <StepStrip q={q} t={t} />
       <StepLines q={q} t={t} />
       <div className={styles.quickRow}>
         <Caption text={t(HUB_LOC.quickDensityCaption)} />

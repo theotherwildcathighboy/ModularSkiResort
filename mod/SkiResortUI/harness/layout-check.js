@@ -188,9 +188,11 @@
       if (scrolls && q(cls("pagerRow"), panel())) fail(`pager drawn on a full-list view: view ${view} ${state}`, m);
       if (!scrolls && (!m || m.overPx > 1 || m.slackRem < MIN_SLACK_REM)) fail(`overflow: view ${view} ${state}`, m);
       if (m && !m.headerFits) fail(`header overflows: view ${view} ${state}`, m);
-      // The planner's plan scrolls in its own box, so a long plan never pushes the tree controls out of view (field test 2026-10-31).
+      // T166 (post-release round 1): the planner's plan has no scroll box of its own. An inner box scrolled here but not in game (the
+      // wheel moved nothing, lift rows past the fifth were out of reach). The view scrolls as a whole (listAll). The tree controls sit above
+      // the plan, so a long plan cannot push them out of view.
       const plan = q(cls("planList"), panel());
-      if (plan && (getComputedStyle(plan).overflowY !== "scroll" || plan.getBoundingClientRect().height > 201 * rem())) fail(`plan list is not its own short scroller: view ${view} ${state}`, m);
+      if (plan && ["scroll", "auto"].includes(getComputedStyle(plan).overflowY)) fail(`plan list is an inner scroller (Gameface does not scroll it): view ${view} ${state}`, m);
     };
     // Every page of the shown state must fit. The function returns the pager text of page 1.
     const allPages = async (v, state) => {

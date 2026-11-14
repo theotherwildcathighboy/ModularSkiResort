@@ -44,7 +44,7 @@ namespace SkiResortMod.Systems
         private static readonly UnityEngine.Color HoverColor = new UnityEngine.Color(1f, 1f, 1f, 0.95f);
         private static readonly UnityEngine.Color OffColor = new UnityEngine.Color(0.6f, 0.62f, 0.66f, 0.6f);
         private static readonly UnityEngine.Color RefusedColor = new UnityEngine.Color(0.95f, 0.15f, 0.15f, 0.95f);
-        private static readonly UnityEngine.Color CatTrackColor = new UnityEngine.Color(0.94f, 0.82f, 0.28f, 0.95f);   // not a band color, not the lift colors
+        private static readonly UnityEngine.Color CatTrackColor = SkiPisteMapSystem.CatTrackLine;   // not a band color, not the lift colors: the map's (T165)
         private static readonly UnityEngine.Color ClusterColor = new UnityEngine.Color(1f, 1f, 1f, 0.7f);
         private static readonly UnityEngine.Color TreeLineColor = new UnityEngine.Color(0.35f, 0.85f, 0.45f, 0.9f);
         private static readonly UnityEngine.Color LiftColor = new UnityEngine.Color(1f, 1f, 1f, 0.95f);   // Home None (until A6)

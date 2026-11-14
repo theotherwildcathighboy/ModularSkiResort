@@ -463,7 +463,7 @@ const R1F = [
 const R2B = [
   ["r2b-plan-15-lifts-top-1080", 1080, { scenario: "Resort Planner plan, 15 lifts (flagged, waiting, other runs), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
   ["r2b-sheet-15-rows-flagged-1080", 1080, { scenario: "Resort Planner lifts, 15 rows (flagged tower, waiting), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
-  ["r2b-plan-15-lifts-rows-1080", 1080, { scenario: "Resort Planner plan, 15 lifts (flagged, waiting, other runs), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs", scrollY: 1000, scrollIn: "planList", scrollInY: 1000 }],
+  ["r2b-plan-15-lifts-rows-1080", 1080, { scenario: "Resort Planner plan, 15 lifts (flagged, waiting, other runs), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs", scrollY: 1400 }],
   ["r2b-sheet-15-rows-flagged-lower-1080", 1080, { scenario: "Resort Planner lifts, 15 rows (flagged tower, waiting), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs", scrollY: 1000 }],
   ["r2b-sheet-flagged-tooltip-1080", 1080, { scenario: "Resort Planner lifts, 15 rows (flagged tower, waiting), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs", hover: "Built. Tower 7", hoverIn: "div" }],
   ["r2b-knob-row-1080", 1080, { scenario: "Resort Planner plan, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],

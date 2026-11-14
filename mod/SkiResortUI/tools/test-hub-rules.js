@@ -1193,6 +1193,30 @@ function run(srcDir) {
     eq("T43.8 no :scope selector in src/ or tools/testbridge/helpers.js (Gameface rejects it)", scoped, []);
   }
 
+  // T44 the Resort Planner's step strip (T167, post-release round 1): order region, scan, build, trees, lifts (5 = all done).
+  {
+    const base = { phase: "Region", corners: 0, batchRuns: 0, treesPlanted: false, treeJob: false, liftsToBuild: 0, liftsRunning: false, liftsStarted: false };
+    const st = (o) => R.plannerStepIndex(Object.assign({}, base, o));
+    eq("T44.0 the order", Array.from(R.PLANNER_STEPS), ["region", "scan", "build", "trees", "lifts"]);
+    eq("T44.1 no corners: region", st({}), 0);
+    eq("T44.2 two corners: region", st({ corners: 2 }), 0);
+    eq("T44.3 three corners: scan", st({ corners: 3 }), 1);
+    eq("T44.4 scanning: scan", st({ phase: "Scanning", corners: 4 }), 1);
+    eq("T44.5 preview: build", st({ phase: "Preview", corners: 4 }), 2);
+    eq("T44.6 building (Emitted / Retry / Applying): build", [st({ phase: "Emitted" }), st({ phase: "Retry" }), st({ phase: "Applying" })], [2, 2, 2]);
+    eq("T44.7 built, no trees yet: trees", st({ corners: 4, batchRuns: 12, liftsToBuild: 3 }), 3);
+    eq("T44.8 built, planting in flight: trees", st({ corners: 4, batchRuns: 12, treeJob: true, treesPlanted: true, liftsToBuild: 3 }), 3);
+    eq("T44.9 built, trees planted: lifts", st({ corners: 4, batchRuns: 12, treesPlanted: true, liftsToBuild: 3 }), 4);
+    eq("T44.10 built, a lift started (trees skipped): lifts", st({ corners: 4, batchRuns: 12, liftsStarted: true, liftsToBuild: 2 }), 4);
+    eq("T44.11 built, lifts all done: done", st({ corners: 4, batchRuns: 12, liftsStarted: true, liftsToBuild: 0 }), 5);
+    eq("T44.12 built, trees planted, no lift to build: done", st({ corners: 4, batchRuns: 12, treesPlanted: true }), 5);
+    eq("T44.13 the lift queue running wins in Region", st({ corners: 0, liftsRunning: true }), 4);
+    eq("T44.14 a region without a build or a started lift: scan", st({ corners: 5, liftsToBuild: 2 }), 1);
+    eq("T44.15 back from the lift build (region kept, Undo ended, a lift started): lifts", st({ corners: 5, liftsStarted: true, liftsToBuild: 2 }), 4);
+    eq("T44.16 back from the lift build, every lift done: done", st({ corners: 5, liftsStarted: true }), 5);
+    eq("T44.17 a lift started but no region: region", st({ corners: 0, liftsStarted: true, liftsToBuild: 2 }), 0);
+  }
+
   const hr = require("./test-history-rules").run(srcDir);
   checks += hr.checks;
   for (const f of hr.failures) failures.push(`test-history-rules ${f}`);
