@@ -147,20 +147,6 @@ namespace SkiResortMod.Systems
             new HeadBeacon("SkiLiftTowerGD20HoldA", 20.544f),
         };
 
-        public static bool TryBeacon(string prefab, out HeadBeacon beacon)
-        {
-            for (int i = 0; i < Beacons.Length; i++)
-            {
-                if (string.Equals(Beacons[i].Prefab, prefab, StringComparison.Ordinal))
-                {
-                    beacon = Beacons[i];
-                    return true;
-                }
-            }
-            beacon = default;
-            return false;
-        }
-
         /// <summary>Poses every spec of <paramref name="specs"/> through a headed tower's head (LiftAlignMath.HeadPose): the tiles and the
         /// beacon sit on the head, which turns by <paramref name="head"/> about the Head bone's <paramref name="pivot"/>.</summary>
         public static void PoseThroughHead(List<TileSpec> specs, float3 pivot, quaternion frame, float head)

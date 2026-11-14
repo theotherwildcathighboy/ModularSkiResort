@@ -646,9 +646,6 @@ namespace SkiResortMod.Systems
         private ScriptTicket m_Script;
         private int m_ScriptSerial;
 
-        /// <summary>The last scripted line (null before the first).</summary>
-        internal ScriptTicket Script => m_Script;
-
         /// <summary>The tool is active with nothing in hand: no end picked, no preview, and no scripted line that waits for the player or
         /// still has to run. The build queue hands such a tool back to the default tool when it ends.</summary>
         internal bool IdleAfterScript => IsActive && m_State == ToolState.PickBase && !m_Ghost && (m_Script == null || m_Script.Final);

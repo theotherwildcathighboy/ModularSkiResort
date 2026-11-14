@@ -67,7 +67,7 @@ namespace SkiResortMod.Systems
         internal enum PlaceStatus : byte { Pending, Placed, Refused, Canceled }
 
         /// <summary>One station to place. Position y NaN = the height of HeightRule (default VanillaFront, the object tool's height). Tag is
-        /// the caller's (the build queue names the lift and the role, CancelPending matches it).</summary>
+        /// the caller's (the build queue names the lift and the role).</summary>
         internal struct PlaceRequest
         {
             public Entity Prefab;
@@ -116,8 +116,6 @@ namespace SkiResortMod.Systems
         internal bool IsDisabled => m_Disabled;
         internal PlacePhase Phase => m_Phase;
         internal PlaceResult LastResult => m_Result;
-        /// <summary>Requests waiting behind the one in flight.</summary>
-        internal int QueuedCount => m_Queue.Count;
         /// <summary>A request is in flight or waiting.</summary>
         internal bool Busy => m_Phase != PlacePhase.Idle || m_Queue.Count > 0;
 
@@ -305,25 +303,6 @@ namespace SkiResortMod.Systems
         /// <summary>The outcome of a request by its serial (Pending while queued or in flight). False when the serial is unknown or too old
         /// (the last MaxOutcomes are kept).</summary>
         internal bool TryGetOutcome(int serial, out PlaceOutcome outcome) => m_Outcomes.TryGetValue(serial, out outcome);
-
-        /// <summary>Drop the queued requests with this tag (never the one in flight). Their outcome is Canceled. Returns the count.</summary>
-        internal int CancelPending(string tag, string why)
-        {
-            int n = 0;
-            for (int i = m_Queue.Count - 1; i >= 0; i--)
-            {
-                if (!string.Equals(m_Queue[i].Tag, tag, StringComparison.Ordinal))
-                    continue;
-                PlaceOutcome o = m_Queue[i];
-                o.Status = PlaceStatus.Canceled;
-                o.Summary = "canceled before its emission: " + why;
-                m_Queue.RemoveAt(i);
-                m_QueueReq.RemoveAt(i);
-                Mod.Log.Info($"StationPlace [request]: #{o.Serial}{TagText(tag)} CANCELED — {why}");
-                n++;
-            }
-            return n;
-        }
 
         /// <summary>The next queued request becomes the one in flight (phase Pending). The caller keeps the tool active.</summary>
         private void StartNext()
