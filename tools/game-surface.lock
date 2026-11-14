@@ -274,7 +274,6 @@ type Game.Objects.SecondaryObjectReferencesSystem class 982fc57de2
 type Game.Objects.SecondaryObjectSystem class 99f34f64a7
 type Game.Objects.SpawnLocation struct 246ae64d0f m_AccessRestriction:Entity m_ConnectedLane1:Entity m_ConnectedLane2:Entity m_CurvePosition1:float m_CurvePosition2:float m_GroupIndex:int m_Flags:SpawnLocationFlags
 type Game.Objects.SpawnLocationFlags enum c9643d20a7 AllowEnter=1 ParkedVehicle=2 AllowExit=4
-type Game.Objects.Stack struct 4c8edb2277 m_Range:Bounds1
 type Game.Objects.Static struct 49d4b81f17
 type Game.Objects.Stopped struct ac151d6a88
 type Game.Objects.SubElementDeleteSystem class d108d9237e
@@ -373,12 +372,9 @@ type Game.Prefabs.ParkingLaneData struct 76f9308a2e burst:r:SkiLodgeParkingSyste
 type Game.Prefabs.PathwayData struct 88dc4a897d m_SpeedLimit:float m_LeisureProvider:bool
 type Game.Prefabs.PedestrianLane class d27502243a
 type Game.Prefabs.PedestrianPathfind class 80bd999622
-type Game.Prefabs.PillarData struct 94edb4b184 m_Type:PillarType m_OffsetRange:Bounds1
-type Game.Prefabs.PillarType enum d40506476d None=-1 Vertical=0 Horizontal=1 Standalone=2 Base=3
 type Game.Prefabs.PlaceableNetData struct e71927f763 m_ElevationRange:Bounds1 m_UndergroundPrefab:Entity m_PlacementFlags:PlacementFlags m_SetUpgradeFlags:CompositionFlags m_UnsetUpgradeFlags:CompositionFlags m_DefaultConstructionCost:uint m_DefaultUpkeepCost:float m_SnapDistance:float m_MinWaterElevation:float m_XPReward:int
 type Game.Prefabs.PlaceableObjectData struct 69445f7ce5 m_PlacementOffset:float3 m_ConstructionCost:uint m_XPReward:int m_DefaultProbability:byte m_RotationSymmetry:RotationSymmetry m_SubReplacementType:SubReplacementType m_Flags:Game.Objects.PlacementFlags
 type Game.Prefabs.PlaceholderObjectData struct b09a48713c m_RequirementMask:ObjectRequirementFlags m_RandomizeGroupIndex:bool
-type Game.Prefabs.PlaceholderObjectElement struct 6e29bfe4f0 m_Object:Entity
 type Game.Prefabs.PowerLinePrefab class dc12fe4361
 type Game.Prefabs.PrefabBase class 5e8b147f2a
 type Game.Prefabs.PrefabData struct d85a0fd8be m_Index:int
