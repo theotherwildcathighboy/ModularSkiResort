@@ -28,7 +28,11 @@ namespace SkiResortMod.Systems
         private static bool s_MoverUseJob = true;
         private static LiftMoverMath.PaceSettings s_Pace = LiftMoverMath.PaceSettings.Default;
         private static int s_StressFactor = 1;
+#if SKI_DEV
         private static bool s_SyncMeasure;
+#else
+        private static readonly bool s_SyncMeasure = false;   // the dev tab flips it (dev builds only)
+#endif
         /// <summary>Stress mode: the extra passes run this many seconds of clock apart (so each one really rewrites).</summary>
         private const double StressShiftS = 0.5;
         /// <summary>The loop box grows by this much around the rope (a carrier hangs ≤ ~6 m below it, plus its size).</summary>

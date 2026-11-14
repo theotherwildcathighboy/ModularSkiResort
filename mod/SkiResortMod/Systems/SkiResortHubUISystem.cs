@@ -545,8 +545,10 @@ namespace SkiResortMod.Systems
         private LiftLineToolSystem m_LiftLineTool;   // the Lifts tab's lift generator (public API only, the lift session owns it)
         private CatTrackGradeToolSystem m_GradeTool; // the cat track tool the Cat track tile opens (public API only)
         private SkiCatTrackDeleteSystem m_CatTrackDelete;
+#if SKI_DEV
         private SkiPisteMapSystem m_PisteMap;        // DUMP only
         private LodgeRoadSystem m_LodgeRoad;                  // DUMP only
+#endif
         private EntityQuery m_CitizenQuery;          // DUMP only (citizens at a lodge / sign)
         private EntityQuery m_ConsumerQuery;         // DUMP only (station ElectricityConsumer)
 
