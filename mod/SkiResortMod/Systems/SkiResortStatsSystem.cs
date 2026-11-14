@@ -238,12 +238,21 @@ namespace SkiResortMod.Systems
     {
         private static class Tuning
         {
-            /// <summary>Wall-clock heartbeat (s) while the hub listens (the catalog's value).</summary>
-            public const float HeartbeatS = 2f;
+            /// <summary>Wall-clock heartbeat (s) while the hub listens: refreshes what no revision covers (efficiency, budget, names).
+            /// 5 s since the 2026-11-14 opt pass (sim-02; was 2 s, 30 rebuilds a minute on an idle hub).</summary>
+            public const float HeartbeatS = 5f;
 
             /// <summary>Minimum wall-clock seconds between two signature-driven rebuilds (coalesces the catalog warm-up, tunable,
             /// unmeasured). The rising edge of Demand and requested rebuilds are immediate.</summary>
             public const float MinRebuildIntervalS = 0.5f;
+
+            /// <summary>While the catalog or the lift census revision is still moving (a run drawn, a planner build), a signature rebuild
+            /// waits until neither moved for this many seconds (opt pass sim-02: measured 10 rebuilds in 5 s at 108-363 ms while drawing).
+            /// </summary>
+            public const float QuietS = 1f;
+
+            /// <summary>The longest a pending signature rebuild waits for QuietS (a long build still refreshes the hub this often).</summary>
+            public const float MaxDeferS = 5f;
 
             /// <summary>At most one "Stats [rebuild]" change line per this many seconds (a burst is folded,
             /// LogWindow).</summary>
@@ -472,6 +481,9 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_EffRowOn = new HashSet<Entity>();
         private readonly HashSet<Entity> m_EffRowOnNext = new HashSet<Entity>();
         private float m_NextHeartbeat, m_LastRebuildTime = float.NegativeInfinity;
+        // sim-02 quiet window: the catalog / census revisions seen last frame, when one last moved, when the pending rebuild was first due
+        private int m_SeenCatalog = int.MinValue, m_SeenCensus = int.MinValue;
+        private float m_LastInputMove = float.NegativeInfinity, m_PendingSince = float.NegativeInfinity;
         private ulong m_HashResorts, m_HashResortLive, m_HashRuns, m_HashRunLive, m_HashLifts, m_HashProblems;
         // The rebuild log (LogRebuild). Change lines through m_ChangeLog. The rest counted into one quiet summary per QuietSummaryS.
         private readonly LogWindow m_ChangeLog = new LogWindow(Tuning.LogWindowS);
@@ -681,6 +693,8 @@ namespace SkiResortMod.Systems
             m_EffRowOnNext.Clear();
             m_NextHeartbeat = 0f;
             m_LastRebuildTime = float.NegativeInfinity;
+            m_SeenCatalog = m_SeenCensus = int.MinValue;
+            m_LastInputMove = m_PendingSince = float.NegativeInfinity;
             m_HashResorts = m_HashResortLive = m_HashRuns = m_HashRunLive = m_HashLifts = m_HashProblems = 0;
             m_ChangeLog.Reset();          // OnGamePreload wrote what it held
             m_KeyLogged = false;
@@ -741,7 +755,8 @@ namespace SkiResortMod.Systems
                          "over every run; share = S_res / S_all over every AttractivenessProvider; rebuilds only while the hub " +
                          "observes a panel binding (or on a request: dev tab, DUMP, a hub rename) — at once when the panel " +
                          "opens, on a catalog / lift census / chair loop / attractiveness / snow texel / snow state / guests / " +
-                         $"lift charge change at most every MinRebuildIntervalS={Tuning.MinRebuildIntervalS} s, and every " +
+                         $"lift charge change at most every MinRebuildIntervalS={Tuning.MinRebuildIntervalS} s (after QuietS=" +
+                         $"{Tuning.QuietS} s without a catalog / census move, at most MaxDeferS={Tuning.MaxDeferS} s late), and every " +
                          $"HeartbeatS={Tuning.HeartbeatS} s wall clock; LogWindowS={Tuning.LogWindowS}; " +
                          $"StubTipLocalZ={StationAlign.StubTipLocalZ} (fixed-grip; per station row since Catalog Phase B); daysPerYear {m_TimeSystem.daysPerYear} (TimeSettingsData, " +
                          "copied by TimeSystem's first sim update — 1 before it; a later line reports the value once it is > " +
@@ -801,8 +816,20 @@ namespace SkiResortMod.Systems
                     else if (m_SkiDays != null && m_SkiDays.Revision != m_SigSkiDays)
                         sig = WhySkiDays; // moves at most once per SkiDaySystem pass
                     if (sig != null && m_PendingWhy == null)
+                    {
                         m_PendingWhy = sig;
-                    if (m_PendingWhy != null && now - m_LastRebuildTime >= Tuning.MinRebuildIntervalS)
+                        m_PendingSince = now;
+                    }
+                    // The catalog and the census move on every edit of a drag or a planner build: wait for one quiet interval
+                    int catRev = m_Catalog.Revision, censusRev = m_Census.Revision;
+                    if (catRev != m_SeenCatalog || censusRev != m_SeenCensus)
+                    {
+                        m_SeenCatalog = catRev;
+                        m_SeenCensus = censusRev;
+                        m_LastInputMove = now;
+                    }
+                    bool quiet = now - m_LastInputMove >= Tuning.QuietS || now - m_PendingSince >= Tuning.MaxDeferS;
+                    if (m_PendingWhy != null && quiet && now - m_LastRebuildTime >= Tuning.MinRebuildIntervalS)
                         why = m_PendingWhy;
                     else if (now >= m_NextHeartbeat)
                         why = WhyHeartbeat;
