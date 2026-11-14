@@ -54,11 +54,8 @@ namespace SkiResortMod.Systems
         private bool m_Disabled;
         private bool m_ErrorLogged;
 
-        /// <summary>Runs given a name this load, those given none (pool full), and those named without traits (never rated). Dev tab / bridge.</summary>
-        public int Named, Unnamed, Untraited;
-
-        /// <summary>Runs waiting for their rating. Dev tab / bridge.</summary>
-        public int PendingCount => m_Pending.Count;
+        /// <summary>Runs given a name this load and those given none (pool full). Dev tab / bridge.</summary>
+        public int Named, Unnamed;
 
         protected override void OnCreate()
         {
@@ -117,7 +114,7 @@ namespace SkiResortMod.Systems
             m_ErrorLogged = false;
             m_Pending.Clear();
             m_Waited.Clear();
-            Named = Unnamed = Untraited = 0;
+            Named = Unnamed = 0;
             if (m_Armed)
                 Mod.Log.Info($"Run names: ARMED, {SkiRunNameRules.Count} trail names, an unused one that fits each new run once it is rated " +
                              $"(steep, gentle, glade, cat track; Upper / Lower over {SkiRunNameRules.FormMinRangeM:0} m of area height), " +
@@ -166,8 +163,6 @@ namespace SkiResortMod.Systems
                 }
                 Named += named;
                 Unnamed += unnamed;
-                if (untraited)
-                    Untraited += m_Ready.Count;
                 Mod.Log.Info($"Run names: {named} named ({upper} upper, {lower} lower)" +
                              (unnamed > 0 ? $", {unnamed} without a name (all {SkiRunNameRules.Count} taken: \"Run N\")" : "") +
                              (untraited ? " without traits (no rating)" : "") + (load ? " (load pass)" : "") +

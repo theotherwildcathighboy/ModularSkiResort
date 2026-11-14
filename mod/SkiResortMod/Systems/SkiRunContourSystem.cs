@@ -47,8 +47,6 @@ namespace SkiResortMod.Systems
         /// "latched (player changed it)" / "DISABLED ...". A plain field written on transitions only.</summary>
         public string StateText = StateOff;
 
-        /// <summary>Overrides started since the last load (dev-tab aid)</summary>
-        public int Overrides;
 
         protected override void OnCreate()
         {
@@ -74,7 +72,6 @@ namespace SkiResortMod.Systems
             m_ErrorLogged = false;
             m_CachedPrefab = null;
             m_CachedIsRun = false;
-            Overrides = 0;
             StateText = StateOff;
 
             if (mode != GameMode.Game)
@@ -214,7 +211,6 @@ namespace SkiResortMod.Systems
         {
             if (m_Active)
             {
-                Overrides++;
                 StateText = StateOverriding;
                 Mod.Log.Info("RunContour: contour lines ON for run drawing (player's setting " +
                              "was off; restored on leaving)");

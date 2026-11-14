@@ -242,7 +242,6 @@ namespace SkiResortMod.Systems
         private int m_ClosedRebuilds, m_ClosedRatings;
         private float m_ClosedRebuildMsSum, m_ClosedRebuildMsMax;
         private float m_ClosedRatingMsSum, m_ClosedRatingMsMax;
-        private float m_ClosedSince = -1f;
         private bool m_ServiceCostLogged;
         // The cost line's own record: closed rebuilds with >= 1 row
         private int m_CostRebuilds;
@@ -637,7 +636,6 @@ namespace SkiResortMod.Systems
             m_ClosedRebuildMsMax = 0f;
             m_ClosedRatingMsSum = 0f;
             m_ClosedRatingMsMax = 0f;
-            m_ClosedSince = -1f;
             m_ServiceCostLogged = false;
             m_CostRebuilds = 0;
             m_CostRebuildMsSum = 0f;
@@ -884,8 +882,6 @@ namespace SkiResortMod.Systems
             if (!countSigns)
             {
                 // The panel-closed rebuild cost ("Catalog [service]", once per load)
-                if (m_ClosedRebuilds == 0)
-                    m_ClosedSince = now;
                 m_ClosedRebuilds++;
                 m_ClosedRebuildMsSum += ms;
                 if (ms > m_ClosedRebuildMsMax)

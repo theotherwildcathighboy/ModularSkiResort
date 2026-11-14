@@ -43,12 +43,6 @@ namespace SkiResortMod.Systems
         private bool m_Disabled;
         private bool m_ErrorLogged;
 
-        public int CascadesThisLoad;
-
-        public int RunsDeletedThisLoad;
-
-        public string LastCascade = "-";
-
         protected override void OnCreate()
         {
             base.OnCreate();
@@ -93,9 +87,6 @@ namespace SkiResortMod.Systems
             m_Armed = false;
             m_Disabled = false;
             m_ErrorLogged = false;
-            CascadesThisLoad = 0;
-            RunsDeletedThisLoad = 0;
-            LastCascade = "-";
             m_DeletedSigns.Clear();
 
             // Game mode only: runs are bound only by the Game-mode ownership system
@@ -141,7 +132,6 @@ namespace SkiResortMod.Systems
                 if (!m_ErrorLogged)
                 {
                     m_ErrorLogged = true;
-                    LastCascade = "DISABLED by exception (see mod log)";
                     Mod.Log.Error($"!!! {nameof(SkiRunGateCascadeSystem)} EXCEPTION — run cascade " +
                                   "disabled until the next game load: a sign deleted meanwhile leaves " +
                                   "its runs as paid orphans (kept, re-link free), never deleted:\n" + e);
@@ -196,14 +186,9 @@ namespace SkiResortMod.Systems
                     lines.Add(SignLine(sign, runs, runSigns));
 
                 DeleteLikeOwnerCascade(runs);
-                CascadesThisLoad += m_DeletedSigns.Count;
-                RunsDeletedThisLoad += runs.Length;
 
                 for (int i = 0; i < lines.Count; i++)
-                {
-                    LastCascade = lines[i];
                     Mod.Log.Info($"RunCascade: {lines[i]}");
-                }
             }
             finally
             {

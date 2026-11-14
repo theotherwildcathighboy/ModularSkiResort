@@ -922,19 +922,14 @@ namespace SkiResortMod.Systems
         public float MeanRunSnowDepthM { get; private set; }
         public bool HasRunSnowMeasurement { get; private set; }
 
-        /// <summary>Per-type active (thermally gated on) masked texel counts + texel area, refreshed each top-up pass. The upkeep system
-        /// charges snowmaking/grooming operating costs from exactly the mask the injection writes, so money, visuals and attractiveness
-        /// share one climate model.</summary>
-        public int SnowmakingActiveTexels { get; private set; }
-        public int GroomedActiveTexels { get; private set; }
-        public int NightActiveTexels { get; private set; }
+        /// <summary>The texel area, refreshed each top-up pass (the upkeep bills per run: SkiRunUpkeepRates.PisteUpkeep).</summary>
         public float TexelAreaM2 { get; private set; }
         public bool HasMaskMeasurement { get; private set; }
 
         // Each mask pass (BuildMask, every top-up) refills a run -> active-texel map from the per-run reduction that already exists: a
         // run's count is its NewMaskTexels, the texels it claimed first. Attribution is first-claim in schedule order (FoldRowsJob counts a
-        // texel only when Mask[idx] was still 0, and runs are chained sequentially). So the per-run counts sum exactly to the billed
-        // Snowmaking/Groomed/NightActiveTexels. But a run overlapped by an earlier one, or narrower than the ~14 m texel grid, can read 0
+        // texel only when Mask[idx] was still 0, and runs are chained sequentially). So the per-run counts sum exactly to the pass's
+        // per-type mask totals (MaskStats). But a run overlapped by an earlier one, or narrower than the ~14 m texel grid, can read 0
         // while making snow: > 0 means "making snow", 0 does not mean "off". Only bound runs with on-map coverage are scheduled, so an
         // unbound or off-map run has no entry (false). RunTexelGeneration bumps only when the map's content changed (a run added / removed
         // or any count changed). The code swaps two dictionaries, so a pass allocates nothing once both have grown. Main thread (filled after
@@ -1061,13 +1056,6 @@ namespace SkiResortMod.Systems
             m_GunSeasonLogged = -1;   // the season line again after a load
             if (had)
                 m_GunGeneration++;
-        }
-
-        /// <summary>The active (thermally on) mask texels <paramref name="run"/> claimed first in the last mask pass. False when the run
-        /// was not scheduled (unbound, off the playable area, no pass yet). See the first-claim caveat above.</summary>
-        internal bool TryGetRunActiveTexels(Entity run, out int texels)
-        {
-            return m_RunTexels.TryGetValue(run, out texels);
         }
 
         /// <summary>The cold texels <paramref name="run"/> held off in the last mask pass because its guns are stopped (first mark only). The value is 0 for
@@ -1421,9 +1409,6 @@ namespace SkiResortMod.Systems
             m_LastGlobalMeanDepthM = 0f;
             MeanRunSnowDepthM = 0f;
             HasRunSnowMeasurement = false;
-            SnowmakingActiveTexels = 0;
-            GroomedActiveTexels = 0;
-            NightActiveTexels = 0;
             TexelAreaM2 = 0f;
             HasMaskMeasurement = false;
             m_ForceNextTopupLog = true;
@@ -1722,14 +1707,9 @@ namespace SkiResortMod.Systems
 
             SnapshotChoice snap = ChooseSnapshot(frame);
             MaskStats stats = BuildMask(playOffset, playSize, ambient, freezing, margin, snap, frame);
-            // Publish the per-type active mask before ANY early-out below: "all gates
-            // off" and "no runs placed" both mean zero billable operations, and the
-            // upkeep system must see that zero, not a stale count.
+            // Publish the measurement before ANY early-out below.
             float2 texelDims = playSize / TexSize;
             TexelAreaM2 = texelDims.x * texelDims.y;
-            SnowmakingActiveTexels = stats.SnowmakingMaskTexels;
-            GroomedActiveTexels = stats.GroomedMaskTexels;
-            NightActiveTexels = stats.NightMaskTexels;
             HasMaskMeasurement = true;
             // Refresh the per-run table on every evaluated pass, before any early return, so a natural-only city refreshes too. Inside the mask
             // phase timer.
@@ -3121,7 +3101,7 @@ namespace SkiResortMod.Systems
             public NativeList<TriData> Tris;
             public NativeArray<FoldRowPartial> Partials;
             // The public kind and the heights for RefreshRunSnow. Natural runs carry Natural = true and are skipped by the mask reduction
-            // (never MaskTexels, DecayTexels, the active counts or m_RunTexels: TryGetRunActiveTexels stays false for them).
+            // (never MaskTexels, DecayTexels, the active counts or m_RunTexels).
             public RunKind PublicKind;
             public bool Natural;
             public bool GunsOn;             // a cat track's gun switch (measure-only runs). True otherwise
