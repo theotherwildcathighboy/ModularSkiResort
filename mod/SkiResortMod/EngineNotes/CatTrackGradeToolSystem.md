@@ -34,7 +34,7 @@ Same as `LiftLineToolSystem`'s:
   3. Undo the last add / insert / move.
   4. Close the tool.
 
-  A built cat track is never undone or deleted by them. Built tracks are off the grade undo stack (field test 2026-10-26b).
+  A built cat track is never undone or deleted by them (field test 2026-10-26b).
 - The Build key grades. It is Enter, shared with the lift tool. `LiftLineHotkeySystem` keeps it live while either tool is open.
 - Delete mode (`CatTrackDeleteMode`, default Ctrl+Shift+D, live only while the tool is open. Logic: `GradeDeleteInput`, pure): the tool
   tests the terrain hit point in outline against the cat track rings. It re-reads the rings every 30 frames and after a delete. The
@@ -44,7 +44,7 @@ Same as `LiftLineToolSystem`'s:
 
 ## Solve on change, not per frame: quick on every edit, full debounced on a worker (hand-test note 20, DECISIONS 601 f)
 
-These events mark the plan dirty: a point added / inserted / moved (on release) / undone, or a grading setting changed. The next frame runs
+These events mark the plan dirty: a point added / inserted / moved (on release) / undone, a grading setting changed, or the Ski way switched. The next frame runs
 the QUICK solve (`SolveQuick`, main thread, about 1 to 3 ms at 30 points). The QUICK solve does these steps in order:
 
 1. The path, the ground under it, the rect and the obstacles FIRST (search-tree walk, lift-line edges, the other runs' outlines).
@@ -102,7 +102,7 @@ It takes 10 to 190 ms in game, growing with the rect, so it never runs per edit.
    ToolClearSystem.cs:101), destroys the definitions and grades nothing.
 4. Otherwise, in the same frame, the tool runs the grade below (ApplyCore). If ApplyCore refuses, the tool sets Clear as in 3. If not, the
    tool sets `applyMode = Apply`. ApplyAreasSystem keeps the Temp entity as the permanent run (removes Temp, adds Applied / Created /
-   Updated, ApplyAreasSystem.cs:204-208). So the entity seen in 3 is the run, and it goes into the undo entry. The run binds at
+   Updated, ApplyAreasSystem.cs:204-208). So the entity seen in 3 is the run (named in the GRADED line). The run binds at
    ModificationEnd like a drawn run (SkiRunBindTriggerSystem) and pays its fee there. The frame after, the tool logs one BUILT line (or a
    warning if the run is not permanent).
 5. The run's nodes follow the grade. The write's tail calls OnAreaChanged (TerrainSystem.cs:5096-5098 adds the bounds to
@@ -115,20 +115,24 @@ It takes 10 to 190 ms in game, growing with the rect, so it never runs per edit.
 2. Re-check the guards.
 3. Write, verified bit-exact by readback. A mismatch writes the pre-image back and refuses.
 4. Delete the trees standing on the flat top (plain `Deleted` on trees with no `Owner`, the `SkiGladeCleanupSystem` idiom).
-5. Push the pre-image for undo.
+5. (No undo entry: a built track is never un-graded. The undo stack and the dev-tab probe were removed in T194.)
 6. Tell the run catalog to re-rate (terrain epoch).
 7. Log one line.
 
 Grading is free, like the vanilla terrain tool. The run pays the cat-track fee (groomed pricing by plan area) when it binds.
 
-## Undo
+## Undo and the Ski way mode
 
-`GradeUndo` keeps the last 8 grades of the session (64 MB cap). Right click with no point undoes the last track built since the tool
-opened (terrain AND run). The dev tab's "Undo last grade" reaches older ones. The system deletes the run with plain Deleted (Applied /
-Created / Updated stripped, the SkiRunGateCascadeSystem idiom) when it still exists and is still a cat track. There is no fee refund (the
-bulldozer refunds no run fee either). Undo writes the pre-image back only where the terrain still holds what the grade wrote (a later
-terrain-tool stroke survives). Removed trees do not come back. Nothing survives a save / load (after a reload the vanilla terrain tool is
-the only undo).
+There is no terrain undo. Right click / Esc undo point edits only; a built track stays (field test 2026-10-26b). The hub row's trash
+and Delete mode delete the run with the bulldozer's end state (ground stays graded, no refund). After a reload the vanilla terrain tool
+is the only terrain undo. The grade undo stack and the dev-tab probe (a 40 m strip in front of the camera) were removed in T194
+(planners-12): only the probe ever pushed to the stack.
+
+Ski way (T194): `m_SkiWay` switches the params to `GradeParams.SkiWay(ReadParams())` (CatTrackGrade.md, Ski way). The key
+(CatTrackSkiWay, Ctrl+Shift+W, CatTrackGradeHotkeySystem) and the hub chip (contract 44) call `SetSkiWay`; it is refused while a build is
+in flight, keeps the points, and UpdateCore re-solves on the params change. The quick solve takes `GradeInput.SolveGround`, so the
+worker and Enter solve against the same low-edge ground. The tooltip shows MODE_SKI_WAY under the step hint and PLAN_SKI_WAY as the
+plan line. The mode stays on across closing the tool and resets on load.
 
 ## Crossed runs: inside allowance and band check (DECISIONS 420)
 
@@ -192,7 +196,7 @@ settled all steps in one call. The worker now tries all steps in one job. The `G
 Silence must be impossible. The logs are:
 
 - ARMED / NOT ARMED per load
-- one line per activation, point edit, solve, apply, undo and refusal
+- one line per activation, mode switch, point edit, solve, apply and refusal
 - one line for each read / write of the heightmap writer
 
 An exception disables the tool.

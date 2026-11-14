@@ -541,6 +541,18 @@ namespace SkiResortMod.Settings
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActCatTrackDeleteMode), "Cat track delete mode" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActCatTrackDeleteMode), "Delete mode" },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackSkiWayBinding)),
+                    "Cat track tool: ski way"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackSkiWayBinding)),
+                    "Switches the cat track tool between a standard cat track and a ski way. A ski way is a narrow 10 m track cut " +
+                    "into a steep hillside, with nothing filled below it. Only while the tool is open. The hub Runs tab's Ski way chip " +
+                    "does the same. Default Ctrl+Shift+W."
+                },
+                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActCatTrackSkiWay), "Cat track ski way" },
+                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActCatTrackSkiWay), "Ski way" },
                 // The Resort Planner tool (code name Quick runs)
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ToggleQuickRunsToolBinding)),

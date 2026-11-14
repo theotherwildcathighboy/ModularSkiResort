@@ -604,3 +604,8 @@ Task R2-b changed what `WriteQuickRuns` writes for the runs-first planner. Every
 ## Unbound pistes (contract 43)
 `unbound` is `QuickRunsToolSystem.UnboundPistes` while a preview shows, else 0. It is the N of QUICK_WARN[NoSignSome] ("N of M runs",
 M = `enabled`). The warnings array holds keys only, so the number needs its own field.
+
+## Ski way chip (contract 44, T194)
+The `catTrackSkiWay` value binding (bool) and the `setCatTrackSkiWay(on)` trigger: the Runs tab's Ski way chip beside Delete cat tracks.
+The value is `CatTrackGradeToolSystem.SkiWay` (the tool's profile, open or not; it stays on until switched off or the next load). On:
+`SetSkiWay(true)`, then the tool opens out of Delete mode. Off: `SetSkiWay(false)`, the tool stays as it is. Panel binding, no Demand.

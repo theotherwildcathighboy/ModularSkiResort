@@ -7,8 +7,11 @@
 // The skeleton is LiftLineToolSystem's (a prefab-less ToolBaseSystem, emit -> Temp -> Apply). The tool solves on change, not per frame: a
 // quick solve per edit, and the full one (raster, band rating, guards, outline) debounced on a worker (CatTrackGradeSolve.cs, hand-test
 // note 20, DECISIONS 601 f).
-// Logs (silence impossible): ARMED / NOT ARMED per load. One line per activation, edit, solve, apply, undo, refusal. An exception disables
-// the tool.
+// Two profiles (T194): the standard track (the settings' width, cut and fill) and the Ski way (GradeParams.SkiWay: a narrow bench cut into
+// the hillside, nothing filled, DECISIONS 443). The Ski way key (Ctrl+Shift+W) and the hub's Ski way chip switch it (SetSkiWay). It stays
+// on for the session until switched off or the next load.
+// Logs (silence impossible): ARMED / NOT ARMED per load. One line per activation, mode switch, edit, solve, apply, refusal. An exception
+// disables the tool.
 // Engine notes: EngineNotes/CatTrackGradeToolSystem.md
 
 using System;
@@ -43,7 +46,6 @@ namespace SkiResortMod.Systems
         private const float WetDepthM = 0.1f;      // water deeper than this on a changed texel refuses
         private const float TreeMarginM = 1f;      // trees within half the top width + this are cleared
         private const int NoticeFrames = 240;
-        private const float ProbeLengthM = 40f;
         private const int TempTimeoutFrames = 30;   // frames to wait for the run definition's Temp area (LiftLineToolSystem's value)
         private const double DebounceMs = 150.0;   // the full solve starts this long after the last edit (DECISIONS 601 f)
         private const int MaxSnapshotTexels = 4 * 1024 * 1024;   // 8 MB of heights. A bigger rect solves inline on the engine sampler
@@ -76,6 +78,9 @@ namespace SkiResortMod.Systems
         internal GradeStep Step => GradeInput.StepOf(m_Edit.Count, m_Phase != RunPhase.Edit);
         internal bool Dragging => m_DragIndex >= 0;
         internal bool DeleteMode => m_DeleteMode;
+        /// <summary>The Ski way profile is on (T194): the next track is the narrow cut-only bench.</summary>
+        public bool SkiWay => m_SkiWay;
+        internal string ModeKey => GradeInput.ModeKey(m_Params);
         internal string DeletePromptKey => GradeDeleteInput.PromptKey(m_DelHover, ArmedIndex);
         internal GradeMsg Notice => !m_Notice.IsEmpty && m_Frame - m_NoticeFrame < NoticeFrames ? m_Notice : GradeMsg.Empty;
         internal GradeMsg PlanMsg => m_Path != null ? GradeInput.PlanMsg(m_Path, m_Prof, m_Raster, m_Params) : GradeMsg.Empty;
@@ -103,7 +108,7 @@ namespace SkiResortMod.Systems
         private bool m_Armed, m_Disabled, m_ErrorLogged;
         private int m_Frame;
         private readonly GradeEdit m_Edit = new GradeEdit();
-        private readonly GradeUndo m_Undo = new GradeUndo();
+        private bool m_SkiWay;
         private GradeObstacles m_Obstacles = new GradeObstacles();   // replaced (not cleared) by every CollectObstacles: a worker job owns the old one
         private GradeParams m_Params = new GradeParams();
         private GradePath m_Path;
@@ -145,12 +150,6 @@ namespace SkiResortMod.Systems
         private readonly List<UnityEngine.Color> m_DrawColor = new List<UnityEngine.Color>();
         private readonly List<float> m_DrawWidth = new List<float>();
 
-        // Probe follow-up (TickWatch, called every frame by CatTrackGradeHotkeySystem)
-        private int m_ProbeCheckFrame = -1, m_ProbeWaterFrame = -1;
-        private float2[] m_ProbeXz;
-        private float[] m_ProbeY;
-        internal string ProbeText { get; private set; } = "not run";
-
 
         protected override void OnCreate()
         {
@@ -188,9 +187,8 @@ namespace SkiResortMod.Systems
             base.OnGameLoadingComplete(purpose, mode);
             m_Armed = false;
             m_Disabled = m_ErrorLogged = false;
-            m_Undo.Clear();
+            m_SkiWay = false;
             m_Writer.ResetGate();
-            m_ProbeCheckFrame = m_ProbeWaterFrame = -1;
             ClearPlan("load");
             ResetDeleteMode();
             m_RunCatalog = World.GetExistingSystemManaged<SkiRunCatalogSystem>();
@@ -208,7 +206,8 @@ namespace SkiResortMod.Systems
                          $"{ReadParams().Describe()}; guards: lots, lift lines ({LiftClearanceM:F0} m), water " +
                          $"(> {WetDepthM:F1} m), run outline clearance {GradeRibbon.MinClearanceM:F1} m, crossed runs keep their ground (fade " +
                          $"{ReadParams().CrossBlendM:F0} m) and must be crossed under the max grade; trees on the flat top are " +
-                         $"removed; grading free, the run pays its fee at bind; probe grades undo for this session (last {GradeUndo.MaxEntries})");
+                         $"removed; grading free, the run pays its fee at bind; Ski way mode (Ctrl+Shift+W / hub chip): " +
+                         $"{GradeParams.SkiWay(ReadParams()).Describe()}, solved against the lowest ground across the top");
         }
 
         protected override void OnStartRunning()
@@ -220,8 +219,8 @@ namespace SkiResortMod.Systems
             bool deleteMode = m_DeleteMode;
             ResetDeleteMode();
             m_DeleteMode = deleteMode;
-            m_Params = ReadParams();
-            Mod.Log.Info($"Grade [tool]: running — {m_Params.Describe()}; right click / Esc never touch a built cat track (delete: the " +
+            m_Params = CurrentParams();
+            Mod.Log.Info($"Grade [tool]: running — {(m_SkiWay ? "SKI WAY, " : string.Empty)}{m_Params.Describe()}; right click / Esc never touch a built cat track (delete: the " +
                          "tool's delete mode, two clicks on the track, or the hub row's trash)");
         }
 
@@ -245,7 +244,7 @@ namespace SkiResortMod.Systems
                 else if (m_Phase == RunPhase.Applying)
                 {
                     // Closed in the one frame after Apply. FinishApplied will not run, so say what is known. Applied this frame. The run is
-                    // permanent once ApplyAreasSystem has run. The terrain is graded and undo is on the stack.
+                    // permanent once ApplyAreasSystem has run. The terrain is graded.
                     Mod.Log.Info($"Grade [run]: closed in the frame after Apply — run {Describe(m_AppliedRun)} applied with the grade (exists " +
                                  $"{EntityManager.Exists(m_AppliedRun)}, Temp {EntityManager.Exists(m_AppliedRun) && EntityManager.HasComponent<Temp>(m_AppliedRun)})");
                 }
@@ -351,6 +350,33 @@ namespace SkiResortMod.Systems
 
         public bool ToggleDeleteMode(string why) => SetDeleteMode(!m_DeleteMode, why);
 
+        /// <summary>The Ski way profile on / off (T194). Refused while a build is in flight. The points stay: the plan is solved again
+        /// with the other profile at once (UpdateCore sees the params change). It needs no open tool: the hub chip may switch it and
+        /// then open the tool. It is reset on load.</summary>
+        public bool SetSkiWay(bool on, string why)
+        {
+            if (m_SkiWay == on)
+                return true;
+            if (IsActive && m_Phase != RunPhase.Edit)
+            {
+                Say($"Grade [mode]: Ski way switch refused ({why}) — a cat track is being built", GradeMsg.Of("DEL_WAIT"));
+                return false;
+            }
+            m_SkiWay = on;
+            Say($"Grade [mode]: Ski way {(on ? "ON" : "off")} ({why}) — {CurrentParams().Describe()}",
+                on ? GradeMsg.Of("SKI_WAY_ON") : GradeMsg.Of("SKI_WAY_OFF"));
+            return true;
+        }
+
+        public bool ToggleSkiWay(string why) => SetSkiWay(!m_SkiWay, why);
+
+        /// <summary>The params of the next solve: the settings, or the Ski way built from them.</summary>
+        private GradeParams CurrentParams()
+        {
+            GradeParams p = ReadParams();
+            return m_SkiWay ? GradeParams.SkiWay(p) : p;
+        }
+
         private void ResetDeleteMode()
         {
             m_DeleteMode = false;
@@ -382,7 +408,7 @@ namespace SkiResortMod.Systems
             }
             SetActions(live, false, live);
 
-            GradeParams p = ReadParams();
+            GradeParams p = CurrentParams();
             if (!Same(p, m_Params))
             {
                 m_Params = p;
@@ -650,9 +676,9 @@ namespace SkiResortMod.Systems
             GradePath path = GradePath.Build(ToList(m_Edit.Points), p.SampleStepM);
             if (path == null)
                 return;
-            var ground = new float[path.Count];
-            for (int i = 0; i < path.Count; i++)
-                ground[i] = TerrainUtils.SampleHeight(ref hd, new float3(path.Xz[i].x, 0f, path.Xz[i].y));
+            // The centerline ground, or for the Ski way the lowest ground across its top (GradeInput.SolveGround). The full solve takes the
+            // same array (SolveCtx.Ground), so the preview and Enter solve against one ground.
+            float[] ground = GradeInput.SolveGround(path, p, xz => TerrainUtils.SampleHeight(ref hd, new float3(xz.x, 0f, xz.y)));
             // The rect and the obstacles come BEFORE the profile. In a crossing's fade band the profile is held to the ground. Inside a
             // crossed run it is held within InsideMaxM of the ground (GradeProfile.Solve pinTol). So the plan meets each crossed run at its
             // own ground.
@@ -1261,8 +1287,8 @@ namespace SkiResortMod.Systems
 
         private static string Describe(Entity e) => $"{e.Index}:{e.Version}";
 
-        /// <summary>Read the base rect, re-rasterize on it, guard, write, clear trees, push undo (with <paramref name="run"/>, the run
-        /// this grade builds, or Null), bump the run catalog. False when refused (reason in the notice).</summary>
+        /// <summary>Read the base rect, re-rasterize on it, guard, write, clear trees, bump the run catalog. <paramref name="run"/> is the
+        /// run this grade builds (named in the log). False when refused (reason in the notice).</summary>
         private bool ApplyCore(string label, GradePath path, GradeProfile prof, GradeParams p, Entity run)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -1338,20 +1364,16 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn($"Grade [apply:{label}]: the verify readback failed; the write is assumed to have landed (undo kept)");
             }
             int trees = ClearTrees(path, p);
-            // Only a grade without a run (the dev-tab probe) goes on the undo stack. A built cat track is never un-graded by a right click,
-            // Esc or the dev tab (field test 2026-10-26b: repeated right clicks popped built tracks). The hub row's trash deletes it.
-            int dropped = run == Entity.Null
-                ? m_Undo.Push(new GradeUndoEntry { X0 = rect.x, Z0 = rect.y, W = rect.z, H = rect.w, Before = before, After = after, Label = label })
-                : 0;
+            // A built cat track is never un-graded by a right click or Esc (field test 2026-10-26b: repeated right clicks popped built
+            // tracks). The hub row's trash deletes the run, the ground stays.
             m_RunCatalog?.NoteTerrainChanged("cat-track grade (" + label + ")");
             sw.Stop();
             LastApplyText = string.Format(CultureInfo.InvariantCulture, "{0}: {1} texels, cut {2:F0} m³, fill {3:F0} m³, {4} tree(s), {5:F0} ms",
                 label, changed, raster.CutM3, raster.FillM3, trees, sw.Elapsed.TotalMilliseconds);
             Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
-                "Grade [apply:{0}]: GRADED — {1:F0} m track, {2}; {3} texel(s) written; {4} tree(s) on the flat top removed; undo stack {5} " +
-                "({6:F1} MB{7}); run catalog re-rate scheduled; {8:F1} ms total; {9}", label, path.LengthM, raster.Describe(), changed, trees,
-                m_Undo.Count, m_Undo.Bytes / 1048576f, dropped > 0 ? $", {dropped} oldest dropped" : string.Empty, sw.Elapsed.TotalMilliseconds,
-                p.Describe()));
+                "Grade [apply:{0}]: GRADED — run {1}, {2:F0} m track, {3}; {4} texel(s) written; {5} tree(s) on the flat top removed; " +
+                "run catalog re-rate scheduled; {6:F1} ms total; {7}", label, Describe(run), path.LengthM, raster.Describe(), changed, trees,
+                sw.Elapsed.TotalMilliseconds, p.Describe()));
             return true;
         }
 
@@ -1402,42 +1424,6 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        internal bool UndoLastGrade(string why)
-        {
-            GradeUndoEntry e = m_Undo.Peek();
-            if (e == null)
-            {
-                Say($"Grade [undo]: nothing to undo ({why})", GradeMsg.Of("UNDO_NONE"));
-                return false;
-            }
-            if (!m_Writer.TryMap(out GradeMap map, out string gate))
-            {
-                Say($"Grade [undo]: REFUSED — heightmap gate: {gate}", GradeMsg.Of("NO_GRADING"));
-                return false;
-            }
-            var rect = new int4(e.X0, e.Z0, e.W, e.H);
-            if (rect.x + rect.z > map.Res.x || rect.y + rect.w > map.Res.y)
-            {
-                m_Undo.Pop();
-                Say("Grade [undo]: REFUSED — the map changed size since the grade; entry dropped", GradeMsg.Of("UNDO_GONE"));
-                return false;
-            }
-            ushort[] current = m_Writer.Read(rect, "undo " + e.Label);
-            if (current == null)
-            {
-                Say("Grade [undo]: REFUSED — the base heightmap could not be read", GradeMsg.Of("TERRAIN_UNREAD"));
-                return false;
-            }
-            ushort[] restored = GradeUndo.Restore(e, current, out int kept);
-            m_Writer.Write(map, rect, restored, "undo " + e.Label, out int mismatches);
-            m_Undo.Pop();
-            m_RunCatalog?.NoteTerrainChanged("grade undone");
-            Say($"Grade [undo]: UNDONE ({why}) — {e.Label} grade at {HeightmapWriter.Rect(rect)}; {kept} texel(s) changed since by something " +
-                $"else were kept; verify {(mismatches == 0 ? "OK" : mismatches + " mismatch(es)")}; removed trees do not come " +
-                $"back; {m_Undo.Count} grade(s) left to undo", GradeMsg.Of("UNDONE"));
-            return true;
-        }
-
         private bool IsCatTrack(Entity e) =>
             e != Entity.Null && m_RunPrefab != Entity.Null && EntityManager.Exists(e) && !EntityManager.HasComponent<Deleted>(e) &&
             !EntityManager.HasComponent<Temp>(e) && EntityManager.TryGetComponent(e, out PrefabRef pr) && pr.m_Prefab == m_RunPrefab;
@@ -1459,103 +1445,6 @@ namespace SkiResortMod.Systems
             RunAreaEmit.DeleteLikeBulldozer(EntityManager, e);
             Mod.Log.Info($"Grade [delete]: DELETED cat track {Describe(e)} ({why}); the ground stays graded, no refund");
             return true;
-        }
-
-
-        /// <summary>Grades a fixed ProbeLengthM strip in front of the camera through the full apply path (constant grade, the current width
-        /// and side slopes, guards on). Steeper than the limit is allowed. TickWatch then checks the CPU heights after 30 frames and the
-        /// water sim after 30 / 120 frames.</summary>
-        internal void Probe()
-        {
-            if (!m_Armed || m_Disabled)
-            {
-                ProbeText = "refused: not armed / disabled";
-                Mod.Log.Info($"Grade [probe]: {ProbeText}");
-                return;
-            }
-            try
-            {
-                var cam = m_Camera.activeCameraController;
-                if (cam == null)
-                {
-                    ProbeText = "refused: no camera controller";
-                    Mod.Log.Info($"Grade [probe]: {ProbeText}");
-                    return;
-                }
-                UnityEngine.Vector3 pv = cam.pivot;
-                float2 dir = math.normalizesafe(m_Camera.direction.xz, new float2(0f, 1f));
-                float2 a = new float2(pv.x, pv.z) + dir * 5f, b = a + dir * ProbeLengthM;
-                GradeParams p = ReadParams().Clone();
-                p.Mode = GradeProfileMode.ConstantGrade;
-                TerrainHeightData hd = m_TerrainSystem.GetHeightData();
-                if (!hd.isCreated)
-                {
-                    ProbeText = "refused: terrain not ready";
-                    Mod.Log.Info($"Grade [probe]: {ProbeText}");
-                    return;
-                }
-                GradePath path = GradePath.Build(new List<float2> { a, b }, p.SampleStepM);
-                var ground = new float[path.Count];
-                for (int i = 0; i < path.Count; i++)
-                    ground[i] = TerrainUtils.SampleHeight(ref hd, new float3(path.Xz[i].x, 0f, path.Xz[i].y));
-                GradeProfile prof = GradeProfile.Solve(path, ground, p);
-                // A visible change on any slope: a constant ramp 1.5 m below the ground at the middle (a cut), ends on the ground
-                for (int i = 0; i < path.Count; i++)
-                    prof.Y[i] -= 1.5f * math.sin(math.PI * path.S[i] / path.LengthM);
-                Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
-                    "Grade [probe]: START — {0:F0} m strip from ({1:F0}, {2:F0}) toward ({3:F0}, {4:F0}), ground {5:F1} -> {6:F1}, a ramp with a 1.5 m " +
-                    "cut at its middle; WaterSimSpeed {7}; {8}", path.LengthM, a.x, a.y, b.x, b.y, ground[0], ground[path.Count - 1],
-                    m_Writer.WaterSimSpeed, p.Describe()));
-                if (!ApplyCore("probe", path, prof, p, Entity.Null))
-                {
-                    ProbeText = "refused: " + (Notice.IsEmpty ? "see the log" : Notice.Key);
-                    return;
-                }
-                m_ProbeXz = path.Xz;
-                m_ProbeY = prof.Y;
-                m_ProbeCheckFrame = m_Frame + 30;
-                m_ProbeWaterFrame = m_Frame + 120;
-                ProbeText = "written: " + m_Writer.LastLine + "; CPU check in 30 frames";
-                Mod.Log.Info("Grade [probe]: WRITTEN — now check: the terrain dips along the strip, trees / props on it follow the ground, " +
-                             "water nearby resumes; then save, load, and look again (the dip must stay). Undo: dev tab \"Undo last probe grade\"");
-            }
-            catch (Exception e)
-            {
-                Fail(e, "Probe");
-            }
-        }
-
-        internal void TickWatch()
-        {
-            if (!IsActive)
-                m_Frame++;   // the tool's own frame counter only advances while it runs
-            if (m_ProbeCheckFrame >= 0 && m_Frame >= m_ProbeCheckFrame)
-            {
-                m_ProbeCheckFrame = -1;
-                float worst = 0f;
-                int n = 0;
-                for (int i = 0; m_ProbeXz != null && i < m_ProbeXz.Length; i += 2)
-                {
-                    float h = m_Writer.CpuHeight(m_ProbeXz[i]);
-                    if (float.IsNaN(h))
-                        continue;
-                    worst = math.max(worst, math.abs(h - m_ProbeY[i]));
-                    n++;
-                }
-                ProbeText = string.Format(CultureInfo.InvariantCulture, "CPU heights vs written profile: max |diff| {0:F2} m over {1} points " +
-                    "(<= 0.5 m expected: texel sampling + any net / lot overlay); WaterSimSpeed {2}", worst, n, m_Writer.WaterSimSpeed);
-                if (worst <= 0.5f)
-                    Mod.Log.Info("Grade [probe]: CHECK OK — " + ProbeText);
-                else
-                    Mod.Log.Warn("Grade [probe]: CHECK — " + ProbeText + " (the cascade / CPU heights did not follow the base map?)");
-            }
-            if (m_ProbeWaterFrame >= 0 && m_Frame >= m_ProbeWaterFrame)
-            {
-                m_ProbeWaterFrame = -1;
-                int speed = m_Writer.WaterSimSpeed;
-                Mod.Log.Info($"Grade [probe]: water 120 frames after the write: WaterSimSpeed {speed} " +
-                             $"({(speed > 0 ? "running again" : "STILL PAUSED (0): game paused? else please send the log")})");
-            }
         }
 
 

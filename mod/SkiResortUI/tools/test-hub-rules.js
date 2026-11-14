@@ -795,6 +795,13 @@ function run(srcDir) {
       ctChip.includes("focusKey={FOCUS_DISABLED}")], [true, true, true, true]);
   eq("T32.3 drawn on the ok panel's Runs tab beside Quick runs, unconditionally there",
     [stripSrc.includes("{quick && <QuickRunsChip t={t} />}\n        {quick && <CatTrackDeleteChip t={t} />}"), /disabled=/.test(ctChip)], [true, false]);
+  // T32.4 (contract 44, T194) the Ski way chip: the catTrackSkiWay value (off by default, C# owns it) and the setCatTrackSkiWay(bool)
+  // trigger, drawn right after Delete cat tracks.
+  eq("T32.4 Ski way chip: binding, trigger, fallback, sends !on, drawn after Delete cat tracks",
+    [BIND.BINDING.catTrackSkiWay, BIND.TRIGGER.setCatTrackSkiWay, BIND.FALLBACK.catTrackSkiWay, BIND.HUB_CONTRACT >= 44,
+      BIND.CORE_NAMES.indexOf("catTrackSkiWay") < 0, ctChip.includes("useValue(catTrackSkiWay$)"), ctChip.includes("hubTriggers.setCatTrackSkiWay(!on)"),
+      stripSrc.includes("{quick && <CatTrackDeleteChip t={t} />}\n        {quick && <CatTrackSkiWayChip t={t} />}")],
+    ["catTrackSkiWay", "setCatTrackSkiWay", false, true, true, true, true, true]);
   // T34 hub text states what a player cannot find by trying: no how-to for a road snap, a tool's stop or a plain click (PIPELINE).
   const obvious = /\bsnap\b|like a path|point at a (bar|tile)|click (here |again )?to (stop|close|turn|fly|open|show|list|pick)|^pick (the|a) /i;
   const hubTuples = read(path.join("hub", "hubText.ts")).split("\n")

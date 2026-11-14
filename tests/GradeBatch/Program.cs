@@ -57,8 +57,6 @@ namespace GradeBatch
             SideSlopes();
             Sidehill();
             Guards();
-            UndoRoundTrip();
-            UndoStack();
             RasterCap();
             SwitchbackLegs();
             Encoding();
@@ -71,6 +69,7 @@ namespace GradeBatch
             InsideRuns();
             GoldenDefaultProfile();
             NarrowProfile();
+            SkiWayMode();
             GroomerCenterlines();
             PlayerText();
             SplitSolve();
@@ -386,68 +385,6 @@ namespace GradeBatch
         }
 
 
-        private static void UndoRoundTrip()
-        {
-            var p = new GradeParams();
-            Func<float2, float> ground = xz => 900f + 0.35f * xz.x + 4f * math.sin(xz.y / 9f);
-            var s = Solve(Line(new float2(0, 0), new float2(300, 60)), ground, p);
-            GradeRaster r = s.Raster;
-            var before = new ushort[r.Before.Length];
-            var after = new ushort[r.After.Length];
-            int changed = 0;
-            for (int t = 0; t < before.Length; t++)
-            {
-                before[t] = Map.ToU16(r.Before[t]);
-                after[t] = r.Zone[t] != 0 ? Map.ToU16(r.After[t]) : before[t];
-                changed += after[t] != before[t] ? 1 : 0;
-            }
-            Check(changed > 0, "GR-11 wrote", $"{changed} texels");
-            var e = new GradeUndoEntry { X0 = r.X0, Z0 = r.Z0, W = r.W, H = r.H, Before = before, After = after, Label = "test" };
-            ushort[] restored = GradeUndo.Restore(e, (ushort[])after.Clone(), out int kept);
-            bool exact = kept == 0;
-            for (int t = 0; t < before.Length && exact; t++)
-                exact = restored[t] == before[t];
-            Check(exact, "GR-11 bit-exact", $"kept {kept}");
-
-            // A foreign edit after the grade (a terrain brush on 10 texels): those survive the undo, the rest goes back.
-            var current = (ushort[])after.Clone();
-            int foreign = 0;
-            for (int t = 0; t < current.Length && foreign < 10; t++)
-            {
-                if (after[t] == before[t])
-                    continue;
-                current[t] = (ushort)(current[t] + 7);
-                foreign++;
-            }
-            restored = GradeUndo.Restore(e, current, out kept);
-            int wrong = 0;
-            for (int t = 0; t < current.Length; t++)
-            {
-                ushort expect = current[t] == after[t] ? before[t] : current[t];
-                wrong += restored[t] != expect ? 1 : 0;
-            }
-            Check(kept == foreign && wrong == 0, "GR-11 foreign kept", $"kept {kept} of {foreign}, wrong {wrong}");
-        }
-
-        private static void UndoStack()
-        {
-            var u = new GradeUndo();
-            for (int i = 0; i < 10; i++)
-                u.Push(new GradeUndoEntry { W = 1, H = 1, Before = new ushort[1], After = new ushort[1], Label = "g" + i });
-            Check(u.Count == GradeUndo.MaxEntries, "GR-12 cap", $"{u.Count}");
-            Check(u.Pop().Label == "g9" && u.Pop().Label == "g8", "GR-12 LIFO", "newest first");
-            var big = new GradeUndo();
-            for (int i = 0; i < GradeUndo.MaxEntries; i++)
-                big.Push(new GradeUndoEntry { Before = new ushort[GradeRaster.MaxTexels], After = new ushort[GradeRaster.MaxTexels], Label = "m" + i });
-            Check(big.Count == GradeUndo.MaxEntries && big.Bytes <= GradeUndo.MaxBytes, "GR-12 bytes",
-                  $"{big.Count} cap-size entries hold {big.Bytes / 1048576f:F0} MB of {GradeUndo.MaxBytes / 1048576} MB");
-            var over = new GradeUndo();
-            int pushed = over.Push(new GradeUndoEntry { Before = new ushort[GradeRaster.MaxTexels + 1], After = new ushort[GradeRaster.MaxTexels + 1], Label = "x" });
-            Check(pushed == -1 && over.Count == 0, "GR-12 over-cap entry", $"push returned {pushed}, {over.Count} stored");
-            Check(new GradeUndo().Pop() == null, "GR-12 empty", "pop on empty = null");
-        }
-
-
         private static void RasterCap()
         {
             var p = new GradeParams();
@@ -651,6 +588,7 @@ namespace GradeBatch
                     used.Add(GradeInput.PromptKey(st, drag));
             foreach (var ha in new[] { (-1, -1), (0, -1), (0, 0), (1, 0) })
                 used.Add(GradeDeleteInput.PromptKey(ha.Item1, ha.Item2));
+            used.Add(GradeInput.ModeKey(GradeParams.SkiWay(new GradeParams())));   // the tooltip's mode line (T194)
             foreach (GradeGuardKind g in Enum.GetValues(typeof(GradeGuardKind)))
                 if (!GradeGuards.Reason(g).IsEmpty)
                     used.Add(GradeGuards.Reason(g).Key);
@@ -1318,11 +1256,12 @@ namespace GradeBatch
             }
         }
 
-        /// <summary>Solve a NoFill profile the way the planner calls it: the ground array is GradeProfile.LowEdgeGround.</summary>
+        /// <summary>Solve a NoFill profile the way the tool's Ski way does: the ground array is GradeInput.SolveGround (=
+        /// GradeProfile.LowEdgeGround for NoFill).</summary>
         private static Solved SolveNarrow(IList<float2> pts, Func<float2, float> ground, GradeParams p, IList<float2[]> keep = null)
         {
             var s = new Solved { Path = GradePath.Build(pts, p.SampleStepM) };
-            float[] g = GradeProfile.LowEdgeGround(s.Path, ground, 0.5f * p.TopWidthM);
+            float[] g = GradeInput.SolveGround(s.Path, p, ground);
             s.Prof = GradeProfile.Solve(s.Path, g, p, GradeRaster.PinTolerance(s.Path, keep, p));
             if (GradeRaster.Bounds(Map, s.Path, s.Prof, p, out int4 rect, out float reach))
             {
@@ -1330,6 +1269,47 @@ namespace GradeBatch
                 s.Raster = GradeRaster.Build(Map, rect, s.Path, s.Prof, p, reach, (i, j) => ground(Map.TexelCenter(i, j)), keep);
             }
             return s;
+        }
+
+        /// <summary>GR-25: the tool's Ski way mode (T194). GradeParams.SkiWay is the narrow full-cut profile with the settings' max grade
+        /// and profile mode; GradeInput.SolveGround picks the low-edge ground for it and the centerline otherwise; the plan line and the
+        /// mode line name the Ski way; on a 45 % cross slope the bench is in cut across its whole top with nothing filled, while the
+        /// standard track on the same line fills.</summary>
+        private static void SkiWayMode()
+        {
+            const string W = "GR-25";
+            var std = new GradeParams { MaxGrade = 0.15f, TopWidthM = 24f, CutRun = 2.5f, FillRun = 3f, Mode = GradeProfileMode.ConstantGrade };
+            GradeParams sw = GradeParams.SkiWay(std);
+            Check(sw.NoFill && sw.TopWidthM == GradeParams.NarrowTopWidthM && sw.CutRun == GradeParams.NarrowCutRun && sw.MaxGrade == 0.15f &&
+                  sw.Mode == GradeProfileMode.ConstantGrade, W + " params", sw.Describe());
+            Check(!std.NoFill && std.TopWidthM == 24f, W + " settings untouched", std.Describe());
+            Check(GradeInput.ModeKey(sw) == "MODE_SKI_WAY" && GradeInput.ModeKey(new GradeParams()) == null && GradeInput.ModeKey(null) == null,
+                  W + " mode line", "Ski way names itself, the standard track shows none");
+
+            Func<float2, float> face45 = xz => 1200f + 0.45f * xz.y + 0.04f * xz.x;
+            GradePath path = GradePath.Build(Line(new float2(-120, 0.25f), new float2(120, 0.25f)), 2f);
+            float[] cl = GradeInput.SolveGround(path, new GradeParams(), face45);
+            float[] low = GradeInput.SolveGround(path, GradeParams.SkiWay(new GradeParams()), face45);
+            float[] lowRef = GradeProfile.LowEdgeGround(path, face45, 0.5f * GradeParams.NarrowTopWidthM);
+            bool clOk = true, lowOk = true;
+            for (int i = 0; i < path.Count; i++)
+            {
+                clOk &= cl[i] == face45(path.Xz[i]);
+                lowOk &= low[i] == lowRef[i] && low[i] < cl[i];
+            }
+            Check(clOk, W + " standard ground", "the centerline ground");
+            Check(lowOk, W + " ski way ground", "the low edge, below the centerline on a cross slope");
+
+            GradeParams swd = GradeParams.SkiWay(new GradeParams());
+            Solved a = SolveNarrow(Line(new float2(-120, 0.25f), new float2(120, 0.25f)), face45, swd);
+            Solved b = Solve(Line(new float2(-120, 0.25f), new float2(120, 0.25f)), face45, new GradeParams());
+            Check(a.Prof.Feasible && a.Raster.FillM3 == 0f && a.Raster.MaxFillM == 0f && a.Raster.UnfilledTopTexels == 0 && a.Raster.CutM3 > 0f,
+                  W + " cut only", a.Raster.Describe());
+            Check(b.Raster.FillM3 > 0f, W + " standard fills", $"standard fill {b.Raster.FillM3:F0} m3, ski way cut {a.Raster.CutM3:F0} m3");
+            GradeMsg pm = GradeInput.PlanMsg(a.Path, a.Prof, a.Raster, swd);
+            Check(pm.Key == "PLAN_SKI_WAY" && pm.Args.All(x => x.Name != "FILL"), W + " plan line", pm.Signature);
+            Check(GradeInput.PlanMsg(b.Path, b.Prof, b.Raster, new GradeParams()).Key == "PLAN", W + " standard plan line", "PLAN");
+            Console.WriteLine($"GR-25 ski way: cut {a.Raster.CutM3:F0} m3, fill 0, standard track fill {b.Raster.FillM3:F0} m3 on the same 45 % face");
         }
 
         /// <summary>GR-24: the narrow full-cut profile (DECISIONS 443). The test covers these points:

@@ -105,6 +105,7 @@
     liftLineToggle: () => { const g = get("liftLine"); if (g) set("liftLine", Object.assign({}, g, { active: !g.active, state: "PickBase" })); },
     quickRunsToggle: () => { const g = get("quickRuns"); if (g && (g.available || g.active)) set("quickRuns", Object.assign({}, g, { active: !g.active })); },
     setCatTrackDeleteMode: (on) => set("catTrackDeleteMode", !!on),
+    setCatTrackSkiWay: (on) => set("catTrackSkiWay", !!on),
     setRunGunSpacing: (run, m) => set("runs", (get("runs") || []).map((r) => (r.entity && run && r.entity.index === run.index ? Object.assign({}, r, { gunSpacingM: m }) : r))),
     setRunLightSpacing: (run, m) => set("runs", (get("runs") || []).map((r) => (r.entity && run && r.entity.index === run.index ? Object.assign({}, r, { lightSpacingM: m }) : r))),
     // run types R3: a natural run carries no sliders (-1). A groomed one gets them back at Off, and the Groomed step is paid once
