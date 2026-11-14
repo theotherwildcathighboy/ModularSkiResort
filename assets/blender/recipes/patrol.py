@@ -161,6 +161,7 @@ WHITE = (0.92, 0.92, 0.92)
 WALL_LIGHT = ("WallLightShortRangeRandom01", "cfc12fde01d9da24b86ddedd657eaae1")
 AC_VENT = ("ACVentWallRandom01", "b99325ff4ff4dfd459734d8f765c2597")
 BENCH = ("GardenBenchRandom01", "8df0703be09426948b5bc3262d86bc04")
+FIREWOOD = ("FirewoodPileRandom01", "0d01c98e6f7cd9b44ac31084b6ba7ccd")   # T175 option (vanilla-guid-map)
 R2 = 0.7071068
 Q_FACE = {"+X": (0.0, 0.0, 0.0, 1.0), "-X": (0.0, 1.0, 0.0, 0.0),
           "+Y": (0.0, R2, 0.0, R2), "-Y": (0.0, -R2, 0.0, R2)}
@@ -364,6 +365,7 @@ P1_POLE_TOP = 2.0                    # lean fix: the poles' tops touch the front
 P1_LEANING = ("akja_p1", "akja_p1b", "gear_p1board") + tuple(f"pole_{k}" for k in range(6))
 P1_BENCH = (0.0, 1.6)                # x, length: back line on the -Y wall, no backrest
 P1_WALL_LIGHT = (0.3, 1.95)          # back wall (y, z): beside the akja top (S2c)
+P1_FIREWOOD = (2.95, 1.30)           # T175 firewood option: authoring (x, y), the center of the P1_ROLLS block
 P1_VENT = (-1.0, 1.90)               # +Y end (x, z)
 # ---- fine-detail step 3d (module docstring) ------------------------------------------------------------
 LOG_SEGS_FINE = 8                    # log posts / plates / door-frame logs (were 6)
@@ -466,9 +468,14 @@ def build_p1(recipe, opts):
         P += K.stovepipe("p1", spec, -1.2, 1.5, r=0.08, rise=0.95)
     # gear: standing fence rolls (closed, z 0.02: kit ground-band rule), bamboo poles
     # leaning on the front wall, a toboggan against the +Y gable end
-    for k, (rx, ry) in enumerate(P1_ROLLS):
+    # T175 (post-release round 1): K.PATROL_GEAR["p1"] = rolls (letter Y) | none | firewood (vanilla row, lodge.py
+    # appends opts["extra_rows"] to the recipe's sub_objects)
+    gear = K.PATROL_GEAR.get("p1", "rolls")
+    for k, (rx, ry) in enumerate(P1_ROLLS if gear == "rolls" else ()):
         P += C.cyl_part(f"roll_{k}", (rx, ry, 0.02), (rx, ry, 0.02 + P1_ROLL_H), P1_ROLL_R,
                         "accent", segs=8)
+    if gear == "firewood":
+        opts.setdefault("extra_rows", []).append(FIREWOOD + ((P1_FIREWOOD[1], 0.0, P1_FIREWOOD[0]), Q_FACE["+X"], 0))
     for k, py in enumerate(P1_POLES_Y):          # lean fix: tops on the wall, feet on grade
         P += (lean_pole_fine if fine else lean_pole)(C, f"pole_{k}", (2.45 + 0.02 * (k % 2), py), x1,
                                                      P1_POLE_TOP, 0.015, "deck")
