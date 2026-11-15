@@ -5,7 +5,8 @@
 // Order: ownership's load handler runs Reset() before it counts, and the census sets its count at its first build after load, so Lifts is 0
 // for the first frames. Readers must re-test every pass, never latch "absent".
 // Log: one "Resort [present]" line on the first refresh after a load and whenever the bit changes. EverSeen is what the daily
-// INFO lines wait for.
+// INFO lines wait for. The ownership sweep sets signs and runs first, so that first line reads "lifts 0". The first SetLifts after a
+// load logs once more, marked "; census", even when the bit did not change, so a healthy load shows its lift count.
 
 namespace SkiResortMod.Systems
 {
@@ -25,6 +26,7 @@ namespace SkiResortMod.Systems
         public static bool Present => Unknown || Signs > 0 || Runs > 0 || Lifts > 0;
 
         private static int s_Logged = -1;   // -1 nothing logged this load, 0 "no", 1 "yes"
+        private static bool s_CensusLogged;  // the first SetLifts of this load has logged its line
 
         /// <summary>Per-load reset (SkiRunOwnershipSystem.OnGameLoadingComplete).</summary>
         public static void Reset()
@@ -33,6 +35,7 @@ namespace SkiResortMod.Systems
             Unknown = false;
             EverSeen = false;
             s_Logged = -1;
+            s_CensusLogged = false;
         }
 
         public static void SetSignsRuns(int signs, int runs)
@@ -45,7 +48,9 @@ namespace SkiResortMod.Systems
         public static void SetLifts(int lifts)
         {
             Lifts = lifts;
-            Refresh();
+            bool first = !s_CensusLogged;
+            s_CensusLogged = true;
+            Refresh(first);
         }
 
         /// <summary>The ownership sweep is disabled: fail open (Present true), logged.</summary>
@@ -56,16 +61,17 @@ namespace SkiResortMod.Systems
             Refresh();
         }
 
-        private static void Refresh()
+        /// <param name="census">The first lift count of this load: log even when the bit did not change.</param>
+        private static void Refresh(bool census = false)
         {
             if (Signs > 0 || Runs > 0 || Lifts > 0)
                 EverSeen = true;
             int now = Present ? 1 : 0;
-            if (now == s_Logged)
+            if (now == s_Logged && !census)
                 return;
             s_Logged = now;
             Mod.Log.Info($"Resort [present] {(now == 1 ? "yes" : "no")} (signs {Signs}, runs {Runs}, lifts {Lifts}" +
-                         (Unknown ? "; ownership sweep disabled, bit held open" : "") + ")");
+                         (census ? "; census" : "") + (Unknown ? "; ownership sweep disabled, bit held open" : "") + ")");
         }
     }
 }
