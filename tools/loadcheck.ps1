@@ -140,9 +140,7 @@ function Load-City([string]$name, [string]$label) {
     if ("$r" -notmatch '^loading ') {
         Stop-Check 2 "the load did not start ($r). A save copied while the game ran may need a game restart to be listed (unverified)."
     }
-    # Log lines before this point (game start, the Load Game list) are environment for the prefab ID patterns of part (a).
-    try { Invoke-Bridge @{ op = 'loadcheck'; action = 'loadMark' } | Out-Null }
-    catch { Write-Output "  loadMark failed ($($_.Exception.Message)): every prefab ID line gates part (a)" }
+    # (The page helper __load calls loadcheck/loadMark just before the load dialog click: the debug port does not answer while the load runs.)
     Wait-Ready $t
     Invoke-Node @('--inject', $Helpers) | Out-Null
     # A game load builds a new world: its autosave system starts ON again, so the off switch from before the load is gone.
