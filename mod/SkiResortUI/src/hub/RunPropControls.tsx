@@ -9,16 +9,19 @@
  * A click sends the next value, and C# answers by pushing the row.
  * The sliders are the Snowmaking and Lights features (DECISIONS 577): Off = no guns, no made snow, no bill. Each tip says
  * whether turning the feature on pays its one-time step or is free again (RunRow.paidSteps). A cat track has no Groomed row.
- * Panel file: no subscription of its own. RunsView passes the row.
+ * T170: a piste's name line carries Reshape. It opens the Run tool (launch of the Run tile) and names the run in reshapeRun$, so the view
+ * keeps these rows while the tool is on. A second click closes the tool (the tile's own toggle). A cat track has no Reshape (tool-built).
+ * Panel file: no subscription of its own. RunsView passes the row and whether this run is being reshaped.
  */
 import { useState } from "react";
 import { Unit } from "cs2/l10n";
-import { RUN_KIND, RUN_PAID, RUN_PROP_SPACING_MIN, RUN_PROP_SPACING_OFF, hubTriggers } from "../bindings";
+import { NULL_ENTITY, RUN_KIND, RUN_PAID, RUN_PROP_SPACING_MIN, RUN_PROP_SPACING_OFF, hubTriggers } from "../bindings";
 import type { DrawRun, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import { runPropSpacingStep } from "./hubRules";
 import { HUB_LOC } from "./hubText";
 import { Tip, cx, numArg } from "./parts";
+import { reshapeRun$ } from "./hubState";
 import { TrashButton } from "./RunList";
 import { Act, Caption } from "./QuickRunsControls";
 import styles from "./hub.module.scss";
@@ -91,7 +94,7 @@ function paidNote(t: ReturnType<typeof useT>, row: RunRow, bit: number): string 
   return (row.paidSteps & bit) !== 0 ? t(HUB_LOC.runPropsPaid) : t(HUB_LOC.runPropsUnpaid);
 }
 
-export function RunPropRows({ row }: { row: RunRow }): JSX.Element {
+export function RunPropRows({ row, reshaping }: { row: RunRow; reshaping: boolean }): JSX.Element {
   const t = useT();
   const [armed, setArmed] = useState(false);
   const guns = row.gunSpacingM;
@@ -103,6 +106,13 @@ export function RunPropRows({ row }: { row: RunRow }): JSX.Element {
       <div className={cx(styles.quickLine, styles.quickLineRow)}>
         <div className={styles.quickLineText}>{row.name}</div>
         {catTrack && <TrashButton row={row} t={t} armed={armed} setArmed={setArmed} />}
+        {!catTrack && (
+          <Act label={t(HUB_LOC.runPropsReshape)} tip={t(HUB_LOC.runPropsReshapeTip)} on={reshaping}
+            onSelect={() => {
+              reshapeRun$.update(reshaping ? NULL_ENTITY : row.entity);
+              hubTriggers.launch("runGroomed");
+            }} />
+        )}
       </div>
       {!catTrack && <GroomedRow row={row} />}
       <SpacingRow

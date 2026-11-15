@@ -7,18 +7,18 @@
  * RunLine sends hoverRun on enter (dedup). Leaving the list and unmounting send Null once (HubPanel covers the area switch and the panel unmount).
  * Joins: runLive by entityId (hubRules.runLiveMap), lift names by LiftRow.entity. The code memoizes both, so a live push re-renders only the
  * rows that moved. Panel file: subscribes selectedResort$, runs$, runLive$, lifts$, pisteMap$, city$, quickRuns$ and glade$, and the
- * local focused$. The prop rows (RunPropRows) act on the focused run: a click on its row picks it.
+ * locals focused$ and reshapeRun$. T170: while the Run tool is on for the picked run's Reshape, the area keeps that run's rows. The prop rows (RunPropRows) act on the focused run: a click on its row picks it.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
-import { NULL_ENTITY, city$, drawRun$, entityId, glade$, hubTriggers, lifts$, pisteMap$, quickRuns$, runLive$, runs$, selectedResort$ } from "../bindings";
+import { NULL_ENTITY, city$, drawRun$, entityId, sameEntity, glade$, hubTriggers, lifts$, pisteMap$, quickRuns$, runLive$, runs$, selectedResort$ } from "../bindings";
 import type { RunRow } from "../bindings";
 import { useT } from "../l10n";
 import { runLiveMap } from "./hubRules";
-import { focused$, sendHoverRun } from "./hubState";
+import { focused$, reshapeRun$, sendHoverRun } from "./hubState";
 import { HUB_LOC } from "./hubText";
 import { CheckBox, Divider, Tip, cx, useNumberSamples } from "./parts";
 import { RunHeader, RunLine } from "./RunList";
@@ -41,6 +41,7 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   const quick = useValue(quickRuns$);
   const draw = useValue(drawRun$);
   const glade = useValue(glade$);
+  const reshape = useValue(reshapeRun$);
   const [renaming, setRenaming] = useState<string | null>(null);
 
   const liveMap = useMemo(() => runLiveMap(runLive), [runLive]);
@@ -53,7 +54,15 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   // A view switch unmounts this view: clear the hover in C# once.
   useEffect(() => () => sendHoverRun(NULL_ENTITY), []);
 
+  // The Run tool closed (on -> off): no reshape any more. A refused launch leaves it set until the next pick.
+  const drawWas = useRef(draw.active);
+  useEffect(() => {
+    if (drawWas.current && !draw.active) reshapeRun$.update(NULL_ENTITY);
+    drawWas.current = draw.active;
+  }, [draw.active]);
+
   const onPick = useCallback((row: RunRow) => {
+    reshapeRun$.update(NULL_ENTITY);
     focused$.update({ kind: "run", entity: row.entity, top: NULL_ENTITY });
     hubTriggers.focusRun(row.entity);
   }, []);
@@ -75,10 +84,12 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   // One context area above the list (hub redesign 2026-11-07): the Quick runs rows, the draw rows, the tree rows while the tree tool is on,
   // the picked run's rows. The area shows nothing (and no divider) when idle.
   const focusedRow = focusedId ? rows.find((r) => r.entity && entityId(r.entity) === focusedId) : undefined;
+  const reshaping = !!focusedRow && draw.active && sameEntity(reshape, focusedRow.entity);
   const toolRows = quick?.active ? <QuickRunsRows />
+    : reshaping && focusedRow ? <RunPropRows key={focusedId} row={focusedRow} reshaping />
     : draw.active ? <DrawRunRows draw={draw} />
       : glade?.active ? <TreeRows toggle={false} />
-        : focusedRow ? <RunPropRows key={focusedId} row={focusedRow} /> : null;
+        : focusedRow ? <RunPropRows key={focusedId} row={focusedRow} reshaping={false} /> : null;
   // The plan sheet's lifts (R1-d) stay with the planner closed, above whatever else the area holds (the open planner draws them itself).
   const contextRows = !quick?.active && sheetShows(quick) ? (toolRows ? <><LiftSheetRows /><Divider />{toolRows}</> : <LiftSheetRows />) : toolRows;
   const context = contextRows && <>{contextRows}<Divider /></>;

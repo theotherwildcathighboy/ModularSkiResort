@@ -7,27 +7,30 @@
  * wire for the contract).
  * Layers (DECISIONS 613): the view is the receipt's terms and the result. A term's breakdown is its fold. The formula is in the tooltip of
  * the number it explains. The score shows once here, in the result row (the tile above names it). The snow pair shows once, in the status line.
- * Fixed heights only, so a value change never changes layout. Panel file: subscribes resorts$, selectedResort$, resortLive$, runs$, problems$, city$.
+ * T177: the Mountain section is the area's fact sheet (a resort web page's numbers): rating counts, skiable area, runs and cat tracks, the
+ * longest run, complete lifts by type, uphill capacity, snowmaking share, lit runs (hubRules.mountainFacts over the area's rows).
+ * Fixed heights only, so a value change never changes layout. Panel file: subscribes resorts$, selectedResort$, resortLive$, runs$, lifts$,
+ * problems$, city$.
  * Its MergedFold subscribes mergedLodges$ (contract 35).
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
-import { BAND, GRADE_SCHEME, PROBLEM, build$, city$, gradeScheme$, problems$, resortLive$, resorts$, runs$, sameEntity, selectedResort$ } from "../bindings";
-import type { BuildItem, CityStats, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
+import { BAND, GRADE_SCHEME, LIFT_TYPE_IDS, PROBLEM, build$, city$, gradeScheme$, lifts$, problems$, resortLive$, resorts$, runs$, sameEntity, selectedResort$ } from "../bindings";
+import type { BuildItem, CityStats, LiftRow, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
-  efficiencyAtFloor, factorRowsOf, hectares, liftsMissing, liveOf, lodgeExtraShort, receiptPartsVariant, resultVariant, runsMissing, schoolBuiltOf,
+  efficiencyAtFloor, factorRowsOf, hectares, liftsMissing, liveOf, mountainFacts, lodgeExtraShort, receiptPartsVariant, resultVariant, runsMissing, schoolBuiltOf,
   schoolFlagOf, schoolMissingOf, schoolState, scoreBarParts, varietyMissing, verticalShort,
 } from "./hubRules";
 import type { VarietyNeed } from "./hubRules";
 import { IconText, MissingLine } from "./iconText";
-import { BAND_NAME, HUB_FMT, HUB_LOC, LODGE_TIER, factorEntry } from "./hubText";
+import { BAND_NAME, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, factorEntry } from "./hubText";
 import type { BuildItemId } from "../bindings";
 import {
   BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, areaArg, cx, depthValue, numArg, useInches,
 } from "./parts";
-import { currentResort, resortEntries, runsOf } from "./resortData";
+import { currentResort, liftsOf, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
 import { MergedFold } from "./MergedFold";
 import styles from "./hub.module.scss";
@@ -97,9 +100,10 @@ function DifficultyLegend({ row, unrateable, t }: { row: ResortRow; unrateable: 
   );
 }
 
-/** MOUNTAIN: difficulty bar + legend, vertical, skiable area, snow (sign and Not linked). */
-function MountainSection({ row, live, city, unrateable, t, folded }: {
-  row: ResortRow; live: ResortLive | null; city: CityStats; unrateable: number; t: Translate;
+/** MOUNTAIN: difficulty bar + legend, vertical, skiable area, the fact sheet (T177), snow (sign and Not linked). */
+function MountainSection({ row, live, city, unrateable, areaRuns, areaLifts, t, folded }: {
+  row: ResortRow; live: ResortLive | null; city: CityStats; unrateable: number; areaRuns: readonly RunRow[]; areaLifts: readonly LiftRow[];
+  t: Translate;
   /** Under the receipt the section is a fold (closed by default). Not linked shows it open, because it is the whole view there. */
   folded?: boolean;
 }): JSX.Element {
@@ -125,6 +129,7 @@ function MountainSection({ row, live, city, unrateable, t, folded }: {
   );
   const vertical = row.verticalM >= 0 ? <Num value={row.verticalM} unit={Unit.Height} /> : DASH;
   const verticalMark = row.verticalM >= 0 && row.verticalApprox ? "≈" : null;
+  const f = mountainFacts(areaRuns, areaLifts, LIFT_TYPE_IDS);
   const rows = (
     <>
       <DifficultyBar row={row} unrateable={unrateable} tip={diffTip} />
@@ -133,6 +138,38 @@ function MountainSection({ row, live, city, unrateable, t, folded }: {
         label={t(HUB_LOC.area)}
         value={areaArg(hectares(row.areaM2), inches)}
         tip={t(HUB_LOC.areaTip)}
+      />
+      <InfoLine
+        label={t(HUB_LOC.mountainRuns)}
+        value={<Num value={f.pistes} unit={Unit.Integer} />}
+        tip={<TipLines lines={[t(HUB_LOC.mountainTipRuns),
+          f.catTracks > 0 && <LocText key="c" entry={HUB_FMT.mountainCatTracks} args={{ N: numArg(f.catTracks, Unit.Integer) }} />]} />}
+      />
+      <InfoLine
+        label={t(HUB_LOC.mountainLongest)}
+        value={f.longestM >= 0 ? <Num value={f.longestM} unit={Unit.Length} /> : DASH}
+        tip={<TipLines lines={[f.longestName || null, t(HUB_LOC.mountainTipLongest)]} />}
+      />
+      <InfoLine
+        label={t(HUB_LOC.mountainLifts)}
+        value={<Num value={f.lifts} unit={Unit.Integer} />}
+        tip={<TipLines lines={[t(HUB_LOC.mountainTipLifts),
+          ...f.liftsByType.map((x) => ({ label: t(LIFT_TYPE[x.type]), value: <Num value={x.count} unit={Unit.Integer} /> }))]} />}
+      />
+      <InfoLine
+        label={t(HUB_LOC.mountainCapacity)}
+        value={row.capacityPerHour >= 0 ? <LocText entry={HUB_FMT.capacityValue} args={{ CAP: numArg(row.capacityPerHour, Unit.Integer) }} /> : DASH}
+        tip={t(HUB_LOC.liftsTotalCapacityTip)}
+      />
+      <InfoLine
+        label={t(HUB_LOC.mountainSnowmaking)}
+        value={f.snowmakingPct >= 0 ? <Num value={f.snowmakingPct} unit={Unit.Percentage} /> : DASH}
+        tip={t(HUB_LOC.mountainTipSnowmaking)}
+      />
+      <InfoLine
+        label={t(HUB_LOC.mountainNight)}
+        value={<Num value={f.nightRuns} unit={Unit.Integer} />}
+        tip={t(HUB_LOC.mountainTipNight)}
       />
       {!folded && <InfoLine
         label={t(HUB_LOC.mountainSnowDepth)}
@@ -361,6 +398,7 @@ export function OverviewView(): JSX.Element {
   const selected = useValue(selectedResort$);
   const live = useValue(resortLive$);
   const runs = useValue(runs$);
+  const lifts = useValue(lifts$);   // T177: the Mountain fact sheet's lifts by type
   const problems = useValue(problems$);
   const city = useValue(city$);
   const build = useValue(build$); // the school tile's AlreadyBuilt lock (hubRules.schoolBuiltOf)
@@ -371,12 +409,14 @@ export function OverviewView(): JSX.Element {
   const unlinked = cur.isUnlinked;
   const sign = unlinked ? null : row.sign;
   const l = liveOf(live, sign);
-  const unrateable = unrateableCount(runsOf(runs, sign));
+  const areaRuns = runsOf(runs, sign);
+  const areaLifts = liftsOf(lifts, sign);
+  const unrateable = unrateableCount(areaRuns);
 
   if (unlinked) {
     return (
       <>
-        <MountainSection row={row} live={l} city={city} unrateable={unrateable} t={t} />
+        <MountainSection row={row} live={l} city={city} unrateable={unrateable} areaRuns={areaRuns} areaLifts={areaLifts} t={t} />
         <MergedFold sign={null} />
         <Divider />
         <div className={styles.noteArea}>
@@ -387,9 +427,9 @@ export function OverviewView(): JSX.Element {
   }
   return (
     <>
-      <Receipt row={row} l={l} city={city} problems={problems} build={build} areaRuns={runsOf(runs, sign)} t={t} />
+      <Receipt row={row} l={l} city={city} problems={problems} build={build} areaRuns={areaRuns} t={t} />
       <Divider />
-      <MountainSection row={row} live={l} city={city} unrateable={unrateable} t={t} folded />
+      <MountainSection row={row} live={l} city={city} unrateable={unrateable} areaRuns={areaRuns} areaLifts={areaLifts} t={t} folded />
       <MergedFold sign={row.sign} />
     </>
   );

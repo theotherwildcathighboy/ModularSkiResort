@@ -1001,8 +1001,11 @@ export function schoolBuiltOf(build: readonly BuildItem[] | null | undefined): b
  *    only while RunsCounted > 0, SkiResortStatsSystem.cs:2700).
  *  - "waiting" = built, no run counts at all (live.summer: SkiResortScore.cs
  *    :414 summer ⇔ RunsCounted == 0, so SchoolRule gives +0, SkiResortScore.cs:467).
- *  - "off" = built, runs count, still 0 and no row 25. The only way is SchoolActive false, the upgrade switched off
- *    (BuildingOption.Inactive, SkiResortAttractivenessSystem.cs:1445).
+ *    Row 25 is a dim band row: the band keeps at most 8 (HubRules.MaxBandRows), so it can be cut. The score's own green bit
+ *    (varietyBands & VARIETY_BAND green, C# Result.VarietyBands = the GreenCounted flag, SkiResortScore.cs:416) decides too (T186: a
+ *    full band made a school with no counted green run read "Deactivated").
+ *  - "off" = built, runs count, a green run counts, still 0. The only way is SchoolActive false, the building switched off
+ *    (BuildingOption.Inactive, SkiResortAttractivenessSystem.cs:1445). varietyBands unknown (< 0) falls back to "off".
  *  - "none" = no school.
  *  - "unknown" = no live row or schoolValue < 0.
  *  `built` = schoolBuiltOf(build) for the SAME shown sign. It reads only C#'s fields: no new contract field.
@@ -1014,7 +1017,9 @@ export function schoolState(l: ResortLive | null, problems: readonly ProblemRow[
   if (l.schoolValue > 0) return "on";
   for (const p of problems ?? []) if (p && p.code === PROBLEM.SchoolNoGreenRun && sameEntity(p.sign, sign)) return "noGreen";
   if (!built) return "none";
-  return l.summer ? "waiting" : "off";
+  if (l.summer) return "waiting";
+  const bands = typeof l.varietyBands === "number" ? l.varietyBands : -1;
+  return bands >= 0 && (bands & VARIETY_BAND.Green) === 0 ? "noGreen" : "off";
 }
 
 /** The School row's flag (HUB_LOC key name) by state. null = no flag ("on" / "unknown"). "waiting" is a state, not a fault: the
@@ -1408,4 +1413,47 @@ export function iconKeyFit(rows: readonly (readonly string[])[], pairEm: (name: 
   }
   if (cur.length) out.push(cur);
   return out;
+}
+
+/** T177: the Mountain fold's fact sheet, the numbers a resort's web page or paper trail map lists. Inputs are one area's rows (runsOf /
+ *  liftsOf of the same sign). Pistes = runs that are not cat tracks. Longest = the longest piste by lengthM (horizontal; ties: the first in
+ *  C#'s order), "" and -1 without one. Snowmaking / night = the pistes whose feature is on (gunSpacingM / lightSpacingM > 0); the share is of
+ *  the piste plan area (-1 without piste area). Lifts = complete rows only (LIFT_STATE Running or Static), counted per type in
+ *  LIFT_TYPE_IDS order (an unknown type counts in `lifts` only). Nothing is recomputed that C# sends as a total (vertical, area, capacity). */
+export interface MountainFacts {
+  pistes: number;
+  catTracks: number;
+  longestM: number;
+  longestName: string;
+  snowmakingPct: number;
+  nightRuns: number;
+  lifts: number;
+  liftsByType: Array<{ type: string; count: number }>;
+}
+export function mountainFacts(runs: readonly RunRow[] | null | undefined, lifts: readonly LiftRow[] | null | undefined,
+  typeIds: readonly string[]): MountainFacts {
+  let pistes = 0, catTracks = 0, longestM = -1, longestName = "", nightRuns = 0, area = 0, gunArea = 0;
+  for (const r of runs ?? []) {
+    if (!r) continue;
+    if (r.kind === RUN_KIND.CatTrack) { catTracks++; continue; }
+    pistes++;
+    const a = r.areaM2 > 0 ? r.areaM2 : 0;
+    area += a;
+    if (r.gunSpacingM > 0) gunArea += a;
+    if (r.lightSpacingM > 0) nightRuns++;
+    if (r.lengthM > longestM) { longestM = r.lengthM; longestName = r.name ?? ""; }
+  }
+  const counts = new Map<string, number>();
+  let complete = 0;
+  for (const l of lifts ?? []) {
+    if (!l || (l.state !== LIFT_STATE.Running && l.state !== LIFT_STATE.Static)) continue;
+    complete++;
+    counts.set(l.type, (counts.get(l.type) ?? 0) + 1);
+  }
+  const liftsByType: Array<{ type: string; count: number }> = [];
+  for (const id of typeIds) { const n = counts.get(id) ?? 0; if (n > 0) liftsByType.push({ type: id, count: n }); }
+  return {
+    pistes, catTracks, longestM, longestName, nightRuns, lifts: complete, liftsByType,
+    snowmakingPct: area > 0 ? Math.round((100 * gunArea) / area) : -1,
+  };
 }

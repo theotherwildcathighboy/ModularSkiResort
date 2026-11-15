@@ -17,6 +17,12 @@ import {
 } from "../bindings";
 
 
+/** T170: the run whose Reshape button opened the Run tool (Entity.Null = none). While the Run tool is on (drawRun$.active) and this run is
+ *  the picked one, the Runs view keeps the run's own rows (Reshape lit) instead of the draw rows. RunsView clears it when the Run tool
+ *  closes and on every pick. Nothing is sent: the Run tool (the vanilla area tool) moves the corners of any run (AreaToolSystem.cs:164-172
+ *  filters by area type, not prefab). */
+export const reshapeRun$ = bindLocalValue<Entity>(NULL_ENTITY);
+
 /** The views under the tiles */
 export type HubView = "overview" | "runs" | "lifts" | "guests" | "money" | "history";
 

@@ -474,6 +474,31 @@ function run(srcDir) {
     ["noSchool", "schoolNoGreen", "schoolOff", "schoolWaiting", null, null]);
   eq("T19.5 the field case (Ash Flat 22:13, log: school on, runs 0/0, SUMMER) reads waiting, not none",
     R.schoolState({ schoolValue: 0, summer: true }, [], S1, R.schoolBuiltOf([{ id: "school", locked: true, reason: AB }])), "waiting");
+  // T186: row 25 can be cut from a full band (8 rows). The score's green bit decides then: bits without green -> "noGreen", with green
+  // -> "off" (switched off). Unknown bits (-1) keep "off". Summer still waits.
+  eq("T19.7 schoolState reads the green bit (T186)", [R.schoolState({ schoolValue: 0, summer: false, varietyBands: 6 }, [], S1, true),
+    R.schoolState({ schoolValue: 0, summer: false, varietyBands: 0 }, [], S1, true), R.schoolState({ schoolValue: 0, summer: false, varietyBands: 1 }, [], S1, true),
+    R.schoolState({ schoolValue: 0, summer: false, varietyBands: 7 }, [], S1, true), R.schoolState({ schoolValue: 0, summer: false, varietyBands: -1 }, [], S1, true),
+    R.schoolState({ schoolValue: 0, summer: true, varietyBands: 0 }, [], S1, true), R.schoolState({ schoolValue: 0, summer: false, varietyBands: 0 }, [], S1, false)],
+    ["noGreen", "noGreen", "off", "off", "off", "waiting", "none"]);
+  eq("T19.8 the Lessons row flags no green run (T186)", fs.readFileSync(path.join(srcDir, "hub", "MoneyView.tsx"), "utf8").includes('school === "noGreen" ? t(HUB_LOC.schoolNoGreen)'), true);
+  // T177: the Mountain fact sheet. Pistes exclude cat tracks; longest by lengthM; snowmaking share of piste plan area; complete lifts by type.
+  {
+    const CT = BIND.RUN_KIND.CatTrack, G = BIND.RUN_KIND.Groomed, N = BIND.RUN_KIND.Natural, LS = BIND.LIFT_STATE;
+    const runs = [
+      { kind: G, name: "A", lengthM: 800, areaM2: 3000, gunSpacingM: 50, lightSpacingM: 0 },
+      { kind: N, name: "B", lengthM: 1200, areaM2: 1000, gunSpacingM: -1, lightSpacingM: -1 },
+      { kind: G, name: "C", lengthM: 1200, areaM2: 0, gunSpacingM: 0, lightSpacingM: 60 },
+      { kind: CT, name: "T", lengthM: 5000, areaM2: 9000, gunSpacingM: 80, lightSpacingM: 80 },
+    ];
+    const lifts = [{ state: LS.Running, type: "gondola" }, { state: LS.Static, type: "fixedGrip" }, { state: LS.Open, type: "gondola" },
+      { state: LS.Running, type: "gondola" }, { state: LS.StationsOnly, type: "tram" }, { state: LS.Running, type: "" }];
+    const m = R.mountainFacts(runs, lifts, BIND.LIFT_TYPE_IDS);
+    eq("T177.1 mountainFacts", [m.pistes, m.catTracks, m.longestM, m.longestName, m.snowmakingPct, m.nightRuns, m.lifts, JSON.stringify(m.liftsByType)],
+      [3, 1, 1200, "B", 75, 1, 4, JSON.stringify([{ type: "fixedGrip", count: 1 }, { type: "gondola", count: 2 }])]);
+    const e = R.mountainFacts(null, null, BIND.LIFT_TYPE_IDS);
+    eq("T177.2 mountainFacts empty", [e.pistes, e.longestM, e.longestName, e.snowmakingPct, e.lifts, e.liftsByType.length], [0, -1, "", -1, 0, 0]);
+  }
   eq("T19.6 the views pass the lock", [fs.readFileSync(path.join(srcDir, "hub", "OverviewView.tsx"), "utf8").includes("schoolBuiltOf(build)"), fs.readFileSync(path.join(srcDir, "hub", "MoneyView.tsx"), "utf8").includes("schoolBuiltOf(build)")], [true, true]);
   // The run stripe has its own band: .buildTile lays out from the top under an 8 rem padding (the
   // stripe is absolute at top 2, height 4), border-box, height 12 rem + 44 rem x fontScale. Do not center the content again.
@@ -781,7 +806,7 @@ function run(srcDir) {
   eq("T31.2 two clicks: the first arms (setArmed(true); return), the second sends hubTriggers.deleteCatTrack(row.entity)",
     [/if \(!armed\) \{\s*setArmed\(true\);\s*return;/.test(runList), runList.includes("hubTriggers.deleteCatTrack(row.entity)")], [true, true]);
   eq("T31.3 the arm times out (4 s) and picking another run disarms (RunPropRows keyed by the focused run)",
-    [runList.includes("setTimeout(() => setArmed(false), 4000)"), read(path.join("hub", "RunsView.tsx")).includes("<RunPropRows key={focusedId} row={focusedRow} />")], [true, true]);
+    [runList.includes("setTimeout(() => setArmed(false), 4000)"), read(path.join("hub", "RunsView.tsx")).includes("<RunPropRows key={focusedId} row={focusedRow} reshaping={false} />")], [true, true]);
   // T32 (contract 19, field test 2026-10-26b) the Runs tab's Delete cat tracks chip: the catTrackDeleteMode value (off by default, C#
   // owns it and follows the tool) and the setCatTrackDeleteMode(bool) trigger. The chip flips the C# value and is drawn on the ok panel
   // only, beside the Quick runs chip, always (nothing moves under the mouse).
@@ -809,9 +834,14 @@ function run(srcDir) {
   const runsView = read(path.join("hub", "RunsView.tsx"));
   eq("T35.2 the rows send the two triggers, read C#'s value and are the context area's last choice (Quick runs, draw, tree tool, then the picked run)",
     [propRows.includes("hubTriggers.setRunGunSpacing(row.entity, m)"), propRows.includes("hubTriggers.setRunLightSpacing(row.entity, m)"), propRows.includes("row.gunSpacingM"), propRows.includes("row.lightSpacingM"),
-      // contract 33: the Run tile's option row takes their place while a run is drawn
-      /quick\?\.active \? <QuickRunsRows \/>\s*: draw\.active \? <DrawRunRows draw=\{draw\} \/>\s*: glade\?\.active \? <TreeRows toggle=\{false\} \/>\s*: focusedRow \? <RunPropRows key=\{focusedId\} row=\{focusedRow\} \/> : null;/.test(runsView)],
+      // contract 33: the Run tile's option row takes their place while a run is drawn. T170: not while the picked run is reshaped.
+      /quick\?\.active \? <QuickRunsRows \/>\s*: reshaping && focusedRow \? <RunPropRows key=\{focusedId\} row=\{focusedRow\} reshaping \/>\s*: draw\.active \? <DrawRunRows draw=\{draw\} \/>\s*: glade\?\.active \? <TreeRows toggle=\{false\} \/>\s*: focusedRow \? <RunPropRows key=\{focusedId\} row=\{focusedRow\} reshaping=\{false\} \/> : null;/.test(runsView)],
     [true, true, true, true, true]);
+  // T170: Reshape opens the Run tile's tool and names the run; a pick or the tool closing clears it. A cat track has none.
+  eq("T35.4 Reshape (T170)", [propRows.includes("{!catTrack && (") && propRows.includes('hubTriggers.launch("runGroomed")'),
+    propRows.includes("reshapeRun$.update(reshaping ? NULL_ENTITY : row.entity)"),
+    runsView.includes("if (drawWas.current && !draw.active) reshapeRun$.update(NULL_ENTITY);"),
+    /const onPick = useCallback\(\(row: RunRow\) => \{\s*reshapeRun\$\.update\(NULL_ENTITY\);/.test(runsView)], [true, true, true, true]);
   eq("T35.3 a cat track row shows its running cost (billed by plan area while its guns can run)",
     [read(path.join("hub", "RunList.tsx")).includes("row.kind !== RUN_KIND.Natural && row.bound && {\n          label: t(HUB_LOC.runCost)")], [true]);
 
