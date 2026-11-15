@@ -6,7 +6,8 @@
 //     Runs read features through SkiRunPropSystem.FeaturesOf (the one place a spacing becomes a feature).
 //     A cat track's switch is read through CatTrackGunsOn. Off bills nothing (DECISIONS 563) and makes no new snow (568).
 //     Made snow stays until it melts (572).
-//     Every TrackBilledHa call passes CatTrackGunsOn.
+//     A cat track bills through one rule, SkiRunUpkeepRates.TrackUpkeep (T187): its plan area only while its guns can run AND its
+//     switch is on (the TrackBilledHa rule), and every TrackUpkeep call passes CatTrackGunsOn.
 //     The injection reads it twice, for a cat track only: in GetRunSnow, and where
 //     BuildMask records a track for measurement (its made-snow model).
 //  R3 the old Options sliders stay gone, also from the locale template.
@@ -25,7 +26,7 @@
 //     SnowKind is the features-to-kind bridge of the kind-keyed snow code
 //     (102 -> 95 names overall. R3 billed upkeep by feature: 89).
 //  R10 cat track lights bill (DECISIONS 579): every place that bills a cat track (the charge, its per-area split, the hub's rows) adds
-//     SkiRunUpkeepRates.TrackLitHa at the lights rate.
+//     SkiRunUpkeepRates.TrackLitHa at the lights rate: TrackUpkeep holds it, and all three read TrackUpkeep through TrackUpkeepOf.
 //     It has the same season gate its guns use (CatTrackGunsCanRun).
 //     The charge's monthly rate includes it.
 "use strict";
@@ -79,14 +80,18 @@ for (const f of ["SkiRunUpkeepSystem.cs", "SkiSnowInjectionSystem.cs", "RunSnowR
 const featuresBody = body(placer, "internal RunFeatures FeaturesOf(") || "";
 need(featuresBody.includes("SkiRunPropSettings") && featuresBody.split("RunFeatures.FromSpacings(").length === 3,
      "R2 FeaturesOf: must read SkiRunPropSettings and turn the spacings into features with RunFeatures.FromSpacings (with the kind defaults)");
-// The one exception: every TrackBilledHa call passes the cat track gun switch.
-// In the upkeep, the call contains CatTrackGunsOn. In the hub's cost row, the call sits behind `trackGunsOn &&`.
-// CatTrackGunsOn reads the gun value only.
+// The one exception: a cat track bills through SkiRunUpkeepRates.TrackUpkeep (T187), whose billed area needs the guns able to run AND
+// the switch on, and every TrackUpkeep call passes the cat track gun switch (CatTrackGunsOn). CatTrackGunsOn reads the gun value only.
+const rates = code(read(systems, "SkiRunBindingRules.cs"));
+const trackRule = body(rates, "public static RunUpkeep TrackUpkeep(") || "";
+need(trackRule.includes("gunsCanRun && gunsOn ?") && trackRule.includes("if (gunsWorking)"),
+     "R2 SkiRunBindingRules.cs: TrackUpkeep must bill the plan area only while the guns can run and are on, snowmaking only while they work");
 for (const f of ["SkiRunUpkeepSystem.cs", "SkiResortStatsSystem.cs"]) {
   const c = code(read(systems, f));
-  const parts = c.split("TrackBilledHa(").slice(1);
-  const gated = parts.filter((p) => p.slice(0, p.indexOf(";")).includes("CatTrackGunsOn(") || p.startsWith("row.AreaM2, true, true)")).length;
-  need(parts.length > 0 && parts.length === gated, `R2 ${f}: ${parts.length - gated} of ${parts.length} TrackBilledHa call(s) do not pass the cat track gun switch (CatTrackGunsOn)`);
+  need(!c.includes("TrackBilledHa("), `R2 ${f}: bills a cat track past TrackUpkeep (SnowGunPlumeRules.TrackBilledHa called directly)`);
+  const parts = c.split("SkiRunUpkeepRates.TrackUpkeep(").slice(1);
+  const gated = parts.filter((p) => p.slice(0, p.indexOf(";")).includes("CatTrackGunsOn(")).length;
+  need(parts.length === gated, `R2 ${f}: ${parts.length - gated} of ${parts.length} TrackUpkeep call(s) do not pass the cat track gun switch (CatTrackGunsOn)`);
 }
 const stats = code(read(systems, "SkiResortStatsSystem.cs"));
 need(stats.includes("trackGunsOn = catTrack && m_RunProps.CatTrackGunsOn(row.Entity)") &&
@@ -101,12 +106,14 @@ need(injection.split("CatTrackGunsOn(").length === 3 && getRunSnow.includes("kin
      "R2 SkiSnowInjectionSystem.cs: the cat track gun switch must be read twice, in GetRunSnow and the track's measure record, for a cat track only (DECISIONS 568)");
 // R10: cat track lights bill wherever a cat track bills.
 const upkeepLit = code(read(systems, "SkiRunUpkeepSystem.cs"));
-const litCalls = (c) => c.split("SkiRunUpkeepRates.TrackLitHa(row.Features, row.AreaM2, inSeason)").length - 1;
-need(litCalls(upkeepLit) === 2 && upkeepLit.split("inSeason = m_SnowInjectionSystem.CatTrackGunsCanRun(").length - 1 === 2,
-     "R10 SkiRunUpkeepSystem.cs: CatTrackHa and the per-area split must each add TrackLitHa with the track's season gate (DECISIONS 579)");
-need(upkeepLit.includes("trackLitHa * SkiRunUpkeepRates.LightsStepPerHaMonth"), "R10 SkiRunUpkeepSystem.cs: the monthly rate must include the cat track lights");
-need(stats.includes("SkiRunUpkeepRates.TrackLitHa(row.Features, row.AreaM2, trackInSeason)") && stats.includes("work.CostLights += litHa * SkiRunUpkeepRates.LightsStepPerHaMonth"),
-     "R10 SkiResortStatsSystem.cs: the hub's Lights row must include the cat track lights (TrackLitHa)");
+need(trackRule.includes("u.LitHa = TrackLitHa(f, planAreaM2, gunsCanRun)") && trackRule.includes("u.Lights = u.LitHa * LightsStepPerHaMonth") &&
+     rates.includes("public float Total => Grooming + Snowmaking + Lights;"),
+     "R10 SkiRunBindingRules.cs: TrackUpkeep must add TrackLitHa with the track's season gate at the lights rate, and Total must hold it (DECISIONS 579)");
+need(upkeepLit.split("SkiRunUpkeepRates.TrackUpkeep(").length - 1 === 1 && upkeepLit.includes("RunUpkeep tracks = TrackUpkeepSum();") &&
+     upkeepLit.includes("runs.Total + tracks.Total") && upkeepLit.includes("w = TrackUpkeepOf(row).Total;") && upkeepLit.includes("sum.Lights += u.Lights;"),
+     "R10 SkiRunUpkeepSystem.cs: the monthly rate and the per-area split must each bill a cat track's lights through TrackUpkeepOf");
+need(stats.includes("RunUpkeep track = SkiRunUpkeepSystem.TrackUpkeepOf(") && stats.includes("work.CostLights += track.Lights"),
+     "R10 SkiResortStatsSystem.cs: the hub's Lights row must include the cat track lights (TrackUpkeepOf)");
 const onBody = body(placer, "internal bool CatTrackGunsOn(") || "";
 need(onBody.includes("m_GunSpacingM") && !onBody.includes("m_LightSpacingM"), "R2 CatTrackGunsOn: must read the gun value only");
 
@@ -200,7 +207,7 @@ const KIND_READS = {
   "Systems/SkiCatalog.cs": 5,
   "Systems/SkiResortAttractivenessSystem.cs": 3,
   "Systems/SkiResortScore.cs": 5,
-  "Systems/SkiResortStatsSystem.cs": 2,
+  "Systems/SkiResortStatsSystem.cs": 1,
   "Systems/SkiRunBindingRules.cs": 5,
   "Systems/SkiRunCatalogSystem.cs": 1,
   "Systems/SkiRunOwnershipSystem.cs": 2,
