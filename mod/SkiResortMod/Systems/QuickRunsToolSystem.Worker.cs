@@ -496,6 +496,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Census lifts with a chord within PinnedReachM of the region (LiftCensusSystem.CopyServeLifts, row order = CopyRows).
+        /// A row with no chord (stations placed, no line yet: LiftCensus.State.StationsOnly) is kept when one of its stations is within
+        /// PinnedReachM of the region (post-release round 1, T171: a scan after the lift queue placed stations must plan around them).
         /// Bottom / Top = the stations' stub tips (NaN when that station is not in the census's last build). Key = FNV of the row's
         /// EntityRef. Null when none.</summary>
         private List<PinnedLift> CollectPinned(float2[] region)
@@ -524,9 +526,15 @@ namespace SkiResortMod.Systems
             for (int r = 0; r < n; r++)
             {
                 LiftServedRule.Lift lift = m_ServeLifts[r];
-                if (lift.ChordCount <= 0 || !NearRegion(region, lift.FirstChord, lift.ChordCount))
+                float3 b = nan, t = nan;
+                bool hasBase = !lift.Base.IsNull && m_StubTips.TryGetValue(lift.Base, out b);
+                bool hasTop = !lift.Top.IsNull && m_StubTips.TryGetValue(lift.Top, out t);
+                bool near = lift.ChordCount > 0
+                    ? NearRegion(region, lift.FirstChord, lift.ChordCount)
+                    : (hasBase && NearRegion(region, b.xz)) || (hasTop && NearRegion(region, t.xz));
+                if (!near)
                     continue;
-                var chords = new float2[lift.ChordCount * 2];
+                var chords = new float2[math.max(0, lift.ChordCount) * 2];
                 for (int c = 0; c < lift.ChordCount; c++)
                 {
                     chords[2 * c] = m_ServeChords[lift.FirstChord + c].A;
@@ -537,8 +545,8 @@ namespace SkiResortMod.Systems
                 {
                     Key = KeyOf(lift.Id),
                     TypeIndex = m_CensusRows[r].Type,
-                    Bottom = !lift.Base.IsNull && m_StubTips.TryGetValue(lift.Base, out float3 b) ? b : nan,
-                    Top = !lift.Top.IsNull && m_StubTips.TryGetValue(lift.Top, out float3 t) ? t : nan,
+                    Bottom = hasBase ? b : nan,
+                    Top = hasTop ? t : nan,
                     Chords = chords,
                     Complete = lift.Complete,
                 });
@@ -570,6 +578,10 @@ namespace SkiResortMod.Systems
             }
             return false;
         }
+
+        /// <summary>A point inside the region or within PinnedReachM of its outline (a station of a row with no line).</summary>
+        private static bool NearRegion(float2[] region, float2 p) =>
+            GradeRaster.Inside(region, p) || PlanGeometry.PointRingDistance(region, p) <= PinnedReachM;
 
         private static uint KeyOf(EntityRef id)
         {
