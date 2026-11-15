@@ -1,7 +1,7 @@
 // Quick runs tool: the overlay. It draws the region (white, amber near the area cap, red over it) with its corners. It draws the candidates
 // in the piste map's band colors (SkiPisteMapSystem's palette and PisteMapRules' ring pieces, so a preview looks like the runs it builds):
 // natural runs dashed, left-out runs thin gray, refused runs red. It draws a ring on each top cluster (hover: "beginner lift" /
-// "mid-station" / "one lift here serves N runs"). It draws the tree line's contour while trees are on. Segments are cached when the preview
+// "mid-station" / "one lift here serves N runs"). It draws the tree line's contour while trees are on, clipped to the region (T165). Segments are cached when the preview
 // changes.
 // Resort mode (A4) adds the plan from m_Published.Resort, never the live planner. It draws a dashed chord per proposed lift (colored by its
 // Home verdict, white until A6 fills it), 6 m tower discs and hatched station lots. It draws white station rings for pinned lifts (the game
@@ -128,13 +128,13 @@ namespace SkiResortMod.Systems
                         buffer.DrawCircle(ClusterColor, ClusterColor, 0f, projected, ring, Ground(ref hd, r.Clusters[c].Center), 2f * ClusterPickM);
             }
 
-            if (m_TreesOn && m_ContourCount > 0 && m_Snap != null)
+            if (m_TreesOn && m_ContourInRegion.Count > 0 && m_Snap != null)
             {
-                for (int i = 0; i < m_ContourCount; i++)
+                for (int i = 0; i < m_ContourInRegion.Count; i++)
                 {
-                    SnowLineRules.Segment s = m_Contour[i];
-                    var a = new float3(s.AX, m_TreeLine, s.AZ);
-                    var b = new float3(s.BX, m_TreeLine, s.BZ);
+                    float4 s = m_ContourInRegion[i];
+                    var a = new float3(s.x, m_TreeLine, s.y);
+                    var b = new float3(s.z, m_TreeLine, s.w);
                     buffer.DrawLine(TreeLineColor, TreeLineColor, 0f, projected, new Line3.Segment(a, b), 1.5f * k, round);
                 }
             }

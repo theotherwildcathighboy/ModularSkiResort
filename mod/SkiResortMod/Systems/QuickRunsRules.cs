@@ -510,5 +510,39 @@ namespace SkiResortMod.Systems
                 return hi;
             return math.clamp(h, groundMin, hi);
         }
+
+        /// <summary>The pieces of segment a-b inside the region polygon (even-odd), appended to <paramref name="into"/> as (ax, az, bx, bz).
+        /// The tree-line contour is marched over the region's bounding square, so a line outside the region drew too (T165). It cuts a-b at
+        /// every edge crossing and keeps the pieces whose midpoint is inside. Returns the number of pieces added.</summary>
+        public static int ClipToRegion(float2[] region, float2 a, float2 b, List<float4> into)
+        {
+            if (region == null || region.Length < 3 || into == null)
+                return 0;
+            var cuts = new List<float> { 0f, 1f };
+            float2 d = b - a;
+            for (int i = 0, j = region.Length - 1; i < region.Length; j = i++)
+            {
+                float2 p = region[j], e = region[i] - region[j];
+                float den = d.x * e.y - d.y * e.x;
+                if (math.abs(den) < 1e-9f)
+                    continue;
+                float2 ap = p - a;
+                float t = (ap.x * e.y - ap.y * e.x) / den, u = (ap.x * d.y - ap.y * d.x) / den;
+                if (t > 0f && t < 1f && u >= 0f && u <= 1f)
+                    cuts.Add(t);
+            }
+            cuts.Sort();
+            int added = 0;
+            for (int k = 0; k + 1 < cuts.Count; k++)
+            {
+                float t0 = cuts[k], t1 = cuts[k + 1];
+                if (t1 - t0 < 1e-6f || !InsideRing(region, a + d * (0.5f * (t0 + t1))))
+                    continue;
+                float2 s = a + d * t0, f = a + d * t1;
+                into.Add(new float4(s.x, s.y, f.x, f.y));
+                added++;
+            }
+            return added;
+        }
     }
 }

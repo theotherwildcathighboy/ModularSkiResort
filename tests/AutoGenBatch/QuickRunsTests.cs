@@ -224,6 +224,22 @@ namespace AutoGenBatch
             Check(QuickRunsRules.ClampTreeLine(float.NaN, 1000, 1400) == 1410 && QuickRunsRules.ClampTreeLine(900, 1000, 1400) == 1000 &&
                   QuickRunsRules.ClampTreeLine(2000, 1000, 1400) == 1410 && QuickRunsRules.ClampTreeLine(1234, 1000, 1400) == 1234, W, "tree-line clamp");
 
+            // Tree-line contour clip (T165): only the pieces inside the region draw. An L-shaped region (a 100 x 100 square minus its
+            // upper-right 50 x 50 quarter): a line at z 75 from x -20 to 120 keeps x 0-50; at z 25 it keeps x 0-100; outside it keeps none.
+            var ell = new[] { new float2(0, 0), new float2(100, 0), new float2(100, 50), new float2(50, 50), new float2(50, 100), new float2(0, 100) };
+            var clip = new System.Collections.Generic.List<float4>();
+            int nUp = QuickRunsRules.ClipToRegion(ell, new float2(-20, 75), new float2(120, 75), clip);
+            Check(nUp == 1 && math.abs(clip[0].x - 0f) < 1e-3f && math.abs(clip[0].z - 50f) < 1e-3f, W, $"contour clip, notch row keeps x 0-50, got {nUp} {(nUp > 0 ? clip[0].ToString() : "")}");
+            clip.Clear();
+            int nLow = QuickRunsRules.ClipToRegion(ell, new float2(-20, 25), new float2(120, 25), clip);
+            Check(nLow == 1 && math.abs(clip[0].x) < 1e-3f && math.abs(clip[0].z - 100f) < 1e-3f, W, $"contour clip, full row keeps x 0-100, got {nLow}");
+            clip.Clear();
+            Check(QuickRunsRules.ClipToRegion(ell, new float2(60, 60), new float2(140, 140), clip) == 0 && clip.Count == 0, W, "contour clip, a line in the notch draws nothing");
+            Check(QuickRunsRules.ClipToRegion(ell, new float2(10, 10), new float2(20, 20), clip) == 1 && math.abs(clip[0].z - 20f) < 1e-3f, W, "contour clip, an inside line stays whole");
+            clip.Clear();
+            // A vertical line through the notch's corner column at x 75: z 0-50 only
+            Check(QuickRunsRules.ClipToRegion(ell, new float2(75, -10), new float2(75, 110), clip) == 1 && math.abs(clip[0].y) < 1e-3f && math.abs(clip[0].w - 50f) < 1e-3f, W, "contour clip, column under the notch keeps z 0-50");
+
             // Centroid (F3): the area-weighted polygon centroid, either winding, any start node
             float2 c = QuickRunsRules.Centroid(Square(100, 200, 50));
             Check(math.distance(c, new float2(125, 225)) < 1e-3f, W, $"square centroid (125, 225), got {c}");
