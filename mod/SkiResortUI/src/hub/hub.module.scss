@@ -32,6 +32,7 @@
   --hubDiffFlat: rgba(170, 180, 190, 1);
   --hubDiffGreen: rgba(76, 175, 80, 1);
   --hubDiffBlue: rgba(52, 120, 220, 1);
+  --hubDiffRed: rgba(214, 48, 40, 1);   // European grading only (T162): the red piste
   --hubDiffBlack: rgba(14, 14, 18, 1);
   --hubDiffDoubleBlack: rgba(0, 0, 0, 1);
   --hubDiffEdge: rgba(255, 255, 255, 0.85);
@@ -62,6 +63,7 @@
   // colors (a file cannot switch).
   --hubOnDarkGreen: rgba(76, 175, 80, 1);
   --hubOnDarkBlue: rgba(70, 140, 240, 1);
+  --hubOnDarkRed: rgba(235, 70, 60, 1);
   --hubOnDarkBlack: rgba(80, 86, 98, 1);
   --hubOnDarkDoubleBlack: rgba(80, 86, 98, 1);
   --hubOnDarkEdge: rgba(240, 251, 255, 1);
@@ -637,6 +639,11 @@
   background-color: var(--hubDiffBlue);
 }
 
+// European grading (T162): the band the North American scheme calls blue is the red piste.
+.segRed {
+  background-color: var(--hubDiffRed);
+}
+
 // Black on a dark panel needs a light edge (research 2.F.2).
 .segBlack {
   background-color: var(--hubDiffBlack);
@@ -762,6 +769,31 @@
   width: 0.58em;
   height: 0.58em;
   transform: rotate(45deg);
+  background-color: var(--hubDiffBlack);
+  border-style: solid;
+  border-top-width: 0.08em;
+  border-right-width: 0.08em;
+  border-bottom-width: 0.08em;
+  border-left-width: 0.08em;
+  border-top-color: var(--hubDiffEdge);
+  border-right-color: var(--hubDiffEdge);
+  border-bottom-color: var(--hubDiffEdge);
+  border-left-color: var(--hubDiffEdge);
+}
+
+// European grading (T162): discs. Blue piste, red piste, black piste (a light edge on the dark panel, like .bandBlack).
+.bandEuBlue {
+  border-radius: 50%;
+  background-color: var(--hubDiffBlue);
+}
+
+.bandEuRed {
+  border-radius: 50%;
+  background-color: var(--hubDiffRed);
+}
+
+.bandEuBlack {
+  border-radius: 50%;
   background-color: var(--hubDiffBlack);
   border-style: solid;
   border-top-width: 0.08em;

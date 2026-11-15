@@ -129,14 +129,14 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "signNoRoad": return <>{t(HUB_LOC.problemSignNoRoad)}</>;
     case "lodgeNoRoad": return <>{t(HUB_LOC.problemLodgeNoRoad)}</>;
     case "skiDaysCannotReach": return <>{t(HUB_LOC.problemSkiDaysCannotReach)}</>;
-    case "skiDaysNoGuestsNear": return <LocText entry={HUB_FMT.problemSkiDaysNoGuestsNear} args={{ KM: numArg(p.detail / 10, Unit.FloatSingleFraction) }} />;
+    case "skiDaysNoGuestsNear": return <LocText entry={HUB_FMT.problemSkiDaysNoGuestsNear} args={{ KM: numArg(p.detail * 100, Unit.Length) }} />;
     case "noParkingNearLodge": return <ParkingProblemText p={p} t={t} />;
     case "lodgeNotSlopeside": return <>{t(HUB_LOC.problemLodgeNotSlopeside)}</>;
     case "depotNoHillLodge": return <>{t(HUB_LOC.problemDepotNoHillLodge)}</>;
     case "depotNoRoad": return <>{t(HUB_LOC.problemDepotNoRoad)}</>;
     // Codes 23-25
     case "mixedLiftTypes": return <LocText entry={HUB_FMT.problemMixedLiftTypes} args={{ NAME }} />;
-    case "liftBend": return <LocText entry={HUB_FMT.problemLiftBend} args={{ NAME, DEG: numArg(p.detail / 10, Unit.FloatSingleFraction), N }} />;
+    case "liftBend": return <LocText entry={HUB_FMT.problemLiftBend} args={{ NAME, DEG: numArg(p.detail / 10, Unit.Angle), N }} />;
     case "liftTrainLimit": return <LocText entry={HUB_FMT.problemLiftTrainLimit} args={{ NAME, N }} />;
     case "liftLowSpan": return <LowSpanText p={p} t={t} NAME={NAME} />;
     case "summitLodgeNotLiftServed": return <LocText entry={HUB_FMT.problemSummitLodgeNotLiftServed} args={{ N }} />;
@@ -151,7 +151,7 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
 function LowSpanText({ p, t, NAME }: { p: ProblemRow; t: Translate; NAME: string }): JSX.Element {
   const CARRIERS = t(p.pct === 1 ? HUB_LOC.carriersCabins : HUB_LOC.carriersChairs);
   return p.detail > 0
-    ? <LocText entry={HUB_FMT.problemLiftLowSpan} args={{ NAME, CARRIERS, M: numArg(p.detail / 10, Unit.FloatSingleFraction) }} />
+    ? <LocText entry={HUB_FMT.problemLiftLowSpan} args={{ NAME, CARRIERS, M: numArg(p.detail / 10, Unit.Height) }} />
     : <LocText entry={HUB_FMT.problemLiftLowSpanGround} args={{ NAME, CARRIERS }} />;
 }
 

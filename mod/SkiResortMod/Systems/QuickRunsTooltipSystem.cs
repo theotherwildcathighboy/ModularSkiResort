@@ -68,7 +68,7 @@ namespace SkiResortMod.Systems
             // IntTooltip unit "percentage" like the game's battery charge (RaycastElectricityTooltipSystem.cs:142-147). A ProgressTooltip printed
             // "Scanning 93 / 100 <percentage>" for the same reason as the area above (T155, DECISIONS 650).
             m_Scan = new IntTooltip { path = "skiQuickScan", label = LocalizedString.Id(P + "SCANNING"), unit = "percentage" };
-            m_Vertical = new IntTooltip { path = "skiQuickVertical", label = LocalizedString.Id(P + "VERTICAL"), unit = "length" };
+            m_Vertical = new IntTooltip { path = "skiQuickVertical", label = LocalizedString.Id(P + "VERTICAL"), unit = "height" };   // m / ft (T161)
             m_Runs = new IntTooltip { path = "skiQuickRuns", label = LocalizedString.Id(P + "RUNS"), unit = "integer" };
             m_Tracks = new IntTooltip { path = "skiQuickTracks", label = LocalizedString.Id(P + "TRACKS"), unit = "integer" };
             m_Fee = new IntTooltip { path = "skiQuickFee", label = LocalizedString.Id(P + "FEE"), unit = "money" };
@@ -76,7 +76,7 @@ namespace SkiResortMod.Systems
             m_Plant = new IntTooltip { path = "skiQuickPlant", label = LocalizedString.Id(P + "TREES_PLANT"), unit = "integer" };
             m_Remove = new IntTooltip { path = "skiQuickRemove", label = LocalizedString.Id(P + "TREES_REMOVE"), unit = "integer" };
             m_TreeCost = new IntTooltip { path = "skiQuickTreeCost", label = LocalizedString.Id(P + "TREES_COST"), unit = "money" };
-            m_TreeLine = new IntTooltip { path = "skiQuickTreeLine", label = LocalizedString.Id(P + "TREE_LINE"), unit = "length" };
+            m_TreeLine = new IntTooltip { path = "skiQuickTreeLine", label = LocalizedString.Id(P + "TREE_LINE"), unit = "height" };   // an elevation (T161)
             for (int i = 0; i < MaxWarnings; i++)
                 m_Warn[i] = new StringTooltip { path = "skiQuickWarn" + i, color = TooltipColor.Warning };
             Mod.Log.Info($"{nameof(QuickRunsTooltipSystem)} created");
@@ -234,10 +234,11 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < plan.Lifts.Length; i++)
                 if (plan.Lifts[i].Origin == LiftOrigin.Proposed)
                     proposed++;
+            bool imperial = DisplayState.Imperial;   // the strings carry the units (T161); a setting change differs the text, so it re-sets
             ShowValue(m_PlanLine, ref m_LastPlanLine, Template(P + "PLAN_LINE")
                 .Replace("{LIFTS}", proposed.ToString(CultureInfo.InvariantCulture))
-                .Replace("{KM}", plan.RunKm.ToString("F1", CultureInfo.InvariantCulture))
-                .Replace("{TKM}", Shown().TrackKm.ToString("F1", CultureInfo.InvariantCulture)));
+                .Replace("{KM}", DisplayUnits.LengthText(plan.RunKm * 1000f, imperial))
+                .Replace("{TKM}", DisplayUnits.LengthText(Shown().TrackKm * 1000f, imperial)));
             float[] mix = plan.MountainMix;
             if (mix[1] + mix[2] + mix[3] + mix[4] > 0f)
             {
@@ -251,7 +252,7 @@ namespace SkiResortMod.Systems
                 ShowValue(m_SiteDetail, ref m_LastSiteDetail, Template(P + "SITE_DETAIL")
                     .Replace("{G}", plan.Site.PodsWithGreenHome.ToString(CultureInfo.InvariantCulture))
                     .Replace("{PODS}", plan.Site.Pods.ToString(CultureInfo.InvariantCulture))
-                    .Replace("{HA}", plan.Site.LargestBenchHa.ToString("F1", CultureInfo.InvariantCulture)));
+                    .Replace("{HA}", DisplayUnits.AreaHaText(plan.Site.LargestBenchHa, imperial)));
         }
 
         /// <summary>The pod or lift under the cursor: "Pod B: Beginner, 4 run(s), Green way home" / "P1: Detachable, 1.3 km, 540 m up, reaches 7 run(s)"
@@ -268,8 +269,8 @@ namespace SkiResortMod.Systems
                 string type = l.TypeIndex < SkiCatalog.Lifts.Count ? Template("SkiResort.Hub.LIFT_TYPE[" + SkiCatalog.Lifts[l.TypeIndex].Id + "]") : string.Empty;
                 ShowValue(m_HoverPlan, ref m_LastHoverPlan, Template(P + "LIFT_LINE")
                     .Replace("{ID}", id).Replace("{TYPE}", type)
-                    .Replace("{LENGTH}", (l.LengthM / 1000f).ToString("F1", CultureInfo.InvariantCulture))
-                    .Replace("{RISE}", Math.Round(l.RiseM).ToString(CultureInfo.InvariantCulture))
+                    .Replace("{LENGTH}", DisplayUnits.LengthText(l.LengthM, DisplayState.Imperial))
+                    .Replace("{RISE}", DisplayUnits.HeightText(l.RiseM, DisplayState.Imperial))
                     .Replace("{RUNS}", l.Serves.ToString(CultureInfo.InvariantCulture)));
                 if (l.Home != HomeVerdict.None)
                     Show(m_HoverVerdict, ref m_LastHoverVerdict, P + "VERDICT[" + l.Home + "]");
@@ -341,28 +342,33 @@ namespace SkiResortMod.Systems
 
         /// <summary>The active dictionary's text for a template key (the SkiDaySystem.ReachRowText precedent). The key itself when
         /// absent.</summary>
-        /// <summary>One line: "Steep slope (average 33 %): ..." (QUICK_SITE[*] with the whole percent). Nothing while the grade is
-        /// unknown.</summary>
+        /// <summary>One line: "Steep slope, 18.3° average: ..." (QUICK_SITE[*]; the tier still reads the whole percent, the text shows
+        /// degrees since T160). Nothing while the grade is unknown.</summary>
         private void ShowSite(float meanGrade)
         {
             int pct = QuickRunsRules.SitePercent(meanGrade);
             string key = QuickRunsRules.SiteKey(QuickRunsRules.SiteTierOf(pct));
             if (key != null)
-                ShowValue(m_Site, ref m_LastSite, Template(key).Replace("{N}", pct.ToString(CultureInfo.InvariantCulture)));
+                ShowValue(m_Site, ref m_LastSite, Template(key).Replace("{N}", DisplayUnits.SlopeText(pct / 100f)));
         }
 
+        /// <summary>The text of a key in the active dictionary, in the run grading's variant (DisplayText.Key, T162).</summary>
         private static string Template(string key)
         {
+            key = DisplayText.Key(key);
             var dictionary = Game.SceneFlow.GameManager.instance?.localizationManager?.activeDictionary;
             return dictionary != null && dictionary.TryGetValue(key, out string text) && !string.IsNullOrEmpty(text) ? text : key;
         }
 
         private void Show(StringTooltip tip, ref string last, string text)
         {
+            bool isKey = text.StartsWith("SkiResort.", StringComparison.Ordinal);
+            if (isKey)
+                text = DisplayText.Key(text);   // the grading's variant; a scheme change differs the key, so it re-sets
             if (!string.Equals(text, last, StringComparison.Ordinal))
             {
                 last = text;
-                tip.value = text.StartsWith("SkiResort.", StringComparison.Ordinal) ? LocalizedString.Id(text) : LocalizedString.Value(text);
+                tip.value = isKey ? LocalizedString.Id(text) : LocalizedString.Value(text);
             }
             AddMouseTooltip(tip);
         }

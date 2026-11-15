@@ -68,7 +68,7 @@ export function MergeCard(): JSX.Element | null {
       {state && <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(state)} />}
       {tooSmall && !merged && <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(HUB_LOC.mergeCardTooSmall)} />}
       {!tooSmall && gate === "noGeometry" && (
-        <div className={styles.mergeWarn}><LocText entry={HUB_FMT.mergeWarnNoGeometry} args={{ M: numArg(card.reachM, Unit.Integer) }} /></div>
+        <div className={styles.mergeWarn}><LocText entry={HUB_FMT.mergeWarnNoGeometry} args={{ M: numArg(card.reachM, Unit.Length) }} /></div>
       )}
       {!tooSmall && !merged && gate !== "noGeometry" && (
         <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(card.near ? HUB_LOC.mergeCardNear : HUB_LOC.mergeCardFar)} />

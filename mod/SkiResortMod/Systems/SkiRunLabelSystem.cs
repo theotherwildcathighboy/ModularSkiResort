@@ -86,6 +86,7 @@ namespace SkiResortMod.Systems
         private Material m_TextMaterialSource;
         private int m_BuiltRevision = int.MinValue;
         private long m_BuiltRebuilds = -1;
+        private GradeScheme m_BuiltScheme;   // the label color follows the run grading (T162): a change rebuilds
         private int m_Step = -1;
 
         // tool prefab reference → "is one of our run prefabs" cache (re-resolved only when the reference changes).
@@ -197,7 +198,7 @@ namespace SkiResortMod.Systems
 
                 int revision = m_Catalog.Revision;
                 long rebuilds = m_Catalog.Rebuilds;
-                if (revision != m_BuiltRevision || rebuilds != m_BuiltRebuilds)
+                if (revision != m_BuiltRevision || rebuilds != m_BuiltRebuilds || m_BuiltScheme != DisplayState.Scheme)
                     Rebuild(revision, rebuilds);
                 if (m_Labels.Count == 0)
                     return;
@@ -257,6 +258,7 @@ namespace SkiResortMod.Systems
         {
             m_BuiltRevision = revision;
             m_BuiltRebuilds = rebuilds;
+            m_BuiltScheme = DisplayState.Scheme;
             Rebuilds++;
             m_Seen.Clear();
             m_Draw.Clear();
@@ -325,7 +327,7 @@ namespace SkiResortMod.Systems
             bool keepRich = tmp.richText;
             try
             {
-                RunLabelRules.BandRgb(label.Band, out byte r, out byte g, out byte b);
+                RunLabelRules.BandRgb(label.Band, m_BuiltScheme, out byte r, out byte g, out byte b);
                 tmp.richText = false;
                 tmp.color = new Color32(r, g, b, 255);
                 tmp.rectTransform.sizeDelta = new Vector2(Tuning.SizeW, Tuning.SizeH);

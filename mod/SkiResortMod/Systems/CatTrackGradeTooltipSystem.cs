@@ -1,6 +1,7 @@
 // Cat track tool mouse tooltip. The pattern is the same as LiftLineTooltipSystem. In Mod.cs, the system runs UpdateAfter
 // TempCostTooltipSystem at UITooltip.
-// Every line is a LocaleEN key SkiResort.CatTrack.* (GradeMsg) with its whole-number {ARG} values. The lines are plain sentences for a
+// Every line is a LocaleEN key SkiResort.CatTrack.* (GradeMsg) with its {ARG} values in display units (GradeMsg.UnitOf: lengths in the
+// game's unit setting, slopes in degrees, earthwork in m³ or yd³; T160 / T161). The lines are plain sentences for a
 // player, with no ids, decimals or log syntax. The log keeps the detail. GradeBatch GR-23 gates the texts.
 // The step hint always shows while the tool is open. A refusal (CatTrackGradeToolSystem.Notice) shows as a warning under it.
 // A "!!!" ERROR disables the system until the next load.
@@ -77,7 +78,7 @@ namespace SkiResortMod.Systems
 
         private void Show(StringTooltip tip, ref string last, GradeMsg msg)
         {
-            string sig = msg.Signature;
+            string sig = DisplayState.Imperial ? msg.Signature + "|ft" : msg.Signature;   // a unit setting change re-sets the text
             if (!string.Equals(sig, last, StringComparison.Ordinal))
             {
                 last = sig;
@@ -86,14 +87,26 @@ namespace SkiResortMod.Systems
             AddMouseTooltip(tip);
         }
 
-        /// <summary>The message as a LocalizedString: the key SkiResort.CatTrack.KEY with each {ARG} as a whole number.</summary>
+        /// <summary>The message as a LocalizedString: the key SkiResort.CatTrack.KEY with each {ARG} in its display unit.</summary>
         internal static LocalizedString Text(GradeMsg msg)
         {
             int n = msg.Args == null ? 0 : msg.Args.Length;
             var args = new (string, ILocElement)[n];
             for (int i = 0; i < n; i++)
-                args[i] = (msg.Args[i].Name, new LocalizedNumber<int>((int)math.round(msg.Args[i].Value), "integer"));
+                args[i] = (msg.Args[i].Name, Arg(msg.Args[i].Name, msg.Args[i].Value));
             return LocalizedString.Id(GradeMsg.Prefix + msg.Key, args);
+        }
+
+        /// <summary>One {ARG} in its display unit (GradeMsg.UnitOf).</summary>
+        private static ILocElement Arg(string name, float v)
+        {
+            switch (GradeMsg.UnitOf(name))
+            {
+                case GradeArgUnit.Length: return DisplayText.Length(v);
+                case GradeArgUnit.Degrees: return DisplayText.Angle(v);
+                case GradeArgUnit.Volume: return DisplayText.Volume(v);
+                default: return new LocalizedNumber<int>((int)math.round(v), "integer");
+            }
         }
     }
 }

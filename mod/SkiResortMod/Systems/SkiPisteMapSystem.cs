@@ -99,10 +99,22 @@ namespace SkiResortMod.Systems
             Rgb(52, 120, 220, 0.95f), Rgb(255, 255, 255, 0.85f), Rgb(255, 255, 255, 0.95f),
         };
         private static readonly float[] s_OutlineWidth = { 0f, 0f, 0f, 0f, 0f, Tuning.OutlineBlackM, Tuning.OutlineDoubleBlackM };
+        // European grading (T162, display only): the Green style is the blue piste, the Blue style the red piste (RunLabelRules.BandRgb).
+        private static readonly UnityEngine.Color[] s_FillEu =
+        {
+            Rgb(255, 255, 255, 0.45f), Rgb(220, 150, 60, 0.9f), Rgb(170, 180, 190, 0.9f), Rgb(52, 120, 220, 0.95f),
+            Rgb(214, 48, 40, 0.95f), Rgb(14, 14, 18, 0.95f), Rgb(0, 0, 0, 1f),
+        };
+        private static readonly UnityEngine.Color[] s_OutlineEu =
+        {
+            Rgb(255, 255, 255, 0.45f), Rgb(220, 150, 60, 0.9f), Rgb(170, 180, 190, 0.9f), Rgb(52, 120, 220, 0.95f),
+            Rgb(214, 48, 40, 0.95f), Rgb(255, 255, 255, 0.85f), Rgb(255, 255, 255, 0.95f),
+        };
 
-        // The palette, read by the Quick runs tool's preview (one palette for the map and the preview, never written)
-        internal static UnityEngine.Color[] PisteFill => s_Fill;
-        internal static UnityEngine.Color[] PisteOutline => s_Outline;
+        // The palette of the run grading the player sees (DisplayState.Scheme), read by the Quick runs tool's preview too (one palette for
+        // the map and the preview, never written)
+        internal static UnityEngine.Color[] PisteFill => DisplayState.Scheme == GradeScheme.European ? s_FillEu : s_Fill;
+        internal static UnityEngine.Color[] PisteOutline => DisplayState.Scheme == GradeScheme.European ? s_OutlineEu : s_Outline;
         internal static float[] PisteOutlineWidth => s_OutlineWidth;
 
         private SkiResortHubUISystem m_Hub;
@@ -123,6 +135,7 @@ namespace SkiResortMod.Systems
         private Entity m_BuiltShown;
         private string m_BuiltArea = "-";
         private int m_BuiltCatalogRevision = int.MinValue;
+        private GradeScheme m_BuiltScheme;   // the colors follow the run grading (T162): a change rebuilds
         private float m_NextBackstop;
         private bool m_WasVisible;
         private Entity m_LastHover;
@@ -323,7 +336,8 @@ namespace SkiResortMod.Systems
                 Entity shown = m_Hub.ShownSign;
                 int catalogRevision = m_Catalog.Revision;
                 string why = !m_WasVisible ? "shown" : shown != m_BuiltShown ? "ski area changed"
-                           : catalogRevision != m_BuiltCatalogRevision ? "runs changed" : now >= m_NextBackstop ? "backstop" : null;
+                           : catalogRevision != m_BuiltCatalogRevision ? "runs changed" : m_BuiltScheme != DisplayState.Scheme ? "grading changed"
+                           : now >= m_NextBackstop ? "backstop" : null;
                 m_WasVisible = true;
                 if (why != null)
                     Build(shown, catalogRevision, now, why);                               
@@ -348,6 +362,8 @@ namespace SkiResortMod.Systems
             CompleteDraw();   // the job must not read m_Segments while we write it
             long t0 = Stopwatch.GetTimestamp();
             m_Count = 0;
+            m_BuiltScheme = DisplayState.Scheme;
+            UnityEngine.Color[] fills = PisteFill, outlines = PisteOutline;
             m_Runs = 0;
             m_Natural = 0;
             m_SlotOfRun.Clear();
@@ -381,7 +397,7 @@ namespace SkiResortMod.Systems
                 if (dashed)
                     m_Natural++;
                 int style = (int)PisteMapRules.StyleOf(row.Band);
-                UnityEngine.Color fill = s_Fill[style], outline = s_Outline[style];
+                UnityEngine.Color fill = fills[style], outline = outlines[style];
                 float outlineWidth = s_OutlineWidth[style];
                 for (int k = 0; k < n && m_Count < Tuning.MaxSegments; k++)
                 {

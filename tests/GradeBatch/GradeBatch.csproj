@@ -30,6 +30,7 @@
     <!-- GR-20: the game's rater on graded terrain (the cat track's own band, a crossed run's band before / after) -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSlopeClassifier.cs" Link="SkiSlopeClassifier.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunRater.cs" Link="SkiRunRater.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\DisplayUnits.cs" Link="DisplayUnits.cs" />
     <!-- GR-30: the groomer's centerline over the outlines the tool really generates -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\GroomerCenterline.cs" Link="GroomerCenterline.cs" />
   </ItemGroup>

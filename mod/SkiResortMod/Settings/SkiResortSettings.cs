@@ -105,6 +105,12 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupHub)]
         public bool OpenHubOnSignSelect { get; set; }
 
+        /// <summary>The run grading the player sees (T162): Auto follows the city's theme (European theme = European, else North
+        /// American). Display only: bands, run kinds and saved data never change. Resolved by DisplayState.Refresh (DisplayUnits.ResolveScheme)
+        /// and pushed to the hub as skiResort.gradeScheme.</summary>
+        [SettingsUISection(SectionMain, GroupHub)]
+        public GradeSchemeOption RunGradeScheme { get; set; }
+
 
         /// <summary>The ski area radius in km (the tether). A run binds to the nearest Welcome Sign within it when drawn (and keeps it).
         /// Lifts, lodges, schools and patrol huts link to the nearest sign within it, live, at every recompute. Float slider 2-10, step
@@ -293,10 +299,16 @@ namespace SkiResortMod.Settings
         // Cat track tool (grades the corridor and builds the run in one action). Read live by CatTrackGradeToolSystem.ReadParams. Values
         // are clamped there. A change re-solves the open plan.
 
-        /// <summary>The steepest grade the cat track tool lets a track climb, percent (5-25, default 25 = the blue-run crux)</summary>
-        [SettingsUISlider(min = 5f, max = 25f, step = 1f, unit = "percentage")]
-        [SettingsUISection(SectionMain, GroupRuns)]
+        /// <summary>Legacy (1.0.0): the cat track's steepest grade in percent. Hidden since T160 (slopes show in degrees). Mod.OnLoad moves
+        /// a changed value into CatTrackGradeMaxDeg once (DisplayUnits.LegacyPctToDeg) and puts this back to 25. Never rename.</summary>
+        [SettingsUIHidden]
         public int CatTrackGradeMaxPct { get; set; }
+
+        /// <summary>The steepest slope the cat track tool lets a track climb, degrees (3-14, step 0.5, default 14). The top of the range is
+        /// the blue-run crux: 14 reads as exactly 25 % grade (CatTrackGradeToolSystem.ReadParams, DisplayUnits.CatTrackMaxGrade).</summary>
+        [SettingsUISlider(min = DisplayUnits.CatTrackDegMin, max = DisplayUnits.CatTrackDegMax, step = 0.5f, unit = "angle")]
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public float CatTrackGradeMaxDeg { get; set; }
 
         /// <summary>The cat track's width = the graded flat top = the run's outline, meters (8-32, default 20 = GradeParams.DefaultTopWidthM).
         /// Renamed from CatTrackGradeWidthM (4-16, default 8) on 2026-10-24 so a saved 8 does not survive the new default.</summary>
@@ -485,7 +497,9 @@ namespace SkiResortMod.Settings
             RunOutlineSize = DefaultRunOutlineSize;
             SnowGunPlumes = DefaultSnowGunPlumes;
             Groomers = DefaultGroomers;
-            CatTrackGradeMaxPct = 25;
+            CatTrackGradeMaxPct = DisplayUnits.LegacyCatTrackPctDefault;
+            CatTrackGradeMaxDeg = DisplayUnits.CatTrackDegMax;
+            RunGradeScheme = GradeSchemeOption.Auto;
             CatTrackWidthM = 20;
             CatTrackGradeCutRun = 1.5f;
             CatTrackGradeFillRun = 2f;

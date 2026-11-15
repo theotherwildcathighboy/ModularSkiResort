@@ -49,6 +49,27 @@ namespace SkiResortMod
         /// system's OnDestroy can run after OnDispose. SkiResortStatsSystem reads this to skip its quiet summary.</summary>
         internal static bool Disposed { get; private set; }
 
+        /// <summary>One-shot moves of renamed options. T160 (post-release round 1): a 1.0.0 cat track max grade in percent that the player
+        /// changed becomes the new degrees option, and the hidden legacy value goes back to its default so this runs once.</summary>
+        private static void MigrateSettings()
+        {
+            try
+            {
+                if (Settings.CatTrackGradeMaxPct != DisplayUnits.LegacyCatTrackPctDefault)
+                {
+                    int pct = Settings.CatTrackGradeMaxPct;
+                    Settings.CatTrackGradeMaxDeg = DisplayUnits.LegacyPctToDeg(pct);
+                    Settings.CatTrackGradeMaxPct = DisplayUnits.LegacyCatTrackPctDefault;
+                    Settings.ApplyAndSave();
+                    Log.Info($"Options: cat track max grade {pct} % moved to {Settings.CatTrackGradeMaxDeg:0.0} degrees (T160)");
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Warn($"Options: settings migration failed, defaults kept for the moved options: {e.Message}");
+            }
+        }
+
         public void OnLoad(UpdateSystem updateSystem)
         {
             Disposed = false;
@@ -92,6 +113,7 @@ namespace SkiResortMod
             // (ModSetting.cs:42). Only the input-conflict notification reads that map, for the mod's display name/thumbnail
             // (InputManager.cs:1523-1530), so it is benign.
             AssetDatabase.global.LoadSettings(nameof(SkiResortMod), Settings, new SkiResortSettings(this));
+            MigrateSettings();
 
             TourismOverhaulDetected = DetectTourismOverhaul();
             // "False" here is only the early check. Mods that load after ours are not visible yet.

@@ -21,6 +21,7 @@ const ROOT = path.resolve(__dirname, "..");
 const MOD_DIR = path.join(ROOT, "mod", "SkiResortMod");
 const MOD_CS = path.join(MOD_DIR, "Mod.cs");
 const SETTINGS_CS = path.join(MOD_DIR, "Settings", "SkiResortSettings.cs");
+const ENUM_CS = [path.join(MOD_DIR, "Systems", "DisplayUnits.cs")];
 const CSPROJ = path.join(MOD_DIR, "SkiResortMod.csproj");
 const HUB_TEXT_TS = path.join(ROOT, "mod", "SkiResortUI", "src", "hub", "hubText.ts");
 const OUT_DIR = path.join(ROOT, "locale");
@@ -206,28 +207,32 @@ function readConsts(settingsClass) {
 }
 
 // enum Name { A, B = 3, ... } -> Map<enum, Set<member>>. A member that shares a value with another prints as the first one
-// (Enum.ToString), so explicit values must stay distinct.
+// (Enum.ToString), so explicit values must stay distinct. Read from the settings class and from ENUM_CS (an option enum that pure code
+// shares, e.g. GradeSchemeOption in DisplayUnits.cs, T162). An optional base type (": byte") is allowed.
 function readEnums() {
-  const text = read(SETTINGS_CS).replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
   const enums = new Map();
-  const re = /\benum\s+(\w+)\s*\{([^}]*)\}/g;
-  let m;
-  while ((m = re.exec(text))) {
-    const members = new Set();
-    const seen = new Set();
-    let next = 0;
-    for (const raw of m[2].split(",")) {
-      const part = raw.trim();
-      if (!part) continue;
-      const mm = /^(\w+)(?:\s*=\s*(-?\d+))?$/.exec(part);
-      if (!mm) fail(`${rel(SETTINGS_CS)}: enum ${m[1]}: cannot read member "${part}"`);
-      const value = mm[2] !== undefined ? parseInt(mm[2], 10) : next;
-      if (seen.has(value)) fail(`${rel(SETTINGS_CS)}: enum ${m[1]}: member ${mm[1]} repeats a value, so ToString may print another name`);
-      seen.add(value);
-      members.add(mm[1]);
-      next = value + 1;
+  for (const file of [SETTINGS_CS, ...ENUM_CS]) {
+    const text = read(file).replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    const re = /\benum\s+(\w+)\s*(?::\s*\w+\s*)?\{([^}]*)\}/g;
+    let m;
+    while ((m = re.exec(text))) {
+      const members = new Set();
+      const seen = new Set();
+      let next = 0;
+      for (const raw of m[2].split(",")) {
+        const part = raw.trim();
+        if (!part) continue;
+        const mm = /^(\w+)(?:\s*=\s*(-?\d+))?$/.exec(part);
+        if (!mm) fail(`${rel(file)}: enum ${m[1]}: cannot read member "${part}"`);
+        const value = mm[2] !== undefined ? parseInt(mm[2], 10) : next;
+        if (seen.has(value)) fail(`${rel(file)}: enum ${m[1]}: member ${mm[1]} repeats a value, so ToString may print another name`);
+        seen.add(value);
+        members.add(mm[1]);
+        next = value + 1;
+      }
+      if (enums.has(m[1])) fail(`${rel(file)}: enum ${m[1]} declared twice`);
+      enums.set(m[1], members);
     }
-    enums.set(m[1], members);
   }
   return enums;
 }

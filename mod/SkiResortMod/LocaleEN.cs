@@ -383,27 +383,38 @@ namespace SkiResortMod
                 { "SkiResort.SlopeBand[Blue]", "Blue square" },
                 { "SkiResort.SlopeBand[Black]", "Black diamond" },
                 { "SkiResort.SlopeBand[DoubleBlack]", "Double black diamond" },
+                // European grading (T162, Options > Run grading): the same bands by the European colors. The band floors line up:
+                // blue piste up to 25 % grade (the green band's ceiling), red up to 40 % (blue's), black above. Double black = expert black.
+                { "SkiResort.SlopeBand[Green]@EU", "Blue piste" },
+                { "SkiResort.SlopeBand[Blue]@EU", "Red piste" },
+                { "SkiResort.SlopeBand[Black]@EU", "Black piste" },
+                { "SkiResort.SlopeBand[DoubleBlack]@EU", "Expert black piste" },
                 { "SkiResort.Tooltip.CRUX_PITCH", "Hardest unavoidable pitch" },
                 { "SkiResort.Tooltip.APPROX_PITCH", "Typical steep pitch (run outline broken, rating approximate)" },
                 { "SkiResort.Tooltip.VERTICAL_DROP", "Vertical drop" },
                 { "SkiResort.Tooltip.STEEPEST_PATCH", "Steepest patch (avoidable)" },
-                // The drawing tooltip's live grade; AD / AP = average in degrees / percent, SD / SP = steepest.
-                { "SkiResort.Tooltip.SLOPE_AVG_MAX", "Avg {AD} ({AP}) · steepest {SD} ({SP})" },
+                // The drawing tooltip's live slope in degrees (T160, one decimal): AD = average, SD = steepest.
+                { "SkiResort.Tooltip.SLOPE_AVG_MAX", "Avg {AD} · steepest {SD}" },
                 // The same line plus the deciding factor of the difficulty layer (SkiRunRater.NoteLine). W = width in
-                // meters (unit "length", converted by the UI), SS / ST = steep share and its threshold in percent.
-                { "SkiResort.Tooltip.SLOPE_AVG_MAX_NARROW", "Avg {AD} ({AP}) · steepest {SD} ({SP}) · narrow {W} at the crux" },
-                { "SkiResort.Tooltip.SLOPE_AVG_MAX_WIDE", "Avg {AD} ({AP}) · steepest {SD} ({SP}) · wide {W} at the crux" },
-                { "SkiResort.Tooltip.SLOPE_AVG_MAX_SHARE", "Avg {AD} ({AP}) · steepest {SD} ({SP}) · only {SS} of the run is steeper than {ST}" },
-                { "SkiResort.Tooltip.SLOPE_AVG_MAX_GENTLE", "Avg {AD} ({AP}) · steepest {SD} ({SP}) · gentle run, short steep pitch" },
+                // meters (unit "length", converted by the UI), SS = steep share in percent, ST = its threshold slope in degrees.
+                { "SkiResort.Tooltip.SLOPE_AVG_MAX_NARROW", "Avg {AD} · steepest {SD} · narrow {W} at the crux" },
+                { "SkiResort.Tooltip.SLOPE_AVG_MAX_WIDE", "Avg {AD} · steepest {SD} · wide {W} at the crux" },
+                { "SkiResort.Tooltip.SLOPE_AVG_MAX_SHARE", "Avg {AD} · steepest {SD} · only {SS} of the run is steeper than {ST}" },
+                { "SkiResort.Tooltip.SLOPE_AVG_MAX_GENTLE", "Avg {AD} · steepest {SD} · gentle run, short steep pitch" },
                 { "SkiResort.Tooltip.RUN_FEE", "Run fee (one-time)" },
                 {
                     "SkiResort.Tooltip.NO_GATE_IN_RANGE",
-                    "No Ski Area Welcome Sign within {RADIUS} km: this run will not count until " +
+                    "No Ski Area Welcome Sign within {RADIUS}: this run will not count until " +
                     "one is placed nearby"
                 },
                 // The run's horizontal length, an IntTooltip label in front of a "length" unit value
                 // (SkiRunTooltipSystem.KeyLength).
                 { "SkiResort.Tooltip.RUN_LENGTH", "Length" },
+
+                // --- Display units (T161) ----------------------------------------------------------------------------
+                // The units the game's formatter does not have. {N} arrives converted for the game's unit setting (DisplayUnits / units.ts).
+                { "SkiResort.Unit.CUBIC_METERS", "{N} m³" },
+                { "SkiResort.Unit.CUBIC_YARDS", "{N} yd³" },
 
                 // --- Glade tool tooltip -----------------------------------------------------------------------
                 // Read by SkiGladeTooltipSystem through LocalizedString.Id(key), built once in OnCreate. PLANT / FELL / REMOVE / BLOCKED_SPOTS /
@@ -745,7 +756,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.QUICK_KIND[Night]", "Light the two lowest" },
                 { "SkiResort.Hub.QUICK_KIND_TIP[Natural]", "Black and harder runs stay ungroomed: no grooming fee or upkeep. Every other run is groomed." },
                 { "SkiResort.Hub.QUICK_KIND_TIP[Snowmaking]", "Green runs that reach the base get snow guns." },
+                { "SkiResort.Hub.QUICK_KIND_TIP[Snowmaking]@EU", "Blue runs that reach the base get snow guns." },
                 { "SkiResort.Hub.QUICK_KIND_TIP[Night]", "Up to two base runs, blue or easier with the lowest tops, get snow guns and lights." },
+                { "SkiResort.Hub.QUICK_KIND_TIP[Night]@EU", "Up to two base runs, red or easier with the lowest tops, get snow guns and lights." },
                 { "SkiResort.Hub.QUICK_START", "Click the corners of a region on the map, then the first corner again." },
                 { "SkiResort.Hub.QUICK_REGION_LINE", "{N} corners · {AREA} of {MAX} · {V} vertical" },
                 { "SkiResort.Hub.QUICK_REGION_OVER", "The region is larger than the limit shown above." },
@@ -814,14 +827,20 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_TREES_COST", "Planting cost" },
                 { "SkiResort.Tooltip.QUICK_TREE_LINE", "Tree line" },
                 { "SkiResort.Tooltip.QUICK_MIX", "Green {G} of {TG} · Blue {B} of {TB} · Black {K} of {TK} · Double black {D} of {TD}" },
+                { "SkiResort.Tooltip.QUICK_MIX@EU", "Blue {G} of {TG} · Red {B} of {TB} · Black {K} of {TK} · Expert black {D} of {TD}" },
                 { "SkiResort.Tooltip.QUICK_MIX_COUNTS", "Green {G} · Blue {B} · Black {K} · Double black {D}" },
+                { "SkiResort.Tooltip.QUICK_MIX_COUNTS@EU", "Blue {G} · Red {B} · Black {K} · Expert black {D}" },
                 { "SkiResort.Tooltip.QUICK_TRACKS", "Cat tracks" },
                 { "SkiResort.Tooltip.QUICK_TRACKS_N", "Cat tracks: {N}" },
-                // The site verdict (QuickRunsRules.SiteTier; {N} = the mean grade in percent), mirrored in hubText.ts QUICK_SITE_TEXT
-                { "SkiResort.Tooltip.QUICK_SITE[Gentle]", "Gentle slope, {N} % average: green and blue runs." },
-                { "SkiResort.Tooltip.QUICK_SITE[Steep]", "Steep slope, {N} % average: mostly blue and black runs." },
-                { "SkiResort.Tooltip.QUICK_SITE[VerySteep]", "Very steep, {N} % average: mostly black runs, few greens." },
-                { "SkiResort.Tooltip.QUICK_SITE[Beyond]", "Steeper than any real ski area, {N} % average: black and double black runs only." },
+                // The site verdict (QuickRunsRules.SiteTier on the mean grade; {N} = that grade in degrees with the sign, T160), mirrored in hubText.ts QUICK_SITE_TEXT
+                { "SkiResort.Tooltip.QUICK_SITE[Gentle]", "Gentle slope, {N} average: green and blue runs." },
+                { "SkiResort.Tooltip.QUICK_SITE[Gentle]@EU", "Gentle slope, {N} average: blue and red runs." },
+                { "SkiResort.Tooltip.QUICK_SITE[Steep]", "Steep slope, {N} average: mostly blue and black runs." },
+                { "SkiResort.Tooltip.QUICK_SITE[Steep]@EU", "Steep slope, {N} average: mostly red and black runs." },
+                { "SkiResort.Tooltip.QUICK_SITE[VerySteep]", "Very steep, {N} average: mostly black runs, few greens." },
+                { "SkiResort.Tooltip.QUICK_SITE[VerySteep]@EU", "Very steep, {N} average: mostly black runs, few blues." },
+                { "SkiResort.Tooltip.QUICK_SITE[Beyond]", "Steeper than any real ski area, {N} average: black and double black runs only." },
+                { "SkiResort.Tooltip.QUICK_SITE[Beyond]@EU", "Steeper than any real ski area, {N} average: black and expert black runs only." },
                 { "SkiResort.Tooltip.QUICK_CLUSTER", "Runs this lift serves: {N}" },
                 { "SkiResort.Tooltip.QUICK_POD[Beginner]", "Beginner lift here: {N} runs" },
                 { "SkiResort.Tooltip.QUICK_POD[MidStation]", "Mid-station here: {N} runs" },
@@ -839,9 +858,12 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_STATUS[ScanFailed]", "The scan stopped on an internal error, and nothing was planned. The error and the scan input are in the mod log folder." },
                 { "SkiResort.Tooltip.QUICK_WARN[FewRuns]", "Fewer than 2 runs fit here." },
                 { "SkiResort.Tooltip.QUICK_WARN[NoGreen]", "No green runs: too steep, or too little gentle ground at the bottom." },
+                { "SkiResort.Tooltip.QUICK_WARN[NoGreen]@EU", "No blue runs: too steep, or too little gentle ground at the bottom." },
                 { "SkiResort.Tooltip.QUICK_WARN[NoBlue]", "No blue runs: the slope gives none." },
+                { "SkiResort.Tooltip.QUICK_WARN[NoBlue]@EU", "No red runs: the slope gives none." },
                 { "SkiResort.Tooltip.QUICK_WARN[NoBlack]", "No black runs fit this slope." },
                 { "SkiResort.Tooltip.QUICK_WARN[NoEasyWayHome]", "A lift top here has no green way down." },
+                { "SkiResort.Tooltip.QUICK_WARN[NoEasyWayHome]@EU", "A lift top here has no blue way down." },
                 { "SkiResort.Tooltip.QUICK_WARN[OverWater]", "A run crosses water." },
                 { "SkiResort.Tooltip.QUICK_WARN[NoFlatRunout]", "No gentle runout at the bottom of the slope." },
                 { "SkiResort.Tooltip.QUICK_WARN[MixShort]", "Fewer runs of some colors than the planner aimed for." },
@@ -878,9 +900,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.QUICK_POD_TIP", "Click to leave these runs out or take them back." },
                 { "SkiResort.Hub.QUICK_LIFT_TIP", "Click to leave this lift and its runs out or take them back." },
                 { "SkiResort.Tooltip.QUICK_VERDICT[Green]", "Green way home" },
+                { "SkiResort.Tooltip.QUICK_VERDICT[Green]@EU", "Blue way home" },
                 { "SkiResort.Tooltip.QUICK_VERDICT[Blue]", "Blue way home" },
+                { "SkiResort.Tooltip.QUICK_VERDICT[Blue]@EU", "Red way home" },
                 { "SkiResort.Tooltip.QUICK_VERDICT[Black]", "Black only" },
                 { "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", "Double black only" },
+                { "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]@EU", "Expert black only" },
                 { "SkiResort.Tooltip.QUICK_VERDICT[Download]", "No way down on skis" },
                 { "SkiResort.Tooltip.QUICK_CLASS[Flat]", "Flat" },
                 { "SkiResort.Tooltip.QUICK_CLASS[Marginal]", "Nearly flat" },
@@ -889,16 +914,17 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_CLASS[Advanced]", "Advanced" },
                 { "SkiResort.Tooltip.QUICK_CLASS[Expert]", "Expert" },
                 { "SkiResort.Tooltip.QUICK_CLASS[Cliff]", "Cliff" },
-                { "SkiResort.Tooltip.QUICK_PLAN_LINE", "Lifts {LIFTS} · runs {KM} km · cat tracks {TKM} km" },
+                { "SkiResort.Tooltip.QUICK_PLAN_LINE", "Lifts {LIFTS} · runs {KM} · cat tracks {TKM}" },
                 { "SkiResort.Tooltip.QUICK_MIX_HONEST", "Terrain: green {G} % · blue {B} % · black {K} %" },
+                { "SkiResort.Tooltip.QUICK_MIX_HONEST@EU", "Terrain: blue {G} % · red {B} % · black {K} %" },
                 { "SkiResort.Tooltip.QUICK_POD_LINE", "Runs from {ID}: {CLASS}, {RUNS} run(s), {TRACKS} cat track(s), {VERDICT}" },
                 { "SkiResort.Tooltip.QUICK_OTHER_LINE", "Other runs ({RUNS}) · cat tracks {TRACKS}" },
                 { "SkiResort.Tooltip.QUICK_LIFT_FIT[Flagged]", "Builds, with one tower over its limit" },
                 { "SkiResort.Tooltip.QUICK_LIFT_FIT[Waits]", "Towers need fitting by hand" },
-                { "SkiResort.Tooltip.QUICK_LIFT_LINE", "{ID} · {TYPE} · {LENGTH} km · {RISE} m up" },
+                { "SkiResort.Tooltip.QUICK_LIFT_LINE", "{ID} · {TYPE} · {LENGTH} · {RISE} up" },
                 { "SkiResort.Tooltip.QUICK_AROUND_LIFT", "Click a lift station to plan runs around it" },
                 // A7 additions: the site verdict detail line and the id of a pinned (existing) lift in the lift line
-                { "SkiResort.Tooltip.QUICK_SITE_DETAIL", "Pods with their way home: {G} of {PODS}. Largest bench: {HA} ha" },
+                { "SkiResort.Tooltip.QUICK_SITE_DETAIL", "Pods with their way home: {G} of {PODS}. Largest bench: {HA}" },
                 { "SkiResort.Tooltip.QUICK_LIFT_ID_PINNED", "Existing lift" },
                 // R1-d (contract 41): the plan sheet's lifts block (rows, states, reasons, buttons, the lifts total, the notices). Hub and Tooltip keys are
                 // mirrored in hubText.ts (HUB_LOC / HUB_FMT / SENT_KEYS). The WHY texts read after "Not built: ", "Waits for a hand fit: ".
@@ -913,7 +939,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.QUICK_LIFTS_ALL_BUILT", "All {N} lifts built." },
                 { "SkiResort.Tooltip.QUICK_BUILDING_LIFT", "Building lift {N} / {M}" },
                 { "SkiResort.Tooltip.QUICK_STOPPING_LIFT", "Stopping after lift {N} / {M}" },
-                { "SkiResort.Tooltip.QUICK_SHEET_LINE", "{ID} · {TYPE} · {LENGTH} km · {RISE} m up · {COST}" },
+                { "SkiResort.Tooltip.QUICK_SHEET_LINE", "{ID} · {TYPE} · {LENGTH} · {RISE} up · {COST}" },
                 { "SkiResort.Tooltip.QUICK_LIFT_STATE[Proposed]", "Not built yet" },
                 { "SkiResort.Tooltip.QUICK_LIFT_STATE[Off]", "Switched off in the plan" },
                 { "SkiResort.Tooltip.QUICK_LIFT_STATE[Queued]", "Waiting for its turn" },
@@ -924,7 +950,7 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_LIFT_STATE[BuiltFlagged]", "Built. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}." },
                 { "SkiResort.Tooltip.QUICK_LIFT_STATE[FlaggedAt]", "Builds flagged. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}." },
                 { "SkiResort.Tooltip.QUICK_LIFT_STATE[FittingAt]", "Towers need fitting by hand. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}." },
-                { "SkiResort.Hub.QUICK_LIFT_FLAG_TIP", "Tower {TOWER} stands {ALONG} m from the base station. The rope bends more there than its wheels can follow." },
+                { "SkiResort.Hub.QUICK_LIFT_FLAG_TIP", "Tower {TOWER} stands {ALONG} from the base station. The rope bends more there than its wheels can follow." },
                 { "SkiResort.Tooltip.QUICK_LIFT_STATE[Refused]", "Not built: {WHY}" },
                 { "SkiResort.Tooltip.QUICK_LIFT_STATE[NeedsFitting]", "Towers need fitting by hand: {WHY}" },
                 { "SkiResort.Tooltip.QUICK_LIFT_WHY[MONEY]", "the city cannot pay for it" },
@@ -966,7 +992,7 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_WARN[Download]", "Some lift tops have no way down on skis." },
                 { "SkiResort.Tooltip.QUICK_WARN[DeadEnd]", "A run ends with no lift, run, cat track or flat ground below it." },
                 { "SkiResort.Tooltip.QUICK_WARN[NoWayToBottom]", "Some lifts have no run or cat track to the bottom of the region." },
-                { "SkiResort.Label.PLAN_LIFT", "{ID}: {TYPE}, {LENGTH} km, {RISE} m up, reaches {RUNS} run(s)" },
+                { "SkiResort.Label.PLAN_LIFT", "{ID}: {TYPE}, {LENGTH}, {RISE} up, reaches {RUNS} run(s)" },
                 { "SkiResort.Label.PLAN_POD", "Runs from {ID}: {CLASS}" },
                 { "SkiResort.Label.PLAN_OTHER", "Other runs" },
                 { "SkiResort.Label.PLAN_TRACK", "Cat track" },
@@ -1011,7 +1037,7 @@ namespace SkiResortMod
                 // The Buildings tab's Mergeable buildings toggle (contract 37; label MERGE_OVERLAY) and the green / gray legend beside the tile's footer and the fold's chip.
                 { "SkiResort.Hub.MERGE_TILE[Fact]", "A landmark, signature or recreation building near the runs can serve as a lodge" },
                 { "SkiResort.Hub.MERGE_TILE[Armed]", "Outlined buildings can join this ski area as lodges" },
-                { "SkiResort.Hub.MERGE_WARN[NoGeometry]", "No runs or lifts yet. Merges need one within {M} m." },
+                { "SkiResort.Hub.MERGE_WARN[NoGeometry]", "No runs or lifts yet. Merges need one within {M}." },
                 { "SkiResort.Hub.MERGE_LEGEND[Fits]", "Tier fits" },
                 { "SkiResort.Hub.MERGE_LEGEND[TooSmall]", "Too small" },
                 { "SkiResort.Hub.RESORT_COUNTS[Many]", "{RUNS} runs · {LODGES} lodges" },
@@ -1087,11 +1113,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[SkiDaysCannotReach]", "Ski-day cars not arriving" },
                 { "SkiResort.Hub.PROBLEM[DepotNoHillLodge]", "Bus depot: no hill lodge" },
                 { "SkiResort.Hub.PROBLEM[DepotNoRoad]", "Bus depot: road required" },
-                { "SkiResort.Hub.PROBLEM[SkiDaysNoGuestsNear]", "Nearest guests: {KM} km" },
+                { "SkiResort.Hub.PROBLEM[SkiDaysNoGuestsNear]", "Nearest guests: {KM}" },
                 { "SkiResort.Hub.PROBLEM[NoParkingNearLodge]", "Lodge without parking" },
                 { "SkiResort.Hub.PROBLEM[LodgeNotSlopeside]", "Lodge is far from the runs" },
                 // C# HubProblemCode SchoolNoGreenRun (MixedLiftTypes and SummitLodgeNotLiftServed carry a placeholder: block (e) FMT).
                 { "SkiResort.Hub.PROBLEM[SchoolNoGreenRun]", "Ski school: no green run" },
+                { "SkiResort.Hub.PROBLEM[SchoolNoGreenRun]@EU", "Ski school: no blue run" },
                 { "SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Ski days need any lodge within 800 m of the runs or lift stations. With no lodge, attraction is 0." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "Deactivated lodges do not count." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "Deactivated lodges do not count in the lodge base." },
@@ -1173,6 +1200,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RECEIPT_ROW[Vertical]", "Vertical" },
                 { "SkiResort.Hub.NO_SCHOOL", "No ski school" },
                 { "SkiResort.Hub.SCHOOL_NO_GREEN", "No green run" },
+                { "SkiResort.Hub.SCHOOL_NO_GREEN@EU", "No blue run" },
                 { "SkiResort.Hub.SCHOOL_OFF", "Deactivated" },
                 { "SkiResort.Hub.SCHOOL_WAITING", "No run open yet" },
                 { "SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –" },
@@ -1183,9 +1211,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RECEIPT[ResultNoLodge]", "Attraction, no lodge" },
                 { "SkiResort.Hub.RECEIPT_TIP[Result]", "Lodge base plus runs, lifts and school, times efficiency, up to 200. A lodge's own info panel shows 0: it does not show this score." },
                 { "SkiResort.Hub.ICON[green]", "green" },
+                { "SkiResort.Hub.ICON[green]@EU", "blue" },
                 { "SkiResort.Hub.ICON[blue]", "blue" },
+                { "SkiResort.Hub.ICON[blue]@EU", "red" },
                 { "SkiResort.Hub.ICON[black]", "black" },
                 { "SkiResort.Hub.ICON[dblack]", "double-black" },
+                { "SkiResort.Hub.ICON[dblack]@EU", "expert black" },
                 { "SkiResort.Hub.ICON[open]", "open" },
                 { "SkiResort.Hub.ICON[patchy]", "patchy" },
                 { "SkiResort.Hub.ICON[closed]", "closed" },
@@ -1244,7 +1275,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_OPEN_NONE", "Not linked: no snow state." },
                 { "SkiResort.Hub.RUN_SERVED_ANON", "A running lift reaches its top." },
                 { "SkiResort.Hub.RUN_TYPE_NOTE", "Natural green and blue runs count less. A groomed run counts in full." },
+                { "SkiResort.Hub.RUN_TYPE_NOTE@EU", "Natural blue and red runs count less. A groomed run counts in full." },
                 { "SkiResort.Hub.RUN_CAT_TRACK_NOTE", "A cat track always rates green and counts a quarter of a run its size, in the score and the skier room." },
+                { "SkiResort.Hub.RUN_CAT_TRACK_NOTE@EU", "A cat track always rates blue and counts a quarter of a run its size, in the score and the skier room." },
                 { "SkiResort.Hub.RUN_VALUE", "Score value" },
                 { "SkiResort.Hub.RUN_COST", "Upkeep" },
                 // The Runs view's per-run prop spacing rows (hubText.ts runProps*). Look only, except a cat track's guns at Off: no snowmaking bill.
@@ -1276,11 +1309,11 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_RISE", "Rise" },
                 // CG-T3: {SPEED}, no digit but the game-speed "1×"; a placeholder text (hubText.ts HUB_FMT.liftRideTip). CG-T7: no
                 // "loop": true for both movers — a chair rides half its loop base to top, a tram cabin rides dock to dock.
-                { "SkiResort.Hub.LIFT_RIDE_TIP", "Base to top at {SPEED} m/s line speed, at 1× game speed." },
+                { "SkiResort.Hub.LIFT_RIDE_TIP", "Base to top at {SPEED} line speed, at 1× game speed." },
                 // CG-T2: {SEATS} and {SPEED}, no digit; a placeholder text, LiftRow.seats / speedMps per lift type (hubText.ts
                 // HUB_FMT.liftCapacityTip). CG-T7: no "spaced"; a tram row's capacity includes its station stops
                 // (HubRules.ShuttleCapacityPerHour). An unpowered lift shows capacity – (SkiResortStatsSystem, HubRules.LiftCapacityShown).
-                { "SkiResort.Hub.LIFT_CAPACITY_TIP", "{SEATS} seats per chair or cabin at {SPEED} m/s. Tram: time at stops included. None without power or an open run. Riders are not simulated." },
+                { "SkiResort.Hub.LIFT_CAPACITY_TIP", "{SEATS} seats per chair or cabin at {SPEED}. Tram: time at stops included. None without power or an open run. Riders are not simulated." },
                 // The Lifts view's totals row (it sums several lift types: no {SEATS} / {SPEED}); the area total sums only the lifts that carry.
                 { "SkiResort.Hub.LIFTS_TOTAL_CAPACITY_TIP", "Sum over complete lifts with power and an open run. Tram: time at station stops included. Riders are not simulated." },
                 { "SkiResort.Hub.LIFT_RUNS", "Runs it serves" },
@@ -1402,6 +1435,7 @@ namespace SkiResortMod
                 // The school and patrol tiles, the luxury tiers, the pickers. CG-T6
                 // derives "+12", "20 %" (School), "1 km", "15 %", "70 %" (Patrol) and "40" (the luxury PriceTolerance) from SkiCatalog.
                 { "SkiResort.Hub.BUILD_SHORT[School]", "Teaches on green runs." },
+                { "SkiResort.Hub.BUILD_SHORT[School]@EU", "Teaches on blue runs." },
                 { "SkiResort.Hub.BUILD_SHORT[Depot]", "Ski days start here, in town." },
                 { "SkiResort.Hub.BUILD_TIP_DEPOT", "Coach bill: 1,500 a month plus 300 per straight-line km to the nearest hill lodge. It adds no skier room and no score." },
                 { "SkiResort.Hub.BUILD_SHORT[Patrol]", "Covers the steep runs nearby." },
@@ -1486,12 +1520,12 @@ namespace SkiResortMod
                 // C# HubProblemCode MixedLiftTypes and SummitLodgeNotLiftServed.
                 { "SkiResort.Hub.PROBLEM[MixedLiftTypes]", "{NAME} mixes lift types" },
                 // C# HubProblemCode LiftBend: {DEG} = the bend, one decimal, rounded up; {N} = the tower number its plates show.
-                { "SkiResort.Hub.PROBLEM[LiftBend]", "{NAME}: rope turns {DEG}° at tower {N}" },
+                { "SkiResort.Hub.PROBLEM[LiftBend]", "{NAME}: rope turns {DEG} at tower {N}" },
                 { "SkiResort.Hub.PROBLEM[LiftTrainLimit]", "{NAME}: tower {N}'s wheels cannot follow the rope" },
                 // C# HubProblemCode LiftLowSpan: a span's carriers pass under the planner's floor (LiftClearanceSystem). Shown only.
                 // {CARRIERS} = CARRIERS[Chairs] / [Cabins], {M} = meters, one decimal, rounded down; the Ground text when the carriers are at
                 // or below the ground. The tip names the span: {WHERE} = LOW_SPAN[Towers] / [Station] / [Stations].
-                { "SkiResort.Hub.PROBLEM[LiftLowSpan]", "{NAME}: {CARRIERS} pass {M} m above the ground" },
+                { "SkiResort.Hub.PROBLEM[LiftLowSpan]", "{NAME}: {CARRIERS} pass {M} above the ground" },
                 { "SkiResort.Hub.PROBLEM[LiftLowSpanGround]", "{NAME}: {CARRIERS} touch the ground" },
                 { "SkiResort.Hub.PROBLEM_TIP[LiftLowSpan]", "{WHERE}. Planned lines keep chairs and cabins 3 m clear, tram cabins 5 m. The lift tool replans a section you redraw." },
                 { "SkiResort.Hub.LOW_SPAN[Towers]", "Between towers {A} and {B}" },
@@ -1536,6 +1570,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.DIFF_TIP_PENDING", "Being rated: {N}" },
                 { "SkiResort.Hub.DIFF_TIP_UNRATEABLE", "Cannot be rated: {N}" },
                 { "SkiResort.Hub.AREA_HA", "{HA} ha" },
+                { "SkiResort.Hub.AREA_ACRES", "{HA} acres" },
+                { "SkiResort.Hub.SPEED_MPS", "{N} m/s" },
+                { "SkiResort.Hub.SPEED_FPM", "{N} ft/min" },
                 { "SkiResort.Hub.SNOW_DEPTH", "{DEPTH} cm" },
                 { "SkiResort.Hub.SNOW_DEPTH_IN", "{DEPTH} in" },  // US customary units
                 { "SkiResort.Hub.RUN_OPEN[Open]", "Open: snow on {PCT} of it" },
@@ -1576,12 +1613,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Curve]", "Ski days: as many at any price up to {FULL}, then fewer: {F1} as many at {P1}, {F2} at {P2}, {F3} at {P3}." },
                 // FULL = 40 + tolerance (the Chalet has 20, so not "Luxury lodges").
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Tolerance]", "This ski area's lodges keep ski days full up to {FULL}." },
-                { "SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA} ha" },
+                { "SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA}" },
                 // The runs row by feature (R3, DECISIONS 578; SkiRunUpkeepRates.PisteUpkeep).
-                { "SkiResort.Hub.MONEY_ROW[Grooming]", "Grooming · {HA} ha with snow" },
-                { "SkiResort.Hub.MONEY_ROW[Snowmaking]", "Snowmaking · {HA} ha where the guns run" },
-                { "SkiResort.Hub.MONEY_ROW[Lights]", "Lights · {HA} ha with snow" },
-                { "SkiResort.Hub.MONEY_ROW[CatTracks]", "Cat tracks · {HA} ha with guns on" },
+                { "SkiResort.Hub.MONEY_ROW[Grooming]", "Grooming · {HA} with snow" },
+                { "SkiResort.Hub.MONEY_ROW[Snowmaking]", "Snowmaking · {HA} where the guns run" },
+                { "SkiResort.Hub.MONEY_ROW[Lights]", "Lights · {HA} with snow" },
+                { "SkiResort.Hub.MONEY_ROW[CatTracks]", "Cat tracks · {HA} with guns on" },
                 { "SkiResort.Hub.MONEY_ROW[Lifts]", "Lifts · {N} · {LEN}" },
                 // The third reduced case; an unpowered lift still pays in full, two reductions remain.
                 { "SkiResort.Hub.MONEY_TIP[Lifts]", "{BASE} a month + {PERKM} per km per lift, in full even without power. A quarter while unfinished or no run is open (a tram half). Full {FULL}, reduced {REDUCED}." },
@@ -1681,6 +1718,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_SHORT[Night]", "Floodlit snowmaking run: scores 25 % more." },
                 { "SkiResort.Hub.BUILD_SHORT[Natural]", "Natural snow only, no upkeep. Easy runs score less." },
                 { "SkiResort.Hub.BUILD_SHORT[CatTrack]", "Graded as you draw it. Always green, counts a quarter." },
+                { "SkiResort.Hub.BUILD_SHORT[CatTrack]@EU", "Graded as you draw it. Always blue, counts a quarter." },
                 { "SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within its radius." },
                 { "SkiResort.Hub.NEXT[Lodge]", "Ski-day guests need a lodge within 800 m of the runs." },
                 { "SkiResort.Hub.NEXT[Lift]", "Runs a lift serves count in full." },
@@ -1729,34 +1767,34 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.TYPE[tram]", "Aerial tram" },
                 { "SkiResort.LiftTool.TYPE[any]", "Lift" },
                 // The plan line: the whole line at a glance. The colored parts are the overlay's (red, purple).
-                { "SkiResort.LiftTool.PLAN_CLEAR", "Towers: {TOWERS}, length {LENGTH} m. The line is ready to build." },
-                { "SkiResort.LiftTool.PLAN_LOW", "Towers: {TOWERS}, length {LENGTH} m. The red part hangs too close to the ground: add a tower or move one." },
-                { "SkiResort.LiftTool.PLAN_HIGH", "Towers: {TOWERS}, length {LENGTH} m. The purple part runs too high above the ground: add a tower under it." },
-                { "SkiResort.LiftTool.PLAN_STEEP", "Towers: {TOWERS}, length {LENGTH} m. The red part is too steep for this lift: move the tower beside it, or pick flatter ends." },
+                { "SkiResort.LiftTool.PLAN_CLEAR", "Towers: {TOWERS}, length {LENGTH}. The line is ready to build." },
+                { "SkiResort.LiftTool.PLAN_LOW", "Towers: {TOWERS}, length {LENGTH}. The red part hangs too close to the ground: add a tower or move one." },
+                { "SkiResort.LiftTool.PLAN_HIGH", "Towers: {TOWERS}, length {LENGTH}. The purple part runs too high above the ground: add a tower under it." },
+                { "SkiResort.LiftTool.PLAN_STEEP", "Towers: {TOWERS}, length {LENGTH}. The red part is too steep for this lift: move the tower beside it, or pick flatter ends." },
                 // FIX-LIST 55: every span clears, but a tower's rope bends past its sheave train's cap (the red tower).
-                { "SkiResort.LiftTool.PLAN_TRAIN", "Towers: {TOWERS}, length {LENGTH} m. The rope bends past what the red tower's wheels can follow: move it or the end. The lift still runs." },
+                { "SkiResort.LiftTool.PLAN_TRAIN", "Towers: {TOWERS}, length {LENGTH}. The rope bends past what the red tower's wheels can follow: move it or the end. The lift still runs." },
                 // DECISIONS 600 a: every span clears, but the rope bends over a tram tower's saddle past the planner's saddle cap (the red tower).
-                { "SkiResort.LiftTool.PLAN_SADDLE", "Towers: {TOWERS}, length {LENGTH} m. The rope bends over the red tower's saddle more than tram saddles are built for. The lift still runs." },
+                { "SkiResort.LiftTool.PLAN_SADDLE", "Towers: {TOWERS}, length {LENGTH}. The rope bends over the red tower's saddle more than tram saddles are built for. The lift still runs." },
                 // DECISIONS 600: every span clears, but the rope runs through a tower steeper than the type's pitch cap (the red tower).
                 // DECISIONS 600 c: every span clears, but a rope half leaves a tower steeper than its chairs or cabins clear (the red tower).
-                { "SkiResort.LiftTool.PLAN_CLEARANCE", "Towers: {TOWERS}, length {LENGTH} m. The rope leaves the red tower steeper than its chairs or cabins clear. The lift still runs." },
-                { "SkiResort.LiftTool.PLAN_PITCH", "Towers: {TOWERS}, length {LENGTH} m. The rope runs through the red tower steeper than {CAP}°, too steep for this lift type. The lift still runs." },
+                { "SkiResort.LiftTool.PLAN_CLEARANCE", "Towers: {TOWERS}, length {LENGTH}. The rope leaves the red tower steeper than its chairs or cabins clear. The lift still runs." },
+                { "SkiResort.LiftTool.PLAN_PITCH", "Towers: {TOWERS}, length {LENGTH}. The rope runs through the red tower steeper than {CAP}, too steep for this lift type. The lift still runs." },
                 // Over a tower: its height (the tower model's), and how high the chairs or cabins pass over the ground next to it.
-                { "SkiResort.LiftTool.TOWER", "Tower {N} of {COUNT}: {HEIGHT} m tall. Chairs and cabins pass {CLEAR} m above the ground at the tower. Drag to move it." },
-                { "SkiResort.LiftTool.TOWER_PINNED", "Tower {N} of {COUNT}: {HEIGHT} m tall, placed by you. Chairs and cabins pass {CLEAR} m above the ground at the tower." },
-                { "SkiResort.LiftTool.TOWER_LOW", "Tower {N} of {COUNT}: {HEIGHT} m tall. Chairs and cabins come too close to the ground next to it." },
-                { "SkiResort.LiftTool.TOWER_TRAIN", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope bends {DEG}° here, past the {CAP}° its wheels can follow." },
-                { "SkiResort.LiftTool.TOWER_SADDLE", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope bends {DEG}° over its saddle, past the {CAP}° tram saddles are built for." },
+                { "SkiResort.LiftTool.TOWER", "Tower {N} of {COUNT}: {HEIGHT} tall. Chairs and cabins pass {CLEAR} above the ground at the tower. Drag to move it." },
+                { "SkiResort.LiftTool.TOWER_PINNED", "Tower {N} of {COUNT}: {HEIGHT} tall, placed by you. Chairs and cabins pass {CLEAR} above the ground at the tower." },
+                { "SkiResort.LiftTool.TOWER_LOW", "Tower {N} of {COUNT}: {HEIGHT} tall. Chairs and cabins come too close to the ground next to it." },
+                { "SkiResort.LiftTool.TOWER_TRAIN", "Tower {N} of {COUNT}: {HEIGHT} tall. The rope bends {DEG} here, past the {CAP} its wheels can follow." },
+                { "SkiResort.LiftTool.TOWER_SADDLE", "Tower {N} of {COUNT}: {HEIGHT} tall. The rope bends {DEG} over its saddle, past the {CAP} tram saddles are built for." },
                 // DECISIONS 600 c: the rope leaves the tower steeper than the art's carrier clearance for its head (the chair or cabin hangs plumb and meets the train).
-                { "SkiResort.LiftTool.TOWER_CLEARANCE", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope leaves it at {DEG}°, past the {LIMIT}° at which its chairs or cabins clear the tower." },
-                { "SkiResort.LiftTool.TOWER_PITCH", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope runs through it at {DEG}°, steeper than {CAP}°: too steep for this lift type." },
+                { "SkiResort.LiftTool.TOWER_CLEARANCE", "Tower {N} of {COUNT}: {HEIGHT} tall. The rope leaves it at {DEG}, past the {LIMIT} at which its chairs or cabins clear the tower." },
+                { "SkiResort.LiftTool.TOWER_PITCH", "Tower {N} of {COUNT}: {HEIGHT} tall. The rope runs through it at {DEG}, steeper than {CAP}: too steep for this lift type." },
                 // Notices: shown for a few seconds after a refused click.
                 { "SkiResort.LiftTool.NOTHING_TO_BUILD", "Nothing to build yet: click both ends of the line first." },
                 { "SkiResort.LiftTool.NO_START", "Click next to a station's line stub, or the loose end of a lift line." },
                 { "SkiResort.LiftTool.TYPE_UNUSABLE", "This lift type cannot be drawn yet." },
                 { "SkiResort.LiftTool.SAME_END", "That is the first end: click the other one." },
                 { "SkiResort.LiftTool.SAME_STATION", "That is the first station: click the other one." },
-                { "SkiResort.LiftTool.TOO_SHORT", "These ends are too close together: a lift line needs at least {MIN} m." },
+                { "SkiResort.LiftTool.TOO_SHORT", "These ends are too close together: a lift line needs at least {MIN}." },
                 { "SkiResort.LiftTool.STATION_UNUSABLE", "This station cannot take a lift line." },
                 { "SkiResort.LiftTool.STATION_HAS_LINE", "This station already has its line. To change part of it, click that section's rope to remove it, then click its two loose ends." },
                 { "SkiResort.LiftTool.NO_STUB", "This station has no line stub to start from." },
@@ -1771,7 +1809,7 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.CROSSES", "This line crosses a lift of the same type. Building it joins the two at the crossing, and the other lift gets a tower there." },
                 { "SkiResort.LiftTool.CROSSES_OVER", "This line passes over another lift. Its towers beside the crossing are tall enough for the clearance the game requires." },
                 { "SkiResort.LiftTool.CROSSES_UNDER", "This line passes under another lift, which runs high enough here for the clearance the game requires." },
-                { "SkiResort.LiftTool.CROSS_CLEARANCE", "This line cannot pass over or under the other lift here: the game needs {M} m between the two, and no tower arrangement gives it." },
+                { "SkiResort.LiftTool.CROSS_CLEARANCE", "This line cannot pass over or under the other lift here: the game needs {M} between the two, and no tower arrangement gives it." },
                 { "SkiResort.LiftTool.CROSS_STATION", "This line crosses another lift too close to a station, where the rope height is fixed, so it cannot be built here." },
                 { "SkiResort.LiftTool.CROSS_TOWER", "This line crosses another lift right beside one of its towers, so it cannot be built here." },
                 { "SkiResort.LiftTool.CROSS_SHALLOW", "This line meets another lift at too flat an angle, under 20°, so it cannot be built here." },
@@ -1780,12 +1818,12 @@ namespace SkiResortMod
                 // ALONG: the line runs on top of another lift (within 8 m, 10 deg, over 15 m); the game would merge them, so Build is refused (FIX-LIST 60 b)
                 { "SkiResort.LiftTool.ALONG", "This line runs along another lift. The game would merge the two lines, so it cannot be built here." },
                 // A loose-end joint that turns the line by more than LiftAlignMath.BendWarnDeg: a standing warning, never a refusal.
-                { "SkiResort.LiftTool.BEND", "The rope turns {DEG}° where this line joins the built one. Real lift lines turn 5° or less at a tower." },
+                { "SkiResort.LiftTool.BEND", "The rope turns {DEG} where this line joins the built one. Real lift lines turn 5° or less at a tower." },
                 { "SkiResort.LiftTool.OPEN_END", "This end is open ground: place a station here to finish the lift." },
-                { "SkiResort.LiftTool.ADD_TOO_CLOSE_END", "A tower cannot stand that close to the end of the line. Keep {M} m clear of it." },
-                { "SkiResort.LiftTool.ADD_TOO_CLOSE_TOWER", "A tower cannot stand that close to a tower you placed. Keep {M} m between them." },
+                { "SkiResort.LiftTool.ADD_TOO_CLOSE_END", "A tower cannot stand that close to the end of the line. Keep {M} clear of it." },
+                { "SkiResort.LiftTool.ADD_TOO_CLOSE_TOWER", "A tower cannot stand that close to a tower you placed. Keep {M} between them." },
                 { "SkiResort.LiftTool.NO_TOWER", "There is no tower there to remove." },
-                { "SkiResort.LiftTool.SECTION", "{TYPE} section, {LENGTH} m: click to remove it. The rest of the line stays." },
+                { "SkiResort.LiftTool.SECTION", "{TYPE} section, {LENGTH}: click to remove it. The rest of the line stays." },
                 { "SkiResort.LiftTool.SECTION_REFUSED", "The game cannot remove this section right now." },
                 // The game refused the Build: the most common problem it flagged, in words.
                 { "SkiResort.LiftTool.REFUSED[SteepSlope]", "The game cannot build this line: part of it is too steep. Move the tower next to the red part." },
@@ -1807,10 +1845,10 @@ namespace SkiResortMod
                 { "SkiResort.CatTrack.PROMPT_DEL_NONE", "Delete mode: point at a cat track. Right click leaves delete mode." },
                 { "SkiResort.CatTrack.PROMPT_DEL_HOVER", "Click the cat track to select it. Click it again to delete it. Right click leaves delete mode." },
                 { "SkiResort.CatTrack.PROMPT_DEL_ARMED", "Click again to delete this cat track. The ground stays graded and the fee is not refunded. Right click leaves delete mode." },
-                { "SkiResort.CatTrack.PLAN", "Cat track: {LENGTH} m. Steepest part: {MAX} %, limit {LIMIT} %. Digs {CUT} m³ and fills {FILL} m³." },
-                { "SkiResort.CatTrack.PLAN_LENGTH", "Cat track: {LENGTH} m. Steepest part: {MAX} %, limit {LIMIT} %." },
+                { "SkiResort.CatTrack.PLAN", "Cat track: {LENGTH}. Steepest part: {MAX}, limit {LIMIT}. Digs {CUT} and fills {FILL}." },
+                { "SkiResort.CatTrack.PLAN_LENGTH", "Cat track: {LENGTH}. Steepest part: {MAX}, limit {LIMIT}." },
                 { "SkiResort.CatTrack.CHECKING", "Checking the ground..." },
-                { "SkiResort.CatTrack.PLAN_STEEP", "Too steep: the steepest part is {MAX} %, the limit is {LIMIT} %. Add about {SHORT} m of switchbacks." },
+                { "SkiResort.CatTrack.PLAN_STEEP", "Too steep: the steepest part is {MAX}, the limit is {LIMIT}. Add about {SHORT} of switchbacks." },
                 { "SkiResort.CatTrack.PLAN_BANK", "In places the hillside is steeper than the track's cut and fill slopes, so some banks stay steep." },
                 { "SkiResort.CatTrack.GUARD_TOO_LARGE", "This track covers too much ground to grade. Use a shorter track." },
                 { "SkiResort.CatTrack.GUARD_RUN_SHAPE", "The track's edges touch. Spread the switchback legs apart or make the track narrower." },
@@ -1828,7 +1866,7 @@ namespace SkiResortMod
                 { "SkiResort.CatTrack.DEL_ARM", "Click again to delete this cat track." },
                 { "SkiResort.CatTrack.DEL_DONE", "Cat track deleted. The ground stays graded." },
                 { "SkiResort.CatTrack.NO_GRADING", "Grading is not available on this map." },
-                { "SkiResort.CatTrack.TOO_STEEP", "Too steep: the track needs about {SHORT} m more length. Add a switchback." },
+                { "SkiResort.CatTrack.TOO_STEEP", "Too steep: the track needs about {SHORT} more length. Add a switchback." },
                 { "SkiResort.CatTrack.RUN_MISSING", "The cat track asset did not load. Check that the mod is installed completely." },
                 { "SkiResort.CatTrack.RUN_REFUSED", "The game refuses a cat track here. Move it off what blocks it and press Enter again." },
                 { "SkiResort.CatTrack.BUILT", "Cat track built." },
@@ -1844,18 +1882,18 @@ namespace SkiResortMod
                 // SkiSnowLineTooltipSystem, the one line under the cursor while a run or the Welcome Sign is
                 // placed. {SNOW_LINE} and {GUN_LINE} are integer elevations in world meters (LocalizedNumber<int>, unit "integer");
                 // "≈" and "·" are on the UI glyph allowlist.
-                { "SkiResort.Tooltip.SNOW_LINE", "Winter snow line ≈ {SNOW_LINE} m · guns work above ≈ {GUN_LINE} m" },
+                { "SkiResort.Tooltip.SNOW_LINE", "Winter snow line ≈ {SNOW_LINE} · guns work above ≈ {GUN_LINE}" },
                 // SkiSnowLineTooltipSystem, the cursor lines. HERE_ABOVE / HERE_BELOW: {HERE} the ground under the cursor, {DIFF} its
                 // distance to the snow line (both integer meters). AREA_SURVEY (only while the Welcome Sign is placed): the dry ground within
                 // the ski area radius of the cursor, {RADIUS} km (floatSingleFraction), {LOW} / {HIGH} / {VERT} integer meters, {PCT}
                 // percentage of that ground at or above the snow line, {SKI} the skiable vertical (highest ground minus the snow line, or minus
                 // the lowest ground when that is higher; integer meters). AREA_SURVEY_NO_SNOW: no ground reaches the snow line.
                 // AREA_SURVEY_WET: no dry ground on the map within the radius.
-                { "SkiResort.Tooltip.HERE_ABOVE", "Here {HERE} m · {DIFF} m above the snow line" },
-                { "SkiResort.Tooltip.HERE_BELOW", "Here {HERE} m · {DIFF} m below the snow line" },
-                { "SkiResort.Tooltip.AREA_SURVEY", "Within {RADIUS} km: {LOW} to {HIGH} m · {VERT} m vertical, {SKI} m of it above the snow line · {PCT} of the ground above it" },
-                { "SkiResort.Tooltip.AREA_SURVEY_NO_SNOW", "Within {RADIUS} km: {LOW} to {HIGH} m · {VERT} m vertical · no ground above the snow line" },
-                { "SkiResort.Tooltip.AREA_SURVEY_WET", "Within {RADIUS} km: no dry ground on the map" },
+                { "SkiResort.Tooltip.HERE_ABOVE", "Here {HERE} · {DIFF} above the snow line" },
+                { "SkiResort.Tooltip.HERE_BELOW", "Here {HERE} · {DIFF} below the snow line" },
+                { "SkiResort.Tooltip.AREA_SURVEY", "Within {RADIUS}: {LOW} to {HIGH} · {VERT} vertical, {SKI} of it above the snow line · {PCT} of the ground above it" },
+                { "SkiResort.Tooltip.AREA_SURVEY_NO_SNOW", "Within {RADIUS}: {LOW} to {HIGH} · {VERT} vertical · no ground above the snow line" },
+                { "SkiResort.Tooltip.AREA_SURVEY_WET", "Within {RADIUS}: no dry ground on the map" },
             };
         }
 

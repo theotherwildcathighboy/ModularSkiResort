@@ -17,7 +17,9 @@
  * so the tooltip key (iconKey.tsx, added by parts.tsx Tip) finds it in a tooltip body.
  */
 import { Fragment } from "react";
+import { useValue } from "cs2/api";
 import { useLocalization } from "cs2/l10n";
+import { gradeScheme$ } from "../bindings";
 import type { LocReactNode, Localization, LocStringRenderer, PropsAreEqual } from "cs2/l10n";
 import { LocalizedString } from "../cs2shim";
 import type { LocEntry, Translate } from "../l10n";
@@ -26,8 +28,9 @@ import type { IconToken } from "./hubRules";
 import { HUB_ICON, HUB_ICON_GROUPS, iconMode } from "./hubIcons";
 import { IconImg, wordOf } from "./iconKey";
 import type { IconMode } from "./hubIcons";
-import { HUB_LOC } from "./hubText";
+import { EU_TEXT, HUB_LOC } from "./hubText";
 import { TipLines, cx } from "./parts";
+import { schemeEntry } from "./units";
 import styles from "./hub.module.scss";
 
 export interface IconTextProps {
@@ -42,8 +45,9 @@ export interface IconTextProps {
 
 /** The resolved text with its tags (arguments filled). */
 function tagForm(loc: Localization, p: IconTextProps): string {
-  if (p.args) return String(LocalizedString.renderString(loc, { id: p.entry[0], fallback: p.entry[1], args: p.args }));
-  return (loc && loc.translate(p.entry[0], p.entry[1])) ?? p.entry[1];
+  const e = schemeEntry(p.entry, gradeScheme$.value, EU_TEXT);   // the run grading's variant (T162)
+  if (p.args) return String(LocalizedString.renderString(loc, { id: e[0], fallback: e[1], args: p.args }));
+  return (loc && loc.translate(e[0], e[1])) ?? e[1];
 }
 
 function wordsOf(tokens: readonly IconToken[], word: (name: string) => string): string {
@@ -72,6 +76,7 @@ function Para({ tokens, mode, word }: { tokens: readonly IconToken[]; mode: Icon
 
 function IconTextView(p: IconTextProps): JSX.Element {
   const loc = useLocalization();
+  useValue(gradeScheme$);   // re-render when the run grading changes (tagForm and the icon table read it)
   const mode = iconMode();
   const s = unitNbsp(tagForm(loc, p));   // a number keeps its unit on one line (render time only; renderString keeps ASCII)
   const word = (name: string): string => wordOf(loc, name);

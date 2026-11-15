@@ -1665,7 +1665,7 @@ namespace SkiResortMod.Systems
             var p = new GradeParams();
             if (s == null)
                 return p;
-            p.MaxGrade = math.clamp(s.CatTrackGradeMaxPct, 5, 25) / 100f;
+            p.MaxGrade = DisplayUnits.CatTrackMaxGrade(s.CatTrackGradeMaxDeg);   // Options in degrees since T160; 14 = 25 % (1.0.0's default)
             p.TopWidthM = math.clamp(s.CatTrackWidthM, GradeParams.MinTopWidthM, GradeParams.MaxTopWidthM);
             p.CutRun = math.clamp(s.CatTrackGradeCutRun, 1f, 3f);
             p.FillRun = math.clamp(s.CatTrackGradeFillRun, 1f, 4f);
