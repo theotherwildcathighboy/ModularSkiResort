@@ -112,6 +112,8 @@ namespace SkiTestBridge
                 case "milestone": return NextMilestone();
                 case "demand": return UnlimitedDemand();
                 case "heights": return Heights(args);
+                case "snow": return SnowCommand(args);
+                case "runSnow": return RunSnowCommand(args);
                 case "perf": return PerfCommand(args);
                 case "tiles": return UnlockTiles();
                 case "pm": return PhotoMode(args);
