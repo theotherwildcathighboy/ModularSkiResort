@@ -1001,7 +1001,8 @@ FLAG_KIT = {"version": 1}
 # T175 (same round): the patrol hut P1's front gear. "rolls" = the six accent fence rolls (letter Y), "none" = no rolls,
 # "firewood" = no rolls + a vanilla FirewoodPileRandom01 row (recipes/patrol.py). lodge.py sets it from `--p1-gear`.
 PATROL_GEAR = {"p1": "rolls"}
-FLAG_RIPPLE_SEGS = 14       # strips along the fly (8 under-sampled the second ripple)
+FLAG_RIPPLE_SEGS = 24       # strips along the fly. The LOD0 shade pass already smooths the cloth; at 14 the strips bent up
+                            # to 39 deg each and read as creased paper, at 24 up to 25 deg (mean 9.5)
 FLAG_RIPPLE_AMP = 0.12      # the wave's amplitude at the fly end, as a fraction of the cloth length (0.07 read flat)
 FLAG_RIPPLE_WAVES = 1.25    # waves along the fly
 FLAG_RIPPLE_LEAN = 0.8      # phase shift (rad) from the bottom to the top edge: the crest runs diagonally
@@ -1043,7 +1044,8 @@ def _flag_cloth_point(O, run, front, fw, fh, zc0, t, s, off=0.0):
 
 
 def _flag_ripple_slab(g, O, run, front, fw, fh, zc0):
-    """The rippled accent cloth as a closed 1 cm slab: both sheets, the top / bottom / fly / hoist edges."""
+    """The rippled accent cloth: both 1 cm-apart sheets and the hoist / fly edges. The top and bottom 1 cm rims are left
+    open (4 x FLAG_RIPPLE_SEGS tris that no game camera resolves); that pays for the denser strips. 8 n + 4 -> 4 n + 4."""
     n = FLAG_RIPPLE_SEGS
     ts = [k / n for k in range(n + 1)]
     for sg in (1.0, -1.0):
@@ -1053,13 +1055,6 @@ def _flag_ripple_slab(g, O, run, front, fw, fh, zc0):
                     _flag_cloth_point(O, run, front, fw, fh, zc0, b, 0.0, off),
                     _flag_cloth_point(O, run, front, fw, fh, zc0, b, 1.0, off),
                     _flag_cloth_point(O, run, front, fw, fh, zc0, a, 1.0, off)], front * sg)
-    up = Vector((0.0, 0.0, 1.0))
-    for s, out in ((0.0, -up), (1.0, up)):
-        for a, b in zip(ts, ts[1:]):
-            g.poly([_flag_cloth_point(O, run, front, fw, fh, zc0, a, s, 0.005),
-                    _flag_cloth_point(O, run, front, fw, fh, zc0, b, s, 0.005),
-                    _flag_cloth_point(O, run, front, fw, fh, zc0, b, s, -0.005),
-                    _flag_cloth_point(O, run, front, fw, fh, zc0, a, s, -0.005)], out)
     for t, out in ((0.0, -run), (1.0, run)):
         g.poly([_flag_cloth_point(O, run, front, fw, fh, zc0, t, 0.0, 0.005),
                 _flag_cloth_point(O, run, front, fw, fh, zc0, t, 0.0, -0.005),
@@ -3504,7 +3499,7 @@ def flag_mast(name, x, y, h=8.0, flag=(1.6, 1.0), *, z0=GROUND_LIFT, along="X", 
     Fine-detail pass (design B.1, opt-in, fine=True): the mast is 12-seg with a 10-tri top cap (no bottom cap: it stands on
     its foot) and a 6 x 3 ball finial (FINIAL_R) sitting on the cap. The cloth is unchanged. 58 tris instead of 20.
 
-    Flag kit v2 (FLAG_KIT, T174): the accent slab ripples (_flag_cloth_point), 116 tris instead of 12. Emblem faces
+    Flag kit v2 (FLAG_KIT, T174): the accent cloth ripples (_flag_cloth_point), 100 tris instead of 12. Emblem faces
     (face=True) stay flat single quads: the label painter needs one quad."""
     if str(along).upper() not in ("X", "Y"):
         raise ValueError(f"flag_mast {name}: along {along!r} (X | Y)")

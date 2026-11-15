@@ -9149,6 +9149,10 @@ def main(argv=None):
     cs2_validate.lint_asset_name(name, rep)
     if any(f[0] == "ERROR" for f in rep):
         raise ContractError(f"C10 name lint failed: {list(rep)}")
+    if args.export and args.out:
+        # post-release round 1 (2026-11-14): --export picks the contract folder itself and silently ignored --out, so a
+        # scratch build with both landed in assets/import. Refuse the pair.
+        raise SystemExit(f"--export writes to assets/import itself: drop --out {args.out} (or drop --export)")
     if args.export:
         # the letter folder follows --letter (export round 2026-10-19: the hard-coded .../A/ took the B builds, moved by
         # hand). p.folder keeps the family's first letter
