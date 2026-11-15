@@ -102,6 +102,7 @@ export const HUB_LOC = {
   problemTipDepotNoHillLodge: ["SkiResort.Hub.PROBLEM_TIP[DepotNoHillLodge]", "A depot sends guests only while its ski area has a working hill lodge. A Hut or Summit counts. It bills nothing until then."],
   problemTipDepotNoRoad: ["SkiResort.Hub.PROBLEM_TIP[DepotNoRoad]", "A depot with no road sends nobody and bills nothing."],
   /* the row shows only while the sign carries jobs (MountainJobsRules.SignNoRoadRow): no active road lodge in the area */
+  problemTipLodgeNoRoad: ["SkiResort.Hub.PROBLEM_TIP[LodgeNoRoad]", "Schools need a road. Off-road A-Frame, Chalet and Grand lodges get utilities only from a cat track chain reaching a road lodge or bus depot."],
   problemTipSignNoRoad: ["SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "No active lodge with a road. The sign is the job host for the Hut, Summit, patrol and off-road lodges. Their staff come by road."],
   problemNoParkingNearLodge: ["SkiResort.Hub.PROBLEM[NoParkingNearLodge]", "Lodge without parking"],
   problemLodgeNotSlopeside: ["SkiResort.Hub.PROBLEM[LodgeNotSlopeside]", "Lodge is far from the runs"],
@@ -442,7 +443,7 @@ export const HUB_LOC = {
   buildTipSchool: ["SkiResort.Hub.BUILD_TIP_SCHOOL", "+12 on the Ski school row of the score while a <icon:green> run is <icon:openpatchy>. Residents go skiing 20 % more often."],
   buildTipPatrol: ["SkiResort.Hub.BUILD_TIP_PATROL", "Within 1 km, <icon:black> and <icon:dblack> runs score 15 % more. Runs there without a lift still score at least 70 %."],
   /* the A-frame, Chalet and Grand tiles (buildItems.ts ROAD_OPTIONAL_LODGES): LodgeSupplyRule, LiftServedRule.LinkMeters */
-  buildTipRoadOptional: ["SkiResort.Hub.BUILD_TIP_ROAD_OPTIONAL", "Off-road, a cat track within 25 m that reaches a road lodge or Ski Bus Depot brings the utilities. No guests arrive there by road."],
+  buildTipRoadOptional: ["SkiResort.Hub.BUILD_TIP_ROAD_OPTIONAL", "Off-road, utilities come by cat track within 25 m, linked track to track to a road lodge or bus depot. No guests arrive by road."],
   buildTipLuxury: ["SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days stay full at a lift ticket price up to 40 higher."],
   buildTipOnce: ["SkiResort.Hub.BUILD_TIP_ONCE", "One-time"],
   buildTipMonth: ["SkiResort.Hub.BUILD_TIP_MONTH", "Per month"],

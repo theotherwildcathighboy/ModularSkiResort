@@ -27,17 +27,17 @@ namespace SkiResortMod
 
                 // --- Lodge ----------------------------------------------------------------
                 { "Assets.NAME[SkiAFrameDayLodge]", "A-Frame Day Lodge" },
-                { "Assets.DESCRIPTION[SkiAFrameDayLodge]", "A first lodge, where guests arrive." },
+                { "Assets.DESCRIPTION[SkiAFrameDayLodge]", "A first lodge, where guests arrive. Off-road, a cat track to a road lodge supplies it." },
                 // The four lodge tiers, the school and the two patrol huts. One line each, no "Needs educated staff" line.
                 { "Assets.NAME[SkiLodgeHut]", "Mountain Hut" },
                 { "Assets.DESCRIPTION[SkiLodgeHut]", "A small hut on the slopes, no road needed. Counts more in summer near a lift's top." },
                 { "Assets.NAME[SkiLodgeMid]", "Chalet Lodge" },
-                { "Assets.DESCRIPTION[SkiLodgeMid]", "A bigger base lodge: more ski-day guests and a higher ticket price." },
+                { "Assets.DESCRIPTION[SkiLodgeMid]", "Bigger base lodge, higher ticket price. Off-road, a cat track to a road lodge supplies it." },
                 // The two luxury tiers say "Swanky" (the summit lodge is its smaller sibling, mesh SkiLodgeSwankyTop*).
                 { "Assets.NAME[SkiLodgeSummit]", "Swanky Summit Lodge" },
                 { "Assets.DESCRIPTION[SkiLodgeSummit]", "Glass-and-stone restaurant on the mountain, near a lift's top station." },
                 { "Assets.NAME[SkiLodgeGrand]", "Swanky Grand Lodge" },
-                { "Assets.DESCRIPTION[SkiLodgeGrand]", "The resort's flagship base lodge: great hall and dining pavilion." },
+                { "Assets.DESCRIPTION[SkiLodgeGrand]", "The flagship base lodge. Off-road, a cat track to a road lodge supplies it." },
                 { "Assets.NAME[SkiBusDepot]", "Ski Bus Depot" },
                 { "Assets.DESCRIPTION[SkiBusDepot]", "A coach stop in town for skiers who live nearer to it than to a lodge." },
                 { "Assets.NAME[SkiCoachBus]", "Ski Bus" },
@@ -1116,6 +1116,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReach]", "Many recent ski-day guests with a car did not reach the lodge in time. Fewer are sent until more arrive." },
                 { "SkiResort.Hub.PROBLEM_TIP[DepotNoHillLodge]", "A depot sends guests only while its ski area has a working hill lodge. A Hut or Summit counts. It bills nothing until then." },
                 { "SkiResort.Hub.PROBLEM_TIP[DepotNoRoad]", "A depot with no road sends nobody and bills nothing." },
+                // T182: the cat track supply rule (LodgeSupplyRule: a track within 25 m, its chain reaching a road lodge or depot).
+                { "SkiResort.Hub.PROBLEM_TIP[LodgeNoRoad]", "Schools need a road. Off-road A-Frame, Chalet and Grand lodges get utilities only from a cat track chain reaching a road lodge or bus depot." },
                 { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "No active lodge with a road. The sign is the job host for the Hut, Summit, patrol and off-road lodges. Their staff come by road." },
                 { "SkiResort.Hub.PROBLEM_TIP[SkiDaysNoGuestsNear]", "Ski-day guests come from homes and hotels, within the longest ski-day trip in Options. Beyond about 7 km few arrive in time." },
                 { "SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 600 m. Tourists from outside the city drive here, so none arrive. Hotel guests within 900 m walk." },
@@ -1406,7 +1408,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_TIP_DEPOT", "Coach bill: 1,500 a month plus 300 per straight-line km to the nearest hill lodge. It adds no skier room and no score." },
                 { "SkiResort.Hub.BUILD_SHORT[Patrol]", "Covers the steep runs nearby." },
                 { "SkiResort.Hub.BUILD_TIP_SCHOOL", "+12 on the Ski school row of the score while a <icon:green> run is <icon:openpatchy>. Residents go skiing 20 % more often." },
-                { "SkiResort.Hub.BUILD_TIP_ROAD_OPTIONAL", "Off-road, a cat track within 25 m that reaches a road lodge or Ski Bus Depot brings the utilities. No guests arrive there by road." },
+                { "SkiResort.Hub.BUILD_TIP_ROAD_OPTIONAL", "Off-road, utilities come by cat track within 25 m, linked track to track to a road lodge or bus depot. No guests arrive by road." },
                 { "SkiResort.Hub.BUILD_TIP_PATROL", "Within 1 km, <icon:black> and <icon:dblack> runs score 15 % more. Runs there without a lift still score at least 70 %." },
                 { "SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days stay full at a lift ticket price up to 40 higher." },
                 { "SkiResort.Hub.LIFT_TYPE[fixedGrip]", "Fixed-grip" },

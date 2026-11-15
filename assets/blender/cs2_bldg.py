@@ -1001,11 +1001,17 @@ FLAG_KIT = {"version": 1}
 # T175 (same round): the patrol hut P1's front gear. "rolls" = the six accent fence rolls (letter Y), "none" = no rolls,
 # "firewood" = no rolls + a vanilla FirewoodPileRandom01 row (recipes/patrol.py). lodge.py sets it from `--p1-gear`.
 PATROL_GEAR = {"p1": "rolls"}
-FLAG_RIPPLE_SEGS = 8        # strips along the fly
+FLAG_RIPPLE_SEGS = 14       # strips along the fly (8 under-sampled the second ripple)
 FLAG_RIPPLE_AMP = 0.12      # the wave's amplitude at the fly end, as a fraction of the cloth length (0.07 read flat)
 FLAG_RIPPLE_WAVES = 1.25    # waves along the fly
 FLAG_RIPPLE_LEAN = 0.8      # phase shift (rad) from the bottom to the top edge: the crest runs diagonally
 FLAG_RIPPLE_DROOP = 0.09    # the fly's top corner sits this fraction of the cloth height lower
+# the second, smaller ripple: a shorter wave whose crest leans the other way, so the creases cross and the flag reads
+# as cloth, not as one bent sheet. It grows faster toward the fly (the fly end flutters).
+FLAG_RIPPLE2_AMP = 0.07        # 0.04 read as one crease, 0.10 folds the fly end over
+FLAG_RIPPLE2_WAVES = 2.9
+FLAG_RIPPLE2_LEAN = -1.5
+FLAG_RIPPLE2_PHASE = 0.7
 
 
 class flag_kit:
@@ -1030,6 +1036,8 @@ def _flag_cloth_point(O, run, front, fw, fh, zc0, t, s, off=0.0):
     """A point of the rippled cloth: t along the fly (0 hoist, 1 fly), s up the cloth (0 bottom, 1 top), off = the
     sheet's own offset along `front` (+-0.005 for the two faces of the 1 cm cloth)."""
     wave = FLAG_RIPPLE_AMP * fw * (t ** 0.8) * math.sin(2.0 * math.pi * FLAG_RIPPLE_WAVES * t - FLAG_RIPPLE_LEAN * s)
+    wave += FLAG_RIPPLE2_AMP * fw * (t ** 1.3) * math.sin(2.0 * math.pi * FLAG_RIPPLE2_WAVES * t - FLAG_RIPPLE2_LEAN * s
+                                                          + FLAG_RIPPLE2_PHASE)
     z = zc0 + s * fh * (1.0 - FLAG_RIPPLE_DROOP * t)
     return O + run * (0.06 + fw * t) + front * (wave + off) + Vector((0.0, 0.0, z))
 
@@ -3496,7 +3504,7 @@ def flag_mast(name, x, y, h=8.0, flag=(1.6, 1.0), *, z0=GROUND_LIFT, along="X", 
     Fine-detail pass (design B.1, opt-in, fine=True): the mast is 12-seg with a 10-tri top cap (no bottom cap: it stands on
     its foot) and a 6 x 3 ball finial (FINIAL_R) sitting on the cap. The cloth is unchanged. 58 tris instead of 20.
 
-    Flag kit v2 (FLAG_KIT, T174): the accent slab ripples (_flag_cloth_point), 68 tris instead of 12. Emblem faces
+    Flag kit v2 (FLAG_KIT, T174): the accent slab ripples (_flag_cloth_point), 116 tris instead of 12. Emblem faces
     (face=True) stay flat single quads: the label painter needs one quad."""
     if str(along).upper() not in ("X", "Y"):
         raise ValueError(f"flag_mast {name}: along {along!r} (X | Y)")

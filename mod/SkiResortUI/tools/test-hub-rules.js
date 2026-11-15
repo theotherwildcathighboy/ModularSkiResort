@@ -878,10 +878,11 @@ function run(srcDir) {
     const status = read(path.join("hub", "StatusBlock.tsx"));
     const guests = read(path.join("hub", "GuestsView.tsx"));
     const text = read(path.join("hub", "hubText.ts"));
-    // Run-types round: the unlinked, noRuns and runsFlat rows join LodgeNoRoad, and no hub text says "Month of" (tiles, tickets and
-    // history name the bare month too).
+    // Run-types round: the unlinked, noRuns and runsFlat rows are title-only, and no hub text says "Month of" (tiles, tickets and
+    // history name the bare month too). T182 (2026-11-14): LodgeNoRoad left the set, its tooltip states the cat track supply rule.
     eq("T37.1 title-only band rows have no tooltip; header and rows of CAR SPACES have their own tips; no 'Month of' in hub text",
-      [status.includes('TITLE_ONLY_TIP: ReadonlySet<ProblemVariant> = new Set<ProblemVariant>(["lodgeNoRoad", "unlinked", "noRuns", "runsFlat"])') &&
+      [status.includes('TITLE_ONLY_TIP: ReadonlySet<ProblemVariant> = new Set<ProblemVariant>(["unlinked", "noRuns", "runsFlat"])') &&
+        status.includes('case "lodgeNoRoad": body = t(HUB_LOC.problemTipLodgeNoRoad)') &&
         status.includes("TITLE_ONLY_TIP.has(v) ? null : problemTip("),
         guests.includes("tip={t(HUB_LOC.guestsTipCarSpacesAll)}"), (guests.match(/HUB_LOC\.guestsTipCarSpaces\b/g) || []).length,
         /guestsTipPaid: \[[^\]]*"Month of/.test(text), /skiDaysTipSent: \[[^\]]*"Month of/.test(text), /"Month of/.test(text)],
