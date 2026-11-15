@@ -38,8 +38,7 @@ import type { LocEntry, Translate } from "../l10n";
 import { PLANNER_STEPS, plannerStepIndex, rejectSummary } from "./hubRules";
 import type { PlannerStep } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, QUICK_REJECT_TEXT, QUICK_SITE_TEXT, gladeLevelEntry, sentKeyEntry } from "./hubText";
-import { BandMarker, CheckBox, Divider, LocText, Tip, TipLines, cx, numArg } from "./parts";
-import { pctToDeg1 } from "./units";
+import { BandMarker, CheckBox, Divider, LocText, Tip, TipLines, cx, numArg, slopeArg, useUnits } from "./parts";
 import styles from "./hub.module.scss";
 
 /* QuickRunsRules.TreeLineStepM, and the coarse step. */
@@ -160,9 +159,10 @@ function StepStrip({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
 /* The step's line: what the tool is doing and the numbers of the region or the preview. */
 function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
   const lines: JSX.Element[] = [];
+  const units = useUnits();   // the site slope in degrees or percent (Options > Slope)
   /* The site verdict: one plain line beside the mix line (Preview) or under the region line (Region step). There is none while the grade is unknown. */
   const siteEntry = q.siteTier >= 1 && q.siteTier <= QUICK_SITE_TEXT.length ? QUICK_SITE_TEXT[q.siteTier - 1] : null;
-  const site = siteEntry ? <LocText key="site" entry={siteEntry} args={{ N: numArg(pctToDeg1(q.sitePercent), Unit.Angle) }} /> : null;
+  const site = siteEntry ? <LocText key="site" entry={siteEntry} args={{ N: slopeArg(q.sitePercent, units) }} /> : null;
   if (q.phase === "Scanning") {
     lines.push(<LocText key="scan" entry={HUB_FMT.quickScanning} args={{ P: numArg(Math.round(q.progress * 100), Unit.Percentage) }} />);
   } else if (q.phase === "Preview") {

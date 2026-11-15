@@ -33,6 +33,8 @@ namespace SkiResortMod.Systems
         private StringTooltip m_PlanLine, m_Honest, m_SiteDetail, m_Around, m_HoverPlan, m_HoverVerdict, m_HoverFit;
         private IntTooltip m_Scan;
         private IntTooltip m_Region, m_RegionMax, m_Vertical, m_Runs, m_Tracks, m_Fee, m_Skiers, m_Plant, m_Remove, m_TreeCost, m_TreeLine;
+        // The same four lines as text while Options > Lengths and elevation differs from the game's unit setting (UnitTooltipLine)
+        private UnitTooltipLine m_RegionUnits, m_RegionMaxUnits, m_VerticalUnits, m_TreeLineUnits;
         private readonly StringTooltip[] m_Warn = new StringTooltip[MaxWarnings];
         private readonly string[] m_LastWarn = new string[MaxWarnings];
         private string m_LastPrompt, m_LastNotice, m_LastStatus, m_LastMix, m_LastCluster, m_LastProgress, m_LastSite, m_LoggedPrompt;
@@ -77,6 +79,10 @@ namespace SkiResortMod.Systems
             m_Remove = new IntTooltip { path = "skiQuickRemove", label = LocalizedString.Id(P + "TREES_REMOVE"), unit = "integer" };
             m_TreeCost = new IntTooltip { path = "skiQuickTreeCost", label = LocalizedString.Id(P + "TREES_COST"), unit = "money" };
             m_TreeLine = new IntTooltip { path = "skiQuickTreeLine", label = LocalizedString.Id(P + "TREE_LINE"), unit = "height" };   // an elevation (T161)
+            m_RegionUnits = new UnitTooltipLine(m_Region.path, UnitTooltipLine.Kind.Area);
+            m_RegionMaxUnits = new UnitTooltipLine(m_RegionMax.path, UnitTooltipLine.Kind.Area);
+            m_VerticalUnits = new UnitTooltipLine(m_Vertical.path, UnitTooltipLine.Kind.Height);
+            m_TreeLineUnits = new UnitTooltipLine(m_TreeLine.path, UnitTooltipLine.Kind.Height);
             for (int i = 0; i < MaxWarnings; i++)
                 m_Warn[i] = new StringTooltip { path = "skiQuickWarn" + i, color = TooltipColor.Warning };
             Mod.Log.Info($"{nameof(QuickRunsTooltipSystem)} created");
@@ -106,14 +112,14 @@ namespace SkiResortMod.Systems
                 QuickRegionReadout ro = m_Tool.Readout;
                 if (phase == QuickRunsToolSystem.ToolPhase.Region && ro.State != QuickRegionState.Open)
                 {
-                    m_Region.value = (int)Math.Round(ro.AreaM2);
                     m_Region.color = ro.State == QuickRegionState.Over ? TooltipColor.Error
                         : ro.State == QuickRegionState.Near || ro.State == QuickRegionState.TooSmall ? TooltipColor.Warning : TooltipColor.Info;
-                    AddMouseTooltip(m_Region);
+                    m_Region.value = (int)Math.Round(ro.AreaM2);
+                    AddMouseTooltip(m_RegionUnits.Pick(m_Region, ro.AreaM2));
                     m_RegionMax.value = (int)Math.Round(m_Tool.MaxAreaM2);
-                    AddMouseTooltip(m_RegionMax);
+                    AddMouseTooltip(m_RegionMaxUnits.Pick(m_RegionMax, m_Tool.MaxAreaM2));
                     m_Vertical.value = (int)Math.Round(ro.VerticalM);
-                    AddMouseTooltip(m_Vertical);
+                    AddMouseTooltip(m_VerticalUnits.Pick(m_Vertical, ro.VerticalM));
                 }
                 // The hub's planner panel shows these lines. The cursor repeats them only with the hub closed
                 bool detail = !m_Hub.IsOpen;
@@ -234,7 +240,7 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < plan.Lifts.Length; i++)
                 if (plan.Lifts[i].Origin == LiftOrigin.Proposed)
                     proposed++;
-            bool imperial = DisplayState.Imperial;   // the strings carry the units (T161); a setting change differs the text, so it re-sets
+            bool imperial = DisplayState.LengthImperial;   // the strings carry the units (T161); a setting change differs the text, so it re-sets
             ShowValue(m_PlanLine, ref m_LastPlanLine, Template(P + "PLAN_LINE")
                 .Replace("{LIFTS}", proposed.ToString(CultureInfo.InvariantCulture))
                 .Replace("{KM}", DisplayUnits.LengthText(plan.RunKm * 1000f, imperial))
@@ -269,8 +275,8 @@ namespace SkiResortMod.Systems
                 string type = l.TypeIndex < SkiCatalog.Lifts.Count ? Template("SkiResort.Hub.LIFT_TYPE[" + SkiCatalog.Lifts[l.TypeIndex].Id + "]") : string.Empty;
                 ShowValue(m_HoverPlan, ref m_LastHoverPlan, Template(P + "LIFT_LINE")
                     .Replace("{ID}", id).Replace("{TYPE}", type)
-                    .Replace("{LENGTH}", DisplayUnits.LengthText(l.LengthM, DisplayState.Imperial))
-                    .Replace("{RISE}", DisplayUnits.HeightText(l.RiseM, DisplayState.Imperial))
+                    .Replace("{LENGTH}", DisplayUnits.LengthText(l.LengthM, DisplayState.LengthImperial))
+                    .Replace("{RISE}", DisplayUnits.HeightText(l.RiseM, DisplayState.LengthImperial))
                     .Replace("{RUNS}", l.Serves.ToString(CultureInfo.InvariantCulture)));
                 if (l.Home != HomeVerdict.None)
                     Show(m_HoverVerdict, ref m_LastHoverVerdict, P + "VERDICT[" + l.Home + "]");
@@ -336,12 +342,10 @@ namespace SkiResortMod.Systems
             if (!float.IsInfinity(line) && line < m_Tool.GroundMax + QuickRunsRules.TreeLineStepM)
             {
                 m_TreeLine.value = (int)Math.Round(line);
-                AddMouseTooltip(m_TreeLine);
+                AddMouseTooltip(m_TreeLineUnits.Pick(m_TreeLine, line));
             }
         }
 
-        /// <summary>The active dictionary's text for a template key (the SkiDaySystem.ReachRowText precedent). The key itself when
-        /// absent.</summary>
         /// <summary>One line: "Steep slope, 18.3° average: ..." (QUICK_SITE[*]; the tier still reads the whole percent, the text shows
         /// degrees since T160). Nothing while the grade is unknown.</summary>
         private void ShowSite(float meanGrade)
@@ -349,7 +353,7 @@ namespace SkiResortMod.Systems
             int pct = QuickRunsRules.SitePercent(meanGrade);
             string key = QuickRunsRules.SiteKey(QuickRunsRules.SiteTierOf(pct));
             if (key != null)
-                ShowValue(m_Site, ref m_LastSite, Template(key).Replace("{N}", DisplayUnits.SlopeText(pct / 100f)));
+                ShowValue(m_Site, ref m_LastSite, Template(key).Replace("{N}", DisplayUnits.SlopeText(pct / 100f, DisplayState.SlopePercent)));
         }
 
         /// <summary>The text of a key in the active dictionary, in the run grading's variant (DisplayText.Key, T162).</summary>

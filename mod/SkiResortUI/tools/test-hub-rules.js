@@ -677,7 +677,7 @@ function run(srcDir) {
     [(viewSrc.match(/points: linePoints\(/g) || []).length, chartSrc.includes("gapMarks(slots"), chartSrc.includes("hatchPath("), chartSrc.includes('node: "0"'), /value: \(i\) => b\(i\)\.(skiDays|net|attraction)/.test(viewSrc)],
     [5, true, true, true, false]);
   eq("T21.3 B5a: the status line renders STATUS_SNOW (or its inch form, T130) from snowDepthCm and snowPct (snow is two numbers, T18)",
-    ["HUB_FMT.statusSnow", "HUB_FMT.statusSnowIn", "l.snowDepthCm", "l.snowPct", "useInches()"].map((x) => statusSrc.includes(x)), [true, true, true, true, true]);
+    ["HUB_FMT.statusSnow", "HUB_FMT.statusSnowIn", "l.snowDepthCm", "l.snowPct", "useUnits().depthImperial"].map((x) => statusSrc.includes(x)), [true, true, true, true, true]);
   eq("T21.4 B6: operator cells + + + x x on the receipt's term rows (Scale went in the 2026-11-07 redesign); no SCORE_OF key left",
     [(overview.match(/op="([^"]*)"/g) || []).map((m) => m.slice(4, -1)), tuples.has("SkiResort.Hub.SCORE_OF"), overview.includes("scoreTickPark")],
     [["+", "+", "+", "×", "×"], false, true]);
@@ -1269,6 +1269,37 @@ function run(srcDir) {
     const euKeys = [...allKeys].filter((k) => k.endsWith("@EU"));
     const orphans = euKeys.filter((k) => !allKeys.has(k.slice(0, -3)) && !k.startsWith("SkiResort.SlopeBand["));
     eq("T60.10 every @EU entry of hubText.ts has its base entry (band names: the C# drawing tooltip's), at least 20 of them", [orphans, euKeys.length >= 20], [[], true]);
+    // The four Options (grading, lengths, weather, slope) are independent: the hub reads grading from gradeScheme and the other three
+    // from the packed displayUnits (C# DisplayUnits.PackUnits; ResortBatch DU-7 pins the same packed values).
+    const csUnits = fs.readFileSync(path.join(srcDir, "..", "..", "SkiResortMod", "Systems", "DisplayUnits.cs"), "utf8");
+    const csConst = (n) => { const m = csUnits.match(new RegExp("const int " + n + " = (\\d+);")); return m ? Number(m[1]) : null; };
+    eq("T60.11 UNITS bits equal C# DisplayUnits.Pack*; the fallback is metric, °C, degrees",
+      [BIND.UNITS.LengthImperial, BIND.UNITS.DepthImperial, BIND.UNITS.TempShift, BIND.UNITS.TempMask, BIND.UNITS.SlopePercent, BIND.FALLBACK.displayUnits],
+      [csConst("PackLengthImperial"), csConst("PackDepthImperial"), csConst("PackTempShift"), csConst("PackTempMask"), csConst("PackSlopePercent"), 0]);
+    const show = (scheme, packed) => { const u = U.unpackUnits(packed); return [U.isEuropean(scheme), u.lengthImperial, u.depthImperial, u.temperature, u.slopePercent]; };
+    eq("T60.12 mixed choices: North American + metric + °C (0), European + imperial + °F (7), all imperial + percent (23), Kelvin from the game (8), metric lengths + inches + °F (6)",
+      [show(0, 0), show(1, 7), show(0, 23), show(0, 8), show(0, 6)],
+      [[false, false, false, 0, false], [true, true, true, 1, false], [false, true, true, 1, true], [false, false, false, 2, false], [false, false, true, 1, false]]);
+    eq("T60.12b unpackUnits: an unknown temperature value (3) or a non-number reads metric °C degrees",
+      [U.unpackUnits(12).temperature, U.unpackUnits(NaN), U.unpackUnits(undefined)],
+      [0, { lengthImperial: false, depthImperial: false, temperature: 0, slopePercent: false }, { lengthImperial: false, depthImperial: false, temperature: 0, slopePercent: false }]);
+    const game = { timeFormat: 1, temperatureUnit: 0, unitSystem: 0 };
+    const imp = U.unpackUnits(1 | (1 << 2));
+    eq("T60.13 unitSettingsFor: lengths take the chosen unit system, temperature the chosen unit, other units and an equal choice keep the game's object",
+      [U.unitSettingsFor(game, "length", imp), U.unitSettingsFor(game, "height", imp).unitSystem, U.unitSettingsFor(game, "area", imp).unitSystem,
+        U.unitSettingsFor(game, "temperature", imp), U.unitSettingsFor(game, "percentage", imp) === game, U.unitSettingsFor(game, "length", U.unpackUnits(0)) === game,
+        U.unitSettingsFor(game, "volume", imp) === game],
+      [{ timeFormat: 1, temperatureUnit: 0, unitSystem: 1 }, 1, 1, { timeFormat: 1, temperatureUnit: 1, unitSystem: 0 }, true, true, true]);
+    eq("T60.14 slopeValue: degrees one decimal, or whole percent grade; unknown stays -1",
+      [U.slopeValue(25, false), U.slopeValue(25, true), U.slopeValue(35.4, true), U.slopeValue(40, false), U.slopeValue(-1, true), U.slopeValue(NaN, false)],
+      [14, 25, 35, 21.8, -1, -1]);
+    const partsSrc = fs.readFileSync(path.join(srcDir, "hub", "parts.tsx"), "utf8");
+    const viewSrcs = allSrc.filter(([p]) => /[\\/]hub[\\/]/.test(p) && !/units\.ts$/.test(p));
+    eq("T60.15 every number goes through unitLoc (Num, numArg, the width samples); no view reads the game's unit setting itself; slopes use slopeArg",
+      [partsSrc.includes("LocalizedNumber.renderString(unitLoc(loc, unit)"), partsSrc.includes("<UnitNumber value={value}"), partsSrc.includes("render(unitLoc(loc, unit)"),
+        viewSrcs.filter(([, x]) => /useInches|unitSettings\.unitSystem/.test(x)).map(([p]) => path.basename(p)),
+        viewSrcs.filter(([, x]) => /pctToDeg1\(/.test(x)).map(([p]) => path.basename(p))],
+      [true, true, true, [], []]);
   }
 
   // T44 the Resort Planner's step strip (T167, post-release round 1): order region, scan, build, trees, lifts (5 = all done).

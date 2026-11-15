@@ -56,7 +56,8 @@ namespace SkiResortMod.Systems
         private TooltipGroup m_AlignGroup;
         private StringTooltip m_Straight, m_FacingAway, m_PartnerAway;
         private FloatTooltip m_Offset, m_Angle, m_Distance, m_Rise;
-        private int m_GroupLayout = -1;   // (int)StationAlign.Readout of the current child list. -1 = none
+        private int m_GroupLayout = -1;   // (int)StationAlign.Readout * 2 + text lines (UnitTooltipLine) of the current child list. -1 = none
+        private UnitTooltipLine m_OffsetUnits, m_DistanceUnits, m_RiseUnits, m_LengthUnits;   // as text while Options > Lengths differs
         private StringTooltip m_NoPartner;
 
         // Bulldozer (mouse).
@@ -182,6 +183,10 @@ namespace SkiResortMod.Systems
                 unit = "length",
             };
 
+            m_OffsetUnits = new UnitTooltipLine(m_Offset.path, UnitTooltipLine.Kind.Length);
+            m_DistanceUnits = new UnitTooltipLine(m_Distance.path, UnitTooltipLine.Kind.Length);
+            m_RiseUnits = new UnitTooltipLine(m_Rise.path, UnitTooltipLine.Kind.Height);
+            m_LengthUnits = new UnitTooltipLine(m_Length.path, UnitTooltipLine.Kind.Length);
             Mod.Log.Info($"{nameof(SkiLiftTooltipSystem)} created");
         }
 
@@ -259,7 +264,17 @@ namespace SkiResortMod.Systems
             }
             StationAlign.Result r = m_Align.Last;
             StationAlign.Readout cls = StationAlign.Classify(r);
-            int layout = (int)cls;
+            // Values first: Pick builds the text lines from them (Options > Lengths and elevation, UnitTooltipLine)
+            if (cls != StationAlign.Readout.Straight)
+            {
+                m_Offset.value = Tenths(r.LateralM);
+                m_Angle.value = Tenths(r.YawDeg);
+            }
+            m_Distance.value = math.round(r.DistanceM);
+            m_Rise.value = math.round(r.RiseM);
+            IWidget offset = m_OffsetUnits.Pick(m_Offset, r.LateralM), distance = m_DistanceUnits.Pick(m_Distance, r.DistanceM),
+                rise = m_RiseUnits.Pick(m_Rise, r.RiseM);
+            int layout = (int)cls * 2 + (ReferenceEquals(distance, m_Distance) ? 0 : 1);
             if (layout != m_GroupLayout)
             {
                 m_GroupLayout = layout;
@@ -270,22 +285,15 @@ namespace SkiResortMod.Systems
                 }
                 else
                 {
-                    m_AlignGroup.children.Add(m_Offset);
+                    m_AlignGroup.children.Add(offset);
                     m_AlignGroup.children.Add(cls == StationAlign.Readout.FacingAway ? m_FacingAway
                         : cls == StationAlign.Readout.PartnerFacingAway ? (IWidget)m_PartnerAway
                         : m_Angle);
                 }
-                m_AlignGroup.children.Add(m_Distance);
-                m_AlignGroup.children.Add(m_Rise);
+                m_AlignGroup.children.Add(distance);
+                m_AlignGroup.children.Add(rise);
                 m_AlignGroup.SetChildrenChanged();
             }
-            if (cls != StationAlign.Readout.Straight)
-            {
-                m_Offset.value = Tenths(r.LateralM);
-                m_Angle.value = Tenths(r.YawDeg);
-            }
-            m_Distance.value = math.round(r.DistanceM);
-            m_Rise.value = math.round(r.RiseM);
 
             if (onMouse)
             {
@@ -381,7 +389,7 @@ namespace SkiResortMod.Systems
             if (sections > 0)
             {
                 m_Length.value = math.round(length);
-                AddMouseTooltip(m_Length);
+                AddMouseTooltip(m_LengthUnits.Pick(m_Length, length));
             }
             if (stub)
                 AddMouseTooltip(m_Stub);

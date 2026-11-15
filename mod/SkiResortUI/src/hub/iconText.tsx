@@ -19,7 +19,7 @@
 import { Fragment } from "react";
 import { useValue } from "cs2/api";
 import { useLocalization } from "cs2/l10n";
-import { gradeScheme$ } from "../bindings";
+import { displayUnits$, gradeScheme$ } from "../bindings";
 import type { LocReactNode, Localization, LocStringRenderer, PropsAreEqual } from "cs2/l10n";
 import { LocalizedString } from "../cs2shim";
 import type { LocEntry, Translate } from "../l10n";
@@ -77,6 +77,7 @@ function Para({ tokens, mode, word }: { tokens: readonly IconToken[]; mode: Icon
 function IconTextView(p: IconTextProps): JSX.Element {
   const loc = useLocalization();
   useValue(gradeScheme$);   // re-render when the run grading changes (tagForm and the icon table read it)
+  useValue(displayUnits$);   // and when a unit choice changes (number arguments read it, parts.tsx unitLoc)
   const mode = iconMode();
   const s = unitNbsp(tagForm(loc, p));   // a number keeps its unit on one line (render time only; renderString keeps ASCII)
   const word = (name: string): string => wordOf(loc, name);

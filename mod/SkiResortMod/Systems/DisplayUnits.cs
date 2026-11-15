@@ -1,13 +1,19 @@
 // The display layer for numbers and grading names the player reads (post-release round 1, T160 T161 T162). Internal math stays in
 // grade (rise / run) and meters. Every conversion for display goes through this file (C#) or src/hub/units.ts (the hub), which
 // mirrors the same factors and rules (ResortBatch DU-* and test-hub-rules.js check both).
-//   Slopes     degrees with one decimal (vanilla unit "angle" drops a trailing .0): GradeToDeg, Deg1.
-//   Units      the game's own setting (InterfaceSettings.unitSystem, Metric / Freedom). Lengths, heights and areas go through vanilla's
-//              formatter (units "length", "height", "area": m / km or yd / mi, m or ft). What vanilla cannot format (earthwork, line
-//              speed, hectares, snow depth) uses the factors below and the SkiResort.Unit.* keys.
+//   Four Options, each independent (players mix them: North American run names with metric heights and °C is common):
 //   Grading    North American (green circle, blue square, black diamond, double black) or European (blue, red, black, expert black).
 //              Display only: SlopeBand, run kinds and saved data never change. ResolveScheme picks it from the Options value and the
 //              city theme (ThemePrefab name "European" / "North American": the theme ids of the new-game menu, decompile 1.6.4f1).
+//   Lengths    length, height, elevation, vertical drop, area, earthwork and line speed: metric or imperial. Auto = the game's unit
+//              setting (InterfaceSettings.unitSystem). ResolveImperial.
+//   Weather    temperature (°C / °F) and snow depth (cm / in). Auto = the game's temperature unit (°C / °F / K) and unit system.
+//              ResolveTemperature, ResolveImperial.
+//   Slope      degrees with one decimal (default, vanilla unit "angle" drops a trailing .0) or whole percent grade.
+//   Vanilla's own UI keeps following the game's setting: these Options change only the mod's text. Where the resolved choice equals
+//   the game's setting, the mod uses vanilla's formatter (units "length", "height", "temperature"); otherwise the SkiResort.Unit.* keys
+//   with the number converted here. What vanilla cannot format (earthwork, line speed, hectares, snow depth) always uses those keys.
+//   The hub reads the resolved choices as one packed int (PackUnits, binding displayUnits, src/hub/units.ts unpackUnits).
 // Pure file: `using System;` only (the ResortBatch and GradeBatch hosts link it).
 
 using System;
@@ -29,8 +35,75 @@ namespace SkiResortMod.Systems
         European = 2,
     }
 
+    /// <summary>The Options value of a unit category (SkiResortSettings.UnitLengths, UnitWeather). Auto follows the game's setting.
+    /// The values are saved in the settings file: never renumber.</summary>
+    public enum UnitOption
+    {
+        Auto = 0,
+        Metric = 1,
+        Imperial = 2,
+    }
+
+    /// <summary>The Options value of the slope format (SkiResortSettings.SlopeUnit). Saved: never renumber.</summary>
+    public enum SlopeOption
+    {
+        Degrees = 0,
+        Percent = 1,
+    }
+
+    /// <summary>A temperature unit, in the values of vanilla's InterfaceSettings.TemperatureUnit and the UI's TemperatureUnit.</summary>
+    public enum TempUnit
+    {
+        Celsius = 0,
+        Fahrenheit = 1,
+        Kelvin = 2,
+    }
+
     public static class DisplayUnits
     {
+        // The packed display choices the hub reads (binding displayUnits; src/hub/units.ts UNITS_* reads the same bits).
+        public const int PackLengthImperial = 1;
+        public const int PackDepthImperial = 2;
+        public const int PackTempShift = 2;      // bits 2-3: TempUnit
+        public const int PackTempMask = 3;
+        public const int PackSlopePercent = 16;
+
+        /// <summary>Imperial or not for a unit category: the Options value, or for Auto the game's unit setting.</summary>
+        public static bool ResolveImperial(UnitOption option, bool gameImperial)
+        {
+            switch (option)
+            {
+                case UnitOption.Metric: return false;
+                case UnitOption.Imperial: return true;
+                default: return gameImperial;
+            }
+        }
+
+        /// <summary>The temperature unit: Metric °C, Imperial °F, Auto the game's own temperature unit (an unknown value reads °C).</summary>
+        public static TempUnit ResolveTemperature(UnitOption weather, int gameTemperatureUnit)
+        {
+            switch (weather)
+            {
+                case UnitOption.Metric: return TempUnit.Celsius;
+                case UnitOption.Imperial: return TempUnit.Fahrenheit;
+                default:
+                    return gameTemperatureUnit == (int)TempUnit.Fahrenheit ? TempUnit.Fahrenheit
+                        : gameTemperatureUnit == (int)TempUnit.Kelvin ? TempUnit.Kelvin : TempUnit.Celsius;
+            }
+        }
+
+        /// <summary>The resolved choices as the hub's packed int.</summary>
+        public static int PackUnits(bool lengthImperial, bool depthImperial, TempUnit temperature, bool slopePercent) =>
+            (lengthImperial ? PackLengthImperial : 0) | (depthImperial ? PackDepthImperial : 0)
+            | (((int)temperature & PackTempMask) << PackTempShift) | (slopePercent ? PackSlopePercent : 0);
+
+        /// <summary>A temperature in °C in a unit (vanilla's factors: °F = 9/5 °C + 32, K = °C + 273.16).</summary>
+        public static float Temperature(float celsius, TempUnit unit) =>
+            unit == TempUnit.Fahrenheit ? celsius * 9f / 5f + 32f : unit == TempUnit.Kelvin ? celsius + 273.16f : celsius;
+
+        /// <summary>A grade as whole percent (0.25 = 25), half away from zero: the Percent slope format.</summary>
+        public static int GradePct(float grade) => Whole(grade * 100f);
+
         /// <summary>The ThemePrefab name of the European theme (the new-game menu's theme id).</summary>
         public const string ThemeEuropean = "European";
 
@@ -100,11 +173,16 @@ namespace SkiResortMod.Systems
         public static string AreaHaText(float ha, bool imperial) =>
             AreaHa(ha, imperial).ToString("#,0.0", System.Globalization.CultureInfo.InvariantCulture) + (imperial ? " acres" : " ha");
 
-        /// <summary>A grade as slope text: "14.2°" (one decimal, a trailing .0 dropped like vanilla's "angle").</summary>
-        public static string SlopeText(float grade)
+        /// <summary>A grade as slope text: "14.2°" (one decimal, a trailing .0 dropped like vanilla's "angle"), or "25%" when `percent`
+        /// (whole percent grade, vanilla's "percentage" look).</summary>
+        public static string SlopeText(float grade, bool percent = false)
         {
+            if (float.IsNaN(grade) || float.IsInfinity(grade))
+                return "–";
+            if (percent)
+                return GradePct(grade).ToString("#,0", System.Globalization.CultureInfo.InvariantCulture) + "%";
             float d = Deg1(grade);
-            return float.IsNaN(d) ? "–" : d.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "°";
+            return d.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "°";
         }
 
         /// <summary>A height as text for a 3D label: "350 m", or "1,148 ft" when imperial (whole, thousands separated, invariant).</summary>

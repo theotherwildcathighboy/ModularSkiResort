@@ -679,6 +679,7 @@ type Game.UI.UISystemBase class 35bff48b2e
 type Game.UI.UIUpdateSystem class 26a9094fc5
 type Game.UI.Unit class a88cd2dede
 type Game.UI.Widgets.IWidget interface 397bbb6e92
+type Game.UI.Widgets.PathSegment struct 58a351762a m_Key:string m_Index:int
 type Game.UI.Widgets.Widget class b2f94e9abf
 type Game.UpdateSystem class 407c5a78f3
 type Game.Vehicles.Bicycle struct fa78669bdc burst:r:SkiDaySystem

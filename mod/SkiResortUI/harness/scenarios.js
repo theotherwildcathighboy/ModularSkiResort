@@ -295,7 +295,7 @@
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800 };
-  const base = { hubOpen: false, contract: 45, gradeScheme: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 46, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
@@ -307,6 +307,11 @@
     "contract mismatch (DLL 20, UI 21)": Object.assign({}, base, { contract: 20, hubOpen: true }),
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
+      glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),
+    // The four display Options mixed (post-release round 1): European grading, imperial lengths, inches and °F, percent slopes (displayUnits
+    // 23 = UNITS LengthImperial | DepthImperial | °F | SlopePercent). The layout check and the tooltip pass include it (layout-check.js).
+    "Ash Flat (runs, lifts, problems), European grading, imperial, °F, percent slopes": Object.assign({}, base, { hubOpen: true, resorts,
+      resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history, gradeScheme: 1, displayUnits: 23,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),
     // Drawing a run (contract 33): the Run tile active, its option row (Groomed on, guns every 60 m, lights Off) in place of the run panel.
     "Drawing a run, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive,

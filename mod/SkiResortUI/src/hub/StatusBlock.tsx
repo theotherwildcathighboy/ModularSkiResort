@@ -23,7 +23,7 @@ import {
 import type { BandRow, ProblemClick, ProblemVariant } from "./hubRules";
 import { problemsOpen$, view$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, LODGE_BUILDING, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
-import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, depthValue, numArg, useInches } from "./parts";
+import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, depthValue, numArg, useUnits } from "./parts";
 import { IconText } from "./iconText";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
@@ -350,7 +350,7 @@ export function StatusBlock({ statusRef, problemsRef }: {
   const live = useValue(resortLive$);
   const problems = useValue(problems$);
   const city = useValue(city$);
-  const inches = useInches();   // the player's units for snow depth
+  const inches = useUnits().depthImperial;   // snow depth in cm or inches (Options > Weather); the temperature follows unitLoc
 
   const cur = currentResort(resortEntries(resorts), selected);
   const row = cur.row;

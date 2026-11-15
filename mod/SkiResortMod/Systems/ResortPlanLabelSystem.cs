@@ -153,7 +153,7 @@ namespace SkiResortMod.Systems
                     LastDrawn = 0;   // zoomed in or out of the labels' range: nothing to build or draw
                     return;
                 }
-                if (!ReferenceEquals(plan, m_BuiltFor) || m_BuiltImperial != DisplayState.Imperial)
+                if (!ReferenceEquals(plan, m_BuiltFor) || m_BuiltImperial != DisplayState.LengthImperial)
                     Rebuild(result, plan);
                 if (m_Labels.Count != 0)
                     Draw(cam);
@@ -182,7 +182,7 @@ namespace SkiResortMod.Systems
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             m_Dropped = 0;
             m_BuiltFor = plan;
-            bool imperial = m_BuiltImperial = DisplayState.Imperial;
+            bool imperial = m_BuiltImperial = DisplayState.LengthImperial;
             Rebuilds++;
             ReleaseLabels();
             TerrainHeightData hd = m_Terrain.GetHeightData();

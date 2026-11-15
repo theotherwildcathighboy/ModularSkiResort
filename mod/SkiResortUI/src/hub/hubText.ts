@@ -712,17 +712,17 @@ export const HUB_FMT = {
   diffTipPending: ["SkiResort.Hub.DIFF_TIP_PENDING", "Being rated: {N}"],
   diffTipUnrateable: ["SkiResort.Hub.DIFF_TIP_UNRATEABLE", "Cannot be rated: {N}"],
   areaHa: ["SkiResort.Hub.AREA_HA", "{HA} ha"],
-  /** The game's unit setting is US customary (T161, parts.tsx areaArg / speedArg). */
+  /** Options > Lengths and elevation is imperial (T161, parts.tsx areaArg / speedArg). */
   areaAcres: ["SkiResort.Hub.AREA_ACRES", "{HA} acres"],
   speedMps: ["SkiResort.Hub.SPEED_MPS", "{N} m/s"],
   speedFpm: ["SkiResort.Hub.SPEED_FPM", "{N} ft/min"],
   snowDepth: ["SkiResort.Hub.SNOW_DEPTH", "{DEPTH} cm"],
-  // the depth under vanilla's US customary units (parts.tsx useInches / depthValue: whole inches)
+  // the depth under vanilla's US customary units (Options > Weather, parts.tsx useUnits().depthImperial / depthValue: whole inches)
   snowDepthIn: ["SkiResort.Hub.SNOW_DEPTH_IN", "{DEPTH} in"],
   runOpenOpen: ["SkiResort.Hub.RUN_OPEN[Open]", "Open: {PCT} of it has at least {KEEP} of snow"],
   runOpenPartly: ["SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: {PCT} of it has enough snow to ski"],
   runOpenClosed: ["SkiResort.Hub.RUN_OPEN[Closed]", "Closed: {PCT} of it has {OPEN} of snow. It opens at 60 %"],
-  /* {DEPTH} = RunLive.snowDepthCm in cm, or whole inches under US units (parts.tsx useInches / depthValue), like SNOW_DEPTH */
+  /* {DEPTH} = RunLive.snowDepthCm in cm, or whole inches under Options > Weather Imperial (parts.tsx useUnits / depthValue), like SNOW_DEPTH */
   runDepth: ["SkiResort.Hub.RUN_DEPTH", "Snow depth {DEPTH} cm"],
   runDepthIn: ["SkiResort.Hub.RUN_DEPTH_IN", "Snow depth {DEPTH} in"],
   runServed: ["SkiResort.Hub.RUN_SERVED", "Served by {NAME}"],

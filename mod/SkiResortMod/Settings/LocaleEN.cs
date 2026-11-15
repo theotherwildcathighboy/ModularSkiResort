@@ -62,6 +62,40 @@ namespace SkiResortMod.Settings
                 { m_Setting.GetEnumValueLocaleID(GradeSchemeOption.Auto), "Auto (city theme)" },
                 { m_Setting.GetEnumValueLocaleID(GradeSchemeOption.NorthAmerican), "North American" },
                 { m_Setting.GetEnumValueLocaleID(GradeSchemeOption.European), "European" },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.UnitLengths)),
+                    "Lengths and elevation"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.UnitLengths)),
+                    "The units of lengths, heights, elevations, vertical drops, areas, earthwork and lift speed in the ski " +
+                    "resort's text. Metric: m, km, ha, m³ and m/s. Imperial: ft, yd, mi, acres, yd³ and ft/min. Auto follows " +
+                    "the game's unit system. The rest of the game keeps the game's setting."
+                },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.UnitWeather)),
+                    "Weather"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.UnitWeather)),
+                    "The units of temperature and snow depth in the ski resort's text. Metric: °C and cm. Imperial: °F and " +
+                    "inches. Auto follows the game's temperature unit and unit system. The rest of the game keeps the " +
+                    "game's setting."
+                },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SlopeUnit)),
+                    "Slope"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SlopeUnit)),
+                    "How the ski resort's text shows a slope. Degrees: the angle from level. Percent: the grade, rise over run. " +
+                    "A 25 % grade is 14°. Ratings stay the same."
+                },
+                { m_Setting.GetEnumValueLocaleID(UnitOption.Auto), "Auto (game setting)" },
+                { m_Setting.GetEnumValueLocaleID(UnitOption.Metric), "Metric" },
+                { m_Setting.GetEnumValueLocaleID(UnitOption.Imperial), "Imperial" },
+                { m_Setting.GetEnumValueLocaleID(SlopeOption.Degrees), "Degrees" },
+                { m_Setting.GetEnumValueLocaleID(SlopeOption.Percent), "Percent grade" },
 
                 // --- Balance and Snow ---
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupBalance), "Ski area balance" },

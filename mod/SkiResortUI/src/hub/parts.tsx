@@ -14,21 +14,44 @@ import type { ReactNode } from "react";
 import { useValue } from "cs2/api";
 import { Tooltip } from "cs2/ui";
 import { Unit, useLocalization } from "cs2/l10n";
-import type { LocStringRenderer, LocalizedStringProps, PropsAreEqual } from "cs2/l10n";
+import type { LocStringRenderer, Localization, LocalizedNumberProps, LocalizedStringProps, PropsAreEqual } from "cs2/l10n";
 import { LocalizedNumber, LocalizedString } from "../cs2shim";
-import { gradeScheme$ } from "../bindings";
+import { displayUnits$, gradeScheme$ } from "../bindings";
 import type { LocEntry } from "../l10n";
 import { GLYPH_INFO, unitNbsp } from "./hubRules";
 import { EU_TEXT, HUB_FMT } from "./hubText";
-import { areaHa, bandShape, schemeEntry, speed } from "./units";
+import { areaHa, bandShape, schemeEntry, slopeValue, speed, unitSettingsFor, unpackUnits } from "./units";
+import type { DisplayUnits } from "./units";
 import { IconKey, iconKeyOf } from "./iconKey";
 import styles from "./hub.module.scss";
 
-/** True while vanilla's unit setting is US customary (UnitSystem.Freedom = 1). Snow depth is the one unit vanilla has no
- *  format for, so the hub then shows whole inches (SNOW_DEPTH_IN / STATUS_SNOW_IN). Otherwise it shows cm. */
-export function useInches(): boolean {
-  const loc = useLocalization();
-  return !!loc && !!loc.unitSettings && loc.unitSettings.unitSystem === 1;
+/** The resolved unit and slope choices (Options > Lengths and elevation, Weather, Slope; binding displayUnits, units.ts unpackUnits).
+ *  Re-renders the caller when one changes. Snow depth has no vanilla format: depthImperial picks whole inches (SNOW_DEPTH_IN). */
+export function useUnits(): DisplayUnits {
+  return unpackUnits(useValue(displayUnits$));
+}
+
+/** The localization vanilla's number formatter reads for one unit: the game's, with the unit system (lengths, heights, areas) or the
+ *  temperature unit of the mod's Options (units.ts unitSettingsFor). Vanilla formats by loc.unitSettings (installed index.js unit
+ *  table reads the unit system and the temperature unit from its loc argument), so a derived object with only unitSettings replaced keeps
+ *  every other lookup (Object.create: the prototype is the game's object). Reads the binding's current value (render time, like
+ *  stringProps); cached per localization and choice. */
+const unitLocCache = new WeakMap<Localization, Map<string, Localization>>();
+export function unitLoc(loc: Localization, unit: string): Localization {
+  const game = loc && loc.unitSettings;
+  if (!game) return loc;
+  const settings = unitSettingsFor(game, unit, unpackUnits(displayUnits$.value));
+  if (settings === game) return loc;
+  const key = settings.unitSystem + "|" + settings.temperatureUnit;
+  let byKey = unitLocCache.get(loc);
+  if (!byKey) unitLocCache.set(loc, (byKey = new Map()));
+  let out = byKey.get(key);
+  if (!out) {
+    out = Object.create(loc) as Localization;
+    Object.defineProperty(out, "unitSettings", { value: settings });
+    byKey.set(key, out);
+  }
+  return out;
 }
 
 /** The snow depth number in the shown unit: cm, or whole inches (1 in = 2.54 cm) when `inches` */
@@ -41,8 +64,19 @@ export function depthValue(cm: number, inches: boolean): number {
  *  text node with one character changed. */
 function NumText({ value, unit, signed }: { value: number; unit: Unit; signed?: boolean }): JSX.Element {
   const loc = useLocalization();
-  return <>{unitNbsp(LocalizedNumber.renderString(loc, { value, unit, signed }))}</>;
+  useValue(displayUnits$);   // re-render when a unit choice changes (unitLoc reads it)
+  return <>{unitNbsp(LocalizedNumber.renderString(unitLoc(loc, unit), { value, unit, signed }))}</>;
 }
+
+/** LocalizedNumber in the mod's unit choices: the same renderString on unitLoc. A LocComponent, so it may be a <LocText> argument. */
+const renderUnitNumber: LocStringRenderer<LocalizedNumberProps> = (loc, p) => LocalizedNumber.renderString(unitLoc(loc, p.unit as string), p);
+const unitNumberPropsEqual: PropsAreEqual<LocalizedNumberProps> = (a, b) => LocalizedNumber.propsAreEqual(a, b);
+function UnitNumberView(p: LocalizedNumberProps): JSX.Element {
+  const loc = useLocalization();
+  useValue(displayUnits$);
+  return <>{renderUnitNumber(loc, p)}</>;
+}
+const UnitNumber = Object.assign(UnitNumberView, { renderString: renderUnitNumber, propsAreEqual: unitNumberPropsEqual });
 
 /** A number with its unit. A value that is not finite shows "–" (never "NaN m"). */
 export function Num({ value, unit, signed }: { value: number; unit: Unit; signed?: boolean }): JSX.Element {
@@ -63,6 +97,7 @@ function stringProps(p: LocTextProps): LocalizedStringProps {
 function LocTextView(p: LocTextProps): JSX.Element {
   const loc = useLocalization();
   useValue(gradeScheme$);   // re-render when the run grading changes (stringProps reads it)
+  useValue(displayUnits$);   // and when a unit choice changes (its number arguments read it, unitLoc)
   return <>{renderLocText(loc, p)}</>;
 }
 
@@ -190,11 +225,12 @@ function zeroDigits(s: string): string {
  */
 export function useNumberSamples(): NumberSamples {
   const loc = useLocalization();
+  const units = useValue(displayUnits$);   // the samples follow the unit choices (unitLoc)
   return useMemo(() => {
     try {
       const render = LocalizedNumber.renderString;
       if (typeof render !== "function") return NO_SAMPLES;
-      const r = (value: number, unit: Unit, signed?: boolean): string => zeroDigits(String(render(loc, { value, unit, signed })));
+      const r = (value: number, unit: Unit, signed?: boolean): string => zeroDigits(String(render(unitLoc(loc, unit), { value, unit, signed })));
       const uniq = (xs: string[]): string[] => xs.filter((x, i) => xs.indexOf(x) === i);
       return {
         ok: true,
@@ -209,7 +245,7 @@ export function useNumberSamples(): NumberSamples {
     } catch {
       return NO_SAMPLES;
     }
-  }, [loc]);
+  }, [loc, units]);
 }
 
 export type SampleKind = "length" | "height" | "area";
@@ -282,11 +318,17 @@ export function BandMarker({ band }: { band: number }): JSX.Element {
  */
 export function numArg(value: number, unit: Unit, signed?: boolean, minusIsUnknown = true): JSX.Element | string {
   if (typeof value !== "number" || !Number.isFinite(value) || (minusIsUnknown && value < 0 && !signed)) return "–";
-  return <LocalizedNumber value={value} unit={unit} signed={!!signed && value !== 0} />;
+  return <UnitNumber value={value} unit={unit} signed={!!signed && value !== 0} />;
 }
 
-/** An area in hectares as a value or a <LocText> argument: "3.2 ha", or "7.9 acres" while the game's unit setting is US customary
- *  (T161; vanilla's own area unit would show m² / ft² for a run). Unknown (negative, missing) gives "–". */
+/** A percent grade (25 = 25 %) as the shown slope, a value or a <LocText> argument: degrees with one decimal (Unit.Angle), or whole
+ *  percent grade (Unit.Percentage) under Options > Slope > Percent (T160). Unknown (negative) gives "–". */
+export function slopeArg(pct: number, u: DisplayUnits): JSX.Element | string {
+  return numArg(slopeValue(pct, u.slopePercent), u.slopePercent ? Unit.Percentage : Unit.Angle);
+}
+
+/** An area in hectares as a value or a <LocText> argument: "3.2 ha", or "7.9 acres" when `imperial` (DisplayUnits.lengthImperial,
+ *  T161; vanilla's own area unit would show m² / ft² for a run). Unknown (negative, missing) gives "–". */
 export function areaArg(ha: number | undefined, imperial: boolean): JSX.Element | string {
   const v = ha ?? -1;
   if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return "–";
@@ -294,7 +336,7 @@ export function areaArg(ha: number | undefined, imperial: boolean): JSX.Element 
   return imperial ? <LocText entry={HUB_FMT.areaAcres} args={{ HA }} /> : <LocText entry={HUB_FMT.areaHa} args={{ HA }} />;
 }
 
-/** A lift's line speed as a <LocText> argument: "5 m/s", or "984 ft/min" while the unit setting is US customary (T161; US lifts quote
+/** A lift's line speed as a <LocText> argument: "5 m/s", or "984 ft/min" when `imperial` (DisplayUnits.lengthImperial, T161; US lifts quote
  *  ft/min, vanilla has no speed unit). Not positive gives "–". */
 export function speedArg(mps: number, imperial: boolean): JSX.Element | string {
   if (typeof mps !== "number" || !Number.isFinite(mps) || mps <= 0) return "–";

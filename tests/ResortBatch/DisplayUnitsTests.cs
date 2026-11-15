@@ -21,6 +21,7 @@ namespace ResortBatch
             SectionText();
             SectionScheme();
             SectionCatTrack();
+            SectionOptions();
             s_Check = null;
         }
 
@@ -95,6 +96,9 @@ namespace ResortBatch
             Eq(DisplayUnits.SlopeText(0.25f), "14°", w, "SlopeText(0.25)");
             Eq(DisplayUnits.SlopeText(0.40f), "21.8°", w, "SlopeText(0.40)");
             Eq(DisplayUnits.SlopeText(float.NaN), "–", w, "SlopeText(NaN)");
+            Eq(DisplayUnits.SlopeText(0.25f, true), "25%", w, "SlopeText(0.25, percent)");
+            Eq(DisplayUnits.SlopeText(0.354f, true), "35%", w, "SlopeText(0.354, percent)");
+            Eq(DisplayUnits.SlopeText(float.NaN, true), "–", w, "SlopeText(NaN, percent)");
             Eq(DisplayUnits.HeightText(350f, false), "350 m", w, "HeightText(350, metric)");
             Eq(DisplayUnits.HeightText(350f, true), "1,148 ft", w, "HeightText(350, imperial)");
         }
@@ -140,6 +144,44 @@ namespace ResortBatch
             Eq(DisplayUnits.LegacyPctToDeg(15), 8.5f, w, "LegacyPctToDeg(15)");    // 8.53 deg
             Eq(DisplayUnits.LegacyPctToDeg(10), 5.5f, w, "LegacyPctToDeg(10)");    // 5.71 deg
             Eq(DisplayUnits.LegacyPctToDeg(5), 3f, w, "LegacyPctToDeg(5)");        // 2.86 deg
+        }
+
+        private static void SectionOptions()
+        {
+            const string w = "DU-7 unit options";
+            // Each category on its own: Auto follows the game's setting, Metric / Imperial override it (display only).
+            Eq(DisplayUnits.ResolveImperial(UnitOption.Auto, true), true, w, "Lengths Auto + game imperial");
+            Eq(DisplayUnits.ResolveImperial(UnitOption.Auto, false), false, w, "Lengths Auto + game metric");
+            Eq(DisplayUnits.ResolveImperial(UnitOption.Metric, true), false, w, "Metric wins over the game's imperial");
+            Eq(DisplayUnits.ResolveImperial(UnitOption.Imperial, false), true, w, "Imperial wins over the game's metric");
+            Eq(DisplayUnits.ResolveTemperature(UnitOption.Auto, 2), TempUnit.Kelvin, w, "Weather Auto keeps the game's Kelvin");
+            Eq(DisplayUnits.ResolveTemperature(UnitOption.Auto, 1), TempUnit.Fahrenheit, w, "Weather Auto + game °F");
+            Eq(DisplayUnits.ResolveTemperature(UnitOption.Auto, 7), TempUnit.Celsius, w, "Weather Auto + unknown game value");
+            Eq(DisplayUnits.ResolveTemperature(UnitOption.Metric, 1), TempUnit.Celsius, w, "Weather Metric over the game's °F");
+            Eq(DisplayUnits.ResolveTemperature(UnitOption.Imperial, 2), TempUnit.Fahrenheit, w, "Weather Imperial over the game's K");
+            Check(Near(DisplayUnits.Temperature(-5f, TempUnit.Fahrenheit), 23.0, 0.001), w, "Temperature(-5 °C, °F) != 23");
+            Check(Near(DisplayUnits.Temperature(-5f, TempUnit.Kelvin), 268.16, 0.001), w, "Temperature(-5 °C, K) != 268.16");
+            Eq(DisplayUnits.GradePct(0.25f), 25, w, "GradePct(0.25)");
+            Eq(DisplayUnits.GradePct(0.245f), 25, w, "GradePct(0.245) half away from zero");
+            // Mixed cases, packed for the hub (src/hub/units.ts unpackUnits and test-hub-rules.js T60.12 read the same ints):
+            // a Canadian setup: North American grading, metric lengths, °C, degrees (game imperial, Options set metric)
+            bool len = DisplayUnits.ResolveImperial(UnitOption.Metric, true), dep = DisplayUnits.ResolveImperial(UnitOption.Metric, true);
+            Eq(DisplayUnits.ResolveScheme(GradeSchemeOption.NorthAmerican, "European"), GradeScheme.NorthAmerican, w, "Canadian: NA grading");
+            Eq(DisplayUnits.PackUnits(len, dep, DisplayUnits.ResolveTemperature(UnitOption.Metric, 1), false), 0, w, "Canadian: metric + °C + degrees packs 0");
+            // European grading on a European theme with everything imperial (game metric)
+            Eq(DisplayUnits.ResolveScheme(GradeSchemeOption.Auto, "European"), GradeScheme.European, w, "EU theme: European grading");
+            Eq(DisplayUnits.PackUnits(DisplayUnits.ResolveImperial(UnitOption.Imperial, false), DisplayUnits.ResolveImperial(UnitOption.Imperial, false),
+                DisplayUnits.ResolveTemperature(UnitOption.Imperial, 0), false), 7, w, "EU + imperial + °F packs 7");
+            Eq(DisplayUnits.PackUnits(true, true, TempUnit.Fahrenheit, true), 23, w, "all imperial + percent packs 23");
+            Eq(DisplayUnits.PackUnits(false, false, TempUnit.Kelvin, false), 8, w, "game Kelvin packs 8");
+            Eq(DisplayUnits.PackUnits(false, true, TempUnit.Fahrenheit, false), 6, w, "metric lengths + inches + °F packs 6");
+            // Imperial lengths keep vanilla's thresholds in the text forms
+            Eq(DisplayUnits.HeightText(350f, DisplayUnits.ResolveImperial(UnitOption.Imperial, false)), "1,148 ft", w, "imperial height over a metric game");
+            Eq(DisplayUnits.LengthText(1600f, DisplayUnits.ResolveImperial(UnitOption.Metric, true)), "1.6 km", w, "metric length over an imperial game");
+            // The saved Options values never move (settings file)
+            Eq((int)UnitOption.Auto * 100 + (int)UnitOption.Metric * 10 + (int)UnitOption.Imperial, 12, w, "UnitOption values 0 / 1 / 2");
+            Eq((int)SlopeOption.Degrees * 10 + (int)SlopeOption.Percent, 1, w, "SlopeOption values 0 / 1");
+            Eq((int)TempUnit.Celsius * 100 + (int)TempUnit.Fahrenheit * 10 + (int)TempUnit.Kelvin, 12, w, "TempUnit values 0 / 1 / 2 (vanilla's)");
         }
     }
 }
