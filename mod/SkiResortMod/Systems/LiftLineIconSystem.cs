@@ -40,6 +40,7 @@ namespace SkiResortMod.Systems
 
         private PrefabSystem m_PrefabSystem;
         private SkiPrefabCatalogSystem m_Catalog;
+        private LiftCensusSystem m_Census;         // the station list (lifts-03); resolved lazily, never created
         private IconCommandSystem m_IconCommandSystem;
         private Game.Areas.UpdateCollectSystem m_AreaUpdateCollect;
 
@@ -213,8 +214,12 @@ namespace SkiResortMod.Systems
         {
             IReadOnlyDictionary<Entity, StationDef> defs = m_Catalog.StationDefs;
             Entity marker = m_Catalog.MarkerEntity;
-            using (NativeArray<Entity> entities = m_StationQuery.ToEntityArray(Allocator.Temp))
-            using (NativeArray<PrefabRef> prefabs = m_StationQuery.ToComponentDataArray<PrefabRef>(Allocator.Temp))
+            if (m_Census == null)
+                m_Census = World.GetExistingSystemManaged<LiftCensusSystem>();
+            LiftCensusSystem.StationArrays(m_Census, EntityManager, m_StationQuery, requireSubNet: true,
+                                           out NativeArray<Entity> entities, out NativeArray<PrefabRef> prefabs);
+            using (entities)
+            using (prefabs)
             {
                 for (int i = 0; i < entities.Length; i++)
                 {

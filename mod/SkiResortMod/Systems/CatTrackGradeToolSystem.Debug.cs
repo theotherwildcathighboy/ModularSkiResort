@@ -1,3 +1,5 @@
+#if SKI_DEV
+// Dev builds only (SKI_DEV, SkiResortMod.csproj): the published Release DLL does not contain this file.
 // "Ski Grading" tab of the game's developer menu. The pattern is the same as SkiGladeToolSystem.Debug.cs. DebugSystem.RegisterDebug invokes
 // each [DebugTab] method of every [DebugContainer] type on the live system (DebugSystem.cs:996-1045), so this partial needs no registration
 // in Mod.cs. The tab name must be unique. AddPanel replaces a panel registered under the same name (:1085-1095).
@@ -62,3 +64,4 @@ namespace SkiResortMod.Systems
         }
     }
 }
+#endif

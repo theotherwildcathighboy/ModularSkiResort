@@ -106,7 +106,7 @@ namespace SkiResortMod.Systems
         public static int LowTenths(float clearM) => clearM > 0f ? (int)math.floor(clearM * 10f + 1e-3f) : 0;
 
         /// <summary>The hub's number for a bend: tenths of a degree, rounded UP (a bend just over LiftAlignMath.BendWarnDeg never reads
-        /// 5.0). It is 0 when the bend is at or under BendWarnDeg (no warning: the owner's verdict is warn, never refuse).</summary>
+        /// 5.0). It is 0 when the bend is at or under BendWarnDeg (no warning; geometry limits warn, never refuse: DECISIONS 600).</summary>
         public static int BendWarnTenths(float bendDeg)
         {
             if (!(bendDeg > LiftAlignMath.BendWarnDeg))

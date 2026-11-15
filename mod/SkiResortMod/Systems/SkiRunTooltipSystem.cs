@@ -80,8 +80,6 @@ namespace SkiResortMod.Systems
         private bool m_Disabled;
         private bool m_ErrorLogged;
 
-        /// <summary>Frames on which the lines were added since the last load (dev-tab aid, plain field).</summary>
-        public long FramesShown;
 
         protected override void OnCreate()
         {
@@ -157,7 +155,6 @@ namespace SkiResortMod.Systems
             m_Armed = false;
             m_Disabled = false;
             m_ErrorLogged = false;
-            FramesShown = 0;
 
             if (mode != GameMode.Game)
                 return;
@@ -326,8 +323,6 @@ namespace SkiResortMod.Systems
                     }
                     AddMouseTooltip(m_NoGate);
                 }
-
-                FramesShown++;
             }
             catch (Exception e)
             {

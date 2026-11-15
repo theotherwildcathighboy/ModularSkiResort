@@ -223,12 +223,14 @@ namespace SkiResortMod.Systems
         /// <summary>One-line summary of the last re-plan (the plan line without its prefix)</summary>
         public string LastPlan = "-";
 
+#if SKI_DEV
         /// <summary>Implements the dev-tab hook declared in SkiGladeToolSystem.Debug.cs (the "Species pool" row). Field read only (10 Hz cost).</summary>
         partial void DescribeSpeciesPoolForDebug(ref string text)
         {
             if (m_SpeciesPoolText != null)
                 text = m_SpeciesPoolText;
         }
+#endif
 
 
         // Includes SkiRunNaturalA: the tree tool works on natural runs (else the hover reads Foreign and the tool refuses) and outlines them

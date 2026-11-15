@@ -16,8 +16,6 @@ import launcherGlyph from "./SkiLauncherGlyph.svg";
 
 /** coui://ui-mods/SkiResortMod-img/SkiLauncherGlyph.svg (webpack asset/resource). */
 export const HUB_GLYPH: string = launcherGlyph;
-/** Rollback only: the untinted picture used before the glyph. */
-export const HUB_ICON = "assetdb://global/aed3907873aa4d74bb420190d3044e78";
 
 export function HubLauncherSquare(): JSX.Element {
   const t = useT();

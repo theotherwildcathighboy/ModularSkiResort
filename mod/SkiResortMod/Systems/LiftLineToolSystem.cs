@@ -646,9 +646,6 @@ namespace SkiResortMod.Systems
         private ScriptTicket m_Script;
         private int m_ScriptSerial;
 
-        /// <summary>The last scripted line (null before the first).</summary>
-        internal ScriptTicket Script => m_Script;
-
         /// <summary>The tool is active with nothing in hand: no end picked, no preview, and no scripted line that waits for the player or
         /// still has to run. The build queue hands such a tool back to the default tool when it ends.</summary>
         internal bool IdleAfterScript => IsActive && m_State == ToolState.PickBase && !m_Ghost && (m_Script == null || m_Script.Final);
@@ -1634,7 +1631,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The line is straight, so the only plan bend the tool makes is where it joins a built line at a loose end. The bend runs
         /// over these points: the built edge's far node, the loose end and this line's other end (LiftLineInput.JoinBendWarnDeg). Over
-        /// LiftAlignMath.BendWarnDeg the tooltip keeps the BEND notice standing. Building stays allowed (owner verdict 2026-11-02: warn,
+        /// LiftAlignMath.BendWarnDeg the tooltip keeps the BEND notice standing. Building stays allowed (DECISIONS 600: warn,
         /// never refuse). The hub's LiftBend row reports bends on built lines (LiftCensus.MeasureBends). Logged on every plan that has
         /// one.</summary>
         private void WarnBend()

@@ -37,17 +37,20 @@ namespace SkiResortMod.Systems
         public const string Group = "skiResortDev";
 
         private StationPlaceToolSystem m_Placer;
+#if SKI_DEV
         private SkiPrefabCatalogSystem m_Catalog;
         private ResortLiftBuildSystem m_LiftBuild;
         private LiftLineToolSystem m_LiftTool;
         private readonly List<string> m_Queue = new List<string>();
         private readonly List<string> m_PlanQueue = new List<string>();
+#endif
         private bool m_Disabled, m_ErrorLogged;
 
         protected override void OnCreate()
         {
             base.OnCreate();
             m_Placer = World.GetOrCreateSystemManaged<StationPlaceToolSystem>();
+#if SKI_DEV
             m_Catalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
             m_LiftBuild = World.GetOrCreateSystemManaged<ResortLiftBuildSystem>();
             m_LiftTool = World.GetOrCreateSystemManaged<LiftLineToolSystem>();
@@ -55,15 +58,23 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<string>(Group, "planLifts", OnPlanLifts));
             Mod.Log.Info($"{nameof(StationPlaceProbeUISystem)} created (triggers {Group}.probePlaceStation and {Group}.planLifts, Measurement " +
                          "diagnostics only)");
+#else
+            // Release build (no SKI_DEV): the dev triggers are compiled out; the system stays for the placer's follow-up line.
+            Mod.Log.Info($"{nameof(StationPlaceProbeUISystem)} created (placer follow-up only; the dev triggers exist in dev builds only)");
+#endif
         }
 
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
         {
             base.OnGameLoadingComplete(purpose, mode);
             m_Disabled = m_ErrorLogged = false;
+#if SKI_DEV
             m_Queue.Clear();
             m_PlanQueue.Clear();
+#endif
         }
+
+#if SKI_DEV
 
         private void OnPlanLifts(string command)
         {
@@ -94,6 +105,7 @@ namespace SkiResortMod.Systems
                 Fail(e, "trigger");
             }
         }
+#endif
 
         protected override void OnUpdate()
         {
@@ -103,6 +115,7 @@ namespace SkiResortMod.Systems
             try
             {
                 m_Placer.TickWatch();
+#if SKI_DEV
                 if (m_PlanQueue.Count > 0)
                 {
                     string[] commands = m_PlanQueue.ToArray();
@@ -116,6 +129,7 @@ namespace SkiResortMod.Systems
                 m_Queue.Clear();
                 foreach (string spec in calls)
                     Handle(spec);
+#endif
             }
             catch (Exception e)
             {
@@ -123,6 +137,7 @@ namespace SkiResortMod.Systems
             }
         }
 
+#if SKI_DEV
         private void Handle(string spec)
         {
             if (!SkiResortSettings.DiagnosticsOn)
@@ -260,6 +275,7 @@ namespace SkiResortMod.Systems
 
         private static bool Num(string s, out float v) =>
             float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out v);
+#endif
 
         private void Fail(Exception e, string where)
         {

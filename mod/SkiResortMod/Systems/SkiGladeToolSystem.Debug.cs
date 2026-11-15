@@ -1,3 +1,5 @@
+#if SKI_DEV
+// Dev builds only (SKI_DEV, SkiResortMod.csproj): the published Release DLL does not contain this file.
 // SkiGladeToolSystem.Debug - the "Ski Glades" tab of the game's developer menu (the ChairPinSystem.Debug.cs pattern).
 //
 // Tab methods on a ComponentSystemBase run on the live system instance (DebugSystem.cs:996-1024), which is why this file is a
@@ -176,3 +178,4 @@ namespace SkiResortMod.Systems
         }
     }
 }
+#endif

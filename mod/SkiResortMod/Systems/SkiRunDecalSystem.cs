@@ -43,11 +43,6 @@ namespace SkiResortMod.Systems
             public const float NormalAlphaSource = 1f;    // 1 = normal masked by its own alpha, not BaseColor coverage: relief survives albedo fade
             public const float Smoothness = 0.4f;         // 0.3-0.45: sparkle without gloss
 
-            // Normal-only summer mode: terrain color untouched, corduroy relief only. Requires both the keyword and the float (HDRP
-            // gates on the keyword, and the float is the inspector mirror). It is readonly, not const, so flipping it is a one-token change
-            // without unreachable-code warnings.
-            public static readonly bool ApplyNormalOnlyMode = false;
-
             // Binds the corduroy pair into the shader's snow slots for the groomed surface only (Target.UseSnowPair). An earlier
             // enable bound textures into what were believed to be empty snow slots. The layer then locked on, solid white and immune to
             // 50 C and remove-snow. Vanilla itself ships these slots bound (snowalbedo2 defaults) with _Snow = 0 and no artifact. So
@@ -116,9 +111,6 @@ namespace SkiResortMod.Systems
         private const string NormalOpacityProperty = "_NormalOpacity";
         private const string NormalAlphaSourceProperty = "_NormalAlphaSource";
         private const string SmoothnessProperty = "_Smoothness";
-        // Normal-only mode (wired behind Tuning.ApplyNormalOnlyMode)
-        private const string AffectAlbedoProperty = "_AffectAlbedo";
-        private const string AffectsAlbedoKeyword = "_MATERIAL_AFFECTS_ALBEDO";
 
         /// <summary>One run surface prefab + its live batch clone + what we applied to it</summary>
         private sealed class Target
@@ -580,15 +572,6 @@ namespace SkiResortMod.Systems
                 rendered != null)
                 rendered.m_Smoothness = Tuning.Smoothness;
 
-            // 4) Keyword scaffolding, off (see engine notes). When flipped, float and keyword move together (HDRP gates on the keyword).
-            if (Tuning.ApplyNormalOnlyMode)
-            {
-                material.DisableKeyword(AffectsAlbedoKeyword);
-                TrySetFloat(target, props, AffectAlbedoProperty, 0f, mirrored: false);
-                Mod.Log.Info($"Decal: '{material.name}': keyword {AffectsAlbedoKeyword} disabled " +
-                             "(normal-only mode — terrain color untouched, corduroy relief only)");
-            }
-
             target.Applied = true;
         }
 
@@ -616,9 +599,8 @@ namespace SkiResortMod.Systems
                          $"upgraded live ({string.Join(", ", names)}): decal pair on {basePairs}, " +
                          $"snow slots on {snowPairs}, scalars {NormalOpacityProperty}={Tuning.NormalOpacity} " +
                          $"{NormalAlphaSourceProperty}={Tuning.NormalAlphaSource} " +
-                         $"{SmoothnessProperty}={Tuning.Smoothness}, normal-only mode " +
-                         $"{(Tuning.ApplyNormalOnlyMode ? "ON" : "OFF (probe-gated)")}; winter look " +
-                         "rides the game's snow sim from here — no seasonal decal code, by design; " +
+                         $"{SmoothnessProperty}={Tuning.Smoothness}; winter look: the game's snow sim plus the seasonal dress " +
+                         $"(the season-active pair, checked every {Tuning.SeasonCheckFrames} frames); " +
                          $"re-assert sentinel every {Tuning.ReassertCheckFrames} frames" +
                          $"; {m_ChangedWrites} change(s), {m_SameWrites} already in place");
             m_ChangedWrites = 0;

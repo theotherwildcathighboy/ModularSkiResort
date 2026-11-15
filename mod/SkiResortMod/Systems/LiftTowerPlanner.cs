@@ -854,22 +854,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The steepest |pitch| and the largest lean over the plan's towers, degrees, and how many towers lean.</summary>
-        public void PitchStats(out float maxPitchDeg, out float maxLeanDeg, out int leaning)
-        {
-            maxPitchDeg = maxLeanDeg = 0f;
-            leaning = 0;
-            for (int i = 0; i < Nodes.Length; i++)
-            {
-                if (!Nodes[i].HasPitch || Nodes[i].Member < 0)
-                    continue;
-                maxPitchDeg = math.max(maxPitchDeg, math.abs(Nodes[i].PitchDeg));
-                maxLeanDeg = math.max(maxLeanDeg, Nodes[i].LeanDeg);
-                if (Nodes[i].LeanDeg > 0f)
-                    leaning++;
-            }
-        }
-
         /// <summary>One tower's pitch and lean for the plan dump: "pitch +31.2, lean 11.2 (anchor -3.5 m along, -0.2 m)" ("TOO STEEP"
         /// past the hard cap).</summary>
         public string PitchText(int i)

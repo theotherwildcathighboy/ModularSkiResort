@@ -1,3 +1,5 @@
+#if SKI_DEV
+// Dev builds only (SKI_DEV, SkiResortMod.csproj): the published Release DLL does not contain this file.
 // TramShuttleSystem.Debug - the "Tram shuttle" foldout of the "Ski Resort" developer tab.
 // This partial carries no [DebugContainer] / [DebugTab]. DebugSystem.AddPanel replaces the widget list stored under a
 // tab's name (Game.Debug/DebugSystem.cs:1022, :1085-1095), so a second "Ski Resort" tab would replace ChairPinSystem's rows.
@@ -110,3 +112,4 @@ namespace SkiResortMod.Systems
         }
     }
 }
+#endif

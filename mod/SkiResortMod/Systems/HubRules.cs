@@ -861,7 +861,7 @@ namespace SkiResortMod.Systems
                         break;
                 }
                 // 4b. A complete (0, 1) or open (2) line whose sharpest tower bend in plan is over the warning angle gets a row. The row is
-                // dim (1), a fact only (owner verdict 2026-11-02: warn, never refuse). Count = the tower's number, Detail = tenths of a
+                // dim (1), a fact only (geometry limits warn, never refuse: DECISIONS 600). Count = the tower's number, Detail = tenths of a
                 // degree.
                 if (l.State >= 0 && l.State <= 2 && l.BendTenths > 0)
                     output.Add(Row(HubProblemCode.LiftBend, 1, liftIndex: k, count: l.BendTower, detail: l.BendTenths));

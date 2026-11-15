@@ -1,3 +1,5 @@
+#if SKI_DEV
+// Dev builds only (SKI_DEV, SkiResortMod.csproj): the published Release DLL does not contain this file.
 // The "Ski Resort Hub" tab of the game's developer menu: catalog, rating-cache and rating-service rows, the SkiResortStatsSystem and
 // hub rows, and action buttons. Pattern of ChairPinSystem.Debug.cs / SkiGladeToolSystem.Debug.cs. Game.Debug.DebugSystem invokes each
 // [DebugTab] method on the live instance (DebugSystem.cs:996-1045), hence a partial of the catalog. Nothing is registered in Mod.cs.
@@ -167,3 +169,4 @@ namespace SkiResortMod.Systems
         }
     }
 }
+#endif

@@ -56,13 +56,6 @@ namespace SkiResortMod.Systems
         private readonly List<Pending> m_Pending = new List<Pending>(2);
         private bool m_Armed, m_Disabled, m_ErrorLogged;
 
-        /// <summary>Re-emits done this load (bridge checks and DUMP).</summary>
-        internal int Reemits { get; private set; }
-
-        /// <summary>The last re-emit's old and new entity (bridge checks).</summary>
-        internal Entity LastFrom { get; private set; }
-        internal Entity LastTo { get; private set; }
-
         protected override void OnCreate()
         {
             base.OnCreate();
@@ -85,8 +78,6 @@ namespace SkiResortMod.Systems
             m_Armed = mode == GameMode.Game;
             m_Disabled = m_ErrorLogged = false;
             m_Pending.Clear();
-            Reemits = 0;
-            LastFrom = LastTo = Entity.Null;
         }
 
         /// <summary>The hub's setRunGroomed trigger: queue a re-emit of <paramref name="run"/> as groomed or natural. Returns what happens
@@ -219,9 +210,6 @@ namespace SkiResortMod.Systems
             int charged = groomed ? m_Ownership.SettleFeatureSteps(neu, "groomed on", areaM2) : 0;
             m_Catalog.RequestRebuild("run re-emitted");
             m_Stats.RequestRebuild("run re-emitted");
-            Reemits++;
-            LastFrom = run;
-            LastTo = neu;
             Mod.Log.Info($"Reemit [groomed] {Ent(run)} → {Ent(neu)} as {(groomed ? "groomed" : "natural")} (prefab {Ent(oldPrefab)} → " +
                          $"{Ent(newPrefab)}): binding {(hasBinding ? "kept" : "none")}, sliders {(hasProps ? "kept" : "none")}, " +
                          $"name {(string.IsNullOrEmpty(customName) ? "default" : "kept")}, {trees} tree(s) retargeted, charged {charged}");

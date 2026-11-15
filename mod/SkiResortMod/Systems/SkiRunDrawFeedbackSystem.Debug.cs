@@ -1,3 +1,5 @@
+#if SKI_DEV
+// Dev builds only (SKI_DEV, SkiResortMod.csproj): the published Release DLL does not contain this file.
 // "Ski Runs" tab of the game's developer menu (same pattern as SkiGladeToolSystem.Debug.cs). "Dump to log" also writes the
 // .skislope capture (SkiRunDrawFeedbackSystem.WriteCapture). The button is the only file-IO path. The other dump path is the
 // dump hotkey (SkiGladeHotkeySystem).
@@ -147,3 +149,4 @@ namespace SkiResortMod.Systems
         }
     }
 }
+#endif

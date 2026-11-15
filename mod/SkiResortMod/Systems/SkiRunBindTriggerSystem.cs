@@ -73,9 +73,6 @@ namespace SkiResortMod.Systems
         private readonly List<Entity> m_PendingNameSigns = new List<Entity>(2);
         private readonly List<string> m_PendingNames = new List<string>(2);
 
-        /// <summary>Signs auto-named this load (dev tab / DUMP).</summary>
-        public int SignsNamed;
-
         /// <summary>Reason of the last SweepNow call ("none" until one fires this load). Plain
         /// field for the "Ski Runs" developer tab.</summary>
         public string LastReason = "none";
@@ -159,7 +156,6 @@ namespace SkiResortMod.Systems
             m_PickErrorLogged = false;
             m_PendingNameSigns.Clear();
             m_PendingNames.Clear();
-            SignsNamed = 0;
             LastReason = "none";
             Triggers = 0;
 
@@ -445,7 +441,6 @@ namespace SkiResortMod.Systems
                         if (m_NameSystem.TryGetCustomName(sign, out string existing) && !string.IsNullOrEmpty(existing))
                             continue;   // named meanwhile (same frame): keep the player's name
                         m_NameSystem.SetCustomName(sign, name);   // NameSystem.cs:214-241 (EndFrameBarrier inside)
-                        SignsNamed++;
                         Mod.Log.Info($"Resort [name] new Welcome Sign {sign.Index}:{sign.Version} named '{name}'");
                     }
                 }

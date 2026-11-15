@@ -1161,10 +1161,6 @@ export const CORE_NAMES: readonly string[] = [
   "gladeToggle", "gladeSetLevel", "gladeSetTreeLine", "dumpHub",
 ];
 
-/** Vanilla binding / trigger names used ("group.name"): none (the vanilla LOCALE keys we read are
- *  listed in src/hub/hubText.ts EFFICIENCY_FACTOR_FALLBACK, not here). */
-export const VANILLA_NAMES_USED: readonly string[] = [];
-
 // ---- fallbacks (what the UI shows while a binding is not registered in C#) -----------------------
 
 const EMPTY_BUILD: readonly BuildItem[] = [];

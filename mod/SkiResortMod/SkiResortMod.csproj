@@ -31,6 +31,17 @@
 	<Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.props" />
 	<Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.targets" />
 
+	<!--
+	SKI_DEV: the developer surfaces (the [DebugTab] partials *.Debug.cs, QuickRunsDevUISystem, the skiResortDev triggers of
+	StationPlaceProbeUISystem, the hub's dev tab / DUMP surface) compile only into dev builds. Every build except Release defines it:
+	`dotnet build` (Debug, the dev deploy and the test bridge) has it; the publish profiles (Properties\PublishProfiles\*.pubxml) and the
+	dry run (`-c Release`) build Release, so the shipped DLL has none of it. tools\release-check.ps1 fails a publish whose DLL still
+	carries a dev type name. Player diagnostics (Measurement diagnostics, Ctrl+Alt+G, Copy diagnostics) are not behind it.
+	-->
+	<PropertyGroup Condition="'$(Configuration)' != 'Release'">
+		<DefineConstants>$(DefineConstants);SKI_DEV</DefineConstants>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<Reference Include="Game">
 			<Private>false</Private>

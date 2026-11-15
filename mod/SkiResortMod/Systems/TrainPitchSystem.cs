@@ -1,6 +1,6 @@
 // Phase 2 of the lift alignment fix (docs: lift-alignment-2026-11-02, DECISIONS 570): a line tower's sheave trains pitch with the rope.
 // CS2 draws each span's rope straight to the tower's anchor, so the rope corners there. A rigid train cannot seat its wheels on a corner.
-// The trains are articulated (owner verdict 2026-11-02, option C): two half-trains hinged on the main pin, which lies on the anchor, each
+// The trains are articulated (option C of DECISIONS 570): two half-trains hinged on the main pin, which lies on the anchor, each
 // pitched to its own span's rope. The tower mesh is skinned with bones "TrainFront*" (the half on the tower's +z side) and "TrainBack*"
 // (-z). Each bone's origin is the anchor its rope corners at (a second rope on the same half, the tram's haul rope, gets its own bone,
 // e.g. "TrainFrontHaul"). The pitch is visual only. The tower Transform stays yaw-only (AlignSystem resets it on every node update) unless

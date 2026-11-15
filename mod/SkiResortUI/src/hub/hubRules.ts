@@ -1101,11 +1101,6 @@ export type IconToken = { kind: "text"; text: string } | { kind: "icon" | "mark"
 /** The tag grammar (vanilla's own `<icon:Media/...>` form). check-bundle R-icon and check-ste read the same pattern. */
 export const ICON_TAG_SOURCE = "<(icon|mark):([A-Za-z0-9_./-]+)>";
 
-/** True when the text holds at least one icon or mark tag. */
-export function hasIconTag(s: string): boolean {
-  return typeof s === "string" && new RegExp(ICON_TAG_SOURCE).test(s);
-}
-
 /** The text split into text runs and tags, in order. Empty runs are dropped. Not a string gives []. */
 export function iconTokens(s: string): IconToken[] {
   const out: IconToken[] = [];

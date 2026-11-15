@@ -34,7 +34,7 @@ namespace SkiResortMod.Systems
         internal const int PowerPollFrames = 64;
         internal const int RebuildCooldownFrames = 30;        // = ChairPinSystem.RebuildCooldownFrames
         internal const int WatchdogIntervalFrames = 4096;     // = ChairPinSystem.WatchdogIntervalFrames
-        internal const double BoundsRefreshMeters = 2.0;      // = ChairPinSystem.BoundsRefreshMeters (ChairPinSystem.cs:289)
+        internal const double BoundsRefreshMeters = LiftMoverMath.BoundsRefreshMeters;
         internal const float FreshBaseToleranceM = 0.05f;  // fresh-base rule (a)
         internal const float HostedCheckToleranceM = 0.05f;   // [arm] CHECK: hosted pose vs dock − drop
         internal const double HeldStandingToleranceM = 1.0;  // Σ over the cabins "already at a terminal configuration"

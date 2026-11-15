@@ -225,6 +225,7 @@ namespace SkiResortMod.Systems
         private bool m_ErrorLogged;
         private bool m_WasDemanded;
         private string m_RebuildRequest;
+        private string m_SoonRequest;   // RequestRebuildSoon: waits out ClosedMinRebuildIntervalS; any rebuild answers it
         private int m_SigBindGeneration = int.MinValue, m_SigNames = -1;
         private float m_NextHeartbeat;
         private ulong m_LastHash;
@@ -242,7 +243,6 @@ namespace SkiResortMod.Systems
         private int m_ClosedRebuilds, m_ClosedRatings;
         private float m_ClosedRebuildMsSum, m_ClosedRebuildMsMax;
         private float m_ClosedRatingMsSum, m_ClosedRatingMsMax;
-        private float m_ClosedSince = -1f;
         private bool m_ServiceCostLogged;
         // The cost line's own record: closed rebuilds with >= 1 row
         private int m_CostRebuilds;
@@ -343,6 +343,13 @@ namespace SkiResortMod.Systems
         public void RequestRebuild(string why)
         {
             m_RebuildRequest = why;
+        }
+
+        /// <summary>Rebuild at most ClosedMinRebuildIntervalS after the last one; any rebuild in between answers it. For follow-up writes
+        /// that land right after a rebuild (a new run's name pick after its bind rebuild: opt pass runs-12).</summary>
+        public void RequestRebuildSoon(string why)
+        {
+            m_SoonRequest = why;
         }
 
         // Read API (see the engine notes). RatingServiceState and RunFacts are nested here. Main thread only.
@@ -567,6 +574,7 @@ namespace SkiResortMod.Systems
             m_ErrorLogged = false;
             m_WasDemanded = false;
             m_RebuildRequest = null;
+            m_SoonRequest = null;
             m_SigBindGeneration = int.MinValue;
             m_SigNames = -1;
             m_NextHeartbeat = 0f;
@@ -637,7 +645,6 @@ namespace SkiResortMod.Systems
             m_ClosedRebuildMsMax = 0f;
             m_ClosedRatingMsSum = 0f;
             m_ClosedRatingMsMax = 0f;
-            m_ClosedSince = -1f;
             m_ServiceCostLogged = false;
             m_CostRebuilds = 0;
             m_CostRebuildMsSum = 0f;
@@ -721,6 +728,8 @@ namespace SkiResortMod.Systems
                 m_WasDemanded = demand;   // read by LogWarmupDone (the factor in force) this frame
                 if (why == null)
                     why = demand ? OpenSignatureWhy(now) : ClosedSignatureWhy(now);
+                if (why == null && m_SoonRequest != null && now - m_LastRebuildTime >= Tuning.ClosedMinRebuildIntervalS)
+                    why = m_SoonRequest;
                 if (why != null)
                 {
                     Rebuild(why, now, countSigns: demand);
@@ -778,6 +787,7 @@ namespace SkiResortMod.Systems
             m_SigBindGeneration = m_Ownership.BindGeneration;
             m_SigNames = m_NamesGeneration;
             m_OpenChangePending = false;
+            m_SoonRequest = null;
 
             m_Scratch.Clear();
             int signs = 0;
@@ -884,8 +894,6 @@ namespace SkiResortMod.Systems
             if (!countSigns)
             {
                 // The panel-closed rebuild cost ("Catalog [service]", once per load)
-                if (m_ClosedRebuilds == 0)
-                    m_ClosedSince = now;
                 m_ClosedRebuilds++;
                 m_ClosedRebuildMsSum += ms;
                 if (ms > m_ClosedRebuildMsMax)

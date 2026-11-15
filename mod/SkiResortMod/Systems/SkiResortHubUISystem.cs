@@ -547,8 +547,10 @@ namespace SkiResortMod.Systems
         private LiftLineToolSystem m_LiftLineTool;   // the Lifts tab's lift generator (public API only, the lift session owns it)
         private CatTrackGradeToolSystem m_GradeTool; // the cat track tool the Cat track tile opens (public API only)
         private SkiCatTrackDeleteSystem m_CatTrackDelete;
+#if SKI_DEV
         private SkiPisteMapSystem m_PisteMap;        // DUMP only
         private LodgeRoadSystem m_LodgeRoad;                  // DUMP only
+#endif
         private EntityQuery m_CitizenQuery;          // DUMP only (citizens at a lodge / sign)
         private EntityQuery m_ConsumerQuery;         // DUMP only (station ElectricityConsumer)
 
@@ -2948,7 +2950,7 @@ namespace SkiResortMod.Systems
             bool demand = buildActive || resortsActive || resortLiveActive || runsActive || runLiveActive ||
                           liftsActive || problemsActive || cityActive ||     // pisteMap and follow do NOT demand
                           m_BusCardDepot != Entity.Null ||                    // the card's ski area name comes from the stats rows
-                          m_MergeCardBuilding != Entity.Null;                // the merge card too
+                          MergeCardNeedsStats();                             // a merged building's card names its area
             m_Catalog.Demand = demand;   // catalog and stats follow every panel binding
             m_Stats.Demand = demand;
 
@@ -4537,6 +4539,9 @@ namespace SkiResortMod.Systems
             return e == Entity.Null ? "null" : $"{e.Index}:{e.Version}";
         }
 
+#if SKI_DEV
+        // Dev surface (dev tab + DUMP), compiled only into dev builds (SKI_DEV, SkiResortMod.csproj): the published Release DLL has none of
+        // it. The dumpHub trigger stays in the contract; a release build answers it with one line (DumpToLog below).
         /// <summary>Observer counts of every value binding (dev tab, DUMP).</summary>
         public string ObserverText()
         {
@@ -4820,6 +4825,15 @@ namespace SkiResortMod.Systems
             if (value != -1)
                 sb.Append(", ").Append(name).Append(' ').Append(value.ToString(CultureInfo.InvariantCulture));
         }
+#else
+        /// <summary>Release build: the DUMP and the dev tab exist only in dev builds (SKI_DEV). One line, so a dumpHub call is never silent.</summary>
+        private void DumpToLog(string source)
+        {
+            Mod.Log.Info($"Hub: DUMP ({source}) — not in this build (dev builds only); armed {m_Armed}, disabled {m_Disabled}, open {IsOpen}, " +
+                         $"contract {HubContract}, DLL stamp {s_DllStamp}, commit {BuildStamp.Commit}");
+            LastTriggerText = $"dumpHub ({source})";
+        }
+#endif
 
         private void HandleException(Exception e, string where)
         {
