@@ -18,10 +18,10 @@ import { OPEN_STATE, RUN_GUN_WHY, RUN_KIND, hubTriggers } from "../bindings";
 import type { RunLive, RunRow } from "../bindings";
 import type { Translate } from "../l10n";
 import { isRunKind } from "./buildItems";
-import { hectares } from "./hubRules";
+import { SNOW_KEEP_CM, SNOW_OPEN_CM, hectares } from "./hubRules";
 import { sendHoverRun } from "./hubState";
 import { HUB_FMT, HUB_LOC, bandEntry, runFeaturesEntry } from "./hubText";
-import { BandMarker, HalfDot, KindStripe, LocText, Num, NumCell, Tip, TipLines, cx, numArg } from "./parts";
+import { BandMarker, HalfDot, KindStripe, LocText, Num, NumCell, Tip, TipLines, cx, depthValue, numArg, useInches } from "./parts";
 import type { NumberSamples } from "./parts";
 import { RenameField } from "./RenameField";
 import styles from "./hub.module.scss";
@@ -52,22 +52,35 @@ export interface RunLineProps {
   onRenameClose: () => void;
 }
 
-function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
+function runTip(p: RunLineProps, name: string, typeName: string, inches: boolean): JSX.Element {
   const { row, live, liftName, t, gating } = p;
   const rated = row.band >= 0;
   let openLine: string | JSX.Element | null = null;
   if (!row.bound) openLine = t(HUB_LOC.runOpenNone);
   else if (!gating) openLine = t(HUB_LOC.runOpenGating);
-  else if (live && live.snowPct >= 0) {
+  else if (live && live.snowEstimated) {
+    // Nothing was read: the state alone, no share (T183)
+    openLine = live.openState === 2 ? t(HUB_LOC.runOpenEstOpen)
+      : live.openState === 1 ? t(HUB_LOC.runOpenEstPartly)
+        : live.openState === 0 ? t(HUB_LOC.runOpenEstClosed) : null;
+  } else if (live && live.snowPct >= 0) {
+    // The share is counted at the run's bar: SNOW_OPEN_CM while closed, SNOW_KEEP_CM once open (RunSnowRules.MeasuredShare). A patchy
+    // run can be either (opening or closing), so its line names no depth
     const PCT = numArg(live.snowPct, Unit.Percentage);
-    openLine = live.openState === 2 ? <LocText key="o" entry={HUB_FMT.runOpenOpen} args={{ PCT }} />
+    const depthArg = (cm: number) => inches
+      ? <LocText entry={HUB_FMT.snowDepthIn} args={{ DEPTH: numArg(depthValue(cm, true), Unit.Integer) }} />
+      : <LocText entry={HUB_FMT.snowDepth} args={{ DEPTH: numArg(cm, Unit.Integer) }} />;
+    openLine = live.openState === 2 ? <LocText key="o" entry={HUB_FMT.runOpenOpen} args={{ PCT, KEEP: depthArg(SNOW_KEEP_CM) }} />
       : live.openState === 1 ? <LocText key="o" entry={HUB_FMT.runOpenPartly} args={{ PCT }} />
-        : live.openState === 0 ? <LocText key="o" entry={HUB_FMT.runOpenClosed} args={{ PCT }} />
+        : live.openState === 0 ? <LocText key="o" entry={HUB_FMT.runOpenClosed} args={{ PCT, OPEN: depthArg(SNOW_OPEN_CM) }} />
           : null;
   }
-  // Why it is open or closed (the measured depth against the 91 cm rule) and, on a gun run, what its snow guns do now
+  // Why it is open or closed (the measured mean depth) and, on a gun run, what its snow guns do now
   const depthLine = row.bound && gating && live && live.snowDepthCm >= 0
-    ? <LocText key="d" entry={HUB_FMT.runDepth} args={{ DEPTH: numArg(live.snowDepthCm / 100, Unit.Length) }} /> : null;
+    ? (inches
+      ? <LocText key="d" entry={HUB_FMT.runDepthIn} args={{ DEPTH: numArg(depthValue(live.snowDepthCm, true), Unit.Integer) }} />
+      : <LocText key="d" entry={HUB_FMT.runDepth} args={{ DEPTH: numArg(live.snowDepthCm, Unit.Integer) }} />)
+    : null;
   const gunWhy = live ? live.gunWhy : RUN_GUN_WHY.None;
   const gunLine = gunWhy === RUN_GUN_WHY.Making ? t(HUB_LOC.runGunsMaking)
     : gunWhy === RUN_GUN_WHY.DepthReached ? t(HUB_LOC.runGunsDepth)
@@ -88,7 +101,6 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
         openLine,
         depthLine,
         gunLine,
-        !!live && live.snowEstimated && t(HUB_LOC.runEstimated),
         servedLine,
         row.member && row.typeFactor < 1 && row.kind !== RUN_KIND.CatTrack && t(HUB_LOC.runTypeNote),
         row.kind === RUN_KIND.CatTrack && t(HUB_LOC.runCatTrackNote),   // counts a quarter in the score and the capacity; always green
@@ -165,6 +177,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
   const typeName = isRunKind(row.kind) ? t(runFeaturesEntry(row.kind, row.gunSpacingM, row.lightSpacingM)) : "";
   const name = row.name || typeName;
   const state = live ? live.openState : OPEN_STATE.None;
+  const inches = useInches();   // the tooltip's snow depth in the player's units, like the hub block (T130)
   const inner = (
     <>
       <RunDot state={state} />
@@ -193,7 +206,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
       {renaming ? (
         <div className={styles.runFly}>{inner}</div>
       ) : (
-        <Tip tip={runTip(p, name, typeName)}>
+        <Tip tip={runTip(p, name, typeName, inches)}>
           <Button focusKey={FOCUS_DISABLED} theme={{ button: styles.runFly }} onSelect={() => onPick(row)}>
             {inner}
           </Button>

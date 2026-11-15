@@ -82,10 +82,10 @@ export const HUB_LOC = {
 
   statusNoRuns: ["SkiResort.Hub.STATUS_NO_RUNS", "Closed"],
   statusUnlinked: ["SkiResort.Hub.STATUS_UNLINKED", "No Welcome Sign in range"],
-  statusTipRule: ["SkiResort.Hub.STATUS_TIP_RULE", "<mark:open> Open: enough snow on 60 % of the run. <mark:closed> Closed: under 40 %. <mark:patchy> Patchy: in between, and the run scores part of its value."],
+  statusTipRule: ["SkiResort.Hub.STATUS_TIP_RULE", "<mark:open> Open: enough snow on 60 % of the run, then down to 40 % on thinner snow. <mark:patchy> Patchy: in between. <mark:closed> Closed: below 40 %."],
   statusTipEstimated: ["SkiResort.Hub.STATUS_TIP_ESTIMATED", "Some runs are estimated from the day's temperature until their snow can be measured."],
   statusTipGating: ["SkiResort.Hub.STATUS_TIP_GATING", "Snow & season gating is off in Options, so every run counts as open."],
-  statusTipVisuals: ["SkiResort.Hub.STATUS_TIP_VISUALS", "Snow is hidden in your Gameplay settings. Runs still open on the simulated snow."],
+  statusTipVisuals: ["SkiResort.Hub.STATUS_TIP_VISUALS", "Snow is hidden in your Gameplay settings. Runs still open and close on the snow the game keeps."],
   /* the hint slot at powder >= 0.5 (hubRules.statusHint) */
   powderDay: ["SkiResort.Hub.POWDER_DAY", "Powder day"],
 
@@ -241,7 +241,7 @@ export const HUB_LOC = {
   mountainSnowDepth: ["SkiResort.Hub.MOUNTAIN[SnowDepth]", "Snow depth"],
   mountainSnowCover: ["SkiResort.Hub.MOUNTAIN[SnowCover]", "Run coverage"],
   mountainTipDepth: ["SkiResort.Hub.MOUNTAIN_TIP[Depth]", "Average snow depth on the runs."],
-  mountainTipSnow: ["SkiResort.Hub.MOUNTAIN_TIP[Snow]", "Share of the run area with enough snow to ski."],
+  mountainTipSnow: ["SkiResort.Hub.MOUNTAIN_TIP[Snow]", "Share of the run area with enough snow to ski. Opening a run takes deeper snow than keeping it open."],
   unlinkedNote: ["SkiResort.Hub.UNLINKED_NOTE", "These runs and lifts belong to no ski area, so they score nothing and draw no guests."],
 
   treeTool: ["SkiResort.Hub.TREE_TOOL", "Tree tool"],
@@ -264,14 +264,18 @@ export const HUB_LOC = {
   colDropTip: ["SkiResort.Hub.COL_DROP_TIP", "Approximate height from the lowest to the highest point of the outline."],
   runsEmpty: ["SkiResort.Hub.RUNS_EMPTY", "No runs yet."],
   runEstimated: ["SkiResort.Hub.RUN_ESTIMATED", "Estimated from the day's temperature."],
+  /* the run tooltip's state line while the snow is estimated: no share, nothing was read (RunList.tsx runTip) */
+  runOpenEstOpen: ["SkiResort.Hub.RUN_OPEN_EST[Open]", "Open, estimated from the day's temperature"],
+  runOpenEstPartly: ["SkiResort.Hub.RUN_OPEN_EST[Partly]", "Patchy, estimated from the day's temperature"],
+  runOpenEstClosed: ["SkiResort.Hub.RUN_OPEN_EST[Closed]", "Closed, estimated from the day's temperature"],
   /* the run tooltip's snow-gun line by RUN_GUN_WHY (the depth line is HUB_FMT.runDepth) */
   runGunsMaking: ["SkiResort.Hub.RUN_GUNS[Making]", "Snow guns: making snow now"],
   runGunsDepth: ["SkiResort.Hub.RUN_GUNS[DepthReached]", "Snow guns: off, the snow is deep enough"],
   runGunsWarm: ["SkiResort.Hub.RUN_GUNS[TooWarm]", "Snow guns: off, too warm"],
-  runGunsSeason: ["SkiResort.Hub.RUN_GUNS[OutOfSeason]", "Snow guns: off, out of season (2 months before winter to 1 month after)"],
-  runGunsWaiting: ["SkiResort.Hub.RUN_GUNS[Waiting]", "Snow guns: waiting for the first snow reading"],
-  runOpenGating: ["SkiResort.Hub.RUN_OPEN_GATING", "Counts as open: snow gating is off."],
-  runOpenNone: ["SkiResort.Hub.RUN_OPEN_NONE", "Not linked: no snow state."],
+  runGunsSeason: ["SkiResort.Hub.RUN_GUNS[OutOfSeason]", "Snow guns: off. They run from 2 months before winter to 1 month after"],
+  runGunsWaiting: ["SkiResort.Hub.RUN_GUNS[Waiting]", "Snow guns: off until the run's snow is first read"],
+  runOpenGating: ["SkiResort.Hub.RUN_OPEN_GATING", "Counts as open: Snow & season gating is off in Options."],
+  runOpenNone: ["SkiResort.Hub.RUN_OPEN_NONE", "Not linked: belongs to no ski area, so it has no open or closed state."],
   runServedAnon: ["SkiResort.Hub.RUN_SERVED_ANON", "A running lift reaches its top."],
   runTypeNote: ["SkiResort.Hub.RUN_TYPE_NOTE", "Natural green and blue runs count less. A groomed run counts in full."],
   runCatTrackNote: ["SkiResort.Hub.RUN_CAT_TRACK_NOTE", "A cat track always rates green and counts a quarter of a run its size, in the score and the skier room."],
@@ -283,7 +287,7 @@ export const HUB_LOC = {
   runPropsOff: ["SkiResort.Hub.RUN_PROPS_OFF", "Off"],
   runPropsGunsTip: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP", "Distance between snow guns on this run's edge. Off: no guns, no made snow and no snowmaking upkeep."],
   /* a cat track: its guns at Off also stop its snowmaking bill and its made snow (see DECISIONS 563, 568 and SkiRunPropSystem.CatTrackGunsOn) */
-  runPropsGunsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP[CatTrack]", "Distance between snow guns and hydrants on this cat track's edge. Off: no guns and no snowmaking upkeep. Made snow stays until it melts."],
+  runPropsGunsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP[CatTrack]", "Distance between snow guns on this cat track's edge. Their snow counts but is not drawn. Off: no guns, no snowmaking upkeep, and it melts."],
   runPropsLightsTip: ["SkiResort.Hub.RUN_PROPS_LIGHTS_TIP", "Distance between floodlight masts on this run's edge. Lit runs stay open in the evening. Off: no lights and no lighting upkeep."],
   runPropsLightsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_LIGHTS_TIP[CatTrack]", "Distance between floodlight masts on this cat track's edge. Lit tracks pay lighting upkeep in the snow season. Off: no lights and no lighting upkeep."],
   /* run types R3: the Groomed row (a re-emit, DECISIONS 577) and the paid-once note (RunRow.paidSteps) */
@@ -687,12 +691,12 @@ export const HUB_FMT = {
   snowDepth: ["SkiResort.Hub.SNOW_DEPTH", "{DEPTH} cm"],
   // the depth under vanilla's US customary units (parts.tsx useInches / depthValue: whole inches)
   snowDepthIn: ["SkiResort.Hub.SNOW_DEPTH_IN", "{DEPTH} in"],
-  runOpenOpen: ["SkiResort.Hub.RUN_OPEN[Open]", "Open: snow on {PCT} of it"],
-  runOpenPartly: ["SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: snow on {PCT} of it"],
-  runOpenClosed: ["SkiResort.Hub.RUN_OPEN[Closed]", "Closed: snow on {PCT} of it"],
-  /* {DEPTH} = RunLive.snowDepthCm / 100 (unit length: m or ft by the player's unit setting). No baked open depth: the threshold
-     is C#'s and would need its own placeholder from RunList.tsx. */
-  runDepth: ["SkiResort.Hub.RUN_DEPTH", "Snow depth {DEPTH}"],
+  runOpenOpen: ["SkiResort.Hub.RUN_OPEN[Open]", "Open: {PCT} of it has at least {KEEP} of snow"],
+  runOpenPartly: ["SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: {PCT} of it has enough snow to ski"],
+  runOpenClosed: ["SkiResort.Hub.RUN_OPEN[Closed]", "Closed: {PCT} of it has {OPEN} of snow. It opens at 60 %"],
+  /* {DEPTH} = RunLive.snowDepthCm in cm, or whole inches under US units (parts.tsx useInches / depthValue), like SNOW_DEPTH */
+  runDepth: ["SkiResort.Hub.RUN_DEPTH", "Snow depth {DEPTH} cm"],
+  runDepthIn: ["SkiResort.Hub.RUN_DEPTH_IN", "Snow depth {DEPTH} in"],
   runServed: ["SkiResort.Hub.RUN_SERVED", "Served by {NAME}"],
   runNotServed: ["SkiResort.Hub.RUN_NOT_SERVED", "No lift to its top: counts {PCT}"],
   runValueOf: ["SkiResort.Hub.RUN_VALUE_OF", "{NOW} of {FULL}"],
@@ -824,7 +828,7 @@ export const HUB_FMT = {
 /* STATUS_WORD by hubRules.statusWord. */
 export const STATUS_WORD: Readonly<Record<StatusWord, LocEntry>> = {
   open: ["SkiResort.Hub.STATUS_WORD[Open]", "Open"],
-  partly: ["SkiResort.Hub.STATUS_WORD[Partly]", "Partly open"],
+  partly: ["SkiResort.Hub.STATUS_WORD[Partly]", "Patchy"],
   closed: ["SkiResort.Hub.STATUS_WORD[Closed]", "Closed"],
 };
 
@@ -857,7 +861,7 @@ export const SEASON_HINT_TEXT: ReadonlyArray<LocEntry | null> = [
   ["SkiResort.Hub.SEASON_HINT[Thawing]", "Thawing"],
   ["SkiResort.Hub.SEASON_HINT[WaitingForSnow]", "Waiting for snow"],
   ["SkiResort.Hub.SEASON_HINT[TooWarm]", "Too warm for snow"],
-  ["SkiResort.Hub.SEASON_HINT[GatingOff]", "Snow gating off"],
+  ["SkiResort.Hub.SEASON_HINT[GatingOff]", "Snow & season gating off"],
 ];
 
 /*

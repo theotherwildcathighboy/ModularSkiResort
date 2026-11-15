@@ -361,7 +361,7 @@ namespace SkiResortMod.Systems
             public float LapseAmbient;
             public float LapseBaseHeight;
             public float LapseScale;
-            // The skiable bar (injected runs: the 15 cm bar), the ledger slot, and the warm-spell protection inputs. Protecting false = every
+            // The skiable bar (the 0.91 m open bar), the ledger slot, and the warm-spell protection inputs. Protecting false = every
             // warm texel goes to the decay plane.
             public float BarNorm;
             public ushort Slot;
@@ -562,7 +562,7 @@ namespace SkiResortMod.Systems
             public NativeArray<FoldRowPartial> Partials;
             public int RunY0, RunX0, RunX1;
             public bool Measure;
-            public float BarNorm;   // 15 cm, or 31 cm for a natural run rated black or double black
+            public float BarNorm;   // the open bar, RunSnowRules.SkiableBarNorm: 0.91 m for every run (the expert natural bar is the same today)
 
             public void Execute(int r)
             {
@@ -3562,7 +3562,7 @@ namespace SkiResortMod.Systems
                         RunX0 = runX0,
                         RunX1 = runX1,
                         Measure = snap.Usable,
-                        BarNorm = nr.BarNorm,   // 15 cm, or 31 cm for a natural run rated black or double black
+                        BarNorm = nr.BarNorm,   // the open bar, 0.91 m (RunSnowRules.SkiableBarNorm)
                     }.ScheduleParallel(rowCount, RowBatch, chain);
 
                     chain = new ClearScratchRowsJob
@@ -3873,7 +3873,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The slope band (0 flat .. 4 double black, SkiResortScore.Band*) of a natural run from the catalog's last rebuild. The value is -1 while
-        /// it is unrated or the catalog is absent (the run then needs the default 15 cm). The catalog is resolved lazily and may stay null:
+        /// it is unrated or the catalog is absent (the run then gets the default open bar, 0.91 m). The catalog is resolved lazily and may stay null:
         /// nothing here depends on it being there.</summary>
         private int NaturalBand(Entity run)
         {
