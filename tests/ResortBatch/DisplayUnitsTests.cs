@@ -22,6 +22,7 @@ namespace ResortBatch
             SectionScheme();
             SectionCatTrack();
             SectionOptions();
+            SectionEuropean();
             s_Check = null;
         }
 
@@ -114,18 +115,86 @@ namespace ResortBatch
             Eq(DisplayUnits.ResolveScheme(GradeSchemeOption.European, null), GradeScheme.European, w, "European without a theme");
             Eq(DisplayUnits.SchemeSuffix(GradeScheme.European), "@EU", w, "SchemeSuffix(European)");
             Eq(DisplayUnits.SchemeSuffix(GradeScheme.NorthAmerican), "", w, "SchemeSuffix(NorthAmerican)");
-            // In-world colors (labels, piste map): European grading shows the green band as the blue piste, the blue band as the red piste
-            RunLabelRules.BandRgb(1, GradeScheme.European, out byte r, out byte g, out byte b);
-            Eq(r * 1000000 + g * 1000 + b, 52120220, w, "BandRgb(green band, European) (blue)");
-            RunLabelRules.BandRgb(2, GradeScheme.European, out r, out g, out b);
+            // In-world colors (labels, piste map): European grading shows the class of the band and the crux (DU-8), North American the band
+            RunLabelRules.BandRgb(1, GradeScheme.European, 10f, out byte r, out byte g, out byte b);
+            Eq(r * 1000000 + g * 1000 + b, 76175080, w, "BandRgb(green band, 10 %, European) (green piste)");
+            RunLabelRules.BandRgb(1, GradeScheme.European, 20f, out r, out g, out b);
+            Eq(r * 1000000 + g * 1000 + b, 52120220, w, "BandRgb(green band, 20 %, European) (blue piste)");
+            RunLabelRules.BandRgb(2, GradeScheme.European, 30f, out r, out g, out b);
             Eq(r * 1000000 + g * 1000 + b, 214048040, w, "BandRgb(blue band, European) (red)");
-            RunLabelRules.BandRgb(3, GradeScheme.European, out r, out g, out b);
+            RunLabelRules.BandRgb(3, GradeScheme.European, 45f, out r, out g, out b);
             Eq(r * 1000000 + g * 1000 + b, 14014018, w, "BandRgb(black band, European) (unchanged)");
-            RunLabelRules.BandRgb(1, GradeScheme.NorthAmerican, out r, out g, out b);
-            Eq(r * 1000000 + g * 1000 + b, 76175080, w, "BandRgb(green band, North American) (unchanged)");
+            RunLabelRules.BandRgb(4, GradeScheme.European, 70f, out r, out g, out b);
+            Eq(r * 1000000 + g * 1000 + b, 240130020, w, "BandRgb(double-black band, European) (ski route orange)");
+            RunLabelRules.BandRgb(1, GradeScheme.NorthAmerican, 20f, out r, out g, out b);
+            Eq(r * 1000000 + g * 1000 + b, 76175080, w, "BandRgb(green band, 20 %, North American) (unchanged: the grade is ignored)");
+            RunLabelRules.BandRgb(-2, GradeScheme.European, 20f, out r, out g, out b);
+            Eq(r * 1000000 + g * 1000 + b, 220150060, w, "BandRgb(cannot be rated, European) (unchanged)");
             // The values the hub reads (bindings.ts GRADE_SCHEME) and the Options values (saved settings) never move.
             Eq((int)GradeScheme.NorthAmerican * 10 + (int)GradeScheme.European, 1, w, "GradeScheme values 0 / 1");
             Eq((int)GradeSchemeOption.Auto * 100 + (int)GradeSchemeOption.NorthAmerican * 10 + (int)GradeSchemeOption.European, 12, w, "GradeSchemeOption values 0 / 1 / 2");
+        }
+
+        /// <summary>DU-8: the European class (T162 rev. 2). Its own limits on the crux grade (green under 15 %, blue to 25, red to 40, black to
+        /// 60, ski route above), and the edges: the class never crosses a SlopeBand boundary, so a European green and blue are one score
+        /// band and nothing else is ever split.</summary>
+        private static void SectionEuropean()
+        {
+            const string w = "DU-8 European class";
+            Eq(DisplayUnits.EuGreenMaxPct, 15f, w, "EuGreenMaxPct");
+            Eq(DisplayUnits.EuClassOf(1, 6f), EuClass.Green, w, "EuClassOf(green band, 6 %)");
+            Eq(DisplayUnits.EuClassOf(1, 14.99f), EuClass.Green, w, "EuClassOf(green band, 14.99 %)");
+            Eq(DisplayUnits.EuClassOf(1, 15f), EuClass.Blue, w, "EuClassOf(green band, 15 %) (half-open, like BandOf)");
+            Eq(DisplayUnits.EuClassOf(1, 24.99f), EuClass.Blue, w, "EuClassOf(green band, 24.99 %)");
+            Eq(DisplayUnits.EuClassOf(1, 26f), EuClass.Blue, w, "EuClassOf(green band, 26 %) (a wide-ease run rated green: European blue)");
+            Eq(DisplayUnits.EuClassOf(1, float.NaN), EuClass.Green, w, "EuClassOf(green band, NaN)");
+            Eq(DisplayUnits.EuClassOf(1, -1f), EuClass.Green, w, "EuClassOf(green band, -1 = no rating)");
+            Eq(DisplayUnits.EuClassOf(2, 25f), EuClass.Red, w, "EuClassOf(blue band, 25 %)");
+            Eq(DisplayUnits.EuClassOf(2, 45f), EuClass.Red, w, "EuClassOf(blue band, 45 %) (a capped black crux: red, as its band)");
+            Eq(DisplayUnits.EuClassOf(3, 40f), EuClass.Black, w, "EuClassOf(black band, 40 %)");
+            Eq(DisplayUnits.EuClassOf(4, 60f), EuClass.Route, w, "EuClassOf(double-black band, 60 %)");
+            Eq(DisplayUnits.EuClassOf(0, 3f), EuClass.Flat, w, "EuClassOf(flat band)");
+            Eq(DisplayUnits.EuClassOf(-1, 20f), EuClass.Flat, w, "EuClassOf(pending)");
+            Eq(DisplayUnits.EuClassOf(-2, 20f), EuClass.Flat, w, "EuClassOf(cannot be rated)");
+            Eq(DisplayUnits.EuClassOfBand(1), EuClass.Blue, w, "EuClassOfBand(green band) (no grade: the hardest it can be)");
+            Eq(DisplayUnits.EuClassOfBand(4), EuClass.Route, w, "EuClassOfBand(double-black band)");
+            // The edges: every class maps back to the band it came from, for every band and a dense grade sweep.
+            int crossed = 0;
+            for (int band = 0; band <= 4; band++)
+                for (int k = -10; k <= 1000; k++)
+                    if (DisplayUnits.BandOfEuClass(DisplayUnits.EuClassOf(band, k * 0.1f)) != band)
+                        crossed++;
+            Eq(crossed, 0, w, "classes that cross a band boundary (band 0..4, grade -1 .. 100 %)");
+            Eq((int)DisplayUnits.BandOfEuClass(EuClass.Green) * 10 + DisplayUnits.BandOfEuClass(EuClass.Blue), 11, w, "green and blue are one band");
+            // The live readout's hysteresis (0.5 %) at the green / blue boundary.
+            Eq(DisplayUnits.EuClassShown(1, 15.4f, EuClass.Green, 0.5f), EuClass.Green, w, "EuClassShown(15.4 %, shown green) keeps green");
+            Eq(DisplayUnits.EuClassShown(1, 15.5f, EuClass.Green, 0.5f), EuClass.Blue, w, "EuClassShown(15.5 %, shown green) moves to blue");
+            Eq(DisplayUnits.EuClassShown(1, 14.6f, EuClass.Blue, 0.5f), EuClass.Blue, w, "EuClassShown(14.6 %, shown blue) keeps blue");
+            Eq(DisplayUnits.EuClassShown(1, 14.4f, EuClass.Blue, 0.5f), EuClass.Green, w, "EuClassShown(14.4 %, shown blue) moves to green");
+            Eq(DisplayUnits.EuClassShown(2, 15f, EuClass.Green, 0.5f), EuClass.Red, w, "EuClassShown(blue band) ignores the shown class");
+            Eq(DisplayUnits.EuClassShown(1, 10f, EuClass.Black, 0.5f), EuClass.Green, w, "EuClassShown(green band, shown black) resets");
+            // The piste map styles.
+            Eq(PisteMapRules.StyleOf(1, GradeScheme.European, 10f), PisteStyle.Green, w, "StyleOf(green band, 10 %, European)");
+            Eq(PisteMapRules.StyleOf(1, GradeScheme.European, 20f), PisteStyle.Blue, w, "StyleOf(green band, 20 %, European)");
+            Eq(PisteMapRules.StyleOf(2, GradeScheme.European, 30f), PisteStyle.Red, w, "StyleOf(blue band, European)");
+            Eq(PisteMapRules.StyleOf(4, GradeScheme.European, 70f), PisteStyle.Route, w, "StyleOf(double-black band, European)");
+            Eq(PisteMapRules.StyleOf(-1, GradeScheme.European, 20f), PisteStyle.Pending, w, "StyleOf(pending, European)");
+            Eq(PisteMapRules.StyleOf(2, GradeScheme.NorthAmerican, 30f), PisteStyle.Blue, w, "StyleOf(blue band, North American)");
+            Eq(PisteMapRules.StyleOfBand(1, GradeScheme.European), PisteStyle.Blue, w, "StyleOfBand(green band, European)");
+            Eq(DisplayUnits.EuClassKey(EuClass.Route), "SkiResort.EuClass[Route]", w, "EuClassKey(Route)");
+            // The hub's counts: the aggregate counts the European greens inside the Green band only.
+            var runs = new System.Collections.Generic.List<SkiResortAggregate.RunIn>
+            {
+                new SkiResortAggregate.RunIn { Resort = 0, RateState = 1, Band = 1, EuGreen = true },
+                new SkiResortAggregate.RunIn { Resort = 0, RateState = 1, Band = 1, EuGreen = false },
+                new SkiResortAggregate.RunIn { Resort = 0, RateState = 1, Band = 2, EuGreen = true },   // never counted outside Green
+                new SkiResortAggregate.RunIn { Resort = 0, RateState = 0, Band = 1, EuGreen = true },   // pending: not rated
+            };
+            var agg = new SkiResortAggregate.Agg[2];
+            SkiResortAggregate.Aggregate(runs, null, null, 1, agg);
+            Eq(agg[0].Green * 10 + agg[0].EuGreen, 21, w, "Aggregate: Green 2, of them EuGreen 1");
+            Eq((int)EuClass.Flat * 100000 + (int)EuClass.Green * 10000 + (int)EuClass.Blue * 1000 + (int)EuClass.Red * 100 + (int)EuClass.Black * 10 + (int)EuClass.Route,
+                12345, w, "EuClass values 0..5 (units.ts EU_CLASS)");
         }
 
         private static void SectionCatTrack()

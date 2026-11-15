@@ -210,7 +210,8 @@ namespace SkiResortMod.Systems
                             : "P" + QuickRunsPlanRules.Ordinal(plan, pod.Lift).ToString(CultureInfo.InvariantCulture))
                         .Replace("{CLASS}", Template("SkiResort.Tooltip.QUICK_CLASS[" + pod.PrimaryClass + "]"))
                     : otherT;
-                RunLabelRules.BandRgb(PlanGeometry.ScoreBandOf(pod.PrimaryClass), DisplayState.Scheme, out byte r, out byte g, out byte b);
+                RunLabelRules.BandRgb(PlanGeometry.ScoreBandOf(pod.PrimaryClass), DisplayState.Scheme, DisplayUnits.EuGreenMaxPct,   // no grade: "blue or easier"
+                    out byte r, out byte g, out byte b);
                 Add(ref hd, pod.TopCenter, text, new Color32(r, g, b, 255), 2f * QuickRunsPlanRules.PodPickM);
             }
             AddTrackLabels(ref hd, result, trackT);

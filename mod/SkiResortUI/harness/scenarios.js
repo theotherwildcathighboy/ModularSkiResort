@@ -51,7 +51,7 @@
     { entity: E(201), name: "Ash Flat Meadow", kind: 0, bound: true, lengthM: 1420, dropM: 210, areaM2: 84000, sign: SIGN, ordinal: 1, customName: true, band: 1, gradePct: 15, steepestPct: 22, approx: false, member: true, served: true, servedBy: E(301), valueFull: 1.0, bandValue: 1.0, sizeFactor: 1.1, typeFactor: 1.0, servedFactor: 1.0, gunSpacingM: 0, lightSpacingM: 0, paidSteps: 4 },
     { entity: E(202), name: "Run 2", kind: 1, bound: true, lengthM: 2180, dropM: 480, areaM2: 126000, sign: SIGN, ordinal: 2, customName: false, band: 2, gradePct: 24, steepestPct: 38, approx: false, member: true, served: true, servedBy: E(301), valueFull: 1.6, bandValue: 1.4, sizeFactor: 1.3, typeFactor: 1.2, servedFactor: 1.0, gunSpacingM: 50, lightSpacingM: 0, paidSteps: 12 },
     { entity: E(203), name: "North Face", kind: 3, bound: true, lengthM: 1760, dropM: 610, areaM2: 61000, sign: SIGN, ordinal: 3, customName: true, band: 3, gradePct: 38, steepestPct: 55, approx: true, member: true, served: false, servedBy: NULL, valueFull: 1.9, bandValue: 1.8, sizeFactor: 1.0, typeFactor: 0.9, servedFactor: 0.5, gunSpacingM: -1, lightSpacingM: -1, paidSteps: 0 },
-    { entity: E(204), name: "Run 4", kind: 2, bound: true, lengthM: 960, dropM: 140, areaM2: 38000, sign: SIGN, ordinal: 4, customName: false, band: 1, gradePct: 15, steepestPct: 19, approx: false, member: true, served: true, servedBy: E(302), valueFull: 0.8, bandValue: 1.0, sizeFactor: 0.8, typeFactor: 1.1, servedFactor: 1.0, gunSpacingM: 90, lightSpacingM: 90, paidSteps: 28 },
+    { entity: E(204), name: "Run 4", kind: 2, bound: true, lengthM: 960, dropM: 140, areaM2: 38000, sign: SIGN, ordinal: 4, customName: false, band: 1, gradePct: 11, steepestPct: 19, approx: false, member: true, served: true, servedBy: E(302), valueFull: 0.8, bandValue: 1.0, sizeFactor: 0.8, typeFactor: 1.1, servedFactor: 1.0, gunSpacingM: 90, lightSpacingM: 90, paidSteps: 28 },
     { entity: E(205), name: "Cat Track", kind: 4, bound: true, lengthM: 2400, dropM: 90, areaM2: 24000, sign: SIGN, ordinal: 5, customName: false, band: 0, gradePct: 4, steepestPct: 8, approx: false, member: true, served: true, servedBy: E(302), valueFull: 0.2, bandValue: 0.2, sizeFactor: 1.0, typeFactor: 0.5, servedFactor: 1.0, gunSpacingM: 60, lightSpacingM: 0, paidSteps: 0 },
     { entity: E(206), name: "Run 6", kind: 0, bound: false, lengthM: 640, dropM: 95, areaM2: 19000, sign: NULL, ordinal: 6, customName: false, band: -1, gradePct: 0, steepestPct: 0, approx: true, member: false, served: false, servedBy: NULL, valueFull: 0, bandValue: 0, sizeFactor: 0, typeFactor: 0, servedFactor: 0, gunSpacingM: 0, lightSpacingM: 0, paidSteps: 0 },
   ];
@@ -69,11 +69,11 @@
     { entity: E(303), top: E(313), sign: SIGN, name: "Lift 3", customName: false, state: 3, sections: 1, towers: 3, chairs: 0, chairsRiding: 0, gaps: 1, towersRemoved: 0, lengthM: 520, riseM: 300, horizontalM: 424, alignKnown: false, alignOffsetM: 0, alignYawDeg: 0, capacityPerHour: 0, hasBase: true, hasTop: false, powered: false, counted: false, status: 3, rideTimeS: 0, runsServed: 0, costMonth: 0, billedReduced: false, type: "gondola", seats: 8, speedMps: 6.0 },
   ];
   const resorts = [
-    { sign: SIGN, kind: 0, name: "Ash Flat", customName: true, runs: 5, rated: 4, flat: 1, green: 2, blue: 1, black: 1, doubleBlack: 0, areaM2: 333000, verticalM: 610, verticalApprox: false, lodges: 3, freeLodges: 1, liftRows: 3, liftLengthM: 3140, capacityPerHour: 3600 },
-    { sign: SIGN2, kind: 0, name: "Resort 2", customName: false, runs: 0, rated: 0, flat: 0, green: 0, blue: 0, black: 0, doubleBlack: 0, areaM2: 0, verticalM: 0, verticalApprox: true, lodges: 0, freeLodges: 0, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 },
+    { sign: SIGN, kind: 0, name: "Ash Flat", customName: true, runs: 5, rated: 4, flat: 1, green: 2, euGreen: 1, blue: 1, black: 1, doubleBlack: 0, areaM2: 333000, verticalM: 610, verticalApprox: false, lodges: 3, freeLodges: 1, liftRows: 3, liftLengthM: 3140, capacityPerHour: 3600 },
+    { sign: SIGN2, kind: 0, name: "Resort 2", customName: false, runs: 0, rated: 0, flat: 0, green: 0, euGreen: 0, blue: 0, black: 0, doubleBlack: 0, areaM2: 0, verticalM: 0, verticalApprox: true, lodges: 0, freeLodges: 0, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 },
     // C# always sends the Not linked row last (bindings.ts ResortRow.kind). Run 6 is bound to no sign, so that row counts 1 run
     // and the header selector lists it.
-    { sign: NULL, kind: 1, name: "", customName: false, runs: 1, rated: 0, flat: 0, green: 0, blue: 0, black: 0, doubleBlack: 0, areaM2: 19000, verticalM: 95, verticalApprox: true, lodges: 0, freeLodges: 0, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 },
+    { sign: NULL, kind: 1, name: "", customName: false, runs: 1, rated: 0, flat: 0, green: 0, euGreen: 0, blue: 0, black: 0, doubleBlack: 0, areaM2: 19000, verticalM: 95, verticalApprox: true, lodges: 0, freeLodges: 0, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 },
   ];
   // The receipt numbers are self-consistent (SkiResortScore.cs:468, 495): S = (4.55 + 21 + 12) x 1.15 x 1.2 = 51.82,
   // terrain = 4 x sqrt(S) = 28.8, full = 18 + 28.8 = 47, attraction = 46.8 x 0.94 = 44. city.month 1 = February.
@@ -166,7 +166,7 @@
 
   // The Quick runs tool (contract 17, treesCost since 18) is closed by default. The "Quick runs open" case below has a preview with trees on (every row drawn).
   const quickRuns = { available: true, active: false, reason: "", phase: "Region", corners: 0, areaM2: 0, maxAreaM2: 1000000, verticalM: 0,
-    regionState: "Open", progress: 0, density: 1, kinds: 3, runs: 0, enabled: 0, tracks: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0,
+    regionState: "Open", progress: 0, density: 1, kinds: 3, runs: 0, enabled: 0, tracks: 0, count: [0, 0, 0, 0, 0], euGreen: 0, target: [0, 0, 0, 0, 0], fee: 0,
     skiers: 0, variety: false, status: "", warnings: [], unbound: 0, clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: 4, treeLine: -1, groundMin: 0,
     groundMax: 0, group: 0, species: -1, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
     buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0, rejects: [0, 0, 0, 0, 0, 0, 0, 0], sitePercent: -1, siteTier: 0,
@@ -176,7 +176,7 @@
     // R1-d (contract 41): the plan sheet and the lift queue (empty: no plan yet)
     sheet: { rows: [], running: false, index: 0, total: 0, stopping: false, toBuild: 0, unbuilt: 0, built: 0, cost: 0, notice: "" } };
   const quickPreview = Object.assign({}, quickRuns, { active: true, phase: "Preview", corners: 6, areaM2: 812000, verticalM: 640, regionState: "Ok",
-    runs: 12, enabled: 11, tracks: 5, count: [0, 3, 5, 3, 0], target: [0, 0, 0, 0, 0], fee: 1840000, skiers: 2350, variety: true,
+    runs: 12, enabled: 11, tracks: 5, count: [0, 3, 5, 3, 0], euGreen: 1, target: [0, 0, 0, 0, 0], fee: 1840000, skiers: 2350, variety: true,
     warnings: ["SkiResort.Tooltip.QUICK_WARN[OverWater]", "SkiResort.Tooltip.QUICK_WARN[Renumber]",
       "SkiResort.Tooltip.QUICK_WARN[NoSignSome]"], unbound: 3,
     clusters: [{ label: "SkiResort.Tooltip.QUICK_CLUSTER", runs: 7 }, { label: "SkiResort.Tooltip.QUICK_POD[Beginner]", runs: 2 },
@@ -189,7 +189,7 @@
   const sheetRow = (key, name, typeKey, lengthM, riseM, cost, on, state, step, reasonKey, extra) => Object.assign({ key, name, typeKey, lengthM, riseM, cost, on, state, step, reasonKey,
     flagged: false, waits: false, overLimitTowers: 0, overLimitTower: -1, overLimitAlongM: 0, overLimitBendDeg: 0, overLimitCapDeg: 0 }, extra);
   const podRow = (id, letter, cls, runs, kept, count, liftId, homeKey, on, tracks) => ({ id, key: -1000 - id, letter, classKey: "SkiResort.Tooltip.QUICK_CLASS[" + cls + "]",
-    runs, enabledRuns: kept, tracks: tracks === undefined ? 3 : tracks, count, skiers: kept * 210, fee: kept * 160000, on, liftId, homeKey });
+    runs, enabledRuns: kept, tracks: tracks === undefined ? 3 : tracks, count, euGreen: Math.floor((count[1] | 0) / 2), skiers: kept * 210, fee: kept * 160000, on, liftId, homeKey });
   const liftRow = (id, origin, ordinal, typeKey, pod, lengthM, riseM, serves, homeKey, on, fit) => ({ id, key: 500 + id, origin, ordinal, typeKey, pod, lengthM, riseM,
     cost: origin ? 0 : 2400000 + id * 300000, serves, startsNearTop: 3, homeKey, flagged: fit === "flagged", waits: fit === "waits", overLimitTowers: fit === "flagged" ? 1 : fit === "waits" ? 2 : 0, on });
   const quickPlan = Object.assign({}, quickPreview, { clusters: [], trees: false,
@@ -254,7 +254,7 @@
   pods15.push(podRow(15, "P", "Intermediate", 11, 11, [0, 3, 5, 3, 0], -1, "", true, 14));
   const lifts15 = Array.from({ length: 15 }, (_, i) => liftRow(i, 0, i + 1, TYPES15[i % 5], i, 520 + ((i * 397) % 2600), 140 + ((i * 131) % 800), 3 + (i % 9),
     "SkiResort.Tooltip.QUICK_VERDICT[" + VERDICT15[i % 5] + "]", i !== 9, FIT15[i]));
-  const quickPlan15 = Object.assign({}, quickPreview, { clusters: [], trees: false, runs: 73, enabled: 69, tracks: 98, count: [0, 19, 31, 19, 0], fee: 31840000, skiers: 9150,
+  const quickPlan15 = Object.assign({}, quickPreview, { clusters: [], trees: false, runs: 73, enabled: 69, tracks: 98, count: [0, 19, 31, 19, 0], euGreen: 8, fee: 31840000, skiers: 9150,
     pods: pods15, planLifts: lifts15, plan: { liftsProposed: 15, liftsPinned: 0, runKm: 41.8, trackKm: 22.6, runKmPerKm2: 4.6, deadEnds: 0, mountainMix: [0, 24, 41, 35, 0], sitePods: 0, siteGreenHome: 0, siteBenchHa: 0 },
     sheet: sheetOf(lifts15.map((l) => sheetRow(700 + l.id, "P" + (l.id + 1), l.typeKey, l.lengthM, l.riseM, l.cost, l.on, "Proposed", "", "", { flagged: l.flagged, waits: l.waits })), {}) });
   const flag = (tower, along, bend) => ({ overLimitTowers: 1, overLimitTower: tower, overLimitAlongM: along, overLimitBendDeg: bend, overLimitCapDeg: 32 });
@@ -295,7 +295,7 @@
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800 };
-  const base = { hubOpen: false, contract: 46, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 47, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
@@ -323,6 +323,9 @@
     // The Resort Planner with a plan (v2): the Lifts / Way home knobs, the plan line, one toggle row per lift and the pod without a lift.
     "Resort Planner plan, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive,
       lifts, problems, history, quickRuns: quickPlan, build: buildItems({ built: ["school"] }) }),
+    // European grading (T162 rev. 2): the plan's counts split the Green band into green and blue pistes (euGreen), the ski route marker.
+    "Resort Planner plan, European grading, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2],
+      selectedResort: SIGN, runs, runLive, lifts, problems, history, quickRuns: quickPlan, gradeScheme: 1, build: buildItems({ built: ["school"] }) }),
     // The plan sheet (R1-d): the Resort Planner closed, the lifts block at the top of the Runs view. Every row state, the queue at lift 2 / 3.
     "Resort Planner lifts, queue building (every row state), Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN,
       runs, runLive, lifts, problems, history, quickRuns: quickSheetRunning, build: buildItems({ built: ["school"] }) }),

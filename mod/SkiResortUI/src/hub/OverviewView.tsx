@@ -25,7 +25,8 @@ import {
 } from "./hubRules";
 import type { VarietyNeed } from "./hubRules";
 import { IconText, MissingLine } from "./iconText";
-import { BAND_NAME, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, factorEntry } from "./hubText";
+import { BAND_NAME, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, euClassEntry, factorEntry } from "./hubText";
+import { euCounts } from "./units";
 import type { BuildItemId } from "../bindings";
 import {
   BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, areaArg, cx, depthValue, numArg, useUnits,
@@ -39,11 +40,16 @@ const DASH = "–";
 
 
 const BAND_SEGMENT = ["segFlat", "segGreen", "segBlue", "segBlack", "segDoubleBlack"] as const;
-/** European grading (T162): blue, red and black pistes for the same bands. */
-const BAND_SEGMENT_EU = ["segFlat", "segBlue", "segRed", "segBlack", "segDoubleBlack"] as const;
+/** European grading (T162 rev. 2), by European class (units.ts EU_CLASS): flat, green, blue, red, black piste, ski route. */
+const EU_SEGMENT = ["segFlat", "segGreen", "segBlue", "segRed", "segBlack", "segRoute"] as const;
 
 function bandCounts(row: ResortRow): number[] {
   return [row.flat | 0, row.green | 0, row.blue | 0, row.black | 0, row.doubleBlack | 0];
+}
+
+/** The counts the bar and the legend show: by band (North American), or by European class (the Green band split by euGreen). */
+function shownCounts(row: ResortRow, eu: boolean): number[] {
+  return eu ? euCounts(bandCounts(row), row.euGreen) : bandCounts(row);
 }
 
 /** Runs of the shown area whose rating can never finish (band -2). */
@@ -61,9 +67,10 @@ function pendingCount(row: ResortRow, unrateable: number): number {
 /** One segment per non-zero band (flex-grow = count), then being rated, then cannot be rated.
  *  The tooltip sits on the bar's own root div (a Tip around this component would not attach). */
 function DifficultyBar({ row, unrateable, tip }: { row: ResortRow; unrateable: number; tip: JSX.Element }): JSX.Element {
-  const counts = bandCounts(row);
+  const eu = useValue(gradeScheme$) === GRADE_SCHEME.European;
+  const counts = shownCounts(row, eu);
   const pending = pendingCount(row, unrateable);
-  const segments = useValue(gradeScheme$) === GRADE_SCHEME.European ? BAND_SEGMENT_EU : BAND_SEGMENT;
+  const segments: readonly string[] = eu ? EU_SEGMENT : BAND_SEGMENT;
   return (
     <Tip tip={tip}>
       <div className={styles.diffBar}>
@@ -79,12 +86,13 @@ function DifficultyBar({ row, unrateable, tip }: { row: ResortRow; unrateable: n
 /** Marker + count per band. A "being rated" item and a "cannot be rated" item show only while one exists.
  *  At count 0 the dimmed "being rated" ring looks exactly like Flat's. The legend has no label of its own: the MOUNTAIN header names the block. */
 function DifficultyLegend({ row, unrateable, t }: { row: ResortRow; unrateable: number; t: Translate }): JSX.Element {
-  const counts = bandCounts(row);
+  const eu = useValue(gradeScheme$) === GRADE_SCHEME.European;
+  const counts = shownCounts(row, eu);
   const pending = pendingCount(row, unrateable);
-  const item = (key: string, band: number, n: number, tip: string): JSX.Element => (
+  const item = (key: string, band: number, n: number, tip: string, euClass?: number): JSX.Element => (
     <Tip key={key} tip={tip}>
       <div className={cx(styles.legendItem, n === 0 && styles.legendZero)}>
-        <BandMarker band={band} />
+        <BandMarker band={band} euClass={euClass} />
         <StableWidth samples={["00"]} align="start" className={styles.legendCount}>
           <Num value={n} unit={Unit.Integer} />
         </StableWidth>
@@ -93,7 +101,9 @@ function DifficultyLegend({ row, unrateable, t }: { row: ResortRow; unrateable: 
   );
   return (
     <div className={styles.legend}>
-      {counts.map((n, band) => item(`b${band}`, band, n, t(BAND_NAME[band])))}
+      {eu
+        ? counts.map((n, c) => item(`e${c}`, BAND.Flat, n, t(euClassEntry(c)), c))
+        : counts.map((n, band) => item(`b${band}`, band, n, t(BAND_NAME[band])))}
       {pending > 0 && item("pending", BAND.Pending, pending, t(HUB_LOC.pending))}
       {unrateable > 0 && item("unrateable", BAND.Unrateable, unrateable, t(HUB_LOC.unrateable))}
     </div>

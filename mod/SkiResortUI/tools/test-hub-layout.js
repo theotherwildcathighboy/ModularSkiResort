@@ -262,6 +262,7 @@ const SHOTS = [
   // [file, height, params]
   ["quick-runs-open-1080", 1080, { scenario: "Quick runs open, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
   ["resort-planner-plan-1080", 1080, { scenario: "Resort Planner plan, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+  ["resort-planner-plan-eu-1080", 1080, { scenario: "Resort Planner plan, European grading, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],   // T162 rev. 2
   ["resort-planner-plan-1440-fs125", 1440, { scenario: "Resort Planner plan, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs", fs: 1.25 }],
   ["resort-planner-lifts-building-1080", 1080, { scenario: "Resort Planner lifts, queue building (every row state), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],   // R1-d
   ["resort-planner-lifts-stopping-1080", 1080, { scenario: "Resort Planner lifts, queue stopping (planner open), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],

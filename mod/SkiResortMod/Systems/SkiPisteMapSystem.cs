@@ -94,33 +94,24 @@ namespace SkiResortMod.Systems
 
         // Colors by (int)PisteStyle (Pending, Unrateable, Flat, Green, Blue, Black, DoubleBlack): the hub's band colors, sRGB / 255.
         // Outline = fill and width 0 except the black runs' white edge.
+        // Red and Route (European grading only, T162 rev. 2): the red piste, and the ski route's orange with a black edge like its marker.
+        // One palette for both schemes: the scheme picks the style (PisteMapRules.StyleOf(band, scheme, gradePct)), the colors per style
+        // stay the same (DisplayUnits.ClassRgb / EuRgb, sRGB bytes).
         private static readonly UnityEngine.Color[] s_Fill =
         {
             Rgb(255, 255, 255, 0.45f), Rgb(220, 150, 60, 0.9f), Rgb(170, 180, 190, 0.9f), Rgb(76, 175, 80, 0.95f),
-            Rgb(52, 120, 220, 0.95f), Rgb(14, 14, 18, 0.95f), Rgb(0, 0, 0, 1f),
+            Rgb(52, 120, 220, 0.95f), Rgb(14, 14, 18, 0.95f), Rgb(0, 0, 0, 1f), Rgb(214, 48, 40, 0.95f), Rgb(240, 130, 20, 0.95f),
         };
         private static readonly UnityEngine.Color[] s_Outline =
         {
             Rgb(255, 255, 255, 0.45f), Rgb(220, 150, 60, 0.9f), Rgb(170, 180, 190, 0.9f), Rgb(76, 175, 80, 0.95f),
-            Rgb(52, 120, 220, 0.95f), Rgb(255, 255, 255, 0.85f), Rgb(255, 255, 255, 0.95f),
+            Rgb(52, 120, 220, 0.95f), Rgb(255, 255, 255, 0.85f), Rgb(255, 255, 255, 0.95f), Rgb(214, 48, 40, 0.95f), Rgb(14, 14, 18, 0.95f),
         };
-        private static readonly float[] s_OutlineWidth = { 0f, 0f, 0f, 0f, 0f, Tuning.OutlineBlackM, Tuning.OutlineDoubleBlackM };
-        // European grading (T162, display only): the Green style is the blue piste, the Blue style the red piste (RunLabelRules.BandRgb).
-        private static readonly UnityEngine.Color[] s_FillEu =
-        {
-            Rgb(255, 255, 255, 0.45f), Rgb(220, 150, 60, 0.9f), Rgb(170, 180, 190, 0.9f), Rgb(52, 120, 220, 0.95f),
-            Rgb(214, 48, 40, 0.95f), Rgb(14, 14, 18, 0.95f), Rgb(0, 0, 0, 1f),
-        };
-        private static readonly UnityEngine.Color[] s_OutlineEu =
-        {
-            Rgb(255, 255, 255, 0.45f), Rgb(220, 150, 60, 0.9f), Rgb(170, 180, 190, 0.9f), Rgb(52, 120, 220, 0.95f),
-            Rgb(214, 48, 40, 0.95f), Rgb(255, 255, 255, 0.85f), Rgb(255, 255, 255, 0.95f),
-        };
+        private static readonly float[] s_OutlineWidth = { 0f, 0f, 0f, 0f, 0f, Tuning.OutlineBlackM, Tuning.OutlineDoubleBlackM, 0f, Tuning.OutlineBlackM };
 
-        // The palette of the run grading the player sees (DisplayState.Scheme), read by the Quick runs tool's preview too (one palette for
-        // the map and the preview, never written)
-        internal static UnityEngine.Color[] PisteFill => DisplayState.Scheme == GradeScheme.European ? s_FillEu : s_Fill;
-        internal static UnityEngine.Color[] PisteOutline => DisplayState.Scheme == GradeScheme.European ? s_OutlineEu : s_Outline;
+        // The palette by PisteStyle, read by the Quick runs tool's preview too (one palette for the map and the preview, never written).
+        internal static UnityEngine.Color[] PisteFill => s_Fill;
+        internal static UnityEngine.Color[] PisteOutline => s_Outline;
         /// <summary>The cat-track color of the map and of the Resort Planner preview (not a band color, not a lift color).</summary>
         internal static readonly UnityEngine.Color CatTrackLine = new UnityEngine.Color(0.94f, 0.82f, 0.28f, 0.95f);
         internal static float[] PisteOutlineWidth => s_OutlineWidth;
@@ -404,7 +395,7 @@ namespace SkiResortMod.Systems
                 m_SlotOfRun[row.Entity] = slot;
                 if (dashed)
                     m_Natural++;
-                int style = (int)PisteMapRules.StyleOf(row.Band);
+                int style = (int)PisteMapRules.StyleOf(row.Band, m_BuiltScheme, row.GradePct);   // European class by the crux (T162 rev. 2)
                 bool track = row.Features.IsCatTrack;
                 UnityEngine.Color fill = track ? CatTrackLine : fills[style], outline = track ? CatTrackLine : outlines[style];
                 float outlineWidth = track ? 0f : s_OutlineWidth[style];

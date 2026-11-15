@@ -3,7 +3,8 @@
 //   FadeAlpha  0 below ZoomHideBelowM and above ZoomHideAboveM (and for a zoom that is not a positive finite number), linear ramps
 //              between. Reads the same camera zoom as the piste map (IGameCameraController.zoom, PisteMapRules.WidthScale).
 //   AlphaStep  the fade quantized to AlphaSteps (0 = hidden). Vertex alpha is rewritten only when the step moves.
-//   BandRgb    the piste-map fill colors of SkiPisteMapSystem.s_Fill by catalog RunRow.Band (-2 cannot be rated .. 4 double black).
+//   BandRgb    the piste-map fill colors of SkiPisteMapSystem.s_Fill by catalog RunRow.Band (-2 cannot be rated .. 4 double black), and
+//              in European grading by the class of the band and the crux grade (DisplayUnits.EuClassOf).
 //   CleanText  removes TextMeshPro mark-up characters ('<', '>') and control characters, so a run named "<b>x" cannot become mark-up.
 // Pure file: `using System;` and Unity.Mathematics only (the ResortBatch host links it).
 
@@ -214,12 +215,15 @@ namespace SkiResortMod.Systems
             return (byte)Math.Round(255.0 * step / AlphaSteps);
         }
 
-        /// <summary>The piste map's fill color of a catalog band in a run grading (T162): European grading shows the band the North American
-        /// scheme calls green as a blue piste and its blue as a red piste (SkiPisteMapSystem.s_FillEu). Display only.</summary>
-        public static void BandRgb(int band, GradeScheme scheme, out byte r, out byte g, out byte b)
+        /// <summary>The piste map's fill color of a catalog band in a run grading (T162 rev. 2): European grading shows the class of the band
+        /// and its crux grade in percent (DisplayUnits.EuClassOf, EuRgb), North American the band. Display only.</summary>
+        public static void BandRgb(int band, GradeScheme scheme, float gradePct, out byte r, out byte g, out byte b)
         {
-            if (scheme == GradeScheme.European && band == 1) { r = 52; g = 120; b = 220; return; }
-            if (scheme == GradeScheme.European && band == 2) { r = 214; g = 48; b = 40; return; }
+            if (scheme == GradeScheme.European && band >= 0 && band <= 4)
+            {
+                DisplayUnits.EuRgb(DisplayUnits.EuClassOf(band, gradePct), out r, out g, out b);
+                return;
+            }
             BandRgb(band, out r, out g, out b);
         }
 

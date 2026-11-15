@@ -10,6 +10,7 @@ import type { LocEntry } from "../l10n";
 import { BAND, clampGladeLevel } from "../bindings";
 import type { BuildItemId, RunKind } from "../bindings";
 import type { NextVariant, StatusWord } from "./hubRules";
+import { euClassOf, isEuropean } from "./units";
 
 /* Plain entries (no placeholder). */
 export const HUB_LOC = {
@@ -1066,9 +1067,26 @@ export const BAND_NAME: readonly LocEntry[] = [
   ["SkiResort.SlopeBand[DoubleBlack]", "Double black diamond"],
 ];
 
-export function bandEntry(band: number): LocEntry {
+/* European class names (T162 rev. 2), index = units.ts EU_CLASS (C# DisplayUnits.EuClassKey). Flat keeps the band's name. */
+export const EU_CLASS_NAME: readonly LocEntry[] = [
+  ["SkiResort.SlopeBand[Flat]", "Flat (too gentle to rate)"],
+  ["SkiResort.EuClass[Green]", "Green piste"],
+  ["SkiResort.EuClass[Blue]", "Blue piste"],
+  ["SkiResort.EuClass[Red]", "Red piste"],
+  ["SkiResort.EuClass[Black]", "Black piste"],
+  ["SkiResort.EuClass[Route]", "Ski route"],
+];
+
+export function euClassEntry(euClass: number): LocEntry {
+  return EU_CLASS_NAME[euClass] ?? HUB_LOC.pending;
+}
+
+/** The name of a run's rating: the band (North American), or in European grading the class of the band and its crux (units.ts
+ *  euClassOf). Pending and cannot be rated are the same in both. */
+export function bandEntry(band: number, scheme?: number, gradePct?: number): LocEntry {
   if (band === BAND.Unrateable) return HUB_LOC.unrateable;
-  return band >= BAND.Flat && band <= BAND.DoubleBlack ? BAND_NAME[band] : HUB_LOC.pending;
+  if (!(band >= BAND.Flat && band <= BAND.DoubleBlack)) return HUB_LOC.pending;
+  return scheme !== undefined && isEuropean(scheme) ? EU_CLASS_NAME[euClassOf(band, gradePct)] : BAND_NAME[band];
 }
 
 /* Glade level names, index = level 1..8 (0 unused). */
@@ -1292,36 +1310,33 @@ export function monthShortName(month: number, t: (e: LocEntry) => string): strin
   return Number.isInteger(month) && month >= 0 && month < 12 ? t([`Common.MONTH_SHORT:${month}`, MONTH_SHORT_FALLBACK[month]]) : "–";
 }
 
-/* European grading (T162, binding gradeScheme): the variant of every text that names a run color, key + "@EU" (src/hub/units.ts
- * schemeEntry). useT, LocText and the icon table pick it while the scheme is European. Mirrored in LocaleEN.cs (gate R4). Band names
- * (SkiResort.SlopeBand[*]@EU) are listed too: the hub's run rows and the drawing tooltip share them. */
+/* European grading (T162, binding gradeScheme): the variant of every text that names a run color in words, key + "@EU" (src/hub/units.ts
+ * schemeEntry). useT, LocText and the icon table pick it while the scheme is European. Mirrored in LocaleEN.cs (gate R4). The European
+ * Green band is a green or a blue piste (one score band, T162 rev. 2), so a text about the whole band says "green or blue" and never calls
+ * one of the two harder than the other. Class names: EU_CLASS_NAME. Icons need no variant (units.ts schemeIconName). */
 export const EU_TEXT_ENTRIES: readonly LocEntry[] = [
-  ["SkiResort.SlopeBand[Green]@EU", "Blue piste"],
-  ["SkiResort.SlopeBand[Blue]@EU", "Red piste"],
-  ["SkiResort.SlopeBand[Black]@EU", "Black piste"],
-  ["SkiResort.SlopeBand[DoubleBlack]@EU", "Expert black piste"],
-  ["SkiResort.Hub.QUICK_KIND_TIP[Snowmaking]@EU", "Blue runs that reach the base get snow guns."],
+  ["SkiResort.Hub.QUICK_KIND_TIP[Snowmaking]@EU", "Green and blue runs that reach the base get snow guns."],
   ["SkiResort.Hub.QUICK_KIND_TIP[Night]@EU", "Up to two base runs, red or easier with the lowest tops, get snow guns and lights."],
-  ["SkiResort.Tooltip.QUICK_SITE[Gentle]@EU", "Gentle slope, {N} average: blue and red runs."],
+  ["SkiResort.Tooltip.QUICK_SITE[Gentle]@EU", "Gentle slope, {N} average: green, blue and red runs."],
   ["SkiResort.Tooltip.QUICK_SITE[Steep]@EU", "Steep slope, {N} average: mostly red and black runs."],
-  ["SkiResort.Tooltip.QUICK_SITE[VerySteep]@EU", "Very steep, {N} average: mostly black runs, few blues."],
-  ["SkiResort.Tooltip.QUICK_SITE[Beyond]@EU", "Steeper than any real ski area, {N} average: black and expert black runs only."],
-  ["SkiResort.Tooltip.QUICK_WARN[NoGreen]@EU", "No blue runs: too steep, or too little gentle ground at the bottom."],
+  ["SkiResort.Tooltip.QUICK_SITE[VerySteep]@EU", "Very steep, {N} average: mostly black runs, few green or blue ones."],
+  ["SkiResort.Tooltip.QUICK_SITE[Beyond]@EU", "Steeper than any real ski area, {N} average: black runs and ski routes only."],
+  ["SkiResort.Tooltip.QUICK_WARN[NoGreen]@EU", "No green or blue runs: too steep, or too little gentle ground at the bottom."],
   ["SkiResort.Tooltip.QUICK_WARN[NoBlue]@EU", "No red runs: the slope gives none."],
-  ["SkiResort.Tooltip.QUICK_WARN[NoEasyWayHome]@EU", "A lift top here has no blue way down."],
-  ["SkiResort.Tooltip.QUICK_VERDICT[Green]@EU", "Blue way home"],
+  ["SkiResort.Tooltip.QUICK_WARN[NoEasyWayHome]@EU", "A lift top here has no green or blue way down."],
+  ["SkiResort.Tooltip.QUICK_VERDICT[Green]@EU", "Green or blue way home"],
   ["SkiResort.Tooltip.QUICK_VERDICT[Blue]@EU", "Red way home"],
-  ["SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]@EU", "Expert black only"],
-  ["SkiResort.Tooltip.QUICK_MIX_HONEST@EU", "Terrain: blue {G} % · red {B} % · black {K} %"],
-  ["SkiResort.Hub.PROBLEM[SchoolNoGreenRun]@EU", "Ski school: no blue run"],
-  ["SkiResort.Hub.SCHOOL_NO_GREEN@EU", "No blue run"],
-  ["SkiResort.Hub.ICON[green]@EU", "blue"],
+  ["SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]@EU", "Ski route only"],
+  ["SkiResort.Tooltip.QUICK_MIX_HONEST@EU", "Terrain: green or blue {G} % · red {B} % · black {K} %"],
+  ["SkiResort.Hub.PROBLEM[SchoolNoGreenRun]@EU", "Ski school: no green or blue run"],
+  ["SkiResort.Hub.SCHOOL_NO_GREEN@EU", "No green or blue run"],
+  ["SkiResort.Hub.ICON[green]@EU", "green or blue"],
   ["SkiResort.Hub.ICON[blue]@EU", "red"],
-  ["SkiResort.Hub.ICON[dblack]@EU", "expert black"],
-  ["SkiResort.Hub.RUN_TYPE_NOTE@EU", "Natural blue and red runs count less. A groomed run counts in full."],
-  ["SkiResort.Hub.RUN_CAT_TRACK_NOTE@EU", "A cat track always rates blue and counts a quarter of a run its size, in the score and the skier room."],
-  ["SkiResort.Hub.BUILD_SHORT[School]@EU", "Teaches on blue runs."],
-  ["SkiResort.Hub.BUILD_SHORT[CatTrack]@EU", "Always blue. Counts as a quarter run."],
+  ["SkiResort.Hub.ICON[dblack]@EU", "ski route"],
+  ["SkiResort.Hub.RUN_TYPE_NOTE@EU", "Natural green, blue and red runs count less. A groomed run counts in full."],
+  ["SkiResort.Hub.RUN_CAT_TRACK_NOTE@EU", "A cat track always rates green or blue and counts a quarter of a run its size, in the score and the skier room."],
+  ["SkiResort.Hub.BUILD_SHORT[School]@EU", "Teaches on green and blue runs."],
+  ["SkiResort.Hub.BUILD_SHORT[CatTrack]@EU", "Always green or blue. Counts as a quarter run."],
 ];
 
 /** EU_TEXT_ENTRIES by key. */

@@ -24,10 +24,10 @@ import iconClosed from "./icons/closed.svg";
 import iconOpenpatchy from "./icons/openpatchy.svg";
 import iconLift from "./icons/lift.svg";
 import iconSchool from "./icons/school.svg";
-import iconEuBlue from "./icons/eublue.svg";
+import iconEuGreenBlue from "./icons/eugreenblue.svg";
 import iconEuRed from "./icons/eured.svg";
 import iconEuBlack from "./icons/eublack.svg";
-import iconEuDblack from "./icons/eudblack.svg";
+import iconEuRoute from "./icons/euroute.svg";
 
 export interface HubIcon {
   /** The image URL: a webpack asset (coui://ui-mods/SkiResortMod-img/...) or a vanilla Media/ path. */
@@ -36,17 +36,21 @@ export interface HubIcon {
   wide: boolean;
   /** The icon's word (its word form). */
   word: LocEntry;
-  /** European grading (T162): the art of the same rating as a piste disc (the word is word's "@EU" variant, hubText EU_TEXT). */
+  /** European grading (T162 rev. 2, units.ts schemeIconName): the art of the same band (the word is word's "@EU" variant, hubText
+   *  EU_TEXT). Green = a green and a blue disc (the band is both), blue = the red piste, black = the black piste, double black = the
+   *  ski route's orange diamond. */
   eu?: string;
+  /** The European art's box (24 x 16 when true). */
+  euWide?: boolean;
 }
 
 export type HubIconName = "green" | "blue" | "black" | "dblack" | "open" | "patchy" | "closed" | "openpatchy" | "school" | "lift" | "power" | "snow";
 
 export const HUB_ICON: Readonly<Record<HubIconName, HubIcon>> = {
-  green: { src: iconGreen, wide: false, word: HUB_LOC.iconGreen, eu: iconEuBlue },
-  blue: { src: iconBlue, wide: false, word: HUB_LOC.iconBlue, eu: iconEuRed },
-  black: { src: iconBlack, wide: false, word: HUB_LOC.iconBlack, eu: iconEuBlack },
-  dblack: { src: iconDblack, wide: true, word: HUB_LOC.iconDblack, eu: iconEuDblack },
+  green: { src: iconGreen, wide: false, word: HUB_LOC.iconGreen, eu: iconEuGreenBlue, euWide: true },
+  blue: { src: iconBlue, wide: false, word: HUB_LOC.iconBlue, eu: iconEuRed, euWide: false },
+  black: { src: iconBlack, wide: false, word: HUB_LOC.iconBlack, eu: iconEuBlack, euWide: false },
+  dblack: { src: iconDblack, wide: true, word: HUB_LOC.iconDblack, eu: iconEuRoute, euWide: false },
   open: { src: iconOpen, wide: false, word: HUB_LOC.iconOpen },
   patchy: { src: iconPatchy, wide: false, word: HUB_LOC.iconPatchy },
   closed: { src: iconClosed, wide: false, word: HUB_LOC.iconClosed },
@@ -71,7 +75,7 @@ export function hubIconOf(name: string): HubIcon | null {
   if (!Object.prototype.hasOwnProperty.call(HUB_ICON, name)) return null;
   const ic = HUB_ICON[name as HubIconName];
   const scheme = gradeScheme$.value;
-  return ic.eu && isEuropean(scheme) ? { src: ic.eu, wide: ic.wide, word: schemeEntry(ic.word, scheme, EU_TEXT) } : ic;
+  return ic.eu && isEuropean(scheme) ? { src: ic.eu, wide: ic.euWide === true, word: schemeEntry(ic.word, scheme, EU_TEXT) } : ic;
 }
 
 /**

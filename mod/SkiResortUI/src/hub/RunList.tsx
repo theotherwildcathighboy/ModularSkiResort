@@ -14,7 +14,7 @@ import type { MouseEvent } from "react";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { OPEN_STATE, RUN_GUN_WHY, RUN_KIND, hubTriggers } from "../bindings";
+import { OPEN_STATE, RUN_GUN_WHY, RUN_KIND, gradeScheme$, hubTriggers } from "../bindings";
 import type { RunLive, RunRow } from "../bindings";
 import type { Translate } from "../l10n";
 import { isRunKind } from "./buildItems";
@@ -99,7 +99,7 @@ function runTip(p: RunLineProps, name: string, typeName: string, units: DisplayU
     <TipLines
       lines={[
         name,
-        `${typeName} · ${t(bandEntry(row.band))}`,
+        `${typeName} · ${t(bandEntry(row.band, gradeScheme$.value, row.gradePct))}`,
         openLine,
         depthLine,
         gunLine,
@@ -183,7 +183,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
   const inner = (
     <>
       <RunDot state={state} />
-      <BandMarker band={row.band} />
+      <BandMarker band={row.band} gradePct={row.gradePct} />
       <KindStripe kind={row.kind} />
       <div className={styles.rowName}>
         {renaming ? (

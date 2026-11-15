@@ -32,6 +32,8 @@ namespace SkiResortMod.Systems
         public bool Variety;                        // green, blue and black or double black among the enabled pistes
         public int[] PodPistes = new int[0], PodPistesOn = new int[0], PodTracks = new int[0];
         public int[][] PodCount = new int[0][];     // per group: enabled pistes by SlopeBand
+        public int EuGreen;                         // of Count[Green]: shown green in European grading (crux under 15 %, T162 rev. 2)
+        public int[] PodEuGreen = new int[0];       // the same per group
 
         public static QuickRunsShown Of(QuickRunsToolSystem t)
         {
@@ -45,6 +47,7 @@ namespace SkiResortMod.Systems
             s.PodPistesOn = new int[pods];
             s.PodTracks = new int[pods];
             s.PodCount = new int[pods][];
+            s.PodEuGreen = new int[pods];
             for (int p = 0; p < pods; p++)
                 s.PodCount[p] = new int[5];
             for (int i = 0; i < r.Runs.Count; i++)
@@ -80,6 +83,12 @@ namespace SkiResortMod.Systems
                     s.Count[band]++;
                     if (inPod)
                         s.PodCount[pod][band]++;
+                    if (band == (int)SlopeBand.Green && DisplayUnits.EuClassOf(band, run.RatingGrade * 100f) == EuClass.Green)
+                    {
+                        s.EuGreen++;
+                        if (inPod)
+                            s.PodEuGreen[pod]++;
+                    }
                 }
             }
             s.Variety = s.Count[(int)SlopeBand.Green] > 0 && s.Count[(int)SlopeBand.Blue] > 0 &&
@@ -226,6 +235,8 @@ namespace SkiResortMod.Systems
             writer.Write(shown.TracksOn);
             writer.PropertyName("count");
             WriteInts(writer, shown.Count, preview);
+            writer.PropertyName("euGreen");
+            writer.Write(preview ? shown.EuGreen : 0);
             writer.PropertyName("target");
             WriteInts(writer, tot.Target, preview);
             writer.PropertyName("fee");
@@ -346,6 +357,8 @@ namespace SkiResortMod.Systems
                 writer.Write(shown.PodTracks[i]);
                 writer.PropertyName("count");
                 WriteInts(writer, shown.PodCount[i], true);
+                writer.PropertyName("euGreen");
+                writer.Write(shown.PodEuGreen[i]);
                 writer.PropertyName("skiers");
                 writer.Write((int)System.Math.Round(row.Skiers));
                 writer.PropertyName("fee");

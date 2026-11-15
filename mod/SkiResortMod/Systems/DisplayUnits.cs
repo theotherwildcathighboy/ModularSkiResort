@@ -2,8 +2,8 @@
 // grade (rise / run) and meters. Every conversion for display goes through this file (C#) or src/hub/units.ts (the hub), which
 // mirrors the same factors and rules (ResortBatch DU-* and test-hub-rules.js check both).
 //   Four Options, each independent (players mix them: North American run names with metric heights and °C is common):
-//   Grading    North American (green circle, blue square, black diamond, double black) or European (blue, red, black, expert black).
-//              Display only: SlopeBand, run kinds and saved data never change. ResolveScheme picks it from the Options value and the
+//   Grading    North American (green circle, blue square, black diamond, double black) or European (green, blue, red, black piste,
+//              ski route: EuClassOf, its own limits on the crux grade). Display only: SlopeBand, run kinds and saved data never change. ResolveScheme picks it from the Options value and the
 //              city theme (ThemePrefab name "European" / "North American": the theme ids of the new-game menu, decompile 1.6.4f1).
 //   Lengths    length, height, elevation, vertical drop, area, earthwork and line speed: metric or imperial. Auto = the game's unit
 //              setting (InterfaceSettings.unitSystem). ResolveImperial.
@@ -25,6 +25,17 @@ namespace SkiResortMod.Systems
     {
         NorthAmerican = 0,
         European = 1,
+    }
+
+    /// <summary>A European piste class (T162 rev. 2): display only, never saved. DisplayUnits.EuClassOf.</summary>
+    public enum EuClass : byte
+    {
+        Flat = 0,
+        Green = 1,
+        Blue = 2,
+        Red = 3,
+        Black = 4,
+        Route = 5,
     }
 
     /// <summary>The Options value (SkiResortSettings.RunGradeScheme). Auto follows the city's theme.</summary>
@@ -231,7 +242,106 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The locale key suffix of a scheme: "" for North American (the shipped keys), "@EU" for European variants
-        /// (LocaleEN "SkiResort.SlopeBand[Green]@EU" etc.).</summary>
+        /// (LocaleEN "SkiResort.Hub.ICON[blue]@EU" etc.).</summary>
         public static string SchemeSuffix(GradeScheme s) => s == GradeScheme.European ? "@EU" : "";
+
+        // European piste class (T162 rev. 2, display only): its own limits on the same rating number, the crux grade
+        // (SlopeResult.RatingGrade, RunRow.GradePct). Sources: docs/research/post-release-round1/european-piste-limits.md.
+        //   Green   under 15 %   France / Spain / Scandinavia: no numeric norm exists (NF S52-100 sets the colors, not the slopes).
+        //                        15 % is the common French guidance, unverified.
+        //   Blue    15 to 25 %   Austria ÖNORM S 4611, Switzerland SKUS, Italy, Germany: blue at most 25 %.
+        //   Red     25 to 40 %   the same norms: red at most 40 %.
+        //   Black   40 to 60 %   the same norms: black above 40 %.
+        //   Route   60 % and up  a ski route (orange, Austria / Switzerland): no European piste color goes above black. 60 % is the
+        //                        mod's double-black floor.
+        // The class never crosses a SlopeBand boundary: red, black and route ARE the Blue, Black and DoubleBlack bands (their floors are
+        // the same 25 / 40 / 60 %), and the Green band splits into green and blue. The difficulty layer only moves Blue to Green (WideEase,
+        // crux under 27 %: European blue) or a black crux to Blue / Black (European red / black), so the class follows the band.
+        // Scoring, bands, economy and saves stay on SlopeBand: a European green and a European blue are the same band and score the same.
+        public const float EuGreenMaxPct = 15f;
+
+        /// <summary>The European class of a rated SlopeBand value (0 Flat .. 4 DoubleBlack) and its crux grade in percent. Only the Green
+        /// band reads the grade: under EuGreenMaxPct (or unknown) green, else blue. Values outside 0..4 (pending, cannot be rated) read
+        /// Flat; callers keep their own marks for those.</summary>
+        public static EuClass EuClassOf(int band, float gradePct)
+        {
+            switch (band)
+            {
+                case 1: return gradePct >= EuGreenMaxPct ? EuClass.Blue : EuClass.Green;
+                case 2: return EuClass.Red;
+                case 3: return EuClass.Black;
+                case 4: return EuClass.Route;
+                default: return EuClass.Flat;
+            }
+        }
+
+        /// <summary>The same with a hysteresis for a live readout (the drawing preview): the shown class changes between green and blue only
+        /// once the grade is past the 15 % boundary by `hysteresisPct`. Other bands map as EuClassOf.</summary>
+        public static EuClass EuClassShown(int band, float gradePct, EuClass shown, float hysteresisPct)
+        {
+            if (band != 1)
+                return EuClassOf(band, gradePct);
+            if (shown == EuClass.Green && gradePct < EuGreenMaxPct + hysteresisPct)
+                return EuClass.Green;
+            if (shown == EuClass.Blue && gradePct >= EuGreenMaxPct - hysteresisPct)
+                return EuClass.Blue;
+            return EuClassOf(band, gradePct);
+        }
+
+        /// <summary>The SlopeBand value a European class belongs to (Green and Blue both read the Green band).</summary>
+        public static int BandOfEuClass(EuClass c)
+        {
+            switch (c)
+            {
+                case EuClass.Green: case EuClass.Blue: return 1;
+                case EuClass.Red: return 2;
+                case EuClass.Black: return 3;
+                case EuClass.Route: return 4;
+                default: return 0;
+            }
+        }
+
+        /// <summary>The European class of a band with no grade (a way-home verdict, a planner group's class): the hardest class the band
+        /// can be, so the Green band reads blue ("blue or easier"). Never claims a run is easier than it may be.</summary>
+        public static EuClass EuClassOfBand(int band) => EuClassOf(band, EuGreenMaxPct);
+
+        /// <summary>The display color of a run class in a scheme, sRGB bytes (the piste map, the labels and the hub share them). North
+        /// American: the band colors. European: the class colors.</summary>
+        public static void ClassRgb(GradeScheme scheme, int band, float gradePct, out byte r, out byte g, out byte b)
+        {
+            if (scheme == GradeScheme.European && band >= 0 && band <= 4)
+            {
+                EuRgb(EuClassOf(band, gradePct), out r, out g, out b);
+                return;
+            }
+            switch (band)
+            {
+                case -2: r = 220; g = 150; b = 60; return;
+                case 0: r = 170; g = 180; b = 190; return;
+                case 1: r = 76; g = 175; b = 80; return;
+                case 2: r = 52; g = 120; b = 220; return;
+                case 3: r = 14; g = 14; b = 18; return;
+                case 4: r = 0; g = 0; b = 0; return;
+                default: r = 255; g = 255; b = 255; return;
+            }
+        }
+
+        /// <summary>The color of a European class, sRGB bytes: green and blue as the North American band colors, red the red piste,
+        /// black, and the ski route's orange.</summary>
+        public static void EuRgb(EuClass c, out byte r, out byte g, out byte b)
+        {
+            switch (c)
+            {
+                case EuClass.Green: r = 76; g = 175; b = 80; return;
+                case EuClass.Blue: r = 52; g = 120; b = 220; return;
+                case EuClass.Red: r = 214; g = 48; b = 40; return;
+                case EuClass.Black: r = 14; g = 14; b = 18; return;
+                case EuClass.Route: r = 240; g = 130; b = 20; return;
+                default: r = 170; g = 180; b = 190; return;
+            }
+        }
+
+        /// <summary>The locale key of a European class name (LocaleEN, hubText EU_CLASS_NAME).</summary>
+        public static string EuClassKey(EuClass c) => "SkiResort.EuClass[" + c + "]";
     }
 }

@@ -8,7 +8,9 @@
  *   Temperature), given the chosen unit system (unitSettingsFor, parts.tsx unitLoc). What vanilla has no format for (hectares, line speed,
  *   snow depth) converts here, with a metric and an imperial locale entry each.
  * - Grading: North American or European names, markers and icons (GRADE_SCHEME, binding gradeScheme). Display only. A European variant
- *   of a text is the same key + "@EU" (EU_SUFFIX) in LocaleEN.cs and in hubText.ts EU_TEXT; schemeEntry picks it.
+ *   of a text is the same key + "@EU" (EU_SUFFIX) in LocaleEN.cs and in hubText.ts EU_TEXT; schemeEntry picks it. The European scheme
+ *   has its own limits on the crux grade (euClassOf, T162 rev. 2): green, blue, red, black piste, ski route. Green and blue are one
+ *   band (SlopeBand Green), so they score the same.
  * Pure: values only from ../bindings (no cs2/*), so test-hub-rules.js runs it under node.
  */
 import { BAND, GRADE_SCHEME, UNITS } from "../bindings";
@@ -123,31 +125,71 @@ export function schemeEntry(entry: LocEntry, scheme: number, euText: Readonly<Re
   return Object.prototype.hasOwnProperty.call(euText, key) ? [key, euText[key]] : entry;
 }
 
-/** The marker shape of a band in a scheme: North American circle / square / diamond / two diamonds; European colored discs
- *  (blue / red / black / two black) for the same bands. Flat, pending and cannot-be-rated keep their own marks in both. */
-export type BandShape = "flat" | "green" | "blue" | "black" | "dblack" | "euBlue" | "euRed" | "euBlack" | "euDblack" | "unrateable" | "pending";
+/** A European piste class (C# DisplayUnits.EuClass, display only). */
+export const EU_CLASS = { Flat: 0, Green: 1, Blue: 2, Red: 3, Black: 4, Route: 5 } as const;
 
-export function bandShape(band: number, scheme: number): BandShape {
-  const eu = isEuropean(scheme);
+/** The European green / blue boundary on the crux grade, % (C# DisplayUnits.EuGreenMaxPct). Sources:
+ *  docs/research/post-release-round1/european-piste-limits.md. */
+export const EU_GREEN_MAX_PCT = 15;
+
+/** The European class of a rated band (0 Flat .. 4 DoubleBlack) and its crux grade in percent (RunRow.gradePct), as C# EuClassOf:
+ *  only the Green band reads the grade (under 15 % or unknown green, else blue). Red, black and route ARE the Blue, Black and
+ *  DoubleBlack bands. Leave `gradePct` out for a band with no grade: the Green band then reads blue (the hardest it can be). */
+export function euClassOf(band: number, gradePct: number = EU_GREEN_MAX_PCT): number {
   switch (band) {
-    case BAND.Flat: return "flat";
-    case BAND.Green: return eu ? "euBlue" : "green";
-    case BAND.Blue: return eu ? "euRed" : "blue";
-    case BAND.Black: return eu ? "euBlack" : "black";
-    case BAND.DoubleBlack: return eu ? "euDblack" : "dblack";
-    case BAND.Unrateable: return "unrateable";
-    default: return "pending";
+    case BAND.Green: return gradePct >= EU_GREEN_MAX_PCT ? EU_CLASS.Blue : EU_CLASS.Green;
+    case BAND.Blue: return EU_CLASS.Red;
+    case BAND.Black: return EU_CLASS.Black;
+    case BAND.DoubleBlack: return EU_CLASS.Route;
+    default: return EU_CLASS.Flat;
   }
 }
 
-/** The icon NAME a text's `<icon:NAME>` shows in a scheme: the four rating icons swap to the European discs. */
+/** Counts by European class (index = EU_CLASS) from counts by band (index = SlopeBand) and how many of the Green band show green
+ *  (euGreen, C# ResortStats.EuGreen / QuickRunsShown.EuGreen). Clamped, so a stale euGreen never gives a negative blue. */
+export function euCounts(byBand: readonly number[], euGreen: number): number[] {
+  const n = (i: number): number => Math.max(0, byBand[i] | 0);
+  const green = Math.min(n(BAND.Green), Math.max(0, euGreen | 0));
+  return [n(BAND.Flat), green, n(BAND.Green) - green, n(BAND.Blue), n(BAND.Black), n(BAND.DoubleBlack)];
+}
+
+/** The marker shape of a band in a scheme: North American circle / square / diamond / two diamonds; European colored discs (green, blue,
+ *  red, black) and the ski route's orange diamond, by euClassOf. A Green band with no grade (`gradePct` left out: a need, a count of the
+ *  whole band) shows "euGreenBlue", a small green and a small blue disc: the band is both. Flat, pending and cannot-be-rated keep their
+ *  own marks in both schemes. */
+export type BandShape = "flat" | "green" | "blue" | "black" | "dblack" | "euGreen" | "euBlue" | "euGreenBlue" | "euRed" | "euBlack" | "euRoute"
+  | "unrateable" | "pending";
+
+const EU_SHAPE: readonly BandShape[] = ["flat", "euGreen", "euBlue", "euRed", "euBlack", "euRoute"];
+
+export function bandShape(band: number, scheme: number, gradePct?: number): BandShape {
+  if (band === BAND.Unrateable) return "unrateable";
+  if (!(band >= BAND.Flat && band <= BAND.DoubleBlack)) return "pending";
+  if (isEuropean(scheme)) return band === BAND.Green && gradePct === undefined ? "euGreenBlue" : EU_SHAPE[euClassOf(band, gradePct)];
+  switch (band) {
+    case BAND.Flat: return "flat";
+    case BAND.Green: return "green";
+    case BAND.Blue: return "blue";
+    case BAND.Black: return "black";
+    default: return "dblack";
+  }
+}
+
+/** The marker shape of a European class (the legend and the bar show classes, not bands). */
+export function euClassShape(euClass: number): BandShape {
+  return EU_SHAPE[euClass] ?? "pending";
+}
+
+/** The European art a text's `<icon:NAME>` shows (hubIcons.ts HUB_ICON eu): the same bands, so a text never needs a variant for an icon.
+ *  Green (the Green band) is a green and a blue disc ("green or blue"), blue the red piste, black the black piste, double black the ski
+ *  route. Other names keep their art. */
 export function schemeIconName(name: string, scheme: number): string {
   if (!isEuropean(scheme)) return name;
   switch (name) {
-    case "green": return "euBlue";
+    case "green": return "euGreenBlue";
     case "blue": return "euRed";
     case "black": return "euBlack";
-    case "dblack": return "euDblack";
+    case "dblack": return "euRoute";
     default: return name;
   }
 }

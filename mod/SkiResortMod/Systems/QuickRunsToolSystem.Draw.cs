@@ -294,7 +294,7 @@ namespace SkiResortMod.Systems
                 }
                 else
                 {
-                    int style = (int)PisteMapRules.StyleOf((int)run.Band);
+                    int style = (int)PisteMapRules.StyleOf((int)run.Band, DisplayState.Scheme, run.RatingGrade * 100f);   // European class by the crux (T162 rev. 2)
                     fill = SkiPisteMapSystem.PisteFill[style];
                     outline = SkiPisteMapSystem.PisteOutline[style];
                     outlineWidth = SkiPisteMapSystem.PisteOutlineWidth[style];
@@ -415,7 +415,7 @@ namespace SkiResortMod.Systems
             {
                 if (!Finite(pod.TopCenter))
                     continue;
-                int style = (int)PisteMapRules.StyleOf(PlanGeometry.ScoreBandOf(pod.PrimaryClass));
+                int style = (int)PisteMapRules.StyleOfBand(PlanGeometry.ScoreBandOf(pod.PrimaryClass), DisplayState.Scheme);
                 UnityEngine.Color c = SkiPisteMapSystem.PisteFill[style];
                 SetOwner(pod.Key, true, pod.Lift >= 0 && pod.Lift < plan.Lifts.Length ? plan.Lifts[pod.Lift].Key : 0u, pod.Lift >= 0 && pod.Lift < plan.Lifts.Length);
                 float3 at = Ground(ref hd, pod.TopCenter);
@@ -516,7 +516,7 @@ namespace SkiResortMod.Systems
             edgeM = 0f;
             if (h != HomeVerdict.Black && h != HomeVerdict.DoubleBlack)
                 return;
-            int style = (int)PisteMapRules.StyleOf(h == HomeVerdict.Black ? SkiResortScore.BandBlack : SkiResortScore.BandDoubleBlack);
+            int style = (int)PisteMapRules.StyleOfBand(h == HomeVerdict.Black ? SkiResortScore.BandBlack : SkiResortScore.BandDoubleBlack, DisplayState.Scheme);
             edge = SkiPisteMapSystem.PisteOutline[style];
             edgeM = SkiPisteMapSystem.PisteOutlineWidth[style];
         }
@@ -547,7 +547,7 @@ namespace SkiResortMod.Systems
                 });
         }
 
-        private static UnityEngine.Color PisteColor(byte band) => SkiPisteMapSystem.PisteFill[(int)PisteMapRules.StyleOf(band)];
+        private static UnityEngine.Color PisteColor(byte band) => SkiPisteMapSystem.PisteFill[(int)PisteMapRules.StyleOfBand(band, DisplayState.Scheme)];
 
         private static UnityEngine.Color HomeColor(HomeVerdict h) =>
             h == HomeVerdict.Green ? PisteColor(SkiResortScore.BandGreen)

@@ -19,6 +19,7 @@ namespace SkiResortMod.Systems
             public int Resort;          // −1 = Not linked
             public byte RateState;      // 0 pending, 1 rated, 2-4 cannot be rated (SkiRunCatalogSystem.RunRow.RateState)
             public sbyte Band;          // −1 not rated, else 0..4
+            public bool EuGreen;        // display only (T162 rev. 2): a Green-band run whose European class is green (crux under 15 %)
             public float LengthM, AreaM2, TopM, BottomM;
             public float CostMonth;     // >= 0
             public float SnowHa;        // >= 0
@@ -47,6 +48,7 @@ namespace SkiResortMod.Systems
         {
             public bool HasAny;
             public int Runs, Rated, Flat, Green, Blue, Black, DoubleBlack;
+            public int EuGreen;     // of Green: the runs European grading shows green (the rest of Green shows blue). Display only
             public int Unrateable;  // RateState 2/3/4 (C# only. The UI counts band -2 rows)
             public float RunLengthM, AreaM2, VerticalM;
             public bool VerticalApprox;
@@ -99,7 +101,7 @@ namespace SkiResortMod.Systems
                         switch (r.Band)
                         {
                             case 0: a.Flat++; break;
-                            case 1: a.Green++; break;
+                            case 1: a.Green++; if (r.EuGreen) a.EuGreen++; break;
                             case 2: a.Blue++; break;
                             case 3: a.Black++; break;
                             case 4: a.DoubleBlack++; break;
