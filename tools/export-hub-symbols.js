@@ -5,7 +5,7 @@
  *   node tools/export-hub-symbols.js --check   change nothing, exit 1 when any output differs from what the sources produce
  *
  * Sources (read as text, no compiler):
- *   - mod/SkiResortUI/src/hub/hubIcons.ts: HUB_ICON (name, image, wide, word entry, optional European art), HUB_ICON_GROUPS (legend groups, in order) and
+ *   - mod/SkiResortUI/src/hub/hubIcons.ts: HUB_ICON (name, image, wide, word entry, optional European art and width), HUB_ICON_GROUPS (legend groups, in order) and
  *     the `import x from "./icons/y.svg"` lines.
  *   - mod/SkiResortUI/src/hub/hubText.ts: the English text of each word entry and group title (the hub's own words).
  *   - docs-site/src/data/hub-symbol-meanings.json: the one hand-written part, one meaning per icon NAME. It must name exactly the
@@ -51,10 +51,10 @@ function build() {
   const tableBlock = (iconsTs.split("export const HUB_ICON:")[1] || "").split("};")[0];
   if (!tableBlock) fail(`${rel(ICONS_TS)}: HUB_ICON table not found`);
   const icons = new Map();
-  for (const m of tableBlock.matchAll(/^\s*(\w+): \{ src: ([^,]+), wide: (true|false), word: HUB_LOC\.(\w+)(?:, eu: (\w+))? \},?\s*$/gm)) {
+  for (const m of tableBlock.matchAll(/^\s*(\w+): \{ src: ([^,]+), wide: (true|false), word: HUB_LOC\.(\w+)(?:, eu: (\w+)(?:, euWide: (?:true|false))?)? \},?\s*$/gm)) {
     const src = m[2].trim();
-    // eu: the European grading art of the same symbol (T162, display only). The docs table shows the North American art. The
-    // European file must still be an imported ./icons/*.svg.
+    // eu: the European grading art of the same symbol (T162, display only), with its own optional euWide. The docs table shows the
+    // North American art. The European file must still be an imported ./icons/*.svg.
     if (m[5] && !imports.has(m[5])) fail(`HUB_ICON.${m[1]}: eu ${m[5]} is not an imported ./icons/*.svg`);
     let file = null, game = null;
     const lit = /^"([^"]+)"$/.exec(src);
