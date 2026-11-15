@@ -1,7 +1,7 @@
 # HeightmapWriter: why the base terrain heightmap is the layer to write, and the exact write sequence
 
-`HeightmapWriter` is the one place where the mod writes the game's base terrain heightmap. `CatTrackGradeToolSystem` uses it for apply,
-undo and its dev-tab probe. Engine citations are `TerrainSystem.cs:line` unless stated, against the Game.dll decompile baseline 1.6.0f1.
+`HeightmapWriter` is the one place where the mod writes the game's base terrain heightmap. `CatTrackGradeToolSystem` uses it for apply
+(the dev-tab probe and the undo stack were removed in T194). Engine citations are `TerrainSystem.cs:line` unless stated, against the Game.dll decompile baseline 1.6.0f1.
 
 ## Why the base map
 

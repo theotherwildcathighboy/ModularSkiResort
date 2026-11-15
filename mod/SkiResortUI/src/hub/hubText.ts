@@ -525,6 +525,8 @@ export const HUB_LOC = {
   quickStepTipLifts: ["SkiResort.Hub.QUICK_STEP_TIP[Lifts]", "Lifts that need a hand fit open in the lift tool after the others. The planner opens again when the lifts are done."],
   catTrackDelete: ["SkiResort.Hub.CAT_TRACK_DELETE", "Delete cat tracks"],
   catTrackDeleteTip: ["SkiResort.Hub.CAT_TRACK_DELETE_TIP", "Opens the cat track tool in delete mode. The ground stays graded, no refund. Ctrl+Shift+D in the tool."],
+  catTrackSkiWay: ["SkiResort.Hub.CAT_TRACK_SKI_WAY", "Ski way"],
+  catTrackSkiWayTip: ["SkiResort.Hub.CAT_TRACK_SKI_WAY_TIP", "Cat tracks become ski ways: 10 m wide, cut into the hillside with nothing filled below, for steep faces. Ctrl+Shift+W in the tool."],
   quickUnavailable: ["SkiResort.Hub.QUICK_UNAVAILABLE", "The Resort Planner is not available right now."],
   quickScan: ["SkiResort.Hub.QUICK_SCAN", "Scan"],
   quickScanTip: ["SkiResort.Hub.QUICK_SCAN_TIP", "Scan the outlined region for runs. Enter does the same."],

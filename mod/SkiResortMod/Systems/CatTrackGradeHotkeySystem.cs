@@ -1,16 +1,17 @@
-// Cat track tool keys and the every-frame watch. Pattern of LiftLineHotkeySystem. Its engine notes (EngineNotes/LiftLineHotkeySystem.md)
-// cover the action plumbing: an inactive tool never ticks (ToolSystem.cs:312-327). GetAction is null before RegisterKeyBindings
-// (ModSetting.cs:289-292). Mod actions start disabled (ProxyAction.cs:322-349).
+// Cat track tool keys. Pattern of LiftLineHotkeySystem. Its engine notes (EngineNotes/LiftLineHotkeySystem.md) cover the action plumbing:
+// an inactive tool never ticks (ToolSystem.cs:312-327). GetAction is null before RegisterKeyBindings (ModSetting.cs:289-292). Mod actions
+// start disabled (ProxyAction.cs:322-349).
 // ToggleCatTrackGradeTool (default Ctrl+Shift+K) calls CatTrackGradeToolSystem.TryActivate("hotkey") / Deactivate, in a loaded city.
 // The Build key (BuildLiftLine, default Enter) is shared with the lift tool. LiftLineHotkeySystem keeps it live while either tool is open
 // (one writer of shouldBeEnabled). This system reads the press while the grading tool is active and calls RequestApply.
-// CatTrackDeleteMode (default Ctrl+Shift+D) is live only while the tool is open (this system is its one writer). It toggles the tool's
-// Delete mode (field test 2026-10-26b). It is enabled only while the tool is open, so its liveness probe runs then: once per load,
-// ProbeDelayFrames after the first opening, with a warning if the conflict resolver disabled it (InputConflictResolution.cs:138-198). A
-// modifier binding conflicts with a plain vanilla key only when one side's composite disallows modifiers (ProxyBinding.cs:822-825). The
-// field logs of 2026-10-26 / 26b show Ctrl+Shift+Q live beside the vanilla camera's Q.
-// Every frame it also calls the tool's TickWatch (dev-tab probe follow-ups also run while closed). UIUpdate, SystemOrder.cs:67: every
-// frame, paused or not. Logs: one ARMED / INERT line per load. One line if the toggle is not live 120 frames after the load.
+// Two mode keys are live only while the tool is open (this system is their one writer): CatTrackDeleteMode (default Ctrl+Shift+D) toggles
+// the tool's Delete mode (field test 2026-10-26b), CatTrackSkiWay (default Ctrl+Shift+W) its Ski way profile (T194). As they are enabled
+// only while the tool is open, their liveness probe runs then: once per load, ProbeDelayFrames after the first opening, with a warning if
+// the conflict resolver disabled one (InputConflictResolution.cs:138-198). A modifier binding conflicts with a plain vanilla key only when
+// one side's composite disallows modifiers (ProxyBinding.cs:822-825). The field logs of 2026-10-26 / 26b show Ctrl+Shift+Q live beside
+// the vanilla camera's Q (D and W are camera keys too).
+// UIUpdate, SystemOrder.cs:67: every frame, paused or not. Logs: one ARMED / INERT line per load. One line if a key is not live 120 frames
+// after the load (the toggle) or after the tool first opened (the mode keys).
 
 using System;
 using Colossal.Serialization.Entities;
@@ -25,10 +26,20 @@ namespace SkiResortMod.Systems
     {
         private const int ProbeDelayFrames = 120;
 
+        /// <summary>A key that is live only while the tool is open, with its once-per-load liveness probe.</summary>
+        private sealed class ModeKey
+        {
+            public string Name, ChipName;
+            public ProxyAction Action;
+            public int Probe = -1;
+        }
+
         private CatTrackGradeToolSystem m_Tool;
-        private ProxyAction m_Toggle, m_Build, m_DeleteMode;
+        private ProxyAction m_Toggle, m_Build;
+        private readonly ModeKey m_DeleteMode = new ModeKey { Name = SkiResortSettings.ActCatTrackDeleteMode, ChipName = "Delete cat tracks" };
+        private readonly ModeKey m_SkiWay = new ModeKey { Name = SkiResortSettings.ActCatTrackSkiWay, ChipName = "Ski way" };
         private bool m_Armed, m_Disabled, m_ErrorLogged;
-        private int m_Probe = -1, m_DeleteProbe = -1;
+        private int m_Probe = -1;
 
         protected override void OnCreate()
         {
@@ -41,15 +52,19 @@ namespace SkiResortMod.Systems
         {
             base.OnGameLoadingComplete(purpose, mode);
             m_Armed = m_Disabled = m_ErrorLogged = false;
-            m_Probe = m_DeleteProbe = -1;
+            m_Probe = -1;
             try
             {
                 SkiResortSettings s = Mod.Settings;
                 m_Toggle = s != null ? TryGet(s, SkiResortSettings.ActToggleCatTrackGrade) : null;
                 m_Build = s != null ? TryGet(s, SkiResortSettings.ActBuildLiftLine) : null;
-                m_DeleteMode = s != null ? TryGet(s, SkiResortSettings.ActCatTrackDeleteMode) : null;
-                if (m_DeleteMode != null)
-                    m_DeleteMode.shouldBeEnabled = false;
+                foreach (ModeKey k in new[] { m_DeleteMode, m_SkiWay })
+                {
+                    k.Probe = -1;
+                    k.Action = s != null ? TryGet(s, k.Name) : null;
+                    if (k.Action != null)
+                        k.Action.shouldBeEnabled = false;
+                }
                 bool inGame = mode.IsGame();
                 if (m_Toggle != null)
                     m_Toggle.shouldBeEnabled = inGame;
@@ -65,7 +80,9 @@ namespace SkiResortMod.Systems
                 m_Probe = ProbeDelayFrames;
                 Mod.Log.Info($"Grade [keys]: ARMED — {SkiResortSettings.ActToggleCatTrackGrade} toggles the cat track tool, " +
                              $"{SkiResortSettings.ActBuildLiftLine} (shared with the lift tool) grades and builds while it is open, " +
-                             $"{SkiResortSettings.ActCatTrackDeleteMode} toggles its delete mode ({(m_DeleteMode != null ? "registered" : "NOT registered")}); rebind in Options ▸ Modular Ski Resort ▸ Key bindings");
+                             $"{m_DeleteMode.Name} toggles its delete mode ({(m_DeleteMode.Action != null ? "registered" : "NOT registered")}), " +
+                             $"{m_SkiWay.Name} its Ski way profile ({(m_SkiWay.Action != null ? "registered" : "NOT registered")}); " +
+                             "rebind in Options ▸ Modular Ski Resort ▸ Key bindings");
             }
             catch (Exception e)
             {
@@ -75,13 +92,10 @@ namespace SkiResortMod.Systems
 
         protected override void OnUpdate()
         {
-            if (m_Disabled)
+            if (m_Disabled || !m_Armed)
                 return;
             try
             {
-                m_Tool.TickWatch();
-                if (!m_Armed)
-                    return;
                 GameManager gm = GameManager.instance;
                 if (gm == null || gm.isGameLoading)
                     return;
@@ -98,26 +112,32 @@ namespace SkiResortMod.Systems
                 }
                 if (active && m_Build.WasPressedThisFrame())
                     m_Tool.RequestApply();
-                if (m_DeleteMode != null)
-                {
-                    if (m_DeleteMode.shouldBeEnabled != active)
-                    {
-                        m_DeleteMode.shouldBeEnabled = active;
-                        if (active && m_DeleteProbe < 0)
-                            m_DeleteProbe = ProbeDelayFrames;   // once per load (0 = done)
-                    }
-                    if (active && m_DeleteProbe > 0 && --m_DeleteProbe == 0 && !m_DeleteMode.enabled)
-                        Mod.Log.Warn($"Grade [keys]: {SkiResortSettings.ActCatTrackDeleteMode} is not live {ProbeDelayFrames} frames after the tool " +
-                                     "opened (probable key conflict with a vanilla action, InputConflictResolution.cs:138-198) — rebind it; the " +
-                                     "hub's Delete cat tracks chip still works");
-                    if (active && m_DeleteMode.WasPressedThisFrame())
-                        m_Tool.ToggleDeleteMode("key");
-                }
+                if (Pressed(m_DeleteMode, active))
+                    m_Tool.ToggleDeleteMode("key");
+                if (Pressed(m_SkiWay, active))
+                    m_Tool.ToggleSkiWay("key");
             }
             catch (Exception e)
             {
                 Fail(e);
             }
+        }
+
+        /// <summary>Keeps a mode key live exactly while the tool is open, runs its probe, and reads its press.</summary>
+        private static bool Pressed(ModeKey k, bool active)
+        {
+            if (k.Action == null)
+                return false;
+            if (k.Action.shouldBeEnabled != active)
+            {
+                k.Action.shouldBeEnabled = active;
+                if (active && k.Probe < 0)
+                    k.Probe = ProbeDelayFrames;   // once per load (0 = done)
+            }
+            if (active && k.Probe > 0 && --k.Probe == 0 && !k.Action.enabled)
+                Mod.Log.Warn($"Grade [keys]: {k.Name} is not live {ProbeDelayFrames} frames after the tool opened (probable key conflict with a " +
+                             $"vanilla action, InputConflictResolution.cs:138-198) — rebind it; the hub's {k.ChipName} chip still works");
+            return active && k.Action.WasPressedThisFrame();
         }
 
         private static ProxyAction TryGet(SkiResortSettings settings, string name)

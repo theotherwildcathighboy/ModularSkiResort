@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 44;
+export const HUB_CONTRACT = 45;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -1103,6 +1103,7 @@ export const BINDING = {
   liftLine: "liftLine",  // the lift-line generator
   quickRuns: "quickRuns",  // the Quick runs tool (experimental)
   catTrackDeleteMode: "catTrackDeleteMode",  // contract 19: the cat track tool is open and in Delete mode
+  catTrackSkiWay: "catTrackSkiWay",  // contract 45: the cat track tool's Ski way profile is on
   busCard: "busCard",  // contract 26: the Ski Bus card
   lodgeParking: "lodgeParking",  // contract 29: car spaces per road lodge
   runReplaced: "runReplaced",  // contract 32: a re-emitted run's old and new entity
@@ -1138,6 +1139,7 @@ export const TRIGGER = {
   quickRunsSet: "quickRunsSet",
   quickLiftsAct: "quickLiftsAct",  // contract 41: the plan sheet's buttons (action, key)
   setCatTrackDeleteMode: "setCatTrackDeleteMode",  // contract 19: the Runs tab's Delete cat tracks chip
+  setCatTrackSkiWay: "setCatTrackSkiWay",  // contract 45: the Runs tab's Ski way chip
   setRunGunSpacing: "setRunGunSpacing",  // contract 28: the Runs view's prop rows
   setRunLightSpacing: "setRunLightSpacing",
   setRunGroomed: "setRunGroomed",  // contract 32: the Groomed feature (a re-emit)
@@ -1215,6 +1217,7 @@ export const FALLBACK = {
   liftLine: { available: false, active: false, state: "" } as LiftLineState,
   quickRuns: EMPTY_QUICK_RUNS,
   catTrackDeleteMode: false,
+  catTrackSkiWay: false,
   busCard: { shown: false, area: "", guestsMonth: -1, billMonth: 0, distanceM: 0, state: "off" } as BusCardState,
   lodgeParking: EMPTY_LODGE_PARKING,
   runReplaced: { seq: 0, from: NULL_ENTITY, to: NULL_ENTITY } as RunReplaced,
@@ -1246,6 +1249,9 @@ export const quickRuns$: ValueBinding<QuickRunsState> = bindValue<QuickRunsState
 /** The cat track tool is open AND in Delete mode (C# owns it: closing the tool or picking another shows false). Panel only, the
  *  Build strip's Runs tab (never on a mismatch). */
 export const catTrackDeleteMode$: ValueBinding<boolean> = bindValue<boolean>(GROUP, BINDING.catTrackDeleteMode, FALLBACK.catTrackDeleteMode);
+/** The cat track tool's Ski way profile is on (contract 45, C# owns it: it stays on across closing the tool until switched off or the
+ *  next load). Panel only, the Build strip's Runs tab (never on a mismatch). */
+export const catTrackSkiWay$: ValueBinding<boolean> = bindValue<boolean>(GROUP, BINDING.catTrackSkiWay, FALLBACK.catTrackSkiWay);
 /** The Ski Bus card. Always mounted: C# sends it only while a coach or a depot is selected. */
 export const busCard$: ValueBinding<BusCardState> = bindValue<BusCardState>(GROUP, BINDING.busCard, FALLBACK.busCard);
 /** The merge card. Always mounted: C# sends it only while a building it applies to is selected. */
@@ -1327,6 +1333,9 @@ export const hubTriggers = {
   quickLiftsAct: (action: QuickLiftsAction, key: number): void => fire(TRIGGER.quickLiftsAct, action, Math.round(key)),
   /** The cat track tool's Delete mode. On: opens the tool if needed (C# TryActivate, then SetDeleteMode). Off: leaves the tool open. */
   setCatTrackDeleteMode: (on: boolean): void => fire(TRIGGER.setCatTrackDeleteMode, on),
+  /** The cat track tool's Ski way profile (contract 45). On: C# SetSkiWay(true), then opens the tool out of Delete mode. Off: the
+   *  standard track again, the tool stays as it is. */
+  setCatTrackSkiWay: (on: boolean): void => fire(TRIGGER.setCatTrackSkiWay, on),
   /** A run's prop spacing in meters. C# clamps to Off or 20..200 and re-places after its settle. Look only. */
   setRunGunSpacing: (run: Entity, meters: number): void => fire(TRIGGER.setRunGunSpacing, wire(run), Math.round(meters)),
   setRunLightSpacing: (run: Entity, meters: number): void => fire(TRIGGER.setRunLightSpacing, wire(run), Math.round(meters)),

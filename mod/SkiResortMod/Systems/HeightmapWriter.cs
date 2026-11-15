@@ -177,15 +177,6 @@ namespace SkiResortMod.Systems
             return mismatches == 0;
         }
 
-        /// <summary>The CPU (cascade) height at a world point, the heights every game system reads (GetHeightData, :2603).</summary>
-        public float CpuHeight(float2 xz)
-        {
-            TerrainHeightData hd = m_Terrain.GetHeightData();
-            return hd.isCreated ? TerrainUtils.SampleHeight(ref hd, new float3(xz.x, 0f, xz.y)) : float.NaN;
-        }
-
-        public int WaterSimSpeed => m_Water.WaterSimSpeed;
-
         public static string Rect(int4 r) => $"({r.x}, {r.y}) {r.z} x {r.w}";
     }
 }

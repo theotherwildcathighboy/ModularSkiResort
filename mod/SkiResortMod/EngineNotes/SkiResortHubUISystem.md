@@ -611,3 +611,8 @@ OnUpdate pushes `DisplayState.Refresh` every frame. That call only compares valu
 grading or the city theme entity changes. Auto follows `CityConfigurationSystem.defaultTheme`: the ThemePrefab name "European" gives
 European, any other name gives North American. The scheme changes names, markers, icons and colors only. Bands, run kinds and saved data
 stay the same. The hub maps names, markers and icons through src/hub/units.ts. The C# overlays read DisplayState.Scheme.
+
+## Ski way chip (contract 45, T194)
+The `catTrackSkiWay` value binding (bool) and the `setCatTrackSkiWay(on)` trigger: the Runs tab's Ski way chip beside Delete cat tracks.
+The value is `CatTrackGradeToolSystem.SkiWay` (the tool's profile, open or not; it stays on until switched off or the next load). On:
+`SetSkiWay(true)`, then the tool opens out of Delete mode. Off: `SetSkiWay(false)`, the tool stays as it is. Panel binding, no Demand.

@@ -39,7 +39,7 @@ import {
 } from "./hubText";
 import { AssetIcon, Glyph, LocText, Tip, TipLines, cx, numArg } from "./parts";
 import { IconText } from "./iconText";
-import { CatTrackDeleteChip } from "./CatTrackControls";
+import { CatTrackDeleteChip, CatTrackSkiWayChip } from "./CatTrackControls";
 import { QuickRunsChip } from "./QuickRunsControls";
 import { MergeLegend } from "./MergedFold";
 import type { TipLine } from "./parts";
@@ -390,6 +390,7 @@ function TreeToolSet({ t, quick }: { t: Translate; quick: boolean }): JSX.Elemen
       <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 3 }}>
         {quick && <QuickRunsChip t={t} />}
         {quick && <CatTrackDeleteChip t={t} />}
+        {quick && <CatTrackSkiWayChip t={t} />}
       </div>
     </>
   );

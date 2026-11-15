@@ -17,8 +17,8 @@ namespace SkiResortMod.Systems
     public sealed partial class CatTrackGradeTooltipSystem : TooltipSystemBase
     {
         private CatTrackGradeToolSystem m_Tool;
-        private StringTooltip m_Prompt, m_Notice, m_Plan, m_Guard, m_Bank, m_Check;
-        private string m_LastPrompt, m_LastNotice, m_LastPlan, m_LastGuard, m_LastBank, m_LastCheck, m_LoggedPrompt;
+        private StringTooltip m_Prompt, m_Mode, m_Notice, m_Plan, m_Guard, m_Bank, m_Check;
+        private string m_LastPrompt, m_LastMode, m_LastNotice, m_LastPlan, m_LastGuard, m_LastBank, m_LastCheck, m_LoggedPrompt;
         private bool m_Disabled;
 
         protected override void OnCreate()
@@ -26,6 +26,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_Tool = World.GetOrCreateSystemManaged<CatTrackGradeToolSystem>();
             m_Prompt = new StringTooltip { path = "skiGradePrompt", color = TooltipColor.Info };
+            m_Mode = new StringTooltip { path = "skiGradeMode", color = TooltipColor.Info };
             m_Notice = new StringTooltip { path = "skiGradeNotice", color = TooltipColor.Warning };
             m_Plan = new StringTooltip { path = "skiGradePlan", color = TooltipColor.Info };
             m_Guard = new StringTooltip { path = "skiGradeGuard", color = TooltipColor.Error };
@@ -50,6 +51,9 @@ namespace SkiResortMod.Systems
                     Mod.Log.Info($"Grade [tooltip]: step {m_Tool.Step} — prompt {promptKey}");
                 }
                 Show(m_Prompt, ref m_LastPrompt, GradeMsg.Of(promptKey));
+                string modeKey = m_Tool.DeleteMode ? null : m_Tool.ModeKey;   // the Ski way names itself under the step hint (T194)
+                if (modeKey != null)
+                    Show(m_Mode, ref m_LastMode, GradeMsg.Of(modeKey));
                 GradeMsg notice = m_Tool.Notice;
                 if (!notice.IsEmpty)
                     Show(m_Notice, ref m_LastNotice, notice);

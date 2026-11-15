@@ -1,8 +1,9 @@
 // Pure half of the Cat Track Grading tool: Unity.Mathematics only, so tests/GradeBatch links this file and proves every rule headless.
 // The engine half is CatTrackGradeToolSystem (input, overlay, guards' data, apply) and HeightmapWriter (the base heightmap read / write).
 // One solve per change, never per frame. The order is: GradePath.Build, then GradeProfile.Solve, then GradeRaster.Build, then
-// GradeGuards.Check. GradeRibbon.Build adds the flat top's outline (= the cat-track run the same action creates). GradeUndo holds the
-// pre-images.
+// GradeGuards.Check. GradeRibbon.Build adds the flat top's outline (= the cat-track run the same action creates).
+// Two profiles: the standard track (cut and fill, the player's width) and the Ski way (GradeParams.SkiWay: narrow, cut only, solved
+// against GradeProfile.LowEdgeGround).
 // Every profile step stays G-limited (|dy/ds| <= G).
 // Height encoding: the base heightmap is R16_UNorm. GradeMap holds the mapping between world and texel.
 // Engine notes: EngineNotes/CatTrackGrade.md
@@ -31,7 +32,7 @@ namespace SkiResortMod.Systems
         public const float DefaultCutRun = 1.5f;
         public const float DefaultFillRun = 2f;
 
-        /// <summary>The narrow full-cut profile (<see cref="NarrowFullCut"/>, DECISIONS 443): a ski-way bench cut into a steep face. The
+        /// <summary>The narrow full-cut profile (<see cref="NarrowFullCut"/>, DECISIONS 443, the tool's Ski way mode): a bench cut into a steep face. The
         /// default top width is 10 m (a caller may ask for NarrowMinTopWidthM..NarrowMaxTopWidthM). The cut bank is 1:1 and there is no
         /// fill.</summary>
         public const float NarrowTopWidthM = 10f;
@@ -71,7 +72,7 @@ namespace SkiResortMod.Systems
         public static readonly float[] InsideAllowanceSteps = { 2f, 1f, 0.5f, 0f };
         public const int BlendTexels = 3;
 
-        /// <summary>The narrow full-cut profile for the planner's ski-ways (DECISIONS 443). The top width is <paramref name="topWidthM"/>
+        /// <summary>The narrow full-cut profile (DECISIONS 443). The top width is <paramref name="topWidthM"/>
         /// (clamped to NarrowMinTopWidthM..NarrowMaxTopWidthM). The cut bank is 1:1, there is no fill, and the same max grade rule applies.
         /// Every other knob keeps its default.</summary>
         public static GradeParams NarrowFullCut(float maxGrade = DefaultMaxGrade, float topWidthM = NarrowTopWidthM) => new GradeParams
@@ -81,6 +82,16 @@ namespace SkiResortMod.Systems
             CutRun = NarrowCutRun,
             NoFill = true,
         };
+
+        /// <summary>The cat track tool's Ski way mode (T194): the narrow full-cut profile at NarrowTopWidthM, with the max grade and the
+        /// profile mode of <paramref name="standard"/> (the settings). Width, cut slope and fill do not follow the settings: the Ski way is
+        /// the fixed narrow bench of DECISIONS 443. The caller solves it against GradeProfile.LowEdgeGround.</summary>
+        public static GradeParams SkiWay(GradeParams standard)
+        {
+            GradeParams p = NarrowFullCut(standard.MaxGrade);
+            p.Mode = standard.Mode;
+            return p;
+        }
 
         public GradeParams Clone() => (GradeParams)MemberwiseClone();
 
@@ -1138,86 +1149,6 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>One applied grade, for undo (pipeline 5).</summary>
-    public sealed class GradeUndoEntry
-    {
-        public int X0, Z0, W, H;
-        public ushort[] Before;
-        public ushort[] After;
-        public string Label;
-        public int Bytes => (Before.Length + After.Length) * 2;
-    }
-
-    public sealed class GradeUndo
-    {
-        public const int MaxEntries = 8;
-        public const int MaxBytes = 64 * 1024 * 1024;
-
-        private readonly List<GradeUndoEntry> m_Entries = new List<GradeUndoEntry>();
-
-        public int Count => m_Entries.Count;
-        public int Bytes
-        {
-            get
-            {
-                int b = 0;
-                for (int i = 0; i < m_Entries.Count; i++)
-                    b += m_Entries[i].Bytes;
-                return b;
-            }
-        }
-
-        public void Clear() => m_Entries.Clear();
-
-        /// <summary>Push. The oldest entries go when over MaxEntries or MaxBytes (the newest always stays). Returns how many were dropped,
-        /// or -1 (nothing stored) for an entry over GradeRaster.MaxTexels. Otherwise the newest-always-stays rule would hold it past
-        /// MaxBytes. The tool refuses such a rect before it writes, so this is a backstop.</summary>
-        public int Push(GradeUndoEntry e)
-        {
-            if (e.Before.Length > GradeRaster.MaxTexels || e.After.Length > GradeRaster.MaxTexels)
-                return -1;
-            m_Entries.Add(e);
-            int dropped = 0;
-            while (m_Entries.Count > 1 && (m_Entries.Count > MaxEntries || Bytes > MaxBytes))
-            {
-                m_Entries.RemoveAt(0);
-                dropped++;
-            }
-            return dropped;
-        }
-
-        public GradeUndoEntry Peek() => m_Entries.Count > 0 ? m_Entries[m_Entries.Count - 1] : null;
-
-        public GradeUndoEntry Pop()
-        {
-            if (m_Entries.Count == 0)
-                return null;
-            GradeUndoEntry e = m_Entries[m_Entries.Count - 1];
-            m_Entries.RemoveAt(m_Entries.Count - 1);
-            return e;
-        }
-
-        /// <summary>The image to write for undoing <paramref name="e"/> over the rect's current content: the pre-image where the texel
-        /// still holds what the grade wrote, the current value elsewhere (a foreign edit since then survives).
-        /// <paramref name="kept"/> = texels left as they are.</summary>
-        public static ushort[] Restore(GradeUndoEntry e, ushort[] current, out int kept)
-        {
-            kept = 0;
-            var result = new ushort[current.Length];
-            for (int t = 0; t < current.Length; t++)
-            {
-                if (current[t] == e.After[t])
-                    result[t] = e.Before[t];
-                else
-                {
-                    result[t] = current[t];
-                    kept++;
-                }
-            }
-            return result;
-        }
-    }
-
     /// <summary>The tool's step (CatTrackGradeToolSystem).</summary>
     /// <summary>A player text of the cat track tool: a LocaleEN key SkiResort.CatTrack.<c>Key</c> with its whole-number {ARG} values
     /// (meters, percents, cubic meters). It is pure so GradeBatch can see which keys the tool can show. The tooltip turns it into a
@@ -1447,7 +1378,25 @@ namespace SkiResortMod.Systems
                 return GradeMsg.Of("PLAN_STEEP", ("MAX", max), ("LIMIT", limit), ("SHORT", (float)Math.Ceiling(prof.ShortfallM)));
             if (raster == null)
                 return GradeMsg.Of("PLAN_LENGTH", ("LENGTH", path.LengthM), ("MAX", max), ("LIMIT", limit));
+            if (p.NoFill)
+                return GradeMsg.Of("PLAN_SKI_WAY", ("LENGTH", path.LengthM), ("MAX", max), ("LIMIT", limit), ("CUT", raster.CutM3));
             return GradeMsg.Of("PLAN", ("LENGTH", path.LengthM), ("MAX", max), ("LIMIT", limit), ("CUT", raster.CutM3), ("FILL", raster.FillM3));
+        }
+
+        /// <summary>The mode line under the step hint: the Ski way names itself while it is on. The standard track shows none.</summary>
+        public static string ModeKey(GradeParams p) => p != null && p.NoFill ? "MODE_SKI_WAY" : null;
+
+        /// <summary>The ground a profile is solved against: the centerline ground for the standard track, the lowest ground across the
+        /// flat top for a NoFill bench (GradeProfile.LowEdgeGround, so the whole top is in cut). <paramref name="groundAt"/> samples the
+        /// terrain at a world xz.</summary>
+        public static float[] SolveGround(GradePath path, GradeParams p, Func<float2, float> groundAt)
+        {
+            if (p.NoFill)
+                return GradeProfile.LowEdgeGround(path, groundAt, 0.5f * p.TopWidthM);
+            var g = new float[path.Count];
+            for (int i = 0; i < path.Count; i++)
+                g[i] = groundAt(path.Xz[i]);
+            return g;
         }
 
         /// <summary>The profile line of the tooltip.</summary>

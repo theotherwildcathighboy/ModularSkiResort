@@ -43,7 +43,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 44;
+        public const int HubContract = 45;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -497,6 +497,7 @@ namespace SkiResortMod.Systems
             QuickRunsToggle, QuickRunsSet, QuickLiftsAct,   // SkiResortHubUISystem.QuickRuns.cs (QuickLiftsAct: contract 41, the plan sheet buttons)
             DeleteCatTrack,                  // contract 18: the cat track row's trash button
             SetCatTrackDeleteMode,           // contract 19: the Runs tab's Delete cat tracks chip
+            SetCatTrackSkiWay,               // contract 45: the Runs tab's Ski way chip (T194)
             SetRunPropSpacing,               // contract 28: the Runs view's prop rows (Bool = lights, Int = meters)
             SetRunGroomed,                   // run types R2: Groomed on (Bool) or off by a re-emit (SkiRunReemitSystem)
             SetDrawRun,                      // contract 33: the Run tile's option row (Text = key, Int = value)
@@ -568,6 +569,7 @@ namespace SkiResortMod.Systems
         private ValueBinding<CityStats> m_City;
         private ValueBinding<bool> m_PisteMapBinding;
         private ValueBinding<bool> m_CatTrackDeleteBinding;   // contract 19: the cat track tool is open AND in Delete mode
+        private ValueBinding<bool> m_CatTrackSkiWayBinding;   // contract 45: the cat track tool's Ski way profile is on (open or not)
         private ValueBinding<int> m_FollowBinding;
         private ValueBinding<int> m_GradeSchemeBinding;   // contract 44: the run grading the player sees (GradeScheme: 0 North American, 1 European). Always observed, a compare per frame
         private CityConfigurationSystem m_CityConfigForScheme;
@@ -813,6 +815,7 @@ namespace SkiResortMod.Systems
                 new HubLiftLineState(false, false, "")));   // panel binding, no Demand
             AddBinding(m_QuickRuns = new RawValueBinding(Group, "quickRuns", WriteQuickRuns));   // panel binding, no Demand
             AddBinding(m_CatTrackDeleteBinding = new ValueBinding<bool>(Group, "catTrackDeleteMode", false));   // panel binding, no Demand
+            AddBinding(m_CatTrackSkiWayBinding = new ValueBinding<bool>(Group, "catTrackSkiWay", false));   // contract 45: panel binding, no Demand
             AddBinding(m_BusCard = new ValueBinding<HubBusCardState>(Group, "busCard", default));   // not a panel binding
             AddBinding(m_LodgeParking);   // contract 29: panel binding (the Guests view), no Demand
             AddBinding(m_RunReplaced = new ValueBinding<HubRunReplaced>(Group, "runReplaced", default));   // contract 32
@@ -849,6 +852,7 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<string, int>(Group, "quickRunsSet", OnQuickRunsSet));
             AddBinding(new TriggerBinding<string, int>(Group, "quickLiftsAct", OnQuickLiftsAct));   // contract 41
             AddBinding(new TriggerBinding<bool>(Group, "setCatTrackDeleteMode", OnSetCatTrackDeleteMode));
+            AddBinding(new TriggerBinding<bool>(Group, "setCatTrackSkiWay", OnSetCatTrackSkiWay));   // contract 45
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunGunSpacing", OnSetRunGunSpacing));
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunLightSpacing", OnSetRunLightSpacing));
             AddBinding(new TriggerBinding<Entity, bool>(Group, "setRunGroomed", OnSetRunGroomed));
@@ -996,13 +1000,14 @@ namespace SkiResortMod.Systems
                              "showHubButton (always observed), build, glade, resorts, resortLive, selectedResort, runs, " +
                              "runLive, lifts, problems, city (panel bindings: catalog and stats Demand follow them, nothing " +
                              "is computed while closed), pisteMap and follow (panel values, no Demand), gradeScheme (contract 44, always observed), liftLine (contract 12: the Lifts " +
-                             "tab toggle, no Demand), catTrackDeleteMode (contract 19: the Runs tab chip, no Demand), history (contract 10: " +
+                             "tab toggle, no Demand), catTrackDeleteMode (contract 19: the Runs tab chip, no Demand), catTrackSkiWay (contract 45: the " +
+                             "Runs tab chip, no Demand), history (contract 10: " +
                              "the History view only, no Demand; pushed when a stored month or the area set changed, the month " +
                              $"in progress at most every {Tuning.HistoryProgressPushS:0.#} s, HistoryProgressPushS); arrays pushed per " +
                              "stats revision (slow rows and live rows apart), logged only when a row count changes; triggers " +
                              "toggleHub, setHubOpen, uiHello, uiError, launch, focusRun, deleteCatTrack (contract 18), gladeToggle, gladeSetLevel, " +
                              "gladeSetTreeLine, dumpHub, selectResort, rename, focusLift, focusBuilding, uiLayout, setPisteMap " +
-                             "liftLineToggle (contract 12), setCatTrackDeleteMode (contract 19) (queued, applied in OnUpdate, one line each; uiLayout only when changed) and hoverRun (a field " +
+                             "liftLineToggle (contract 12), setCatTrackDeleteMode (contract 19), setCatTrackSkiWay (contract 45) (queued, applied in OnUpdate, one line each; uiLayout only when changed) and hoverRun (a field " +
                              "write, validated next update, counted; first per load logged); settings " +
                              $"ShowHubButton={Mod.Settings == null || Mod.Settings.ShowHubButton} OpenHubOnSignSelect=" +
                              $"{Mod.Settings == null || Mod.Settings.OpenHubOnSignSelect}; {itemText}; {catalogItems}; item " +
@@ -1121,6 +1126,9 @@ namespace SkiResortMod.Systems
 
         private void OnSetCatTrackDeleteMode(bool on) =>
             Trigger("setCatTrackDeleteMode", new Request { Kind = RequestKind.SetCatTrackDeleteMode, Bool = on });
+
+        private void OnSetCatTrackSkiWay(bool on) =>
+            Trigger("setCatTrackSkiWay", new Request { Kind = RequestKind.SetCatTrackSkiWay, Bool = on });
 
         private void OnGladeToggle() => Trigger("gladeToggle", new Request { Kind = RequestKind.GladeToggle });
 
@@ -1373,6 +1381,9 @@ namespace SkiResortMod.Systems
                 case RequestKind.SetCatTrackDeleteMode:
                     ApplyCatTrackDeleteMode(r.Bool, r.Source);
                     break;
+                case RequestKind.SetCatTrackSkiWay:
+                    ApplyCatTrackSkiWay(r.Bool, r.Source);
+                    break;
                 case RequestKind.SetRunPropSpacing:
                     ApplyRunPropSpacing(r.Entity, r.Bool, r.Int, r.Source);
                     break;
@@ -1438,6 +1449,17 @@ namespace SkiResortMod.Systems
             string why = "hub chip" + SourceSuffix(source);
             bool ok = m_GradeTool != null && (!on || m_GradeTool.TryActivate(why)) && m_GradeTool.SetDeleteMode(on, why);
             LastTriggerText = $"setCatTrackDeleteMode({on}): {(ok ? "done" : "refused")}";
+        }
+
+        /// <summary>The Runs tab's Ski way chip (contract 45, T194): on switches the cat track tool to the Ski way profile and opens the tool
+        /// (out of Delete mode, so the next clicks draw). Off switches back to the standard track and leaves the tool as it is. The value
+        /// follows the tool's profile (m_CatTrackSkiWayBinding), which stays on across closing the tool until the next load.</summary>
+        private void ApplyCatTrackSkiWay(bool on, string source)
+        {
+            string why = "hub chip" + SourceSuffix(source);
+            bool ok = m_GradeTool != null && m_GradeTool.SetSkiWay(on, why) &&
+                      (!on || (m_GradeTool.TryActivate(why) && m_GradeTool.SetDeleteMode(false, why)));
+            LastTriggerText = $"setCatTrackSkiWay({on}): {(ok ? "done" : "refused")}";
         }
 
         /// <summary>A step of the Runs view's prop rows (contract 28): a component write only, no Deleted in this phase (tools/check-run-props.js).
@@ -2960,6 +2982,8 @@ namespace SkiResortMod.Systems
                 m_LiftLine.Update(LiftLineNow());   // dedups like glade
             if (m_CatTrackDeleteBinding.active)
                 m_CatTrackDeleteBinding.Update(m_GradeTool != null && m_GradeTool.IsActive && m_GradeTool.DeleteMode);   // dedups
+            if (m_CatTrackSkiWayBinding.active)
+                m_CatTrackSkiWayBinding.Update(m_GradeTool != null && m_GradeTool.SkiWay);   // dedups
             bool quickActive = m_QuickRuns.active;
             if (quickActive)
                 PushQuickRuns(!m_QuickRunsWasActive);   // on the tool's HubRevision / availability / activity

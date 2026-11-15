@@ -29,6 +29,7 @@ namespace SkiResortMod.Settings
     [SettingsUIKeyboardAction(ActBuildLiftLine, ActionType.Button, BuildUsage)]
     [SettingsUIKeyboardAction(ActToggleCatTrackGrade)]
     [SettingsUIKeyboardAction(ActCatTrackDeleteMode)]
+    [SettingsUIKeyboardAction(ActCatTrackSkiWay)]
     [SettingsUIKeyboardAction(ActToggleQuickRuns)]
     public sealed class SkiResortSettings : ModSetting
     {
@@ -58,6 +59,7 @@ namespace SkiResortMod.Settings
         public const string BuildUsage = "SkiResortLineTools";
         public const string ActToggleCatTrackGrade = "ToggleCatTrackGradeTool";
         public const string ActCatTrackDeleteMode = "CatTrackDeleteMode";
+        public const string ActCatTrackSkiWay = "CatTrackSkiWay";
         public const string ActToggleQuickRuns = "ToggleQuickRunsTool";
 
         public const int DefaultAttractivenessScaleK = 4;
@@ -435,6 +437,12 @@ namespace SkiResortMod.Settings
         [SettingsUIKeyboardBinding(BindingKeyboard.D, ActCatTrackDeleteMode, ctrl: true, shift: true)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding CatTrackDeleteModeBinding { get; set; }
+
+        /// <summary>Switches the cat track tool between the standard track and the Ski way (default Ctrl+Shift+W, T194). Live only while
+        /// that tool is open (CatTrackGradeHotkeySystem).</summary>
+        [SettingsUIKeyboardBinding(BindingKeyboard.W, ActCatTrackSkiWay, ctrl: true, shift: true)]
+        [SettingsUISection(SectionMain, GroupKeybindings)]
+        public ProxyBinding CatTrackSkiWayBinding { get; set; }
 
         /// <summary>Toggles the Resort Planner tool (default Ctrl+Shift+Q). Polled by QuickRunsHotkeySystem in a loaded city. It is inert
         /// while the QuickRunsEnabled option is off. The tool scans and builds with the BuildLiftLine key (Enter).</summary>

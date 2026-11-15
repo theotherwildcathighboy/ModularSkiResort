@@ -1,4 +1,4 @@
-# CatTrackGrade: the grading pipeline (path, profile, raster, guards, run outline, undo) and the heightmap encoding
+# CatTrackGrade: the grading pipeline (path, profile, raster, guards, run outline) and the heightmap encoding
 
 The pure half of the Cat Track Grading tool: Unity.Mathematics only, so tests/GradeBatch links `CatTrackGrade.cs` and proves every
 rule headless. The engine half is `CatTrackGradeToolSystem` (input, overlay, data of the guards, apply) and `HeightmapWriter` (the base
@@ -59,8 +59,7 @@ One solve per change, never per frame.
    - water (texels flagged wet)
 
    The first hit refuses the grade with its kind and place.
-5. `GradeUndo`: the pre-image and the written image of each grade (LIFO, capped). Restore writes the pre-image back only where the
-   texel still holds what we wrote. So a later foreign edit (the vanilla terrain tool, a newer grade) survives the undo.
+5. (Removed in T194: `GradeUndo`, the pre-image stack. Only the dev-tab probe pushed to it; a built cat track is never un-graded.)
 6. `GradeRibbon.Build` (2026-10-24): the outline of the cat-track run = the flat top as one closed ring (left edge forward, right edge
    back). Each edge = the centerline offset by half the top width. The loop that an offset makes inside a bend tighter than the half
    width is cut at its crossing (`CutLoops`, window (4 hw + 20 m) / step samples). Then Douglas-Peucker 0.5 m and thinning to 2 m. The
@@ -75,3 +74,13 @@ The base heightmap is R16_UNorm (`SetHeightmap` :3231-3250). World height = `hei
 (`GetHeightData` :2603-2623: scale.y = (65536 - 1) / heightScale.x, offset = -positionOffset, positionOffset.y =
 `heightScaleOffset.y` :2512). The center of texel (i, j) = `playableOffset + (i + 0.5, j + 0.5) * playableArea / resolution` (the same
 :2620-2622 offset.xz -= 0.5 / scale.xz). `GradeMap` holds that mapping.
+
+## Ski way: the narrow full-cut profile (DECISIONS 443, a tool mode since T194)
+
+`GradeParams.SkiWay(settings)` = `NarrowFullCut(settings.MaxGrade)` with the settings' profile mode: a 10 m top, cut bank 1:1, `NoFill`.
+`GradeInput.SolveGround` gives the solve the lowest ground across the top (`GradeProfile.LowEdgeGround`, centerline and +-0.5 / +-1 half
+widths) for a NoFill profile, else the centerline ground. Against that envelope the profile is the highest G-limited line at or below
+the ground, so the whole top is in cut and the bench sinks into a cross slope instead of being filled downhill. The raster raises
+nothing: the top keeps the ground where it falls below the bench (`UnfilledTopTexels`, about 0 with the low-edge ground), the downhill
+side slope is the ground itself, and a crossed run's inside correction may only go down. GradeBatch GR-24 (the profile) and GR-25 (the
+mode: params, ground choice, plan line, cut only next to a filling standard track) cover it.
