@@ -285,3 +285,13 @@ Never:
 
 `ChairPinSystem.Debug.cs` builds this system's foldout and appends AppendDump to its dump. `SkiResortStatsSystem` reads TryGetShuttle,
 CabinsHostedBy and DescribeShuttle. `SkiResortHubUISystem` offers the tram items only while this system is registered.
+
+## Hosted carriers by name (T185, post-release round 1)
+
+A game that loads our prefabs twice (a local ImportedData copy beside the published package) has two `SkiTramCabin` prefab entities. The
+catalog's name scan keeps one. The base station's CID sub-object can resolve to the other one. Then `HostedLocal` and the per-station
+count find 0 cabins and the tram never moves (2026-11-14 log on 1.0.0: `CHECK: base 'SkiTramBaseStationBuilding' hosts 0 cabin(s), want
+2 (R29)`, while the dev logs of 2026-11-10 showed 2). `AddHostedAliases` (run with `RefreshCarriers`, once per catalog generation)
+adds every Shuttle station sub-object whose prefab NAME is a carrier's to `m_Carriers`, logged once as `TramShuttle [alias]`. With one
+copy (a player's game) nothing is added. The season was never the gate: `LiftClosedRule.ClosedForLift` exempts Shuttle types (DECISIONS
+374), and the log showed `Held → Running`.

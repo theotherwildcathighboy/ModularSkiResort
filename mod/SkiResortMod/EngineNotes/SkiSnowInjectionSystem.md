@@ -75,6 +75,11 @@ rasterized for measurement only, on a second chain after the injected one (`Meas
 bills them. They are never in the mask, decay or ramp planes. They are never in MeanRunSnowDepthM or the per-run active-texel map.
 Texels an injected run manages this pass are excluded from them.
 
+The inert path ("all runs inert, too warm": no mask, decay, protected or stopped texel) runs no real pass. It requests the
+measure-only readback for the natural AND the bound injected runs (T183, post-release round 1). Before, it asked only for natural runs.
+A city with no natural run then lost its snapshot after MaxSnapshotAgeFrames, and every run fell to the day-mean estimate (cold air at
+the top, no snow on the map): runs read open with no visible snow.
+
 - Cheaper top-ups work in two ways:
   - A dry skip (no readback, merge or upload) happens when all of these hold:
     - No run texel is cold enough.

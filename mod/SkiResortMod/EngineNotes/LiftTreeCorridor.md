@@ -59,3 +59,10 @@ The tool writes these lines:
 - `LiftLine [trees]: felled N tree(s) in a W m corridor (type: rope gauge, carrier half width, margin; segments, stub edges)` the
   frame after the apply (originals gone or Deleted). It writes a WARN when a marked tree still stands (a canceled delete) or the cap
   was hit.
+
+## The tree filler keeps out of the corridor (T184, post-release round 1)
+
+The Resort Planner's tree filler (QuickRunsToolSystem.Trees.cs, `AddLiftCorridorHoles`) adds one hole per chord of every census lift
+row near its region: `LiftTreeCorridor.HoleRing`, a rectangle of half width `EnvelopeHalfM` around the chord. The filler's own hole margin
+(3 m = `MarginM`) brings it to the trunk test's corridor. Before, the filler planted into a corridor the lift build had cut (a tram in the
+2026-11-14 field list). Any lift type, any census state. Logged once per session: `QuickRuns [trees]: N lift corridor hole(s) ...`.
