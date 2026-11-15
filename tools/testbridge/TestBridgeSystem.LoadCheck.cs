@@ -279,7 +279,7 @@ namespace SkiTestBridge
                                 LcFinishReport(run);
                                 return;
                             }
-                            run.startMonth = m_Time.GetCurrentDateTime().Month;
+                            run.startMonth = LcModMonthKey();
                             run.monthStartFrame = frame;
                             run.monthStartedAt = Now;
                             run.monthTurned = false;
@@ -299,7 +299,10 @@ namespace SkiTestBridge
                         break;
 
                     case "month":
-                        if (!run.monthTurned && m_Time.GetCurrentDateTime().Month != run.startMonth)
+                        int modMonth = LcModMonthKey();
+                        if (run.startMonth == int.MinValue)
+                            run.startMonth = modMonth;   // SkiResortLedger.NoMonth at the start: the first real key is the start, not a turn
+                        else if (!run.monthTurned && modMonth != run.startMonth)
                         {
                             run.monthTurned = true;
                             run.monthTurnedFrame = frame;
@@ -317,7 +320,7 @@ namespace SkiTestBridge
                             month["simFramesPerSecond"] = Math.Round((frame - run.monthStartFrame) / Math.Max(1.0, Now - run.monthStartedAt), 1);
                             month["turned"] = run.monthTurned;
                             if (!run.monthTurned)
-                                month["incomplete"] = timeUp ? $"wall-clock limit {run.monthTimeoutS / 60:F0} min" : "frame cap without a month change";
+                                month["incomplete"] = timeUp ? $"wall-clock limit {run.monthTimeoutS / 60:F0} min" : "frame cap without a mod-month change";
                             m_Simulation.selectedSpeed = run.speedBefore;
                             run.report["billingAfter"] = LcBilling();
                             run.report["censusAfter"] = LcCensus(null, null);
@@ -725,6 +728,25 @@ namespace SkiTestBridge
             }
             result["bindings"] = LcBindings();
             return result;
+        }
+
+        private PropertyInfo m_LcLedgerProp, m_LcKeyProp;
+        private object m_LcCounterSystem;
+
+        /// <summary>The mod's month key (SkiGuestCounterSystem.Ledger.MonthKey, SkiMoneyRules.MonthKey: one month = 1/12 year). The calendar month
+        /// of TimeSystem does not follow it (T196: the runner reported "month did not turn" while the ledger month had turned).</summary>
+        private int LcModMonthKey()
+        {
+            if (m_LcKeyProp == null)
+            {
+                Type systemType = AppDomain.CurrentDomain.GetAssemblies().Where(a => a.GetName().Name == "SkiResortMod")
+                    .Select(a => a.GetType("SkiResortMod.Systems.SkiGuestCounterSystem", false)).FirstOrDefault(t => t != null)
+                    ?? throw new InvalidOperationException("SkiGuestCounterSystem not found");
+                m_LcCounterSystem = World.GetExistingSystemManaged(systemType) ?? throw new InvalidOperationException("SkiGuestCounterSystem not in the world");
+                m_LcLedgerProp = systemType.GetProperty("Ledger", kFields);
+                m_LcKeyProp = m_LcLedgerProp.GetValue(m_LcCounterSystem).GetType().GetProperty("MonthKey");
+            }
+            return (int)m_LcKeyProp.GetValue(m_LcLedgerProp.GetValue(m_LcCounterSystem));
         }
 
         /// <summary>SkiGuestCounterSystem.Ledger (internal, read by reflection): the month key and the numeric fields of This and Last summed
