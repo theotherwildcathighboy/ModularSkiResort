@@ -13,7 +13,7 @@ an overlay, a mouse tooltip, emit -> Temp -> Apply, and one hotkey system. The p
 
 ## Off switch and gating
 - The setting `QuickRunsEnabled` ("Resort Planner", Options > Modular Ski Resort > Runs) is ON by default since post-release round 1
-  (T193, DECISIONS 659 ruling 6; OFF from DECISIONS 443 to then). `OptionOn` reads it and falls back to `DefaultQuickRunsEnabled` (true)
+  (T193, DECISIONS 659 ruling 6, OFF from DECISIONS 443 to then). `OptionOn` reads it and falls back to `DefaultQuickRunsEnabled` (true)
   when Mod.Settings is null. A player who never stored a value gets the new default. When the setting is off:
   - `TryActivate` refuses and logs.
   - The hotkey is inert.
@@ -211,7 +211,7 @@ availability or activity moved. Every hub action is `quickRunsSet(key, value)` -
 undo, trees, plant, treesUndo, treeLine, group, species, level, stop). C# clamps every value and logs each call. While a build or a
 planting is in flight, it refuses every key but stop ("busy"). Progress fields: buildDone / buildTotal, planting, treesDone / treesTotal.
 
-## Resort Planner hub side (task A7; `QuickRunsToolSystem.Plan.cs`, `QuickRunsPlanRules.cs`)
+## Resort Planner hub side (task A7, `QuickRunsToolSystem.Plan.cs`, `QuickRunsPlanRules.cs`)
 - **Toggles**: `m_OffPods` / `m_OffLifts` hold plan keys (`PlanPod.Key`, `PlanLift.Key`), so they survive a new realize of the same plan. A new region and
   `ResetAll` clear them. `RefreshEnabled` (Scan.cs, one added test: `&& !PlanLeftOut(r, i)`) leaves a run out in these cases:
   - Its pod is off.
@@ -229,7 +229,7 @@ planting is in flight, it refuses every key but stop ("busy"). Progress fields: 
 - **Plan around this lift**: this works in the Region phase, with no corners, on a press within 30 m of a census station
   (`LiftCensusSystem.StationAt`) whose lift has chords. The region becomes the corridor polygon of `QuickRunsPlanRules.AroundRegion`.
   The polygon extends 150 m each side of the Douglas-Peucker simplified chord line. It extends 400 m past the bottom station along the
-  fall line of the terrain at the bottom, or along the lift's own axis on flat ground. The half width shrinks by 15 % steps until the
+  fall line of the terrain at the bottom. On flat ground it extends along the lift's own axis. The half width shrinks by 15 % steps until the
   area fits 9 km2. Right click clears those corners at once. The click does NOT scan: the player presses Scan or Enter. The lift becomes
   pinned the usual way (`CollectPinned` takes every census lift with a chord within 150 m of the region). A station without a line yet
   logs `[around]`, and the click places a corner as before.
@@ -264,15 +264,15 @@ The end line of the build and the end line of the planting always give the total
 reports the real number. UNVERIFIED: the chunk and slice sizes (4 runs, 2000 trees) are first guesses. Tune them from these lines.
 
 ## Post-release round 1 (T165-T168)
-- T168, the lift build closes the planner: Build lifts (or a row's Build) makes the station placer the active tool, which closes this tool
+- T168, the lift build closes the planner: Build lifts (or a row's Build) makes the station placer the active tool. That closes this tool
   (`OnStopRunning`: region, toggles and Undo end). A queue run started while this tool is open (`ResortLiftBuildSystem.StartQueue` calls
   `KeepRegionForLiftBuild`) keeps the region's corners over that close (`m_KeptCorners`, only while `QueueRunning`). The next open restores
   them (`RestoreKeptRegion`, the `[tool] running` line says "the region ... is back"). `ResortLiftBuildSystem.TickReturnToPlanner` opens this
-  tool again once the queue has ended and the default tool is active. A line that waits for a hand fit keeps the lift tool open; the planner
+  tool again once the queue has ended and the default tool is active. A line that waits for a hand fit keeps the lift tool open. The planner
   comes back after the player's build or Escape. Another tool taken by the player drops the kept corners (`DropKeptRegion`). The Undo of the
   run build still ends with the close (DECISIONS 418). A load clears the kept corners.
 - T167, the order: Region, Scan, Build runs, Trees, Lifts (`hubRules.PLANNER_STEPS`). Trees come before the lifts because a lift line fells
-  the trees in its corridor when it builds (LiftLineToolSystem.Trees.cs) and the filler's holes are the runs only: trees planted after a lift
+  the trees in its corridor when it builds (LiftLineToolSystem.Trees.cs). The filler's holes are the runs only. Trees planted after a lift
   grow back into its line (likely the field note behind T184). The hub draws the step strip (QuickRunsControls.tsx.md).
-- T165: the "huge green lines" after Build were the piste map (it hides only while this tool is open): the new cat tracks drew as green
+- T165: the "huge green lines" after Build were the piste map (it hides only while this tool is open). The new cat tracks drew as green
   band rings at the zoom-scaled run width. The map now draws cat tracks thin in this tool's cat-track color (SkiPisteMapSystem.md).

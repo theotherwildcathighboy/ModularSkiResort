@@ -140,13 +140,13 @@ More rules:
   ends another way, the row becomes StationsPlaced with LINE[ABANDONED] or LINE[REFUSED]. A line that the player builds sets the
   over-limit flag from its plan, also with two or more towers.
 - A second build of a row starts from the stations that it already has.
-- The run build does NOT start the queue (the queue closes the planner and its Undo): the hub's Build lifts does (plan 3.2: runs first,
+- The run build does NOT start the queue (the queue closes the planner and its Undo). The hub's Build lifts does (plan 3.2: runs first,
   then lifts).
-- T168 (post-release round 1): a run started while the Resort Planner is open sets `m_ReturnToPlanner` and asks the planner to keep its
+- T168 (post-release round 1): a run started while the Resort Planner is open sets `m_ReturnToPlanner`. It asks the planner to keep its
   region over the close the placer causes. `TickReturnToPlanner` (every tick, after `TickQueue`) waits while the queue runs or the placer /
-  lift tool is active, then once: the default tool active opens the planner again (`ResortLifts [queue]: the Resort Planner opens again`),
-  any other tool drops the return and the kept region (`stays closed`). The hub also shows the sheet in the Lifts view while the planner is
-  closed (QuickRunsControls.tsx `LiftSheetAside`): the lift tool a waiting line keeps open turns the hub to that view.
+  lift tool is active, then acts once. The default tool active opens the planner again (`ResortLifts [queue]: the Resort Planner opens again`).
+  Any other tool drops the return and the kept region (`stays closed`). The hub also shows the sheet in the Lifts view while the planner is
+  closed (QuickRunsControls.tsx `LiftSheetAside`). The lift tool a waiting line keeps open turns the hub to that view.
 - Enter refuses when the city cannot pay the runs and the lifts that are on (`BuildFromTool`, plan 3.3). The money warning of the tool
   uses the same sum.
 

@@ -14,13 +14,13 @@ changes nothing: no command buffer, no component write, no prefab touch, no per-
 - `DumpAll(reason)`: every line of the last census build, on demand (hub DUMP, dev builds), capped at MaxBlocksPerDump.
 
 ## Output
-One "Towers [summary]" line per lift line: node and span count, curve length, the towers the engine spawned (prefab x count, carriers
-skipped), nodes without a tower, the highest node Elevation (cmin of Game.Net.Elevation, the value the engine uses, SubObjectSystem.cs:980),
-the largest tower pivot height above the terrain (leg gap) and the lowest chord clearance (4 samples per span, t = .2 .4 .6 .8).
+One "Towers [summary]" line per lift line. It shows the node and span count, the curve length and the towers the engine spawned (prefab x count, carriers
+skipped). It shows the nodes without a tower and the highest node Elevation (cmin of Game.Net.Elevation, the value the engine uses, SubObjectSystem.cs:980).
+It shows the largest tower pivot height above the terrain (leg gap). It shows the lowest chord clearance (4 samples per span, t = .2 .4 .6 .8).
 The per-node "Towers [nodes]" dump (per node / span / tower detail, the placeholder member scores and MATCH / MISMATCH, the T123 order,
 station stub and own-cut lines) was cut to this line in the 2026-11-14 opt pass (lifts-08 b).
 
-## Engine formula (decompile 1.6.0f1, Game.Objects/SubObjectSystem.cs; reference, no longer replicated in this system)
+## Engine formula (decompile 1.6.0f1, Game.Objects/SubObjectSystem.cs, reference, no longer replicated in this system)
 - Per placeholder member (PillarData Standalone / Base / Vertical, :2173-2215): spare = (m_Size.y - PlacementOffset.y) - (ownerElevation +
   local-to-world dy of the spec position).
 - score = 1 / (1 + (spare >= 0 ? 2*spare : -spare)) (:2182-2184, :2197-2199, :2212-2214).
@@ -33,8 +33,8 @@ With the option on, after each summary line, the pure `LiftTowerPlanner` re-plan
 (TerrainUtils.SampleHeight on TerrainSystem.GetHeightData(), TerrainUtils.cs:82 / TerrainSystem.cs:2603) along the node polyline (xz). It
 takes both ends as stations. The rope is at node y + the rope above the head the node carries (`RopeAboveNode`). `RopeAboveNode` is the
 shortest member's rope for a Line head, lower at a twin.
-- It logs "Towers [plan]" and one "Towers [plan summary]" line: the planned vs actual node count, per planned node the member, rope and
-  flags, and per span the lowest carrier above ground and the max rope height.
+- It logs "Towers [plan]" and one "Towers [plan summary]" line. They give the planned vs actual node count and, per planned node, the member, rope and
+  flags. They also give, per span, the lowest carrier above ground and the max rope height.
 - It caches the planned geometry for `LiftTowerPlanOverlaySystem`, keyed by every edge and node entity of the line. Selecting a line whose
   plan is not cached queues the line here (RequestPlan, served next update, also with the option off).
 

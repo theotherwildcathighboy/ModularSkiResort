@@ -86,7 +86,7 @@ The rule of the extended piste would call that an overlap, far from the extensio
 ## Closed ends
 
 The passes above stop an end when the game links it. The game links two outlines that are 25 m apart (`LiftServedRule.LinkMeters`).
-So a piste ended as far as 20 m from the piste it joins, and a track piece ended 7 m or more from the track that cuts it. A player
+So a piste ended as far as 20 m from the piste it joins. A track piece ended 7 m or more from the track that cuts it. A player
 saw runs that end before they connect, and cat tracks in pieces (post-release round 1, T172 and T176).
 
 `CloseEnds` runs after all pistes and tracks are accepted. It looks at each end of each area:
@@ -126,7 +126,7 @@ lines in `EdgeNudged`.
 
 ## A piste that doubles back
 
-The planner can ski a spur as the start of a run: the line goes out from the lift top, turns back, and passes its own start. One
+The planner can ski a spur as the start of a run. The line goes out from the lift top, turns back, and passes its own start. One
 outline cannot hold both legs, so the ring crossed itself, and the whole run was dropped (`Crosses`). The runs that ended onto it
 then ended nowhere (T172).
 

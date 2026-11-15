@@ -19,7 +19,7 @@ One solve per change, never per frame.
      bounds keeps the limit).
    - Constant grade: the straight ramp between the two end heights.
 
-   A fixed height gain over a fixed path length bounds the grade from below: |dh| / L > G is infeasible (`ShortfallM` more meters
+   A fixed height gain over a fixed path length bounds the grade from below. |dh| / L > G is infeasible (`ShortfallM` more meters
    are needed: a longer line or a switchback). The profile is still produced, and its steep part shows red.
 3. `GradeRaster.Build`: the cross-section per heightmap texel. The flat top is `TopWidthM` wide (default 20 m since 2026-10-24, 2.5x the
    first 8 m, settings 8-32 m) at the profile height. The side slopes are cut 1 : `CutRun` (h rises 1 m every `CutRun` m outward) and
@@ -37,11 +37,11 @@ One solve per change, never per frame.
        bench.
      - The profile is pinned to the ground at every sample inside an entered outline or its fade band (`PinMask`, FollowGround only).
        So the template equals the ground wherever the fade acts, and the surface there is the ground's own.
-     - `AlongTrackSteepSample` is the net: the FINAL surface (After, bilinear at the path samples) may not step steeper than the max
-       grade + 1 pp (bilinear read noise: 0.7 pp) where an outline or its fade reaches. It is also the only protection of a
+     - `AlongTrackSteepSample` is the net. The FINAL surface (After, bilinear at the path samples) may not step steeper than the max
+       grade + 1 pp (bilinear read noise: 0.7 pp). This holds where an outline or its fade reaches. It is also the only protection of a
        ConstantGrade ramp.
    - Measured, GR-21:
-     - A 35 % pitch ending 5 m before a run: 39.2 % along the track unpinned and unguarded (now refused: the hillside itself is
+     - A 35 % pitch ending 5 m before a run: 39.2 % along the track unpinned and unguarded (now refused). The hillside itself is
        steeper than the limit at the edge).
      - A pitch 45 m before: 30.9 % unpinned, 18.4 % pinned (built).
      - 4 m hollow at the edge, 12 % constant grade: 33.4 % (now 24.7 %, inside the limit).
@@ -59,7 +59,7 @@ One solve per change, never per frame.
    - water (texels flagged wet)
 
    The first hit refuses the grade with its kind and place.
-5. (Removed in T194: `GradeUndo`, the pre-image stack. Only the dev-tab probe pushed to it; a built cat track is never un-graded.)
+5. (Removed in T194: `GradeUndo`, the pre-image stack. Only the dev-tab probe pushed to it. A built cat track is never un-graded.)
 6. `GradeRibbon.Build` (2026-10-24): the outline of the cat-track run = the flat top as one closed ring (left edge forward, right edge
    back). Each edge = the centerline offset by half the top width. The loop that an offset makes inside a bend tighter than the half
    width is cut at its crossing (`CutLoops`, window (4 hw + 20 m) / step samples). Then Douglas-Peucker 0.5 m and thinning to 2 m. The

@@ -123,14 +123,14 @@ Grading is free, like the vanilla terrain tool. The run pays the cat-track fee (
 
 ## Undo and the Ski way mode
 
-There is no terrain undo. Right click / Esc undo point edits only; a built track stays (field test 2026-10-26b). The hub row's trash
+There is no terrain undo. Right click / Esc undo point edits only. A built track stays (field test 2026-10-26b). The hub row's trash
 and Delete mode delete the run with the bulldozer's end state (ground stays graded, no refund). After a reload the vanilla terrain tool
 is the only terrain undo. The grade undo stack and the dev-tab probe (a 40 m strip in front of the camera) were removed in T194
-(planners-12): only the probe ever pushed to the stack.
+(planners-12). Only the probe ever pushed to the stack.
 
 Ski way (T194): `m_SkiWay` switches the params to `GradeParams.SkiWay(ReadParams())` (CatTrackGrade.md, Ski way). The key
-(CatTrackSkiWay, Ctrl+Shift+W, CatTrackGradeHotkeySystem) and the hub chip (contract 45) call `SetSkiWay`; it is refused while a build is
-in flight, keeps the points, and UpdateCore re-solves on the params change. The quick solve takes `GradeInput.SolveGround`, so the
+(CatTrackSkiWay, Ctrl+Shift+W, CatTrackGradeHotkeySystem) and the hub chip (contract 45) call `SetSkiWay`. It is refused while a build is
+in flight. It keeps the points, and UpdateCore re-solves on the params change. The quick solve takes `GradeInput.SolveGround`, so the
 worker and Enter solve against the same low-edge ground. The tooltip shows MODE_SKI_WAY under the step hint and PLAN_SKI_WAY as the
 plan line. The mode stays on across closing the tool and resets on load.
 
@@ -160,7 +160,7 @@ the delete is the trash button of the cat track's hub Runs row (two clicks, RunL
 The ground stays as graded, with no refund. The tool itself raycasts Terrain only: a click on an existing cat track starts a new track
 there (branching), as before 2026-10-26.
 
-## Crossing cost (F4, round-2 critique; superseded by the split solve above)
+## Crossing cost (F4, round-2 critique, superseded by the split solve above)
 
 Until 2026-11-05, the plan stepped the inside allowance one step per frame while editing (a band change marked the plan pending). Enter
 settled all steps in one call. The worker now tries all steps in one job. The `Grade [crossing]` line still lists each step with its ms

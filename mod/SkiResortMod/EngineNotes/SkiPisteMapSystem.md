@@ -7,7 +7,7 @@ are dashed. The run under the mouse in the run list of the hub is drawn twice as
 
 - `SkiResortHubUISystem.PisteMapVisible`, `ShownSign` and `HoveredRun`.
 - `SkiGladeToolSystem.IsActive` (the tree tool draws its own outlines on the same edges, so the piste map yields).
-- `SkiRunCatalogSystem` rows (Gate, Kind, Band; its Revision hash includes the band, so a rating recolors within a frame).
+- `SkiRunCatalogSystem` rows (Gate, Kind, Band). Its Revision hash includes the band, so a rating recolors within a frame.
 - The `Game.Areas.Node` buffer of each run.
 
 The system makes no ECS write.
@@ -72,7 +72,7 @@ runs preview draws runs in the own palette of the map (`PisteFill / PisteOutline
 reason.
 
 ## Cat tracks (T165, post-release round 1)
-A cat track is a 10-20 m strip. Its ring at `BaseWidthM` x the zoom scale (up to 18 m per edge) read as one fat band in the green of the
-green runs: after a planner build of 44 tracks the owner saw "huge green lines". A row with `Features.IsCatTrack` now draws both edges at
-`CatTrackWidthM` (0.8 m) in `CatTrackLine` (the Resort Planner preview's cat-track color, one constant for both) and stops growing at
-`CatTrackMaxScale` (2.5, per segment `MaxScale`; runs keep `PisteMapRules.MaxWidthScale`). The hover still doubles the width.
+A cat track is a 10-20 m strip. Its ring at `BaseWidthM` x the zoom scale (up to 18 m per edge). It read as one fat band in the green of the
+green runs. After a planner build of 44 tracks the owner saw "huge green lines". A row with `Features.IsCatTrack` now draws both edges at
+`CatTrackWidthM` (0.8 m) in `CatTrackLine` (the Resort Planner preview's cat-track color, one constant for both). It also stops growing at
+`CatTrackMaxScale` (2.5, per segment `MaxScale`). Runs keep `PisteMapRules.MaxWidthScale`. The hover still doubles the width.

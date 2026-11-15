@@ -180,7 +180,7 @@ moves keeps 4 m more (`LotGapM`).
 - `ClearLots` is the last step. It moves the stations that still overlap after the lifts were added, retyped and shifted. The
   tower plan of the lift must not get worse. The log names what is left.
 
-With no existing station, the plans of the golden regions and of the real sets are the same as before: none of them had two lots
+With no existing station, the plans of the golden regions and of the real sets are the same as before. None of them had two lots
 that overlap.
 
 ## The golden

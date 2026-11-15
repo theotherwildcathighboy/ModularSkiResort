@@ -240,7 +240,7 @@ prefab whose cost differs from its row's informational mirror (`StationDef` / `L
   AlreadyBuilt at launch time (the shown sign, else the one nearest the camera). It refuses with one Info line and `LastTriggerText`.
 - Locked first: `ToolSystem.ActivatePrefabTool` itself does not check it (ToolSystem.cs:263-277, same in 1.6.2), but both vanilla
   callers do (ToolbarUISystem.cs:922-932, 1.6.2 :983, and UpgradeMenuUISystem.cs:379-390). The check is
-  `EntityManager.HasEnabledComponent<Locked>(prefab entity)` (`Colossal.Entities.EntitiesExtensions`; Locked is
+  `EntityManager.HasEnabledComponent<Locked>(prefab entity)` (`Colossal.Entities.EntitiesExtensions`, where Locked is
   `IEnableableComponent`, Game.Prefabs/Locked.cs). Our prefabs are off the toolbar (`UIObject.m_Group = null`).
   `ActivatePrefabTool` ignores groups (:263-278). `UIObject` still writes `UIObjectData` with a Null group (UIObject.cs:67-84), and
   the icon is the prefab's own `m_Icon`. So launching is unaffected.
@@ -561,7 +561,7 @@ clusters as 0 / empty unless the tool shows a preview. `quickRunsToggle` follows
 TryActivate, which owns the gating and logs a refusal with its reason key). `quickRunsSet` calls `QuickRunsToolSystem.HubSet`, which
 ignores a call while the tool is closed and clamps every value. Each call writes one `Hub [quickRuns]` log line. The DUMP gains one
 `quickRuns:` line. `plant` is the whole slope's shortfall (TreeToPlant). buildDone / buildTotal and planting / treesDone /
-treesTotal carry the staged build's and planting's progress (totals 0 when none is in flight; Undo trees reuses treesDone /
+treesTotal carry the staged build's and planting's progress (totals 0 when none is in flight, and Undo trees reuses treesDone /
 treesTotal with planting false). The `stop` key ends either one at its next boundary. `treesCost` (contract 18) is the planting cost
 the counts line shows before Plant.
 

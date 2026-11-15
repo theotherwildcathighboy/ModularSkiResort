@@ -2,7 +2,7 @@
 
 - `QuickRunsChip`: the Build strip's Runs tab, in the slot beside the Tree tool chip, ok panel only (`FooterInfo.quickRuns`). It reads
   the non-CORE `quickRuns` binding, so the contract-mismatch footer never draws it. The chip label is "Resort Planner"
-  (player name since DECISIONS 443; "experimental" dropped with T193). The code keeps QuickRuns*. While the tool is unavailable, the chip is disabled (grayed) and its
+  (player name since DECISIONS 443, "experimental" dropped with T193). The code keeps QuickRuns*. While the tool is unavailable, the chip is disabled (grayed) and its
   tooltip gives C#'s reason (`quickRuns.reason`, SENT_KEYS). A click on an available chip opens the tool (`quickRunsToggle`). A click on
   the lit chip closes it. The pattern is the lift generator chip's pattern.
 - `QuickRunsRows`: while the tool is open, the Runs view draws these rows instead of the tree tool's (`TreeRows`). In order:
@@ -11,7 +11,7 @@
   3. The refusal status, the notice, every warning and every cluster line.
   4. Density ("How many") and Kinds. The Mix and Shuffle knobs are gone (R2-b).
   5. The tree filler: on / off, Plant, Undo trees, density (the glade levels), tree line (-50 / -10 / +10 / +50 m, "Above the slope"
-     when none), the group chips and a species stepper (left past the first species = the whole group).
+     when none). It also has the group chips and a species stepper (left past the first species = the whole group).
 - Every knob is a button, so the owner never needs a hotkey to find anything. Enter and right click only repeat Scan / Build / back.
 - Every action is `quickRunsSet(key, value)`. The UI sends ints, and C# clamps them. Knobs wait (disabled) while C# scans, builds or plants.
 - Staged build and planting:
@@ -147,9 +147,9 @@ scenario shows it with 3 of 11.
   `r2b-plan-15-lifts-rows-1080` scrolls the panel (`scrollY`) instead of the box.
 - T167: `StepStrip` under the tool row: Region, Scan, Build runs, Trees, Lifts (`hubRules.PLANNER_STEPS`, LocaleEN QUICK_STEP[*]). The next
   step (`hubRules.plannerStepIndex`, test-hub-rules T44) has the selected look, the ones before it are dimmed. Trees and Lifts carry one fact
-  each in a tooltip (QUICK_STEP_TIP[*]): a lift line clears the trees in its path; hand-fit lifts open after the others and the planner comes
-  back. "The region holds the build" is derived, not a binding field (contract 43 stays): `batchRuns > 0`, or 3 corners and a sheet row
-  started (the planner came back from the lift build with its region, its Undo ended with the close).
-- T168: `LiftSheetAside` draws the plan sheet block at the top of the Lifts view while the planner is closed (the lift tool that a waiting
-  line keeps open turns the hub to the Lifts view, RunsTabFollow). The planner itself comes back after the lift build with its region
+  each in a tooltip (QUICK_STEP_TIP[*]): a lift line clears the trees in its path, and hand-fit lifts open after the others and the planner comes
+  back. "The region holds the build" is derived, not a binding field (contract 43 stays). It is `batchRuns > 0`, or 3 corners and a sheet row
+  started (the planner came back from the lift build with its region). Its Undo ended with the close.
+- T168: `LiftSheetAside` draws the plan sheet block at the top of the Lifts view while the planner is closed. The lift tool that a waiting
+  line keeps open turns the hub to the Lifts view (RunsTabFollow). The planner itself comes back after the lift build with its region
   (QuickRunsToolSystem.md, Post-release round 1).

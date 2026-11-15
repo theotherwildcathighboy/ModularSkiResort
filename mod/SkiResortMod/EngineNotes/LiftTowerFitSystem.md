@@ -39,9 +39,9 @@ whose key is new (`LiftTowerDiagSystem.Signature`: edge ids + node positions, XO
 It fits the component once the census has been quiet for SettleFrames updates (a drag keeps resetting the timer). The fit is a fixed point
 (LiftBatch LP-13): the build it causes queues the line again, and the re-fit writes nothing ("already fitted"). Guard: a line written
 MaxWrites times within GuardFrames is left alone with a WARN.
-Pacing and load (opt pass 2026-11-14, lifts-02 a + b): the queue is fitted ONE line per update (a load queues every line at once;
-before, all were planned in one frame). On the load (baseline) build, a line that stands as a fit built it (`Built`: every inner node
-exactly at a member / head elevation, one raised) is kept as saved, with no planner run: a save made by an older planner keeps its towers.
+Pacing and load (opt pass 2026-11-14, lifts-02 a + b): the queue is fitted ONE line per update.
+A load queues every line at once. Before, all were planned in one frame. On the load (baseline) build, a line that stands as a fit built it is kept as saved.
+`Built` means every inner node exactly at a member / head elevation, one raised. It gets no planner run, so a save made by an older planner keeps its towers.
 An engine-drawn or never-fitted line still takes the fit at load. One "Towers [fit]: load" line counts kept and fitted lines.
 The station ends are in the key. A station attached line-first (its stub course reuses the line's unowned end node,
 LiftReconnectSystem.md) changes no edge and no node position. Without them the line was fitted in session as ground-ended. The line was
