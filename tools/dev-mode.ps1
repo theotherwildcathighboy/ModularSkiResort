@@ -9,6 +9,8 @@
 #   -Mode Published  moves them back out of Mods into the aside folder.
 #   -Mode Bridge     published mod + test bridge only: SkiTestBridge in Mods, SkiResortMod-dev parked. For bridge runs that must
 #                    measure the RELEASED build (baseline saves, tools/loadcheck.ps1 baselines).
+#   Dev puts the Editor-imported ImportedData folder back; Published and Bridge park it aside (T197: dev prefab copies beside the
+#   published .cok gave ~1,300 "Duplicate prefab ID" lines in loadcheck part (a)).
 #
 # What the script does NOT do (by design):
 #   - Change playsets. Playset files sync to Paradox and are also written by the launcher and Skyve. Keep a playset without the
@@ -70,6 +72,7 @@ function Get-LaunchOptions {
 function Show-Status {
     "Ski mod switch status"
     foreach ($p in $Pairs) { "  {0,-14} {1}" -f $p.Local, (Get-Where $p) }
+    "  {0,-14} {1}" -f 'ImportedData', (Get-ImportedState)
     $s = Get-Subscription
     "  Subscription   $ModId $($s.Installed); active playset '$($s.Playset)': $($s.Enabled)"
     "  Launch options $(Get-LaunchOptions)"
@@ -91,9 +94,42 @@ function Move-Pair($from, $to, $label) {
     "  moved $label -> $to"
 }
 
+# ImportedData holds the Editor-imported dev copies of our prefabs (Ski*). Beside the published .cok they collide ("Duplicate prefab ID",
+# T197), so Published and Bridge park the whole folder (a rename on the same volume, nothing is copied or deleted) and leave an empty one;
+# Dev puts it back. Refused when the live folder holds anything in a mode that wants the parked one back (no merge, no overwrite).
+$ImportedDir = Join-Path $UserData 'ImportedData'
+$ImportedAside = Join-Path $AsideDir 'ImportedData'
+
+function Get-ImportedState {
+    $live = Test-Path $ImportedDir
+    $liveCount = if ($live) { @(Get-ChildItem $ImportedDir -Force -ErrorAction SilentlyContinue).Count } else { 0 }
+    $aside = Test-Path $ImportedAside
+    if ($aside -and $liveCount -gt 0) { return 'BOTH (conflict)' }
+    if ($aside) { return 'aside (parked)' }
+    if ($liveCount -gt 0) { return 'ImportedData (loaded)' }
+    'empty'
+}
+
+function Set-Imported([bool]$wantLoaded) {
+    $state = Get-ImportedState
+    if ($state -like 'BOTH*') { throw "refused: ImportedData exists in the game folder AND in $ImportedAside. Resolve by hand." }
+    if ($wantLoaded -and $state -eq 'aside (parked)') {
+        if (Test-Path $ImportedDir) { Remove-Item -LiteralPath $ImportedDir -Force }   # an empty folder only (the state check above)
+        Move-Item -LiteralPath $ImportedAside -Destination $ImportedDir
+        "  moved ImportedData back -> $ImportedDir"
+    }
+    elseif (-not $wantLoaded -and $state -eq 'ImportedData (loaded)') {
+        New-Item -ItemType Directory -Force $AsideDir | Out-Null
+        Move-Item -LiteralPath $ImportedDir -Destination $ImportedAside
+        New-Item -ItemType Directory -Force $ImportedDir | Out-Null
+        "  moved ImportedData -> $ImportedAside (an empty folder is left)"
+    }
+}
+
 if ($Mode -ne 'Status') {
     if (Get-Process -Name Cities2 -ErrorAction SilentlyContinue) { Write-Host 'refused: Cities2 is running. Close the game first.'; exit 1 }
     try {
+        Set-Imported ($Mode -eq 'Dev')
         foreach ($p in $Pairs) {
             $local = Join-Path $ModsDir $p.Local
             $aside = Join-Path $AsideDir $p.Aside
