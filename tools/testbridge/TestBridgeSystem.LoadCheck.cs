@@ -76,6 +76,7 @@ namespace SkiTestBridge
             public string name;
             public string path;
             public long offset;
+            public long markOffset = -1;   // log length when the load started (action loadMark); -1 = no mark
         }
 
         private sealed class LoadCheckRun
@@ -119,10 +120,11 @@ namespace SkiTestBridge
             switch (action)
             {
                 case "begin": return LoadCheckBegin(args);
+                case "loadMark": return LoadCheckMark();
                 case "report": return LoadCheckStart(args);
                 case "status": return LoadCheckStatus();
                 case "census": return new JObject { ["census"] = LcCensus(null, null) };
-                default: throw new ArgumentException($"loadcheck: unknown action '{action}' (begin, report, status, census)");
+                default: throw new ArgumentException($"loadcheck: unknown action '{action}' (begin, loadMark, report, status, census)");
             }
         }
 
@@ -149,6 +151,18 @@ namespace SkiTestBridge
                 ["gameMode"] = GameManager.instance.gameMode.ToString(),
                 ["logs"] = new JArray(run.logs.Select(l => new JObject { ["name"] = l.name, ["path"] = l.path, ["offset"] = l.offset })),
             };
+        }
+
+        /// <summary>Call right after the load has started (the pause menu's load answered Yes): remembers each log's length. Duplicate and Unknown prefab
+        /// ID lines before it (game start, the Load Game list) are environment (reported, not gated); lines after it still gate part (a).</summary>
+        private JObject LoadCheckMark()
+        {
+            LoadCheckRun run = m_LoadCheck;
+            if (run == null || !run.begun || run.running)
+                throw new InvalidOperationException("loadcheck: loadMark needs a begin and no running report");
+            foreach (LcLog log in run.logs)
+                log.markOffset = LcFileLength(log.path);
+            return new JObject { ["marked"] = new JArray(run.logs.Select(l => new JObject { ["name"] = l.name, ["markOffset"] = l.markOffset })) };
         }
 
         private JObject LoadCheckStart(JObject args)
@@ -372,7 +386,7 @@ namespace SkiTestBridge
 
         /// <summary>The lines of a log from byte `offset` to the end, read shared (the game holds the files open). A file shorter than the
         /// offset was rotated: read it whole.</summary>
-        private static List<string> LcReadLines(string path, long offset, out bool rotated)
+        private static List<string> LcReadLines(string path, long offset, out bool rotated, long end = -1)
         {
             rotated = false;
             var lines = new List<string>();
@@ -386,7 +400,21 @@ namespace SkiTestBridge
                     offset = 0;
                 }
                 fs.Seek(offset, SeekOrigin.Begin);
-                using (var reader = new StreamReader(fs))
+                Stream source = fs;
+                if (end > offset)
+                {
+                    var buffer = new byte[Math.Min(end, fs.Length) - offset];
+                    int got = 0;
+                    while (got < buffer.Length)
+                    {
+                        int n = fs.Read(buffer, got, buffer.Length - got);
+                        if (n <= 0)
+                            break;
+                        got += n;
+                    }
+                    source = new MemoryStream(buffer, 0, got);
+                }
+                using (var reader = new StreamReader(source))
                 {
                     string line;
                     while ((line = reader.ReadLine()) != null)
@@ -394,6 +422,17 @@ namespace SkiTestBridge
                 }
             }
             return lines;
+        }
+
+        /// <summary>Prefab ID lines before the load starts come from the game's start and the save list, not from the city: environment.</summary>
+        private static readonly HashSet<string> s_LcEnvironmentBeforeLoad = new HashSet<string> { "Unknown prefab ID", "Duplicate prefab ID" };
+
+        /// <summary>The number of lines of log from rom up to its load mark (0 when no mark was taken).</summary>
+        private static int LcPreLoadLines(LcLog log, long from)
+        {
+            if (log.markOffset <= from)
+                return 0;
+            return LcReadLines(log.path, from, out _, log.markOffset).Count;
         }
 
         private static string LcClip(string line)
@@ -423,6 +462,7 @@ namespace SkiTestBridge
                     ["lines"] = lines.Count,
                 });
                 bool modLog = log.name == "SkiResortMod.Mod.log";
+                int preLoad = LcPreLoadLines(log, rotated ? 0 : log.offset);
                 for (int i = 0; i < lines.Count; i++)
                 {
                     string line = lines[i];
@@ -431,7 +471,13 @@ namespace SkiTestBridge
                         if (p.session || !p.pattern.IsMatch(line))
                             continue;
                         bool ours = p.ours == null || p.ours.IsMatch(line);
-                        LcAddHit(hits, counts, p.name, log.name, i, line, ours, ref gated);
+                        string hitName = p.name;
+                        if (ours && i < preLoad && s_LcEnvironmentBeforeLoad.Contains(p.name))
+                        {
+                            ours = false;
+                            hitName += " (pre-load, environment)";
+                        }
+                        LcAddHit(hits, counts, hitName, log.name, i, line, ours, ref gated);
                     }
                     if (s_LcException.IsMatch(line) && !line.Contains("ComponentSerializerException"))
                     {
@@ -468,12 +514,19 @@ namespace SkiTestBridge
                 foreach (LcLog log in run.logs.Where(l => l.name != "SkiResortMod.Mod.log"))
                 {
                     List<string> lines = LcReadLines(log.path, 0, out _);
+                    int preLoad = LcPreLoadLines(log, 0);
                     for (int i = 0; i < lines.Count; i++)
                     {
                         if (!p.pattern.IsMatch(lines[i]))
                             continue;
                         bool ours = p.ours == null || p.ours.IsMatch(lines[i]);
-                        LcAddHit(hits, counts, p.name + " (session)", log.name, i, lines[i], ours, ref gated);
+                        string hitName = p.name + " (session)";
+                        if (ours && i < preLoad && s_LcEnvironmentBeforeLoad.Contains(p.name))
+                        {
+                            ours = false;
+                            hitName += " (pre-load, environment)";
+                        }
+                        LcAddHit(hits, counts, hitName, log.name, i, lines[i], ours, ref gated);
                     }
                 }
             }

@@ -19,7 +19,8 @@
        The census baseline lives beside the save: release/saves-by-release/<stem>.census.json. The first run writes it;
        later runs diff their census against it (part b). -WriteBaseline replaces it.
 
-  Autosave is switched off for the run and switched back afterward. The sim speed returns to what it was.
+  Autosave is switched off before the load and again after it (a load builds a new world with autosave ON). With -NoLoad it is put back to the state
+  it was found in; after a load it stays OFF in the loaded city. The sim speed returns to what it was.
 
   Exit: 0 every part PASS, 1 a part FAILed, 2 a precondition failed (game, bridge, save), 3 the run broke off.
 
@@ -139,8 +140,13 @@ function Load-City([string]$name, [string]$label) {
     if ("$r" -notmatch '^loading ') {
         Stop-Check 2 "the load did not start ($r). A save copied while the game ran may need a game restart to be listed (unverified)."
     }
+    # Log lines before this point (game start, the Load Game list) are environment for the prefab ID patterns of part (a).
+    try { Invoke-Bridge @{ op = 'loadcheck'; action = 'loadMark' } | Out-Null }
+    catch { Write-Output "  loadMark failed ($($_.Exception.Message)): every prefab ID line gates part (a)" }
     Wait-Ready $t
     Invoke-Node @('--inject', $Helpers) | Out-Null
+    # A game load builds a new world: its autosave system starts ON again, so the off switch from before the load is gone.
+    Invoke-Bridge @{ op = 'autosave'; on = $false } | Out-Null
 }
 
 # Flattens the countable parts of a census (no motion) into "section.key" = number.
@@ -308,7 +314,13 @@ try {
     $result.error = $_.Exception.Message
     $exitCode = 3
 } finally {
-    try { Invoke-Bridge @{ op = 'autosave'; on = $autosave } | Out-Null } catch { Write-Output "  could not restore autosave ($autosave): $($_.Exception.Message)" }
+    # -NoLoad: the city that was open keeps the state it was found in. After a load, the found state belonged to the world before it (the main
+    # menu's), so the loaded city stays OFF: forcing it on wrote a stray autosave (2026-11-14, twice).
+    try {
+        $restore = if ($NoLoad) { $autosave } else { $false }
+        Invoke-Bridge @{ op = 'autosave'; on = $restore } | Out-Null
+        Write-Output "  autosave: found $autosave, left $restore"
+    } catch { Write-Output "  could not set autosave: $($_.Exception.Message)" }
 }
 
 $result.finished = (Get-Date).ToString('o')
