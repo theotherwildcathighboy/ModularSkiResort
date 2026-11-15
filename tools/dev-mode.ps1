@@ -9,8 +9,12 @@
 #   -Mode Published  moves them back out of Mods into the aside folder.
 #   -Mode Bridge     published mod + test bridge only: SkiTestBridge in Mods, SkiResortMod-dev parked. For bridge runs that must
 #                    measure the RELEASED build (baseline saves, tools/loadcheck.ps1 baselines).
-#   Dev puts the Editor-imported ImportedData folder back; Published and Bridge park it aside (T197: dev prefab copies beside the
-#   published .cok gave ~1,300 "Duplicate prefab ID" lines in loadcheck part (a)).
+#   -ParkImported    with -Mode Published or Bridge: also park the Editor-imported ImportedData folder (T197: dev prefab copies beside the
+#                    published .cok give ~1,300 "Duplicate prefab ID" lines). Opt-in, for that duplicate-flood check only. Without the
+#                    switch every mode leaves ImportedData in place, and puts it back if an earlier -ParkImported parked it.
+#   NOTE: saves built on the dev machine (the release baseline saves) carry the IDs of the ImportedData prefab copies. With ImportedData
+#   parked their lifts, stations, towers, lodges and runs do not resolve ("Unknown prefab ID", the mod sees 0 lifts; 2026-11-14, same on the
+#   original 1.0.0 pack). Such a save is only a valid test with ImportedData present. A player-made save (published pack only) needs it parked.
 #
 # What the script does NOT do (by design):
 #   - Change playsets. Playset files sync to Paradox and are also written by the launcher and Skyve. Keep a playset without the
@@ -20,7 +24,7 @@
 #   - Guard deploys. A deploying `dotnet build` recreates Mods\SkiResortMod in any mode: run -Mode Status after one.
 #
 # Refuses to move anything while Cities2 runs. PowerShell 5.1. Exit: 0 ok, 1 refused / conflict.
-param([ValidateSet('Status', 'Dev', 'Published', 'Bridge')][string]$Mode = 'Status')
+param([ValidateSet('Status', 'Dev', 'Published', 'Bridge')][string]$Mode = 'Status', [switch]$ParkImported)
 
 $ErrorActionPreference = 'Stop'
 $ModId = '167215'
@@ -95,8 +99,8 @@ function Move-Pair($from, $to, $label) {
 }
 
 # ImportedData holds the Editor-imported dev copies of our prefabs (Ski*). Beside the published .cok they collide ("Duplicate prefab ID",
-# T197), so Published and Bridge park the whole folder (a rename on the same volume, nothing is copied or deleted) and leave an empty one;
-# Dev puts it back. Refused when the live folder holds anything in a mode that wants the parked one back (no merge, no overwrite).
+# T197), so -ParkImported (Published and Bridge only) parks the whole folder (a rename on the same volume, nothing is copied or deleted) and
+# leaves an empty one; every other call puts it back. Refused when the live folder holds anything in a mode that wants the parked one back (no merge, no overwrite).
 $ImportedDir = Join-Path $UserData 'ImportedData'
 $ImportedAside = Join-Path $AsideDir 'ImportedData'
 
@@ -129,7 +133,7 @@ function Set-Imported([bool]$wantLoaded) {
 if ($Mode -ne 'Status') {
     if (Get-Process -Name Cities2 -ErrorAction SilentlyContinue) { Write-Host 'refused: Cities2 is running. Close the game first.'; exit 1 }
     try {
-        Set-Imported ($Mode -eq 'Dev')
+        Set-Imported (($Mode -eq 'Dev') -or -not $ParkImported)
         foreach ($p in $Pairs) {
             $local = Join-Path $ModsDir $p.Local
             $aside = Join-Path $AsideDir $p.Aside
