@@ -566,3 +566,21 @@ What worked and what did not:
   empty array is truthy, so test `.length`.
 - **Water buildings.** The river pump refused every off-road placement. A groundwater pump on a short stub road worked first try.
 - **Hub as checklist.** The hub problem rows (`__hub()`) name each missing piece: no power, no parking, unreached lodge.
+- **Steep station: use a ground cable.** At the Lakeland gondola base on a steep shore, every overhead direction was refused.
+  `__lvFeed(marker, pts, match, "Low-voltage Ground Cable")` from the marker to the road powered it.
+- **Markers on slopes need a top-down camera** (tilt about 88). From an oblique angle the mouse ray hits the hillside before the marker.
+- **Read the whole tooltip.** The refusal ("Overlapping items", "Clearance too low", "Slope too steep", "Not on shoreline") can sit
+  in the middle of `__tips()`; `__lvFeed` prints it as an `ERR` line.
+- **Water on Lakeland.** The lake pump and the sewage outlet were refused at the west lake, and there is no groundwater west of the
+  town. Groundwater pumps inside the town grid and an outlet on the north shore worked.
+- **Skipping months.** The bridge op `time` with `minutes` moves the clock: 1440 minutes is one month (one in-game day is one month).
+  At 8x a month takes about 9 minutes. The date bar shows short month names ("Dec 2026"): a wait loop that looks for "December"
+  never ends.
+- **Photo Mode camera.** The bridge `pm` op with `cam` took effect only right after Photo Mode was switched on, with the game focused
+  and about 8 s to settle. Later `cam` moves in the same session were ignored, even after off and on; `photo` then wrote identical
+  frames. Check each frame before taking the next.
+- **loadcheck on a fresh save.** A save copied in the Saves folder under a new name was not listed, even after a restart (likely
+  its asset id duplicates the original). Load the original with `__load(name)` and run `loadcheck.ps1 -NoLoad`. Send the bridge op
+  `loadcheck begin` BEFORE the load, or part (a) scans the whole session and fails on vanilla "Duplicate prefab ID" lines.
+- **Switching the playset in game closes the game** within a minute or two, with no crash dump and no shutdown lines in the log.
+  Plan for a restart after each playset switch.
