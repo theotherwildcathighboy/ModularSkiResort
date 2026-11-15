@@ -393,13 +393,13 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.QuickRunsEnabled)),
-                    "Resort Planner (experimental)"
+                    "Resort Planner"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.QuickRunsEnabled)),
                     "Outline a mountainside and the planner proposes lifts, cat tracks and a set of linked runs. You review and change the " +
-                    "plan. Build makes the cat tracks and runs. Build lifts then adds the lifts one at a time. An optional tree filler plants trees. Experimental. Off: " +
-                    "the tool cannot open and its hub button is grayed. Default off."
+                    "plan. Build makes the cat tracks and runs. Build lifts then adds the lifts one at a time. An optional tree filler plants trees. Off: " +
+                    "the tool cannot open and its hub button is grayed. Default on."
                 },
 
                 // --- Lifts ---

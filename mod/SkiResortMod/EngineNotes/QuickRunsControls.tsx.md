@@ -1,8 +1,8 @@
 # QuickRunsControls.tsx: the Quick runs tool in the hub
 
 - `QuickRunsChip`: the Build strip's Runs tab, in the slot beside the Tree tool chip, ok panel only (`FooterInfo.quickRuns`). It reads
-  the non-CORE `quickRuns` binding, so the contract-mismatch footer never draws it. The chip label is "Resort Planner (experimental)"
-  (player name since DECISIONS 443). The code keeps QuickRuns*. While the tool is unavailable, the chip is disabled (grayed) and its
+  the non-CORE `quickRuns` binding, so the contract-mismatch footer never draws it. The chip label is "Resort Planner"
+  (player name since DECISIONS 443; "experimental" dropped with T193). The code keeps QuickRuns*. While the tool is unavailable, the chip is disabled (grayed) and its
   tooltip gives C#'s reason (`quickRuns.reason`, SENT_KEYS). A click on an available chip opens the tool (`quickRunsToggle`). A click on
   the lit chip closes it. The pattern is the lift generator chip's pattern.
 - `QuickRunsRows`: while the tool is open, the Runs view draws these rows instead of the tree tool's (`TreeRows`). In order:
@@ -139,3 +139,17 @@ scenario shows it with 3 of 11.
 - Removed keys: QUICK_PREVIEW_HINT, QUICK_PROPOSAL_NOTE (from the cursor tooltip too) and QUICK_WARN[ChecksOff].
 - Rule for this panel: numbers first, one line per item, no instructions, no sentence that repeats a number. The cursor prompt gives the instructions.
 - Harness: `node tools/test-hub-layout.js --shots=<dir> --list=plantext` shoots the plan, the plan at 15 lifts and the preview with trees.
+
+## Post-release round 1 (T166, T167, T168)
+- T166: `.planList` has no box of its own any more (no max-height, no overflow scroll), like `.sheetList`. The inner box scrolled in the
+  harness but not in game: the wheel moved nothing, and lift rows past the fifth were out of reach. The Runs view scrolls as a whole
+  (listAll). The layout gate now FAILS when the plan list is an inner scroller (harness/layout-check.js). Shot
+  `r2b-plan-15-lifts-rows-1080` scrolls the panel (`scrollY`) instead of the box.
+- T167: `StepStrip` under the tool row: Region, Scan, Build runs, Trees, Lifts (`hubRules.PLANNER_STEPS`, LocaleEN QUICK_STEP[*]). The next
+  step (`hubRules.plannerStepIndex`, test-hub-rules T44) has the selected look, the ones before it are dimmed. Trees and Lifts carry one fact
+  each in a tooltip (QUICK_STEP_TIP[*]): a lift line clears the trees in its path; hand-fit lifts open after the others and the planner comes
+  back. "The region holds the build" is derived, not a binding field (contract 43 stays): `batchRuns > 0`, or 3 corners and a sheet row
+  started (the planner came back from the lift build with its region, its Undo ended with the close).
+- T168: `LiftSheetAside` draws the plan sheet block at the top of the Lifts view while the planner is closed (the lift tool that a waiting
+  line keeps open turns the hub to the Lifts view, RunsTabFollow). The planner itself comes back after the lift build with its region
+  (QuickRunsToolSystem.md, Post-release round 1).

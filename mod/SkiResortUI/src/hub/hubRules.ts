@@ -375,6 +375,42 @@ export function runToolActive(items: readonly BuildItem[] | null | undefined, qu
   return false;
 }
 
+/** T167 (post-release round 1): the Resort Planner's steps in order. Trees come before Lifts: a lift line fells the trees in its corridor
+ *  when it builds (LiftLineToolSystem.Trees.cs), and the tree filler leaves only runs free, so trees planted after the lifts grow back
+ *  into the lift lines. */
+export const PLANNER_STEPS = ["region", "scan", "build", "trees", "lifts"] as const;
+export type PlannerStep = typeof PLANNER_STEPS[number];
+
+/** What the step strip reads (QuickRunsState and its sheet, flattened so the rule stays pure). */
+export interface PlannerStepInput {
+  phase: string;
+  corners: number;
+  /** Runs of the planner's last build that Undo removes (QuickRunsState.batchRuns). */
+  batchRuns: number;
+  treesPlanted: boolean;
+  treeJob: boolean;
+  liftsToBuild: number;
+  liftsRunning: boolean;
+  liftsStarted: boolean;
+}
+
+/** The index in PLANNER_STEPS of the step to do next (the strip highlights it; the steps before it read as done).
+ *  PLANNER_STEPS.length = every step done. A scan or a build in flight is its own step. In the Region phase: the lift queue running is
+ *  Lifts. A region that holds the run build (its Undo is open, or the planner came back from the lift build with its region: 3 corners and
+ *  a lift started; the Undo ended with that close) goes on with Trees (while a tree job runs, and until trees were planted or a lift was started), then Lifts while lifts
+ *  are left to build, else done. A region without a build: under 3 corners Region, else Scan. */
+export function plannerStepIndex(s: PlannerStepInput): number {
+  const at = (step: PlannerStep): number => PLANNER_STEPS.indexOf(step);
+  if (s.phase === "Scanning") return at("scan");
+  if (s.phase === "Preview" || s.phase === "Emitted" || s.phase === "Retry" || s.phase === "Applying") return at("build");
+  if (s.liftsRunning) return at("lifts");
+  if (s.batchRuns > 0 || (s.corners >= 3 && s.liftsStarted)) {
+    if (s.treeJob || (!s.treesPlanted && !s.liftsStarted)) return at("trees");
+    return s.liftsToBuild > 0 ? at("lifts") : PLANNER_STEPS.length;
+  }
+  return s.corners < 3 ? at("region") : at("scan");
+}
+
 /** WHICH tool is active: "quick" (Quick runs), "lift" (the lift line tool), else the id of the active Build item ("" = none). Quick runs
  *  and the lift tool win over a Build item. Their own tools run while the item that started them can still read active. */
 export function activeToolKey(items: readonly BuildItem[] | null | undefined, quickActive: boolean | null | undefined,

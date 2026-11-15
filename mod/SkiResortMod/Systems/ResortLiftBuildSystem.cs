@@ -74,6 +74,7 @@ namespace SkiResortMod.Systems
         private void Tick()
         {
             TickQueue();
+            TickReturnToPlanner();
             TickHandBuilt();
         }
 

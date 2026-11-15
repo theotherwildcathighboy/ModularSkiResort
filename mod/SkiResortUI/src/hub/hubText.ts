@@ -514,7 +514,15 @@ export const HUB_LOC = {
   historyTipChart: ["SkiResort.Hub.HISTORY_TIP[Chart]", "Faded bars are partial months. Hatched slots recorded nothing."],
   // the Resort Planner tool (code name Quick runs, in QuickRunsControls.tsx and BuildStrip.tsx QuickRunsChip)
   quickTool: ["SkiResort.Hub.QUICK_TOOL", "Resort Planner"],
-  quickToolTip: ["SkiResort.Hub.QUICK_TOOL_TIP", "Outline a region and get a set of runs to pick from. Experimental. Ctrl+Shift+Q also opens it."],
+  quickToolTip: ["SkiResort.Hub.QUICK_TOOL_TIP", "Outline a region and get a plan of runs, cat tracks and lifts to pick from. Ctrl+Shift+Q also opens it."],
+  // T167: the planner's step strip (QuickRunsControls.tsx StepStrip), in PLANNER_STEPS order
+  quickStepRegion: ["SkiResort.Hub.QUICK_STEP[Region]", "Region"],
+  quickStepScan: ["SkiResort.Hub.QUICK_STEP[Scan]", "Scan"],
+  quickStepBuild: ["SkiResort.Hub.QUICK_STEP[Build]", "Build runs"],
+  quickStepTrees: ["SkiResort.Hub.QUICK_STEP[Trees]", "Trees"],
+  quickStepLifts: ["SkiResort.Hub.QUICK_STEP[Lifts]", "Lifts"],
+  quickStepTipTrees: ["SkiResort.Hub.QUICK_STEP_TIP[Trees]", "A lift line clears the trees in its path when it builds. Trees planted after it grow back into the line."],
+  quickStepTipLifts: ["SkiResort.Hub.QUICK_STEP_TIP[Lifts]", "Lifts that need a hand fit open in the lift tool after the others. The planner opens again when the lifts are done."],
   catTrackDelete: ["SkiResort.Hub.CAT_TRACK_DELETE", "Delete cat tracks"],
   catTrackDeleteTip: ["SkiResort.Hub.CAT_TRACK_DELETE_TIP", "Opens the cat track tool in delete mode. The ground stays graded, no refund. Ctrl+Shift+D in the tool."],
   quickUnavailable: ["SkiResort.Hub.QUICK_UNAVAILABLE", "The Resort Planner is not available right now."],
@@ -1087,7 +1095,7 @@ export const SENT_KEYS: readonly LocEntry[] = [
   ["SkiResort.Hub.GLADE_REASON[NoRuns]", "The ski run assets were not found: is the asset pack installed?"],
   ["SkiResort.Hub.GLADE_REASON[NoSpecies]", "No tree species to plant were found."],
   // the Quick runs tool: quickRuns.reason / status / warnings / notice
-  ["SkiResort.Hub.QUICK_REASON[Off]", "Resort Planner is experimental and off. Its switch is in Options > Modular Ski Resort > Runs."],
+  ["SkiResort.Hub.QUICK_REASON[Off]", "Resort Planner is off. Its switch is in Options > Modular Ski Resort > Runs."],
   ["SkiResort.Hub.QUICK_REASON[NotArmed]", "Available once a city is loaded."],
   ["SkiResort.Hub.QUICK_REASON[Disabled]", "The Resort Planner hit an error and is off until the next load. Details are in the mod log."],
   ["SkiResort.Tooltip.QUICK_STATUS[BadInput]", "The region could not be read. Draw it again."],

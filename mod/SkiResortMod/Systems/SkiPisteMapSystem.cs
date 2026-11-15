@@ -30,6 +30,11 @@ namespace SkiResortMod.Systems
         private static class Tuning
         {
             public const float BaseWidthM = 3f;              // outline width at zoom ≤ RefZoomM (× PisteMapRules.WidthScale)
+            // T165 (post-release round 1): a cat track is a 10-20 m strip. Its ring in BaseWidthM x the zoom scale (up to 18 m per edge) read as
+            // one fat band in the green of the green runs after a planner build (44 tracks). A track draws both edges thin in CatTrackLine, the
+            // planner preview's cat-track color, and stops growing at CatTrackMaxScale: two thin lines, a track and not a run.
+            public const float CatTrackWidthM = 0.8f;
+            public const float CatTrackMaxScale = 2.5f;
             public const float HoverWidthFactor = 2f;        // the hovered run
             public const float DashM = 20f, GapM = 12f;      // natural runs (world meters along the outline)
             public const float OutlineBlackM = 0.6f;         // white edge of black runs (× width scale)
@@ -49,6 +54,7 @@ namespace SkiResortMod.Systems
             public float3 A, B;
             public float Width;          // m, before the zoom scale
             public float OutlineWidth;   // m, before the zoom scale. 0 = none
+            public float MaxScale;       // the zoom scale this segment stops growing at (a cat track's thin line: CatTrackMaxScale)
             public int Slot;             // run slot in this cache (hover emphasis)
             public UnityEngine.Color Fill, Outline;
         }
@@ -74,7 +80,7 @@ namespace SkiResortMod.Systems
                 {
                     PisteSegment g = Segments[s];
                     bool hover = g.Slot == HoverSlot;
-                    float k = WidthScale * (hover ? HoverWidthFactor : 1f);
+                    float k = (WidthScale < g.MaxScale ? WidthScale : g.MaxScale) * (hover ? HoverWidthFactor : 1f);
                     UnityEngine.Color fill = g.Fill, outline = g.Outline;
                     if (hover)
                     {
@@ -115,6 +121,8 @@ namespace SkiResortMod.Systems
         // the map and the preview, never written)
         internal static UnityEngine.Color[] PisteFill => DisplayState.Scheme == GradeScheme.European ? s_FillEu : s_Fill;
         internal static UnityEngine.Color[] PisteOutline => DisplayState.Scheme == GradeScheme.European ? s_OutlineEu : s_Outline;
+        /// <summary>The cat-track color of the map and of the Resort Planner preview (not a band color, not a lift color).</summary>
+        internal static readonly UnityEngine.Color CatTrackLine = new UnityEngine.Color(0.94f, 0.82f, 0.28f, 0.95f);
         internal static float[] PisteOutlineWidth => s_OutlineWidth;
 
         private SkiResortHubUISystem m_Hub;
@@ -397,13 +405,16 @@ namespace SkiResortMod.Systems
                 if (dashed)
                     m_Natural++;
                 int style = (int)PisteMapRules.StyleOf(row.Band);
-                UnityEngine.Color fill = fills[style], outline = outlines[style];
-                float outlineWidth = s_OutlineWidth[style];
+                bool track = row.Features.IsCatTrack;
+                UnityEngine.Color fill = track ? CatTrackLine : fills[style], outline = track ? CatTrackLine : outlines[style];
+                float outlineWidth = track ? 0f : s_OutlineWidth[style];
+                float width = track ? Tuning.CatTrackWidthM : Tuning.BaseWidthM;
+                float maxScale = track ? Tuning.CatTrackMaxScale : PisteMapRules.MaxWidthScale;
                 for (int k = 0; k < n && m_Count < Tuning.MaxSegments; k++)
                 {
                     m_Stage[m_Count++] = new PisteSegment
                     {
-                        A = m_PieceA[k], B = m_PieceB[k], Width = Tuning.BaseWidthM, OutlineWidth = outlineWidth, Slot = slot,
+                        A = m_PieceA[k], B = m_PieceB[k], Width = width, OutlineWidth = outlineWidth, MaxScale = maxScale, Slot = slot,
                         Fill = fill, Outline = outline,
                     };
                 }
