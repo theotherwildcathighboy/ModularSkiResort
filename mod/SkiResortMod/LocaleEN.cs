@@ -757,7 +757,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.CAT_TRACK_DELETE", "Delete cat tracks" },
                 { "SkiResort.Hub.CAT_TRACK_DELETE_TIP", "Opens the cat track tool in delete mode. The ground stays graded, no refund. Ctrl+Shift+D in the tool." },
                 { "SkiResort.Hub.CAT_TRACK_SKI_WAY", "Ski way" },
-                { "SkiResort.Hub.CAT_TRACK_SKI_WAY_TIP", "Cat tracks become ski ways: 10 m wide, cut into the hillside with nothing filled below, for steep faces. Ctrl+Shift+W in the tool." },
+                { "SkiResort.Hub.CAT_TRACK_SKI_WAY_TIP", "Cat tracks become ski ways: 10 m wide, cut into the hillside with nothing filled below, for steep faces. Ctrl+Shift+N in the tool." },
                 { "SkiResort.Hub.QUICK_REASON[Off]", "Resort Planner is off. Its switch is in Options > Modular Ski Resort > Runs." },
                 { "SkiResort.Hub.QUICK_REASON[NotArmed]", "Available once a city is loaded." },
                 { "SkiResort.Hub.QUICK_REASON[Disabled]", "The Resort Planner hit an error and is off until the next load. Details are in the mod log." },
