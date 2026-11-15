@@ -1904,6 +1904,16 @@
   padding-right: 10rem;
 }
 
+// Contract 48 (T200): the snow report card's notes (no runs yet, the season's first month). Dim, wraps.
+.snowCardNote {
+  padding-top: 4rem;
+  padding-left: 10rem;
+  padding-right: 10rem;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: var(--hubTextDim);
+}
+
 .busCardTitle {
   padding-top: 8rem;
   padding-bottom: 8rem;

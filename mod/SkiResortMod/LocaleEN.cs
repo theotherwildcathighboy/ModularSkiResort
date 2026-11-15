@@ -1032,6 +1032,13 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUS_CARD[NoRoad]", "No road to the hill" },
                 { "SkiResort.Hub.BUS_CARD[NoHillLodge]", "No hill lodge" },
                 { "SkiResort.Hub.BUS_CARD[Off]", "Not running" },
+                // Contract 48 (T200): the snow report.
+                { "SkiResort.Hub.SNOW_REPORT[Title]", "Snow report" },
+                { "SkiResort.Hub.SNOW_REPORT[Depth]", "Snow depth" },
+                { "SkiResort.Hub.SNOW_REPORT[New24]", "New snow, last 24 hours" },
+                { "SkiResort.Hub.SNOW_REPORT[Season]", "Season snowfall" },
+                { "SkiResort.Hub.SNOW_REPORT[NotMeasured]", "Not measured yet" },
+                { "SkiResort.Hub.SNOW_REPORT[NoRuns]", "No runs yet. Base and summit are the lowest and highest point of the runs." },
                 // The merge card (contract 35) and the Overview's merged buildings fold.
                 { "SkiResort.Hub.MERGE_CARD[Title]", "Merge into a ski area" },
                 { "SkiResort.Hub.MERGE_CARD[Tip]", "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, billed only near the runs and lifts." },
@@ -1634,6 +1641,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SPEED_FPM", "{N} ft/min" },
                 { "SkiResort.Hub.SNOW_DEPTH", "{DEPTH} cm" },
                 { "SkiResort.Hub.SNOW_DEPTH_IN", "{DEPTH} in" },  // US customary units
+                { "SkiResort.Hub.SNOW_REPORT_SUMMIT", "Summit, {ELEV}" },
+                { "SkiResort.Hub.SNOW_REPORT_BASE", "Base, {ELEV}" },
+                { "SkiResort.Hub.SNOW_REPORT_AT", "{DEPTH} of snow, {TEMP}" },
+                { "SkiResort.Hub.SNOW_REPORT_AT_NO_DEPTH", "{TEMP}" },
+                { "SkiResort.Hub.SNOW_REPORT_PAIR", "{SUMMIT} summit, {BASE} base" },
+                { "SkiResort.Hub.SNOW_REPORT_SINCE", "Season snowfall counts from {MONTH} 1, the start of the ski season." },
                 { "SkiResort.Hub.RUN_OPEN[Open]", "Open: {PCT} of it has at least {KEEP} of snow" },
                 { "SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: {PCT} of it has enough snow to ski" },
                 { "SkiResort.Hub.RUN_OPEN[Closed]", "Closed: {PCT} of it has {OPEN} of snow. It opens at 60 %" },

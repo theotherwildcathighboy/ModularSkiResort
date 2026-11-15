@@ -25,6 +25,13 @@ export const HUB_LOC = {
   busCardNoRoad: ["SkiResort.Hub.BUS_CARD[NoRoad]", "No road to the hill"],
   busCardNoHillLodge: ["SkiResort.Hub.BUS_CARD[NoHillLodge]", "No hill lodge"],
   busCardOff: ["SkiResort.Hub.BUS_CARD[Off]", "Not running"],
+  /* contract 48 (T200): the snow report (the Welcome Sign card, the status tooltip) */
+  snowReportTitle: ["SkiResort.Hub.SNOW_REPORT[Title]", "Snow report"],
+  snowReportDepth: ["SkiResort.Hub.SNOW_REPORT[Depth]", "Snow depth"],
+  snowReportNew24: ["SkiResort.Hub.SNOW_REPORT[New24]", "New snow, last 24 hours"],
+  snowReportSeason: ["SkiResort.Hub.SNOW_REPORT[Season]", "Season snowfall"],
+  snowReportNotMeasured: ["SkiResort.Hub.SNOW_REPORT[NotMeasured]", "Not measured yet"],
+  snowReportNoRuns: ["SkiResort.Hub.SNOW_REPORT[NoRuns]", "No runs yet. Base and summit are the lowest and highest point of the runs."],
 
   /* the merge card (contract 35) and the Overview's merged buildings fold */
   mergeCardTitle: ["SkiResort.Hub.MERGE_CARD[Title]", "Merge into a ski area"],
@@ -734,6 +741,13 @@ export const HUB_FMT = {
   snowDepth: ["SkiResort.Hub.SNOW_DEPTH", "{DEPTH} cm"],
   // the depth under vanilla's US customary units (Options > Weather, parts.tsx useUnits().depthImperial / depthValue: whole inches)
   snowDepthIn: ["SkiResort.Hub.SNOW_DEPTH_IN", "{DEPTH} in"],
+  /* contract 48 (T200): the snow report. {ELEV} = an elevation (Unit.Height), {DEPTH} / {SUMMIT} / {BASE} = SNOW_DEPTH or SNOW_DEPTH_IN, {TEMP} = Unit.Temperature, {MONTH} = the ski season's first month */
+  snowReportSummit: ["SkiResort.Hub.SNOW_REPORT_SUMMIT", "Summit, {ELEV}"],
+  snowReportBase: ["SkiResort.Hub.SNOW_REPORT_BASE", "Base, {ELEV}"],
+  snowReportAt: ["SkiResort.Hub.SNOW_REPORT_AT", "{DEPTH} of snow, {TEMP}"],
+  snowReportAtNoDepth: ["SkiResort.Hub.SNOW_REPORT_AT_NO_DEPTH", "{TEMP}"],
+  snowReportPair: ["SkiResort.Hub.SNOW_REPORT_PAIR", "{SUMMIT} summit, {BASE} base"],
+  snowReportSince: ["SkiResort.Hub.SNOW_REPORT_SINCE", "Season snowfall counts from {MONTH} 1, the start of the ski season."],
   runOpenOpen: ["SkiResort.Hub.RUN_OPEN[Open]", "Open: {PCT} of it has at least {KEEP} of snow"],
   runOpenPartly: ["SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: {PCT} of it has enough snow to ski"],
   runOpenClosed: ["SkiResort.Hub.RUN_OPEN[Closed]", "Closed: {PCT} of it has {OPEN} of snow. It opens at 60 %"],

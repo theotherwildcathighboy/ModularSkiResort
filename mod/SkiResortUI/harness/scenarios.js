@@ -77,6 +77,8 @@
   ];
   // The receipt numbers are self-consistent (SkiResortScore.cs:468, 495): S = (4.55 + 21 + 12) x 1.15 x 1.2 = 51.82,
   // terrain = 4 x sqrt(S) = 28.8, full = 18 + 28.8 = 47, attraction = 46.8 x 0.94 = 44. city.month 1 = February.
+  const snowReport = { known: true, baseM: 1220, summitM: 1980, tempKnown: true, baseTempC: -1.4, summitTempC: -9.0, baseDepthCm: 85, summitDepthCm: 162,
+    baseNew24Cm: 4, summitNew24Cm: 21, baseSeasonCm: 212, summitSeasonCm: 544, seasonFirstMonth: 10 };
   const live = {
     sign: SIGN, status: 3, runsOpen: 4, runsPartly: 1, snowEstimated: false, snowPct: 88, snowDepthCm: 64, seasonHint: 1, topTempKnown: true, topTempC: -6,
     attraction: 44, attractionFull: 47, attractionHeld: false, lodgesActive: 2, summer: false, lodgePart: 18, terrain: 28.8, runsValue: 4.55, runsValueFull: 5.5, openSharePct: 83,
@@ -96,6 +98,8 @@
     varietyBands: 7, verticalShortM: 0,
     // Contract 48 (T212): every band and a cat track count while open.
     bandsWhenOpen: 15,
+    // Contract 48 (T200): the snow report, a 760 m vertical, the summit below freezing, a storm in the last day.
+    snowReport,
   };
   const live2 = Object.assign({}, live, { sign: SIGN2, status: 0, runsOpen: 0, runsPartly: 0, snowPct: 0, attraction: 0, attractionFull: 0, lodgesActive: 0, estKnown: false, estTourists: 0, nextStep: 1, netMonth: 0, skiDaysState: 3, guestsThisMonth: 0, ticketIncomeMonth: 0 });
   const problems = [
@@ -297,12 +301,13 @@
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800 };
+  const snowCardHidden = { shown: false, report: Object.assign({}, snowReport, { known: false }) };
   const base = { hubOpen: false, contract: 49, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
     drawRun: { active: false, groomed: true, gunSpacingM: 0, lightSpacingM: 0 }, mergedLodges, mergeCard,
-    mergeOverlay: { armed: false, allowed: 0, tooSmall: 0, geometry: true, reachM: 800 } };
+    mergeOverlay: { armed: false, allowed: 0, tooSmall: 0, geometry: true, reachM: 800 }, snowCard: snowCardHidden };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
@@ -387,6 +392,12 @@
     // Contract 37: the merge card for a building out of reach of every run and station (its status line says it would not count).
     "Ash Flat, merge card too far": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
       problems, history, build: buildItems({ built: ["school"] }), mergeCard: Object.assign({}, mergeCard, { name: "City Park", near: false }) }),
+    // Contract 48 (T200): the snow report card beside the Welcome Sign's panel: metric, imperial with °F, the depth not measured yet, no run yet.
+    "Ash Flat, snow report card": Object.assign({}, base, { mergeCard: Object.assign({}, mergeCard, { shown: false }), snowCard: { shown: true, report: snowReport } }),
+    "Ash Flat, snow report card, imperial, °F": Object.assign({}, base, { mergeCard: Object.assign({}, mergeCard, { shown: false }), displayUnits: 23, snowCard: { shown: true, report: snowReport } }),
+    "Ash Flat, snow report card, depth not measured": Object.assign({}, base, { mergeCard: Object.assign({}, mergeCard, { shown: false }), snowCard: { shown: true,
+      report: Object.assign({}, snowReport, { baseDepthCm: -1, summitDepthCm: -1 }) } }),
+    "Ash Flat, snow report card, no runs": Object.assign({}, base, { mergeCard: Object.assign({}, mergeCard, { shown: false }), snowCard: { shown: true, report: Object.assign({}, snowReport, { known: false }) } }),
     // A ski school on a sign with no counted run (summer: schoolValue 0, no row 25): the School row must read "No run counts
     // yet" (dim), never "No ski school".
     "Ash Flat, school built, no run counts": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { summer: true, schoolValue: 0 }), live2],

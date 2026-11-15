@@ -49,6 +49,7 @@ binding runReplaced : RunReplaced
 binding runs : readonly RunRow[]
 binding selectedResort : Entity
 binding showHubButton : boolean
+binding snowCard : SnowCardState
 trigger armMergeOverlay (boolean)
 trigger deleteCatTrack (Entity)
 trigger dumpHub ()
@@ -438,6 +439,7 @@ shape ResortLive.skiDaysThisMonth : number
 shape ResortLive.snowDepthCm : number
 shape ResortLive.snowEstimated : boolean
 shape ResortLive.snowPct : number
+shape ResortLive.snowReport : SnowReport
 shape ResortLive.status : number
 shape ResortLive.summer : boolean
 shape ResortLive.terrain : number
@@ -518,3 +520,18 @@ shape RunRow.sizeFactor : number
 shape RunRow.steepestPct : number
 shape RunRow.typeFactor : number
 shape RunRow.valueFull : number
+shape SnowCardState.report : SnowReport
+shape SnowCardState.shown : boolean
+shape SnowReport.baseDepthCm : number
+shape SnowReport.baseM : number
+shape SnowReport.baseNew24Cm : number
+shape SnowReport.baseSeasonCm : number
+shape SnowReport.baseTempC : number
+shape SnowReport.known : boolean
+shape SnowReport.seasonFirstMonth : number
+shape SnowReport.summitDepthCm : number
+shape SnowReport.summitM : number
+shape SnowReport.summitNew24Cm : number
+shape SnowReport.summitSeasonCm : number
+shape SnowReport.summitTempC : number
+shape SnowReport.tempKnown : boolean

@@ -829,6 +829,7 @@ namespace SkiResortMod.Systems
             AddBinding(m_Merged);         // contract 35: panel binding (the Overview fold), no Demand
             AddBinding(m_MergeCard = new ValueBinding<HubMergeCardState>(Group, "mergeCard", default));   // contract 35: always observed, like busCard
             AddBinding(m_MergeOverlayBinding = new ValueBinding<HubMergeOverlay>(Group, "mergeOverlay", default));   // contract 36: panel binding, no Demand
+            AddBinding(m_SnowCard = new ValueBinding<HubSnowCardState>(Group, "snowCard", SnowCardHidden));   // contract 48: always observed, like busCard
 
             // Triggers (UI → C#): bindings.ts TRIGGER.
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -898,6 +899,7 @@ namespace SkiResortMod.Systems
                 m_LodgeParkingPush.Reset();
                 m_MergedPush.Reset();
                 ResetMergeCard();
+                ResetSnowCard();
                 m_LodgeParkingRows.Clear();
                 m_LodgeParkingSigAttract = m_LodgeParkingSigCensus = m_LodgeParkingSigNumbers = int.MinValue;
                 m_NextLockRefresh = 0f;
@@ -2960,6 +2962,7 @@ namespace SkiResortMod.Systems
             bool cityActive = m_City.active;
             PushBusCard();
             PushMergeCard();
+            PushSnowCard();
             bool demand = buildActive || resortsActive || resortLiveActive || runsActive || runLiveActive ||
                           liftsActive || problemsActive || cityActive ||     // pisteMap and follow do NOT demand
                           m_BusCardDepot != Entity.Null ||                    // the card's ski area name comes from the stats rows
@@ -3561,6 +3564,9 @@ namespace SkiResortMod.Systems
                 writer.Write(r.TopTempKnown);
                 writer.PropertyName("topTempC");
                 writer.Write(Fin(r.TopTempC));
+                // Contract 48 (T200): the snow report, every field on every path (Not linked: SnowReport.Unknown).
+                writer.PropertyName("snowReport");
+                r.Snow.Write(writer);
                 writer.PropertyName("attraction");
                 writer.Write(Fin(r.Attraction));
                 writer.PropertyName("attractionFull");

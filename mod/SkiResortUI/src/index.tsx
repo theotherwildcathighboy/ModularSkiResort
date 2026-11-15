@@ -10,6 +10,7 @@ import type { ModRegistrar } from "cs2/modding";
 import "./base.module.scss"; // LOAD-BEARING: keeps SkiResortMod.css in existence (EngineNotes/index.tsx.md)
 import { BusCard } from "./hub/BusCard";
 import { MergeCard } from "./hub/MergeCard";
+import { SnowCard } from "./hub/SnowReport";
 import { ErrorBoundary } from "./hub/ErrorBoundary";
 import { HubFloatingButton, HubLauncherSquare } from "./hub/HubLauncher";
 import { HubRoot } from "./hub/HubRoot";
@@ -64,6 +65,15 @@ function SkiMergeCardRoot(): JSX.Element {
   );
 }
 
+/** "Game": the snow report card (contract 48), beside the game's panel for a selected Welcome Sign. */
+function SkiSnowCardRoot(): JSX.Element {
+  return (
+    <ErrorBoundary where="snowCard">
+      <SnowCard />
+    </ErrorBoundary>
+  );
+}
+
 const register: ModRegistrar = (moduleRegistry) => {
   try {
     try {
@@ -90,6 +100,11 @@ const register: ModRegistrar = (moduleRegistry) => {
       moduleRegistry.append("Game", SkiMergeCardRoot);
     } catch (e) {
       queueRegistrarError("append Game mergeCard", e);
+    }
+    try {
+      moduleRegistry.append("Game", SkiSnowCardRoot);
+    } catch (e) {
+      queueRegistrarError("append Game snowCard", e);
     }
   } catch (e) {
     try { console.error("SkiResortMod UI: registrar failed", e); } catch { /* never throw */ }
