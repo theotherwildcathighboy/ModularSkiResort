@@ -65,7 +65,7 @@ snow", never corruption. Defensive contract (ChairPinSystem precedent):
 ## Per-run snow measurement
 
 Every evaluated pass measures these values for every bound run of all four types:
-- The share of its footprint with skiable snow (`RunSnowRules.IsSkiable`: >= 2 cm, or the texel's own fringe target).
+- The share of its footprint with skiable snow (`RunSnowRules.IsSkiable`: the open bar, 3 ft = 0.91 m; once open, the keep bar, 1 ft). Fringe texels (own target under the bar, the feathered edge, at most `FringeMaxDepthM`) are left out of the share and the mean (`RunSnowRules.IsFringeTarget`, T183: counted at their own target, a narrow run opened on a few mm).
 - Its mean depth.
 
 It measures from the newest snapshot of the

@@ -394,12 +394,18 @@ namespace SkiResortMod.Systems
                     {
                         float w = math.min(Scratch[idx], 1f);
                         float dn = Snapshot[idx].x * (1f / 65535f);
-                        partial.FootprintW += w;
-                        partial.DepthW += w * dn;
-                        if (RunSnowRules.IsSkiable(dn, ownValue, BarNorm))
-                            partial.WhiteW += w;
-                        if (RunSnowRules.IsSkiable(dn, ownValue, RunSnowRules.KeepNorm))
-                            partial.KeepW += w;
+                        // A fringe texel (own target under the open bar: the feathered edge, at most FringeMaxDepthM) is left out of the
+                        // share and the mean. Counted at its own target, a narrow run that was mostly fringe opened on a few mm of snow (T183,
+                        // owner test 2026-11-15: 60 % "skiable" at a 4 mm mean). Counted at the full bar, it could never open.
+                        if (!RunSnowRules.IsFringeTarget(ownValue, BarNorm))
+                        {
+                            partial.FootprintW += w;
+                            partial.DepthW += w * dn;
+                            if (RunSnowRules.IsSkiable(dn, 0f, BarNorm))
+                                partial.WhiteW += w;
+                            if (RunSnowRules.IsSkiable(dn, 0f, RunSnowRules.KeepNorm))
+                                partial.KeepW += w;
+                        }
                         // the pack measure over the texels the guns would raise (cold, with a target).
                         if (cold && ownValue > 0f)
                         {

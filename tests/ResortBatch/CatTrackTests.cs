@@ -807,6 +807,26 @@ namespace ResortBatch
             // A fringe texel counts at its own lower target for the keep bar too (the merge's fringe rule).
             Check(RunSnowRules.IsSkiable(0.2f / 8f, 0.2f / 8f, RunSnowRules.KeepNorm) && !RunSnowRules.IsSkiable(0.19f / 8f, 0.2f / 8f, RunSnowRules.KeepNorm), W,
                   "a 0.2 m fringe target is kept at 0.2 m");
+            // T183 (owner test 2026-11-15): the fold leaves fringe texels out of the share. A 2 cm edge target is fringe, a full target
+            // (GunStopDepthM, above the bar) and no target are not.
+            float fringe = 0.02f / RunSnowRules.SnowHeightScaleM, full = RunSnowRules.GunStopDepthM / RunSnowRules.SnowHeightScaleM;
+            Check(RunSnowRules.IsFringeTarget(fringe, RunSnowRules.SkiableNorm) && !RunSnowRules.IsFringeTarget(full, RunSnowRules.SkiableNorm) &&
+                  !RunSnowRules.IsFringeTarget(0f, RunSnowRules.SkiableNorm) && RunSnowRules.GunStopDepthM > RunSnowRules.SkiableDepthM, W,
+                  "fringe = a real target under the open bar; every full target is above the bar");
+            {
+                // A narrow run: 60 % fringe texels at their 2 cm target, 40 % core texels at 4 mm. Old rule: 60 % skiable, opens. New: the
+                // core decides, 0 % skiable, stays closed.
+                double footprint = 0, white = 0;
+                for (int i = 0; i < 100; i++)
+                {
+                    bool isFringe = i < 60;
+                    float own = isFringe ? fringe : full, dn = isFringe ? fringe : 0.004f / RunSnowRules.SnowHeightScaleM;
+                    if (RunSnowRules.IsFringeTarget(own, RunSnowRules.SkiableNorm)) continue;
+                    footprint += 1; if (RunSnowRules.IsSkiable(dn, 0f, RunSnowRules.SkiableNorm)) white += 1;
+                }
+                Check(RunSnowRules.NextState(RunSnowState.Closed, RunSnowRules.ShareFromSums(white, footprint)) == RunSnowState.Closed, W,
+                      "a mostly-fringe run on 4 mm of snow stays closed (" + white + " of " + footprint + " core texels skiable)");
+            }
             Check(float.IsNaN(RunSnowRules.MeasuredShare(RunSnowState.Open, 0.5f, float.NaN)) &&
                   float.IsNaN(RunSnowRules.MeasuredShare(RunSnowState.Closed, float.NaN, 0.5f)), W, "MeasuredShare keeps NaN");
 

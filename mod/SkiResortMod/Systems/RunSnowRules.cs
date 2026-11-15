@@ -272,6 +272,14 @@ namespace SkiResortMod.Systems
             return depthNorm >= bar - HalfQuantum;
         }
 
+        /// <summary>A fringe texel of an injected run: its own target is real (one quantum or more) and under the open bar. Every full
+        /// target (groomed, snowmaking, night) is GunStopDepthM, above the bar, so only the feathered edge (at most FringeMaxDepthM) is
+        /// fringe. The run's share and mean skip these texels (T183). Burst-called.</summary>
+        public static bool IsFringeTarget(float ownTargetNorm, float barNorm)
+        {
+            return ownTargetNorm >= 2f * HalfQuantum && ownTargetNorm < barNorm - HalfQuantum;
+        }
+
         // Gun and groomed targets and the ramp (SkiSnowInjectionSystem.Tuning points at these).
         // The base the guns guarantee is the open bar itself.
         public const float GunTargetDepthM = SkiableDepthM;
