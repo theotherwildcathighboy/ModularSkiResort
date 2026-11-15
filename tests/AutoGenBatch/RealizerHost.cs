@@ -14,7 +14,7 @@ using Unity.Mathematics;
 
 namespace AutoGenBatch
 {
-    internal static class RealizerHost
+    internal static partial class RealizerHost
     {
         private static float2 P(float x, float z) => new float2(x, z);
 
@@ -314,13 +314,18 @@ namespace AutoGenBatch
             };
             foreach (string l in lines)
                 Console.WriteLine(l);
+            SeenReport(id, res, snap, ring, outDir, lines);   // the plan as a player sees it (RealizerHost.Seen.cs)
+            if (Environment.GetEnvironmentVariable("RZ_DEBUG") == "1")
+                foreach (RunsFirstResult.Lift l in plan.Lifts)
+                    Console.WriteLine($"  debug lift L{l.Id} {l.Type} bottom ({l.Bottom.x:F0}, {l.Bottom.z:F0}) y {snap.Sample(new float3(l.Bottom.x, 0, l.Bottom.z)):F0}, " +
+                        $"top ({l.Top.x:F0}, {l.Top.z:F0}) y {snap.Sample(new float3(l.Top.x, 0, l.Top.z)):F0}");
             if (Environment.GetEnvironmentVariable("RZ_DEBUG") == "1")
                 foreach (AutoRun r in res.Runs)
                 {
                     List<float2> src = r.Source >= 0 ? plan.Runs[r.Source].Pts : plan.Connectors[-1 - r.Source];
                     float2 a = r.Centerline[0], b = r.Centerline[r.Centerline.Length - 1];
                     Console.WriteLine($"  debug area src {r.Source} seg {r.Segment} {(r.Graded ? "graded" : "piste")} {r.Band} start {math.distance(a, src[0]):F0} m from the source start " +
-                        $"end {math.distance(b, src[src.Count - 1]):F0} m from the source end, {r.LengthM:F0} m, top {r.TopY:F0} bottom {r.BottomY:F0}, " +
+                        $"end {math.distance(b, src[src.Count - 1]):F0} m from the source end, {r.LengthM:F0} m, top {r.TopY:F0} bottom {r.BottomY:F0}, line ({a.x:F0}, {a.y:F0}) to ({b.x:F0}, {b.y:F0}), " +
                         $"line y {snap.Sample(new float3(a.x, 0, a.y)):F0} -> {snap.Sample(new float3(b.x, 0, b.y)):F0}");
                 }
             File.WriteAllLines(Path.Combine(outDir, id + ".txt"), lines.Concat(rep.Lines.Select(s => "  | " + s))

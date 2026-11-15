@@ -113,6 +113,7 @@ namespace SkiResortMod.Systems
             public HeightSnapshot S;       // the raw terrain: the code checks stations, traverses and runs on it
             public float[] Hr;             // raw height at each cell center
             public BandRater Rater;        // the mod rater's band of a polyline, cached (RunsFirstPlanner.Rater.cs)
+            public RunsFirstInputs.Station[] Stations;   // the station lots the game already has (null: none), RunsFirstPlanner.Inputs.cs
             public float2 World(int c) => new float2((float)(OX + (c % W) * CellM), (float)(OZ + (c / W) * CellM));
         }
 
@@ -364,6 +365,8 @@ namespace SkiResortMod.Systems
             // lifts the lift tool can build: a lift whose tower plan is not Sound is shifted, retyped or kept flagged (Towers.cs)
             if (O.Towers)
                 FitTowers(g, built, lifts, km2r);
+            // no station lot on another station's lot (T171): the lifts the last passes added, retyped or shifted (Layout.cs)
+            ClearLots(g, built, lifts);
             Tick("towers");
             // the way to the bottom of every lift on the finished plan (the result field; the realizer warns from it)
             float bandTop = BottomBandTop(g);

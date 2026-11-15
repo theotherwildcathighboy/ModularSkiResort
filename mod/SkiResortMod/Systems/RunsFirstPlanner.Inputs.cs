@@ -25,7 +25,18 @@ namespace SkiResortMod.Systems
             public float ClearM;
         }
 
+        /// <summary>A station lot the game already has (post-release round 1, T171): its center and the radius of the disc that holds it
+        /// (PlanGeometry.StationHalfDiagonalOf, more when the lot's direction is unknown). No planned station lot may overlap it.</summary>
+        public struct Station
+        {
+            public float2 Xz;
+            public float RadiusM;
+        }
+
         public readonly List<Shape> Blocked = new List<Shape>();
+        /// <summary>The station lots of the existing lifts, the stations with no line yet included. The blocked shapes keep runs and
+        /// lines off them. This list keeps a planned station's own lot off them too.</summary>
+        public readonly List<Station> Stations = new List<Station>();
         /// <summary>The wet texels of the snapshot (HeightSnapshot.Wet) block their cells: a cell is wet when any of its texels is.</summary>
         public bool Water;
         /// <summary>Road samples and the Welcome Sign near the region, sorted (AutoPlanInput.Access). The way-to-the-bottom pass reads them: flat
@@ -33,7 +44,7 @@ namespace SkiResortMod.Systems
         public float2[] Access;
 
         /// <summary>True when the inputs change nothing in the plan.</summary>
-        public bool Empty => Blocked.Count == 0 && !Water;
+        public bool Empty => Blocked.Count == 0 && !Water && Stations.Count == 0;
 
         /// <summary>FNV-1a 64 over everything a pass may read (the shapes, the water flag, the access points).</summary>
         public ulong Fingerprint()
@@ -60,6 +71,16 @@ namespace SkiResortMod.Systems
                     }
             }
             U(Water ? 1u : 0u);
+            if (Stations.Count > 0)   // no station: the print of the inputs before T171
+            {
+                U((uint)Stations.Count);
+                foreach (Station s in Stations)
+                {
+                    U(math.asuint(s.Xz.x));
+                    U(math.asuint(s.Xz.y));
+                    U(math.asuint(s.RadiusM));
+                }
+            }
             U((uint)(Access?.Length ?? 0));
             if (Access != null)
                 foreach (float2 p in Access)
@@ -101,6 +122,7 @@ namespace SkiResortMod.Systems
                 OpenCells = open;
                 return;
             }
+            g.Stations = inp.Stations.Count > 0 ? inp.Stations.ToArray() : null;
             int blocked = 0;
             if (inp.Water && g.S.Wet != null)
             {

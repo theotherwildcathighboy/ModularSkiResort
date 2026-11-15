@@ -318,7 +318,8 @@ namespace SkiResortMod.Systems
             foreach (Lift o in lifts)
                 if (o != lf && Aerial(o.Type) == Aerial(lf.Type) && SegCrossScore(o.Bottom.xz, o.Top.xz, pb, pt))
                     return false;
-            return true;
+            // T171: no station lot on a station the game already has
+            return g.Stations == null || (PadFree(g, pb, LotR(lf.Type)) && PadFree(g, pt, LotR(lf.Type)));
         }
     }
 }

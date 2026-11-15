@@ -184,7 +184,8 @@ namespace SkiResortMod.Systems
         /// <summary>What the planner must leave alone (plan 7.5), from the tool's input. bare = no input (the host's golden plans with none).
         /// Obstacles: Surface areas with SurfaceClearanceM, unowned tiles with UnownedClearanceM, existing runs with the density's gap
         /// (PlanGeometry.ClearanceOf, the realizer's clearances), cat tracks none (passable). Water: the snapshot's wet layer. Existing lifts:
-        /// each station spot (its station's half diagonal) and each chord (ExistingLiftCorridorM).</summary>
+        /// each station lot (StationSpot: its center and the disc that holds it, blocked ground and a RunsFirstInputs.Station) and each
+        /// chord (ExistingLiftCorridorM). A row with no chord (stations with no line yet) still gives its stations.</summary>
         public static RunsFirstInputs InputsFrom(AutoPlanInput input, bool bare)
         {
             if (bare || input == null)
@@ -200,16 +201,38 @@ namespace SkiResortMod.Systems
             if (input.Pinned != null)
                 foreach (PinnedLift lift in input.Pinned)
                 {
-                    float station = PlanGeometry.StationHalfDiagonalOf(lift.TypeIndex);
-                    if (math.all(math.isfinite(lift.Bottom)))
-                        inp.Blocked.Add(new RunsFirstInputs.Shape { Pts = new[] { lift.Bottom.xz }, ClearM = station });
-                    if (math.all(math.isfinite(lift.Top)))
-                        inp.Blocked.Add(new RunsFirstInputs.Shape { Pts = new[] { lift.Top.xz }, ClearM = station });
+                    bool hasBottom = math.all(math.isfinite(lift.Bottom)), hasTop = math.all(math.isfinite(lift.Top));
+                    for (int end = 0; end < 2; end++)
+                    {
+                        if (!(end == 0 ? hasBottom : hasTop))
+                            continue;
+                        RunsFirstInputs.Station st = StationSpot(lift, end == 1, hasBottom && hasTop);
+                        inp.Blocked.Add(new RunsFirstInputs.Shape { Pts = new[] { st.Xz }, ClearM = st.RadiusM });
+                        inp.Stations.Add(st);
+                    }
                     if (lift.Chords != null)
                         for (int c = 0; c + 1 < lift.Chords.Length; c += 2)
                             inp.Blocked.Add(new RunsFirstInputs.Shape { Pts = new[] { lift.Chords[c], lift.Chords[c + 1] }, ClearM = ExistingLiftCorridorM });
                 }
             return inp;
+        }
+
+        /// <summary>The lot of an existing lift's station (post-release round 1, T171). PinnedLift.Bottom / Top are the stations' stub
+        /// tips, which lie on the line |StubTipLocalZ| (12 or 16 m) in from the lot's center (StationAlign.PoseLift). With both tips the
+        /// line's direction is known: the center is the tip moved back out along it, and the disc is the lot's half diagonal. With one
+        /// tip (a station with no line yet, or a line with one station) the lot may face any way: the disc around the tip grows by the
+        /// stub's length. Before this round the disc was the half diagonal around the tip, and only runs and lines read it: a planned
+        /// station's own lot could lie over half of the existing one.</summary>
+        public static RunsFirstInputs.Station StationSpot(PinnedLift lift, bool top, bool both)
+        {
+            float r = PlanGeometry.StationHalfDiagonalOf(lift.TypeIndex);
+            StationDef def = SkiCatalog.StationOf((byte)math.clamp(lift.TypeIndex, 0, PlanGeometry.StationTypes - 1), top ? StationRole.Top : StationRole.Base);
+            float stub = def != null && !float.IsNaN(def.StubTipLocalZ) ? math.abs(def.StubTipLocalZ) : math.abs(SkiCatalog.StubTipLocalZ);
+            float2 tip = top ? lift.Top.xz : lift.Bottom.xz;
+            float2 along = both ? math.normalizesafe(lift.Top.xz - lift.Bottom.xz) : float2.zero;
+            if (math.lengthsq(along) < 0.5f)
+                return new RunsFirstInputs.Station { Xz = tip, RadiusM = r + stub };
+            return new RunsFirstInputs.Station { Xz = tip + (top ? along : -along) * stub, RadiusM = r };
         }
 
         /// <summary>The inputs in one clause for the log: "inputs: 12 shape(s) (3 area, 2 tile, 4 run, 1 lift), water on, 40 access point(s)".</summary>

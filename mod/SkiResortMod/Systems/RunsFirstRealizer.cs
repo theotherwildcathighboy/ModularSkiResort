@@ -47,6 +47,11 @@ namespace SkiResortMod.Systems
         public readonly double[,] KeepKm = new double[5, 4];
         public readonly double[] WidthM2 = new double[5], FullWidthM2 = new double[5], WidthLenM = new double[5];
         public double AgreeKmFull, AgreeKmKept, PlainKm;
+        // Post-release round 1 (T172, T176): ends whose cap was moved onto the outline they meet (RunsFirstRealizer.Close.cs), and the ends
+        // whose closed outline failed a check (they keep the first outline)
+        public int PisteEndsClosed, TrackEndsClosed, CloseFailed;
+        public int PisteBendSplits;   // piste stretches whose outline crossed itself and went on as the pieces beside the bend (BendSplit)
+        public int EdgeNudged;   // elements whose line ran under the edge clearance and was moved in to it (RunsFirstRealizer.OffEdge)
         public int RemnantsKept, RemnantsDropped;   // cut pieces under 50 m down: kept (both ends connect), dropped (a free end) (iteration 3, item 3)
         public int PisteReaches;    // piste ends extended after the track pass to reach a related track or piste (iteration 3, item 2)
         public int TrackReaches;    // track ends extended to reach a related piste or track (iteration 2, item 6)
@@ -104,6 +109,9 @@ namespace SkiResortMod.Systems
         public const float TrackStubM = 2f * GradeParams.NarrowTopWidthM;   // a shorter track piece is lost even when joined at both ends (a blob, not a track)
         public const float NearEdgeM = EdgeBlockM + TrackHalfWidthM + 2f;   // the band where the free tests check the region exactly
         public const float EdgeBlockM = 2f, RegionClearanceM = 0.25f, RingSimplifyM = 1f, WidthMarginM = 1f, MarchStepM = 1f;
+        public const float BendOpenM = 2f * MinHalfWidthM + MergeGapM + 2f, BendMaxM = 240f;   // BendSplit: the cut's width, and how far it may reach
+        public const float BendBackM = 60f;   // BendSplit: a line that comes back this near its own start after the bend starts there
+        public const float EdgeNudgeM = 1.5f;   // a line under the edge clearance moves in to the clearance plus this (OffEdge)
         public const float CliffGrade = 1.0f;
         public const float RelationM = 40f, RelationRiseM = 5f;   // the planner's contact (RF/.Graph.cs:66-70)
         public const float JoinM = 1f, TreeLiftM = 150f;          // connector pieces that share an end form a tree, owned by the nearest lift top

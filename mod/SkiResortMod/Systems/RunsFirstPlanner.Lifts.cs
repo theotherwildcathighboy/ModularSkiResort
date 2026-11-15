@@ -527,7 +527,7 @@ namespace SkiResortMod.Systems
                     if (x < 0 || z < 0 || x >= g.W || z >= g.D || dx * dx + dz * dz > k * k)
                         continue;
                     int cc = z * g.W + x;
-                    if (!g.In[cc])
+                    if (!g.In[cc] || (g.Stations != null && !PadFree(g, g.World(cc), LotMaxR)))
                         continue;
                     float gr = RawGrade(g, g.World(cc));
                     float key = gr + 0.004f * (dx * dx + dz * dz);

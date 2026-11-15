@@ -42,6 +42,8 @@ namespace SkiResortMod.Systems
             public int S, E;                               // sample range in the source path
             public List<int> J0 = new List<int>(), J1 = new List<int>();
             public bool Orig0, Orig1;                      // the piece starts at the source's start / ends at its end (after a junction trim)
+            public Piece After;                            // a bend split: the piece that follows this one (it takes this one as a junction)
+            public int Splits;                             // bend splits behind this piece
         }
 
         /// <summary>The outcome of one ring attempt.</summary>
@@ -81,7 +83,8 @@ namespace SkiResortMod.Systems
             ctx.TargetHw = ctx.Graded ? GradedHalfWidthM : 0.5f * PlanGeometry.TargetWidthM[bandIx];
             ctx.Gap = PlanGeometry.GapOf(m_Density, 2f * ctx.TargetHw);
             ctx.Ceil = ctx.Graded ? float.PositiveInfinity : HardCeiling[bandIx];
-            GradePath path = GradePath.Build(e.Pts, SampleM);
+            // a piste needs MinHalfWidthM on the edge's side too, or it is one long pinch
+            GradePath path = GradePath.Build(OffEdge(e, EdgeBlockM + MinHalfWidthM + WidthMarginM + EdgeNudgeM), SampleM);
             if (path == null)
             {
                 DropElem(e, AutoReject.TooShort, "no centerline");
@@ -207,6 +210,21 @@ namespace SkiResortMod.Systems
                     segment++;
                     if (remnant)
                         m_Rep.RemnantsKept++;
+                    if (pc.After != null)
+                        pc.After.J0.Add(e.Areas[e.Areas.Count - 1]);   // the piece after the bend butts onto this one
+                }
+                else if (why == AutoReject.Crosses && BendSplit(path, pc, out Piece first, out Piece second, out float2 bend))
+                {
+                    // T172: a line that doubles back (a spur skied out and back as the start of a run) has no outline in one piece.
+                    // It goes on as the pieces on both sides of the bend, in place of the whole run dropped
+                    final.RemoveAt(k);
+                    if (second != null)
+                        final.Insert(k, second);
+                    if (first != null)
+                        final.Insert(k, first);
+                    k--;
+                    m_Rep.PisteBendSplits++;
+                    m_Rep.Lines.Add($"piste {e.Source} ({e.Kind}): the outline crosses itself, split at its sharpest bend ({bend.x:F0}, {bend.y:F0})");
                 }
                 else
                 {
@@ -217,6 +235,81 @@ namespace SkiResortMod.Systems
             }
             if (e.Areas.Count == 0)
                 DropElem(e, last, "every piece failed");
+        }
+
+        /// <summary>T172: the pieces of a stretch whose ring crosses itself, cut at its sharpest bend (the largest turn between the 8 m
+        /// legs on both sides of a sample, 90 degrees or more). The cut widens from the bend until its two ends are BendOpenM apart,
+        /// room for two outlines of the least width side by side. A side under MinJoinedPieceM is left out (first or second null), and so
+        /// is the way out of a spur that comes back past its own start. False
+        /// when there is no such bend, no room within BendMaxM of it, or the stretch was split twice already.</summary>
+        private static bool BendSplit(GradePath path, Piece pc, out Piece first, out Piece second, out float2 bend)
+        {
+            first = second = null;
+            bend = default;
+            if (pc.Splits >= 2 || pc.E - pc.S < 6)
+                return false;
+            int at = -1;
+            float turn = 0f;   // -cos of the angle between the legs: over 0 is a bend past 90 degrees
+            for (int i = pc.S + 2; i + 2 <= pc.E; i++)
+            {
+                float t = -math.dot(math.normalizesafe(path.Xz[i] - path.Xz[i - 2]), math.normalizesafe(path.Xz[i + 2] - path.Xz[i]));
+                if (t > turn)
+                {
+                    turn = t;
+                    at = i;
+                }
+            }
+            if (at < 0)
+                return false;
+            bend = path.Xz[at];
+            int a = at, b = at;
+            while (math.distance(path.Xz[a], path.Xz[b]) < BendOpenM)
+            {
+                if (a == pc.S && b == pc.E)
+                    return false;
+                a = Math.Max(pc.S, a - 1);
+                b = Math.Min(pc.E, b + 1);
+                if (path.S[at] - path.S[a] > BendMaxM && path.S[b] - path.S[at] > BendMaxM)
+                    return false;
+            }
+            // A spur out and back: after the bend the line comes back past its own start (within BendBackM). The run starts there,
+            // and the way out is left out (it led only to the bend)
+            int back = -1;
+            float nearest = BendBackM, outM = path.S[at] - path.S[pc.S];
+            for (int j = b; j <= pc.E && path.S[j] - path.S[at] <= outM + BendBackM; j++)
+            {
+                float d = math.distance(path.Xz[j], path.Xz[pc.S]);
+                if (d < nearest)
+                {
+                    nearest = d;
+                    back = j;
+                }
+            }
+            if (back >= 0)
+                b = back;
+            if (back < 0 && path.S[a] - path.S[pc.S] >= MinJoinedPieceM)
+            {
+                first = new Piece { S = pc.S, E = a, Orig0 = pc.Orig0, Splits = pc.Splits + 1 };
+                first.J0.AddRange(pc.J0);
+            }
+            if (path.S[pc.E] - path.S[b] >= MinJoinedPieceM)
+            {
+                // with no first piece this one is the start of the run now (the lost side was a spur out and back)
+                second = new Piece { S = b, E = pc.E, Orig1 = pc.Orig1, Orig0 = first == null && pc.Orig0, Splits = pc.Splits + 1 };
+                second.J1.AddRange(pc.J1);
+                if (first == null)
+                    second.J0.AddRange(pc.J0);
+            }
+            if (first != null)
+            {
+                first.After = second;
+                if (second == null)
+                {
+                    first.Orig1 = pc.Orig1;
+                    first.J1.AddRange(pc.J1);
+                }
+            }
+            return first != null || second != null;
         }
 
         /// <summary>Item 3 of iteration 3: true when a piece end connects something. That is a junction, the source's own end, a lift
@@ -281,7 +374,7 @@ namespace SkiResortMod.Systems
             if (!Cell(p, out int c))
                 return CRegion;
             byte f = m_Flags[c];
-            if ((f & FBlockRegion) != 0 || ((f & FNearEdge) != 0 && !InRegion(p, EdgeBlockM)))
+            if (!RegionOpen(f, p, EdgeBlockM))
                 return CRegion;
             if ((f & (FBlockHard | FBlockPiste)) != 0)
                 return CObstacle;
@@ -296,6 +389,41 @@ namespace SkiResortMod.Systems
                 }
             }
             return CFree;
+        }
+
+        /// <summary>The region part of a free test (post-release round 1, T172). A cell near the region's edge is decided by the exact test
+        /// at the point: clear meters inside the region and the map margin. The cell flag alone closed single samples of a line that runs
+        /// 2 to 5 m inside the edge (the cells are 3.5 m), which cut the run into scraps that were then lost as too short. Any other cell
+        /// is decided by its flag.</summary>
+        private bool RegionOpen(byte f, float2 p, float clear) => (f & FNearEdge) != 0 ? InRegion(p, clear) : (f & FBlockRegion) == 0;
+
+        /// <summary>The element's line with every point that lies inside the region but nearer than need to its edge moved straight in
+        /// to need (post-release round 1, T172). The planner's mask is its 10 m cells, so a line may run 1 to 3 m inside the edge, where
+        /// no outline fits (EdgeBlockM, then at least 1 m of half width). Such a run was cut at every sample under the limit and lost
+        /// piece by piece. The move is at most need meters, on the edge of the region only. A point outside the region, or one whose
+        /// moved place is no better (a corner), stays. The planner's contact samples (Elem.Samp) keep the planned line.</summary>
+        private List<float2> OffEdge(Elem e, float need)
+        {
+            List<float2> pts = e.Pts, moved = null;
+            for (int i = 0; i < pts.Count; i++)
+            {
+                float2 p = pts[i];
+                if (!Cell(p, out int c) || (m_Flags[c] & FNearEdge) == 0 || !GradeRaster.Inside(m_Region, p))
+                    continue;
+                float2 q = Nearest(m_Region, p);
+                float d = math.distance(p, q);
+                if (d >= need || d < 1e-3f)
+                    continue;
+                float2 to = q + (p - q) / d * need;
+                if (!GradeRaster.Inside(m_Region, to) || PlanGeometry.PointRingDistance(m_Region, to) < need - 0.05f)
+                    continue;
+                if (moved == null)
+                    moved = new List<float2>(pts);
+                moved[i] = to;
+            }
+            if (moved != null)
+                m_Rep.EdgeNudged++;
+            return moved ?? pts;
         }
 
         /// <summary>Item 1 of iteration 3: the accepted piste with no partner status whose pair gap a MinHalfWidthM ring at p would
