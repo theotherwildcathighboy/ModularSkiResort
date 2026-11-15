@@ -49,4 +49,8 @@ later runs compare against it. The steps it cannot check stay manual (marked in 
 
 | File | Mod | PDX | Game | Layout versions | Holds |
 |---|---|---|---|---|---|
-| (none yet: the first save is made on 1.0.0) | | | | | |
+| `1.0.0_pdx1_2026-11-14_light.cok` | 1.0.0 | 1 | 1.6.4f1 | Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1 | Mountain Village, playset "Ski Light" (Placemaker the only other mod). Town of about 1,000, power and water placed by hand (water short). Welcome Sign, 6 runs, fixed chair (planner), detachable and gondola, A-frame and 2 huts (one merged), 4 cat tracks, bus depot, ski school. Saved Aug 2027 after a full winter. All 12 persisted types present. Gaps: no tram, not every lodge tier, one surface only. |
+| `1.0.0_pdx1_2026-11-14_modded.cok` | 1.0.0 | 1 | 1.6.4f1 | (same) | Lakeland, playset "Standard Mod Set" (204 mods). Placemaker town, gas power, groundwater. Welcome Sign, 5 runs (1 green, 2 blue, 2 black), gondola up from the lake (ground-cable power) and a detachable, summit hut with cat track, A-frame (merged), school, bus depot, glade level 8 on a black run (164 trees). Saved Jan 2027, resort open. All 12 persisted types present. Gaps: no tram, no planner run, not every lodge tier, one surface only; the hub shows staff and lift-geometry warnings. |
+
+Both were checked with `loadcheck.ps1 -NoLoad -WriteBaseline -NoMonth` (Bridge mode, Standard Mod Set): log scan PASS, census
+baseline written. The older `1.0.0_pdx1_2026-11-14_ashflat.cok` here has no row yet.
