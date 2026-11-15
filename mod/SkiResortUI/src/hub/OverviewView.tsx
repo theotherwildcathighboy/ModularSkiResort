@@ -28,7 +28,7 @@ import { IconText, MissingLine } from "./iconText";
 import { BAND_NAME, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, factorEntry } from "./hubText";
 import type { BuildItemId } from "../bindings";
 import {
-  BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, areaArg, cx, depthValue, numArg, useInches,
+  BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, areaArg, cx, depthValue, numArg, useUnits,
 } from "./parts";
 import { currentResort, liftsOf, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
@@ -121,7 +121,8 @@ function MountainSection({ row, live, city, unrateable, areaRuns, areaLifts, t, 
   // measured or estimated. tools/test-hub-rules.js guards it.
   const snowPct = live ? live.snowPct : -1;
   const depthCm = live ? live.snowDepthCm : -1;
-  const inches = useInches(); // depth in the player's units
+  const units = useUnits();
+  const inches = units.depthImperial; // snow depth in cm or inches (Options > Weather)
   const snowMark = live && live.snowEstimated && (snowPct >= 0 || depthCm >= 0) ? "≈" : null;
   const how = live && live.snowEstimated && t(HUB_LOC.runEstimated);   // measured is the default: no line (T142)
   const snowTip = (head: string, body: string): JSX.Element => (
@@ -136,7 +137,7 @@ function MountainSection({ row, live, city, unrateable, areaRuns, areaLifts, t, 
       <DifficultyLegend row={row} unrateable={unrateable} t={t} />
       <InfoLine
         label={t(HUB_LOC.area)}
-        value={areaArg(hectares(row.areaM2), inches)}
+        value={areaArg(hectares(row.areaM2), units.lengthImperial)}
         tip={t(HUB_LOC.areaTip)}
       />
       <InfoLine

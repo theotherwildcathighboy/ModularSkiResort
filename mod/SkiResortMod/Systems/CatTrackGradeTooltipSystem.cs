@@ -82,7 +82,7 @@ namespace SkiResortMod.Systems
 
         private void Show(StringTooltip tip, ref string last, GradeMsg msg)
         {
-            string sig = DisplayState.Imperial ? msg.Signature + "|ft" : msg.Signature;   // a unit setting change re-sets the text
+            string sig = msg.Signature + "|" + DisplayState.Packed;   // a unit or slope setting change re-sets the text
             if (!string.Equals(sig, last, StringComparison.Ordinal))
             {
                 last = sig;
@@ -107,7 +107,7 @@ namespace SkiResortMod.Systems
             switch (GradeMsg.UnitOf(name))
             {
                 case GradeArgUnit.Length: return DisplayText.Length(v);
-                case GradeArgUnit.Degrees: return DisplayText.Angle(v);
+                case GradeArgUnit.Degrees: return DisplayText.SlopeDeg(v);   // degrees or percent (Options > Slope)
                 case GradeArgUnit.Volume: return DisplayText.Volume(v);
                 default: return new LocalizedNumber<int>((int)math.round(v), "integer");
             }

@@ -27,7 +27,7 @@ import {
 import type { HistoryBucket, HistoryRange } from "./historyRules";
 import { historyRange$, historyScope$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, monthName, monthShortName } from "./hubText";
-import { InfoLine, LocText, Num, SignedNum, StableWidth, Tip, TipLines, cx, depthValue, numArg, useInches, useNumberSamples } from "./parts";
+import { InfoLine, LocText, Num, SignedNum, StableWidth, Tip, TipLines, cx, depthValue, numArg, useNumberSamples, useUnits } from "./parts";
 import type { NumberSamples, TipLine } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
@@ -142,7 +142,7 @@ export function HistoryView(): JSX.Element {
   const selected = useValue(selectedResort$);
   const scope = useValue(historyScope$);
   const rangeRaw = useValue(historyRange$);
-  const inches = useInches();   // snow depth in the player's units (T130)
+  const inches = useUnits().depthImperial;   // snow depth in cm or inches (Options > Weather)
   const [hover, setHover] = useState(-1);
   const cur = currentResort(resortEntries(resorts), selected);
   const signRow = cur.row && !cur.isUnlinked ? cur.row : null;

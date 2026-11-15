@@ -616,3 +616,12 @@ stay the same. The hub maps names, markers and icons through src/hub/units.ts. T
 The `catTrackSkiWay` value binding (bool) and the `setCatTrackSkiWay(on)` trigger: the Runs tab's Ski way chip beside Delete cat tracks.
 The value is `CatTrackGradeToolSystem.SkiWay` (the tool's profile, open or not; it stays on until switched off or the next load). On:
 `SetSkiWay(true)`, then the tool opens out of Delete mode. Off: `SetSkiWay(false)`, the tool stays as it is. Panel binding, no Demand.
+
+## Unit choices (contract 46)
+`displayUnits` (int) holds the resolved unit and slope choices as bits (`DisplayUnits.PackUnits`, bindings.ts `UNITS`). Bit 1: lengths,
+heights, areas, earthwork and line speed in imperial units. Bit 2: snow depth in inches. Bits 4 and 8: the temperature unit (0 °C, 1 °F,
+2 K). Bit 16: slopes in whole percent grade. OnUpdate pushes `DisplayState.Packed` every frame. The binding sends a value only when it
+changes. Each Option has Auto, and C# resolves Auto from the game's settings (`InterfaceSettings.unitSystem` and `temperatureUnit`).
+The hub gives vanilla's number formatter a copy of the localization with the chosen unit settings (parts.tsx `unitLoc`). Vanilla's own
+panels keep the game's settings. The C# tooltips use vanilla's units while the choice equals the game's setting. Otherwise they use the
+`SkiResort.Unit.*` keys (DisplayText), and a vanilla number line shows as text (`UnitTooltipLine`).

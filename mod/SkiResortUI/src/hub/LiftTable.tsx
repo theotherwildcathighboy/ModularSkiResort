@@ -22,7 +22,7 @@ import type { LocEntry, Translate } from "../l10n";
 import { liftCostReason, liftLine2, liftMark } from "./hubRules";
 import type { LiftCostReason } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, liftStatusEntry } from "./hubText";
-import { HalfDot, LocText, Num, StableWidth, Tip, TipLines, cx, numArg, speedArg, useInches } from "./parts";
+import { HalfDot, LocText, Num, StableWidth, Tip, TipLines, cx, numArg, speedArg, useUnits } from "./parts";
 import { RenameField } from "./RenameField";
 import { keepFocus } from "./RunList";
 import styles from "./hub.module.scss";
@@ -77,7 +77,7 @@ function liftTip(row: LiftRow, partner: boolean, t: Translate): JSX.Element {
   const complete = row.state === LIFT_STATE.Running || row.state === LIFT_STATE.Static;
   const reduced = liftCostReducedEntry(liftCostReason(row));
   // Per-type numbers go through placeholders. 0 (unknown) reads "–"
-  const SPEED = speedArg(row.speedMps, useInches());   // m/s or ft/min (T161)
+  const SPEED = speedArg(row.speedMps, useUnits().lengthImperial);   // m/s or ft/min (Options > Lengths and elevation)
   const SEATS = row.seats > 0 ? numArg(row.seats, Unit.Integer) : "–";
   return (
     <TipLines

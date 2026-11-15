@@ -415,6 +415,18 @@ namespace SkiResortMod
                 // The units the game's formatter does not have. {N} arrives converted for the game's unit setting (DisplayUnits / units.ts).
                 { "SkiResort.Unit.CUBIC_METERS", "{N} m³" },
                 { "SkiResort.Unit.CUBIC_YARDS", "{N} yd³" },
+                // Lengths, heights and areas where Options > Lengths and elevation differs from the game's unit setting (DisplayText): the
+                // number is converted in C#, vanilla's own unit thresholds. LABELED: a tooltip line as text (UnitTooltipLine).
+                { "SkiResort.Unit.METERS", "{N} m" },
+                { "SkiResort.Unit.KILOMETERS", "{N} km" },
+                { "SkiResort.Unit.FEET", "{N} ft" },
+                { "SkiResort.Unit.YARDS", "{N} yd" },
+                { "SkiResort.Unit.MILES", "{N} mi" },
+                { "SkiResort.Unit.SQUARE_METERS", "{N} m²" },
+                { "SkiResort.Unit.SQUARE_KILOMETERS", "{N} km²" },
+                { "SkiResort.Unit.SQUARE_FEET", "{N} ft²" },
+                { "SkiResort.Unit.ACRES", "{N} acres" },
+                { "SkiResort.Unit.LABELED", "{LABEL}: {VALUE}" },
 
                 // --- Glade tool tooltip -----------------------------------------------------------------------
                 // Read by SkiGladeTooltipSystem through LocalizedString.Id(key), built once in OnCreate. PLANT / FELL / REMOVE / BLOCKED_SPOTS /

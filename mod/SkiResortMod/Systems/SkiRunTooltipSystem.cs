@@ -66,9 +66,11 @@ namespace SkiResortMod.Systems
         private FloatTooltip m_PitchApprox; // P90 fallback when the Mask is not connected (Warning)
         private IntTooltip m_Length; // horizontal run length (m)
         private IntTooltip m_Drop;
+        private UnitTooltipLine m_LengthUnits, m_DropUnits;   // the two as text while Options > Lengths differs from the game's setting
         private StringTooltip m_Slope; // "Avg 18 ° (32 %) · steepest 31 ° (60 %)", rebuilt only when a rounded number changes
         private float m_SlopeAd = -1f, m_SlopeSd = -1f, m_SlopeSt = -1f;   // degrees, one decimal
         private int m_SlopeKind = -1, m_SlopeW = -1, m_SlopeSs = -1; // suffix kind (SkiRunRater.SlopeNoteLine) and its numbers
+        private int m_SlopeUnits = -1;   // DisplayState.Packed the line was built in (slope format, lengths)
         private FloatTooltip m_Steepest; // steepest avoidable patch (line 5), degrees
         private IntTooltip m_Fee; // one-time run fee (new runs only), money unit
         private StringTooltip m_NoGate;
@@ -120,6 +122,8 @@ namespace SkiResortMod.Systems
                 label = LocalizedString.Id(KeyDrop),
                 unit = "height", // meters in, m or ft by the game's unit setting (vertical, T161)
             };
+            m_LengthUnits = new UnitTooltipLine(m_Length.path, UnitTooltipLine.Kind.Length);
+            m_DropUnits = new UnitTooltipLine(m_Drop.path, UnitTooltipLine.Kind.Height);
             m_Slope = new StringTooltip
             {
                 path = "skiRunSlope",
@@ -219,7 +223,7 @@ namespace SkiResortMod.Systems
                     if (math.isfinite(r.RatingGrade))
                     {
                         FloatTooltip pitch = r.Connected ? m_Pitch : m_PitchApprox;
-                        pitch.value = DisplayUnits.Deg1(r.RatingGrade);
+                        DisplayText.SetSlope(pitch, r.RatingGrade);   // degrees or percent (Options > Slope)
                         AddMouseTooltip(pitch);
                     }
 
@@ -227,13 +231,13 @@ namespace SkiResortMod.Systems
                     if (math.isfinite(r.Length) && r.Length > 0f)
                     {
                         m_Length.value = (int)math.round(r.Length);
-                        AddMouseTooltip(m_Length);
+                        AddMouseTooltip(m_LengthUnits.Pick(m_Length, r.Length));
                     }
 
                     if (math.isfinite(r.Drop))
                     {
                         m_Drop.value = (int)math.round(r.Drop);
-                        AddMouseTooltip(m_Drop);
+                        AddMouseTooltip(m_DropUnits.Pick(m_Drop, r.Drop));
                     }
 
                     // The live grade. The LocalizedString (a Dictionary of LocalizedNumber args, the vanilla pattern) is rebuilt only when one of
@@ -247,24 +251,24 @@ namespace SkiResortMod.Systems
                         float noteSt = 0f;
                         if (haveDiff)
                             noteKind = SkiRunRater.NoteLine(dif.Note, dif.WidthM, dif.SteepShare, dif.CruxBand, out noteW, out noteSs, out noteSt);
-                        if (avgDeg != m_SlopeAd || maxDeg != m_SlopeSd ||
+                        int units = DisplayState.Packed;
+                        if (avgDeg != m_SlopeAd || maxDeg != m_SlopeSd || units != m_SlopeUnits ||
                             (int)noteKind != m_SlopeKind || noteW != m_SlopeW || noteSs != m_SlopeSs || noteSt != m_SlopeSt)
                         {
-                            var ad = new LocalizedNumber<float>(avgDeg, "angle");
-                            var sd = new LocalizedNumber<float>(maxDeg, "angle");
+                            ILocElement ad = DisplayText.SlopeDeg(avgDeg), sd = DisplayText.SlopeDeg(maxDeg);   // degrees or percent
                             switch (noteKind)
                             {
                                 case SkiRunRater.SlopeNoteLine.Narrow:
                                 case SkiRunRater.SlopeNoteLine.Wide:
                                     m_Slope.value = LocalizedString.Id(noteKind == SkiRunRater.SlopeNoteLine.Narrow ? KeySlopeNarrow : KeySlopeWide,
                                         ("AD", ad), ("SD", sd),
-                                        ("W", new LocalizedNumber<int>(noteW, "length"))); // m or yd by the game's unit setting
+                                        ("W", DisplayText.Length(noteW))); // m or yd (Options > Lengths and elevation)
                                     break;
                                 case SkiRunRater.SlopeNoteLine.Share:
                                     m_Slope.value = LocalizedString.Id(KeySlopeShare,
                                         ("AD", ad), ("SD", sd),
                                         ("SS", new LocalizedNumber<int>(noteSs, "percentage")),
-                                        ("ST", new LocalizedNumber<float>(noteSt, "angle")));
+                                        ("ST", DisplayText.SlopeDeg(noteSt)));
                                     break;
                                 case SkiRunRater.SlopeNoteLine.Gentle:
                                     m_Slope.value = LocalizedString.Id(KeySlopeGentle, ("AD", ad), ("SD", sd));
@@ -279,6 +283,7 @@ namespace SkiResortMod.Systems
                             m_SlopeW = noteW;
                             m_SlopeSs = noteSs;
                             m_SlopeSt = noteSt;
+                            m_SlopeUnits = units;
                         }
                         AddMouseTooltip(m_Slope);
                     }
@@ -287,7 +292,7 @@ namespace SkiResortMod.Systems
                     // shown one (SlopeBatch sweeps it).
                     if (SkiSlopeClassifier.SteepestPatchShown(r.RatingGrade, r.SteepestGrade, r.Band, r.Connected))
                     {
-                        m_Steepest.value = DisplayUnits.Deg1(r.SteepestGrade);
+                        DisplayText.SetSlope(m_Steepest, r.SteepestGrade);
                         AddMouseTooltip(m_Steepest);
                     }
                 }

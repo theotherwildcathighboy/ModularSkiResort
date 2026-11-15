@@ -21,8 +21,8 @@ import { isRunKind } from "./buildItems";
 import { SNOW_KEEP_CM, SNOW_OPEN_CM, hectares } from "./hubRules";
 import { sendHoverRun } from "./hubState";
 import { HUB_FMT, HUB_LOC, bandEntry, runFeaturesEntry } from "./hubText";
-import { BandMarker, HalfDot, KindStripe, LocText, Num, NumCell, Tip, TipLines, areaArg, cx, depthValue, numArg, useInches } from "./parts";
-import { pctToDeg1 } from "./units";
+import { BandMarker, HalfDot, KindStripe, LocText, Num, NumCell, Tip, TipLines, areaArg, cx, depthValue, numArg, slopeArg, useUnits } from "./parts";
+import type { DisplayUnits } from "./units";
 import type { NumberSamples } from "./parts";
 import { RenameField } from "./RenameField";
 import styles from "./hub.module.scss";
@@ -53,7 +53,8 @@ export interface RunLineProps {
   onRenameClose: () => void;
 }
 
-function runTip(p: RunLineProps, name: string, typeName: string, imperial: boolean): JSX.Element {
+function runTip(p: RunLineProps, name: string, typeName: string, units: DisplayUnits): JSX.Element {
+  const imperial = units.depthImperial;   // snow depth in cm or inches (Options > Weather)
   const { row, live, liftName, t, gating } = p;
   const rated = row.band >= 0;
   let openLine: string | JSX.Element | null = null;
@@ -121,9 +122,9 @@ function runTip(p: RunLineProps, name: string, typeName: string, imperial: boole
         }} />,
         // A cat track's green is the tool's (graded under 25 %), not the rater's. The rater's crux / steepest read hairpins and
         // crossings higher (GradeBatch GR-20), so the rows stay off. Shown in degrees (T160); the data stays percent grade.
-        rated && row.kind !== RUN_KIND.CatTrack && row.gradePct >= 0 && { label: t(HUB_LOC.cruxPitch), value: <Num value={pctToDeg1(row.gradePct)} unit={Unit.Angle} /> },
-        rated && row.kind !== RUN_KIND.CatTrack && row.steepestPct > row.gradePct && { label: t(HUB_LOC.steepestPatch), value: <Num value={pctToDeg1(row.steepestPct)} unit={Unit.Angle} /> },
-        { label: t(HUB_LOC.colArea), value: areaArg(hectares(row.areaM2), imperial) },
+        rated && row.kind !== RUN_KIND.CatTrack && row.gradePct >= 0 && { label: t(HUB_LOC.cruxPitch), value: slopeArg(row.gradePct, units) },
+        rated && row.kind !== RUN_KIND.CatTrack && row.steepestPct > row.gradePct && { label: t(HUB_LOC.steepestPatch), value: slopeArg(row.steepestPct, units) },
+        { label: t(HUB_LOC.colArea), value: areaArg(hectares(row.areaM2), units.lengthImperial) },
         row.kind !== RUN_KIND.Natural && row.bound && {
           label: t(HUB_LOC.runCost),
           value: live && live.costMonth >= 0 ? <Num value={live.costMonth} unit={Unit.MoneyPerMonth} /> : "–",
@@ -177,7 +178,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
   const { row, live, t, samples, focused, renaming, onPick, onPen, onRename, onRenameClose } = p;
   const typeName = isRunKind(row.kind) ? t(runFeaturesEntry(row.kind, row.gunSpacingM, row.lightSpacingM)) : "";
   const name = row.name || typeName;
-  const imperial = useInches();   // the area in ha or acres (T161) and the tooltip's snow depth in cm or inches (T130)
+  const units = useUnits();   // the tooltip's area, slopes and snow depth (Options > Lengths and elevation, Slope, Weather)
   const state = live ? live.openState : OPEN_STATE.None;
   const inner = (
     <>
@@ -207,7 +208,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
       {renaming ? (
         <div className={styles.runFly}>{inner}</div>
       ) : (
-        <Tip tip={runTip(p, name, typeName, imperial)}>
+        <Tip tip={runTip(p, name, typeName, units)}>
           <Button focusKey={FOCUS_DISABLED} theme={{ button: styles.runFly }} onSelect={() => onPick(row)}>
             {inner}
           </Button>

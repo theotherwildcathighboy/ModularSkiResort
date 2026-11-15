@@ -113,6 +113,22 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupHub)]
         public GradeSchemeOption RunGradeScheme { get; set; }
 
+        /// <summary>Lengths, heights, elevations, vertical drops, areas, earthwork and lift speed in the mod's text: Auto (the game's unit
+        /// setting), Metric or Imperial. Vanilla's own UI keeps the game's setting. DisplayState.LengthImperial; the hub reads the
+        /// resolved choice as skiResort.displayUnits. Saved by name and value (UnitOption): never rename.</summary>
+        [SettingsUISection(SectionMain, GroupHub)]
+        public UnitOption UnitLengths { get; set; }
+
+        /// <summary>Temperature (°C / °F) and snow depth (cm / in) in the mod's text: Auto (the game's temperature unit and unit system),
+        /// Metric or Imperial. DisplayState.Temperature / DepthImperial. Never rename.</summary>
+        [SettingsUISection(SectionMain, GroupHub)]
+        public UnitOption UnitWeather { get; set; }
+
+        /// <summary>Slopes in the mod's text: Degrees (default since post-release round 1, T160) or whole Percent grade. Display only.
+        /// DisplayState.SlopePercent. Never rename.</summary>
+        [SettingsUISection(SectionMain, GroupHub)]
+        public SlopeOption SlopeUnit { get; set; }
+
 
         /// <summary>The ski area radius in km (the tether). A run binds to the nearest Welcome Sign within it when drawn (and keeps it).
         /// Lifts, lodges, schools and patrol huts link to the nearest sign within it, live, at every recompute. Float slider 2-10, step
@@ -520,6 +536,9 @@ namespace SkiResortMod.Settings
             CatTrackGradeMaxPct = DisplayUnits.LegacyCatTrackPctDefault;
             CatTrackGradeMaxDeg = DisplayUnits.CatTrackDegMax;
             RunGradeScheme = GradeSchemeOption.Auto;
+            UnitLengths = UnitOption.Auto;
+            UnitWeather = UnitOption.Auto;
+            SlopeUnit = SlopeOption.Degrees;
             CatTrackWidthM = 20;
             CatTrackGradeCutRun = 1.5f;
             CatTrackGradeFillRun = 2f;

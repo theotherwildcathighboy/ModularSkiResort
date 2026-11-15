@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 45;
+export const HUB_CONTRACT = 46;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -79,6 +79,12 @@ export const BAND = { Unrateable: -2, Pending: -1, Flat: 0, Green: 1, Blue: 2, B
 /** The run grading the player sees (contract 44, binding gradeScheme). C# GradeScheme (DisplayUnits.cs): Options > Run grading, Auto =
  *  the city's theme. Display only: bands, run kinds and saved data never change (src/hub/units.ts maps names, markers and icons). */
 export const GRADE_SCHEME = { NorthAmerican: 0, European: 1 } as const;
+
+/** The resolved unit and slope choices (contract 46, binding displayUnits): one int of bits. C# DisplayUnits.PackUnits / Pack* (the
+ *  ResortBatch DU-7 checks pin the values). Options > Lengths and elevation, Weather and Slope; Auto resolves to the game's setting in C#.
+ *  LengthImperial: lengths, heights, areas, earthwork, line speed. DepthImperial: snow depth in inches. TempShift / TempMask: the
+ *  temperature unit (0 °C, 1 °F, 2 K, the values of cs2/l10n TemperatureUnit). SlopePercent: slopes in whole percent grade. */
+export const UNITS = { LengthImperial: 1, DepthImperial: 2, TempShift: 2, TempMask: 3, SlopePercent: 16 } as const;
 
 /** ResortLive.varietyBands bits (contract 40). C#: SkiResortScore.VarietyGreen / VarietyBlue / VarietyBlack / VarietyAll (literal ints,
  *  ResortBatch guards the values). Black covers double-black: either one sets it. */
@@ -1112,6 +1118,7 @@ export const BINDING = {
   mergedLodges: "mergedLodges",  // contract 35: the merged buildings
   mergeOverlay: "mergeOverlay",  // contract 36: the merge overlay's armed state
   gradeScheme: "gradeScheme",  // contract 44: the run grading the player sees (GRADE_SCHEME), always observed
+  displayUnits: "displayUnits",  // contract 46: the resolved unit and slope choices (UNITS bits), always observed
 } as const;
 
 /** Trigger names (UI -> C#). */
@@ -1209,6 +1216,8 @@ export const FALLBACK = {
   follow: 0,
   /** North American until C# says otherwise (the 1.0.0 look). */
   gradeScheme: 0,
+  /** Metric, °C, degrees until C# says otherwise. */
+  displayUnits: 0,
   history: EMPTY_HISTORY,
   liftLine: { available: false, active: false, state: "" } as LiftLineState,
   quickRuns: EMPTY_QUICK_RUNS,
@@ -1284,6 +1293,8 @@ export const pisteMap$: ValueBinding<boolean> = bindValue<boolean>(GROUP, BINDIN
 export const follow$: ValueBinding<number> = bindValue<number>(GROUP, BINDING.follow, FALLBACK.follow);
 /** The run grading (contract 44): GRADE_SCHEME. Not a panel binding (no Demand): names, markers and icons read it anywhere. */
 export const gradeScheme$: ValueBinding<number> = bindValue<number>(GROUP, BINDING.gradeScheme, FALLBACK.gradeScheme);
+/** The unit and slope choices (contract 46): UNITS bits, decoded by units.ts unpackUnits. Not a panel binding (no Demand). */
+export const displayUnits$: ValueBinding<number> = bindValue<number>(GROUP, BINDING.displayUnits, FALLBACK.displayUnits);
 /** The monthly history of every live ski area. Panel only, and only the History view subscribes it (no Demand).
  *  C# builds and sends it only while observed. The triggers are a stored month, an area change, or the month in progress (at most every 5 s). */
 export const history$: ValueBinding<readonly HistoryArea[]> = bindValue<readonly HistoryArea[]>(GROUP, BINDING.history, FALLBACK.history);

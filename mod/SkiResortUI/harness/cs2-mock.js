@@ -172,13 +172,22 @@
   // As vanilla (installed index.js@503140): U+00A0 only between two digits. The number-unit space stays ASCII ("376 m"): the hub's
   // own unitNbsp (hubRules.ts) must glue it, and the layout test's number-unit scan proves it does (round 624).
   const nbsp = (s) => s.replace(/(\d) (\d)/, "$1 $2");
+  // Lengths, heights, areas and temperatures read loc.unitSettings like vanilla (installed index.js unit table): the hub hands a copy
+  // with the mod's unit choices (parts.tsx unitLoc), so the imperial scenario renders yd / mi / ft / ft² / acres and °F.
   function renderNumber(loc, props) {
     const v = Number(props.value);
     const sign = props.signed && v > 0 ? "+" : "";
+    const us = (loc && loc.unitSettings) || localization.unitSettings;
+    const imp = us.unitSystem === 1;
     switch (props.unit) {
-      case Unit.Length: return nbsp(sign + (Math.abs(v) < 1000 ? thousands(v) + " m" : dec1(v / 1000) + " km"));
-      case Unit.Height: return nbsp(sign + thousands(v) + " m");
-      case Unit.Area: return nbsp(sign + (Math.abs(v) < 100000 ? thousands(v) + " m²" : dec1(v / 1e6) + " km²"));
+      case Unit.Length:
+        if (imp) return nbsp(sign + (Math.abs(v) < 1609 ? thousands(v / 0.9144) + " yd" : dec1(v / 1609.344) + " mi"));
+        return nbsp(sign + (Math.abs(v) < 1000 ? thousands(v) + " m" : dec1(v / 1000) + " km"));
+      case Unit.Height: return nbsp(sign + (imp ? thousands(v * 3.28084) + " ft" : thousands(v) + " m"));
+      case Unit.Area:
+        if (imp) return nbsp(sign + (Math.abs(v / 0.092903) < 100000 ? thousands(v / 0.092903) + " ft²" : dec1(v / 4046.873) + " ac"));
+        return nbsp(sign + (Math.abs(v) < 100000 ? thousands(v) + " m²" : dec1(v / 1e6) + " km²"));
+      case Unit.Angle: return sign + dec1(v) + "°";
       case Unit.Percentage: return sign + thousands(v) + "%";
       case Unit.PercentageSingleFraction: return sign + dec1(v) + "%";
       case Unit.Money: return sign + "¢" + thousands(v);
@@ -188,7 +197,8 @@
       case Unit.IntegerPerHour: return sign + thousands(v) + "/h";
       case Unit.FloatSingleFraction: return sign + dec1(v);
       case Unit.FloatTwoFractions: return sign + v.toFixed(2);
-      case Unit.Temperature: return sign + thousands(v) + "°C";
+      case Unit.Temperature:
+        return us.temperatureUnit === 1 ? sign + thousands(v * 9 / 5 + 32) + "°F" : us.temperatureUnit === 2 ? sign + thousands(v + 273.16) + " K" : sign + thousands(v) + "°C";
       case Unit.Integer: case Unit.IntegerRounded: default: return sign + thousands(v);
     }
   }
@@ -205,10 +215,10 @@
   const LocalizedNumber = locComponent(renderNumber);
   const LocalizedFraction = locComponent((loc, p) => renderNumber(loc, { value: p.value, unit: p.unit }) + " / " + renderNumber(loc, { value: p.total, unit: p.unit }));
   const LocalizedBounds = locComponent((loc, p) => renderNumber(loc, { value: p.min, unit: p.unit }) + " – " + renderNumber(loc, { value: p.max, unit: p.unit }));
-  function renderArg(arg) {
+  function renderArg(arg, loc) {
     if (arg == null) return "";
     if (typeof arg === "string" || typeof arg === "number") return String(arg);
-    if (React.isValidElement(arg) && arg.type && typeof arg.type.renderString === "function") return arg.type.renderString(localization, arg.props);
+    if (React.isValidElement(arg) && arg.type && typeof arg.type.renderString === "function") return arg.type.renderString(loc || localization, arg.props);
     return arg; // a React element: interleaved below
   }
   const LocalizedString = React.memo(function LocalizedString(props) {
@@ -225,7 +235,7 @@
   });
   LocalizedString.renderString = (loc, props) => {
     const text = loc.translate(props.id, props.fallback) || "";
-    return text.replace(/\{([A-Za-z0-9_]+)(?::[A-Za-z]+)?\}/g, (_, k) => { const a = renderArg((props.args || {})[k]); return typeof a === "string" ? a : "?"; });
+    return text.replace(/\{([A-Za-z0-9_]+)(?::[A-Za-z]+)?\}/g, (_, k) => { const a = renderArg((props.args || {})[k], loc); return typeof a === "string" ? a : "?"; });
   };
   window["cs2/l10n"] = {
     Unit, UnitSystem: { Metric: 0, Freedom: 1 }, useLocalization, useCachedLocalization: useLocalization,
