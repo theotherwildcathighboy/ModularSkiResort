@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 46;
+export const HUB_CONTRACT = 47;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -387,6 +387,8 @@ export interface QuickRunsPod {
   tracks: number;
   /** Enabled pistes by SlopeBand (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
   count: number[];
+  /** Of count[1]: the pistes European grading shows green (crux under 15 %, units.ts euCounts; contract 47). */
+  euGreen: number;
   skiers: number;
   fee: number;
   /** Neither the pod nor its lift is switched off. */
@@ -538,6 +540,8 @@ export interface QuickRunsState {
   tracks: number;
   /** Enabled pistes by SlopeBand (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
   count: number[];
+  /** Of count[1]: the pistes European grading shows green (crux under 15 %, units.ts euCounts; contract 47). */
+  euGreen: number;
   /** The mix target by SlopeBand. All zeros with the runs-first planner: the hub then prints the counts alone. */
   target: number[];
   /** Total construction fee of the enabled runs. */
@@ -645,6 +649,8 @@ export interface ResortRow {
   rated: number;
   flat: number;
   green: number;
+  /** Of green: the runs European grading shows green (crux under 15 %), the rest show blue (units.ts euCounts; contract 47). */
+  euGreen: number;
   blue: number;
   black: number;
   doubleBlack: number;
@@ -1182,7 +1188,7 @@ const EMPTY_LODGE_PARKING: readonly LodgeParkingRow[] = [];
 const EMPTY_MERGED: readonly MergedLodgeRow[] = [];
 const EMPTY_QUICK_RUNS: QuickRunsState = {
   available: false, active: false, reason: "", phase: "", corners: 0, canPlanAround: false, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
-  progress: 0, density: 1, kinds: 3, runs: 0, enabled: 0, tracks: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
+  progress: 0, density: 1, kinds: 3, runs: 0, enabled: 0, tracks: 0, count: [0, 0, 0, 0, 0], euGreen: 0, target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
   variety: false, status: "", warnings: [], unbound: 0, clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
   treeLine: -1, groundMin: 0, groundMax: 0, group: 0, species: 0, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
   buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0, rejects: [0, 0, 0, 0, 0, 0, 0, 0],

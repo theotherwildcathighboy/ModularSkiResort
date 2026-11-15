@@ -37,6 +37,7 @@ namespace SkiResortMod.Systems
     {
         public Entity Sign; public int Kind; public string Name; public bool CustomName;
         public int Runs, Rated, Flat, Green, Blue, Black, DoubleBlack;
+        public int EuGreen;                    // of Green: shown green in European grading (crux under 15 %), the rest blue (T162 rev. 2)
         public float AreaM2, VerticalM;        // VerticalM: runs only (Agg.RunVerticalM). −1 = no run height
         public bool VerticalApprox;
         public int Lodges, FreeLodges;
@@ -1508,6 +1509,7 @@ namespace SkiResortMod.Systems
                     Resort = resort,
                     RateState = row.RateState,
                     Band = row.Band,
+                    EuGreen = row.Band == 1 && DisplayUnits.EuClassOf(row.Band, row.GradePct) == EuClass.Green,
                     LengthM = row.LengthM,
                     AreaM2 = row.AreaM2,
                     TopM = catTrack ? float.NaN : row.TopM,
@@ -2097,6 +2099,7 @@ namespace SkiResortMod.Systems
                     Rated = a.Rated,
                     Flat = a.Flat,
                     Green = a.Green,
+                    EuGreen = a.EuGreen,
                     Blue = a.Blue,
                     Black = a.Black,
                     DoubleBlack = a.DoubleBlack,
@@ -3016,6 +3019,7 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.Runs);
                 h = Mix(h, (uint)r.Rated);
                 h = Mix(h, (uint)(r.Flat | r.Green << 8 | r.Blue << 16 | r.Black << 24));
+                h = Mix(h, (uint)r.EuGreen);
                 h = Mix(h, (uint)r.DoubleBlack);
                 h = MixF(h, r.AreaM2);
                 h = MixF(h, r.VerticalM);

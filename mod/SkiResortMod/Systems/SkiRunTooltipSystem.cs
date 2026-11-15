@@ -35,25 +35,28 @@ namespace SkiResortMod.Systems
         public const string KeyNoGate ="SkiResort.Tooltip.NO_GATE_IN_RANGE";
         public const string KeyFee = "SkiResort.Tooltip.RUN_FEE"; // "Run fee (one-time)"
 
-        /// <summary>Built once, [scheme][(int)SlopeBand] (Flat 0 .. DoubleBlack 4). European names carry the "@EU" suffix (T162).</summary>
-        private static readonly LocalizedString[][] BandText =
+        /// <summary>Built once, North American by (int)SlopeBand (Flat 0 .. DoubleBlack 4).</summary>
+        private static readonly LocalizedString[] BandText =
         {
-            BandNames(GradeScheme.NorthAmerican),
-            BandNames(GradeScheme.European),
+            LocalizedString.Id(KeyBandPrefix + "[Flat]"),
+            LocalizedString.Id(KeyBandPrefix + "[Green]"),
+            LocalizedString.Id(KeyBandPrefix + "[Blue]"),
+            LocalizedString.Id(KeyBandPrefix + "[Black]"),
+            LocalizedString.Id(KeyBandPrefix + "[DoubleBlack]"),
         };
 
-        private static LocalizedString[] BandNames(GradeScheme s)
+        /// <summary>European grading (T162 rev. 2), by (int)EuClass: Flat keeps the band's name, the rest the class names (EuClassKey).</summary>
+        private static readonly LocalizedString[] EuClassText =
         {
-            string x = DisplayUnits.SchemeSuffix(s);
-            return new[]
-            {
-                LocalizedString.Id(KeyBandPrefix + "[Flat]"),
-                LocalizedString.Id(KeyBandPrefix + "[Green]" + x),
-                LocalizedString.Id(KeyBandPrefix + "[Blue]" + x),
-                LocalizedString.Id(KeyBandPrefix + "[Black]" + x),
-                LocalizedString.Id(KeyBandPrefix + "[DoubleBlack]" + x),
-            };
-        }
+            LocalizedString.Id(KeyBandPrefix + "[Flat]"),
+            LocalizedString.Id(DisplayUnits.EuClassKey(EuClass.Green)),
+            LocalizedString.Id(DisplayUnits.EuClassKey(EuClass.Blue)),
+            LocalizedString.Id(DisplayUnits.EuClassKey(EuClass.Red)),
+            LocalizedString.Id(DisplayUnits.EuClassKey(EuClass.Black)),
+            LocalizedString.Id(DisplayUnits.EuClassKey(EuClass.Route)),
+        };
+
+        private EuClass m_ShownEu = EuClass.Flat;   // the drawing readout's European class, kept within the hysteresis
 
         private ToolSystem m_ToolSystem;
         private AreaToolSystem m_AreaTool;
@@ -207,12 +210,15 @@ namespace SkiResortMod.Systems
                 int band = haveDiff ? (int)dif.Band : (int)r.Band;
                 if (rated && band >= 0 && band < BandText.Length)
                 {
-                    // Band. Assign the struct only on change (object.Equals boxes, see engine notes).
-                    int scheme = DisplayState.Scheme == GradeScheme.European ? 1 : 0;
-                    int shown = band + 8 * scheme;   // a scheme change re-sets the text too
+                    // Band. Assign the struct only on change (object.Equals boxes, see engine notes). European grading names the class of the
+                    // band and the crux (DisplayUnits.EuClassShown, the readout's DisplayHysteresis at the 15 % boundary).
+                    bool eu = DisplayState.Scheme == GradeScheme.European;
+                    if (eu)
+                        m_ShownEu = DisplayUnits.EuClassShown(band, r.RatingGrade * 100f, m_ShownEu, 100f * SkiSlopeClassifier.DisplayHysteresis);
+                    int shown = eu ? 8 + (int)m_ShownEu : band;   // a scheme change re-sets the text too
                     if (shown != m_ShownBand)
                     {
-                        m_Grade.value = BandText[scheme][band];
+                        m_Grade.value = eu ? EuClassText[(int)m_ShownEu] : BandText[band];
                         m_ShownBand = shown;
                     }
                     m_Grade.color = band == (int)SlopeBand.Flat ? TooltipColor.Warning : TooltipColor.Info;

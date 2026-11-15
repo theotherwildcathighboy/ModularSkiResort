@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+<!-- Modular Ski Resort hub icon (European grading, T162 rev. 2). Ski route (the double-black band): an orange diamond (hubOnDarkOrange) with a charcoal edge (hubOnDarkBlack), like the ski route marker in the Alps. Fixed colors: inline icons cannot be tinted (gate T42 allows only the on-dark tokens). -->
+<path d="M8 1.2 L14.8 8 L8 14.8 L1.2 8 Z" fill="rgb(240,130,20)" stroke="rgb(80,86,98)" stroke-width="1.4"/>
+</svg>

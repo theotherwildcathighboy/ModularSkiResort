@@ -224,7 +224,9 @@ namespace SkiResortMod.Systems
                 .Replace("{G}", sh.Count[1].ToString()).Replace("{B}", sh.Count[2].ToString())
                 .Replace("{K}", sh.Count[3].ToString()).Replace("{D}", sh.Count[4].ToString())
                 .Replace("{TG}", t.Target[1].ToString()).Replace("{TB}", t.Target[2].ToString())
-                .Replace("{TK}", t.Target[3].ToString()).Replace("{TD}", t.Target[4].ToString());
+                .Replace("{TK}", t.Target[3].ToString()).Replace("{TD}", t.Target[4].ToString())
+                // European grading (T162 rev. 2): the Green band as green and blue pistes (QuickRunsShown.EuGreen)
+                .Replace("{EG}", sh.EuGreen.ToString()).Replace("{EB}", Math.Max(0, sh.Count[1] - sh.EuGreen).ToString());
             m_Mix.color = sh.Variety ? TooltipColor.Success : TooltipColor.Info;
             ShowValue(m_Mix, ref m_LastMix, mix);
             m_Fee.value = (int)Math.Min(t.Fee, int.MaxValue);

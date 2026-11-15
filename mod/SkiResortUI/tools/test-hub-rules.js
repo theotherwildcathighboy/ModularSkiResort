@@ -1101,8 +1101,9 @@ function run(srcDir) {
       onDark[m[1]] = key(m[2], m[3], m[4], m[5] ?? 1);
       allowed.add(onDark[m[1]]);
     }
-    eq("T42.16 the on-dark palette: one token per icon color (ratings, the European red, edge, open, closed, caution)", Object.keys(onDark).sort(),
-      ["hubOnDarkBlack", "hubOnDarkBlue", "hubOnDarkCaution", "hubOnDarkClosed", "hubOnDarkDoubleBlack", "hubOnDarkEdge", "hubOnDarkGreen", "hubOnDarkOpen", "hubOnDarkRed"]);
+    eq("T42.16 the on-dark palette: one token per icon color (ratings, the European red and ski route orange, edge, open, closed, caution)", Object.keys(onDark).sort(),
+      ["hubOnDarkBlack", "hubOnDarkBlue", "hubOnDarkCaution", "hubOnDarkClosed", "hubOnDarkDoubleBlack", "hubOnDarkEdge", "hubOnDarkGreen", "hubOnDarkOpen", "hubOnDarkOrange",
+        "hubOnDarkRed"]);
     const VANILLA = { normalTextColor: [240, 251, 255], highlightYellow: [255, 203, 0] };
     eq("T42.17 hubOnDarkOpen / hubOnDarkCaution repeat normalTextColor / highlightYellow", [onDark.hubOnDarkOpen, onDark.hubOnDarkCaution],
       Object.values(VANILLA).map((c) => key(c[0], c[1], c[2], 1)));
@@ -1147,10 +1148,10 @@ function run(srcDir) {
       }
     }
     const imported = [...iconSrc.matchAll(/from "\.\/icons\/([\w-]+\.svg)"/g)].map((m) => m[1]).sort();
-    eq("T42.12 icon SVGs: 10 files plus the 4 European rating discs (T162), every one imported by hubIcons.ts, well-formed, colors only from the on-dark tokens", [svgs, imported, svgBad],
-      [["black.svg", "blue.svg", "closed.svg", "dblack.svg", "eublack.svg", "eublue.svg", "eudblack.svg", "eured.svg", "green.svg", "lift.svg", "open.svg",
+    eq("T42.12 icon SVGs: 10 files plus the 4 European rating icons (T162 rev. 2: green or blue, red, black, ski route), every one imported by hubIcons.ts, well-formed, colors only from the on-dark tokens", [svgs, imported, svgBad],
+      [["black.svg", "blue.svg", "closed.svg", "dblack.svg", "eublack.svg", "eugreenblue.svg", "eured.svg", "euroute.svg", "green.svg", "lift.svg", "open.svg",
         "openpatchy.svg", "patchy.svg", "school.svg"],
-        ["black.svg", "blue.svg", "closed.svg", "dblack.svg", "eublack.svg", "eublue.svg", "eudblack.svg", "eured.svg", "green.svg", "lift.svg", "open.svg",
+        ["black.svg", "blue.svg", "closed.svg", "dblack.svg", "eublack.svg", "eugreenblue.svg", "eured.svg", "euroute.svg", "green.svg", "lift.svg", "open.svg",
         "openpatchy.svg", "patchy.svg", "school.svg"], []]);
     // The harness base scenario sends the contract number. A stale one shows the mismatch card in every harness scenario, and the
     // layout test then fails with "reading 'click'" instead of a clear message (round 620 hit this). The harness sits next to src/;
@@ -1257,18 +1258,38 @@ function run(srcDir) {
     eq("T60.7 GRADE_SCHEME values equal C# GradeScheme (0 / 1); the fallback is North American",
       [BIND.GRADE_SCHEME.NorthAmerican, BIND.GRADE_SCHEME.European, BIND.FALLBACK.gradeScheme], [0, 1, 0]);
     const B = BIND.BAND;
-    eq("T60.8 bandShape: North American shapes, European discs for the same bands; flat, pending and cannot-be-rated unchanged",
+    eq("T60.8 bandShape: North American shapes; European by class (a Green band with no grade is both discs); flat, pending and cannot-be-rated unchanged",
       [[B.Flat, B.Green, B.Blue, B.Black, B.DoubleBlack, B.Unrateable, -1].map((b) => U.bandShape(b, 0)),
-        [B.Flat, B.Green, B.Blue, B.Black, B.DoubleBlack, B.Unrateable, -1].map((b) => U.bandShape(b, 1))],
-      [["flat", "green", "blue", "black", "dblack", "unrateable", "pending"], ["flat", "euBlue", "euRed", "euBlack", "euDblack", "unrateable", "pending"]]);
+        [B.Flat, B.Green, B.Blue, B.Black, B.DoubleBlack, B.Unrateable, -1].map((b) => U.bandShape(b, 1)),
+        [U.bandShape(B.Green, 1, 10), U.bandShape(B.Green, 1, 15), U.bandShape(B.Green, 1, 26), U.bandShape(B.Blue, 1, 30), U.bandShape(B.Green, 0, 10), U.bandShape(-1, 1, 10)]],
+      [["flat", "green", "blue", "black", "dblack", "unrateable", "pending"], ["flat", "euGreenBlue", "euRed", "euBlack", "euRoute", "unrateable", "pending"],
+        ["euGreen", "euBlue", "euBlue", "euRed", "green", "pending"]]);
     eq("T60.9 schemeIconName swaps only the four rating icons", [["green", "blue", "black", "dblack", "open", "snow"].map((n) => U.schemeIconName(n, 1)),
-      U.schemeIconName("green", 0)], [["euBlue", "euRed", "euBlack", "euDblack", "open", "snow"], "green"]);
+      U.schemeIconName("green", 0)], [["euGreenBlue", "euRed", "euBlack", "euRoute", "open", "snow"], "green"]);
     // Every European text has its base entry in hubText.ts (a variant never stands alone), and only texts that name a run color have one.
     const hubTextSrc = fs.readFileSync(path.join(srcDir, "hub", "hubText.ts"), "utf8");
     const allKeys = new Set([...hubTextSrc.matchAll(/\["((?:SkiResort|Assets)\.[^"]+)", "/g)].map((m) => m[1]));
     const euKeys = [...allKeys].filter((k) => k.endsWith("@EU"));
-    const orphans = euKeys.filter((k) => !allKeys.has(k.slice(0, -3)) && !k.startsWith("SkiResort.SlopeBand["));
-    eq("T60.10 every @EU entry of hubText.ts has its base entry (band names: the C# drawing tooltip's), at least 20 of them", [orphans, euKeys.length >= 20], [[], true]);
+    const orphans = euKeys.filter((k) => !allKeys.has(k.slice(0, -3)));
+    eq("T60.10 every @EU entry of hubText.ts has its base entry, at least 20 of them", [orphans, euKeys.length >= 20], [[], true]);
+    // T162 rev. 2: the European class on the crux grade (C# DisplayUnits.EuClassOf, ResortBatch DU-8 pins the same cases).
+    const csUnits0 = fs.readFileSync(path.join(srcDir, "..", "..", "SkiResortMod", "Systems", "DisplayUnits.cs"), "utf8");
+    const EC = U.EU_CLASS;
+    const csEuGreen = (() => { const m = csUnits0.match(/const float EuGreenMaxPct = ([\d.]+)f;/); return m ? Number(m[1]) : null; })();
+    eq("T60.16 euClassOf: green under 15 %, blue 15 to 25 (the Green band), red / black / route ARE the Blue / Black / DoubleBlack bands; EU_GREEN_MAX_PCT and EU_CLASS equal C#",
+      [[6, 14.99, 15, 24.99, 26, NaN, -1].map((g) => U.euClassOf(B.Green, g)), U.euClassOf(B.Green), U.euClassOf(B.Blue, 45), U.euClassOf(B.Black, 40),
+        U.euClassOf(B.DoubleBlack, 60), U.euClassOf(B.Flat, 3), U.euClassOf(-1, 20), U.EU_GREEN_MAX_PCT, csEuGreen, [EC.Flat, EC.Green, EC.Blue, EC.Red, EC.Black, EC.Route]],
+      [[EC.Green, EC.Green, EC.Blue, EC.Blue, EC.Blue, EC.Green, EC.Green], EC.Blue, EC.Red, EC.Black, EC.Route, EC.Flat, EC.Flat, 15, 15, [0, 1, 2, 3, 4, 5]]);
+    eq("T60.17 euCounts: the Green band split by euGreen, the rest by band; clamped (a stale euGreen never makes a negative blue)",
+      [U.euCounts([1, 5, 3, 2, 1], 2), U.euCounts([0, 2, 0, 0, 0], 9), U.euCounts([0, 2, 0, 0, 0], -1), U.euCounts([], 0)],
+      [[1, 2, 3, 3, 2, 1], [0, 2, 0, 0, 0, 0], [0, 0, 2, 0, 0, 0], [0, 0, 0, 0, 0, 0]]);
+    // The edges (T162 rev. 2): a European green and blue are one score band, so no European text calls one harder or easier than the
+    // other, a text about the whole Green band says "green or blue" (or "green and blue"), and no text keeps the old shifted names.
+    const euValue = new Map([...hubTextSrc.matchAll(/\["([^"]+@EU)", "([^"]*)"\]/g)].map((m) => [m[1], m[2]]));
+    const euBad = [...euValue].filter(([, v]) =>
+      /\b(green|blue)\b[^.]*\b(harder|easier|steeper|gentler)\b[^.]*\b(green|blue)\b/i.test(v) || /\bexpert black\b/i.test(v) ||
+      /\bgreen\b/i.test(v) !== /\bblue\b/i.test(v)).map(([k]) => k);
+    eq("T60.18 European texts: none ranks green against blue, none says expert black, a green always comes with its blue (one band)", [euBad, euValue.size >= 20], [[], true]);
     // The four Options (grading, lengths, weather, slope) are independent: the hub reads grading from gradeScheme and the other three
     // from the packed displayUnits (C# DisplayUnits.PackUnits; ResortBatch DU-7 pins the same packed values).
     const csUnits = fs.readFileSync(path.join(srcDir, "..", "..", "SkiResortMod", "Systems", "DisplayUnits.cs"), "utf8");

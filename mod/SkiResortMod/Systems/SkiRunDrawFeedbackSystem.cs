@@ -104,18 +104,25 @@ namespace SkiResortMod.Systems
             new UnityEngine.Color(0.85f, 0.20f, 0.10f, Tuning.FillAlpha),
         };
 
-        /// <summary>The same in European grading (T162, display only): green band = blue piste, blue band = red piste. The double-black
-        /// band leaves red (now the red piste) for orange, the color of an expert route on European maps.</summary>
+        /// <summary>The same in European grading (T162 rev. 2, display only), index = the cell key (CellKey): green band under 15 % = green
+        /// piste, blue band = red piste, black, double black = the ski route's orange, and key 5 = a green-band cell at 15 % or more (the
+        /// blue piste). The North American table never sees key 5.</summary>
         private static readonly UnityEngine.Color[] BandColorsEu =
         {
             new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.FillAlpha),
+            new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.FillAlpha),
             new UnityEngine.Color(0.85f, 0.15f, 0.12f, Tuning.FillAlpha),
             new UnityEngine.Color(0.08f, 0.08f, 0.08f, Tuning.FillAlpha),
             new UnityEngine.Color(0.95f, 0.55f, 0.05f, Tuning.FillAlpha),
+            new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.FillAlpha),
         };
 
-        private static UnityEngine.Color[] Bands => DisplayState.Scheme == GradeScheme.European ? BandColorsEu : BandColors;
+        private const byte KeyEuBlue = 5;
+
+        /// <summary>The strip key of a cell or segment: its band, except a European green-band cell at EuGreenMaxPct or more, which is
+        /// KeyEuBlue (DisplayUnits.EuClassOf on the cell's own grade). Same-key cells merge into one strip.</summary>
+        private static byte CellKey(byte band, float grade, bool eu) =>
+            eu && band == (byte)SlopeBand.Green && grade * 100f >= DisplayUnits.EuGreenMaxPct ? KeyEuBlue : band;
 
         /// <summary>Crux ring: white outline, no fill (fill = outline with alpha 0, the vanilla
         /// range-circle style, EffectRangeRenderSystem.cs:166-169).</summary>
@@ -1659,6 +1666,9 @@ namespace SkiResortMod.Systems
                 float3[] pts = grid.Points;
                 int segs = r.SegmentCount;
                 byte[] segBand = r.SegmentBand;
+                float[] segGrade = r.SegmentGrade;
+                bool eu = DisplayState.Scheme == GradeScheme.European;
+                UnityEngine.Color[] colors = eu ? BandColorsEu : BandColors;
                 if (pts != null && segBand != null)
                 {
                     for (int s = 0; s < segs && s + 1 < grid.PointCount && s < segBand.Length; s++)
@@ -1676,7 +1686,7 @@ namespace SkiResortMod.Systems
                             A = pts[s],
                             B = pts[s + 1],
                             Width = Tuning.PolylineWidthM,
-                            Color = Bands[b],
+                            Color = colors[CellKey(b, segGrade != null && s < segGrade.Length ? segGrade[s] : 0f, eu)],
                         };
                         m_StripCount++;
                     }
@@ -1736,6 +1746,7 @@ namespace SkiResortMod.Systems
             // spanning ± Step / 2. A strip runs from the first cell's west edge to the last cell's east edge, y = mean of the two end
             // heights (at the representative row).
             byte[] cellBand = r.CellBand;
+            float[] cellGrade = r.CellGrade;
             int nx = r.Nx, nz = r.Nz;
             double step = r.Step;
             float[] heights = grid.Heights;
@@ -1751,6 +1762,8 @@ namespace SkiResortMod.Systems
                          (maskStart[nz] == 0 || (maskRuns != null && maskRuns.Length >= 2L * maskStart[nz]));
             if (cellBand == null || cellBand.Length < nx * nz)
                 return true;
+            bool eu = DisplayState.Scheme == GradeScheme.European && cellGrade != null && cellGrade.Length >= nx * nz;
+            UnityEngine.Color[] colors = DisplayState.Scheme == GradeScheme.European ? BandColorsEu : BandColors;
             double half = step * 0.5;
             int groups = (nz + s - 1) / s;
             for (int g = 0; g < groups; g++)
@@ -1782,8 +1795,9 @@ namespace SkiResortMod.Systems
                             i++;
                             continue;   // BandOutside (255) and anything invalid
                         }
+                        byte key = eu ? CellKey(b, cellGrade[row + i], true) : b;
                         int start = i;
-                        while (i + 1 < iEnd && cellBand[row + i + 1] == b)
+                        while (i + 1 < iEnd && cellBand[row + i + 1] == b && (!eu || CellKey(b, cellGrade[row + i + 1], true) == key))
                             i++;
                         int end = i;
                         i++;
@@ -1799,7 +1813,7 @@ namespace SkiResortMod.Systems
                             A = new float3(xa, y, wz),
                             B = new float3(xb, y, wz),
                             Width = width,
-                            Color = Bands[b],
+                            Color = colors[key],
                         };
                         m_StripCount++;
                     }

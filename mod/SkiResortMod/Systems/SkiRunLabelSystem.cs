@@ -53,6 +53,7 @@ namespace SkiResortMod.Systems
             public Entity Run;
             public string Text;
             public sbyte Band;
+            public float GradePct;      // the crux, % (European grading reads its class from it, T162 rev. 2)
             public float3 Pos;          // world (x, terrain + LiftM, z)
             public float TextWidth;     // local units of the mesh (before the scale)
             public float TextHeight;    // the same
@@ -293,10 +294,11 @@ namespace SkiResortMod.Systems
                 }
                 label.Pos = pos;
                 label.ExtentM = extent;
-                if (label.Parts.Count == 0 || label.Text != text || label.Band != row.Band)
+                if (label.Parts.Count == 0 || label.Text != text || label.Band != row.Band || label.GradePct != row.GradePct)
                 {
                     label.Text = text;
                     label.Band = row.Band;
+                    label.GradePct = row.GradePct;
                     BuildMeshes(label);
                     label.AppliedStep = -1;
                     m_Step = -1;                            // the new meshes carry alpha 255: re-apply the current step
@@ -327,7 +329,7 @@ namespace SkiResortMod.Systems
             bool keepRich = tmp.richText;
             try
             {
-                RunLabelRules.BandRgb(label.Band, m_BuiltScheme, out byte r, out byte g, out byte b);
+                RunLabelRules.BandRgb(label.Band, m_BuiltScheme, label.GradePct, out byte r, out byte g, out byte b);
                 tmp.richText = false;
                 tmp.color = new Color32(r, g, b, 255);
                 tmp.rectTransform.sizeDelta = new Vector2(Tuning.SizeW, Tuning.SizeH);

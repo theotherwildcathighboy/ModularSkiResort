@@ -30,7 +30,7 @@ import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { GLADE_LEVEL_MAX, GLADE_LEVEL_MIN, clampGladeLevel, hubTriggers, quickRuns$ } from "../bindings";
+import { GLADE_LEVEL_MAX, GLADE_LEVEL_MIN, clampGladeLevel, gradeScheme$, hubTriggers, quickRuns$ } from "../bindings";
 import { BAND } from "../bindings";
 import type { QuickLiftsAction, QuickRunsKey, QuickRunsLift, QuickRunsPod, QuickRunsSheetRow, QuickRunsState } from "../bindings";
 import { useT } from "../l10n";
@@ -39,6 +39,7 @@ import { PLANNER_STEPS, plannerStepIndex, rejectSummary } from "./hubRules";
 import type { PlannerStep } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, QUICK_REJECT_TEXT, QUICK_SITE_TEXT, gladeLevelEntry, sentKeyEntry } from "./hubText";
 import { BandMarker, CheckBox, Divider, LocText, Tip, TipLines, cx, numArg, slopeArg, useUnits } from "./parts";
+import { EU_CLASS, euCounts, isEuropean } from "./units";
 import styles from "./hub.module.scss";
 
 /* QuickRunsRules.TreeLineStepM, and the coarse step. */
@@ -205,7 +206,7 @@ function PreviewLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Elemen
   return (
     <>
       <div className={cx(styles.quickLine, styles.quickLineMix)}>
-        <BandCounts count={q.count} doubleBlack />
+        <BandCounts count={q.count} euGreen={q.euGreen} doubleBlack />
         <LocText entry={HUB_FMT.quickTotals} args={{ N: numArg(q.enabled, Unit.Integer), M: numArg(q.runs, Unit.Integer), T: numArg(q.tracks, Unit.Integer) }} />
       </div>
       <div className={styles.quickLine}>
@@ -245,18 +246,27 @@ function NoticeLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element
 }
 
 /* The enabled runs by color: green, blue, black as the map's markers with a number. A pod's row counts double black with black. The plan's
-   totals line (doubleBlack) gives double black its own marker when it has any. */
-function BandCounts({ count, doubleBlack }: { count: readonly number[]; doubleBlack?: boolean }): JSX.Element {
+   totals line (doubleBlack) gives double black its own marker when it has any. European grading (T162 rev. 2): green and blue (the Green
+   band split by euGreen), red, black, and the ski route the same way as double black. */
+function BandCounts({ count, euGreen, doubleBlack }: { count: readonly number[]; euGreen: number; doubleBlack?: boolean }): JSX.Element {
+  const eu = isEuropean(useValue(gradeScheme$));
   const db = count[BAND.DoubleBlack] ?? 0;
   const split = !!doubleBlack && db > 0;
-  const items: Array<[number, number]> = [[BAND.Green, count[BAND.Green] ?? 0], [BAND.Blue, count[BAND.Blue] ?? 0],
-    [BAND.Black, (count[BAND.Black] ?? 0) + (split ? 0 : db)]];
-  if (split) items.push([BAND.DoubleBlack, db]);
+  // [key, band, European class or undefined, count]
+  const items: Array<[string, number, number | undefined, number]> = [];
+  if (eu) {
+    const c = euCounts(count, euGreen);
+    items.push(["g", BAND.Green, EU_CLASS.Green, c[EU_CLASS.Green]], ["b", BAND.Green, EU_CLASS.Blue, c[EU_CLASS.Blue]]);
+  } else {
+    items.push(["g", BAND.Green, undefined, count[BAND.Green] ?? 0]);
+  }
+  items.push(["u", BAND.Blue, undefined, count[BAND.Blue] ?? 0], ["k", BAND.Black, undefined, (count[BAND.Black] ?? 0) + (split ? 0 : db)]);
+  if (split) items.push(["d", BAND.DoubleBlack, undefined, db]);
   return (
     <>
-      {items.map(([band, n]) => (
-        <span key={band} className={styles.planMixItem}>
-          <BandMarker band={band} />
+      {items.map(([key, band, euClass, n]) => (
+        <span key={key} className={styles.planMixItem}>
+          <BandMarker band={band} euClass={euClass} />
           {numArg(n, Unit.Integer)}
         </span>
       ))}
@@ -302,7 +312,7 @@ function LiftPlanRow({ l, pod, t, wait }: { l: QuickRunsLift; pod: QuickRunsPod 
   );
   const second = (
     <>
-      {pod && <BandCounts count={pod.count} />}
+      {pod && <BandCounts count={pod.count} euGreen={pod.euGreen} />}
       {pod && pod.tracks > 0 && <TrackCount n={pod.tracks} />}
       {l.homeKey && <span className={styles.planMixItem}>{verdictText(l.homeKey, t)}</span>}
     </>
@@ -315,7 +325,7 @@ function LiftPlanRow({ l, pod, t, wait }: { l: QuickRunsLift; pod: QuickRunsPod 
 /* "Other runs": the group no lift starts (links between lifts, ways home, runs without a lift). */
 function OtherRunsRow({ p, t, wait }: { p: QuickRunsPod; t: Translate; wait: boolean }): JSX.Element {
   /* The lift rows' shape: the name, then the band counts and the cat tracks */
-  const second = <><BandCounts count={p.count} />{p.tracks > 0 && <TrackCount n={p.tracks} />}</>;
+  const second = <><BandCounts count={p.count} euGreen={p.euGreen} />{p.tracks > 0 && <TrackCount n={p.tracks} />}</>;
   return <PlanRow on={p.on} tip={t(HUB_LOC.quickPodTip)} wait={wait} onSelect={() => set("pod", p.key)} first={<>{t(HUB_LOC.quickOtherRuns)}</>} second={second} />;
 }
 

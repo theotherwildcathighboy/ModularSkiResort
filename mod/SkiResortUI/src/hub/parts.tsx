@@ -20,7 +20,7 @@ import { displayUnits$, gradeScheme$ } from "../bindings";
 import type { LocEntry } from "../l10n";
 import { GLYPH_INFO, unitNbsp } from "./hubRules";
 import { EU_TEXT, HUB_FMT } from "./hubText";
-import { areaHa, bandShape, schemeEntry, slopeValue, speed, unitSettingsFor, unpackUnits } from "./units";
+import { areaHa, bandShape, euClassShape, isEuropean, schemeEntry, slopeValue, speed, unitSettingsFor, unpackUnits } from "./units";
 import type { DisplayUnits } from "./units";
 import { IconKey, iconKeyOf } from "./iconKey";
 import styles from "./hub.module.scss";
@@ -272,13 +272,19 @@ export function NumCell({ samples, kind, fallbackClass, className, children }: {
 /**
  * Difficulty marker: CSS shapes in em, outlines with border longhands. Flat = hollow gray circle, green circle, blue
  * square, black diamond (rotated square with a light outline), double black = two diamonds, pending (-1) = hollow at
- * 0.4 opacity, cannot be rated (-2) = a hollow circle in the warning color. European grading (T162, units.ts bandShape): blue, red
- * and black discs, two black discs for the expert band.
+ * 0.4 opacity, cannot be rated (-2) = a hollow circle in the warning color. European grading (T162 rev. 2, units.ts bandShape): green,
+ * blue, red and black discs by the class of the band and the crux, and an orange diamond for the ski route.
  */
-export function BandMarker({ band }: { band: number }): JSX.Element {
+export function BandMarker({ band, gradePct, euClass }: {
+  band: number;
+  /** The run's crux, %: European grading splits the Green band into green and blue by it (units.ts euClassOf). Left out = both discs. */
+  gradePct?: number;
+  /** A European class to show as is (the legend), in place of the band. */
+  euClass?: number;
+}): JSX.Element {
   const scheme = useValue(gradeScheme$);
   let inner: JSX.Element;
-  switch (bandShape(band, scheme)) {
+  switch (euClass !== undefined && isEuropean(scheme) ? euClassShape(euClass) : bandShape(band, scheme, gradePct)) {
     case "flat": inner = <div className={cx(styles.bandShape, styles.bandFlat)} />; break;
     case "green": inner = <div className={cx(styles.bandShape, styles.bandGreen)} />; break;
     case "blue": inner = <div className={cx(styles.bandShape, styles.bandBlue)} />; break;
@@ -291,17 +297,19 @@ export function BandMarker({ band }: { band: number }): JSX.Element {
         </>
       );
       break;
+    case "euGreen": inner = <div className={cx(styles.bandShape, styles.bandEuGreen)} />; break;
     case "euBlue": inner = <div className={cx(styles.bandShape, styles.bandEuBlue)} />; break;
-    case "euRed": inner = <div className={cx(styles.bandShape, styles.bandEuRed)} />; break;
-    case "euBlack": inner = <div className={cx(styles.bandShape, styles.bandEuBlack)} />; break;
-    case "euDblack":
+    case "euGreenBlue":
       inner = (
         <>
-          <div className={cx(styles.bandShape, styles.bandEuBlack, styles.bandSmall)} />
-          <div className={cx(styles.bandShape, styles.bandEuBlack, styles.bandSmall, styles.bandSecond)} />
+          <div className={cx(styles.bandShape, styles.bandEuGreen, styles.bandSmall)} />
+          <div className={cx(styles.bandShape, styles.bandEuBlue, styles.bandSmall, styles.bandSecond)} />
         </>
       );
       break;
+    case "euRed": inner = <div className={cx(styles.bandShape, styles.bandEuRed)} />; break;
+    case "euBlack": inner = <div className={cx(styles.bandShape, styles.bandEuBlack)} />; break;
+    case "euRoute": inner = <div className={cx(styles.bandShape, styles.bandEuRoute)} />; break;
     case "unrateable": inner = <div className={cx(styles.bandShape, styles.bandUnrateable)} />; break;
     default: inner = <div className={cx(styles.bandShape, styles.bandPending)} />; break;
   }

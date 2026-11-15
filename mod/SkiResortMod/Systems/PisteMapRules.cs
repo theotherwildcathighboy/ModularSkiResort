@@ -14,7 +14,9 @@ using Unity.Mathematics;
 namespace SkiResortMod.Systems
 {
     /// <summary>Outline style by difficulty (the hub's band colors, hub.module.scss .band*).</summary>
-    public enum PisteStyle : byte { Pending = 0, Unrateable = 1, Flat = 2, Green = 3, Blue = 4, Black = 5, DoubleBlack = 6 }
+    /// <summary>Red and Route are the European grading's own classes (T162 rev. 2, DisplayUnits.EuClassOf); the North American scheme never
+    /// shows them.</summary>
+    public enum PisteStyle : byte { Pending = 0, Unrateable = 1, Flat = 2, Green = 3, Blue = 4, Black = 5, DoubleBlack = 6, Red = 7, Route = 8 }
 
     /// <summary>The overlay's pure rules.</summary>
     public static class PisteMapRules
@@ -38,6 +40,26 @@ namespace SkiResortMod.Systems
                 default: return PisteStyle.Pending;
             }
         }
+
+        /// <summary>The style of a band in a run grading. North American: StyleOf(band). European (T162 rev. 2): the class of the band and
+        /// its crux grade in percent (DisplayUnits.EuClassOf), pending and cannot be rated unchanged.</summary>
+        public static PisteStyle StyleOf(int band, GradeScheme scheme, float gradePct)
+        {
+            if (scheme != GradeScheme.European || band < 0 || band > 4)
+                return StyleOf(band);
+            switch (DisplayUnits.EuClassOf(band, gradePct))
+            {
+                case EuClass.Green: return PisteStyle.Green;
+                case EuClass.Blue: return PisteStyle.Blue;
+                case EuClass.Red: return PisteStyle.Red;
+                case EuClass.Black: return PisteStyle.Black;
+                case EuClass.Route: return PisteStyle.Route;
+                default: return PisteStyle.Flat;
+            }
+        }
+
+        /// <summary>The style of a band with no grade (DisplayUnits.EuClassOfBand: the European Green band reads blue).</summary>
+        public static PisteStyle StyleOfBand(int band, GradeScheme scheme) => StyleOf(band, scheme, DisplayUnits.EuGreenMaxPct);
 
         /// <summary>A natural run's outline is dashed.</summary>
         public static bool IsDashed(RunFeatures f) => f.IsNatural;

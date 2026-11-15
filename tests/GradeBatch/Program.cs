@@ -631,6 +631,36 @@ namespace GradeBatch
             GradeMsg sm = GradeInput.PlanMsg(steep.Path, steep.Prof, steep.Raster, p);
             Check(sm.Key == "PLAN_STEEP" && loc.TryGetValue("PLAN_STEEP", out string steepText) && sm.Args.All(a => steepText.Contains("{" + a.Name + "}")), W + " plan, steep", sm.Signature);
             Check(GradeInput.PlanMsg(null, null, null, p).IsEmpty, W + " no plan", "no path, no line");
+
+            // European grading (T162 rev. 2): the cat track tool's texts name no run color (so they need no European variant), and its
+            // tracks keep the Green band in both schemes. A track at the tool's limit (25 %) reads a European blue piste, a gentle one green.
+            foreach (string key in used)
+                if (loc.TryGetValue(key, out string text))
+                    Check(!Regex.IsMatch(text, "\\b(green|blue|red|black)\\b", RegexOptions.IgnoreCase), W + " European", key + " names a run color: " + text);
+            Check(SkiRunRatingRules.CatTrackBand((sbyte)SlopeBand.Blue) == (sbyte)SlopeBand.Green, W + " European", "a cat track rates Green");
+            Check(DisplayUnits.EuClassOf((int)SlopeBand.Green, GradeParams.DefaultMaxGrade * 100f) == EuClass.Blue, W + " European",
+                  "a cat track at the tool's limit is a European blue piste");
+            Check(DisplayUnits.EuClassOf((int)SlopeBand.Green, 12f) == EuClass.Green, W + " European", "a 12 % cat track is a European green piste");
+            // The European limits sit on the classifier's own band floors (25 / 40 / 60 %), so red, black and the ski route ARE bands and only
+            // the Green band splits. A sweep of the crux grade 0 .. 120 % in 0.1 % steps: the class never goes down as the grade rises, and
+            // away from the exact boundaries it is the expected one.
+            Check(SkiSlopeClassifier.GradeBlue == 0.25f && SkiSlopeClassifier.GradeBlack == 0.40f && SkiSlopeClassifier.GradeDoubleBlack == 0.60f,
+                  W + " European", "the band floors moved: the European red / black / route limits no longer line up");
+            int last = 0, wrong = 0, down = 0;
+            for (int k = 0; k <= 1200; k++)
+            {
+                float g = k / 1000f;
+                int c = (int)DisplayUnits.EuClassOf((int)SkiSlopeClassifier.BandOf(g), g * 100f);
+                if (c < last)
+                    down++;
+                last = c;
+                if (k == 60 || k == 150 || k == 250 || k == 400 || k == 600)
+                    continue;   // the exact boundary: float rounding of g * 100 decides, the sweep checks only the order there
+                int want = k < 60 ? 0 : k < 150 ? 1 : k < 250 ? 2 : k < 400 ? 3 : k < 600 ? 4 : 5;
+                if (c != want)
+                    wrong++;
+            }
+            Check(down == 0 && wrong == 0, W + " European", $"crux sweep: {down} step(s) down, {wrong} wrong class(es)");
         }
 
 

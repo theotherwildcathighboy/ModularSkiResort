@@ -625,3 +625,11 @@ changes. Each Option has Auto, and C# resolves Auto from the game's settings (`I
 The hub gives vanilla's number formatter a copy of the localization with the chosen unit settings (parts.tsx `unitLoc`). Vanilla's own
 panels keep the game's settings. The C# tooltips use vanilla's units while the choice equals the game's setting. Otherwise they use the
 `SkiResort.Unit.*` keys (DisplayText), and a vanilla number line shows as text (`UnitTooltipLine`).
+
+## European classes (contract 47, T162 rev. 2)
+European grading has its own limits on the crux grade (`gradePct`, C# `SlopeResult.RatingGrade`). Green piste: under 15 %. Blue: 15 to
+25 %. Red: 25 to 40 %. Black: 40 to 60 %. Ski route: 60 % and up. The code is `DisplayUnits.EuClassOf` and units.ts `euClassOf`, and tests
+pin both. Only the Green band splits. Red, black and route are the Blue, Black and DoubleBlack bands. Scoring, economy and saves stay on
+`SlopeBand`. `euGreen` (int) on ResortRow, QuickRunsState and QuickRunsPod counts the Green-band runs that show European green. The
+other Green-band runs show blue (units.ts `euCounts`). With no grade, the hub shows two discs (`euGreenBlue`, icon eugreenblue.svg). The
+world then draws blue, the hardest color of the band. No text ranks a European green against a blue (test-hub-rules T60.18).

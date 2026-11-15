@@ -33,6 +33,7 @@
   --hubDiffGreen: rgba(76, 175, 80, 1);
   --hubDiffBlue: rgba(52, 120, 220, 1);
   --hubDiffRed: rgba(214, 48, 40, 1);   // European grading only (T162): the red piste
+  --hubDiffRoute: rgba(240, 130, 20, 1);   // European grading only (T162 rev. 2): the ski route's orange
   --hubDiffBlack: rgba(14, 14, 18, 1);
   --hubDiffDoubleBlack: rgba(0, 0, 0, 1);
   --hubDiffEdge: rgba(255, 255, 255, 0.85);
@@ -64,6 +65,7 @@
   --hubOnDarkGreen: rgba(76, 175, 80, 1);
   --hubOnDarkBlue: rgba(70, 140, 240, 1);
   --hubOnDarkRed: rgba(235, 70, 60, 1);
+  --hubOnDarkOrange: rgba(240, 130, 20, 1);
   --hubOnDarkBlack: rgba(80, 86, 98, 1);
   --hubOnDarkDoubleBlack: rgba(80, 86, 98, 1);
   --hubOnDarkEdge: rgba(240, 251, 255, 1);
@@ -644,6 +646,11 @@
   background-color: var(--hubDiffRed);
 }
 
+// European grading (T162 rev. 2): the ski route (the double-black band).
+.segRoute {
+  background-color: var(--hubDiffRoute);
+}
+
 // Black on a dark panel needs a light edge (research 2.F.2).
 .segBlack {
   background-color: var(--hubDiffBlack);
@@ -781,7 +788,29 @@
   border-left-color: var(--hubDiffEdge);
 }
 
-// European grading (T162): discs. Blue piste, red piste, black piste (a light edge on the dark panel, like .bandBlack).
+// European grading (T162 rev. 2): discs. Green, blue, red and black piste (a light edge on the dark panel, like .bandBlack). The ski
+// route is an orange diamond with a dark edge, like its marker in the Alps.
+.bandEuGreen {
+  border-radius: 50%;
+  background-color: var(--hubDiffGreen);
+}
+
+.bandEuRoute {
+  width: 0.58em;
+  height: 0.58em;
+  transform: rotate(45deg);
+  background-color: var(--hubDiffRoute);
+  border-style: solid;
+  border-top-width: 0.08em;
+  border-right-width: 0.08em;
+  border-bottom-width: 0.08em;
+  border-left-width: 0.08em;
+  border-top-color: var(--hubDiffBlack);
+  border-right-color: var(--hubDiffBlack);
+  border-bottom-color: var(--hubDiffBlack);
+  border-left-color: var(--hubDiffBlack);
+}
+
 .bandEuBlue {
   border-radius: 50%;
   background-color: var(--hubDiffBlue);
