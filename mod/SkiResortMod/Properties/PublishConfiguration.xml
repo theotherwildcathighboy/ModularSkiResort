@@ -15,9 +15,9 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 
 ## Highlights
 - **Four lifts, one tool.** Fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Click the base station, click the top, and the tool plans numbered towers over your terrain. Chairs and cabins ride the rope. You can edit the tower placement.
-- **Runs on real snow.** Draw a run and set its features: groomed or natural, snow guns, floodlights for night skiing. Cat tracks link runs across the hill. Each run is rated green to double black from its hardest pitch. It opens at 3 ft (91 cm) of snow on 60 % of the run. Snow guns extend the season where it is cold enough.
+- **Runs on real snow.** Draw a run and set its features: groomed or natural, snow guns, floodlights for night skiing. Cat tracks and narrow ski ways link runs across the hill. Each run is rated from its hardest pitch, in North American or European grading. It opens at 3 ft (91 cm) of snow on 60 % of the run. Snow guns extend the season where it is cold enough.
 - **Resort Planner.** Outline a mountainside and get a plan of linked runs, cat tracks and lifts. Leave out what you do not want, then build it.
-- **Seasons.** Snow melts in spring, runs close and lifts stop. The aerial tram keeps running as summer sightseeing. Northern and Southern Hemisphere seasons are both accounted for.
+- **Seasons.** Snow melts in spring, runs close and lifts stop. Lodges and the school close off-season. The aerial tram keeps running as summer sightseeing. Northern and Southern Hemisphere seasons are both accounted for.
 - **Lodges, Ski School and Ski Patrol.** Five lodges, a school and two patrol buildings, adding amenities (and costs) to your resort.
 - **Merge your own buildings.** Is there an asset you'd love to be in your ski area? A landmark, signature or recreation building near the runs can merge into the resort, increasing its attraction (and costs).
 - **Ski Bus Depot.** A coach stop in town that brings guests to a ski resort too far away for them to reach on their own. (Helps alleviate vanilla issues with travel times to far-away ski areas.)
@@ -35,10 +35,10 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 
 ## Good to know
 - Skiers are counted, not visually simulated. Chairs and cabins move but carry no riders. (Post Park Adventures, I will try my best to at least get Cims on the chairlifts)
-- Ground: the Welcome Sign, the Ski Bus Depot, the A-Frame Day Lodge, the Swanky Grand Lodge and the aerial tram base level their ground. Most chairlift and gondola stations cut a level pad. The Chalet Lodge, Mountain Hut, Swanky Summit Lodge, both patrol buildings, the Ski School, the fixed-grip top station and the tram top terminal are meant to be built into the hillside with the terrain tools or Move It. The Ski School is the most demanding: level the top of its magic-carpet area, then slope it down to the base.
-- Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
+- Ground: the Welcome Sign, the Ski Bus Depot, the A-Frame and Grand lodges and the tram base level their ground. Most chairlift and gondola stations cut a level pad. The other lodges, both patrol buildings, the Ski School and the fixed-grip and tram top stations are meant to be built into the hillside with the terrain tools or Move It. The Ski School is the most demanding: level the top of its magic-carpet area, then slope it down to the base.
 - Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and refunds no run fee. There is a warning popup before you bulldoze the sign.
 - The Resort Planner is on by default. Its switch is in Options.
+- Options set the run grading (North American or European), the units, and slopes in degrees or percent. By default they follow the city's theme and the game's units.
 - Lifts can cross lifts of another type, over or under, where the towers can reach the height. Two lifts of the same type cannot cross.
 - A cat track cannot pass under a lift that is already built: build cat tracks first.
 - Lifts are power-line networks and need low-voltage power at the base station. The game refuses a city high-voltage line at a lift. This is an odd quirk of how I decided to build the lifts system.
@@ -85,13 +85,58 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 	<Dependency Id="" />
 	<!--Required DLC, can be set multiple times. Supported values are "Landmark Buildings", "San Fransisco Set", "Beach Properties", "Urban Promenades", "Modern Architecture"-->
 	<RequiredDLC Value="" />
-	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset. Source: release/CHANGELOG.md 1.0.0-->
+	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset. Source: the newest entry of release/CHANGELOG.md (tools/sync-listing.js copies it)-->
 	<ChangeLog>
-- Save compatible with previous: n/a (first release)
+- Save compatible with previous: yes
 - Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1
 - Do not load in older versions: no
 
-First public release. Every feature, number and setting is on the docs site: https://theotherwildcathighboy.github.io/ModularSkiResort
+**Resort Planner:**
+- No more long green lines outside the region while planning.
+- The lift list scrolls, and the steps read in a clearer order.
+- Building a lift that needs hand fitting keeps the planner and its other lifts.
+- No station on top of another station.
+- Runs reach the run they join, and cat tracks come out in one piece.
+- The planner is on by default.
+
+**Hub:**
+- Fly to an unfinished lift.
+- Click a run to go to it.
+- Mountain stats.
+- Clearer Ski School wording when it adds nothing, for example off-season.
+
+**Units:**
+- Degrees for slopes everywhere.
+- Four display options: run grading, lengths and elevation, and weather are Auto by default (grading follows the city's map theme, the units follow the game's setting). Slope shows degrees by default.
+- European grading: green, blue, red, black, ski route.
+
+**Assets:**
+- Staff Only signs on the doors.
+- New flags.
+- Patrol Hut firewood.
+- 3D icons.
+- The Chalet, A-Frame and Grand run off-grid when a cat track links them to a road lodge or bus depot.
+- New thumbnail and launcher icon.
+
+**Season:**
+- A run needs real snow to read Open, with clearer snow text.
+- The planner's tree filler keeps out of lift corridors, the tram's too.
+- The tram no longer stands still, in summer too, in a game that loads the mod's assets twice.
+
+**Economy:**
+- Ticket default 80 to 100, season pass x2 to x4.
+- Lodges and the school close off-season (an option).
+- Cat tracks pay snowmaking only while their guns make snow.
+- "Extra tourists in the city" label.
+- Guests without a car who live far from every lodge start at the bus depot.
+
+**Ski way:**
+- A narrow grading mode in the cat track tool (Ctrl+Shift+N).
+
+**Behind the scenes:**
+- Dev-only screens out of the release build.
+- Lift towers keep their saved shape on load.
+- Less log noise.
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme". PLACEHOLDER: the DISCORD_URL token stands for the Discord bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or delete this line if only the forum thread is used (the same gate and the same UNVERIFIED publisher behavior as ForumLink)-->
 	<ExternalLink Type="discord" Url="https://discord.com/channels/263634513861541888/1570379334672326736" />

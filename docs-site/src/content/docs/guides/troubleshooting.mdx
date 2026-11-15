@@ -16,7 +16,7 @@ Start with the hub's problem line. If the hub shows nothing, or a hub line point
 | *Runs being rated: N* | The mod rates runs one at a time. A new run adds **0** until it has a rating. A reshaped run keeps its last rating. |
 | *Lodges in no ski area: N* / *Ski schools in no ski area: N* | Out of range of every Welcome Sign, so they add nothing (a school teaches nobody). Move them closer or place a sign. |
 | *No lodge* | Build one near the sign from the Buildings tab. |
-| *All lodges deactivated* / *Lodges deactivated: N* | A lodge counts only while it is active. Reactivate one in its own info panel. |
+| *All lodges deactivated* / *Lodges deactivated: N* | A lodge counts only while it is active. Off-season, option *Close lodges off-season* (default on) deactivates the lodges and the Ski School, and opens them again an hour after a run opens. Otherwise reactivate one in its own info panel. |
 | *Lodge or school: road required* / *Welcome Sign: road required* | The lodge or sign needs a road. An off-road A-Frame, Chalet or Grand also passes with a cat track within 25 m chained to a lodge with a road or the Ski Bus Depot ([Guest Requirements](/guides/lodges-school-patrol/#guest-requirements)). The sign's line shows only while no active lodge of the ski area has a road, because the sign then employs the hill staff. Move the sign with **Relocate** in its info panel: bulldozing it deletes every run linked to it. |
 | *Efficiency 74 %: …* / *Welcome Sign stopped: …* | Efficiency of the sign and its lodges below **100 %** (at **0 %**: stopped). Causes: staff, power, water, sewage, garbage, budget. The largest cause is named. The tooltip lists the others. |
 | *No lift yet* / *Runs without a lift: N* | A run counts less until a running lift reaches its top: within **150 m** of the line, at most **15 m** above the top station ([Lift Service](/guides/runs-and-snow/#lift-service)). |
@@ -28,10 +28,10 @@ Start with the hub's problem line. If the hub shows nothing, or a hub line point
 | *Ski-day cars not arriving* | Fewer guests are sent until more arrive. Add parking and roads. |
 | *Lodge without parking* / *No parking: Lodge X* | No car spaces within **600 m** of the lodge (the blue ring on a selected lodge). Tourist parties from outside the city drive, and none arrive without them. Hotel guests within **900 m** walk. |
 | *Lodge is far from the runs* | Ski-day guests target lodges within **800 m** of runs or lift stations only. |
-| *Nearest guests: N km* | Ski-day guests drive from homes and hotels, and few make a trip beyond about **7 km**. Build homes or hotels near the hill, or a [Ski Bus Depot](/guides/lodges-school-patrol/#ski-bus-depot) in town. |
+| *Nearest guests: N* | Ski-day guests drive from homes and hotels, and few make a trip beyond about **7 km**. Build homes or hotels near the hill, or a [Ski Bus Depot](/guides/lodges-school-patrol/#ski-bus-depot) in town. |
 | *Bus depot: road required* | A depot with no road sends nobody and bills nothing. |
 | *Bus depot: no hill lodge* | A depot sends guests only while its ski area has an active hill lodge. A Mountain Hut or Swanky Summit Lodge counts. |
-| *Ski school: no green run* | Ski School adds to score only while a green run counts. |
+| *Ski school: no green run* (European: *no green or blue run*) | Ski School adds to score only while a green run counts (European: green or blue). |
 
 ## Log File
 
@@ -53,7 +53,8 @@ Problem reports: include the lines around any `!!!`. Where to send them: [Bug Re
 | `PrefabCatalog [arm]` | Once per city load. Lists every expected prefab as **found** or **missing**. Missing = asset not installed. Reinstall the mod. |
 | `Lift [power]` | Lifts without power at the base station. |
 | `Lifts [state]` | Lift state change: complete, unfinished, missing a section, chairs stopped. |
-| `Towers [nodes]` / `Towers [summary]` | Tower placement along a line. Use for floating towers or a section that will not place. |
+| `Towers [summary]` | One line per lift line: towers placed, the lowest clearance. Use for floating towers or a section that will not place. Needs Measurement diagnostics on. |
+| `Towers [fit]` | Tower fitting. At a load: how many lines are kept as saved. |
 | `Snow [open]` | Run opened or closed, with the snow reading. |
 | `Snow [measure]` | Snow measurement runs, and a warning when one could not finish before a load. |
 | `Tickets [gate]` | Ticket gate open or closed, with reason (for example no open run, sign not running). |

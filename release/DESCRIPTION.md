@@ -12,7 +12,7 @@ Ski resorts: lifts that fit your terrain, runs on natural or machine-made snow, 
 
 ---
 
-**Long description** (5827 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
+**Long description** (5852 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
 
 ---
 
@@ -24,9 +24,9 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 
 ## Highlights
 - **Four lifts, one tool.** Fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Click the base station, click the top, and the tool plans numbered towers over your terrain. Chairs and cabins ride the rope. You can edit the tower placement.
-- **Runs on real snow.** Draw a run and set its features: groomed or natural, snow guns, floodlights for night skiing. Cat tracks link runs across the hill. Each run is rated green to double black from its hardest pitch. It opens at 3 ft (91 cm) of snow on 60 % of the run. Snow guns extend the season where it is cold enough.
+- **Runs on real snow.** Draw a run and set its features: groomed or natural, snow guns, floodlights for night skiing. Cat tracks and narrow ski ways link runs across the hill. Each run is rated from its hardest pitch, in North American or European grading. It opens at 3 ft (91 cm) of snow on 60 % of the run. Snow guns extend the season where it is cold enough.
 - **Resort Planner.** Outline a mountainside and get a plan of linked runs, cat tracks and lifts. Leave out what you do not want, then build it.
-- **Seasons.** Snow melts in spring, runs close and lifts stop. The aerial tram keeps running as summer sightseeing. Northern and Southern Hemisphere seasons are both accounted for.
+- **Seasons.** Snow melts in spring, runs close and lifts stop. Lodges and the school close off-season. The aerial tram keeps running as summer sightseeing. Northern and Southern Hemisphere seasons are both accounted for.
 - **Lodges, Ski School and Ski Patrol.** Five lodges, a school and two patrol buildings, adding amenities (and costs) to your resort.
 - **Merge your own buildings.** Is there an asset you'd love to be in your ski area? A landmark, signature or recreation building near the runs can merge into the resort, increasing its attraction (and costs).
 - **Ski Bus Depot.** A coach stop in town that brings guests to a ski resort too far away for them to reach on their own. (Helps alleviate vanilla issues with travel times to far-away ski areas.)
@@ -44,10 +44,10 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 
 ## Good to know
 - Skiers are counted, not visually simulated. Chairs and cabins move but carry no riders. (Post Park Adventures, I will try my best to at least get Cims on the chairlifts)
-- Ground: the Welcome Sign, the Ski Bus Depot, the A-Frame Day Lodge, the Swanky Grand Lodge and the aerial tram base level their ground. Most chairlift and gondola stations cut a level pad. The Chalet Lodge, Mountain Hut, Swanky Summit Lodge, both patrol buildings, the Ski School, the fixed-grip top station and the tram top terminal are meant to be built into the hillside with the terrain tools or Move It. The Ski School is the most demanding: level the top of its magic-carpet area, then slope it down to the base.
-- Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
+- Ground: the Welcome Sign, the Ski Bus Depot, the A-Frame and Grand lodges and the tram base level their ground. Most chairlift and gondola stations cut a level pad. The other lodges, both patrol buildings, the Ski School and the fixed-grip and tram top stations are meant to be built into the hillside with the terrain tools or Move It. The Ski School is the most demanding: level the top of its magic-carpet area, then slope it down to the base.
 - Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and refunds no run fee. There is a warning popup before you bulldoze the sign.
 - The Resort Planner is on by default. Its switch is in Options.
+- Options set the run grading (North American or European), the units, and slopes in degrees or percent. By default they follow the city's theme and the game's units.
 - Lifts can cross lifts of another type, over or under, where the towers can reach the height. Two lifts of the same type cannot cross.
 - A cat track cannot pass under a lift that is already built: build cat tracks first.
 - Lifts are power-line networks and need low-voltage power at the base station. The game refuses a city high-voltage line at a lift. This is an odd quirk of how I decided to build the lifts system.
