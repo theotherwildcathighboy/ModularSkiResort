@@ -277,8 +277,8 @@ reports the real number. UNVERIFIED: the chunk and slice sizes (4 runs, 2000 tre
   grow back into its line (likely the field note behind T184). The hub draws the step strip (QuickRunsControls.tsx.md).
 - T165: the "huge green lines" after Build were the piste map (it hides only while this tool is open). The new cat tracks drew as green
   band rings at the zoom-scaled run width. The map now draws cat tracks thin in this tool's cat-track color (SkiPisteMapSystem.md).
-- T165, reopened (the lines showed while planning, outside the zone): the one green overlay this tool draws is the tree-line contour
-  (0.35/0.85/0.45, 1.5 m x zoom). It was marched over the region's bounding square, whose side is the longer bbox side, so every
-  tree-line crossing in that square drew, outside the polygon too. It is now clipped to the region. No other overlay draws green
-  while this tool is active: the piste map hides, the merge overlay is hub-armed, the lift-tool, station and outline overlays need
-  their own tool. Lift chords take the Home color (green for a green home) but stay between plan stations inside the region.
+- T165, reopened: the lines showed while planning, outside the zone. The one green overlay this tool draws is the tree-line contour
+  (0.35/0.85/0.45, 1.5 m x zoom). It was marched over the region's bounding square. The side of that square is the longer bbox side.
+  So every tree-line crossing in that square drew, outside the polygon too. It is now clipped to the region. No other overlay draws
+  green while this tool is active. The piste map hides, and the merge overlay is hub-armed. The lift-tool, station and outline
+  overlays need their own tool. Lift chords take the Home color (green for a green home) but stay between plan stations inside the region.
