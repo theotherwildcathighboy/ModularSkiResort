@@ -281,9 +281,9 @@ export const HUB_LOC = {
   runOpenEstClosed: ["SkiResort.Hub.RUN_OPEN_EST[Closed]", "Closed, estimated from the day's temperature"],
   /* the run tooltip's snow-gun line by RUN_GUN_WHY (the depth line is HUB_FMT.runDepth) */
   runGunsMaking: ["SkiResort.Hub.RUN_GUNS[Making]", "Snow guns: making snow now"],
-  runGunsDepth: ["SkiResort.Hub.RUN_GUNS[DepthReached]", "Snow guns: off, the snow is deep enough"],
-  runGunsWarm: ["SkiResort.Hub.RUN_GUNS[TooWarm]", "Snow guns: off, too warm"],
-  runGunsSeason: ["SkiResort.Hub.RUN_GUNS[OutOfSeason]", "Snow guns: off. They run from 2 months before winter to 1 month after"],
+  runGunsDepth: ["SkiResort.Hub.RUN_GUNS[DepthReached]", "Snow guns off: the snow is deep enough"],
+  runGunsWarm: ["SkiResort.Hub.RUN_GUNS[TooWarm]", "Snow guns off: too warm"],
+  runGunsSeason: ["SkiResort.Hub.RUN_GUNS[OutOfSeason]", "Snow guns off: they run from 2 months before winter to 1 month after"],
   runGunsWaiting: ["SkiResort.Hub.RUN_GUNS[Waiting]", "Snow guns: off until the run's snow is first read"],
   runOpenGating: ["SkiResort.Hub.RUN_OPEN_GATING", "Counts as open: Snow & season gating is off in Options."],
   runOpenNone: ["SkiResort.Hub.RUN_OPEN_NONE", "Not linked: belongs to no ski area, so it has no open or closed state."],
@@ -314,7 +314,7 @@ export const HUB_LOC = {
   runPropsFewer: ["SkiResort.Hub.RUN_PROPS_FEWER", "Fewer"],
   runPropsMore: ["SkiResort.Hub.RUN_PROPS_MORE", "More"],
   runPropsFewerTip: ["SkiResort.Hub.RUN_PROPS_FEWER_TIP", "Farther apart. Past 200 m: off."],
-  runPropsMoreTip: ["SkiResort.Hub.RUN_PROPS_MORE_TIP", "Closer together, down to 20 m."],
+  runPropsMoreTip: ["SkiResort.Hub.RUN_PROPS_MORE_TIP", "Puts them closer together, down to 20 m."],
   cruxPitch: ["SkiResort.Tooltip.CRUX_PITCH", "Hardest unavoidable pitch"],
   steepestPatch: ["SkiResort.Tooltip.STEEPEST_PATCH", "Steepest patch (avoidable)"],
 
@@ -385,7 +385,7 @@ export const HUB_LOC = {
   skiDaysNight: ["SkiResort.Hub.SKI_DAYS[Night]", "Closed for the night"],
   skiDaysFull: ["SkiResort.Hub.SKI_DAYS[Full]", "Full right now"],
   skiDaysTipOff: ["SkiResort.Hub.SKI_DAYS_TIP[Off]", "Locals who ski and Tourists who ski are both 0 in Options."],
-  skiDaysTipNoLodge: ["SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Needs an active lodge within 800 m of runs or stations. Off-road: a Hut, Summit, or a lodge whose cat tracks reach a road lodge."],
+  skiDaysTipNoLodge: ["SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Needs an active lodge within 800 m of runs or stations, with a road or a cat track. The Hut and Summit need neither."],
   skiDaysTipRuns: ["SkiResort.Hub.SKI_DAYS_TIP[Runs]", "The runs set the limit: bigger and easier runs hold more skiers at once."],
   skiDaysTipLodges: ["SkiResort.Hub.SKI_DAYS_TIP[Lodges]", "The lodges set the limit: each lodge takes 360 skiers at once, more on a powder day."],
   estRowTourists: ["SkiResort.Hub.EST_ROW[Tourists]", "Extra tourists in the city ≈"],
@@ -752,8 +752,8 @@ export const HUB_FMT = {
   /* both guest bars' tooltip, {MAX} = hubRules.guestBarScale */
   guestsBarScale: ["SkiResort.Hub.GUESTS_BAR_SCALE", "Full bar: {MAX} guests"],
   /* {N} = skiDaysCap, the capacity at once */
-  skiDaysRoomRuns: ["SkiResort.Hub.SKI_DAYS[RoomRuns]", "Room for {N}, runs limit it"],
-  skiDaysRoomLodges: ["SkiResort.Hub.SKI_DAYS[RoomLodges]", "Room for {N}, lodges limit it"],
+  skiDaysRoomRuns: ["SkiResort.Hub.SKI_DAYS[RoomRuns]", "Runs limit it to {N}"],
+  skiDaysRoomLodges: ["SkiResort.Hub.SKI_DAYS[RoomLodges]", "Lodges limit it to {N}"],
   skiDaysRoom: ["SkiResort.Hub.SKI_DAYS[Room]", "Room for {N}"],
   /* The Ski days row's tooltip: the three classes partition {SENT} ("close by" = the walk class). */
   skiDaysTipSent: ["SkiResort.Hub.SKI_DAYS_TIP[Sent]", "{MONTH}: {SENT} sent, {ARRIVED} reached a lodge"],
@@ -766,7 +766,7 @@ export const HUB_FMT = {
   moneyTicketsLast: ["SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets, {MONTH}: {N} paid"],
   moneyColMonth: ["SkiResort.Hub.MONEY_COL_MONTH", "{MONTH} so far"],
   moneyColMonthPartial: ["SkiResort.Hub.MONEY_COL_MONTH_PARTIAL", "{MONTH} so far, partial"],
-  moneyTipPassesMonth: ["SkiResort.Hub.MONEY_TIP[PassesMonth]", "Sold this month so far, in the net now. Of it, the pre-season sale: {PRE}."],
+  moneyTipPassesMonth: ["SkiResort.Hub.MONEY_TIP[PassesMonth]", "Sold this month so far, in the net now. The pre-season sale is {PRE} of it."],
   moneyTipLiftsRate: ["SkiResort.Hub.MONEY_TIP[LiftsRate]", "Booked this month so far. At today's rate: {RATE} per month."],
   moneyTipSoFar: ["SkiResort.Hub.MONEY_TIP[SoFar]", "{RATE} per month at today's staff and budget. {SHARE} of the month so far. An estimate: it moves when staff or lodges change."],
   moneyRowPasses: ["SkiResort.Hub.MONEY_ROW[Passes]", "Passes this season · {N}"],
@@ -899,7 +899,7 @@ export const SEASON_HINT_TEXT: ReadonlyArray<LocEntry | null> = [
 export const SEASON_TIP_TEXT: ReadonlyArray<LocEntry | null> = [
   null,
   ["SkiResort.Hub.SEASON_TIP[SnowSeason]", "At or below freezing: natural snow can fall."],
-  ["SkiResort.Hub.SEASON_TIP[SnowGunsOnly]", "Above freezing, but the snow guns are running."],
+  ["SkiResort.Hub.SEASON_TIP[SnowGunsOnly]", "It is above freezing, but the snow guns are running."],
   ["SkiResort.Hub.SEASON_TIP[Thawing]", "Above freezing and no snow gun running. Runs stay open on the snow that is left."],
   ["SkiResort.Hub.SEASON_TIP[WaitingForSnow]", "Cold enough for snow or snow guns, but no run has enough snow yet."],
   ["SkiResort.Hub.SEASON_TIP[TooWarm]", "Too warm for snow guns. Runs reopen when it cools. With Snow & season gating off in Options, every run counts as open."],
@@ -944,7 +944,7 @@ export const BUILD_SHORT_RUN: Readonly<Record<RunKind, LocEntry>> = {
   1: ["SkiResort.Hub.BUILD_SHORT[Snowmaking]", "Snow guns open it earlier and keep it open longer."],
   2: ["SkiResort.Hub.BUILD_SHORT[Night]", "Floodlit snowmaking run: scores 25 % more."],
   3: ["SkiResort.Hub.BUILD_SHORT[Natural]", "Natural snow only, no upkeep. Easy runs score less."],
-  4: ["SkiResort.Hub.BUILD_SHORT[CatTrack]", "Graded as you draw it. Always green, counts a quarter."],
+  4: ["SkiResort.Hub.BUILD_SHORT[CatTrack]", "Always green. Counts as a quarter run."],
 };
 
 /*
@@ -1320,7 +1320,7 @@ export const EU_TEXT_ENTRIES: readonly LocEntry[] = [
   ["SkiResort.Hub.RUN_TYPE_NOTE@EU", "Natural blue and red runs count less. A groomed run counts in full."],
   ["SkiResort.Hub.RUN_CAT_TRACK_NOTE@EU", "A cat track always rates blue and counts a quarter of a run its size, in the score and the skier room."],
   ["SkiResort.Hub.BUILD_SHORT[School]@EU", "Teaches on blue runs."],
-  ["SkiResort.Hub.BUILD_SHORT[CatTrack]@EU", "Graded as you draw it. Always blue, counts a quarter."],
+  ["SkiResort.Hub.BUILD_SHORT[CatTrack]@EU", "Always blue. Counts as a quarter run."],
 ];
 
 /** EU_TEXT_ENTRIES by key. */
