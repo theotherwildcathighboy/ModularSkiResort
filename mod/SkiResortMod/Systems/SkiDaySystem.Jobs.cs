@@ -253,7 +253,7 @@ namespace SkiResortMod.Systems
         private struct ClaimOut
         {
             public int Pool, PoolTourists, Sent, SentWalk, SentCar, SentNoCar, SentTourists, CarsEnqueued, SentOffDay, SentDepot,
-                       CapacityPeople, TargetLodges;
+                       SentDepotCarless, CapacityPeople, TargetLodges;   // SentDepotCarless: of SentDepot, those the carless rule sent
             public byte State /*AreaState*/, Limit /*SkiDayLimit*/, ClaimHours, HasFirst, FirstClass, FirstKind;
             public uint ClosingFrame;
             public double FirstChance;
@@ -1820,6 +1820,7 @@ namespace SkiResortMod.Systems
                 double bestP = 0.0, bestD = double.PositiveInfinity;
                 EntityRef bestSign = default;
                 bool bestOffDayOnly = false;   // the winner fits only with the off-day deadline (the measure)
+                bool bestCarlessDepot = false;   // the winner is a depot picked by the carless rule (the measure)
                 bool leaving = false;
                 for (int a = 0; a < areaCount; a++)
                 {
@@ -1834,7 +1835,7 @@ namespace SkiResortMod.Systems
                         continue;
                     }
                     AreaJob aj = Areas[a];
-                    int li = NearestTarget(aj, origin, out float d);
+                    int li = NearestTarget(aj, origin, withCar, out float d, out bool carlessDepot);
                     if (li < 0 || !SkiDayRules.WithinReach(d, Knobs.ReachKm))
                         continue;
                     if (!SkiDayRules.HasRoom(active[a], co.CapacityPeople))
@@ -1860,6 +1861,7 @@ namespace SkiResortMod.Systems
                         continue;
                     bestA = a;
                     bestLi = li;
+                    bestCarlessDepot = carlessDepot;
                     bestCls = (byte)cls;
                     bestP = p;
                     bestD = d;
@@ -1896,6 +1898,8 @@ namespace SkiResortMod.Systems
                 bool toDepot = Lodges[bestLi].IsDepot != 0;
                 if (toDepot)
                     won.SentDepot++;
+                if (bestCarlessDepot)
+                    won.SentDepotCarless++;
                 if (bestOffDayOnly)
                     won.SentOffDay++;
                 uint deadline = SkiDayRules.ClaimDeadline(ownDeadline, won.ClosingFrame);
@@ -2033,10 +2037,15 @@ namespace SkiResortMod.Systems
 
             /// <summary>The nearest target lodge (LodgeReject.None, a Base road rule: a mountain lodge is
             /// never a claim target — with a position) of the area from the origin (straight line, xz). −1 if none.</summary>
-            private int NearestTarget(AreaJob aj, float2 origin, out float distance)
+            /// <summary>The nearest passing target (road lodge or bus depot). A guest without a car (<paramref name="withCar"/> false) whose
+            /// nearest road lodge is beyond walking distance gets the nearest depot in reach instead (SkiDayRules.PreferDepot, out
+            /// <paramref name="carlessDepot"/> true). With a car, or with no depot, the pick is the nearest target as before.</summary>
+            private int NearestTarget(AreaJob aj, float2 origin, bool withCar, out float distance, out bool carlessDepot)
             {
                 distance = float.PositiveInfinity;
-                int best = -1;
+                carlessDepot = false;
+                int best = -1, depot = -1;
+                float lodgeD = float.PositiveInfinity, depotD = float.PositiveInfinity;
                 int end = math.min(aj.LodgeStart + aj.LodgeCount, math.min(LodgeReject.Length, math.min(Sites.Length, Lodges.Length)));
                 for (int li = math.max(0, aj.LodgeStart); li < end; li++)
                 {
@@ -2048,11 +2057,27 @@ namespace SkiResortMod.Systems
                     if (so.HasPosition == 0)
                         continue;
                     float d = SkiDayRules.DistanceXZ(origin, so.Xz);
+                    if (Lodges[li].IsDepot != 0)
+                    {
+                        if (d < depotD)
+                        {
+                            depotD = d;
+                            depot = li;
+                        }
+                    }
+                    else if (d < lodgeD)
+                        lodgeD = d;
                     if (d < distance)
                     {
                         distance = d;
                         best = li;
                     }
+                }
+                if (depot >= 0 && depot != best && SkiDayRules.PreferDepot(withCar, lodgeD, depotD, Knobs.ReachKm))
+                {
+                    distance = depotD;
+                    carlessDepot = true;
+                    return depot;
                 }
                 return best;
             }

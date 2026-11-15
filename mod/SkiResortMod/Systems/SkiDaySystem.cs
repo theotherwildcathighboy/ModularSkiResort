@@ -1694,7 +1694,7 @@ namespace SkiResortMod.Systems
                        ? Invariant($" (closed {m.HillClosings} time(s), the last at {ClockText(m.LastCloseMinute)} with {m.OnTheWayAtClose} on the way and ") +
                          Invariant($"{m.OnSiteAtClose} on site)")
                        : "") +
-                   Invariant($"; bus depots: sent {m.SentDepot}, arrived {m.ArrivedDepot}") +
+                   Invariant($"; bus depots: sent {m.SentDepot} ({m.SentDepotCarless} carless past a nearer lodge), arrived {m.ArrivedDepot}") +
                    Invariant($"; deadlines pulled in {m.Pulled}; powder ") +
                    (double.IsNaN(m.PowderMax) ? "-" : m.PowderMax.ToString("F2", CultureInfo.InvariantCulture)) +
                    Invariant($" at most ({m.SnowHoursAtMax} snow-hours); confidence walk {Conf(mem, SkiDayRules.TravelClass.Walk):F2} car ") +
@@ -4531,6 +4531,8 @@ namespace SkiResortMod.Systems
             public int PowderMarkPasses, PowderKnownPasses, CarsEnqueued, SentOffDay;
             // The claims sent to a bus depot and their arrivals (subsets of Sent / Arrived).
             public int SentDepot, ArrivedDepot;
+            // Of SentDepot, the claims the carless rule sent to a depot past a nearer lodge (SkiDayRules.PreferDepot).
+            public int SentDepotCarless;
             // The highest capacity of the month with its limit and the clock of the first Full pass. The arrivals while the hill was closed
             // for the count, and the closings (no-counted-run edges) with the last one's clock and the guests on the way / on site then.
             // The deadlines pulled in.
@@ -4554,6 +4556,7 @@ namespace SkiResortMod.Systems
                 CarsEnqueued += co.CarsEnqueued;
                 SentOffDay += co.SentOffDay;
                 SentDepot += co.SentDepot;
+                SentDepotCarless += co.SentDepotCarless;
                 ArrivedDepot += ro.ArrivedDepot;
                 if (!double.IsNaN(powder))
                 {

@@ -388,8 +388,8 @@ export const HUB_LOC = {
   skiDaysTipNoLodge: ["SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Needs an active lodge within 800 m of runs or stations. Off-road: a Hut, Summit, or a lodge whose cat tracks reach a road lodge."],
   skiDaysTipRuns: ["SkiResort.Hub.SKI_DAYS_TIP[Runs]", "The runs set the limit: bigger and easier runs hold more skiers at once."],
   skiDaysTipLodges: ["SkiResort.Hub.SKI_DAYS_TIP[Lodges]", "The lodges set the limit: each lodge takes 360 skiers at once, more on a powder day."],
-  estRowTourists: ["SkiResort.Hub.EST_ROW[Tourists]", "Tourists drawn ≈"],
-  estTouristsTip: ["SkiResort.Hub.EST_TOURISTS_TIP", "An estimate from the game's tourist formula. Tourism mods can replace the formula, so real arrivals can differ."],
+  estRowTourists: ["SkiResort.Hub.EST_ROW[Tourists]", "Extra tourists in the city ≈"],
+  estTouristsTip: ["SkiResort.Hub.EST_TOURISTS_TIP", "Tourists in the city at one time, not guests a month. Each skis here at most once a game day. Tourism mods can change it."],
   estToNote: ["SkiResort.Hub.EST_TO_NOTE", "Detected: Tourism Overhaul. It sets tourist numbers."],
   estToTip: ["SkiResort.Hub.EST_TO_TIP", "Tourism Overhaul sets tourist numbers in this city, so no estimate is shown."],
   // the trip-planner note (Known / KnownOff carry {NAME}: HUB_FMT)
