@@ -25,7 +25,28 @@ namespace ResortBatch
             Nearest();
             Verdicts();
             Depot();
+            Carless();
             Ledger();
+        }
+
+        // SkiDayRules.PreferDepot: a guest without a car whose nearest lodge is beyond walking distance takes the depot in reach.
+        private static void Carless()
+        {
+            const string w = "bus carless";
+            s_Check(Rules.PreferDepot(false, 3500.0, 6000.0, 7), w, "no car, lodge 3.5 km, depot 6 km in a 7 km reach: the depot");
+            s_Check(Rules.PreferDepot(false, 901.0, 2000.0, 7), w, "no car, lodge just past the walk (901 m): the depot");
+            s_Check(!Rules.PreferDepot(false, Rules.WalkMaxM, 2000.0, 7), w, "no car, lodge at the walk limit (900 m): walk to the lodge");
+            s_Check(!Rules.PreferDepot(true, 3500.0, 2000.0, 7), w, "with a car: the nearest target, never this rule");
+            s_Check(!Rules.PreferDepot(false, 3500.0, 7001.0, 7), w, "the depot out of reach (7.001 km of 7): keep the lodge");
+            s_Check(Rules.PreferDepot(false, 3500.0, 7000.0, 7), w, "the depot at the reach (7 km, inclusive): the depot");
+            s_Check(!Rules.PreferDepot(false, 3500.0, double.NaN, 7) && !Rules.PreferDepot(false, 3500.0, -1.0, 7), w,
+                    "no depot (NaN or negative): keep the lodge");
+            s_Check(Rules.PreferDepot(false, double.PositiveInfinity, 500.0, 7), w, "no road lodge at all: the depot");
+            s_Check(!Rules.PreferDepot(false, 3500.0, 13000.0, 50), w, "the reach is clamped to 12 km: a 13 km depot is out");
+            // The trip to the depot is classed by its own distance: a depot 600 m from a carless home is a walk.
+            s_Check(Rules.ClassOf(600.0, false, false, false) == Rules.TravelClass.Walk &&
+                    Rules.ClassOf(3500.0, false, false, false) == Rules.TravelClass.NoCarFar, w,
+                    "class: the depot at 600 m is Walk, the lodge at 3.5 km was NoCarFar");
         }
 
         private static bool Near(float a, float b) => Math.Abs(a - b) < 0.01f;

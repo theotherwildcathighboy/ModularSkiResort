@@ -339,6 +339,13 @@ namespace SkiResortMod.Systems
         /// <summary>Straight line ≤ the reach setting (clamped 2..12 km), inclusive. NaN gives false.</summary>
         public static bool WithinReach(double distanceM, int reachKm) => distanceM <= math.clamp(reachKm, ReachKmMin, ReachKmMax) * 1000.0;
 
+        /// <summary>The carless rule of the target pick: a guest with no car whose nearest road lodge is beyond walking distance (WalkMaxM)
+        /// goes to the area's nearest bus depot instead, when that depot is within reach, even if the depot is farther than the lodge.
+        /// Measured (Ash Flat winter capture, Dec): carless ski days to a lodge 3-5 km away arrived 4 of 43, depot ski days 77 of 81. Everyone
+        /// else keeps the nearest target (lodge or depot). No depot (NaN or negative distance) gives false.</summary>
+        public static bool PreferDepot(bool withCar, double nearestLodgeM, double nearestDepotM, int reachKm)
+            => !withCar && nearestLodgeM > WalkMaxM && nearestDepotM >= 0.0 && WithinReach(nearestDepotM, reachKm);
+
         /// <summary>A ski day's drive, for the hub's "nobody near" row: the reach setting, at most the default 7 km. Measured: at the 12 km
         /// reach a hill with homes 9.5 km and more away got 1 guest sent in a month. The reasons: the trip alone takes about 6 game hours
         /// (TravelHours at StartSpeedCar), and the chance falls with distance (DistanceFactor).</summary>
