@@ -3408,7 +3408,7 @@ namespace SkiResortMod.Systems
               .Append(" + terrain ").Append(F(l.Terrain, "F2")).Append(", runs ").Append(F(l.RunsValue, "F2")).Append(" of ")
               .Append(F(l.RunsValueFull, "F2")).Append(" (").Append(l.OpenSharePct).Append(" %), lifts ").Append(l.LiftsCounted).Append('/')
               .Append(l.LiftsComplete).Append(" worth ").Append(F(l.LiftsValue, "F1")).Append(", share ").Append(F(l.SharePct, "F1"))
-              .Append(" %, est +").Append(l.EstTourists).Append(" tourists, next ").Append(((NextStepKind)l.NextStep).ToString()).Append('\n');
+              .Append(" %, est +").Append(l.EstTourists).Append(" tourists in the city at once, next ").Append(((NextStepKind)l.NextStep).ToString()).Append('\n');
             sb.Append("      money: guests ").Append(l.GuestsThisMonth).Append(" this month").Append(l.ThisMonthSinceLoad ? " (since load)" : "")
               .Append(" (").Append(l.TouristsThisMonth).Append(" tourists in ").Append(l.TouristGroupsThisMonth).Append(" groups, ")
               .Append(l.ResidentsThisMonth).Append(" residents; paid ").Append(l.PaidThisMonth).Append(", unpaid ").Append(l.UnpaidThisMonth)

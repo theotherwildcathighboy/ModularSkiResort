@@ -1034,7 +1034,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.UNRATEABLE", "Cannot be rated: outline too large or too thin, or no terrain under it" },
                 { "SkiResort.Hub.DETAIL[Share]", "Share of city tourism" },
                 // The target-tourists row's own tooltip.
-                { "SkiResort.Hub.EST_TOURISTS_TIP", "An estimate from the game's tourist formula. Tourism mods can replace the formula, so real arrivals can differ." },
+                { "SkiResort.Hub.EST_TOURISTS_TIP", "Tourists in the city at one time, not guests a month. Each skis here at most once a game day. Tourism mods can change it." },
                 // Lists (the Runs and Lifts views).
                 { "SkiResort.Hub.LIFTS_EMPTY", "No lifts yet." },
                 { "SkiResort.Hub.LIFT_DEFAULT", "Lift {N}" },
@@ -1335,7 +1335,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Needs an active lodge within 800 m of runs or stations. Off-road: a Hut, Summit, or a lodge whose cat tracks reach a road lodge." },
                 { "SkiResort.Hub.SKI_DAYS_TIP[Runs]", "The runs set the limit: bigger and easier runs hold more skiers at once." },
                 { "SkiResort.Hub.SKI_DAYS_TIP[Lodges]", "The lodges set the limit: each lodge takes 360 skiers at once, more on a powder day." },
-                { "SkiResort.Hub.EST_ROW[Tourists]", "Tourists drawn ≈" },
+                { "SkiResort.Hub.EST_ROW[Tourists]", "Extra tourists in the city ≈" },
                 { "SkiResort.Hub.EST_TO_NOTE", "Detected: Tourism Overhaul. It sets tourist numbers." },
                 { "SkiResort.Hub.EST_TO_TIP", "Tourism Overhaul sets tourist numbers in this city, so no estimate is shown." },
                 // The Guests view's trip-planner note (no placeholder; Known / KnownOff are in the
