@@ -90,11 +90,11 @@ catalog row.
   - Capacity = sum of `Capacity` over passing lodges (`SkiDayRules.Capacity`'s per-tier overload).
   - Targets = passing lodges that need a road (claims, `TargetLodges`, `AreaFacts.SkiDayLodges`, `NearestTarget`). A mountain or off-road
     lodge holds skiers but is never a claim target.
-  - `NearestTarget` picks the nearest passing target (road lodge or bus depot). The carless rule (`SkiDayRules.PreferDepot`): a guest
-    with no car whose nearest road lodge is beyond `WalkMaxM` gets the nearest depot within reach, even when a lodge is nearer. The
+  - `NearestTarget` picks the nearest passing target (road lodge or bus depot). The carless rule is `SkiDayRules.PreferDepot`. A guest
+    with no car whose nearest road lodge is beyond `WalkMaxM` gets the nearest depot within reach. This holds even when a lodge is nearer. The
     class, fit check and chance then use the depot's distance. With a car, or with no depot, the pick is unchanged. The month line counts
-    these claims (`bus depots: sent N (M carless past a nearer lodge)`). Reason: in the Ash Flat winter capture, carless trips to a lodge
-    3-5 km away arrived 4 of 43, depot trips 77 of 81.
+    these claims (`bus depots: sent N (M carless past a nearer lodge)`). Reason: the Ash Flat winter capture. There, carless trips to a lodge
+    3-5 km away arrived 4 of 43. Depot trips arrived 77 of 81.
   - The area's `PriceTolerance` = max over passing lodges.
 - Step B (and `TooLate`'s measure): `Chance(..., Price, the area's PriceTolerance, aj.SchoolFactor, ...)`.
 - For an A-frame-only area, every number equals the plain case (`CheckLodge` verdicts, 360 x n, tolerance 0, factor 1).
