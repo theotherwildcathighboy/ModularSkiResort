@@ -169,6 +169,10 @@ def parse_args(argv=None):
     ap.add_argument("--signset-out", default=None,
                     help="letter folder for the sign set (default: assets/import/signs/<letter> "
                          "with --export, else <out>/../signs/<letter>)")
+    # post-release round 1 (T173, 2026-11-14): a sign-set fix re-imports the set under a new mesh letter (prefab name and
+    # CID unchanged). Default: the recipe's own letter, so every build without the flag is byte-identical.
+    ap.add_argument("--signset-letter", default=None,
+                    help="sign set mesh letter for this round (default: the recipe's SignSetSpec letter)")
     # T16 texture-parity probe (2026-10-16, docs/research/art/texture-parity-2026-10-16.md):
     # recipe.tiled (or this flag) = LOD0 on the shared tile sheet (cs2_tilesheet), LOD1/LOD2 on
     # an own "far" unique bake. Off = every build byte-identical to before.
@@ -240,6 +244,12 @@ def parse_args(argv=None):
     # byte-identical.
     ap.add_argument("--ridge", default="off", choices=("off", "v2"),
                     help="v2 = ridge flashing instead of the 0.8 m galv box (off = byte-identical)")
+    # T174 / T175 (post-release round 1, 2026-11-14). Defaults = byte-identical to letter Y.
+    ap.add_argument("--flags", default="v1", choices=("v1", "v2"),
+                    help="v2 = rippled flag cloth (cs2_bldg.FLAG_KIT; v1 = the flat slab / label quads)")
+    ap.add_argument("--p1-gear", default="rolls", choices=("rolls", "none", "firewood"),
+                    help="patrol hut P1 front gear: rolls = the six red fence rolls (letter Y), none = no rolls, "
+                         "firewood = no rolls + a vanilla FirewoodPileRandom01 row on the lot")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -1823,8 +1833,14 @@ def run(recipe, args):
     clear_scene()
     if glass == "gls":                      # T95: recipes read it (the school's gallery goes to `_Gls`)
         opts["glass"] = "gls"
-    with K.ridge_kit(2 if getattr(args, "ridge", "off") == "v2" else 0):
+    # T174 / T175 (post-release round 1): the flag kit and the patrol hut's gear (patrol.py reads K.PATROL_GEAR). A recipe
+    # may hand back vanilla rows in opts["extra_rows"] (the P1 firewood pile); they join the recipe's sub_objects here.
+    K.PATROL_GEAR["p1"] = getattr(args, "p1_gear", "rolls")
+    with K.ridge_kit(2 if getattr(args, "ridge", "off") == "v2" else 0), \
+            K.flag_kit(2 if getattr(args, "flags", "v1") == "v2" else 1):
         parts = build_parts(recipe, opts)
+    if opts.get("extra_rows"):
+        recipe = replace(recipe, sub_objects=tuple(recipe.sub_objects) + tuple(opts.pop("extra_rows")))
     door2 = None
     if dk:                                  # door kit v2: the registry of its parts (exact names)
         door2 = {"flat": K.door2_flat(), "protect": K.door2_protect(),
@@ -1843,6 +1859,8 @@ def run(recipe, args):
         if frows:
             recipe = replace(recipe, sub_objects=tuple(recipe.sub_objects) + tuple(frows))
     spec = FD.sign_set_of(recipe)
+    if spec is not None and getattr(args, "signset_letter", None):
+        spec = replace(spec, letter=args.signset_letter)
     # nitpick C (2026-10-13): the Write Everywhere targets (blank boards, lit name boards), read off the faces before a sign
     # set takes them. The manifest gets the `we_boards` block (absent when there are none)
     we_boards = _we_boards(parts, recipe, spec)
@@ -1977,6 +1995,10 @@ def run(recipe, args):
             result["glass"]["extra_prefixes"] = list(recipe.gls_extra)
     if getattr(args, "ridge", "off") == "v2":
         result["ridge"] = "v2"
+    if getattr(args, "flags", "v1") == "v2":           # T174 (post-release round 1)
+        result["flags"] = "v2"
+    if getattr(args, "p1_gear", "rolls") != "rolls" and recipe.key == "P1":       # T175
+        result["p1_gear"] = args.p1_gear
     if cap_override is not None:
         result["budget_override"] = cap_override
     if tc:                                  # T70 trim v1 builds only
@@ -2694,7 +2716,7 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
     }
     if result.get("window_kit"):           # kit v2 builds only (older manifests keep their keys)
         data["window_kit"] = result["window_kit"]
-    for k_ in ("glass", "slots_v2", "budget_override", "ridge"):       # T85 / T89 / ridge v2 builds only
+    for k_ in ("glass", "slots_v2", "budget_override", "ridge", "flags", "p1_gear"):   # T85 / T89 / ridge v2 / T174 / T175 builds only
         if result.get(k_) is not None:
             data[k_] = result[k_]
     if result.get("door_kit"):             # door kit v2 builds only

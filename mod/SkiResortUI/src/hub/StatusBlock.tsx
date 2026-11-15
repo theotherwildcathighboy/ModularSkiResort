@@ -207,7 +207,7 @@ function runClick(click: ProblemClick, p: ProblemRow): void {
 }
 
 /** The single band rows whose row says it all: problemTip has no body for them, so a tooltip would only repeat the title. */
-const TITLE_ONLY_TIP: ReadonlySet<ProblemVariant> = new Set<ProblemVariant>(["lodgeNoRoad", "unlinked", "noRuns", "runsFlat"]);
+const TITLE_ONLY_TIP: ReadonlySet<ProblemVariant> = new Set<ProblemVariant>(["unlinked", "noRuns", "runsFlat"]);
 
 /** The tooltip of a band row. A folded row lists its lifts, one line each. A TITLE_ONLY_TIP row has none (null: Tip draws no
  *  balloon). */
@@ -253,6 +253,7 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "depotNoHillLodge": body = t(HUB_LOC.problemTipDepotNoHillLodge); break;
     case "depotNoRoad": body = t(HUB_LOC.problemTipDepotNoRoad); break;
     case "signNoRoad": body = t(HUB_LOC.problemTipSignNoRoad); break;
+    case "lodgeNoRoad": body = t(HUB_LOC.problemTipLodgeNoRoad); break;
     case "mixedLiftTypes": body = t(HUB_LOC.problemTipMixedLiftTypes); break;
     case "liftBend": body = t(HUB_LOC.problemTipLiftBend); break;
     case "liftTrainLimit": body = t(HUB_LOC.problemTipLiftTrainLimit); break;

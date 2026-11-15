@@ -1296,7 +1296,9 @@ def export_sign_set(obj, spec, letter_dir, *, host, cid, mint=False, kinds=SHEET
         p = os.path.join(asset_dir, f)
         if os.path.isfile(p) and (f.startswith(name) or f == "settings.json"):
             os.remove(p)
-    owner = name == SHEET_OWNER
+    # the sheet owner's set re-lettered (lodge.py --signset-letter, T173) carries its own copy of the FROZEN sheet: the same
+    # paint, byte-identical PNGs under its own names, so it imports alone and the B sharers keep the B sheet
+    owner = name == SHEET_OWNER or (spec.owner and spec.prop == SHEET_OWNER_PROP)
     metrics = None
     if owner:
         maps, metrics = paint_sheet(kinds)

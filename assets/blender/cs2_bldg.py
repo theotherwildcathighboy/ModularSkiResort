@@ -993,6 +993,75 @@ class ridge_kit:
         return False
 
 
+# flag kit (T174, post-release round 1, 2026-11-14): v2 = flag_mast's cloth ripples. A standing wave runs along the fly and
+# grows from the mast (zero at the hoist, FLAG_RIPPLE_AMP x the cloth length at the fly), its crest leans with height, and
+# the fly's top corner drops FLAG_RIPPLE_DROOP x the cloth height. FLAG_KIT["version"] 1 = the flat slab / flat label
+# quads, vertex for vertex. lodge.py wires it as `--flags v2`.
+FLAG_KIT = {"version": 1}
+# T175 (same round): the patrol hut P1's front gear. "rolls" = the six accent fence rolls (letter Y), "none" = no rolls,
+# "firewood" = no rolls + a vanilla FirewoodPileRandom01 row (recipes/patrol.py). lodge.py sets it from `--p1-gear`.
+PATROL_GEAR = {"p1": "rolls"}
+FLAG_RIPPLE_SEGS = 24       # strips along the fly. The LOD0 shade pass already smooths the cloth; at 14 the strips bent up
+                            # to 39 deg each and read as creased paper, at 24 up to 25 deg (mean 9.5)
+FLAG_RIPPLE_AMP = 0.12      # the wave's amplitude at the fly end, as a fraction of the cloth length (0.07 read flat)
+FLAG_RIPPLE_WAVES = 1.25    # waves along the fly
+FLAG_RIPPLE_LEAN = 0.8      # phase shift (rad) from the bottom to the top edge: the crest runs diagonally
+FLAG_RIPPLE_DROOP = 0.09    # the fly's top corner sits this fraction of the cloth height lower
+# the second, smaller ripple: a shorter wave whose crest leans the other way, so the creases cross and the flag reads
+# as cloth, not as one bent sheet. It grows faster toward the fly (the fly end flutters).
+FLAG_RIPPLE2_AMP = 0.07        # 0.04 read as one crease, 0.10 folds the fly end over
+FLAG_RIPPLE2_WAVES = 2.9
+FLAG_RIPPLE2_LEAN = -1.5
+FLAG_RIPPLE2_PHASE = 0.7
+
+
+class flag_kit:
+    """Context manager: flag_mast builds the rippled cloth while FLAG_KIT["version"] >= 2."""
+
+    def __init__(self, version=2):
+        self.cfg = {"version": int(version)}
+        self._saved = None
+
+    def __enter__(self):
+        self._saved = dict(FLAG_KIT)
+        FLAG_KIT.update(self.cfg)
+        return FLAG_KIT
+
+    def __exit__(self, *exc):
+        FLAG_KIT.clear()
+        FLAG_KIT.update(self._saved)
+        return False
+
+
+def _flag_cloth_point(O, run, front, fw, fh, zc0, t, s, off=0.0):
+    """A point of the rippled cloth: t along the fly (0 hoist, 1 fly), s up the cloth (0 bottom, 1 top), off = the
+    sheet's own offset along `front` (+-0.005 for the two faces of the 1 cm cloth)."""
+    wave = FLAG_RIPPLE_AMP * fw * (t ** 0.8) * math.sin(2.0 * math.pi * FLAG_RIPPLE_WAVES * t - FLAG_RIPPLE_LEAN * s)
+    wave += FLAG_RIPPLE2_AMP * fw * (t ** 1.3) * math.sin(2.0 * math.pi * FLAG_RIPPLE2_WAVES * t - FLAG_RIPPLE2_LEAN * s
+                                                          + FLAG_RIPPLE2_PHASE)
+    z = zc0 + s * fh * (1.0 - FLAG_RIPPLE_DROOP * t)
+    return O + run * (0.06 + fw * t) + front * (wave + off) + Vector((0.0, 0.0, z))
+
+
+def _flag_ripple_slab(g, O, run, front, fw, fh, zc0):
+    """The rippled accent cloth: both 1 cm-apart sheets and the hoist / fly edges. The top and bottom 1 cm rims are left
+    open (4 x FLAG_RIPPLE_SEGS tris that no game camera resolves); that pays for the denser strips. 8 n + 4 -> 4 n + 4."""
+    n = FLAG_RIPPLE_SEGS
+    ts = [k / n for k in range(n + 1)]
+    for sg in (1.0, -1.0):
+        off = 0.005 * sg
+        for a, b in zip(ts, ts[1:]):
+            g.poly([_flag_cloth_point(O, run, front, fw, fh, zc0, a, 0.0, off),
+                    _flag_cloth_point(O, run, front, fw, fh, zc0, b, 0.0, off),
+                    _flag_cloth_point(O, run, front, fw, fh, zc0, b, 1.0, off),
+                    _flag_cloth_point(O, run, front, fw, fh, zc0, a, 1.0, off)], front * sg)
+    for t, out in ((0.0, -run), (1.0, run)):
+        g.poly([_flag_cloth_point(O, run, front, fw, fh, zc0, t, 0.0, 0.005),
+                _flag_cloth_point(O, run, front, fw, fh, zc0, t, 0.0, -0.005),
+                _flag_cloth_point(O, run, front, fw, fh, zc0, t, 1.0, -0.005),
+                _flag_cloth_point(O, run, front, fw, fh, zc0, t, 1.0, 0.005)], out)
+
+
 def _eave_tip(spec, g, side):
     ov = spec.overhang
     if side == 0:
@@ -3428,7 +3497,10 @@ def flag_mast(name, x, y, h=8.0, flag=(1.6, 1.0), *, z0=GROUND_LIFT, along="X", 
       (skeptic M8).
 
     Fine-detail pass (design B.1, opt-in, fine=True): the mast is 12-seg with a 10-tri top cap (no bottom cap: it stands on
-    its foot) and a 6 x 3 ball finial (FINIAL_R) sitting on the cap. The cloth is unchanged. 58 tris instead of 20."""
+    its foot) and a 6 x 3 ball finial (FINIAL_R) sitting on the cap. The cloth is unchanged. 58 tris instead of 20.
+
+    Flag kit v2 (FLAG_KIT, T174): the accent cloth ripples (_flag_cloth_point), 100 tris instead of 12. Emblem faces
+    (face=True) stay flat single quads: the label painter needs one quad."""
     if str(along).upper() not in ("X", "Y"):
         raise ValueError(f"flag_mast {name}: along {along!r} (X | Y)")
     _check_foot(f"flag_mast {name}", z0)
@@ -3444,6 +3516,13 @@ def flag_mast(name, x, y, h=8.0, flag=(1.6, 1.0), *, z0=GROUND_LIFT, along="X", 
     fw, fh = flag
     zc0, zc1 = top - 0.15 - fh, top - 0.15
     ay = str(along).upper() == "Y"
+    if FLAG_KIT.get("version", 1) >= 2 and not face:
+        # emblem (face=True) flags stay flat: the label painter reads its orientation from ONE quad (UVUnique affine)
+        front = Vector((1.0, 0.0, 0.0)) if ay else Vector((0.0, -1.0, 0.0))
+        run = Vector((0.0, 1.0, 0.0)) if ay else Vector((1.0, 0.0, 0.0))
+        O = Vector((float(x), float(y), 0.0))
+        return parts + _single(f"flagpanel_{name}",
+                               lambda g: _flag_ripple_slab(g, O, run, front, fw, fh, zc0), "accent")
     if not face:
         if ay:
             parts += box_part(f"flagpanel_{name}", (x - 0.005, y + 0.06, zc0),
