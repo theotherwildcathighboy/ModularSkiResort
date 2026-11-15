@@ -304,6 +304,11 @@ export function closedRuns(row: ResortRow, live: ResortLive): number {
  *  sixths, so the rounded percent never straddles the mark. */
 export const POWDER_MARK_PCT = 50;
 
+/** The run snow bars in cm: a closed run opens at SNOW_OPEN_CM (RunSnowRules.SkiableDepthM), an open run stays open on SNOW_KEEP_CM
+ *  (RunSnowRules.KeepDepthM). The run tooltip's {OPEN} / {KEEP}. test-hub-rules T29.5 ties both to the C# constants. */
+export const SNOW_OPEN_CM = 91;
+export const SNOW_KEEP_CM = 30;
+
 export type StatusHint = "powder" | "warn" | "snow" | "season" | "none";
 
 /** The SEASON_HINT values that stay on the status line as a warning (runs closing or not opening). Every other hint word

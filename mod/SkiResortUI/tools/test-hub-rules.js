@@ -787,6 +787,10 @@ function run(srcDir) {
   // "opens at 3 ft (91 cm)" slip through because of the "ft + word" exception and the {DEPTH} exemption (DECISIONS 381).
   const bakedDepth = [...tuples.entries()].filter(([, v]) => /\d\s*(cm|ft)\b|\d\s*in\b(?!\s+[A-Za-z])/.test(v.replace(/\{[A-Z_]+\}/g, ""))).map(([k]) => k);
   eq("T29.4 no hub text bakes a snow depth (the open depth is C#'s and changes, T133; depth goes through {DEPTH})", bakedDepth, []);
+  // T29.5: the run tooltip's {OPEN} / {KEEP} come from hubRules SNOW_OPEN_CM / SNOW_KEEP_CM, which must equal RunSnowRules.cs (T183).
+  const snowRulesCs = fs.readFileSync(path.join(csDir, "Systems", "RunSnowRules.cs"), "utf8");
+  const csDepthCm = (name) => { const m = snowRulesCs.match(new RegExp("const float " + name + " = ([0-9.]+)f;")); return m ? Math.round(parseFloat(m[1]) * 100) : -1; };
+  eq("T29.5 hubRules snow bars equal RunSnowRules.cs (SkiableDepthM, KeepDepthM) in cm", [R.SNOW_OPEN_CM, R.SNOW_KEEP_CM], [csDepthCm("SkiableDepthM"), csDepthCm("KeepDepthM")]);
   const stripSrc = read(path.join("hub", "BuildStrip.tsx"));
   eq("T29.5 the tile tooltip draws the vanilla rows from BUILDING_DRAW (Power / VolumePerMonth / WeightPerMonth / MoneyPerMonth) and the terrain line",
     ["...drawRows(e.id, t)", "Unit.Power", "Unit.VolumePerMonth", "Unit.WeightPerMonth", "Unit.MoneyPerMonth", "HUB_LOC.terrainSlope", "HUB_LOC.terrainLevel", "HUB_LOC.terrainCut", "t(TERRAIN_LINE[d.terrain])"].map((x) => stripSrc.includes(x)),
