@@ -549,7 +549,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackSkiWayBinding)),
                     "Switches the cat track tool between a standard cat track and a ski way. A ski way is a narrow 10 m track cut " +
                     "into a steep hillside, with nothing filled below it. Only while the tool is open. The hub Runs tab's Ski way chip " +
-                    "does the same. Default Ctrl+Shift+W."
+                    "does the same. Default Ctrl+Shift+N."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActCatTrackSkiWay), "Cat track ski way" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActCatTrackSkiWay), "Ski way" },

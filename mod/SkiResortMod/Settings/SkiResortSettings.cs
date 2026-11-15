@@ -421,9 +421,9 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding CatTrackDeleteModeBinding { get; set; }
 
-        /// <summary>Switches the cat track tool between the standard track and the Ski way (default Ctrl+Shift+W, T194). Live only while
+        /// <summary>Switches the cat track tool between the standard track and the Ski way (default Ctrl+Shift+N, T194). Live only while
         /// that tool is open (CatTrackGradeHotkeySystem).</summary>
-        [SettingsUIKeyboardBinding(BindingKeyboard.W, ActCatTrackSkiWay, ctrl: true, shift: true)]
+        [SettingsUIKeyboardBinding(BindingKeyboard.N, ActCatTrackSkiWay, ctrl: true, shift: true)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding CatTrackSkiWayBinding { get; set; }
 

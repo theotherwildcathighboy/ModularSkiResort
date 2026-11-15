@@ -129,7 +129,7 @@ is the only terrain undo. The grade undo stack and the dev-tab probe (a 40 m str
 (planners-12): only the probe ever pushed to the stack.
 
 Ski way (T194): `m_SkiWay` switches the params to `GradeParams.SkiWay(ReadParams())` (CatTrackGrade.md, Ski way). The key
-(CatTrackSkiWay, Ctrl+Shift+W, CatTrackGradeHotkeySystem) and the hub chip (contract 44) call `SetSkiWay`; it is refused while a build is
+(CatTrackSkiWay, Ctrl+Shift+N, CatTrackGradeHotkeySystem) and the hub chip (contract 44) call `SetSkiWay`; it is refused while a build is
 in flight, keeps the points, and UpdateCore re-solves on the params change. The quick solve takes `GradeInput.SolveGround`, so the
 worker and Enter solve against the same low-edge ground. The tooltip shows MODE_SKI_WAY under the step hint and PLAN_SKI_WAY as the
 plan line. The mode stays on across closing the tool and resets on load.

@@ -5,7 +5,7 @@
 // The Build key (BuildLiftLine, default Enter) is shared with the lift tool. LiftLineHotkeySystem keeps it live while either tool is open
 // (one writer of shouldBeEnabled). This system reads the press while the grading tool is active and calls RequestApply.
 // Two mode keys are live only while the tool is open (this system is their one writer): CatTrackDeleteMode (default Ctrl+Shift+D) toggles
-// the tool's Delete mode (field test 2026-10-26b), CatTrackSkiWay (default Ctrl+Shift+W) its Ski way profile (T194). As they are enabled
+// the tool's Delete mode (field test 2026-10-26b), CatTrackSkiWay (default Ctrl+Shift+N) its Ski way profile (T194). As they are enabled
 // only while the tool is open, their liveness probe runs then: once per load, ProbeDelayFrames after the first opening, with a warning if
 // the conflict resolver disabled one (InputConflictResolution.cs:138-198). A modifier binding conflicts with a plain vanilla key only when
 // one side's composite disallows modifiers (ProxyBinding.cs:822-825). The field logs of 2026-10-26 / 26b show Ctrl+Shift+Q live beside

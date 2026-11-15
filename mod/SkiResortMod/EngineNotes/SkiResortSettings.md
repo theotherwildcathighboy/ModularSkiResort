@@ -54,5 +54,27 @@ Key bindings are plain `ModSetting` members (no `UIInputActionCollection`, no re
 - Ctrl+Alt+G vs our Alt+G: an Allow-modifiers composite gets a prohibition processor for every supported modifier the binding does
   not use (InputManager.cs:2104-2112). So Alt+G should not fire on Ctrl+Alt+G (Unity-side behavior unverified).
 - Ctrl+Shift+D was rejected: D is vanilla's camera-right key and a press would pan the camera off the run being dumped.
+- Ski way (`CatTrackSkiWay`) is Ctrl+Shift+N (narrow). Ctrl+Shift+W showed the triangle in the integration build. The cause was
+  Write Everywhere (BelzontWE), whose `EnableTool` picker defaults to Ctrl+Shift+W. It was not vanilla.
+
+### Default-chord audit (2026-11-14, game 1.6.4f1)
+
+- Vanilla keyboard defaults come from the `Input/InputActions` asset (InputManager.cs:1315) in `Cities2_Data/resources.assets`.
+  Read the binding strings there (`<Keyboard>/...` paths with their part and action names). Vanilla keyboard chords:
+  - Shift+W/A/S/D: Move Fast.
+  - Shift+Q/E: fast rotate.
+  - Ctrl+R/D/E/L/F/A: the selected-object actions (Relocate, Delete, Emptying, Lot Edit, Follow Citizen, Active).
+  - Everything else is a plain key.
+- Every visible vanilla keyboard composite allows modifiers. The ones that disallow modifiers are hidden and carry usage 0, and the only
+  visible ones are the mouse buttons. So a vanilla triangle needs the exact same chord (PathEquals, ProxyBinding.cs:822-825). Plain W
+  or Shift+W does not flag Ctrl+Shift+W. Every Ski Resort default is free of vanilla.
+- The installed code mods' defaults were read from their `[SettingsUIKeyboardBinding]` blobs (Cecil, 25 mods). There is no clash with
+  Ctrl+Shift+G/L/K/D/N/Q, Shift+G, Alt+G or Ctrl+Alt+G. Taken chords to avoid:
+  - Write Everywhere: Ctrl+Shift+W.
+  - City Stats: Ctrl+Shift+S.
+  - Move It: Ctrl+Shift+Z.
+  - Placemaker: Ctrl+Shift+A and Ctrl+Shift+Z.
+  - Parking Lot Tool and Platter: Ctrl+Shift+P.
+  - Enter is shared with Network Tools and Placemaker. BuildLiftLine's own usage keeps its row clean.
 
 `QuickRunsEnabled` (Runs group, default OFF since DECISIONS 443) controls the experimental Resort Planner tool (code name Quick runs). When it is off, the tool cannot open, its hotkey is inert, and the hub chip is grayed with the reason (QuickRunsToolSystem.OptionOn). The key binding is ToggleQuickRunsTool, default Ctrl+Shift+Q.
