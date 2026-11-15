@@ -5,6 +5,7 @@
 // - OS6: a 12-day calendar replay
 // - OS7: sign jobs
 // - OS8: no write before the first observation after a load, and no lodge write on the poll that takes it.
+// - OS9: closing lodges off-season (CloseActionOf, the resort's marker).
 
 using System;
 using SkiResortMod.Systems;
@@ -110,6 +111,42 @@ namespace BuildingBatch
                   "observed, not linked, or an area the snapshot does not hold: write (in season as before)");
             check(OffSeasonRules.HoldsLodgeWrite(false, true) && OffSeasonRules.HoldsLodgeWrite(true, false) && !OffSeasonRules.HoldsLodgeWrite(false, false), "OS8c",
                   "a lodge write also waits on the poll that takes the first observation: the carried sums predate it (field pass: 18 -> 26 -> 18)");
+
+            // OS9: closing lodges off-season (vanilla Inactive, marked as the resort's)
+            const OffSeasonRules.CloseAction None = OffSeasonRules.CloseAction.None, Close = OffSeasonRules.CloseAction.Close,
+                Open = OffSeasonRules.CloseAction.Open;
+            check(OffSeasonRules.DefaultCloseLodges && OffSeasonRules.CloseMarker != 0f, "OS9",
+                  "closing is on by default; the marker is not the 0 the info panel writes");
+            check(OffSeasonRules.ClosedByResort(true, OffSeasonRules.CloseMarker) && !OffSeasonRules.ClosedByResort(true, 0f) &&
+                  !OffSeasonRules.ClosedByResort(false, OffSeasonRules.CloseMarker), "OS9b",
+                  "only an active Inactive entry with the marker is the resort's; the player's (0) and an inactive entry are not");
+            check(OffSeasonRules.CloseActionOf(true, true, true, true, true, false, false) == Close, "OS9c",
+                  "on, linked, off-season edge, active building: close");
+            check(OffSeasonRules.CloseActionOf(true, true, true, true, false, false, false) == None, "OS9d",
+                  "off-season without the edge (the player opened it, or it was built off-season): leave it open");
+            check(OffSeasonRules.CloseActionOf(true, true, true, true, true, true, false) == None &&
+                  OffSeasonRules.CloseActionOf(true, true, true, false, false, true, false) == None &&
+                  OffSeasonRules.CloseActionOf(false, true, true, false, false, true, false) == None &&
+                  OffSeasonRules.CloseActionOf(true, false, false, false, false, true, false) == None, "OS9e",
+                  "a building the player deactivated is never opened: off-season, in season, closing off, not linked");
+            check(OffSeasonRules.CloseActionOf(true, true, true, false, false, true, true) == Open &&
+                  OffSeasonRules.CloseActionOf(false, true, true, true, false, true, true) == Open &&
+                  OffSeasonRules.CloseActionOf(true, false, false, false, false, true, true) == Open, "OS9f",
+                  "the resort's closed building opens in season, with closing turned off, or unlinked");
+            check(OffSeasonRules.CloseActionOf(true, true, true, true, true, true, true) == None &&
+                  OffSeasonRules.CloseActionOf(true, true, false, false, false, true, true) == None, "OS9g",
+                  "the resort's closed building stays closed off-season, and while its area is not observed yet after a load");
+            check(OffSeasonRules.CloseActionOf(false, true, true, true, true, false, false) == None &&
+                  OffSeasonRules.CloseActionOf(true, false, false, false, true, false, false) == None &&
+                  OffSeasonRules.CloseActionOf(true, true, false, false, true, false, false) == None, "OS9h",
+                  "no close with closing off, unlinked, or an area not observed yet");
+            // A season replay: off edge closes, the off months hold, the first open run opens, a player-opened lodge stays open.
+            bool closedByUs = false, inactive = false;
+            OffSeasonRules.CloseAction a1 = OffSeasonRules.CloseActionOf(true, true, true, true, true, inactive, closedByUs);
+            closedByUs = inactive = a1 == Close;
+            OffSeasonRules.CloseAction a2 = OffSeasonRules.CloseActionOf(true, true, true, true, false, inactive, closedByUs);
+            OffSeasonRules.CloseAction a3 = OffSeasonRules.CloseActionOf(true, true, true, false, false, inactive, closedByUs);
+            check(a1 == Close && a2 == None && a3 == Open, "OS9i", $"replay: May edge {a1}, June {a2}, November in season {a3}");
         }
     }
 }

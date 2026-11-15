@@ -151,9 +151,9 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
                     "What each guest pays on arrival, one price for every ski area. Resort income shows in the Economy panel under public " +
-                    "transportation fees: the game has no ski line. Above 40 it lowers ski days: about 90 % as many at 60, 80 % at 80, 20 " +
+                    "transportation fees: the game has no ski line. Above 40 it lowers ski days: about 90 % as many at 60, 70 % at 100, 20 " +
                     "% at 200. Visitors the game sends on its own come at any price and still pay it. 0 turns lift tickets off. Default " +
-                    "80."
+                    "100."
                 },
                 // Lodge spend per guest: "price 0 = nothing charged" is documented in the slider tip. Multipliers: SkiCatalog.LodgeDef.SpendMultiplier.
                 {
@@ -199,6 +199,16 @@ namespace SkiResortMod.Settings
                     "deactivated lodge costs a tenth of its upkeep and no wages. Default on."
                 },
                 {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.OffSeasonCloseLodges)),
+                    "Close lodges off-season"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.OffSeasonCloseLodges)),
+                    "On: when a ski area turns off-season, its lodges and ski school are deactivated. A deactivated building costs a " +
+                    "tenth of its upkeep and pays no wages. They open again an hour after a run opens. A building you deactivate or " +
+                    "activate yourself stays as you set it. Default on."
+                },
+                {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassShare)),
                     "Season pass share"
                 },
@@ -217,7 +227,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SeasonPassMultiplier)),
                     "A season pass costs this many lift tickets at the ticket price when it is sold, locked for the " +
                     "season. It saves money for a household that skis more often than this many times. Needs a lift " +
-                    "ticket price above 0. Default 2."
+                    "ticket price above 0. Default 4."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.EnableSnowGating)),

@@ -446,8 +446,8 @@ namespace ResortBatch
             check(sameBits, w, "the 10-argument Chance should equal the 11-argument one with passHolder false, bit for bit");
 
             // Constants (the Options sliders and the defaults).
-            check(SkiMoneyRules.PassMultiplierMin == 2 && SkiMoneyRules.PassMultiplierMax == 10 && SkiMoneyRules.PassMultiplierDefault == 2, w,
-                  "multiplier constants 2..10, default 2 (T137 I3, was 4)");
+            check(SkiMoneyRules.PassMultiplierMin == 2 && SkiMoneyRules.PassMultiplierMax == 10 && SkiMoneyRules.PassMultiplierDefault == 4, w,
+                  "multiplier constants 2..10, default 4 (was 2, before that 4)");
             check(SkiMoneyRules.PassShareMax == 100 && SkiMoneyRules.PassShareStep == 5 && SkiMoneyRules.PassShareDefault == 50, w,
                   "share constants 0..100 step 5, default 50");
             check(SkiMoneyRules.ClampPassShare(-5) == 0 && SkiMoneyRules.ClampPassShare(130) == 100 && SkiMoneyRules.ClampPassShare(55) == 55, w,
@@ -574,7 +574,7 @@ namespace ResortBatch
             check(SkiMoneyRules.LiftFixedPerMonth == 2500f, w, "LiftFixedPerMonth " + SkiMoneyRules.LiftFixedPerMonth);
             check(SkiMoneyRules.LiftPerKmPerMonth == 1000f, w, "LiftPerKmPerMonth " + SkiMoneyRules.LiftPerKmPerMonth);
             check(SkiMoneyRules.LiftReducedShare == 0.25f, w, "LiftReducedShare " + SkiMoneyRules.LiftReducedShare);
-            check(SkiMoneyRules.TicketPriceDefault == 80, w, "TicketPriceDefault " + SkiMoneyRules.TicketPriceDefault + " (80 since T137 I1; 60 since econ-2 round 2)");
+            check(SkiMoneyRules.TicketPriceDefault == 100, w, "TicketPriceDefault " + SkiMoneyRules.TicketPriceDefault + " (100 since post-release round 1; 80 before, 60 before that)");
             check(SkiMoneyRules.TicketPriceMax == 200, w, "TicketPriceMax " + SkiMoneyRules.TicketPriceMax);
             check(SkiMoneyRules.TicketPriceStep == 5, w, "TicketPriceStep " + SkiMoneyRules.TicketPriceStep);
             check(SkiMoneyRules.TicksPerDay == 262144, w, "TicksPerDay " + SkiMoneyRules.TicksPerDay);

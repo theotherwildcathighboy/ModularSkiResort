@@ -69,5 +69,5 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 
 ---
 
-*Kept off the front page on purpose (all in the docs site; see docs/research/release-preview-2026-10-22.md section 5 for the move list): the per-lift slope and span limits, the economy numbers (ticket 80, pass 2 tickets, lessons 30 percent, off-season half staff, income booked as public transportation fees), the attraction formula, the lift tool keys, cat track grading, glades, piste map, powder days, the long Honest-notes list (stations sit on the slope, wind and chair sway, all chairs show one number, canyon and cliff lines), Yenyang's Recolor, Scene Explorer, Write Everywhere and the "ideas, not promises" line.*
+*Kept off the front page on purpose (all in the docs site; see docs/research/release-preview-2026-10-22.md section 5 for the move list): the per-lift slope and span limits, the economy numbers (ticket 100, pass 4 tickets, lessons 30 percent, off-season half staff, income booked as public transportation fees), the attraction formula, the lift tool keys, cat track grading, glades, piste map, powder days, the long Honest-notes list (stations sit on the slope, wind and chair sway, all chairs show one number, canyon and cliff lines), Yenyang's Recolor, Scene Explorer, Write Everywhere and the "ideas, not promises" line.*
 

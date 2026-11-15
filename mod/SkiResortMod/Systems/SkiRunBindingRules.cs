@@ -160,8 +160,9 @@ namespace SkiResortMod.Systems
 
     /// <summary>The monthly run upkeep per billed hectare as feature steps (DECISIONS 576): a groomed run (piste or cat track) pays
     /// GroomedPerHaMonth. Snowmaking adds its step. Lights add theirs. Natural and unknown pay 0. So groomed 150, snowmaking 500, night 800,
-    /// and a cat track 500 with its guns on (SkiRunUpkeepSystem bills a cat track only while its guns run). SkiRunUpkeepSystem.Tuning
-    /// derives its totals from these.</summary>
+    /// and a cat track 150 with its guns on, 500 while they build made snow (TrackUpkeep). SkiRunUpkeepSystem.Tuning derives its totals
+    /// from these. Field check (1.0.0 save, 93 runs, 8 lifts, a full winter month): runs ₵19.7k of a ₵355k resort bill (6 %), cat tracks
+    /// ₵10.9k of it before the build-only snowmaking rule (₵3.7k after). The rates are kept: lifts, lodges and wages carry the cost.</summary>
     public static class SkiRunUpkeepRates
     {
         public const int GroomedPerHaMonth = 150, SnowmakingStepPerHaMonth = 350, LightsStepPerHaMonth = 300;
@@ -209,6 +210,28 @@ namespace SkiResortMod.Systems
             if (!f.IsCatTrack || !f.Lights || !inSeason || float.IsNaN(planAreaM2) || float.IsInfinity(planAreaM2) || planAreaM2 <= 0f)
                 return 0f;
             return planAreaM2 / 10000f;
+        }
+
+        /// <summary>One cat track's monthly upkeep by feature, the one rule the upkeep charge, its per-area booking and the hub read. A track
+        /// has no texels, so its plan area (m2) stands in. Grooming bills it while its guns can run and are not Off (SnowGunPlumeRules
+        /// .TrackBilledHa, DECISIONS 563). Snowmaking bills it only while its guns build made snow (<paramref name="gunsWorking"/> =
+        /// RunSnowRules.TrackGunsWorking), as a piste's guns bill only below the stop depth. Lights: TrackLitHa.</summary>
+        public static RunUpkeep TrackUpkeep(RunFeatures f, float planAreaM2, bool gunsCanRun, bool gunsOn, bool gunsWorking)
+        {
+            RunUpkeep u = default;
+            if (!f.IsCatTrack)
+                return u;
+            float ha = gunsCanRun && gunsOn ? Finite0(planAreaM2) / 10000f : 0f;   // = SnowGunPlumeRules.TrackBilledHa (ResortBatch pins it)
+            u.GroomedHa = ha;
+            u.Grooming = ha * GroomedPerHaMonth;
+            if (gunsWorking)
+            {
+                u.SnowmakingHa = ha;
+                u.Snowmaking = ha * SnowmakingStepPerHaMonth;
+            }
+            u.LitHa = TrackLitHa(f, planAreaM2, gunsCanRun);
+            u.Lights = u.LitHa * LightsStepPerHaMonth;
+            return u;
         }
 
         private static float Finite0(float v) => float.IsNaN(v) || float.IsInfinity(v) || v < 0f ? 0f : v;

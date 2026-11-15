@@ -185,6 +185,13 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupBalance)]
         public bool OffSeasonHalfStaff { get; set; }
 
+        /// <summary>On = when a ski area turns off-season, its lodges and ski school are deactivated through vanilla's own Inactive option
+        /// (a tenth of the upkeep, no wages), and the ones it deactivated are activated again when the area is in season (OffSeasonStaffSystem,
+        /// OffSeasonRules.CloseActionOf). A building the player deactivated or activated by hand is left alone. Read live (on when settings
+        /// are not loaded). Default on.</summary>
+        [SettingsUISection(SectionMain, GroupBalance)]
+        public bool OffSeasonCloseLodges { get; set; }
+
 
         /// <summary>Residents' share in percent (0 = no ski days for residents). Read by SkiDaySystem (and the hub's "off" test) through
         /// SkiDayLocalsPctOf.</summary>
@@ -495,6 +502,7 @@ namespace SkiResortMod.Settings
             LessonShare = DefaultLessonShare;
             LessonMultiplier = DefaultLessonMultiplier;
             OffSeasonHalfStaff = OffSeasonRules.DefaultEnabled;
+            OffSeasonCloseLodges = OffSeasonRules.DefaultCloseLodges;
             SkiDayLocalsPct = DefaultSkiDayLocalsPct;
             SkiDayTouristsPct = DefaultSkiDayTouristsPct;
             SkiDayReachKm = DefaultSkiDayReachKm;

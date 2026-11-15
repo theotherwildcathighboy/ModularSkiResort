@@ -4,7 +4,8 @@
 // a run has counted for HoldToOnFrames (one game hour, LiftClosedRule.HoldFrames). While off-season and the setting is on, each lodge and
 // the ski school of that area keeps HalfJobs(full) workplaces (A-frame 4 to 2, chalet 12 to 6, grand lodge 18 to 9, school 4 to 2, plus the
 // hut's 4 to 2 and the summit lodge's 8 to 4 on the Welcome Sign). Patrol stays full (rescue is a year-round job). Not linked / no score
-// yet / score held: in season. Staff is halved, upkeep is not.
+// yet / score held: in season. Staff is halved, upkeep is not. With OffSeasonCloseLodges on, the same buildings are deactivated when the area
+// turns off-season (vanilla's Inactive: upkeep x0.1, no wages) and the ones this mod deactivated are activated in season (CloseActionOf).
 // Engine notes: EngineNotes/OffSeasonRules.md
 
 using System;
@@ -91,6 +92,37 @@ namespace SkiResortMod.Systems
         public static bool IsSeasonal(bool lodge, bool school)
         {
             return lodge || school;
+        }
+
+        // Closing lodges off-season (setting OffSeasonCloseLodges). The lever is vanilla's own Inactive building option, set and cleared with the
+        // policy event the info panel's toggle sends (PoliciesUISystem.ModifyPolicy, Game.UI.InGame/PoliciesUISystem.cs:237-242 in 1.6.2f1). It
+        // bills upkeep x0.1 and no wages (CityServiceBudgetSystem.cs:392-421, CityServiceUpkeepSystem.cs:628-643). The policy entry is saved with
+        // its m_Adjustment (Game.Policies/Policy.cs Serialize). A toggle policy has no slider, and the panel always writes 0 there, so CloseMarker
+        // marks an entry this mod wrote: only those are opened again. A building the player deactivated carries 0 and stays closed.
+        public const bool DefaultCloseLodges = true;
+        public const float CloseMarker = 7f;
+
+        public enum CloseAction : byte { None = 0, Close = 1, Open = 2 }
+
+        /// <summary>The marker test, exact: the mod writes CloseMarker itself.</summary>
+        public static bool ClosedByResort(bool inactivePolicyActive, float adjustment) => inactivePolicyActive && adjustment == CloseMarker;
+
+        /// <summary>What to do with one seasonal building on a poll.
+        /// - Open: a building this mod closed (<paramref name="closedByResort"/>) while the setting is off, its area is in season, or it is
+        ///   not linked to an area. Its area's first observation after a load must have been taken (<paramref name="areaKnown"/>), unless it is
+        ///   not linked or the setting is off.
+        /// - Close: the setting is on, the area is off-season, a close is due for the area (<paramref name="closeDue"/>: it just turned
+        ///   off-season, the first observation after a load read off-season, or the setting just turned on), and the building is active.
+        ///   Closing only on that edge leaves a building the player opens off-season open, and a lodge built off-season too.
+        /// - Else None. A building the player closed is never opened.</summary>
+        public static CloseAction CloseActionOf(bool enabled, bool linked, bool areaKnown, bool areaOff, bool closeDue, bool inactive,
+            bool closedByResort)
+        {
+            if (closedByResort)
+                return !enabled || !linked || (areaKnown && !areaOff) ? CloseAction.Open : CloseAction.None;
+            if (enabled && linked && areaKnown && areaOff && closeDue && !inactive)
+                return CloseAction.Close;
+            return CloseAction.None;
         }
     }
 }

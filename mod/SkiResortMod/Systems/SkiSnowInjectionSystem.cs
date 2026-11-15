@@ -986,6 +986,13 @@ namespace SkiResortMod.Systems
             return IsRunBound(run) && SnowGunPlumeRules.TrackGunsCanRun(m_GunSeasonKnown && m_PassGunSeason, EstimateShare(RunKind.CatTrack, bottomY, topY));
         }
 
+        /// <summary>A cat track's guns are building made snow now (RunSnowRules.TrackGunsWorking): its snowmaking step bills
+        /// (SkiRunUpkeepRates.TrackUpkeep). False for a track not stepped this load.</summary>
+        internal bool CatTrackGunsWorking(Entity run)
+        {
+            return m_TrackMade.TryGetValue(run, out RunSnowRules.TrackMadeSnow made) && RunSnowRules.TrackGunsWorking(made);
+        }
+
         internal bool TryGetRunGunsRunning(Entity run, out bool running)
         {
             return m_GunRunning.TryGetValue(run, out running);
@@ -2317,7 +2324,8 @@ namespace SkiResortMod.Systems
                     if (float.IsNaN(dayMean))
                         dayMean = m_SnowLineSystem.GetDayMeanTemperature();
                     float snowShare = share;
-                    share = StepTrack(input, share, dayMean, freezing, margin, baseHeight, lapse, protectDtHours);
+                    share = StepTrack(input, share, next.Source == RunSnowSource.Measured ? share : float.NaN, dayMean, freezing, margin, baseHeight,
+                        lapse, protectDtHours);
                     // The depth is the measured snow under the track. Made snow has a share, not a depth (it is never on the map). While the
                     // made share leads, the depth line would read near 0 under an open track, so it is hidden (NaN: HubRules.DepthCm -1).
                     if (RunSnowRules.MadeSnowLeads(snowShare, share))
@@ -2582,9 +2590,11 @@ namespace SkiResortMod.Systems
         /// - Raise it by its guns (the estimate at freezing + the margin while GunsMakeSnow).
         /// - Hold it with the protection machine at the largest run budget.
         /// - Melt it at a run pack's speed after that (RunMeltOutHours).
+        /// - Count its guns' work on what they raised above <paramref name="measuredShare"/> (the snow map under it, NaN when only
+        ///   estimated: the estimate already holds the guns) and above what it held (StepTrackGunWork: the snowmaking bill).
         /// Queues the saved value when it moved. Returns the track's share: the larger of <paramref name="snowShare"/> (measured or estimated)
         /// and the made share.</summary>
-        private float StepTrack(in RunSnowInput input, float snowShare, float dayMean, float freezing, float margin, float baseHeight,
+        private float StepTrack(in RunSnowInput input, float snowShare, float measuredShare, float dayMean, float freezing, float margin, float baseHeight,
             float lapse, float dtHours)
         {
             bool hasSaved = EntityManager.TryGetComponent(input.Run, out SkiTrackSnow saved);
@@ -2596,6 +2606,7 @@ namespace SkiResortMod.Systems
             float trackC = m_SnowLineSystem.GetLocalTemperature(0.5f * (input.BottomY + input.TopY));
             float before = made.Share;
             RunSnowRules.ProtectEnd end = RunSnowRules.StepTrackMadeSnow(ref made, dtHours, gun, cold, trackC, m_PassSpring, out bool started);
+            RunSnowRules.StepTrackGunWork(ref made, before, gun, measuredShare, dtHours);
             if (started)
                 Mod.Log.Info($"Snow [track] cat track {input.Run.Index}:{input.Run.Version} made snow held: {made.Share * 100f:F0} % made, " +
                              $"guns cover {gun * 100f:F0} %, cold keeps {cold * 100f:F0} %, air at the track {trackC:F1} C; budget " +
