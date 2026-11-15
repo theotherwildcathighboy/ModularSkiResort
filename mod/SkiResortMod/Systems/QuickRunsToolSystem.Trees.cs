@@ -123,6 +123,7 @@ namespace SkiResortMod.Systems
         private int m_TreeCostPreview, m_TreeCostPlants;   // the ready preview's Temp cost and its planted Temps (what ToolApplySystem charges)
         private SnowLineRules.Segment[] m_Contour = new SnowLineRules.Segment[2 * (ContourSide - 1) * (ContourSide - 1)];
         private int m_ContourCount;
+        private readonly List<float4> m_ContourInRegion = new List<float4>();   // the contour clipped to the region (ax, az, bx, bz): what draws (T165)
         private float[] m_ContourHeights = new float[ContourSide * ContourSide];
 
         internal bool TreesOn => m_TreesOn;
@@ -246,6 +247,7 @@ namespace SkiResortMod.Systems
             m_TreeSnapStale = m_TreeLineStale = true;
             m_TreeLineAuto = true;
             m_ContourCount = 0;
+            m_ContourInRegion.Clear();
             m_TreePlant = m_TreeRemove = m_TreeTarget = m_TreeNow = 0;
         }
 
@@ -1098,10 +1100,17 @@ namespace SkiResortMod.Systems
         private void March()
         {
             m_ContourCount = 0;
+            m_ContourInRegion.Clear();
             if (float.IsPositiveInfinity(m_TreeLine) || m_TreeLine >= m_GroundMax + QuickRunsRules.TreeLineStepM)
                 return;
             m_ContourCount = SnowLineRules.MarchingSquares(m_ContourHeights, ContourSide, m_ContourOriginX, m_ContourOriginZ, m_ContourCell,
                 m_TreeLine, m_Contour);
+            // The grid is the region's bounding square: only the pieces inside the region draw (T165, long green lines outside the zone)
+            for (int i = 0; i < m_ContourCount; i++)
+            {
+                SnowLineRules.Segment s = m_Contour[i];
+                QuickRunsRules.ClipToRegion(m_TreeJobRegion, new float2(s.AX, s.AZ), new float2(s.BX, s.BZ), m_ContourInRegion);
+            }
             m_DrawDirty = true;
         }
 

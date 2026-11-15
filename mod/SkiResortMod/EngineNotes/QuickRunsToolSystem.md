@@ -155,7 +155,8 @@ The player's left-out runs (`m_OffIds`) do not come back, because the build clea
   glade census treats LayerFiller as wild (thinnable).
 - Tree line: `SkiGladeTreeLine.Estimate` over the wild trees within 500 m (95 %, DECISIONS 413). The code clamps the value to
   [ground min, ground max + 10 m] (one step above the top = no tree line inside the region). The hub steps it by 10 / 50 m. The overlay
-  draws the contour (`SnowLineRules.MarchingSquares`, 65 x 65 grid).
+  draws the contour (`SnowLineRules.MarchingSquares`, 65 x 65 grid). The grid is the region's bounding square, so the contour is
+  clipped to the region (`QuickRunsRules.ClipToRegion`) before it draws (T165).
 - Species: every TreeData prefab with wood > 0 that is not a placeholder, sorted, grouped by `SkiGladeSpecies`. The chips are Conifer
   (default), Deciduous, Palm, All trees, or one species.
 - Tagging: this tool is the second `IGladeTagSource` of `SkiGladeTagSystem` (run Null, LayerFiller, variant 0). `OnTagged` records the
@@ -276,3 +277,8 @@ reports the real number. UNVERIFIED: the chunk and slice sizes (4 runs, 2000 tre
   grow back into its line (likely the field note behind T184). The hub draws the step strip (QuickRunsControls.tsx.md).
 - T165: the "huge green lines" after Build were the piste map (it hides only while this tool is open). The new cat tracks drew as green
   band rings at the zoom-scaled run width. The map now draws cat tracks thin in this tool's cat-track color (SkiPisteMapSystem.md).
+- T165, reopened (the lines showed while planning, outside the zone): the one green overlay this tool draws is the tree-line contour
+  (0.35/0.85/0.45, 1.5 m x zoom). It was marched over the region's bounding square, whose side is the longer bbox side, so every
+  tree-line crossing in that square drew, outside the polygon too. It is now clipped to the region. No other overlay draws green
+  while this tool is active: the piste map hides, the merge overlay is hub-armed, the lift-tool, station and outline overlays need
+  their own tool. Lift chords take the Home color (green for a green home) but stay between plan stations inside the region.
