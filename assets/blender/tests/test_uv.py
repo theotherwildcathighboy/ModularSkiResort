@@ -17,6 +17,7 @@ The test asserts:
 - finish_packer on a lift_tower-style pre-made "UVUnique" layer satisfies the same contract
 - density_w scales an island's density
 - density_report returns one row per part
+- check_layout: an island that is tiny in 3D AND in UV passes; the same UV island on its full-size faces (collapsed) raises
 
 The test exits 1 on any failure and prints one PASS line on success.
 """
@@ -189,6 +190,35 @@ def main():
     print(f"[test] density_w 2.0: hero/plain px/m ratio {ratio:.3f}")
     assert 1.7 <= ratio <= 2.3, f"density_w not honored: ratio {ratio:.3f}"
     check_contract(obj4, table4, "density_w")
+
+    # ---- run 5: the zero-island check (post-release round 1): a tiny REAL island passes, a collapsed one raises --------
+    lay4 = mesh4.uv_layers["UVUnique"]
+    islands = cs2_uv.uv_islands(mesh4, lay4)
+    start, total = cs2_uv.face_loop_table(mesh4)
+    isl = min(islands, key=len)
+    loops = np.concatenate([np.arange(start[i], start[i] + total[i]) for i in isl])
+    verts = sorted({mesh4.loops[int(li)].vertex_index for li in loops})
+    uv = cs2_uv.loop_uvs(lay4)
+    c_uv = uv[loops].mean(axis=0)
+    co = np.array([tuple(mesh4.vertices[v].co) for v in verts])
+    c_co = co.mean(axis=0)
+    s = 1e-4                                   # UV area x 1e-8 (under ZERO_ISLAND_AREA), world area x 1e-8 too
+    tiny = uv.copy()
+    tiny[loops] = c_uv + (uv[loops] - c_uv) * s
+    cs2_uv.set_loop_uvs(lay4, tiny)
+    for v, p in zip(verts, co):
+        mesh4.vertices[v].co = tuple(c_co + (p - c_co) * s)
+    mesh4.update()
+    cs2_uv.check_layout(mesh4, lay4, [], [])     # proportional: must pass (the old absolute floor raised here)
+    for v, p in zip(verts, co):
+        mesh4.vertices[v].co = tuple(p)          # world area back, UV still tiny: collapsed
+    mesh4.update()
+    try:
+        cs2_uv.check_layout(mesh4, lay4, [], [])
+        raise AssertionError("zero-island check: a collapsed island passed")
+    except RuntimeError as e:
+        assert "zero-area UV island" in str(e), e
+    print("[test] zero-island check: tiny real island passes, collapsed island raises")
 
     print(f"PASS test_uv: {len(table)} parts, {n_faces} faces, atlas {A}, "
           f"spread {spread1:.2f}x, hash {h1[:12]}, density_w ratio {ratio:.2f}")

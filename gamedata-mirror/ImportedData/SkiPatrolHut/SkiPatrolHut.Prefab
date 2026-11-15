@@ -132,7 +132,7 @@
                 "m_SubObjects": {
                     "$id": 12,
                     "$type": "12|Game.Prefabs.ObjectSubObjectInfo[], Game",
-                    "$rlength": 8,
+                    "$rlength": 9,
                     "$rcontent": [
                         {
                             "$id": 13,
@@ -281,6 +281,30 @@
                         {
                             "$id": 19,
                             "$type": 13,
+                            "m_Object": $fstrref:"UnityGUID:0d01c98e6f7cd9b44ac31084b6ba7ccd",
+                            "m_Position": {
+                                "$type": 14,
+                                "x": -1.3,
+                                "y": 0,
+                                "z": 2.95
+                            },
+                            "m_Rotation": {
+                                "$type": 15,
+                                "value": {
+                                    "$type": 16,
+                                    "x": 0,
+                                    "y": 0,
+                                    "z": 0,
+                                    "w": 1
+                                }
+                            },
+                            "m_ParentMesh": 0,
+                            "m_GroupIndex": 0,
+                            "m_Probability": 100
+                        },
+                        {
+                            "$id": 20,
+                            "$type": 13,
                             "m_Object": $fstrref:"UnityGUID:1ad78f47f5ed32b4a85ae101abc6d7ae",
                             "m_Position": {
                                 "$type": 14,
@@ -303,7 +327,7 @@
                             "m_Probability": 100
                         },
                         {
-                            "$id": 20,
+                            "$id": 21,
                             "$type": 13,
                             "m_Object": $fstrref:"CID:5c73becf22314bf1aaf3ce04a1230dd7",
                             "m_Position": {
@@ -332,14 +356,14 @@
         ]
     },
     "m_Meshes": {
-        "$id": 21,
+        "$id": 22,
         "$type": "17|Game.Prefabs.ObjectMeshInfo[], Game",
         "$rlength": 1,
         "$rcontent": [
             {
-                "$id": 22,
+                "$id": 23,
                 "$type": "18|Game.Prefabs.ObjectMeshInfo, Game",
-                "m_Mesh": $fstrref:"CID:14e741f97f0f06256f48c0394aa93371",
+                "m_Mesh": $fstrref:"CID:3b2100e30de8b3604242365208e220d2",
                 "m_Position": {
                     "$type": 14,
                     "x": 0,

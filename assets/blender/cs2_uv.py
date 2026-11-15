@@ -70,6 +70,7 @@ PIN_EPS = 1e-4          # lift_tower's rect containment tolerance
 BAND_GUARD = 0.005      # lift_tower's guard between the packed band and a reserved rect
 BOUNDS_TOL = 1e-6
 ZERO_ISLAND_AREA = 1e-9
+COLLAPSE_RATIO = 1e-3   # check_layout: an island under ZERO_ISLAND_AREA is collapsed below this x the layout's UV per m2
 
 
 # --------------------------------------------------------------------------------------
@@ -329,7 +330,17 @@ def check_layout(mesh, layer, reserved, pinned, tol=BOUNDS_TOL):
     islands = uv_islands(mesh, layer)
     smallest = min(float(areas[isl].sum()) for isl in islands)
     if smallest <= ZERO_ISLAND_AREA:
-        raise RuntimeError(f"{mesh.name}: zero-area UV island (area {smallest:.3e})")
+        # A REAL tiny face packs small too: a 7.8 cm2 sill end cap on the 21,000 m2 Grand Lodge packs to 8.3e-10 under
+        # Blender 5.3 (post-release round 1, 2026-11-14; 5.2.2 put it just above). Only a COLLAPSED island is zero-area:
+        # UV area under ZERO_ISLAND_AREA AND under COLLAPSE_RATIO x its share of the layout's UV per m2 (a 3D-degenerate
+        # island, world area 0, still raises). Builds that passed before pass the same: the check changes no UV.
+        world = face_world_areas(mesh)
+        k = float(areas.sum()) / max(float(world.sum()), 1e-12)
+        for isl in islands:
+            a = float(areas[isl].sum())
+            if a <= ZERO_ISLAND_AREA and a <= COLLAPSE_RATIO * k * float(world[isl].sum()):
+                raise RuntimeError(f"{mesh.name}: zero-area UV island (area {a:.3e}, world "
+                                   f"{float(world[isl].sum()):.3e} m2)")
     return islands
 
 

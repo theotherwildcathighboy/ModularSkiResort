@@ -169,6 +169,10 @@ def parse_args(argv=None):
     ap.add_argument("--signset-out", default=None,
                     help="letter folder for the sign set (default: assets/import/signs/<letter> "
                          "with --export, else <out>/../signs/<letter>)")
+    # post-release round 1 (T173, 2026-11-14): a sign-set fix re-imports the set under a new mesh letter (prefab name and
+    # CID unchanged). Default: the recipe's own letter, so every build without the flag is byte-identical.
+    ap.add_argument("--signset-letter", default=None,
+                    help="sign set mesh letter for this round (default: the recipe's SignSetSpec letter)")
     # T16 texture-parity probe (2026-10-16, docs/research/art/texture-parity-2026-10-16.md):
     # recipe.tiled (or this flag) = LOD0 on the shared tile sheet (cs2_tilesheet), LOD1/LOD2 on
     # an own "far" unique bake. Off = every build byte-identical to before.
@@ -1855,6 +1859,8 @@ def run(recipe, args):
         if frows:
             recipe = replace(recipe, sub_objects=tuple(recipe.sub_objects) + tuple(frows))
     spec = FD.sign_set_of(recipe)
+    if spec is not None and getattr(args, "signset_letter", None):
+        spec = replace(spec, letter=args.signset_letter)
     # nitpick C (2026-10-13): the Write Everywhere targets (blank boards, lit name boards), read off the faces before a sign
     # set takes them. The manifest gets the `we_boards` block (absent when there are none)
     we_boards = _we_boards(parts, recipe, spec)
