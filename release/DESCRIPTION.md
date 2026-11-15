@@ -12,7 +12,7 @@ Ski resorts: lifts that fit your terrain, runs on natural or machine-made snow, 
 
 ---
 
-**Long description** (5852 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
+**Long description** (5912 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
 
 ---
 
@@ -63,6 +63,7 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 ## Credits
 - Modular Golf Course Pack by joergeske: the modular recreation idea this mod grew from.
 - Meapy's Tourism Overhaul: studied for how tourism and attractions work. Not required. Works alongside this mod.
+- Logo and in-game icon by [Lexa](https://lexakeenen.com/).
 - All assets (chairs, lodges, patrol huts) are based on real places: https://theotherwildcathighboy.github.io/ModularSkiResort/credits/#asset-inspirations
 - Built with Claude (Anthropic) for decompilation, prefab work and asset generation. Direction and many, many hours of testing by the author.
 - Full credits and licenses: https://theotherwildcathighboy.github.io/ModularSkiResort/credits/
