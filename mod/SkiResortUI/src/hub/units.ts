@@ -36,6 +36,14 @@ export function imperialMiles(m: number, imperial: boolean): number {
   return a >= IMPERIAL_MILES_FROM_M && a < 1609 ? round1(m / METERS_PER_MILE) : NaN;
 }
 
+/** The whole yards an imperial length shows under 500 yd (T215: C# DisplayUnits.LengthText writes "#,0 yd"). Vanilla's Unit.Length
+ *  keeps one decimal there ("65.4 yd", bridge pass r1c), so parts.tsx formats the yards from here itself. NaN = not this case (metric,
+ *  500 yd and over, or not finite). */
+export function imperialYards(m: number, imperial: boolean): number {
+  if (!imperial || !Number.isFinite(m) || Math.abs(m) >= IMPERIAL_MILES_FROM_M) return NaN;
+  return Math.sign(m) * Math.round(Math.abs(m) / METERS_PER_YARD);
+}
+
 /** The key suffix of a European text variant. */
 export const EU_SUFFIX = "@EU";
 

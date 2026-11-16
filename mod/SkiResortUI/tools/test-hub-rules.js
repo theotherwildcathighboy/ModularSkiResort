@@ -1348,6 +1348,10 @@ function run(srcDir) {
       [U.imperialMiles(457.1, true), U.imperialMiles(457.2, true), U.imperialMiles(-457.2, true), U.imperialMiles(1000, true), U.imperialMiles(1608, true),
         U.imperialMiles(1609, true), U.imperialMiles(1000, false), U.imperialMiles(NaN, true), U.IMPERIAL_MILES_FROM_M, U.METERS_PER_YARD, U.METERS_PER_MILE],
       [NaN, 0.3, -0.3, 0.6, 1, NaN, NaN, NaN, 457.2, 0.9144, 1609.344]);
+    eq("T60.19b imperialYards (T215, bridge r1c nit): whole yards under 500 yd (vanilla showed 65.4 yd), half away from zero; metric, 500 yd and over and non-finite give NaN",
+      [U.imperialYards(59.8, true), U.imperialYards(0.4572, true), U.imperialYards(-59.8, true), U.imperialYards(457.1, true), U.imperialYards(457.2, true),
+        U.imperialYards(59.8, false), U.imperialYards(NaN, true), U.imperialYards(0, true)],
+      [65, 1, -65, 500, NaN, NaN, NaN, 0]);
     const partsSrc = fs.readFileSync(path.join(srcDir, "hub", "parts.tsx"), "utf8");
     const viewSrcs = allSrc.filter(([p]) => /[\\/]hub[\\/]/.test(p) && !/units\.ts$/.test(p));
     eq("T60.15 every number goes through renderNumber = unitLoc + the 500 yd miles (Num, numArg, the width samples); no view reads the game's unit setting itself; slopes use slopeArg",

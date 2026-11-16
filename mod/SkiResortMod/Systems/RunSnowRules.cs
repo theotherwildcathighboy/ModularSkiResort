@@ -512,11 +512,16 @@ namespace SkiResortMod.Systems
         // the flat 2 h of DECISIONS 572, which a run on the 1 ft keep bar outlasted below about 3 C. Below freezing nothing melts.
         //
         // T220 (1.0.1): made snow also has a depth (TrackMadeSnow.DepthM), and the open state counts made snow at the run bars. Before, the
-        // share alone opened the track: at gun start 32 tracks read Open on 1-8 mm (bridge pass r1b). Now the guns build the pack as a run's
-        // guns do: from bare ground to the gun stop depth in TrackBuildHours while the air at the track is cold enough for them. The share
-        // counts at the open bar (3 ft) while the track is closed and at the keep bar (1 ft) while it is open (TrackMadeCountedShare, the
-        // MeasuredShare rule). The pack melts at RunMeltPerHourM when the guns do not hold it and the spell does not. A load has no saved
-        // depth (SkiTrackSnow keeps its v1 layout): saved made snow loads as a full pack (TrackFromSave).
+        // share alone opened the track: at gun start 32 tracks read Open on 1-8 mm (bridge pass r1b). Now:
+        // - The guns follow the air at the track now, by elevation, as a run texel's guns do: the gun share and the cold share are the
+        //   estimate at the current air temperature (SnowLineSystem's local temperature), not at the day mean (bridge pass r1c).
+        // - The guns build the pack as a run's guns do: from bare ground to the gun stop depth in TrackBuildHours, while some of the
+        //   vertical is cold enough for them.
+        // - The share counts at the open bar (3 ft) while the track is closed and at the keep bar (1 ft) while it is open
+        //   (TrackMadeCountedShare, the MeasuredShare rule).
+        // - The pack melts at RunMeltPerHourM when the guns do not hold it and the spell does not.
+        // - The save keeps the depth (SkiTrackPack). A save without it loads saved made snow as a full pack (TrackFromSave).
+        // - An estimate never opens a track (TrackEstimatedSnowShare): it has no measured snow under it.
         public const float TrackWarmEpsilon = 1e-4f;   // a share difference below this is the same height
         // The game's melt per top-up window per degree above freezing, as ProtectRaisePerTopupM's derivation estimates it (6.4 mm per
         // window at 10 C, linear form UNVERIFIED, snow-injection.md 4): about 0.11 m per game hour at 1 C.
@@ -544,7 +549,7 @@ namespace SkiResortMod.Systems
         public struct TrackMadeSnow
         {
             public float Share;       // 0..1 of the track's vertical holding made snow (top down, as the estimate)
-            public float DepthM;      // T220: the made pack's depth on that share, 0..GunStopDepthM. Runtime only (TrackFromSave)
+            public float DepthM;      // T220: the made pack's depth on that share, 0..GunStopDepthM. Saved in SkiTrackPack (TrackFromSave)
             public ProtectRun Spell;  // the protection spell over it. Runtime only (a load refills the budget, as for a run)
             public float GunWorkHours; // game hours its guns still work on snow they just raised (StepTrackGunWork). Runtime only
         }
@@ -560,12 +565,35 @@ namespace SkiResortMod.Systems
         // reaches the open bar in about 1 game hour, and its gun work (the bill) ends when the pack reaches the stop depth.
         public static readonly float TrackBuildRateMPerHour = GunStopDepthM / TrackBuildHours;
 
-        /// <summary>A track's made snow on its first refresh of a load, from its saved share (SkiTrackSnow). The save holds no depth, so a saved
-        /// share loads as a full pack (the gun stop depth). A track saved in its first game hour of building loads open early.</summary>
-        public static TrackMadeSnow TrackFromSave(float savedShare)
+        /// <summary>A track's made snow on its first refresh of a load, from its saved share (SkiTrackSnow) and its saved pack depth
+        /// (SkiTrackPack, <paramref name="savedDepthM"/>). NaN depth: a save without SkiTrackPack (1.0.0, or a track never stepped by 1.0.1).
+        /// Then a saved share loads as a full pack (the gun stop depth), the 1.0.0 rule.</summary>
+        public static TrackMadeSnow TrackFromSave(float savedShare, float savedDepthM = float.NaN)
         {
             float share = Clamp01(savedShare);
-            return new TrackMadeSnow { Share = share, DepthM = share > 0f ? GunStopDepthM : 0f };
+            if (!(share > 0f))
+                return new TrackMadeSnow();
+            float depth = float.IsNaN(savedDepthM) ? GunStopDepthM : savedDepthM < 0f ? 0f : Math.Min(savedDepthM, GunStopDepthM);
+            return new TrackMadeSnow { Share = share, DepthM = depth };
+        }
+
+        /// <summary>A pack depth as SkiTrackPack saves it: whole millimeters, 0..GunStopDepthM. NaN or less than 0 saves 0.</summary>
+        public static int TrackDepthToMm(float depthM)
+        {
+            if (!(depthM > 0f))
+                return 0;
+            return (int)Math.Round(Math.Min(depthM, GunStopDepthM) * 1000f);
+        }
+
+        /// <summary>The saved millimeters as meters, clamped to 0..GunStopDepthM (a hand-edited save).</summary>
+        public static float TrackDepthFromMm(int mm) => mm <= 0 ? 0f : Math.Min(mm / 1000f, GunStopDepthM);
+
+        /// <summary>The snow share an ESTIMATE gives a cat track: an estimate keeps an Open track open (as a NaN share does) but never opens
+        /// one. A track opens on measured snow or on its made pack only (bridge pass r1c: an estimated track opened on "0.0 texel(s), mean
+        /// NaN m" at a 14.5 C day mean and closed 10 s later).</summary>
+        public static float TrackEstimatedSnowShare(RunSnowState previous, float estimate)
+        {
+            return previous == RunSnowState.Open ? estimate : 0f;
         }
 
         /// <summary>The made share that counts for the open state, the run rule (MeasuredShare): at the open bar (3 ft) while the track is
@@ -612,39 +640,33 @@ namespace SkiResortMod.Systems
         /// <summary>The track's guns are building snow now: the snowmaking step bills (SkiRunUpkeepRates.TrackUpkeep).</summary>
         public static bool TrackGunsWorking(in TrackMadeSnow track) => track.GunWorkHours > 0f;
 
-        /// <summary>The share of a track's vertical its guns cover now: the estimate at freezing + the margin while they make snow (the gun
-        /// season and the switch, GunsMakeSnow), else 0.</summary>
-        public static float TrackGunShare(bool inGunSeason, bool gunsOn, float bottomY, float topY, float dayMeanC, float freezingC,
+        /// <summary>The share of a track's vertical its guns cover now: the part where the air is at most freezing + the margin, while they
+        /// make snow (the gun season and the switch, GunsMakeSnow), else 0. <paramref name="airC"/> is the air at
+        /// <paramref name="baseHeight"/>: the current air (StepTrack, T220: a run texel's gun gate), or a day mean for an estimate.</summary>
+        public static float TrackGunShare(bool inGunSeason, bool gunsOn, float bottomY, float topY, float airC, float freezingC,
             float snowmakingMarginC, float baseHeight, float lapsePerM)
         {
             if (!GunsMakeSnow(RunKind.CatTrack, inGunSeason, gunsOn))
                 return 0f;
-            return EstimatedShare(bottomY, topY, dayMeanC, ThresholdC(RunKind.CatTrack, freezingC, snowmakingMarginC), baseHeight, lapsePerM);
+            return EstimatedShare(bottomY, topY, airC, ThresholdC(RunKind.CatTrack, freezingC, snowmakingMarginC), baseHeight, lapsePerM);
         }
 
-        /// <summary>The share of a track's vertical the cold keeps without help: the estimate at the natural threshold (freezing), the
-        /// threshold an open estimate uses while no gun makes snow (EstimateThresholdC).</summary>
-        public static float TrackColdShare(float bottomY, float topY, float dayMeanC, float freezingC, float baseHeight, float lapsePerM)
+        /// <summary>The share of a track's vertical the cold keeps without help: the part at or below freezing. <paramref name="airC"/> as
+        /// in TrackGunShare.</summary>
+        public static float TrackColdShare(float bottomY, float topY, float airC, float freezingC, float baseHeight, float lapsePerM)
         {
-            return EstimatedShare(bottomY, topY, dayMeanC, ThresholdC(RunKind.Natural, freezingC, 0f), baseHeight, lapsePerM);
+            return EstimatedShare(bottomY, topY, airC, ThresholdC(RunKind.Natural, freezingC, 0f), baseHeight, lapsePerM);
         }
 
-        /// <summary>One pass of a track's made snow. The guns raise it to <paramref name="gunShare"/> at once (the estimate's own speed).
-        /// <paramref name="coldShare"/> (the estimate at freezing) is what the cold keeps without help. Made snow above max(gun, cold) is
-        /// warm. The protection spell holds it while Active. Otherwise it melts toward that floor and reaches the close line
-        /// (CloseBelowShare) from full in RunMeltOutHours(trackLocalC). Returns the spell's end, as StepProtection.</summary>
+        /// <summary>One pass of a track's made snow. The guns raise its share to <paramref name="gunShare"/> at once (the part of the
+        /// vertical cold enough for them now). <paramref name="coldShare"/> (the part at or below freezing) is what the cold keeps without
+        /// help. Made snow above max(gun, cold) is warm. The pack (T220): the guns build it at TrackBuildRateMPerHour while they cover some
+        /// of the vertical. When they cover none, a pack in air above freezing is warm too. The protection spell holds the warm snow while
+        /// Active. Otherwise the share melts toward that floor and reaches the close line (CloseBelowShare) from full in
+        /// RunMeltOutHours(trackLocalC), and the pack melts at RunMeltPerHourM(trackLocalC): from the gun stop depth to the keep bar in the
+        /// same hours. No made share: no pack. Returns the spell's end, as StepProtection.</summary>
         public static ProtectEnd StepTrackMadeSnow(ref TrackMadeSnow track, float dtHours, float gunShare, float coldShare, float trackLocalC,
             bool spring, out bool started)
-        {
-            return StepTrackMadeSnow(ref track, dtHours, gunShare, coldShare, trackLocalC, float.PositiveInfinity, spring, out started);
-        }
-
-        /// <summary>The same pass with the pack's depth (T220). The guns build it at TrackBuildRateMPerHour while they make snow
-        /// (<paramref name="gunShare"/> above 0) and the air at the track is at most <paramref name="gunThresholdC"/> (freezing + the margin,
-        /// a run texel's gun gate). When they do not, the pack is warm: the spell holds it while Active, otherwise it melts at
-        /// RunMeltPerHourM. No made share: no depth.</summary>
-        public static ProtectEnd StepTrackMadeSnow(ref TrackMadeSnow track, float dtHours, float gunShare, float coldShare, float trackLocalC,
-            float gunThresholdC, bool spring, out bool started)
         {
             gunShare = Clamp01(gunShare);
             coldShare = Clamp01(coldShare);
@@ -657,7 +679,7 @@ namespace SkiResortMod.Systems
             float dt = Math.Max(0f, dtHours);
             float floor = Math.Max(gunShare, coldShare);
             bool shareWarm = track.Share > floor + TrackWarmEpsilon;
-            bool building = gunShare > 0f && !(trackLocalC > gunThresholdC);
+            bool building = gunShare > 0f;
             float meltHours = RunMeltOutHours(trackLocalC);
             bool melts = !float.IsPositiveInfinity(meltHours);
             // Warm: made snow above what the cold keeps, or a made pack its guns do not hold in air that melts it (a run's "some texel

@@ -82,19 +82,27 @@ the top, no snow on the map). Runs read open with no visible snow.
 
 Cat tracks (T220, 1.0.1). The system measures a cat track like a natural run: it never injects snow on it (DECISIONS 551). Its guns'
 snow is a model, `RunSnowRules.TrackMadeSnow`. The model has a share of the vertical and a pack depth:
-- The guns build the pack from 0 to the gun stop depth (0.96 m) in `TrackBuildHours` (about 1.06 game h). They build only while
-  they make snow and the air at the track is at or below freezing + the margin.
+- The guns follow the air at the track now, by elevation, as a run texel's guns do. The gun share and the cold share use the
+  current air (`GetLocalTemperatureCoefficients`), not the day mean. With the day mean, tracks kept their guns in a 15 C spell
+  (bridge pass r1c, "day mean 13.3 C").
+- The guns build the pack from 0 to the gun stop depth (0.96 m) in `TrackBuildHours` (about 1.06 game h). They build while they
+  cover some of the vertical.
 - The made share counts at the run bars (`TrackMadeCountedShare`): at 3 ft while the track is closed, at 1 ft while it is open.
   So the track opens about 1 game hour after its guns start, not at once. Before, it opened on 1-8 mm (bridge pass r1b).
-- When the guns do not hold the pack, the protection spell holds it. After the spell, it melts at `RunMeltPerHourM`.
+- When the guns do not hold the pack, the protection spell holds it, as for a gun run. It holds up to the largest run budget
+  (72 h), and never above 10 C at the track. After the spell, it melts at `RunMeltPerHourM` and the track closes at the keep bar.
 - The track's share is the larger of the snow under it and the counted made share.
 - Its mean depth (hub, `Snow [open]` line) is the made pack on the made share and the measured mean on the rest
   (`TrackMeanDepthM`). Before, the line printed NaN.
 - A pass that carries the measurement over starts from the snow under the track (`RunSnow.SnowShare`, `SnowMeanDepthM`), not
   from last pass's share with the made snow.
-- The save holds the share only (SkiTrackSnow v1, unchanged). A saved share loads as a full pack (`TrackFromSave`).
+- The save holds the share (SkiTrackSnow v1, unchanged) and the pack depth in millimeters (SkiTrackPack v1, new in 1.0.1). A save
+  without SkiTrackPack (1.0.0) loads a saved share as a full pack (`TrackFromSave`), the 1.0.0 rule. Before SkiTrackPack, a save
+  made just after gun start reloaded 32 tracks Open on a 0.12 m pack (bridge pass r1c, loadcheck d).
 - The snowmaking bill is unchanged (`StepTrackGunWork` on the share).
-- While the injection runs, `GetRunSnow` estimates a track not yet in the table on natural snow plus its saved made snow.
+- An estimate never opens a track (`TrackEstimatedSnowShare`): it keeps an Open track open, as a NaN share does. Before, an
+  estimated track opened on "0.0 texel(s), mean NaN m" at a 14.5 C day mean (bridge pass r1c). While the injection runs,
+  `GetRunSnow` gives a track not yet in the table its saved made snow only.
 
 - Cheaper top-ups work in two ways:
   - A dry skip (no readback, merge or upload) happens when all of these hold:

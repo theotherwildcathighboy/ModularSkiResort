@@ -20,7 +20,7 @@ import { displayUnits$, gradeScheme$ } from "../bindings";
 import type { LocEntry } from "../l10n";
 import { GLYPH_INFO, unitNbsp } from "./hubRules";
 import { EU_TEXT, HUB_FMT } from "./hubText";
-import { areaHa, bandShape, euClassShape, imperialMiles, isEuropean, schemeEntry, slopeValue, speed, unitSettingsFor, unpackUnits } from "./units";
+import { areaHa, bandShape, euClassShape, imperialMiles, imperialYards, isEuropean, schemeEntry, slopeValue, speed, unitSettingsFor, unpackUnits } from "./units";
 import type { DisplayUnits } from "./units";
 import { IconKey, iconKeyOf } from "./iconKey";
 import styles from "./hub.module.scss";
@@ -67,11 +67,23 @@ function mileText(loc: Localization, miles: number, signed?: boolean): string {
   return LocalizedString.renderString(loc, { id: "Common.VALUE_MILE", fallback: "{SIGN}{VALUE} mi", args: { SIGN: sign, VALUE: value } });
 }
 
-/** THE number render of the hub: vanilla's formatter on unitLoc, except the imperial lengths from 500 yd (mileText). */
+/** Vanilla's yard text (Common.VALUE_YARD, the same {SIGN} rule as mileText) with whole yards, for the imperial lengths under 500 yd
+ *  (units.ts imperialYards: vanilla keeps one decimal there). */
+function yardText(loc: Localization, yards: number, signed?: boolean): string {
+  const sign = yards < 0 ? "-" : signed && yards > 0 ? "+" : "";
+  const value = LocalizedNumber.renderString(loc, { value: Math.abs(yards), unit: Unit.Integer });
+  return LocalizedString.renderString(loc, { id: "Common.VALUE_YARD", fallback: "{SIGN}{VALUE} yd", args: { SIGN: sign, VALUE: value } });
+}
+
+/** THE number render of the hub: vanilla's formatter on unitLoc, except the imperial lengths: whole yards under 500 yd (yardText) and
+ *  miles from 500 yd (mileText). */
 function renderNumber(loc: Localization, p: LocalizedNumberProps): string {
   if (p.unit === Unit.Length && typeof p.value === "number") {
-    const miles = imperialMiles(p.value, unpackUnits(displayUnits$.value).lengthImperial);
+    const imperial = unpackUnits(displayUnits$.value).lengthImperial;
+    const miles = imperialMiles(p.value, imperial);
     if (Number.isFinite(miles)) return mileText(loc, miles, p.signed);
+    const yards = imperialYards(p.value, imperial);
+    if (Number.isFinite(yards)) return yardText(loc, yards, p.signed);
   }
   return LocalizedNumber.renderString(unitLoc(loc, p.unit as string), p);
 }

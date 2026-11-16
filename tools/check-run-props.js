@@ -213,7 +213,7 @@ const KIND_READS = {
   "Systems/SkiRunOwnershipSystem.cs": 2,
   "Systems/SkiRunPropSystem.Placer.cs": 4,
   "Systems/SkiRunUpkeepSystem.cs": 1,
-  "Systems/SkiSnowInjectionSystem.cs": 26,
+  "Systems/SkiSnowInjectionSystem.cs": 25,
 };
 const kindRe = /\bRunKind\.(Groomed|Snowmaking|Night|Natural|CatTrack)\b|\bKind(Groomed|Snowmaking|Night|Natural|CatTrack)\b/g;
 const modRoot = path.join(repo, "mod", "SkiResortMod");
