@@ -372,7 +372,7 @@ function TreeToolSet({ t, quick }: { t: Translate; quick: boolean }): JSX.Elemen
       : t(HUB_LOC.treeToolTip);
   return (
     <>
-      <div className={styles.pickerSet} style={{ flexGrow: 2 }}>
+      <div className={styles.pickerSet} style={{ flexGrow: quick ? 1 : 2 }}>
         <div className={styles.pickerCell}>
           <Tip tip={tip ? <TipLines lines={[tip]} /> : null}>
             <Button
@@ -387,6 +387,7 @@ function TreeToolSet({ t, quick }: { t: Translate; quick: boolean }): JSX.Elemen
           </Tip>
         </div>
       </div>
+      {/* T202 mockup: four equal chips (Tree tool was 2 of 5, so Resort Planner and Delete cat tracks shrank) */}
       <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 3 }}>
         {quick && <QuickRunsChip t={t} />}
         {quick && <CatTrackDeleteChip t={t} />}
