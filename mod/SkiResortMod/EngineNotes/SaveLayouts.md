@@ -2,6 +2,10 @@
 
 `SaveLayouts` is the frozen, append-only table of every persisted type. tests/SaveBatch checks the entries against the serializers.
 
+Since 1.0 a row that any release carried never gets a new version: a new field goes in a NEW type with a new row (the 1.0.1
+SkiTrackPack and 1.0.2 SkiRulesStamp pattern). tests/SaveBatch SL-R fails on a released row that grew, vanished or moved, and on a
+released version missing from LayoutTests.Shipped. The steps below are only for a row no release has carried yet.
+
 To bump a layout:
 
 1. Append the new fields at the END of `Serialize`.

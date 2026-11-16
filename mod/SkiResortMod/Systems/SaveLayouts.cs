@@ -86,6 +86,9 @@ namespace SkiResortMod.Systems
             new Layout("SkiTrackPack", "TrackPack", KindComponent,
                 new LayoutVersion(1, 5, "m_DepthMm:i32"),
                 new LayoutVersion(2, 6, "m_Flags:u8")),
+            // 1.0.2 (T229, DECISIONS 670): the per-object rules stamp, a NEW type (no shipped row grows). Absent = level 0.
+            new Layout("SkiRulesStamp", "RulesStamp", KindComponent,
+                new LayoutVersion(1, 6, "m_Rules:i32 m_Flags:u8")),
         };
         // FROZEN-END
 

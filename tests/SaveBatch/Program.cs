@@ -10,6 +10,7 @@
 //     The saved AQN with any version strips to its own type through DeserializeType :51-65.
 //   * SL-AV AssemblyVersion == PinnedAssemblyVersion.
 //   * SL-CL: ChangelogTests.
+//   * SL-R / SL-S: RulesStampTests (every release line against the table; the 1.0.2 rules stamp across saves).
 
 using System;
 using System.Globalization;
@@ -37,6 +38,7 @@ namespace SaveBatch
             LayoutTests.Run(Check);
             DllAliasTests.Run(Check, root);
             ChangelogTests.Run(Check, root);
+            RulesStampTests.Run(Check, root);
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  SaveBatch checks={0} failures={1}", s_Checks, s_Failures));
             Environment.ExitCode = s_Failures;

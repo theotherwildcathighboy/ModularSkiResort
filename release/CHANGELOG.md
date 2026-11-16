@@ -25,6 +25,15 @@ Template (copy above the newest entry):
 Notes...
 ```
 
+## 1.0.2 (PDX version 3, unreleased)
+- Save compatible with previous: yes
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1, TrackPack 2, RulesStamp 1
+- Do not load in older versions: yes
+
+**Saves:**
+- Lifts, runs, cat tracks and resort buildings built from now on remember the version that built them, so a later update can bring older ones up to date.
+- A city saved with 1.0.2 still loads in 1.0.1, but that version forgets which version built what.
+
 ## 1.0.1 (PDX version 2, 2026-11-16)
 - Save compatible with previous: yes
 - Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1, TrackPack 2

@@ -49,7 +49,7 @@ namespace SaveBatch
         // Shipped snapshot: every table entry that is (or will be) in players' saves, verbatim as Render() prints it. A guard copy,
         // not a second table. SL-T fails if anyone edits or removes a shipped entry. Append a new entry (a post-release bump) to
         // SaveLayouts.cs. The test lists it as INFO until it ships. Then add it here.
-        private static readonly string[] Shipped =
+        internal static readonly string[] Shipped =
         {
             "SkiRunBinding v1 10 m_Gate:entity m_Flags:u8 m_PaidAmount:i32",
             "SkiRunTreeMember v1 6 m_Run:entity m_Layer:u8",
@@ -78,6 +78,11 @@ namespace SaveBatch
             "SkiTrackSnow v1 5 m_MadePermille:i32",
             // A run's trail name pick and its Upper / Lower form (R3, before 1.0). Ships in 1.0.0, so the table lists it as shipped.
             "SkiRunName v1 6 m_Index:i32 m_Form:u8",
+            // A merged vanilla building (before 1.0). Ships in 1.0.0 (added here in 1.0.2: SL-R2 now finds any shipped entry left out).
+            "SkiMergedLodge v1 11 m_Tier:u8 m_Flags:u8 m_FeePaid:i32 m_Serial:i32",
+            // A cat track's made-snow pack (T220). v2 ships in 1.0.1; v1 only ever lived in unreleased test saves, still loadable.
+            "SkiTrackPack v1 5 m_DepthMm:i32",
+            "SkiTrackPack v2 6 m_Flags:u8",
         };
 
         public static void Run(Func<bool, string, string, bool> check)

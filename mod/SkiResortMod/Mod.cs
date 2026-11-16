@@ -300,6 +300,11 @@ namespace SkiResortMod
             // pick). It is NOT load-bearing for other systems (the catalog rebuilds on request).
             updateSystem.UpdateAt<SkiRunNameSystem>(SystemUpdatePhase.ModificationEnd);
 
+            // Rules stamp (T229, DECISIONS 670): what our tools create gets SkiRulesStamp. ModificationEnd is load-bearing: MainLoop, paused
+            // or not, the frame's Created tag still on (CleanUpSystem strips it at Cleanup), after SkiRunReemitSystem's Modification1 carry-over
+            // (a re-emitted run already has its stamp, so this pass leaves it alone). Not load-bearing for anyone else.
+            updateSystem.UpdateAt<SkiRulesStampSystem>(SystemUpdatePhase.ModificationEnd);
+
             // Lodge-score watcher. ModificationEnd is load-bearing: CleanUpSystem strips Created/Updated at Cleanup, BEFORE GameSimulation
             // (SystemOrder.cs:54, 74), so the attractiveness system never sees a placement. This system only sets its pending flag.
             updateSystem.UpdateAt<SkiResortAttractivenessWatchSystem>(SystemUpdatePhase.ModificationEnd);

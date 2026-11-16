@@ -25,6 +25,7 @@
     <Compile Include="LayoutTests.cs" />
     <Compile Include="DllAliasTests.cs" />
     <Compile Include="ChangelogTests.cs" />
+    <Compile Include="RulesStampTests.cs" />
     <Compile Include="EngineShims.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SaveLayouts.cs" Link="SaveLayouts.cs" />
     <!-- the persisted types -->
@@ -36,6 +37,8 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiMergedLodge.cs" Link="SkiMergedLodge.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiTrackSnow.cs" Link="SkiTrackSnow.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiTrackPack.cs" Link="SkiTrackPack.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRulesStamp.cs" Link="SkiRulesStamp.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRulesLevel.cs" Link="SkiRulesLevel.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunName.cs" Link="SkiRunName.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSeasonPass.cs" Link="SkiSeasonPass.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortHistory.cs" Link="SkiResortHistory.cs" />

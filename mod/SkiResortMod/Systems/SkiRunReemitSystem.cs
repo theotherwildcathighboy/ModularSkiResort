@@ -7,6 +7,7 @@
 //   * the prop sliders (the placer re-places on the new run. The old props cascade with the old run),
 //   * the custom name,
 //   * the trail name (SkiRunName),
+//   * the rules stamp (SkiRulesStamp; an unstamped run gives an explicit level 0, so the copy never reads as built now),
 //   * the glade trees (retargeted before SkiGladeCleanupSystem's Modification2 pass),
 //   * the run-keyed runtime state of the injection, the catalog, the score, the hub and the Quick runs undo.
 // A step the run has never paid (Groomed on) is charged once through SkiRunOwnershipSystem.SettleFeatureSteps.
@@ -197,6 +198,7 @@ namespace SkiResortMod.Systems
                 props.m_AppliedKey = 0;   // nothing stands on the new run yet: the placer re-places
                 EntityManager.AddComponentData(neu, props);
             }
+            SkiRulesStampSystem.CarryOver(EntityManager, run, neu);   // the rules level carries over, never Current (T229)
             int trees = RetargetTrees(run, neu);
             // The old run goes before anything else can throw: one run stands whatever happens below.
             RunAreaEmit.DeleteLikeBulldozer(EntityManager, run);

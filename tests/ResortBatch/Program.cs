@@ -64,6 +64,7 @@ namespace ResortBatch
             GroomerTests.Run(Check);
             SkiAreaRadiusTests.Run(Check);
             ResortPresenceTests.Run(Check);
+            RulesStampTests.Run(Check);
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  ResortBatch checks={0} failures={1}", s_Checks, s_Failures));
             Environment.ExitCode = s_Failures;

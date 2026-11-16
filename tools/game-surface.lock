@@ -490,6 +490,7 @@ type Game.SceneFlow.GameManager class 58802f3fc3
 type Game.SceneFlow.UserInterface class 1616cc85c1
 type Game.Serialization.ClearSystem class a188a4d32a
 type Game.Serialization.PrimaryPrefabReferencesSystem class ef29316faf
+type Game.Serialization.RequiredComponentSystem class 513448d1c7
 type Game.Serialization.SerializerSystem class 3842646a83
 type Game.Serialization.StudentSystem class 91aeaf4c6f
 type Game.Serialization.SubAreaSystem class cf724c8604
