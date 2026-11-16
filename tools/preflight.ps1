@@ -60,6 +60,15 @@ function Invoke-Node {
     $ErrorActionPreference = "Continue"
     try { & node @args 2>&1 | ForEach-Object { "$_" } } finally { $ErrorActionPreference = $prev }
 }
+# Player world (DECISIONS 664): ImportedData is parked (an empty folder, or none), so the prefab checks read the repo's
+# gamedata-mirror\ImportedData, the backup of the same files (sync-gamedata.ps1). The result is the same in both worlds; the NOTE line
+# says which one was read. An explicit -ImportedData <path> is always honored as given.
+$MirrorRoot = Join-Path (Split-Path -Parent $PSScriptRoot) "gamedata-mirror\ImportedData"
+$liveHasSki = (Test-Path -LiteralPath $ImportedData) -and [bool](Get-ChildItem -LiteralPath $ImportedData -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "Ski*" } | Select-Object -First 1)
+if (-not $liveHasSki -and -not $PSBoundParameters.ContainsKey("ImportedData") -and (Test-Path -LiteralPath $MirrorRoot)) {
+    $ImportedData = $MirrorRoot
+    Write-Output "NOTE  ImportedData is parked (Player world): every prefab check below reads gamedata-mirror\ImportedData of this checkout"
+}
 if (-not (Test-Path $ImportedData)) { Write-Output "FATAL: ImportedData not found: $ImportedData"; exit 1 }
 
 # Known vanilla references (docs/PIPELINE.md + docs/research/{vanilla-reuse,golfpack-dissection,trails-surfaces-glades}.md)
