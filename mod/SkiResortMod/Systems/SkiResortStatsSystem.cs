@@ -2094,10 +2094,12 @@ namespace SkiResortMod.Systems
             // Upkeep inputs (CityServiceBudgetSystem.cs:392-421), fetched once per rebuild.
             bool upkeepReady = PrepareUpkeep(out EconomyParameterData economy, out ResourcePrefabs resourcePrefabs);
 
-            // The game's TouristIncome statistic, once per rebuild (GetStatisticValue completes the statistics writers, a short sync). Not
-            // read under Tourism Overhaul (the UI hides the row). -1 when unavailable.
+            // The game's TouristIncome statistic, once per rebuild (GetStatisticValue completes the statistics writers, a short sync). Read
+            // under Tourism Overhaul too: TO replaces the spawn and the target, but its tourists still start in HouseholdInitializeSystem
+            // (+money, :242) and leave through HouseholdMoveAwaySystem (-money, :173), so the statistic keeps counting (measured
+            // 2026-11-16, round 2 r2-tourism REPORT). -1 when unavailable.
             int touristIncome = -1;
-            if (!city.TourismOverhaul && m_CityStatistics != null)
+            if (m_CityStatistics != null)
             {
                 try
                 {

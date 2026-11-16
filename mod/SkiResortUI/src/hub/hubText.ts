@@ -400,8 +400,6 @@ export const HUB_LOC = {
   skiDaysTipNoLodge: ["SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Needs an active lodge within 800 m of runs or stations, with a road or a cat track. The Hut and Summit need neither."],
   skiDaysTipRuns: ["SkiResort.Hub.SKI_DAYS_TIP[Runs]", "The runs set the limit: bigger and easier runs hold more skiers at once."],
   skiDaysTipLodges: ["SkiResort.Hub.SKI_DAYS_TIP[Lodges]", "The lodges set the limit: each lodge takes 360 skiers at once, more on a powder day."],
-  estToNote: ["SkiResort.Hub.EST_TO_NOTE", "Detected: Tourism Overhaul. It sets tourist numbers."],
-  estToTip: ["SkiResort.Hub.EST_TO_TIP", "Tourism Overhaul sets tourist numbers in this city, so no estimate is shown."],
   // T226 / T225 (DECISIONS 666, 668): the Overview tourism group.
   valueRow: ["SkiResort.Hub.VALUE_ROW", "Value to the city"],
   valueTip: ["SkiResort.Hub.VALUE_TIP", "An estimate: the resort's net this month plus this ski area's share of what tourists spend in the city."],
@@ -465,7 +463,7 @@ export const HUB_LOC = {
   moneyTipPassHolders: ["SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a season pass: no lift ticket money now."],
   guestsRowPassHolders: ["SkiResort.Hub.GUESTS_ROW[PassHolders]", "Season pass"],
   guestsTipPassHolders: ["SkiResort.Hub.GUESTS_TIP[PassHolders]", "Residents who came in on a season pass. They paid once for the season and pay nothing at the gate. Tourists never hold one."],
-  // lessons, the pre-season sale, the city-income estimate (hidden under Tourism Overhaul: EST_TO_NOTE / EST_TO_TIP)
+  // lessons, the pre-season sale, the city-income estimate (shown under Tourism Overhaul too since 1.0.2)
   moneyTipLessons: ["SkiResort.Hub.MONEY_TIP[Lessons]", "Booked this month so far, one lesson per guest. Share and price: Options > Modular Ski Resort > Ski area balance."],
   moneyTipPassesPre: ["SkiResort.Hub.MONEY_TIP[PassesPre]", "The one sale before the season opens. It is part of the season's sales and counts in the net of the month of the sale."],
   moneyRowCityIncome: ["SkiResort.Hub.MONEY_ROW[CityIncome]", "City tourist income"],

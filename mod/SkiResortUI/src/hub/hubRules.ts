@@ -781,16 +781,17 @@ export function presaleShown(l: ResortLive | null): boolean {
   return !!l && l.passesPreSeason > 0;
 }
 
-/** The city-income estimate row is drawn when C# sent a figure (>= 0) and Tourism Overhaul is not detected. The views show
- *  the TO note in its place, as for the tourist estimate. */
-export function cityIncomeShown(l: ResortLive | null, city: CityStats): boolean {
-  return !!l && !city.tourismOverhaul && l.cityIncomeEst >= 0;
+/** The city-income estimate row is drawn when C# sent a figure (>= 0). Also under Tourism Overhaul: the game's TouristIncome
+ *  statistic keeps counting there (its tourists still start and leave through the vanilla household systems, measured 2026-11-16).
+ *  `city` stays in the signature for the callers. */
+export function cityIncomeShown(l: ResortLive | null, _city: CityStats): boolean {
+  return !!l && l.cityIncomeEst >= 0;
 }
 
 /** T226 / T225 / the value line (contract 50, DECISIONS 666, 668). */
 
 /** "Value to the city": the resort's net this month plus the area's city tourist income (the Money view's estimate row). null when that
- *  row is not drawn (no figure, or Tourism Overhaul detected). */
+ *  row is not drawn (no figure). */
 export function valueToCity(l: ResortLive | null, city: CityStats): number | null {
   if (!l || !cityIncomeShown(l, city) || typeof l.netMonth !== "number" || !Number.isFinite(l.netMonth)) return null;
   return l.netMonth + l.cityIncomeEst;

@@ -518,6 +518,9 @@ const R2TOURISM = [
   ["r2t-08-overview-tourism-overhaul-1080", 1080, { scenario: TO_SCN, view: 0, fold: 1 }],
   ["r2t-09-tip-tourists-to-1080", 1080, { scenario: TO_SCN, view: 0, fold: 1, hover: "Tourists in the city" }],
   ["r2t-10-bonus-off-1080", 1080, { scenario: "Ash Flat, resort tourism bonus off", view: 0, fold: 1, hover: "Resort tourism bonus" }],
+  // the city tourist income row under Tourism Overhaul (shown since the in-game check: the statistic counts under TO)
+  ["r2t-11-money-also-to-1080", 1080, { scenario: TO_SCN, view: 4, fold: 2 }],
+  ["r2t-12-tip-value-to-1080", 1080, { scenario: TO_SCN, view: 0, fold: 1, hover: "Value to the city" }],
 ];
 
 const PLANTEXT = [
