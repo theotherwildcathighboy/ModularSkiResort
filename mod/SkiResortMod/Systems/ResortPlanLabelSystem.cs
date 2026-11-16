@@ -73,6 +73,7 @@ namespace SkiResortMod.Systems
         private Material m_TextMaterialSource;
         private ResortPlan m_BuiltFor;               // reference compare: m_Published is an immutable snapshot per publish
         private bool m_BuiltImperial;                // the unit setting the lift labels were written in (T161): a change rebuilds
+        private GradeScheme m_BuiltScheme;           // the run grading the group labels were colored in (T216): a change rebuilds
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_NoMaterialLogged;
         private int m_Dropped;                       // labels the cap refused in the last rebuild
 
@@ -153,7 +154,7 @@ namespace SkiResortMod.Systems
                     LastDrawn = 0;   // zoomed in or out of the labels' range: nothing to build or draw
                     return;
                 }
-                if (!ReferenceEquals(plan, m_BuiltFor) || m_BuiltImperial != DisplayState.LengthImperial)
+                if (!ReferenceEquals(plan, m_BuiltFor) || m_BuiltImperial != DisplayState.LengthImperial || m_BuiltScheme != DisplayState.Scheme)
                     Rebuild(result, plan);
                 if (m_Labels.Count != 0)
                     Draw(cam);
@@ -183,6 +184,7 @@ namespace SkiResortMod.Systems
             m_Dropped = 0;
             m_BuiltFor = plan;
             bool imperial = m_BuiltImperial = DisplayState.LengthImperial;
+            m_BuiltScheme = DisplayState.Scheme;
             Rebuilds++;
             ReleaseLabels();
             TerrainHeightData hd = m_Terrain.GetHeightData();
@@ -210,7 +212,7 @@ namespace SkiResortMod.Systems
                             : "P" + QuickRunsPlanRules.Ordinal(plan, pod.Lift).ToString(CultureInfo.InvariantCulture))
                         .Replace("{CLASS}", Template("SkiResort.Tooltip.QUICK_CLASS[" + pod.PrimaryClass + "]"))
                     : otherT;
-                RunLabelRules.BandRgb(PlanGeometry.ScoreBandOf(pod.PrimaryClass), DisplayState.Scheme, DisplayUnits.EuGreenMaxPct,   // no grade: "blue or easier"
+                RunLabelRules.BandRgb(PlanGeometry.ScoreBandOf(pod.PrimaryClass), m_BuiltScheme, DisplayUnits.EuGreenMaxPct,   // no grade: "blue or easier"
                     out byte r, out byte g, out byte b);
                 Add(ref hd, pod.TopCenter, text, new Color32(r, g, b, 255), 2f * QuickRunsPlanRules.PodPickM);
             }
