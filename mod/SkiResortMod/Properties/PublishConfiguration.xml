@@ -65,12 +65,13 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 	<Screenshot Value="Properties/Screenshots/tram.jpg" />
 	<Screenshot Value="Properties/Screenshots/lift-line.jpg" />
 	<Screenshot Value="Properties/Screenshots/hero.jpg" />
-	<Screenshot Value="Properties/Screenshots/golden-hour.jpg" />
-	<Screenshot Value="Properties/Screenshots/hub.jpg" />
+	<Screenshot Value="Properties/Screenshots/wide-mountains.jpg" />
+	<Screenshot Value="Properties/Screenshots/gondola-snow.jpg" />
+	<Screenshot Value="Properties/Screenshots/night-groomer.jpg" />
+	<Screenshot Value="Properties/Screenshots/ski-bus-train.jpg" />
 	<Screenshot Value="Properties/Screenshots/planner-plan.jpg" />
 	<Screenshot Value="Properties/Screenshots/planner-built.jpg" />
 	<Screenshot Value="Properties/Screenshots/run-draw.jpg" />
-	<Screenshot Value="Properties/Screenshots/night.jpg" />
 	<Screenshot Value="Properties/Screenshots/summer.jpg" />
 	<!--Tag, can be set multiple times. The publisher adds "Code Mod" by default. These three ids exist on live Paradox Mods listings (cached tag list, 1426 mods); a hybrid code plus prefab item is tagged this way. Whether the server accepts a tag outside that list is UNVERIFIED-->
 	<Tag Value="Code Mod" />
