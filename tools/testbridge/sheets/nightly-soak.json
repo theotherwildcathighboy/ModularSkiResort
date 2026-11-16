@@ -1,0 +1,12 @@
+{
+  "name": "nightly-soak",
+  "description": "After tools/loadcheck.ps1 -Resave (a city is loaded): the census, N more in-game months at speed 8, the census again; nothing may be lost. tools/nightly.ps1 passes days and name.",
+  "vars": { "days": 2, "name": "SRM Test nightly" },
+  "steps": [
+    { "do": "op", "op": { "op": "loadcheck", "action": "census" }, "as": "before", "expect": { "census.persisted.SkiRunBinding": { "min": 1 } } },
+    { "do": "soak", "days": "${days}", "speed": 8, "every": 30, "sample": { "op": "loadcheck", "action": "census" }, "as": "series",
+      "expect": { "last.census.persisted.SkiRunBinding": { "eq": "${before.census.persisted.SkiRunBinding}" },
+                  "last.census.summary.chairsAndCabins": { "eq": "${before.census.summary.chairsAndCabins}" } } },
+    { "do": "saveas", "name": "${name}" }
+  ]
+}

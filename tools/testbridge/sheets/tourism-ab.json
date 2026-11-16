@@ -1,0 +1,16 @@
+{
+  "name": "tourism-ab",
+  "description": "The tourism A/B of tools/testbridge/tourism-ab.sh as a sheet: for each bonus percent set it, soak N days sampling the tourism op, keep the series. Needs the T226 prototype build (op tourism bonus). Customer: r2-tourism.",
+  "vars": { "days": 4 },
+  "steps": [
+    { "do": "repeat", "over": [0, 5, 10], "as": "pct", "steps": [
+      { "do": "op", "op": { "op": "tourism", "action": "bonus", "pct": "${pct}" } },
+      { "do": "op", "op": { "op": "tourism", "action": "start", "every": 2048 } },
+      { "do": "soak", "days": "${days}", "speed": 8, "every": 30, "keep": true },
+      { "do": "op", "op": { "op": "tourism", "action": "read", "from": 0 }, "file": "ab-${pct}.json" },
+      { "do": "op", "op": { "op": "tourism" }, "file": "ab-${pct}-end-snapshot.json" },
+      { "do": "op", "op": { "op": "tourism", "action": "stop" } }
+    ] },
+    { "do": "op", "op": { "op": "sim", "speed": 0 } }
+  ]
+}
