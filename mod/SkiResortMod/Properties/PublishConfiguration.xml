@@ -88,12 +88,10 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset. Source: the newest entry of release/CHANGELOG.md (tools/sync-listing.js copies it)-->
 	<ChangeLog>
-Saves from 1.0.0 load fine.
-
 **Resort Planner:**
 - No more long green lines outside the region while planning.
 - The lift list scrolls, and the steps read in a clearer order.
-- Building a lift that needs hand fitting keeps the planner and its other lifts.
+- The planner stays open when you build a lift that needs hand placement.
 - No station on top of another station.
 - Runs reach the run they join, and cat tracks come out in one piece.
 - The planner is on by default.
@@ -102,7 +100,7 @@ Saves from 1.0.0 load fine.
 - Fly to an unfinished lift.
 - Click a run to go to it.
 - Mountain stats.
-- Clearer Ski School wording when it adds nothing, for example off-season.
+- Clearer wording when the ski school is not working, for example off-season.
 - Warnings say "open" when the runs exist but are all closed, for example "no open green run or cat track".
 - The Mountain section labels its number: "Vertical drop".
 - An open cat track counts as the ski school's run. Cat tracks do not count toward Variety.
@@ -122,15 +120,15 @@ Saves from 1.0.0 load fine.
 - New thumbnail and launcher icon.
 
 **Season:**
-- A run or cat track needs real snow to read Open, with clearer snow text. A cat track's snow guns follow the air at the track, need about one game hour to build its snow, and a warm spell melts it. A save keeps how deep they have built it and whether it was open.
+- A run or cat track needs real snow to read Open, with clearer snow text.
+- Snow guns on cat tracks now work like the guns on runs: they follow the air temperature, and they need about one game hour to build the snow.
 - The planner's tree filler keeps out of lift corridors, the tram's too.
-- The tram no longer stands still, in summer too, in a game that loads the mod's assets twice.
 
 **Economy:**
 - Ticket default 80 to 100, season pass x2 to x4.
 - Lodges and the school close off-season (an option).
 - Cat tracks pay snowmaking only while their guns make snow.
-- "Extra tourists in the city" label.
+- The tourist estimate reads "Extra tourists in the city": how many more tourists the resort brings, at one time.
 - Guests without a car who live far from every lodge start at the bus depot.
 
 **Ski way:**
@@ -140,6 +138,7 @@ Saves from 1.0.0 load fine.
 - Dev-only screens out of the release build.
 - Lift towers keep their saved shape on load.
 - Less log noise.
+- Saves from 1.0.0 load fine.
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme". PLACEHOLDER: the DISCORD_URL token stands for the Discord bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or delete this line if only the forum thread is used (the same gate and the same UNVERIFIED publisher behavior as ForumLink)-->
 	<ExternalLink Type="discord" Url="https://discord.com/channels/263634513861541888/1570379334672326736" />
