@@ -181,7 +181,7 @@ function Wait-Report([int]$timeoutSec) {
         if (((Get-Date) - $lastPrint).TotalSeconds -ge 30) {
             $lastPrint = Get-Date
             $extra = if ($s.phase -eq 'month') { " date $($s.date), $($s.monthFrames) frames, turned $($s.monthTurned), $($s.elapsedS) s" } else { '' }
-            Write-Output ("  {0:HH:mm:ss} phase {1}{2}" -f (Get-Date), $s.phase, $extra)
+            Write-Host ("  {0:HH:mm:ss} phase {1}{2}" -f (Get-Date), $s.phase, $extra)
         }
         if (((Get-Date) - $t0).TotalSeconds -gt $timeoutSec) { Stop-Check 3 "no report after $timeoutSec s (phase $($s.phase))" }
     }
