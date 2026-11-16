@@ -128,6 +128,21 @@ export function Act({ label, tip, on, disabled, onSelect, next }: {
   );
 }
 
+/* An on / off feature: a check box and its label, the plan rows' idiom (DECISIONS 668: a state is never coded by color alone). The button
+   has its own Tip, like Act. */
+export function ToggleAct({ label, tip, on, disabled, onSelect }: {
+  label: string; tip?: string; on: boolean; disabled?: boolean; onSelect: () => void;
+}): JSX.Element {
+  return (
+    <Tip tip={tip}>
+      <Button focusKey={FOCUS_DISABLED} theme={{ button: styles.toggleAct }} disabled={!!disabled} selected={on} onSelect={onSelect}>
+        <CheckBox on={on} />
+        <div className={styles.toggleLabel}>{label}</div>
+      </Button>
+    </Tip>
+  );
+}
+
 export function Caption({ text }: { text: string }): JSX.Element {
   return <div className={styles.quickCaption}>{text}</div>;
 }
@@ -355,7 +370,7 @@ function TreeRowsQuick({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: 
     <>
       <div className={styles.quickRow}>
         <Caption text={t(HUB_LOC.quickTreesCaption)} />
-        <Act label={t(HUB_LOC.quickTrees)} tip={t(HUB_LOC.quickTreesTip)} on={q.trees} disabled={wait} onSelect={() => set("trees", q.trees ? 0 : 1)} />
+        <ToggleAct label={t(HUB_LOC.quickTrees)} tip={t(HUB_LOC.quickTreesTip)} on={q.trees} disabled={wait} onSelect={() => set("trees", q.trees ? 0 : 1)} />
         {q.trees && (
           <>
             {treeJob(q)
@@ -580,9 +595,11 @@ export function QuickRunsRows(): JSX.Element {
       </div>
       <div className={styles.quickRow}>
         <Caption text={t(HUB_LOC.quickKindsCaption)} />
-        {KINDS.map(([bit, e, tip], i) => (
-          <Act key={bit} label={t(e)} tip={t(tip)} next={i > 0} on={(q.kinds & bit) !== 0} disabled={wait} onSelect={() => set("kind", bit)} />
-        ))}
+        <div className={styles.quickToggleCol}>
+          {KINDS.map(([bit, e, tip]) => (
+            <ToggleAct key={bit} label={t(e)} tip={t(tip)} on={(q.kinds & bit) !== 0} disabled={wait} onSelect={() => set("kind", bit)} />
+          ))}
+        </div>
       </div>
       <TreeRowsQuick q={q} t={t} wait={wait} />
       <LiftSheetBlock q={q} t={t} />

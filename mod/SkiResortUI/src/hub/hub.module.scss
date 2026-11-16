@@ -927,6 +927,48 @@
   white-space: nowrap;
 }
 
+// T202 (DECISIONS 668): an on / off feature of the Resort Planner (Snowmaking near the base, Light the two lowest, Leave black runs
+// natural, Tree filler): a check box and its label, the plan rows' idiom. 22 rem x fontScale, the check row of the control scale.
+.toggleAct {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  height: calc(22rem * var(--fontScale));
+  padding-left: 4rem;
+  padding-right: 6rem;
+  margin-right: 4rem;
+  font-size: var(--fontSizeXS);
+  color: var(--normalTextColor);
+  background-color: rgba(0, 0, 0, 0);
+  border-radius: 3rem;
+  white-space: nowrap;
+}
+
+.toggleAct:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.toggleAct[disabled] {
+  opacity: 0.45;
+}
+
+.toggleLabel {
+  white-space: nowrap;
+}
+
+// The toggles of one caption, one per line, in the place the segment buttons took.
+.quickToggleCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
 // Round F7 (D6): a class, not `.segButton + .segButton`. Each button has its own Tooltip now (one
 // focusable child per Tooltip FocusBoundary, log-audit §5.2), so the two need not be DOM siblings.
 .segButtonNext {
