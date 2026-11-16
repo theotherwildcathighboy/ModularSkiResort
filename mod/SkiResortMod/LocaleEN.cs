@@ -1424,7 +1424,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Needs an active lodge within 800 m of runs or stations, with a road or a cat track. The Hut and Summit need neither." },
                 { "SkiResort.Hub.SKI_DAYS_TIP[Runs]", "The runs set the limit: bigger and easier runs hold more skiers at once." },
                 { "SkiResort.Hub.SKI_DAYS_TIP[Lodges]", "The lodges set the limit: each lodge takes 360 skiers at once, more on a powder day." },
-                { "SkiResort.Hub.EST_ROW[Tourists]", "Extra tourists in the city ≈" },
+                { "SkiResort.Hub.EST_ROW[Tourists]", "Tourists drawn ≈" },
                 { "SkiResort.Hub.EST_TO_NOTE", "Detected: Tourism Overhaul. It sets tourist numbers." },
                 { "SkiResort.Hub.EST_TO_TIP", "Tourism Overhaul sets tourist numbers in this city, so no estimate is shown." },
                 // The Guests view's trip-planner note (no placeholder; Known / KnownOff are in the

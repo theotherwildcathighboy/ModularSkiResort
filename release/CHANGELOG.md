@@ -70,7 +70,6 @@ Notes...
 - Ticket default 80 to 100, season pass x2 to x4.
 - Lodges and the school close off-season (an option).
 - Cat tracks pay snowmaking only while their guns make snow.
-- The tourist estimate reads "Extra tourists in the city": how many more tourists the resort brings, at one time.
 - Guests without a car who live far from every lodge start at the bus depot.
 
 **Ski way:**
