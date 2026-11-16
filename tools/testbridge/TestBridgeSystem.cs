@@ -60,6 +60,7 @@ namespace SkiTestBridge
             TickMergeProbeUi();
             TickLoadCheck();
             TickTourism();
+            TickMeltProbe();
         }
 
         protected override void OnDestroy()
@@ -138,6 +139,7 @@ namespace SkiTestBridge
                 case "loadcheck": return LoadCheckCommand(args);
                 case "prefabalias": return PrefabAliasCommand(args);
                 case "tourism": return TourismCommand(args);
+                case "meltprobe": return MeltProbeCommand(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }
