@@ -5,7 +5,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # main plus every round branch (r1/..., r2/...), so a work branch shows red / green before the batch merge (DECISIONS 669).
+    branches: [main, "r[0-9]*/**"]
   pull_request:
   workflow_dispatch:
 
