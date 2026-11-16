@@ -214,9 +214,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>One cat track's monthly upkeep by feature, the one rule the upkeep charge, its per-area booking and the hub read. A track
         /// has no texels, so its plan area (m2) stands in. Grooming bills it while its guns can run and are not Off (SnowGunPlumeRules
-        /// .TrackBilledHa, DECISIONS 563). Snowmaking bills it only while its guns build made snow (<paramref name="gunsWorking"/> =
-        /// RunSnowRules.TrackGunsWorking), as a piste's guns bill only below the stop depth. Lights: TrackLitHa.</summary>
-        public static RunUpkeep TrackUpkeep(RunFeatures f, float planAreaM2, bool gunsCanRun, bool gunsOn, bool gunsWorking)
+        /// .TrackBilledHa, DECISIONS 563). Snowmaking bills the share of it the guns make snow on now (<paramref name="makingShare"/>, 0..1 =
+        /// RunSnowRules.TrackMadeSnow.MakingShare: Running and cold enough, T222), as a piste bills the texels its guns raise. Lights: TrackLitHa.</summary>
+        public static RunUpkeep TrackUpkeep(RunFeatures f, float planAreaM2, bool gunsCanRun, bool gunsOn, float makingShare)
         {
             RunUpkeep u = default;
             if (!f.IsCatTrack)
@@ -224,11 +224,9 @@ namespace SkiResortMod.Systems
             float ha = gunsCanRun && gunsOn ? Finite0(planAreaM2) / 10000f : 0f;   // = SnowGunPlumeRules.TrackBilledHa (ResortBatch pins it)
             u.GroomedHa = ha;
             u.Grooming = ha * GroomedPerHaMonth;
-            if (gunsWorking)
-            {
-                u.SnowmakingHa = ha;
-                u.Snowmaking = ha * SnowmakingStepPerHaMonth;
-            }
+            float making = makingShare > 0f ? (makingShare < 1f ? makingShare : 1f) : 0f;   // NaN: none
+            u.SnowmakingHa = ha * making;
+            u.Snowmaking = u.SnowmakingHa * SnowmakingStepPerHaMonth;
             u.LitHa = TrackLitHa(f, planAreaM2, gunsCanRun);
             u.Lights = u.LitHa * LightsStepPerHaMonth;
             return u;

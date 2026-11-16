@@ -453,7 +453,7 @@ Appended fields and bindings by contract:
   made-snow model (`HubRules.TrackGunWhyOf`). The values:
   - Making: the guns cover some of it by the air now and build.
   - DepthReached: the pack is at the gun stop depth.
-  - Held: no gun share, and the protection spell holds the made snow.
+  - Held: no gun share, and the protection spell holds the made snow. Never sent since T222 (round 2: no hold); the enum value stays for the contract.
   - TooWarm: no gun share and no hold.
   The day-mean rule (`CatTrackGunsCanRun`) said "too warm" while the guns built and "making" after they stopped. With the
   injection off, the day-mean rule stays.

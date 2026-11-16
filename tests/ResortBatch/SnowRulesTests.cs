@@ -30,7 +30,6 @@ namespace ResortBatch
             CanSkipDryCases(check);
             ForcedDryCheckCases(check);
             PackedConstants(check);
-            PackGuardCases(check);
             CalmShareCases(check);
             CanSkipPackedCases(check);
             SkipKindCases(check);
@@ -301,7 +300,7 @@ namespace ResortBatch
         {
             return new DryPass
             {
-                Valid = true, ColdTexels = 0, Injected = 0, Lowered = 0, PackGuardNext = true, RunMeanDepthM = 0.212f,
+                Valid = true, ColdTexels = 0, Injected = 0, RunMeanDepthM = 0.212f,
                 RunDepthSum = 12.5, ContainedTexels = 478, FootprintHash = PackedHash,
             };
         }
@@ -310,7 +309,7 @@ namespace ResortBatch
         {
             return new DryPass
             {
-                Valid = true, ColdTexels = 0, Injected = 0, Lowered = 0, PackGuardNext = false, RunMeanDepthM = 0f,
+                Valid = true, ColdTexels = 0, Injected = 0, RunMeanDepthM = 0f,
                 RunDepthSum = 0.0, ContainedTexels = 478, FootprintHash = PackedHash,
             };
         }
@@ -318,23 +317,12 @@ namespace ResortBatch
         private static void PackedConstants(Func<bool, string, string, bool> check)
         {
             const string W = "snow S17 packed constants";
-            check(RunSnowRules.PackGuardMeanDepthM == 0.02f && RunSnowRules.PackedSkipMinRunDepthM == 0.10f &&
+            check(RunSnowRules.PackedSkipMinRunDepthM == 0.10f &&
                   RunSnowRules.CalmOpenShare == 0.70f && RunSnowRules.CalmClosedShare == 0.30f,
-                W, "a Round M2 constant moved: the literal oracles below assume pack guard 0.02 m, dress guard 0.10 m, " +
+                W, "a Round M2 constant moved: the literal oracles below assume dress guard 0.10 m, " +
                    "calm shares 70 % / 30 %");
             check((byte)TopupSkip.None == 0 && (byte)TopupSkip.Dry == 1 && (byte)TopupSkip.Packed == 2,
                 W, "TopupSkip literals changed: expected None 0, Dry 1, Packed 2");
-        }
-
-        private static void PackGuardCases(Func<bool, string, string, bool> check)
-        {
-            const string W = "snow S18 PackGuard";
-            check(!RunSnowRules.PackGuard(0.02f), W, "0.02 m: expected off (strictly above the constant)");
-            check(RunSnowRules.PackGuard(0.020001f), W, "0.020001 m: expected on");
-            check(RunSnowRules.PackGuard(0.212f), W, "0.212 m: expected on");
-            check(!RunSnowRules.PackGuard(0f), W, "0 m: expected off");
-            check(!RunSnowRules.PackGuard(float.NaN), W, "NaN: expected off");
-            check(!RunSnowRules.PackGuard(-0.5f), W, "-0.5 m: expected off");
         }
 
         private static void CalmShareCases(Func<bool, string, string, bool> check)
@@ -362,10 +350,6 @@ namespace ResortBatch
             Packed(check, W, p, 0, 478, H, 188u, true, false, "the last real pass had cold texels (the gate-change pass is real): no skip");
             p = PackedRecord(); p.Injected = 1;
             Packed(check, W, p, 0, 478, H, 188u, true, false, "the last real pass raised a texel: no skip");
-            p = PackedRecord(); p.Lowered = 1;
-            Packed(check, W, p, 0, 478, H, 188u, true, false, "the last real pass lowered a texel: no skip");
-            p = PackedRecord(); p.PackGuardNext = false;
-            Packed(check, W, p, 0, 478, H, 188u, true, false, "the next merge has the pack guard off: no skip");
             p = PackedRecord(); p.RunMeanDepthM = 0.10f;
             Packed(check, W, p, 0, 478, H, 188u, true, true, "runs at exactly 0.10 m should skip (inclusive)");
             p = PackedRecord(); p.RunMeanDepthM = 0.0999f;
@@ -391,7 +375,7 @@ namespace ResortBatch
             check(got == expected, w, what + " (got " + got + ")");
         }
 
-        // Row 3 ("D.PackGuardNext = true -> Dry", dry first) also sets RunMeanDepthM 0.212 so that both predicates hold on
+        // Row 3 (a dry record with RunMeanDepthM 0.212, dry first) is a record on which both predicates hold on
         // that synthetic record. The test then really checks the order (with 0 m only Dry holds)
         private static void SkipKindCases(Func<bool, string, string, bool> check)
         {
@@ -400,14 +384,12 @@ namespace ResortBatch
             DryPass d = DryRecord();
             Kind(check, W, d, 0, 478, H, 188u, true, TopupSkip.Dry, "dry record, base");
             Kind(check, W, d, 0, 478, H, 188u, false, TopupSkip.Dry, "dry record, a share near the open line (D30 ignores the share guard)");
-            d = DryRecord(); d.PackGuardNext = true; d.RunMeanDepthM = 0.212f;
-            Kind(check, W, d, 0, 478, H, 188u, true, TopupSkip.Dry, "dry record with the pack guard on and 0.212 m (both hold: dry first)");
+            d = DryRecord(); d.RunMeanDepthM = 0.212f;
+            Kind(check, W, d, 0, 478, H, 188u, true, TopupSkip.Dry, "dry record with 0.212 m (both hold: dry first)");
             DryPass p = PackedRecord();
             Kind(check, W, p, 0, 478, H, 188u, true, TopupSkip.Packed, "packed record, base");
             Kind(check, W, p, 1, 478, H, 188u, true, TopupSkip.None, "packed record, one cold texel now");
             Kind(check, W, p, 0, 478, H, 1024u, true, TopupSkip.None, "packed record, 1024 frames (forced pass due)");
-            p = PackedRecord(); p.PackGuardNext = false;
-            Kind(check, W, p, 0, 478, H, 188u, true, TopupSkip.None, "snow lies and the pack guard is off (managed melt has work)");
             Kind(check, W, default(DryPass), 0, 478, H, 188u, true, TopupSkip.None, "no real pass this load (default record)");
         }
 
@@ -433,15 +415,13 @@ namespace ResortBatch
             bool forcedDry = RunSnowRules.IsForcedCheck(d, 0, 478, H, 1024u, false);
             check(forcedDry && forcedDry == RunSnowRules.IsForcedDryCheck(d, 0, 478, H, 1024u), W,
                 "dry record at 1024 frames, calm false: expected true and equal to IsForcedDryCheck (got " + forcedDry + ")");
-            p = PackedRecord(); p.PackGuardNext = false;
-            check(!RunSnowRules.IsForcedCheck(p, 0, 478, H, 1024u, true), W, "1024 frames, the pack guard off: not forced");
             p = PackedRecord(); p.Valid = false;
             check(!RunSnowRules.IsForcedCheck(p, 0, 478, H, 5000u, true), W, "no real pass this load: not forced");
         }
 
         // Properties over seed 20261010, 20,000 records: one check per property, and the test counts violations (the oracle is 0).
-        // The draw order is the same for every record. Each value is tables[rng.Next(length)]. The order is: Valid, ColdTexels, Injected, Lowered,
-        // PackGuardNext, RunDepthSum, RunMeanDepthM (drawn only when RunDepthSum != 0, else 0f), then the arguments cold, contained, hash,
+        // The draw order is the same for every record. Each value is tables[rng.Next(length)]. The order is: Valid, ColdTexels, Injected,
+        // RunDepthSum, RunMeanDepthM (drawn only when RunDepthSum != 0, else 0f), then the arguments cold, contained, hash,
         // sinceReal, calm. The record's footprint is 478 texels / H. 20,000 records give 18 packed and 103 dry for this seed
         // (2,000 give one packed record). Each check also requires that the draw includes both kinds (no vacuous pass).
         private static void PackedProperties(Func<bool, string, string, bool> check)
@@ -452,8 +432,6 @@ namespace ResortBatch
             bool[] validT = { true, false };
             int[] coldT = { 0, 0, 0, 3 };
             int[] injectedT = { 0, 0, 2 };
-            int[] loweredT = { 0, 0, 1 };
-            bool[] guardT = { true, false };
             double[] depthSumT = { 0.0, 1e-9, 12.5 };
             float[] meanT = { 0.05f, 0.0999f, 0.10f, 0.212f, float.NaN };
             int[] coldNowT = { 0, 0, 1 };
@@ -469,8 +447,6 @@ namespace ResortBatch
                 last.Valid = validT[rng.Next(validT.Length)];
                 last.ColdTexels = coldT[rng.Next(coldT.Length)];
                 last.Injected = injectedT[rng.Next(injectedT.Length)];
-                last.Lowered = loweredT[rng.Next(loweredT.Length)];
-                last.PackGuardNext = guardT[rng.Next(guardT.Length)];
                 last.RunDepthSum = depthSumT[rng.Next(depthSumT.Length)];
                 last.RunMeanDepthM = last.RunDepthSum == 0.0 ? 0f : meanT[rng.Next(meanT.Length)];
                 last.ContainedTexels = 478;
@@ -489,9 +465,8 @@ namespace ResortBatch
                 if (canDry)
                     dry++;
                 // A packed skip implies the pass is not due. It also implies the terms that make the merge a no-op. These terms are: no cold texel now
-                // or at the last real pass, nothing raised or lowered, and the pack guard on for the next merge
-                if (canPacked && !(cold == 0 && last.ColdTexels == 0 && last.Injected == 0 && last.Lowered == 0 &&
-                                   last.PackGuardNext && since < RunSnowRules.ForcedRealPassFrames))
+                // or at the last real pass and nothing raised (T222: the merge never lowers; the game melts)
+                if (canPacked && !(cold == 0 && last.ColdTexels == 0 && last.Injected == 0 && since < RunSnowRules.ForcedRealPassFrames))
                 {
                     if (bad1++ == 0)
                         first1 = Describe(last, cold, contained, hash, since, calm);
@@ -504,7 +479,7 @@ namespace ResortBatch
                 }
             }
             check(bad1 == 0 && packed > 0, W, "P1 CanSkipPacked implies no cold texel now or at the last real pass, nothing " +
-                  "raised or lowered, the pack guard on, not due: " + bad1 + " violation(s) in " + Records + " records (" +
+                  "raised, not due: " + bad1 + " violation(s) in " + Records + " records (" +
                   packed + " packed, expected > 0)" + (first1 != null ? "; first: " + first1 : ""));
             check(bad2 == 0 && packed > 0 && dry > 0, W, "P2 never both kinds, SkipKind = Dry iff CanSkipDry, = Packed iff " +
                   "CanSkipPacked: " + bad2 + " violation(s) in " + Records + " records (" + packed + " packed, " + dry +
@@ -514,7 +489,7 @@ namespace ResortBatch
         private static string Describe(DryPass last, int cold, int contained, ulong hash, uint since, bool calm)
         {
             return "record (valid " + last.Valid + ", cold " + last.ColdTexels + ", injected " + last.Injected +
-                   ", lowered " + last.Lowered + ", guard " + last.PackGuardNext + ", sum " +
+                   ", sum " +
                    last.RunDepthSum.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + ", mean " +
                    last.RunMeanDepthM.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "), now (cold " +
                    cold + ", contained " + contained + ", hash " + (hash == PackedHash ? "H" : "H+1") + ", since " + since +
@@ -572,9 +547,7 @@ namespace ResortBatch
         // - constants
         // - the skiable bar per run
         // - the gun reaching "open" by itself
-        // - aspect, spring, the budget
-        // - the protection machine
-        // - field-sheet scenarios in rule form
+        // - the pack step (T222: no hold, no aspect, spring or budget)
         // - the ledger
 
         private static void T09Cases(Func<bool, string, string, bool> check)
@@ -582,11 +555,7 @@ namespace ResortBatch
             T09Constants(check);
             T09SkiableBar(check);
             T09GunOpens(check);
-            T09Aspect(check);
-            T09Spring(check);
-            T09Budget(check);
-            T09Machine(check);
-            T09FieldSheet(check);
+            T222PackStep(check);
             T09Ledger(check);
         }
 
@@ -599,17 +568,12 @@ namespace ResortBatch
             check(RunSnowRules.OpenAtShare == 0.60f && RunSnowRules.CloseBelowShare == 0.40f, W, "the 60 % / 40 % hysteresis is unchanged");
             check(RunSnowRules.DefaultSnowmakingMarginC == 3.3f && RunSnowRules.MinSnowmakingMarginC == 0f && RunSnowRules.MaxSnowmakingMarginC == 6f,
                 W, "margin default 3.3 C (38 F), slider range 0..6");
-            check(RunSnowRules.GunTargetDepthM == RunSnowRules.SkiableDepthM && RunSnowRules.GroomedTargetDepthM == RunSnowRules.GunStopDepthM,
-                W, "T133 gun base = the 3 ft bar, groomed ceiling = the gun stop depth (0.96 m)");
+            check(RunSnowRules.GunTargetDepthM == RunSnowRules.SkiableDepthM && Near(RunSnowRules.GroomedTargetDepthM, 0.96, 1e-6) &&
+                  RunSnowRules.GunStopDepthM == 2f && RunSnowRules.GunRestartBandM == 0.05f,
+                W, "T222 gun base 2.0 m, restart 1.95 m; groomed ceiling 0.96 m (the 3 ft bar + the band)");
             check(RunSnowRules.GunTargetDepthM >= RunSnowRules.SkiableDepthM, W, "the gun target reaches the open bar");
             check(RunSnowRules.GroomedTargetDepthM > RunSnowRules.SkiableDepthM, W, "the groomed target clears the open bar");
-            check(RunSnowRules.ProtectBudgetHours == 48f && RunSnowRules.ProtectMaxLocalC == 10f, W, "budget 48 game h, stop above 10 C");
-            check(RunSnowRules.ProtectSpringFactor == 0.5f && RunSnowRules.ProtectNorthFactor == 1.5f && RunSnowRules.ProtectSouthFactor == 0.5f,
-                W, "spring x0.5, north x1.5, south x0.5");
-            // The re-raise must beat the melt it faces, with 1.5x headroom. At T = 10 C the melt is 2e-5 x T x 0.2 x 16 snow ticks x 8 m = 6.4 mm
-            // per window (linear form unverified)
-            double meltAt10C = 2e-5 * 10.0 * 0.2 * 16.0 * 8.0;
-            check(RunSnowRules.ProtectRaisePerTopupM >= 1.5 * meltAt10C - 1e-9, W, "the protection step beats the estimated melt at 10 C by 1.5x");
+            check(RunSnowRules.MeltPerHourPerC > 0f && RunSnowRules.MaxPackStepHours == 6f, W, "a measured melt rate, a 6 h step cap");
         }
 
         private static void T09SkiableBar(Func<bool, string, string, bool> check)
@@ -658,144 +622,59 @@ namespace ResortBatch
             check(Near(RunSnowRules.WindowsToGameHours(4096f), 24.0, 1e-3), W, "4096 windows of 64 frames are one game day");
         }
 
-        private static void T09Aspect(Func<bool, string, string, bool> check)
+        // T222 (DECISIONS 667): the one pack step. Hand values at the default parameters (base 2.0 m, restart 1.95 m, margin 3.3 C).
+        private static void T222PackStep(Func<bool, string, string, bool> check)
         {
-            const string W = "snow S27 aspect";
-            check(Near(RunSnowRules.AspectFactor(0f, -0.5f, 1f), 1.5, 1e-6), W, "steep face descending toward +Z (north): x1.5");
-            check(Near(RunSnowRules.AspectFactor(0f, 0.5f, 1f), 0.5, 1e-6), W, "steep face descending toward -Z (south): x0.5");
-            check(Near(RunSnowRules.AspectFactor(0.5f, 0f, 1f), 1.0, 1e-6), W, "east face: x1");
-            check(Near(RunSnowRules.AspectFactor(-0.5f, 0f, 1f), 1.0, 1e-6), W, "west face: x1");
-            check(RunSnowRules.AspectFactor(0f, 0f, 1f) == 1f, W, "flat ground: x1");
-            check(Near(RunSnowRules.AspectFactor(0f, -0.05f, 1f), 1.25, 1e-6), W, "gentle north face (5 % pitch, half the full weight): x1.25");
-            check(Near(RunSnowRules.AspectFactor(0f, 0.05f, 1f), 0.75, 1e-6), W, "gentle south face: x0.75");
-            check(Near(RunSnowRules.AspectFactor(0f, -0.5f, -1f), 0.5, 1e-6), W, "a southern latitude flips north and south");
-            float ne = RunSnowRules.AspectFactor(-0.3f, -0.3f, 1f);
-            check(Near(ne, 1.0 + 0.5 * 0.70710678, 1e-5), W, "north-east face: 1 + 0.5 x sin45 = 1.354 (" + ne + ")");
-        }
-
-        private static void T09Spring(Func<bool, string, string, bool> check)
-        {
-            const string W = "snow S28 spring";
-            check(RunSnowRules.IsSpring("SeasonSpring", 0.9f), W, "the climate's spring season is spring on any date");
-            check(!RunSnowRules.IsSpring("SeasonSummer", 0.3f), W, "the climate's summer is not spring even in April");
-            check(!RunSnowRules.IsSpring("SeasonWinter", 0.3f), W, "the climate's winter is not spring");
-            check(!RunSnowRules.IsSpring("SeasonAutumn", 0.3f), W, "the climate's autumn is not spring");
-            check(RunSnowRules.IsSpring("MySeason", 0.3f), W, "a custom season name falls back to the calendar: April is spring");
-            check(!RunSnowRules.IsSpring("MySeason", 0.7f), W, "a custom season name: September is not");
-            check(!RunSnowRules.IsSpring(null, 0.1f), W, "no season name: February is winter");
-            check(RunSnowRules.IsSpring(null, 1.3f), W, "the date wraps over the year: 1.3 is 0.3");
-            check(!RunSnowRules.IsSpring(null, 5f / 12f), W, "1 June is not spring (end exclusive)");
-            // The fallback follows the climate's winter end. The vanilla names still decide first.
-            check(RunSnowRules.IsSpring("MySeason", 0.72f, 8f / 12f), W, "a winter ending 1 September: late September is spring");
-            check(!RunSnowRules.IsSpring("MySeason", 0.3f, 8f / 12f), W, "a winter ending 1 September: April is not spring");
-            check(RunSnowRules.IsSpring("MySeason", 0.3f, 14f / 12f), W, "a winter ending 1 March (14 / 12): April is spring, the calendar case");
-            check(!RunSnowRules.IsSpring("SeasonWinter", 0.72f, 8f / 12f), W, "a vanilla name decides over the date");
-            check(RunSnowRules.SnowSeasonKey(2030, 0.7f, 11f / 12f) == RunSnowRules.SnowSeasonKey(2030, 0.7f) &&
-                  RunSnowRules.SnowSeasonKey(2030, 0.5f, 11f / 12f) == RunSnowRules.SnowSeasonKey(2030, 0.5f), W, "a December winter keeps the 0.6 rollover");
-            check(RunSnowRules.SnowSeasonKey(2030, 0.42f, 5f / 12f) == RunSnowRules.SnowSeasonKey(2030, 0.6f, 5f / 12f), W, "a June winter does not roll over inside the snow");
-        }
-
-        private static void T09Budget(Func<bool, string, string, bool> check)
-        {
-            const string W = "snow S29 budget";
-            check(RunSnowRules.EffectiveBudgetHours(false, 1f) == 48f, W, "winter flat: 48 h");
-            check(RunSnowRules.EffectiveBudgetHours(true, 1f) == 24f, W, "spring flat: 24 h (halved)");
-            check(RunSnowRules.EffectiveBudgetHours(false, 1.5f) == 72f, W, "winter north: 72 h");
-            check(RunSnowRules.EffectiveBudgetHours(false, 0.5f) == 24f, W, "winter south: 24 h");
-            check(RunSnowRules.EffectiveBudgetHours(true, 1.5f) == 36f, W, "spring north: 36 h");
-            check(RunSnowRules.EffectiveBudgetHours(true, 0.5f) == 12f, W, "spring south: 12 h");
-            check(RunSnowRules.MaxBudgetHours(false) == 72f && RunSnowRules.MaxBudgetHours(true) == 36f, W, "the largest budget is the north face's");
-            check(RunSnowRules.TexelProtected(47.9f, 5f, false, 1f), W, "flat texel at 47.9 h of 48: still protected");
-            check(!RunSnowRules.TexelProtected(48f, 5f, false, 1f), W, "flat texel at 48 h: spent");
-            check(RunSnowRules.TexelProtected(60f, 5f, false, 1.5f) && !RunSnowRules.TexelProtected(30f, 5f, false, 0.5f), W,
-                "north texel still held at 60 h, south texel not at 30 h");
-            check(RunSnowRules.TexelProtected(1f, 10f, false, 1f) && !RunSnowRules.TexelProtected(1f, 10.1f, false, 1f), W, "protection stops above 10 C");
-            check(!RunSnowRules.TexelProtected(25f, 5f, true, 1f), W, "in spring a flat texel is spent at 24 h");
-        }
-
-        private static RunSnowRules.ProtectEnd Step(ref RunSnowRules.ProtectRun run, float hours, bool warm, bool open, float runC, bool spring, out bool started)
-        {
-            return RunSnowRules.StepProtection(ref run, hours, 100, warm ? 60 : 100, open, runC, spring, out started);
-        }
-
-        private static void T09Machine(Func<bool, string, string, bool> check)
-        {
-            const string W = "snow S30 protection machine";
-            RunSnowRules.ProtectRun run = default;
-            RunSnowRules.ProtectEnd end;
-            bool started;
-            end = Step(ref run, 0.1f, false, true, 5f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Idle && !started && end == RunSnowRules.ProtectEnd.None, W, "all cold: nothing to protect");
-            end = Step(ref run, 0.1f, true, false, 5f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Idle && !started, W, "warm but the pack is not open: no spell (nothing worth holding)");
-            end = Step(ref run, 0.1f, true, true, 12f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Idle && !started, W, "warm, open, but the air at the run is 12 C: no spell");
-            end = Step(ref run, 0.1f, true, true, 5f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Active && started && run.HoursUsed == 0f, W, "warm, open, 5 C: the spell starts");
-            for (int h = 0; h < 40; h++)
-                Step(ref run, 1f, true, true, 5f, false, out started);
-            run.HeldAtStartM3 = 2.5;   // the system stamps the run's ledger here when a spell starts
-            check(run.State == RunSnowRules.ProtectState.Active && Near(run.HoursUsed, 40.0, 1e-3) && run.HeldAtStartM3 == 2.5, W, "40 warm hours: still active, 40 h used, the start stamp kept");
-            // a cold dip of 2 h does not refill the budget
-            run = default;
-            Step(ref run, 0.1f, true, true, 5f, false, out started);
-            Step(ref run, 10f, true, true, 5f, false, out started);
-            end = Step(ref run, 2f, false, true, 5f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Active && end == RunSnowRules.ProtectEnd.None && Near(run.HoursUsed, 10.0, 1e-3), W,
-                "a 2 h cold dip: the spell stays open, the 10 h used stay");
-            end = Step(ref run, 1.5f, false, true, 5f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Idle && end == RunSnowRules.ProtectEnd.GunsBack, W, "3.5 h all cold: the guns are back, the spell ends (budget refills)");
-            // budget spent: winter max is the north face's 72 h
-            run = default;
-            Step(ref run, 0.1f, true, true, 5f, false, out started);
-            end = RunSnowRules.ProtectEnd.None;
-            for (int h = 0; h < 71; h++)
-                end = Step(ref run, 1f, true, true, 5f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Active && end == RunSnowRules.ProtectEnd.None, W, "71 warm hours in winter: still active");
-            end = Step(ref run, 1f, true, true, 5f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Spent && end == RunSnowRules.ProtectEnd.BudgetSpent, W, "72 warm hours in winter: budget spent");
-            end = Step(ref run, 1f, true, true, 5f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Spent && !started && end == RunSnowRules.ProtectEnd.None, W, "spent stays spent while it is warm (no restart loop)");
-            Step(ref run, 3.5f, false, true, 5f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Idle, W, "3.5 cold hours re-arm a spent run");
-            // spring halves the largest budget: 36 h
-            run = default;
-            Step(ref run, 0.1f, true, true, 5f, true, out started);
-            end = RunSnowRules.ProtectEnd.None;
-            for (int h = 0; h < 36; h++)
-                end = Step(ref run, 1f, true, true, 5f, true, out started);
-            check(run.State == RunSnowRules.ProtectState.Spent && end == RunSnowRules.ProtectEnd.BudgetSpent, W, "spring: spent at 36 h (half of winter's 72)");
-            // the 10 C stop and the pack
-            run = default;
-            Step(ref run, 0.1f, true, true, 5f, false, out started);
-            end = Step(ref run, 1f, true, true, 10.5f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Spent && end == RunSnowRules.ProtectEnd.TooWarm, W, "the air at the run passes 10 C: protection stops");
-            run = default;
-            Step(ref run, 0.1f, true, true, 5f, false, out started);
-            end = Step(ref run, 1f, true, false, 5f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Spent && end == RunSnowRules.ProtectEnd.PackLost, W, "the run closed under protection: pack lost");
-        }
-
-        private static void T09FieldSheet(Func<bool, string, string, bool> check)
-        {
-            const string W = "snow S31 field sheet";
-            // A 2-day +6 C spell in January, a flat texel: the run stays open under protection, texels still held at the end.
-            RunSnowRules.ProtectRun run = default;
-            bool started;
-            RunSnowRules.ProtectEnd end = RunSnowRules.ProtectEnd.None;
-            Step(ref run, 0.1f, true, true, 6f, false, out started);
-            check(started, W, "+6 C January spell: protection starts");
-            for (int h = 0; h < 47; h++)
-                end = Step(ref run, 1f, true, true, 6f, false, out started);
-            check(run.State == RunSnowRules.ProtectState.Active && end == RunSnowRules.ProtectEnd.None, W, "after 47 h of +6 C the spell is still on");
-            check(RunSnowRules.TexelProtected(run.HoursUsed, 6f, false, 1f), W, "a flat texel is still held at 47 h of +6 C (inside the 48 h budget)");
-            // A +12 C spell: the protection never starts, so the managed melt and the game's melt close the run.
-            RunSnowRules.ProtectRun hot = default;
-            Step(ref hot, 0.1f, true, true, 12f, false, out started);
-            check(hot.State == RunSnowRules.ProtectState.Idle && !started, W, "+12 C: no protection");
-            check(!RunSnowRules.TexelProtected(0f, 12f, false, 1f), W, "+12 C: no texel is held");
-            // Natural runs: SkiSnowInjectionSystem.RefreshRunSnow drives the machine only for gun runs. A natural black run's bar is 31 cm.
-            check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 3) == RunSnowRules.SkiableBarNorm(RunKind.Snowmaking, 3), W, "T133 a natural black needs the same 3 ft as a gun black");
+            const string W = "snow S27 T222 pack step";
+            RunSnowRules.PackParams p = RunSnowRules.PackParams.Default;
+            float full = RunSnowRules.PackBuildPerHourM(-10f, 3.3f, RunSnowRules.MeanRampRate);
+            check(Near(full, 0.004 * 1.125 * 2.0 * RunSnowRules.WindowsPerGameHour, 1e-4) &&
+                  Near(RunSnowRules.PackBuildPerHourM(3.3f, 3.3f, RunSnowRules.MeanRampRate), 0.004 * 1.125 * 0.35 * RunSnowRules.WindowsPerGameHour, 1e-4) &&
+                  RunSnowRules.PackBuildPerHourM(3.4f, 3.3f, 1f) == 0f && RunSnowRules.PackBuildPerHourM(float.NaN, 3.3f, 1f) == 0f, W,
+                  "the build per hour is the ramp per window x the windows per hour; none above the gate or for NaN");
+            check(Near(RunSnowRules.PackMeltPerHourM(p, 10f), 10.0 * RunSnowRules.MeltPerHourPerC, 1e-6) && RunSnowRules.PackMeltPerHourM(p, 0f) == 0f &&
+                  RunSnowRules.PackMeltPerHourM(p, -5f) == 0f && RunSnowRules.PackMeltPerHourM(p, float.NaN) == 0f, W,
+                  "the melt is linear above freezing, none at or below it or for NaN");
+            // The hysteresis
+            check(RunSnowRules.NextPackGun(p, RunSnowRules.PackGun.Unknown, 2f) == RunSnowRules.PackGun.Stopped &&
+                  RunSnowRules.NextPackGun(p, RunSnowRules.PackGun.Running, 2f) == RunSnowRules.PackGun.Stopped &&
+                  RunSnowRules.NextPackGun(p, RunSnowRules.PackGun.Running, 1.97f) == RunSnowRules.PackGun.Running &&
+                  RunSnowRules.NextPackGun(p, RunSnowRules.PackGun.Stopped, 1.97f) == RunSnowRules.PackGun.Stopped &&
+                  RunSnowRules.NextPackGun(p, RunSnowRules.PackGun.Unknown, 1.97f) == RunSnowRules.PackGun.Stopped &&
+                  RunSnowRules.NextPackGun(p, RunSnowRules.PackGun.Stopped, 1.94f) == RunSnowRules.PackGun.Running &&
+                  RunSnowRules.NextPackGun(p, RunSnowRules.PackGun.Stopped, float.NaN) == RunSnowRules.PackGun.Stopped, W,
+                  "stop at 2.0 m, restart below 1.95 m, kept in the band, Unknown in the band reads Stopped, NaN keeps the state");
+            check(RunSnowRules.PackGunAfterLoad(p, 1.5f) == RunSnowRules.PackGun.Running && RunSnowRules.PackGunAfterLoad(p, 1.97f) == RunSnowRules.PackGun.Stopped,
+                  W, "T223 the gun state after a load follows the saved depth alone");
+            // The step: the melt comes off, then the build goes on, never above the stop depth, never lowering deeper snow
+            RunSnowRules.PackResult r = RunSnowRules.PackStep(p, 1f, -5f, true, RunSnowRules.PackGun.Running, 0.25f, RunSnowRules.MeanRampRate, true);
+            check(Near(r.DepthM, 1.0 + 0.25 * full, 1e-4) && r.GunsMaking && r.MeltedM == 0f, W, "-5 C, 0.25 h: built " + r.BuiltM + " m");
+            r = RunSnowRules.PackStep(p, 1.9f, -5f, true, RunSnowRules.PackGun.Running, 1f, RunSnowRules.MeanRampRate, true);
+            check(r.DepthM == 2f && Near(r.BuiltM, 0.1, 1e-5), W, "the build stops at the 2.0 m base");
+            r = RunSnowRules.PackStep(p, 3f, -5f, true, RunSnowRules.PackGun.Running, 1f, RunSnowRules.MeanRampRate, true);
+            check(r.DepthM == 3f && !r.GunsMaking, W, "deeper natural snow is never lowered");
+            r = RunSnowRules.PackStep(p, 1f, 5f, true, RunSnowRules.PackGun.Running, 0.5f, RunSnowRules.MeanRampRate, true);
+            check(Near(r.DepthM, 1.0 - 2.5 * RunSnowRules.MeltPerHourPerC, 1e-5) && !r.GunsMaking, W, "5 C: no build, the melt only (a track cell)");
+            r = RunSnowRules.PackStep(p, 1f, 5f, true, RunSnowRules.PackGun.Running, 0.5f, RunSnowRules.MeanRampRate, false);
+            check(r.DepthM == 1f && r.MeltedM == 0f, W, "a run texel (applyMelt false): the game melts it, the step does not");
+            r = RunSnowRules.PackStep(p, 1f, -5f, true, RunSnowRules.PackGun.Stopped, 1f, RunSnowRules.MeanRampRate, true);
+            check(r.DepthM == 1f && !r.GunsMaking, W, "stopped guns build nothing");
+            r = RunSnowRules.PackStep(p, 1f, -5f, false, RunSnowRules.PackGun.Running, 1f, RunSnowRules.MeanRampRate, true);
+            check(r.DepthM == 1f, W, "guns not available (season, switch): nothing");
+            r = RunSnowRules.PackStep(p, 1f, -5f, true, RunSnowRules.PackGun.Running, 100f, RunSnowRules.MeanRampRate, true);
+            check(r.DepthM == 2f, W, "a long step is capped (MaxPackStepHours) and still stops at the base");
+            r = RunSnowRules.PackStep(p, float.NaN, 5f, true, RunSnowRules.PackGun.Running, 1f, RunSnowRules.MeanRampRate, true);
+            check(r.DepthM == 0f, W, "NaN reads bare");
+            // The run path in the merge: PackRaiseTexelM is the ramp step it replaced (RampPerTopupM x rate x output x step scale)
+            float raised = RunSnowRules.PackRaiseTexelM(0.5f, 2f, 1f, 1.5f, 1f);
+            check(Near(raised, 0.5 + 0.004 * 1.5 * 2.0, 1e-5), W, "PackRaiseTexelM at full chill: one window of the ramp (" + raised + ")");
+            float marginal = RunSnowRules.PackRaiseTexelM(0.5f, 2f, 0f, 1f, 2f);
+            check(Near(marginal, 0.5 + 0.004 * 0.35 * 2.0, 1e-5), W, "PackRaiseTexelM at the gate, step scale 2 (" + marginal + ")");
+            check(Near(RunSnowRules.PackRaiseTexelM(0.95f, 0.96f, 1f, 2f, 4f), 0.96, 1e-6) && RunSnowRules.PackRaiseTexelM(1.2f, 0.96f, 1f, 2f, 4f) == 1.2f, W,
+                  "PackRaiseTexelM stops at the texel's own target and never lowers");
+            check(RunSnowRules.PackGunsMaking(p, RunSnowRules.PackGun.Running, 3.3f, true) && !RunSnowRules.PackGunsMaking(p, RunSnowRules.PackGun.Running, 3.4f, true) &&
+                  !RunSnowRules.PackGunsMaking(p, RunSnowRules.PackGun.Stopped, -5f, true) && !RunSnowRules.PackGunsMaking(p, RunSnowRules.PackGun.Running, -5f, false),
+                  W, "PackGunsMaking: running, available and at or under the gate");
         }
 
         private static void T09Ledger(Func<bool, string, string, bool> check)
@@ -808,13 +687,13 @@ namespace ResortBatch
             check(Near(RunSnowRules.CmTexels(v, 196f), 1.0, 1e-9), W, "which is 1 cm-texel");
             check(RunSnowRules.CmTexels(5.0, 0f) == 0.0, W, "no texel area: 0 cm-texels");
             RunSnowRules.RunLedger l = default;
-            l.Add(2030, 100.0, 5.0);
-            l.Add(2030, 50.0, 0.0);
-            check(Near(l.MadeSeasonM3, 150.0, 1e-9) && Near(l.MadeTotalM3, 150.0, 1e-9) && Near(l.HeldSeasonM3, 5.0, 1e-9), W, "two adds in one season accumulate");
-            l.Add(2031, 10.0, 1.0);
-            check(Near(l.MadeSeasonM3, 10.0, 1e-9) && Near(l.HeldSeasonM3, 1.0, 1e-9), W, "a new season zeroes the season figures");
-            check(Near(l.MadeTotalM3, 160.0, 1e-9) && Near(l.HeldTotalM3, 6.0, 1e-9), W, "and keeps the totals");
-            check(RunSnowRules.FramesToHours(10923u) < 1.001f && RunSnowRules.FramesToHours(10000000u) == RunSnowRules.MaxProtectStepHours, W, "frames to hours, capped per pass");
+            l.Add(2030, 100.0);
+            l.Add(2030, 50.0);
+            check(Near(l.MadeSeasonM3, 150.0, 1e-9) && Near(l.MadeTotalM3, 150.0, 1e-9), W, "two adds in one season accumulate");
+            l.Add(2031, 10.0);
+            check(Near(l.MadeSeasonM3, 10.0, 1e-9), W, "a new season zeroes the season figures");
+            check(Near(l.MadeTotalM3, 160.0, 1e-9), W, "and keeps the totals");
+            check(RunSnowRules.FramesToHours(10923u) < 1.001f && RunSnowRules.FramesToHours(10000000u) == RunSnowRules.MaxPackStepHours, W, "frames to hours, capped per pass");
         }
     }
 }

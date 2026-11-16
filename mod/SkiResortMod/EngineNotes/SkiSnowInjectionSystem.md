@@ -26,9 +26,11 @@ but periodic depth top-ups. The buffer facts are against the decompile (`Game.Si
   target and never moves down. So a thermal gate opening reads as snow guns building base patch by patch, not as a light switch. It
   is monotone between top-ups. It is a structural no-op wherever natural snow already exceeds the target (deep winter = zero raised
   texels). It is never additive. The G channel is untouched.
-- Scoped managed melt: when a run's gate is off (too warm to make snow), texels inside our own mask decay by `Tuning.DecayPerTopupM`
-  per top-up. Buffer melt at run altitude measures ~zero. So without this decay, injected snow is immortal (it sat unchanged through
-  July while the seasonal snow line retreated past it). Decay never touches snow outside run footprints.
+- No managed melt (T222, DECISIONS 667): the game's own shader melts a run texel like any natural snow. Before T222 the mod decayed
+  warm run texels by a fixed step (the 2026-10 "immortal snow" fix) and held them for a budget (warm-spell protection). The round 2
+  melt probe measured the game's melt on a written patch (`RunSnowRules.MeltPerHourPerC`), so neither is needed. Made snow lasts
+  longer only because the guns build more of it (the 2.0 m base). The raise is `RunSnowRules.PackRaiseTexelM`, the one pack step
+  (`PackStep`, applyMelt false) a cat track cell also uses.
 
 ## Injection policy
 
@@ -39,7 +41,8 @@ but periodic depth top-ups. The buffer facts are against the decompile (`Game.Si
 - Groomed runs (SkiRunGroomedA): target ~0.08 m where locally at/below freezing + GroomedMarginC (an early/late-season grooming
   assist. In summer groomed runs are bare).
 - Both gates evaluate at each texel's own elevation inside the fold. So the snow line crosses a run (top white, bottom bare, the
-  boundary creeping with the season). Too-warm texels route to the managed-decay mask instead.
+  boundary creeping with the season). Too-warm texels are marked on the warm plane (`WarmMask`, a run-texel marker for the dress
+  depth and the natural measurement) and left to the game's melt.
 
 ## Scheduling and pause
 
@@ -75,7 +78,7 @@ rasterized for measurement only, on a second chain after the injected one (`Meas
 bills them. They are never in the mask, decay or ramp planes. They are never in MeanRunSnowDepthM or the per-run active-texel map.
 Texels an injected run manages this pass are excluded from them.
 
-The inert path ("all runs inert, too warm": no mask, decay, protected or stopped texel) runs no real pass. It requests the
+The inert path ("all runs inert, too warm": no mask or stopped texel) runs no real pass. It requests the
 measure-only readback for the natural AND the bound injected runs (T183, post-release round 1). Before, it asked only for natural runs.
 A city with no natural run then lost its snapshot after MaxSnapshotAgeFrames. Every run fell to the day-mean estimate (cold air at
 the top, no snow on the map). Runs read open with no visible snow.
@@ -85,37 +88,42 @@ snow is a model, `RunSnowRules.TrackMadeSnow`. The model has a share of the vert
 - The guns follow the air at the track now, by elevation, as a run texel's guns do. The gun share and the cold share use the
   current air (`GetLocalTemperatureCoefficients`), not the day mean. With the day mean, tracks kept their guns in a 15 C spell
   (bridge pass r1c, "day mean 13.3 C").
-- The guns build the pack from 0 to the gun stop depth (0.96 m) in `TrackBuildHours` (about 1.06 game h). They build while they
-  cover some of the vertical.
-- The made share counts at the run bars (`TrackMadeCountedShare`). An open track counts it at 1 ft. A closed track counts it at
-  3 ft. A track with no known state (Unknown) also counts it at 3 ft. A run with no known state counts at 1 ft (`MeasuredShare`).
-  So the track opens about 1 game hour after its guns start, not at once. Before, it opened on 1-8 mm (bridge pass r1b).
-- When the guns do not hold the pack, the protection spell holds it, as for a gun run. It holds up to the largest run budget
-  (72 h), and never above 10 C at the track. After the spell, it melts at `RunMeltPerHourM` and the track closes at the keep bar.
+- T222 (DECISIONS 667): the made snow lives in `RunSnowRules.TrackCells` (8) cells down the vertical, cell 0 at the top, each one a
+  texel the mod owns. Every refresh, `StepTrackPack` melts each cell at its own air (`PackMeltPerHourM`, the measured rate the game
+  melts a run texel with), steps the gun state on the pack of the cold cells (`NextPackGun`: stop at 2.0 m, restart below 1.95 m,
+  the measured natural snow under the track as a floor), then builds each cold cell with the run's ramp (`PackStep`, the mean noise
+  rate). So a track and a run over the same vertical open, close and make snow alike. No hold: a warm track melts as a run does.
+- The made share counts at the run bars (`TrackMadeCountedShare`: the share of cells at the bar). An open track counts it at 1 ft.
+  A closed track counts it at 3 ft. A track with no known state (Unknown) also counts it at 3 ft. A run with no known state counts
+  at 1 ft (`MeasuredShare`). So the track opens about 0.6 game h after its guns start at full chill, not at once.
 - The track's share is the larger of the snow under it and the counted made share.
 - Its mean depth (hub, `Snow [open]` line) is the made pack on the made share and the measured mean on the rest
   (`TrackMeanDepthM`). Before, the line printed NaN.
 - A pass that carries the measurement over starts from the snow under the track (`RunSnow.SnowShare`, `SnowMeanDepthM`), not
   from last pass's share with the made snow.
-- The save holds three values. SkiTrackSnow v1 holds the share (unchanged). SkiTrackPack v2 holds the pack depth in millimeters
-  and the open state. SkiTrackPack is new in 1.0.1. Its v2 added the state before any release carried the type.
+- The save holds three values. SkiTrackSnow v1 holds the share (cells holding made snow / 8). SkiTrackPack v2 holds their mean depth
+  in millimeters (clamped at 8 m from T222, 0.96 m before: the i32 needs no layout change) and the open state. The save is lossy
+  (DECISIONS 667): a load puts the mean depth on the top round(share x 8) cells. SkiTrackPack is new in 1.0.1. Its v2 added the state
+  before any release carried the type.
 - A track without a table entry starts from its saved state (`SavedTrackState`, `TrackStateFromSave`). This applies to its first
   refresh of a load and to `GetRunSnow` before that refresh. `QueueTrackSave` writes the values after the label is set.
-- A save without SkiTrackPack (1.0.0) loads a saved share as a full pack (`TrackFromSave`). A full pack clears both bars, so the
+- A save without SkiTrackPack (1.0.0) loads a saved share as a full 0.96 m pack (`TrackFromSave`, `LegacyTrackStopDepthM`). It clears both bars, so the
   track reloads as in 1.0.0. A v1 value (unreleased test saves) has no state. It reads as Unknown and counts at 3 ft.
 - History: before SkiTrackPack, 32 tracks reloaded Open on a 0.12 m pack. The save was made just after gun start (bridge pass
   r1c, loadcheck d). With v1, Unknown counted at 1 ft. A resave held every track Closed on 0.352 m. After the load, 44 of 45 tracks
   read Open at 24-37 cm. 39 groomers came 7 s after the load (bridge pass r1d, loadcheck d).
 - While the injection runs, these read the model, not the day mean (bridge pass r1d):
   - The hub's gun line: `TryGetCatTrackModel`, `HubRules.TrackGunWhyOf` (contract 49).
-  - The bill and the stats' cost row: `CatTrackGunsCanRun` reads `TrackMadeSnow.GunReach`. That is the guns' reach at the air
-    now with the switch on (`TrackGunReach`). Held or too warm: no reach, no grooming, snowmaking or lights bill.
-  - The plumes: `CatTrackGunsMakingSnow` reads `TrackGunsBuilding`. Idle at the stop depth, held or too warm: no plume.
+  - The bill and the stats' cost row: `CatTrackGunsCanRun` reads `TrackMadeSnow.GunReach` (the share of cold cells with the
+    switch on): grooming and lights. Snowmaking bills the plan area x `CatTrackGunsMakingShare` (`TrackMadeSnow.MakingShare`, the
+    cells the guns make snow on now), as a run bills the texels its guns raise (T222).
+  - The plumes and the hub's "Making": `TrackGunsBuilding` (MakingShare > 0). Idle at the base or too warm: no plume.
   With the injection off, all three use the day-mean estimate, the rule the track's open state then follows. On Oct 1 (10.5 C
   air, 14.3 C day mean) the day-mean rule billed nothing and showed no plume while the guns built.
-- The bill's gun work (`GunWorkHours`) is not saved. A track reloaded under the stop depth builds with no snowmaking bill until
-  its share rises again. The hub still says "making snow" (`TrackGunsBuilding` counts a pack under the stop depth).
-- The snowmaking bill is unchanged (`StepTrackGunWork` on the share).
+- T223: the gun state is not saved. The first refresh of a load (dt 0) decides it from the saved depth alone (`PackGunAfterLoad`
+  rule): a pack at the base or in the band reads Stopped (no plume flash, no bill), one under 1.95 m reads Running (the bill and the
+  plumes from the first pass). Before T222 the runtime gun work was lost on a load (no bill under the stop depth) and a full 960 mm
+  pack reloaded as 0.95999998 m, under the stop depth (a plume flash).
 - An estimate never opens a track (`TrackEstimatedSnowShare`): it keeps an Open track open, as a NaN share does. Before, an
   estimated track opened on "0.0 texel(s), mean NaN m" at a 14.5 C day mean (bridge pass r1c). While the injection runs,
   `GetRunSnow` gives a track not yet in the table its saved made snow only.
@@ -127,7 +135,7 @@ snow is a model, `RunSnowRules.TrackMadeSnow`. The model has a share of the vert
     - The footprint is the same (`RunSnowRules.CanSkipDry`).
 
     A forced real pass runs every 1,024 sim frames.
-  - At most one evaluated pass per 0.5 s of wall clock (the first after a load is exempt). The merge's ramp and decay steps scale
+  - At most one evaluated pass per 0.5 s of wall clock (the first after a load is exempt). The merge's ramp step scales
     with the frames since the last evaluated pass. The scale is `RunSnowRules.StepScale`: exactly 1 at 64 frames (bit-identical at 1x
     and 2x), cap x4.
 
@@ -136,17 +144,15 @@ snow is a model, `RunSnowRules.TrackMadeSnow`. The model has a share of the vert
 `RunSnowRules.SkipKind`: dry first, then packed. A pass skips readback, merge and upload when all of these hold:
 
 - No run texel is cold now.
-- The last real pass had no cold texel, raised nothing, lowered nothing and left the pack guard on for the next merge.
+- The last real pass had no cold texel and raised nothing.
 - The footprint is the same.
 - The runs held at least `RunSnowRules.PackedSkipMinRunDepthM` (0.10 m, the dress guard).
 - Every measured run's snow share is >= 70 % or < 30 % (the share guard, moot with gating off).
 - The forced real pass (1,024 sim frames) is not due.
 
 - Why such a pass changes no texel: with no cold texel the mask is empty (FoldRowsJob writes it only for a cold texel). So
-  MergeRowsJob's raise branch never fires (target 0). The pack guard closes its decay branch. The guard's input
-  m_LastGlobalMeanDepthM is written only by a real pass, so a skipped pass cannot change it. One definition,
-  `RunSnowRules.PackGuard`, is read by the merge and by the predicate. The upload already ran only when raised + lowered > 0, so no
-  vanilla write is added or removed. The skip skips a read (the readback).
+  MergeRowsJob's raise branch never fires (target 0). Since T222 the merge never lowers (no managed melt, no pack guard). The upload
+  runs only when a texel was raised, so no vanilla write is added or removed. The skip skips a read (the readback).
 - What a skipped pass still does:
   - It builds the mask (cold test, footprint, per-run measurement).
   - It publishes the active texels.
@@ -169,7 +175,7 @@ snow is a model, `RunSnowRules.TrackMadeSnow`. The model has a share of the vert
 
 A snowmaking or night run's cold texels are raised only while its guns run. `SnowGunPlumeRules.NextGunState` stops the guns when the
 run's pack reaches `RunSnowRules.GunStopDepthM` (natural snow that deep included). It restarts them below GunStopDepthM -
-GunRestartBandM, i.e. 0.96 / 0.91 m. The gun ramp's ceiling is GunStopDepthM (`Tuning.SnowmakingTargetDepthM`).
+GunRestartBandM, i.e. 2.0 / 1.95 m (T222; 0.96 / 0.91 m before). The gun ramp's ceiling is GunStopDepthM (`Tuning.SnowmakingTargetDepthM`).
 
 - The fold measures the pack (FoldRowsJob, Measure only) over the run's cold texels with a target: sum min(depth, own target) / sum
   own target. The state steps after the reduction (StepGuns) and gates the next pass's fold (`FoldRowsJob.GunGate`). A stopped run
@@ -179,7 +185,7 @@ GunRestartBandM, i.e. 0.96 / 0.91 m. The gun ramp's ceiling is GunStopDepthM (`T
   window).
 - `TryGetRunGunsRunning` (state Running in this pass's fold and a cold texel) is the read for SkiSnowGunPlumeSystem.
 - Unknown (no measurement yet this load) does not raise. A load in deep winter never flashes the guns on. Groomed runs have no guns.
-  Warm-spell protection is untouched (warm texels are never "running").
+  Warm texels are never "running".
 
 ## Near OnDestroy
 

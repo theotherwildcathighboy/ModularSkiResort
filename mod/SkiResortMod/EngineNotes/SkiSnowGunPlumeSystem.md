@@ -50,7 +50,7 @@ One predicate with the injection (SnowGunPlumeRules header). A gun plumes when a
 
 - The Options toggle is on.
 - Its run's guns ran in the last pass of the injection (`SkiSnowInjectionSystem.TryGetRunGunsRunning`: hysteresis state Running AND a cold
-  texel. Stopped at GunStopDepthM, natural snow that deep included. Warm-spell protection never counts).
+  texel. Stopped at GunStopDepthM, natural snow that deep included. Warm texels never count).
 - The own elevation of the gun is cold (`SnowLineSystem.GetLocalTemperature` <= freezing + the margin, the per-texel test of the fold).
 
 FanIdle, hydrants and the folded lance carry no plume entry and are never touched.

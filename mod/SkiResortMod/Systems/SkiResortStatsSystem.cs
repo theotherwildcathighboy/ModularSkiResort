@@ -1572,15 +1572,15 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A cat track's snow-gun line. While the injection runs: its made-snow model (HubRules.TrackGunWhyOf: guns on by the air at
-        /// the track now, held, or too warm; T220, bridge pass r1d). Otherwise the day-mean rule the track's open state then follows
+        /// <summary>A cat track's snow-gun line. While the injection runs: its pack model (HubRules.TrackGunWhyOf: making, base reached or
+        /// too warm by the air at the track now; T222 dropped the hold, so Held is never sent). Otherwise the day-mean rule the track's open state then follows
         /// (CatTrackGunsCanRun through HubRules.GunWhyOf, never "deep enough").</summary>
         private RunGunWhy TrackGunWhyOf(in SkiRunCatalogSystem.RunRow row, bool gunRun)
         {
             bool gating = m_SnowLine.IsSnowGatingEnabled();
             if (m_Injection.TryGetCatTrackModel(row.Entity, out RunSnowRules.TrackMadeSnow made))
                 return HubRules.TrackGunWhyOf(gunRun, gating, m_Injection.GunSeasonNow, m_Injection.GunSeasonKnown, made.GunShare,
-                                              RunSnowRules.TrackGunsBuilding(made), RunSnowRules.TrackHeld(made));
+                                              RunSnowRules.TrackGunsBuilding(made), false);
             return HubRules.GunWhyOf(gunRun, gating, m_Injection.GunSeasonNow, m_Injection.GunSeasonKnown, true,
                                      gunRun && m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM));
         }

@@ -1,5 +1,6 @@
-// T222 prototype: the one snow pack step for a run texel and a cat track cell (RunSnowRules.PackStep, not wired yet). Groups:
-// - SP1: the melt and build rates (literal hand values from the injection's ramp and today's melt estimate).
+// T222: the one snow pack step for a run texel and a cat track cell (RunSnowRules.PackStep, wired in round 2). The hand values use the
+// pre-probe melt estimate (0.1092 m/h/C) as a fixed test parameter, so they do not move when MeltPerHourPerC is re-measured. Groups:
+// - SP1: the melt and build rates (literal hand values from the injection's ramp and the fixed test melt).
 // - SP2: the gun hysteresis on the pack's own stop depth, and the state after a load from the saved depth alone (T223).
 // - SP3: one step: build to the stop depth, never lower deeper snow, melt then build in marginal air.
 // - SP4: no hold: a warm spell melts made snow at the natural rate, a run texel is left to the game's melt.
@@ -20,12 +21,13 @@ namespace ResortBatch
 
         public static void Run(Func<bool, string, string, bool> check)
         {
-            var today = RunSnowRules.PackParams.Today;
-            var prop = RunSnowRules.PackParams.Proposed;
-            const float melt1 = 0.109227f;   // 0.00064 m per window per C x 10,922.67 frames per hour / 64 frames per window
+            const float melt1 = 0.109227f;   // the pre-probe estimate: 0.00064 m per window per C x 10,922.67 frames per hour / 64 frames per window
+            var today = RunSnowRules.PackParams.With(RunSnowRules.LegacyTrackStopDepthM, melt1);   // the 1.0.1 stop depth, for SP2c / SP3b / SP7
+            var prop = RunSnowRules.PackParams.With(RunSnowRules.GunStopDepthM, melt1);
+            check(RunSnowRules.PackParams.Default.StopDepthM == RunSnowRules.GunStopDepthM && RunSnowRules.PackParams.Default.MeltPerHourPerC == RunSnowRules.MeltPerHourPerC &&
+                  prop.StopDepthM == 2f, W, "SP0 the live parameters: the 2.0 m base and the measured melt (" + RunSnowRules.MeltPerHourPerC + " m/h/C)");
 
             // SP1
-            check(Near(today.MeltPerHourPerC, melt1, 1e-5f), W, "SP1 the melt estimate is 0.1092 m per game hour per C (" + today.MeltPerHourPerC + ")");
             check(RunSnowRules.PackMeltPerHourM(today, 0f) == 0f && RunSnowRules.PackMeltPerHourM(today, -5f) == 0f
                   && RunSnowRules.PackMeltPerHourM(today, float.NaN) == 0f, W, "SP1b nothing melts at or below freezing, or on NaN air");
             check(Near(RunSnowRules.PackMeltPerHourM(today, 3f), 3f * melt1, 1e-5f), W, "SP1c linear in the degrees above freezing");
@@ -109,12 +111,10 @@ namespace ResortBatch
             // SP7
             check(RunSnowRules.PackDepthToMm(2.0f) == 2000 && RunSnowRules.PackDepthFromMm(2000) == 2.0f, W,
                   "SP7 a 2 m pack round-trips SkiTrackPack's millimeters");
-            check(RunSnowRules.TrackDepthFromMm(2000) == RunSnowRules.GunStopDepthM, W,
-                  "SP7b a 1.0.1 build loads it clamped to its own 0.96 m (graceful)");
             // T223 edge 1's root: 0.91f + 0.05f is 0.96000004f, 960 mm reloads as 0.96f = 0.95999998f, so today's "depth < GunStopDepthM"
             // reads a full saved pack as still building. The pack step's stop test carries the merge's tolerance.
-            float reloaded = RunSnowRules.TrackDepthFromMm(RunSnowRules.TrackDepthToMm(RunSnowRules.GunStopDepthM));
-            check(reloaded < RunSnowRules.GunStopDepthM, W, "SP7d (documents the 1.0.1 edge) a full 960 mm pack reloads under GunStopDepthM");
+            float reloaded = 960 / 1000f;   // 1.0.1: TrackDepthFromMm(TrackDepthToMm(0.91f + 0.05f))
+            check(reloaded < RunSnowRules.SkiableDepthM + RunSnowRules.GunRestartBandM, W, "SP7d (documents the 1.0.1 edge) a full 960 mm pack reloaded under its 0.96 m stop depth");
             check(RunSnowRules.PackGunAfterLoad(today, reloaded) == S, W, "SP7e the pack step reads the same reloaded pack as at the stop: no flash");
             check(RunSnowRules.PackGunAfterLoad(prop, RunSnowRules.PackDepthFromMm(RunSnowRules.PackDepthToMm(prop.StopDepthM))) == S, W,
                   "SP7f and a full 2 m pack round-trips to Stopped too");

@@ -77,57 +77,6 @@ namespace SnowPackSim
             public override void Step(float date, float tBase, float precip, float[] nat) => Array.Copy(nat, D, Cells);
         }
 
-        // Today's gun run: injection raise (run-level gun hysteresis at 0.96 m), the protection hold (run machine + per-texel budget,
-        // aspect 1), managed melt (0.004 m per window on warm unprotected texels while the map mean is under 0.02 m).
-        private sealed class GunRunToday : Surface
-        {
-            private SnowGunPlumeRules.GunState m_Gun;
-            private RunSnowRules.ProtectRun m_Spell;
-            private readonly float[] m_Base = Fill(float.NaN);
-            public override void Step(float date, float tBase, float precip, float[] nat)
-            {
-                Vanilla(D, tBase, precip);
-                bool season = SnowGunPlumeRules.InGunSeason("", date);
-                bool spring = RunSnowRules.IsSpring("", date);
-                float stop = RunSnowRules.GunStopDepthM, thr = MarginC;
-                double pack = 0;
-                foreach (var x in D) pack += Math.Min(x, stop);
-                m_Gun = SnowGunPlumeRules.NextGunState(m_Gun, SnowGunPlumeRules.PackDepthM(Cells * stop, pack));
-                bool warm = false;
-                for (int i = 0; i < Cells; i++) warm |= Local(tBase, CellY(i)) > thr;
-                float runC = Local(tBase, 0.5f * (BottomM + TopM));
-                RunSnowRules.StepProtection(ref m_Spell, Dt, warm, State == RunSnowState.Open, runC, spring, out _);
-                bool mapPack = RunSnowRules.PackGuard(MapMean(tBase));
-                GunsNow = false;
-                for (int i = 0; i < Cells; i++)
-                {
-                    float t = Local(tBase, CellY(i));
-                    if (t <= thr)
-                    {
-                        m_Base[i] = float.NaN;
-                        if (season && m_Gun == SnowGunPlumeRules.GunState.Running && D[i] < stop)
-                        {
-                            float add = Math.Min(stop - D[i], RunSnowRules.PackBuildPerHourM(t, thr, RunSnowRules.MeanRampRate) * Dt);
-                            D[i] += add;
-                            BuiltM += add / Cells;
-                            GunsNow = true;
-                        }
-                        continue;
-                    }
-                    if (m_Spell.State == RunSnowRules.ProtectState.Active && RunSnowRules.TexelProtected(m_Spell.HoursUsed, t, spring, 1f))
-                    {
-                        if (float.IsNaN(m_Base[i])) m_Base[i] = Math.Min(D[i] + s_Melt * t * Dt, stop);   // the depth when the hold began
-                        float up = Math.Min(m_Base[i] - D[i], RunSnowRules.ProtectRaisePerTopupM * RunSnowRules.WindowsPerGameHour * Dt);
-                        if (up > 0f) D[i] += up;
-                        continue;
-                    }
-                    m_Base[i] = float.NaN;
-                    if (!mapPack) D[i] = Math.Max(0f, D[i] - 0.004f * RunSnowRules.WindowsPerGameHour * Dt);
-                }
-                if (GunsNow) GunHours += Dt;
-            }
-        }
-
         // The proposal on a run: the game melts (Vanilla), the pack step builds; no hold, no managed melt.
         private sealed class GunRunProposed : Surface
         {
@@ -153,27 +102,24 @@ namespace SnowPackSim
             }
         }
 
-        // Today's cat track: StepTrackMadeSnow + StepTrackGunWork, the natural snow under it measured (the natural column).
-        private sealed class TrackToday : Surface
+        // The live cat track (T222, wired): RunSnowRules.StepTrackPack on its 8 cells, the natural snow under it measured (the natural
+        // column) as the gun decision's floor. (The 1.0.1 baselines, gun_today and track_today, were removed with the hold they modeled;
+        // the round 2 snowpack report keeps their numbers.)
+        private sealed class TrackLive : Surface
         {
+            private readonly RunSnowRules.PackParams m_P;
             private RunSnowRules.TrackMadeSnow m_Made;
-            private float[] m_Nat = new float[Cells];
+            private readonly float[] m_Nat = new float[Cells];
+            public TrackLive(RunSnowRules.PackParams p) { m_P = p; }
             public override void Step(float date, float tBase, float precip, float[] nat)
             {
                 Array.Copy(nat, m_Nat, Cells);
                 bool season = SnowGunPlumeRules.InGunSeason("", date);
-                bool spring = RunSnowRules.IsSpring("", date);
-                float gun = RunSnowRules.TrackGunShare(season, true, BottomM, TopM, tBase, 0f, MarginC, 0f, LapsePerM);
-                float cold = RunSnowRules.TrackColdShare(BottomM, TopM, tBase, 0f, 0f, LapsePerM);
-                float trackC = Local(tBase, 0.5f * (BottomM + TopM));
-                float before = m_Made.Share, depthBefore = m_Made.DepthM;
-                var endT = RunSnowRules.StepTrackMadeSnow(ref m_Made, Dt, gun, cold, trackC, spring, out bool startedT);
-                if (Environment.GetEnvironmentVariable("SNOWPACK_DEBUG") == "1" && (startedT || endT != RunSnowRules.ProtectEnd.None))
-                    Console.WriteLine("[track] " + Stamp(date) + " " + (startedT ? "start" : endT.ToString()) + " share " + m_Made.Share.ToString("0.00") + " depth " + m_Made.DepthM.ToString("0.00") + " trackC " + trackC.ToString("0.0") + " cold " + cold.ToString("0.00"));
-                RunSnowRules.StepTrackGunWork(ref m_Made, before, gun, NatShare(m_Nat, RunSnowState.Closed), Dt);
-                GunsNow = RunSnowRules.TrackGunsWorking(m_Made);
+                float before = m_Made.Share * m_Made.DepthM;
+                RunSnowRules.StepTrackPack(ref m_Made, m_P, BottomM, TopM, tBase, 0f, LapsePerM, season, season, Dt, Mean(m_Nat));
+                GunsNow = RunSnowRules.TrackGunsBuilding(m_Made);
                 if (GunsNow) GunHours += Dt;
-                BuiltM += Math.Max(0f, m_Made.DepthM * m_Made.Share - depthBefore * before);
+                BuiltM += Math.Max(0f, m_Made.Share * m_Made.DepthM - before);
                 for (int i = 0; i < Cells; i++) D[i] = m_Nat[i];
             }
             public override float MeanDepth() => RunSnowRules.TrackMeanDepthM(Mean(m_Nat), m_Made);
@@ -262,20 +208,19 @@ namespace SnowPackSim
 
         private static List<Surface> MakeSurfaces()
         {
-            var p096 = RunSnowRules.PackParams.With(RunSnowRules.GunStopDepthM, s_Melt);
-            var p150 = RunSnowRules.PackParams.With(RunSnowRules.ProposedStopDepthM, s_Melt);
+            var p096 = RunSnowRules.PackParams.With(RunSnowRules.LegacyTrackStopDepthM, s_Melt);
+            var p150 = RunSnowRules.PackParams.With(1.5f, s_Melt);
             var p200 = RunSnowRules.PackParams.With(2.0f, s_Melt);
             var p300 = RunSnowRules.PackParams.With(3.0f, s_Melt);
             return new List<Surface>
             {
                 new Natural { Name = "natural" },
-                new GunRunToday { Name = "gun_today" },
                 new GunRunProposed(p096) { Name = "gun_nohold_096" },
                 new GunRunProposed(p150) { Name = "gun_prop_150" },
                 new GunRunProposed(p200) { Name = "gun_prop_200" },
                 new GunRunProposed(p300) { Name = "gun_prop_300" },
-                new TrackToday { Name = "track_today" },
                 new TrackProposed(p200) { Name = "track_prop_200" },
+                new TrackLive(p200) { Name = "track_live_200" },
             };
         }
 

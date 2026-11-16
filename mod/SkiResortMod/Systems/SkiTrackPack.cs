@@ -24,7 +24,8 @@ namespace SkiResortMod.Systems
         /// <summary>m_Flags bit 0: the track's open state was Open when this value was written (else Closed).</summary>
         public const byte FlagOpen = 1;
 
-        /// <summary>Pack depth in millimeters (0..960: RunSnowRules.TrackDepthToMm writes it, TrackDepthFromMm reads and clamps it).</summary>
+        /// <summary>Mean made pack depth in millimeters (0..8000 from T222, 0..960 before: RunSnowRules.PackDepthToMm writes it, PackDepthFromMm
+        /// reads and clamps it). The layout is unchanged: an i32 holds any depth.</summary>
         public int m_DepthMm;
 
         /// <summary>Layout version this value was created with or loaded from (not written: Serialize writes CurrentVersion).</summary>
