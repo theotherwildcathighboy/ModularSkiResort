@@ -83,7 +83,7 @@ export default defineConfig({
       logo: {
         light: './src/assets/resort-logo-navy.svg',
         dark: './src/assets/resort-logo-white.svg',
-        alt: 'Modular Ski Resort logo, a peak and a snowflake',
+        alt: "Modular Ski Resort logo: a chairlift, a run and a peak with snowflakes",
       },
       lastUpdated: false,
       sidebar: [
