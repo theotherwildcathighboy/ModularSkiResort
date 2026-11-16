@@ -1,0 +1,170 @@
+<!doctype html>
+<!--
+  harness/mockups/t200-snow-report.html - T200 layout mockup (round 2 ui-audit, 2026-11-16). Static HTML, nothing ships, no binding.
+  Open: node harness/serve.js 5175, then http://localhost:5175/harness/mockups/t200-snow-report.html (?h=2160 for the 4K rem scale).
+  It draws the snow report three ways beside a stand-in of the game's selected-info panel:
+    0. today on r2/snow-report (8 stacked rows + note)
+    A. "Board": one table, Summit | Base columns, 4 rows (+1 optional "last snowfall" row)
+    B. "Tiles": the hub's tile row for the summit, one base line under it
+  and option A's table as the hub's SNOW fold (T201 #7). Styles copy the hub's tokens and sizes (hub.module.scss .busCard,
+  .infoLine, .tile) under Gameface's rules: flex only, no gap, no grid, fixed boxes. Sample numbers are plausible, not measured.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>T200 snow report mockup</title>
+<link rel="stylesheet" href="/game/index.css">
+<style>
+  @font-face { font-family: "Overpass"; src: url("/game/Fonts/Overpass-Regular.ttf"); font-weight: 400; }
+  @font-face { font-family: "Overpass"; src: url("/game/Fonts/Overpass-Bold.ttf"); font-weight: 700; }
+  html { font-size: 1px; }
+  body { margin: 0; padding: 20rem; background: linear-gradient(160deg, #a9bccb, #6d8597); font-family: Overpass, "Noto Sans", Arial, sans-serif;
+    color: rgba(240, 251, 255, 1); font-size: 14rem; }
+  .k { --normal: rgba(240, 251, 255, 1); --dim: rgba(240, 251, 255, 0.7); --accent: rgb(75, 195, 241); --cardBg: rgba(24, 33, 51, 0.85);
+    --track: rgba(255, 255, 255, 0.08); --edge: rgba(255, 255, 255, 0.15); --tileBg: rgba(112, 143, 155, 0.2); --S: 14rem; --XS: 12rem; --M: 16rem; }
+  h1 { font-size: 18rem; margin: 0 0 4rem 0; color: #10202c; }
+  .lead { font-size: 13rem; color: #10202c; margin: 0 0 16rem 0; max-width: 1500rem; }
+  .row { display: flex; flex-direction: row; align-items: flex-start; }
+  .col { display: flex; flex-direction: column; margin-right: 28rem; }
+  .cap { font-size: 13rem; font-weight: 700; color: #10202c; margin-bottom: 6rem; }
+  .capNote { font-size: 12rem; color: #1d3040; margin-top: 6rem; width: 520rem; line-height: 1.3; }
+  .pair { display: flex; flex-direction: row; align-items: flex-start; }
+  /* stand-in for the game's selected-info panel (left of the card) */
+  .vanilla { width: 170rem; height: 300rem; background: rgba(30, 40, 58, 0.92); border-radius: 8rem; margin-right: 8rem; color: var(--dim);
+    font-size: var(--XS); padding: 10rem; box-sizing: border-box; }
+  .vanilla b { display: block; color: var(--normal); font-size: var(--M); margin-bottom: 8rem; }
+  .card { width: 340rem; background: var(--cardBg); border-radius: 8rem; padding-bottom: 6rem; color: var(--normal); }
+  .title { display: flex; flex-direction: row; align-items: center; padding: 8rem 10rem; font-size: var(--M); }
+  .title .accent { color: var(--accent); }            /* today's busCardTitle */
+  .title .grow { flex-grow: 1; }
+  .title .side { font-size: var(--XS); color: var(--dim); }
+  .line { display: flex; flex-direction: row; align-items: center; height: calc(1.3em + 10rem); padding: 0 10rem; font-size: var(--S); }
+  .line .l { flex-grow: 1; color: var(--dim); white-space: nowrap; }
+  .line .v { white-space: nowrap; }
+  .sub .l { padding-left: 22rem; }
+  .note { padding: 4rem 10rem 2rem 10rem; font-size: var(--XS); color: var(--dim); line-height: 1.3; }
+  .rule { height: 1rem; background: var(--edge); margin: 4rem 10rem; }
+  /* option A: the board */
+  .th, .tr { display: flex; flex-direction: row; align-items: center; padding: 0 10rem; }
+  .th { height: 30rem; font-size: var(--XS); color: var(--dim); }
+  .tr { height: calc(1.3em + 10rem); font-size: var(--S); }
+  .tr.alt { background: var(--track); }
+  .c0 { flex-grow: 1; color: var(--dim); white-space: nowrap; }
+  .c1, .c2 { width: 88rem; text-align: right; white-space: nowrap; }
+  .th .c1, .th .c2 { line-height: 1.2; }
+  .th .c1 span, .th .c2 span { display: block; color: var(--normal); font-size: var(--S); }
+  .opt { outline: 1rem dashed rgba(255, 203, 0, 0.7); outline-offset: -2rem; }
+  /* option B: tiles */
+  .tiles { display: flex; flex-direction: row; padding: 0 10rem; }
+  .tile { flex-grow: 1; flex-basis: 0; height: 41.6rem; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: var(--tileBg); border-radius: 4rem; margin-left: 4rem; }
+  .tile:first-child { margin-left: 0; }
+  .tile .tv { font-size: var(--M); }
+  .tile .tc { font-size: var(--XS); color: var(--dim); }
+  /* the hub panel stand-in for the fold */
+  .hub { width: 420rem; background: rgba(38, 56, 74, 0.96); border-radius: 10rem; padding: 10rem 0; }
+  .hub .head { text-align: center; font-size: var(--M); font-weight: 700; padding-bottom: 8rem; border-bottom: 1rem solid var(--edge); margin-bottom: 6rem; }
+  .fold { display: flex; flex-direction: row; align-items: center; height: 28rem; padding: 0 10rem; font-size: var(--S); }
+  .fold .chev { width: 12rem; color: var(--dim); }
+  .fold .name { flex-grow: 1; font-weight: 700; text-transform: uppercase; }
+  .fold.open { background: rgba(255, 255, 255, 0.04); }
+</style>
+</head>
+<body class="k">
+<h1>T200 snow report: layout options (mockup, sample numbers)</h1>
+<p class="lead">Each card sits beside the game's selected-info panel when a Welcome Sign is selected (the Ski Bus card's box). Option A's
+table is also drawn as the hub's SNOW fold (T201 #7). The dashed row is optional (needs one more climate scan, no save).
+"New snow, 7 days" is left out on purpose: one game day is one calendar month, so 7 days would be 7 months and equal the season total.</p>
+
+<div class="row">
+  <div class="col">
+    <div class="cap">0. Today (r2/snow-report): 8 stacked rows</div>
+    <div class="pair">
+      <div class="vanilla"><b>Ash Flat</b>Welcome Sign<br>(the game's panel)</div>
+      <div class="card">
+        <div class="title"><span class="accent">Snow report</span></div>
+        <div class="line"><span class="l">Summit, 2,140 m</span><span class="v">-6 °C</span></div>
+        <div class="line sub"><span class="l">Snow depth</span><span class="v">142 cm</span></div>
+        <div class="line sub"><span class="l">New snow, last 24 hours</span><span class="v">18 cm</span></div>
+        <div class="line sub"><span class="l">Season snowfall</span><span class="v">312 cm</span></div>
+        <div class="line"><span class="l">Base, 1,520 m</span><span class="v">-1 °C</span></div>
+        <div class="line sub"><span class="l">Snow depth</span><span class="v">64 cm</span></div>
+        <div class="line sub"><span class="l">New snow, last 24 hours</span><span class="v">9 cm</span></div>
+        <div class="line sub"><span class="l">Season snowfall</span><span class="v">168 cm</span></div>
+        <div class="note">Season snowfall counts from November 1, the start of the ski season.</div>
+      </div>
+    </div>
+    <div class="capNote">10 lines, about 250 rem tall. The labels repeat (Snow depth twice, New snow twice). Summit against base needs eye jumps of 4 rows.</div>
+  </div>
+
+  <div class="col">
+    <div class="cap">A. Board: Summit | Base columns (recommended)</div>
+    <div class="pair">
+      <div class="vanilla"><b>Ash Flat</b>Welcome Sign<br>(the game's panel)</div>
+      <div class="card">
+        <div class="title"><span class="grow">Snow report</span><span class="side">Ash Flat</span></div>
+        <div class="th"><span class="c0"></span><span class="c1">Summit<span>2,140 m</span></span><span class="c2">Base<span>1,520 m</span></span></div>
+        <div class="tr alt"><span class="c0">Temperature</span><span class="c1">-6 °C</span><span class="c2">-1 °C</span></div>
+        <div class="tr"><span class="c0">Snow depth</span><span class="c1">142 cm</span><span class="c2">64 cm</span></div>
+        <div class="tr alt"><span class="c0">New snow, 24 hours</span><span class="c1">18 cm</span><span class="c2">9 cm</span></div>
+        <div class="tr"><span class="c0">Season snowfall</span><span class="c1">312 cm</span><span class="c2">168 cm</span></div>
+        <div class="tr opt alt"><span class="c0">Last snowfall</span><span class="c1">3 hours ago</span><span class="c2">3 hours ago</span></div>
+        <div class="note">Season snowfall counts from November 1, the start of the ski season.</div>
+      </div>
+    </div>
+    <div class="capNote">7 lines (6 without the optional row), about 190 rem: 25 % shorter. Reads like a resort board. Each label once.
+      Same rows fit the hub fold below. Title in the normal text color (T202 finding F7: accent is for controls).</div>
+  </div>
+
+  <div class="col">
+    <div class="cap">B. Tiles: the summit at a glance, the base in one line</div>
+    <div class="pair">
+      <div class="vanilla"><b>Ash Flat</b>Welcome Sign<br>(the game's panel)</div>
+      <div class="card">
+        <div class="title"><span class="grow">Snow report</span><span class="side">Summit, 2,140 m</span></div>
+        <div class="tiles">
+          <div class="tile"><span class="tv">-6 °C</span><span class="tc">Now</span></div>
+          <div class="tile"><span class="tv">142 cm</span><span class="tc">Depth</span></div>
+          <div class="tile"><span class="tv">18 cm</span><span class="tc">New, 24 h</span></div>
+          <div class="tile"><span class="tv">312 cm</span><span class="tc">Season</span></div>
+        </div>
+        <div class="line" style="margin-top: 4rem"><span class="l">Base, 1,520 m</span><span class="v">-1 °C · 64 cm · 9 cm new</span></div>
+        <div class="note">Season snowfall counts from November 1, the start of the ski season.</div>
+      </div>
+    </div>
+    <div class="capNote">About 130 rem: the shortest. Matches the hub's tile row. Cost: the base season total drops out, and "9 cm new"
+      packs three numbers in one value (DESIGN-SYSTEM "one number in one place" holds, but it reads dense). Tile captions need new short
+      strings ("New, 24 h").</div>
+  </div>
+</div>
+
+<div class="row" style="margin-top: 24rem">
+  <div class="col">
+    <div class="cap">A in the hub: the SNOW fold under Mountain (T201 #7), Attraction view</div>
+    <div class="hub">
+      <div class="head">Ash Flat</div>
+      <div class="line"><span class="l" style="color: var(--normal)">Attraction</span><span class="v">44</span></div>
+      <div class="line"><span class="l" style="color: var(--normal)">Share of city tourism</span><span class="v">61%</span></div>
+      <div class="rule"></div>
+      <div class="fold"><span class="chev">›</span><span class="name">Mountain</span><span class="v">Vertical drop: 610 m</span></div>
+      <div class="fold open"><span class="chev">⌄</span><span class="name">Snow</span><span class="v">96 cm · 88 %</span></div>
+      <div class="th"><span class="c0"></span><span class="c1">Summit<span>2,140 m</span></span><span class="c2">Base<span>1,520 m</span></span></div>
+      <div class="tr alt"><span class="c0">Temperature</span><span class="c1">-6 °C</span><span class="c2">-1 °C</span></div>
+      <div class="tr"><span class="c0">Snow depth</span><span class="c1">142 cm</span><span class="c2">64 cm</span></div>
+      <div class="tr alt"><span class="c0">New snow, 24 hours</span><span class="c1">18 cm</span><span class="c2">9 cm</span></div>
+      <div class="tr"><span class="c0">Season snowfall</span><span class="c1">312 cm</span><span class="c2">168 cm</span></div>
+      <div class="fold"><span class="chev">›</span><span class="name">Merged buildings</span><span class="v">2</span></div>
+    </div>
+    <div class="capNote">The fold row's value is the status line's snow pair (run average depth, run coverage), so the pair gets its label
+      here too (T201 #1). The open
+      fold adds about 150 rem: the Attraction view has about 360 rem slack at 1080 with folds closed (T201 section 6), and one fold
+      opens at a time.</div>
+  </div>
+</div>
+<script>
+  // ?h=2160 draws at the 4K rem scale (2 px per rem), as the game does at 3840 x 2160
+  const h = Number(new URLSearchParams(location.search).get("h") || 1080);
+  document.documentElement.style.fontSize = (h / 1080) + "px";
+</script>
+</body>
+</html>

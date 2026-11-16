@@ -300,8 +300,8 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  padding: 6rem 16rem;
-  height: calc(30rem * var(--fontScale));
+  padding: 0rem 12rem;
+  height: calc(26rem * var(--fontScale));   // T202 mockup (r2/ui-audit): one text-button height, = .segButton / .stepButton (was 30)
   font-size: var(--fontSizeS);
 }
 
@@ -2755,7 +2755,7 @@
 // S like .treeToolButton (U15), not .actionButton's 30 rem x fontScale (0.9 rem over the row at 100 %).
 // Declared after .actionButton, so it wins at equal specificity.
 .startButton {
-  height: 1.6em;
+  height: calc(26rem * var(--fontScale));   // T202 mockup: was 1.6 em of S (22.4 rem)
   padding-top: 0rem;
   padding-bottom: 0rem;
 }
@@ -2834,7 +2834,7 @@
   justify-content: center;
   flex-grow: 0;
   flex-shrink: 0;
-  height: 1.6em;
+  height: calc(26rem * var(--fontScale));   // T202 mockup: was 1.6 em of S (22.4 rem), shorter than the Scan / Build / Undo beside it
   padding-top: 0rem;
   padding-bottom: 0rem;
   padding-left: 12rem;

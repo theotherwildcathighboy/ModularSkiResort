@@ -433,6 +433,33 @@ for (const [scale, tag] of [[1, ""], [1.25, "-fs125"]]) {
 // tab tiles, car spaces). Every shot at text scale 1 and 1.25. `--list=tiers` picks this list.
 // Round 624 polish: the Vertical and Variety tooltips (inline icons) at text scale 1, 1.25 and 1.5 (number and unit on one line, the key
 // rows inside the box), and the low-span problem line in the band with the +N popover open. `--list=polish` picks this list.
+// T202 audit (round 2, 2026-11-16): every hub state at 1080 and the 4K rem scale (2160). `--list=uiaudit --measure` also writes
+// <file>.json beside each shot (tools/ui-audit-measure.js: control boxes, font sizes, text colors in rem).
+const UIAUDIT = [];
+for (const h of [1080, 2160]) {
+  UIAUDIT.push(
+    [`a01-start-card-${h}`, h, { scenario: "connected, empty city" }],
+    [`a02-not-connected-${h}`, h, { scenario: "not connected (no C#)", whole: 1 }],   // no hub panel: the launcher only
+    [`a03-attraction-${h}`, h, { scenario: ASH, view: 0 }],
+    [`a04-attraction-fold0-${h}`, h, { scenario: ASH, view: 0, fold: 0 }],
+    [`a05-attraction-fold1-${h}`, h, { scenario: ASH, view: 0, fold: 1 }],
+    [`a06-attraction-fold2-${h}`, h, { scenario: ASH, view: 0, fold: 2 }],
+    [`a07-runs-${h}`, h, { scenario: ASH, view: 1 }],
+    [`a08-lifts-${h}`, h, { scenario: ASH, view: 2 }],
+    [`a09-guests-${h}`, h, { scenario: ASH, view: 3 }],
+    [`a10-finances-${h}`, h, { scenario: ASH, view: 4 }],
+    [`a11-history-${h}`, h, { scenario: ASH, view: 5 }],
+    [`a12-tab-lifts-${h}`, h, { scenario: ASH, view: 0, tab: "lifts" }],
+    [`a13-tab-runs-${h}`, h, { scenario: ASH, view: 0, tab: "runs" }],
+    [`a14-tab-buildings-${h}`, h, { scenario: ASH, view: 0, tab: "buildings" }],
+    [`a15-problems-${h}`, h, { scenario: BIG, view: 0, problems: 1 }],
+    [`a16-areas-${h}`, h, { scenario: ASH, view: 0, areas: 1 }],
+    [`a17-merge-card-${h}`, h, { scenario: "Ash Flat, merge card every tier", view: 0, tab: "buildings", whole: 1 }],
+    [`a18-planner-${h}`, h, { scenario: "Resort Planner plan, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+    [`a19-runs-big-${h}`, h, { scenario: BIG, view: 1 }],
+    [`a20-tip-status-${h}`, h, { scenario: ASH, view: 0, hover: "Open" }],
+  );
+}
 const POLISH = [];
 for (const [scale, tag] of [[1, "-fs100"], [1.25, "-fs125"], [1.5, "-fs150"]]) {
   POLISH.push(
@@ -549,6 +576,10 @@ async function shots(b, base, dir, list) {
     const shot = await b.send("Page.captureScreenshot", { format: "png", clip: Object.assign({ scale: 1 }, rect), captureBeyondViewport: !hover && !hoverSel && hoverPlot === undefined && !scrollY && !scrollIn });   // a pointer shot stays in the viewport. Growing it re-lays the page under the pointer, and the bucket hover drops
     const out = path.join(dir, file + ".png");
     fs.writeFileSync(out, Buffer.from(shot.data, "base64"));
+    if (process.argv.includes("--measure")) {
+      const probe = fs.readFileSync(path.join(__dirname, "ui-audit-measure.js"), "utf8").replace(/^\/\*[\s\S]*?\*\/\s*/, "");
+      fs.writeFileSync(path.join(dir, file + ".json"), JSON.stringify(await evalAsync(b, probe, 20000), null, 1));
+    }
     console.log(`shot ${out} (${w}x${h}) ${m}`);
   }
 }
@@ -645,7 +676,7 @@ async function main() {
     const b = browsers[0];
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg),
-        process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();
