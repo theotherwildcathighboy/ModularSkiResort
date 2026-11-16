@@ -83,6 +83,7 @@ export const HUB_LOC = {
 
   statusNoRuns: ["SkiResort.Hub.STATUS_NO_RUNS", "Closed"],
   statusUnlinked: ["SkiResort.Hub.STATUS_UNLINKED", "No Welcome Sign in range"],
+  statusSettling: ["SkiResort.Hub.STATUS_SETTLING", "Resort numbers fill in once time runs"],
   statusTipRule: ["SkiResort.Hub.STATUS_TIP_RULE", "<mark:open> Open: enough snow on 60 % of the run, then down to 40 % on thinner snow. <mark:patchy> Patchy: in between. <mark:closed> Closed: below 40 %."],
   statusTipEstimated: ["SkiResort.Hub.STATUS_TIP_ESTIMATED", "Some runs are estimated from the day's temperature until their snow can be measured."],
   statusTipGating: ["SkiResort.Hub.STATUS_TIP_GATING", "Snow & season gating is off in Options, so every run counts as open."],
