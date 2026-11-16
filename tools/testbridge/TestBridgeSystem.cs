@@ -59,6 +59,7 @@ namespace SkiTestBridge
             TickTrailer();
             TickMergeProbeUi();
             TickLoadCheck();
+            TickTourism();
         }
 
         protected override void OnDestroy()
@@ -135,6 +136,8 @@ namespace SkiTestBridge
                 case "overlay": return OverlayCommand(args);
                 case "package": return PackageCommand(args);
                 case "loadcheck": return LoadCheckCommand(args);
+                case "prefabalias": return PrefabAliasCommand(args);
+                case "tourism": return TourismCommand(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }
