@@ -758,7 +758,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.CAT_TRACK_DELETE", "Delete cat tracks" },
                 { "SkiResort.Hub.CAT_TRACK_DELETE_TIP", "Opens the cat track tool in delete mode. The ground stays graded, no refund. Ctrl+Shift+D in the tool." },
                 { "SkiResort.Hub.CAT_TRACK_SKI_WAY", "Ski way" },
-                { "SkiResort.Hub.CAT_TRACK_SKI_WAY_TIP", "Cat tracks become ski ways: 10 m wide, cut into the hillside with nothing filled below, for steep faces. Ctrl+Shift+N in the tool." },
+                { "SkiResort.Hub.CAT_TRACK_SKI_WAY_TIP", "Cat tracks become ski ways: 10 m wide, cut into the hillside with nothing filled below, for steep faces. Ctrl+Shift+J in the tool." },
                 { "SkiResort.Hub.QUICK_REASON[Off]", "Resort Planner is off. Its switch is in Options > Modular Ski Resort > Runs." },
                 { "SkiResort.Hub.QUICK_REASON[NotArmed]", "Available once a city is loaded." },
                 { "SkiResort.Hub.QUICK_REASON[Disabled]", "The Resort Planner hit an error and is off until the next load. Details are in the mod log." },
@@ -1883,7 +1883,7 @@ namespace SkiResortMod
                 // CatTrackGradeTooltipSystem / CatTrackGradeToolSystem through LocalizedString.Id(key, args) (GradeMsg); the log keeps the full
                 // detail. Every text: plain sentences, at most 25 words, no em dash (GradeBatch GR-23). Numbers are whole numbers:
                 // LENGTH / SHORT in m, MAX / LIMIT in %, CUT / FILL in m³.
-                { "SkiResort.CatTrack.PROMPT_EMPTY", "Click where the cat track starts. Right click closes the tool. To remove a track, use Delete cat tracks in the hub." },
+                { "SkiResort.CatTrack.PROMPT_EMPTY", "Click where the cat track starts. Right click closes the tool. The hub's Runs tab has Delete cat tracks and Ski way, a narrow track for steep faces." },
                 { "SkiResort.CatTrack.PROMPT_ONE", "Click the next point of the track. Right click goes back a step." },
                 { "SkiResort.CatTrack.PROMPT_PATH", "Click to add a point. Drag a point to move it. Enter builds the track. Right click or Esc goes back a step." },
                 { "SkiResort.CatTrack.PROMPT_DRAG", "Release to put the point here. Right click cancels the move." },

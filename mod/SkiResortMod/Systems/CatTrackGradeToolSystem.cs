@@ -8,7 +8,7 @@
 // quick solve per edit, and the full one (raster, band rating, guards, outline) debounced on a worker (CatTrackGradeSolve.cs, hand-test
 // note 20, DECISIONS 601 f).
 // Two profiles (T194): the standard track (the settings' width, cut and fill) and the Ski way (GradeParams.SkiWay: a narrow bench cut into
-// the hillside, nothing filled, DECISIONS 443). The Ski way key (Ctrl+Shift+N) and the hub's Ski way chip switch it (SetSkiWay). It stays
+// the hillside, nothing filled, DECISIONS 443). The Ski way key (default Ctrl+Shift+J) and the hub's Ski way chip switch it (SetSkiWay). It stays
 // on for the session until switched off or the next load.
 // Logs (silence impossible): ARMED / NOT ARMED per load. One line per activation, mode switch, edit, solve, apply, refusal. An exception
 // disables the tool.
@@ -206,7 +206,7 @@ namespace SkiResortMod.Systems
                          $"{ReadParams().Describe()}; guards: lots, lift lines ({LiftClearanceM:F0} m), water " +
                          $"(> {WetDepthM:F1} m), run outline clearance {GradeRibbon.MinClearanceM:F1} m, crossed runs keep their ground (fade " +
                          $"{ReadParams().CrossBlendM:F0} m) and must be crossed under the max grade; trees on the flat top are " +
-                         $"removed; grading free, the run pays its fee at bind; Ski way mode (Ctrl+Shift+N / hub chip): " +
+                         $"removed; grading free, the run pays its fee at bind; Ski way mode (Ski way key / hub chip): " +
                          $"{GradeParams.SkiWay(ReadParams()).Describe()}, solved against the lowest ground across the top");
         }
 
