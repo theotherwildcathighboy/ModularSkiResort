@@ -127,6 +127,13 @@ Then to load:
 3. Click Load Game.
 4. Click Yes.
 
+**Without window focus (T224):** `__dload(name)`, `__dsave(name)` and `__dexit()` (helpers.js) do the same menu paths with DOM mouse
+events on the page elements instead of OS input, so the game window can sit behind other windows and nobody's mouse is taken.
+`tools/loadcheck.ps1` uses them. The pause menu opens from the Gear button of the top-right group; `pause-menu-toggle` is the
+Advisor button, not the pause menu. `__dload` replies `loading <name> yes <0|1>`, or `no save <name>` when the game does not list
+the file (see "A save copied into Saves" below). `__dsave` stops without clicking when an overwrite `Yes` shows (use a new name).
+Verified once in r1e (2026-11-15) as the temporary `dom2.js`; the merged copy in helpers.js has not run in game yet.
+
 `__save` / `__saveFromPanel` (helpers.js) write to the local `Saves` folder. They set the target to `Local` with `saveTarget`,
 and they restore the player's own target after the click. A save in Steam Cloud could not be read back after a direct launch
 (IOException in `SteamCloudStream.LoadCache`, 2026-11-06), so bridge saves stay local.
@@ -139,6 +146,11 @@ Remove warning icons with care: `Game.Common.Deleted` on every `Game.Notificatio
 workplace icons among them) while the sim ran at speed 8 was followed by a silent game exit within seconds (2026-11-10; no
 dump, no log line, cause not proven). Pause the sim, delete only the few station icons in frame, wait 60 frames, read
 `status`. In Photo Mode, `photoMode.setOverlayHidden` hides the icons and deletes nothing.
+
+**A save copied into Saves** (T205): the game lists a save by its `.cid` (the 32 hex characters of its asset id) beside the `.cok`. A
+copy made without one was not listed, even after a restart, and a copy with the original's `.cid` would duplicate its asset id. So stage
+the copy with a FRESH id, with the game closed: `tools\loadcheck.ps1 -StageOnly` (copies the baseline as `loadcheck_<stem>.cok` and
+writes a new `.cid`). UNVERIFIED in game: the game's AssetDatabase source is not in the decompile.
 
 Do not call `engine.trigger("menu.saveGame", name)`. If the save panel is not open, the preview texture is null. Then the game
 throws a `NullReferenceException` and shows its error dialog (measured, see `MenuUISystem.cs:896-902` and `GameManager.cs:947`).
@@ -481,7 +493,7 @@ as the gameface MCP's `game_eval` (`node bridge-call.mjs --op <base64 json>`, `-
 because PowerShell 5.1 strips the quotes of a JSON argument to a native command). Any script can use it.
 
 1. `begin` notes the byte length of Player.log, SceneFlow.log, Modding.log and SkiResortMod.Mod.log, and the game error serial.
-2. The load goes through `__load` (helpers.js), the pause menu's real clicks. Then `wait-ready.ps1 -Since <time of the load>`.
+2. The load goes through `__dload` (helpers.js), the pause menu by DOM events (no focus needed). Then `wait-ready.ps1 -Since <time of the load>`.
 3. `report` starts a state machine that waits on sim frames and never blocks a frame. It waits until the simulation runs (a paused game
    is set to speed 1), scans the logs, takes the census and the billing snapshot, samples carrier motion over `motionFrames`, then runs
    the sim at `speed` until the calendar month turns plus 4,096 frames (or the wall-clock limit), takes the billing snapshot again and
@@ -502,6 +514,16 @@ The report:
   a paid amount that rose or a fresh paid binding: the signature of a lost SkiRunBinding block.
 
 The runner compares the census with the baseline beside the save and judges part (b); parts (a) and (c) come from the op.
+
+**World gate (DECISIONS 664, T228).** The runner first reads `tools\world.ps1 -World Status -Json` and stops (exit 2) unless the world is
+a clean PLAYER (published pack, ImportedData parked, playset "Standard Mod Set"); `-AnyWorld` runs anyway with the gate off. In a
+Player world part (a) also FAILs on any `Unknown prefab ID` line naming a Ski prefab after the load click (a save built outside the
+pack: its ids do not resolve) and on a `Duplicate prefab ID` line naming a Ski prefab with an asset other than the pack's own `.cok`.
+The pack's own duplicate lines (about 160 per start, asset `pdx_mods/167215_N/ModularSkiResort.cok`) are info. The op reports the exact
+counts as `logs.prefabIds` (`unknownSki`, `unknownSkiPreLoad`, `dupSkiPack`, `dupSkiForeign`, `dupSkiForeignPreLoad`, `dupOther`; code in
+`TestBridgeSystem.LoadCheck.cs`, in game since the next bridge deploy). A deployed bridge without that field falls back to the capped hit list.
+The month detector (T196) follows the mod's own month key (`SkiGuestCounterSystem.Ledger.MonthKey`, since 1bee2e9f); a city with no Welcome
+Sign has no such key and the month cannot turn there.
 
 ## Building a test city
 

@@ -106,3 +106,59 @@ window.__probeTip=async(ms=2000)=>{
   out.ok=!out.leadHits.length&&!out.glued.length&&!out.unitSplits.length&&!out.keyRows.some(k=>k.over>1)&&out.inViewport&&out.mutations===0;
   return out;
 };
+
+// Round 2 (T224): UI clicks by DOM events, from r1e (bridge-r1e/data/scripts/dom2.js). No OS input, so no window focus and no mouse: the
+// game may sit behind other windows. Same technique as the README's "dead corner" fix: mouseenter, mouseover, mousedown, mouseup, click
+// dispatched on the element (Gameface has no Element.click and no PointerEvent). tools/loadcheck.ps1 uses these three: __dload, __dsave,
+// __dexit. The coordinate helpers above (__load, __save, __exitToDesktop) stay for tests that need real input.
+// The pause menu opens from the Gear button of the top-right group ([class*=pause-menu-layout]). `pause-menu-toggle` is the ADVISOR button,
+// not the pause menu: clicking it opens the wrong panel (r1e, 2026-11-15).
+window.__dclkEl = (el) => { const r = el.getBoundingClientRect(); const o = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 }; el.dispatchEvent(new MouseEvent("mouseenter", o)); el.dispatchEvent(new MouseEvent("mouseover", o)); el.dispatchEvent(new MouseEvent("mousedown", o)); el.dispatchEvent(new MouseEvent("mouseup", o)); el.dispatchEvent(new MouseEvent("click", o)); return true; };
+window.__dclk = (x, y) => { const el = document.elementFromPoint(x, y); if (!el) return "no element"; __dclkEl(el); return el.tagName + " " + (el.getAttribute("class") || ""); };
+window.__dfind = (t, minx = 0) => [...document.querySelectorAll("*")].filter(e => e.children.length === 0 && e.textContent.trim() === t && e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().left >= minx);
+window.__dtext = (t, minx = 0) => { const el = __dfind(t, minx)[0]; if (!el) return null; __dclkEl(el); return t; };
+window.__sleep = (ms) => new Promise(r => setTimeout(r, ms));
+window.__dpause = async () => { if (__dfind("Save Game").length || __dfind("Load Game").length) return "menu open"; const el = [...document.querySelectorAll("[class*=pause-menu-layout] button")].find(b => b.innerHTML.includes("Gear.svg")); if (!el) return "no pause toggle"; __dclkEl(el); await __sleep(1200); return "pause toggle"; };
+// Opens Load Game, clicks the save, answers the load dialog and the discard dialog. Replies "loading <name> yes <0|1>", or why not:
+// "no save <name>" = the game does not list that file (T205: stage it with the game closed, see tools/loadcheck.ps1 -StageOnly).
+window.__dload = async (name) => {
+  const log = [];
+  log.push(await __dpause());
+  log.push(__dtext("Load Game")); await __sleep(1500);
+  const el = [...document.querySelectorAll("*")].find(e => e.children.length === 0 && e.textContent.trim() === name);
+  if (!el) return log.concat("no save " + name).join(" | ");
+  await __scrollTo(el); await __sleep(300);
+  __dclkEl(el); await __sleep(800);
+  const b = __dfind("Load Game", 2000);
+  if (!b.length) return log.concat("no Load Game button in the panel").join(" | ");
+  try { await __cmd({ op: "loadcheck", action: "loadMark" }); } catch (e) { }
+  __dclkEl(b[0]); await __sleep(1800);
+  const y = __dtext("Yes");
+  return "loading " + name + " yes " + (y ? 1 : 0) + " | " + log.join(" | ");
+};
+window.__dsetInput = (inp, v) => { const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value"); if (d && d.set) d.set.call(inp, v); else inp.value = v; inp.dispatchEvent(new Event("input", { bubbles: true })); inp.dispatchEvent(new Event("change", { bubbles: true })); return inp.value; };
+// Saves under a NEW name to the Local target (saveTarget is restored afterward). Stops without clicking when an overwrite "Yes" shows
+// (an existing name), same rule as __save. Replies "saved <name> resume <0|1> target <previous> | ...".
+window.__dsave = async (name) => {
+  const log = [];
+  log.push(await __dpause());
+  if (!__dtext("Save Game")) return "no Save Game | " + log.join(" | ");
+  await __sleep(1500);
+  if (__dtext("New Save")) { log.push("new save"); await __sleep(600); }
+  const tg = JSON.parse(await __cmd({ op: "saveTarget", name: "Local" }));
+  try {
+    const inp = [...document.querySelectorAll("input")].filter(e => { const r = e.getBoundingClientRect(); return r.top < 2050 && r.top > 100 && r.width > 0; })[0];
+    if (!inp) return "no input | " + log.join(" | ");
+    __dclkEl(inp); await __sleep(200);
+    __dsetInput(inp, name); await __sleep(500);
+    if (inp.value !== name) return "name mismatch " + inp.value;
+    const sv = __dfind("Save", 2000);
+    if (!sv.length) return "no Save button | " + log.join(" | ");
+    __dclkEl(sv[0]); await __sleep(2500);
+    const ow = __dfind("Yes"); if (ow.length) { log.push("Yes shown (overwrite?) NOT clicked"); return "stopped " + log.join(" | "); }
+    const rs = __dtext("Resume Game");
+    return "saved " + name + " resume " + (rs ? 1 : 0) + " target " + tg.previous + " | " + log.join(" | ");
+  } finally { await __cmd({ op: "saveTarget", name: tg.previous }); }
+};
+// Quit to the desktop: pause menu, "Exit", then "Exit To Desktop" in the dialog (1.6.4f1). The game ends a moment later.
+window.__dexit = async () => { const log = [await __dpause()]; log.push(__dtext("Exit")); await __sleep(1200); log.push(__dtext("Exit To Desktop") || __dtext("Exit to Desktop")); return log.join(" | "); };

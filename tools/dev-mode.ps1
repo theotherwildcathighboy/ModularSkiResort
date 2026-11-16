@@ -9,6 +9,8 @@
 #   -Mode Published  moves them back out of Mods into the aside folder.
 #   -Mode Bridge     published mod + test bridge only: SkiTestBridge in Mods, SkiResortMod-dev parked. For bridge runs that must
 #                    measure the RELEASED build (baseline saves, tools/loadcheck.ps1 baselines).
+#   -WhatIf          dry run: prints what would move, moves nothing, allowed while Cities2 runs (conflicts still refuse).
+#   -Json            with -Mode Status: ONE compact JSON object instead of the text report (tools/world.ps1 reads it).
 #   -ParkImported    with -Mode Published or Bridge: also park the Editor-imported ImportedData folder (T197: dev prefab copies beside the
 #                    published .cok give ~1,300 "Duplicate prefab ID" lines). Opt-in, for that duplicate-flood check only. Without the
 #                    switch every mode leaves ImportedData in place, and puts it back if an earlier -ParkImported parked it.
@@ -24,7 +26,7 @@
 #   - Guard deploys. A deploying `dotnet build` recreates Mods\SkiResortMod in any mode: run -Mode Status after one.
 #
 # Refuses to move anything while Cities2 runs. PowerShell 5.1. Exit: 0 ok, 1 refused / conflict.
-param([ValidateSet('Status', 'Dev', 'Published', 'Bridge')][string]$Mode = 'Status', [switch]$ParkImported)
+param([ValidateSet('Status', 'Dev', 'Published', 'Bridge')][string]$Mode = 'Status', [switch]$ParkImported, [switch]$Json, [switch]$WhatIf)
 
 $ErrorActionPreference = 'Stop'
 $ModId = '167215'
@@ -74,6 +76,14 @@ function Get-LaunchOptions {
 }
 
 function Show-Status {
+    if ($Json) {
+        $s = Get-Subscription
+        [ordered]@{
+            mod = (Get-Where $Pairs[0]); bridge = (Get-Where $Pairs[1]); imported = (Get-ImportedState)
+            installed = $s.Installed; playset = $s.Playset; enabled = $s.Enabled; launch = (Get-LaunchOptions)
+        } | ConvertTo-Json -Compress
+        return
+    }
     "Ski mod switch status"
     foreach ($p in $Pairs) { "  {0,-14} {1}" -f $p.Local, (Get-Where $p) }
     "  {0,-14} {1}" -f 'ImportedData', (Get-ImportedState)
@@ -93,6 +103,7 @@ function Show-Status {
 function Move-Pair($from, $to, $label) {
     if (Test-Path $to) { throw "refused: $to already exists ($label). Resolve by hand." }
     if (-not (Test-Path $from)) { "  skip $label (not at $from)"; return }
+    if ($WhatIf) { "  WOULD move $label -> $to"; return }
     New-Item -ItemType Directory -Force (Split-Path $to) | Out-Null
     Move-Item -LiteralPath $from -Destination $to
     "  moved $label -> $to"
@@ -117,6 +128,10 @@ function Get-ImportedState {
 function Set-Imported([bool]$wantLoaded) {
     $state = Get-ImportedState
     if ($state -like 'BOTH*') { throw "refused: ImportedData exists in the game folder AND in $ImportedAside. Resolve by hand." }
+    if ($WhatIf -and (($wantLoaded -and $state -eq 'aside (parked)') -or (-not $wantLoaded -and $state -eq 'ImportedData (loaded)'))) {
+        "  WOULD move ImportedData $(if ($wantLoaded) { 'back into the game folder' } else { 'aside (parked)' })"
+        return
+    }
     if ($wantLoaded -and $state -eq 'aside (parked)') {
         if (Test-Path $ImportedDir) { Remove-Item -LiteralPath $ImportedDir -Force }   # an empty folder only (the state check above)
         Move-Item -LiteralPath $ImportedAside -Destination $ImportedDir
@@ -131,7 +146,7 @@ function Set-Imported([bool]$wantLoaded) {
 }
 
 if ($Mode -ne 'Status') {
-    if (Get-Process -Name Cities2 -ErrorAction SilentlyContinue) { Write-Host 'refused: Cities2 is running. Close the game first.'; exit 1 }
+    if (-not $WhatIf -and (Get-Process -Name Cities2 -ErrorAction SilentlyContinue)) { Write-Host 'refused: Cities2 is running. Close the game first.'; exit 1 }
     try {
         Set-Imported (($Mode -eq 'Dev') -or -not $ParkImported)
         foreach ($p in $Pairs) {

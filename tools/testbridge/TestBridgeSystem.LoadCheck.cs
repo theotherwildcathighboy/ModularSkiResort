@@ -427,6 +427,60 @@ namespace SkiTestBridge
         /// <summary>Prefab ID lines before the load starts come from the game's start and the save list, not from the city: environment.</summary>
         private static readonly HashSet<string> s_LcEnvironmentBeforeLoad = new HashSet<string> { "Unknown prefab ID", "Duplicate prefab ID" };
 
+        /// <summary>A Duplicate prefab ID line whose asset is the published pack's own .cok: the pack lists the same prefab more than once
+        /// (about 160 lines per start, "assetdb://paradoxmods/pdx_mods/167215_N/ModularSkiResort.cok@..."). Harmless: info, never a FAIL.
+        /// A Duplicate line naming a Ski prefab with ANY other asset (ImportedData, a local package) is a second copy of our prefabs beside the
+        /// pack: the world is not Player (DECISIONS 664).</summary>
+        private static readonly Regex s_LcPackAsset = new Regex(@"pdx_mods[/\\]167215_\d+[/\\]ModularSkiResort\.cok", RegexOptions.IgnoreCase);
+
+        /// <summary>Exact prefab-ID line counts for the runner's world gate (T228 gate 2), kept apart from the capped hit list.</summary>
+        private sealed class LcPrefabIdCounts
+        {
+            public int unknownSki, unknownSkiPreLoad, dupSkiPack, dupSkiForeign, dupSkiForeignPreLoad, dupOther;
+
+            public JObject ToJson() => new JObject
+            {
+                ["unknownSki"] = unknownSki,
+                ["unknownSkiPreLoad"] = unknownSkiPreLoad,
+                ["dupSkiPack"] = dupSkiPack,
+                ["dupSkiForeign"] = dupSkiForeign,
+                ["dupSkiForeignPreLoad"] = dupSkiForeignPreLoad,
+                ["dupOther"] = dupOther,
+            };
+        }
+
+        /// <summary>Counts one Unknown / Duplicate prefab ID line. Returns true for a Duplicate line that is the pack's own copy (info).</summary>
+        private static bool LcCountPrefabId(LcPrefabIdCounts c, string patternName, string line, bool preLoad)
+        {
+            bool ski = Regex.IsMatch(line, @"\bSki");
+            if (patternName == "Unknown prefab ID")
+            {
+                if (ski)
+                {
+                    c.unknownSki++;
+                    if (preLoad)
+                        c.unknownSkiPreLoad++;
+                }
+                return false;
+            }
+            if (patternName != "Duplicate prefab ID")
+                return false;
+            if (!ski)
+            {
+                c.dupOther++;
+                return false;
+            }
+            if (s_LcPackAsset.IsMatch(line))
+            {
+                c.dupSkiPack++;
+                return true;
+            }
+            c.dupSkiForeign++;
+            if (preLoad)
+                c.dupSkiForeignPreLoad++;
+            return false;
+        }
+
         /// <summary>The number of lines of log from rom up to its load mark (0 when no mark was taken).</summary>
         private static int LcPreLoadLines(LcLog log, long from)
         {
@@ -447,6 +501,7 @@ namespace SkiTestBridge
             var modInfo = new JArray();
             int gated = 0;
             var counts = new Dictionary<string, int>();
+            var idCounts = new LcPrefabIdCounts();
             int bindCharges = 0, restores = 0, restoredFree = 0;
             long bindChargeSum = 0;
             foreach (LcLog log in run.logs)
@@ -472,6 +527,11 @@ namespace SkiTestBridge
                             continue;
                         bool ours = p.ours == null || p.ours.IsMatch(line);
                         string hitName = p.name;
+                        if (LcCountPrefabId(idCounts, p.name, line, i < preLoad) && ours)
+                        {
+                            ours = false;
+                            hitName += " (pack copy, info)";
+                        }
                         if (ours && i < preLoad && s_LcEnvironmentBeforeLoad.Contains(p.name))
                         {
                             ours = false;
@@ -521,6 +581,11 @@ namespace SkiTestBridge
                             continue;
                         bool ours = p.ours == null || p.ours.IsMatch(lines[i]);
                         string hitName = p.name + " (session)";
+                        if (LcCountPrefabId(idCounts, p.name, lines[i], i < preLoad) && ours)
+                        {
+                            ours = false;
+                            hitName += " (pack copy, info)";
+                        }
                         if (ours && i < preLoad && s_LcEnvironmentBeforeLoad.Contains(p.name))
                         {
                             ours = false;
@@ -538,6 +603,7 @@ namespace SkiTestBridge
                 ["files"] = files,
                 ["gatedHits"] = gated,
                 ["counts"] = JObject.FromObject(counts),
+                ["prefabIds"] = idCounts.ToJson(),
                 ["hits"] = hits,
                 ["modLogInfo"] = modInfo,
                 ["bindCharges"] = bindCharges,

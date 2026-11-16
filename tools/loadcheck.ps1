@@ -5,17 +5,21 @@
 
 .DESCRIPTION
   Needs a running game with the test bridge READY (--developerMode --uiDeveloperMode, live reload off). It never builds, deploys or
-  starts the game. The setup depends on the save (release/saves-by-release/README.md):
-    - The light and modded saves: the dev setup (tools/dev-mode.ps1 -Mode Dev, a playset WITHOUT the Paradox Mods subscription).
-    - The Ash Flat save (dev prefab IDs): the pack overlay, that is the published pack (subscription 167215 enabled) with the candidate
-      build laid over it, and ImportedData present. In the dev setup alone it shows 0 runs, 0 Welcome Signs and 30 unknown prefab IDs
-      (only stations and lift lines resolve, through ImportedData), so parts (b) to (d) check nothing.
+  starts the game. The world (DECISIONS 664, T228): the check runs in PLAYER, the published pack with the candidate build laid over
+  it (tools/world.ps1 -World Player -Build dev [-Cok]), ImportedData parked, playset "Standard Mod Set". The script asks
+  `world.ps1 -World Status -Json` first and stops (exit 2) in any other world; -AnyWorld runs anyway, with the world gate off (the
+  result is then no release evidence). A save made on the pack alone resolves its prefabs through the pack; a dev-made save (Editor
+  ImportedData ids) shows as "Unknown prefab ID" lines and placeholder boxes. Gate 2 (T228) FAILs part (a) on any such line naming a
+  Ski prefab after the load click (lines before it come from the Load Game list: environment), and on a second copy of our prefabs beside the pack ("Duplicate prefab ID" naming Ski with an asset other than the pack's
+  own .cok). The pack's own duplicate lines (about 160 per start, asset = pdx_mods/167215_N/ModularSkiResort.cok) are info.
 
   Steps:
-    1. Copies the baseline save (read-only, in release/saves-by-release/) into the game's Saves folder as loadcheck_<stem>.cok,
-       so the original never loads and never gets saved over. The .cid is not copied (the game's own copy of that city keeps its id).
-    2. Op loadcheck begin (log offsets), then the page helper __load (the pause menu's real clicks: the game window must be free,
-       the script brings it to the front), then tools/testbridge/wait-ready.ps1.
+    1. Copies the baseline save (read-only, in release/saves-by-release/) into the game's Saves folder as loadcheck_<stem>.cok with a
+       FRESH .cid beside it (T205: the game lists a save by its .cid, a copy without one was never listed, even after a restart; the
+       original's .cid would duplicate its asset id. UNVERIFIED in game). Stage the copy with the game CLOSED (-StageOnly does only
+       this and exits): the game indexes the Saves folder at start. The original never loads and never gets saved over.
+    2. Op loadcheck begin (log offsets), then the page helper __dload (T224: the pause menu by DOM mouse events, no OS input, so no
+       window focus and no mouse; helpers.js), then tools/testbridge/wait-ready.ps1.
     3. Op loadcheck report: (a) log scan since the load, (b) entity census, (c) billing before and after one in-game month at
        sim speed 8. Polled until done.
     4. With -Resave, part (d): census, save under a new bridge* name, load it again, census again, compare.
@@ -45,6 +49,13 @@
 .PARAMETER Resave
   Also run part (d): save under a bridge* name, reload, compare the census.
 
+.PARAMETER AnyWorld
+  Run in a world other than a clean PLAYER (tools/world.ps1 -World Status). The world gate is off and the report says so.
+
+.PARAMETER StageOnly
+  Copy the baseline save into the Saves folder with a fresh .cid and exit. Run it with the game closed, before the launch, so the game
+  lists the copy (T205). Needs no game, no bridge and no node.
+
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File tools\loadcheck.ps1
 .EXAMPLE
@@ -57,6 +68,8 @@ param(
     [switch]$Resave,
     [switch]$WriteBaseline,
     [switch]$DiscardCity,
+    [switch]$AnyWorld,
+    [switch]$StageOnly,
     [int]$MonthTimeoutMinutes = 45,
     [string]$OutDir
 )
@@ -98,18 +111,36 @@ function Invoke-Page([string]$expression, [int]$timeoutSec = 60) {
 }
 
 function Show-Game {
-    # README "Starting the game without the launcher": input steps fail unless the game window has focus.
-    if (-not ('LoadCheckWin' -as [type])) {
-        Add-Type @"
-using System;using System.Runtime.InteropServices;
-public class LoadCheckWin{[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern bool ShowWindow(IntPtr h,int c);[DllImport("user32.dll")]public static extern void keybd_event(byte k,byte s,uint f,UIntPtr e);}
-"@
+    # T224: the load, the save and the quit are DOM mouse events on the page (helpers.js __dload / __dsave / __dexit), not OS input, so the
+    # game window needs no focus and the script never takes the mouse. This only reports the focus state (the old script forced the window
+    # to the front with SetForegroundWindow, which fought the owner's own windows).
+    $st = Invoke-Bridge @{ op = 'status' }
+    Write-Output "  focus: $($st.focused) (DOM clicks, focus not needed)"
+}
+
+# T205: the game lists a save by its .cid (32 hex characters, the asset id) beside the .cok. A copy made without one was never listed,
+# even after a restart, and a copy WITH the original's .cid would duplicate its asset id. So a staged copy gets its own fresh id.
+# UNVERIFIED in game (decompile 1.6.4f1 has no Colossal.IO.AssetDatabase source to read). The game indexes the Saves folder at its start:
+# stage with the game closed (-StageOnly). A copy staged while the game runs may stay unlisted until the next start.
+function Install-SaveCopy([string]$source, [string]$gameName) {
+    $savesRoot = Join-Path $UserData 'Saves'
+    $savesDir = Get-ChildItem $savesRoot -Directory -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if (-not $savesDir) { Stop-Check 2 "no Saves folder under $savesRoot" }
+    $target = Join-Path $savesDir.FullName "$gameName.cok"
+    $cid = "$target.cid"
+    $copied = $false
+    if (-not (Test-Path $target) -or (Get-FileHash $target).Hash -ne (Get-FileHash $source).Hash) {
+        Copy-Item $source $target -Force
+        (Get-Item $target).IsReadOnly = $false
+        $copied = $true
     }
-    $h = (Get-Process Cities2).MainWindowHandle
-    [LoadCheckWin]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero); [LoadCheckWin]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)
-    [LoadCheckWin]::ShowWindow($h, 9) | Out-Null
-    [LoadCheckWin]::SetForegroundWindow($h) | Out-Null
-    Start-Sleep -Milliseconds 500
+    $newCid = $false
+    if (-not (Test-Path $cid)) {
+        [IO.File]::WriteAllText($cid, [guid]::NewGuid().ToString('N'), (New-Object Text.UTF8Encoding $false))
+        $newCid = $true
+    }
+    Write-Output "  save copy: $target$(if ($copied) { ' (new)' } else { ' (unchanged)' }), .cid $(if ($newCid) { 'written (fresh id)' } else { 'kept' })"
+    return $target
 }
 
 function Wait-Ready([datetime]$since) {
@@ -139,12 +170,12 @@ function Load-City([string]$name, [string]$label) {
     $t = Get-Date
     Invoke-Bridge @{ op = 'loadcheck'; action = 'begin'; save = $label } | Out-Null
     Show-Game
-    $r = Invoke-Page "__load($(ConvertTo-Json $name))" 60
-    Write-Output "  __load: $r"
+    $r = Invoke-Page "__dload($(ConvertTo-Json $name))" 60
+    Write-Output "  __dload: $r"
     if ("$r" -notmatch '^loading ') {
-        Stop-Check 2 "the load did not start ($r). A save copied while the game ran may need a game restart to be listed (unverified)."
+        Stop-Check 2 "the load did not start ($r). 'no save <name>' means the game does not list the copy: stage it with the game closed (loadcheck.ps1 -StageOnly), then start the game (T205, unverified)."
     }
-    # (The page helper __load calls loadcheck/loadMark just before the load dialog click: the debug port does not answer while the load runs.)
+    # (The page helper __dload calls loadcheck/loadMark just before the load dialog click: the debug port does not answer while the load runs.)
     Wait-Ready $t
     Invoke-Node @('--inject', $Helpers) | Out-Null
     # A game load builds a new world: its autosave system starts ON again, so the off switch from before the load is gone.
@@ -183,10 +214,36 @@ function ConvertTo-OrderedCounts($obj) {
 }
 
 # ---- preconditions ----------------------------------------------------------------------------------------------------
+if ($StageOnly) {
+    if (Get-Process Cities2 -ErrorAction SilentlyContinue) { Stop-Check 2 '-StageOnly runs with the game CLOSED: it indexes the Saves folder at its start (T205).' }
+    if (-not $Save) {
+        $Save = Get-ChildItem $SavesByRelease -Filter *.cok -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+    }
+    if (-not $Save -or -not (Test-Path $Save)) { Stop-Check 2 "no baseline save to stage (-Save <file> or $SavesByRelease)" }
+    $null = Install-SaveCopy $Save ("loadcheck_" + [IO.Path]::GetFileNameWithoutExtension($Save))
+    Stop-Check 0 'staged. Start the game (Player world), then run loadcheck.ps1 without -StageOnly.'
+}
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Stop-Check 2 'node is not on PATH' }
 if (-not (Get-Process Cities2 -ErrorAction SilentlyContinue)) {
-    Stop-Check 2 'Cities2 is not running. Start it with the bridge, --developerMode --uiDeveloperMode: the dev setup for the light and modded saves, the pack overlay with ImportedData for Ash Flat (release/saves-by-release/README.md).'
+    Stop-Check 2 'Cities2 is not running. Start it in the Player world with the bridge, --developerMode --uiDeveloperMode (tools/world.ps1 -World Player -Build dev -Cok; release/saves-by-release/README.md).'
 }
+
+# World gate (DECISIONS 664): the check is evidence only in a clean PLAYER world.
+$worldScript = Join-Path $PSScriptRoot 'world.ps1'
+$world = $null
+try { $world = (& powershell -NoProfile -ExecutionPolicy Bypass -File $worldScript -World Status -Json) -join '' | ConvertFrom-Json } catch { }
+if ($world) {
+    Write-Output "  world: $($world.line)"
+    if ($world.world -ne 'PLAYER' -or -not $world.playsetOk) {
+        if (-not $AnyWorld) { Stop-Check 2 "not a clean Player world ($($world.line)). Switch with tools\world.ps1 -World Player (and pick the playset it names), or pass -AnyWorld for a run that is no release evidence." }
+        Write-Output '  -AnyWorld: the world gate is OFF for this run.'
+    }
+} else {
+    if (-not $AnyWorld) { Stop-Check 2 'could not read tools\world.ps1 -World Status -Json; fix that or pass -AnyWorld.' }
+    Write-Output '  -AnyWorld: world unknown, the world gate is OFF for this run.'
+}
+$worldGate = [bool]($world -and $world.world -eq 'PLAYER' -and $world.playsetOk)
 
 if (-not $Save -and -not $NoLoad) {
     $Save = Get-ChildItem $SavesByRelease -Filter *.cok -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending |
@@ -224,18 +281,8 @@ $result = [ordered]@{
 try {
     # ---- load --------------------------------------------------------------------------------------------------------
     if (-not $NoLoad) {
-        $savesRoot = Join-Path $UserData 'Saves'
-        $savesDir = Get-ChildItem $savesRoot -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if (-not $savesDir) { Stop-Check 2 "no Saves folder under $savesRoot" }
         $gameName = "loadcheck_$Stem"
-        $target = Join-Path $savesDir.FullName "$gameName.cok"
-        $copied = $false
-        if (-not (Test-Path $target) -or (Get-FileHash $target).Hash -ne (Get-FileHash $Save).Hash) {
-            Copy-Item $Save $target -Force
-            (Get-Item $target).IsReadOnly = $false
-            $copied = $true
-        }
-        Write-Output "  save copy: $target$(if ($copied) { ' (new)' } else { ' (unchanged)' })"
+        $null = Install-SaveCopy $Save $gameName
         $result.gameSave = $gameName
         Load-City $gameName $Stem
     }
@@ -251,7 +298,44 @@ try {
 
     # (a)
     $a = $report.parts.a
-    $verdict.a = [ordered]@{ pass = [bool]$a.pass; detail = "$($a.gatedHits) gated log hit(s), $($report.logs.gameErrorsOurs) game error(s) naming SkiResortMod" }
+    $aPass = [bool]$a.pass
+    $aDetail = "$($a.gatedHits) gated log hit(s), $($report.logs.gameErrorsOurs) game error(s) naming SkiResortMod"
+    # Gate 2 (T228) and the duplicate classification, from the bridge's exact counts (logs.prefabIds). An older deployed bridge has no such
+    # field: then the capped hit list is read instead (a lower bound, said so).
+    $ids = $report.logs.prefabIds
+    $idSource = 'bridge counts'
+    if ($null -eq $ids) {
+        $idSource = 'hit list (the deployed bridge predates logs.prefabIds: a lower bound)'
+        $packRe = 'pdx_mods[/\\]167215_\d+[/\\]ModularSkiResort\.cok'
+        $hl = @($report.logs.hits)
+        $ids = [pscustomobject]@{
+            unknownSki = @($hl | Where-Object { $_.pattern -like 'Unknown prefab ID*' -and $_.text -match '\bSki' }).Count
+            unknownSkiPreLoad = @($hl | Where-Object { $_.pattern -like 'Unknown prefab ID*pre-load*' -and $_.text -match '\bSki' }).Count
+            dupSkiPack = @($hl | Where-Object { $_.pattern -like 'Duplicate prefab ID*' -and $_.text -match '\bSki' -and $_.text -match $packRe }).Count
+            dupSkiForeign = @($hl | Where-Object { $_.pattern -like 'Duplicate prefab ID*' -and $_.text -match '\bSki' -and $_.text -notmatch $packRe }).Count
+            dupOther = @($hl | Where-Object { $_.pattern -like 'Duplicate prefab ID*' -and $_.text -notmatch '\bSki' }).Count
+        }
+    }
+    $aInfo = "info: $($ids.dupSkiPack) Duplicate prefab ID line(s) are the pack's own copy and $($ids.dupOther) name other prefabs (harmless), counted from the $idSource"
+    # Only lines AFTER the load click count: lines between `begin` and the click come from the Load Game list reading the other saves
+    # (commit 1425f48f), not from this city. The ids themselves are the city's: a pack-built save resolves all of them through the pack.
+    $unknownAfterLoad = [int]$ids.unknownSki - [int]$ids.unknownSkiPreLoad
+    if ($worldGate) {
+        if ($unknownAfterLoad -gt 0) {
+            $aPass = $false
+            $aDetail += "; WORLD GATE: $unknownAfterLoad Unknown prefab ID line(s) name a Ski prefab. The save holds ids the pack does not resolve (built with ImportedData present?): placeholder boxes in game (T228)"
+        }
+        if ([int]$ids.dupSkiForeign -gt 0) {
+            $aPass = $false
+            $aDetail += "; WORLD GATE: $($ids.dupSkiForeign) Duplicate prefab ID line(s) name a Ski prefab from an asset other than the pack's .cok: a second copy of our prefabs beside the pack (ImportedData or a local package loaded)"
+        }
+    } else {
+        $aDetail += "; world gate OFF (-AnyWorld): $unknownAfterLoad Ski Unknown id(s) after the load, $($ids.dupSkiForeign) foreign Ski duplicate(s) not judged"
+    }
+    $aDetail += " | $aInfo"
+    $verdict.a = [ordered]@{ pass = $aPass; detail = $aDetail }
+    $result.world = if ($world) { $world.line } else { 'unknown' }
+    $result.worldGate = $worldGate
 
     # (b): baseline diff
     $counts = Get-Counts $report.census
@@ -297,8 +381,8 @@ try {
         $before = (Invoke-Bridge @{ op = 'loadcheck'; action = 'census' }).census
         $saveName = 'bridgelc' + (Get-Date).ToString('MMddHHmmss')
         Show-Game
-        $s = Invoke-Page "__save($(ConvertTo-Json $saveName))" 60
-        Write-Output "  __save: $s"
+        $s = Invoke-Page "__dsave($(ConvertTo-Json $saveName))" 60
+        Write-Output "  __dsave: $s"
         if ("$s" -notmatch '^saved ') { throw "the save failed: $s" }
         Load-City $saveName "$Stem resaved as $saveName"
         Invoke-Bridge @{ op = 'loadcheck'; action = 'report'; month = $false } | Out-Null
