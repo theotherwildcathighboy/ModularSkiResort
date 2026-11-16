@@ -114,6 +114,13 @@ Install, strip tiles:
 1. Copy the PNG + .png.cid pairs into ImportedData\\SkiResortIcons\\ (game side).
 2. Run tools/sync-gamedata.ps1 and tools/preflight.ps1 (preflight FAILS on a cid value used by two files).
 
+T210 (2026-11-16): TWO sets since 1.0.2. The prefab m_Icon (asset menu, Find It) is `<name>.png`, bare on transparent
+like vanilla: this script with --bare for the ten flat tiles (lift lines, runs, cat track, fence), ski_icons_3d.py with
+ICON_MODE=bare for the eighteen 3D tiles. The hub Build strip shows `<name>Card.png` (BUILD_ITEM_ICON in buildItems.ts,
+gate test-hub-rules T17.9): the card look, this script's default run for the ten flat tiles and ski_icons_3d.py's card mode
+(icon name `<name>Card`) for the eighteen, each saved under the Card name with cid_for("<name>Card.png"). A bulk copy of a
+default run into SkiResortIcons therefore puts the CARD look on the prefab icons: rename to the Card names first.
+
 The icon of a not-yet-imported prefab may sit there before its prefab. In round 2 the surgery round sets the
 m_Icon of each new prefab to the cid of its tile (the table is in build/icons-round-2.md).
 
@@ -153,6 +160,8 @@ RULE_MARGIN = 20.0
 STEP_KEEPOUT = (0.0, 0.0, 84.0, 84.0)   # top-left box kept free of marks on the step tiles
 
 VERBOSE = False                     # --verbose: geometry notes (chair clearance, plume path)
+BARE = False                        # --bare (T210): the prefab menu look, the picture without the card (see bare_mode)
+BARE_STEEL_DARK = (138, 148, 162)   # --bare: cables and dark steel, lifted so they read on the dark menu tile
 
 # ---------------------------------------------------------------------------------------------
 # Palette
@@ -403,7 +412,13 @@ def mark_safe(px, py):
 # ---------------------------------------------------------------------------------------------
 # Shared pieces
 # ---------------------------------------------------------------------------------------------
+def _empty():
+    return L(np.full(X.shape, np.inf), (0, 0, 0), 0.0, mark=False)
+
+
 def sky(night=False):
+    if BARE:
+        return _empty()
     if night:
         return L(plate_sdf(), vgrad(NSKY_TOP, NSKY_BOT, 10, 200), mark=False)
     return L(plate_sdf(), vgrad(SKY_TOP, SKY_BOT, 10, 210), mark=False)
@@ -412,6 +427,8 @@ def sky(night=False):
 def step_corner():
     """Darker sky in the top-left corner of the three lift tiles, behind the hub's white step
     digit (drawn right after the sky, so terrain covers it)."""
+    if BARE:
+        return _empty()
     d = np.hypot(X - 10.0, Y - 10.0)
     a = 0.80 * np.clip(1.0 - d / 150.0, 0.0, 1.0) ** 1.2
     return L(plate_sdf(), CORNER_DARK, a, mark=False)
@@ -421,6 +438,8 @@ def finish(night=False):
     """Drawn last on every tile: a darker foot (the bottom of the picture turns mid-tone so the
     hub's white type stripe under a run tile stands apart from the snow) and a thin dark rim (the
     plate keeps its outline on the active, blue tile). Both stay inside the 22 px mark margin."""
+    if BARE:
+        return []
     t = np.clip((Y - FOOT_Y0) / (245.0 - FOOT_Y0), 0.0, 1.0) ** 1.4 * FOOT_A
     foot = L(plate_sdf(), NFOOT_COL if night else FOOT_COL, t, mark=False)
     p = plate_sdf()
@@ -441,6 +460,8 @@ def far_range(pts, lit=FAR_LIT, shade=FAR_SHADE):
     """Distant mountain range (background field): a polyline of alternating valley / peak points closed to the
     bottom. Each peak's right flank is in the shade tone, bounded by a ridge line that runs from the peak down
     and to the right."""
+    if BARE:
+        return []
     body = sd_polygon(pts + [(pts[-1][0], 300.0), (pts[0][0], 300.0)])
     out = [L(body, lit, mark=False)]
     for i in range(1, len(pts) - 1):
@@ -1079,7 +1100,8 @@ def icon_run_night():
     ly.append(L(minus(sd_disk(mx, my, mr), sd_disk(mx - 17, my - 13, mr * 0.86)), MOON))
     ly.append(L(union(*[twinkle(*t) for t in NIGHT_STARS]), MOON, 0.95))
     halo = np.clip(1.0 - np.hypot(X - px, Y - (top - 2)) / 54.0, 0.0, 1.0) ** 1.4
-    ly.append(L(sd_disk(px, top - 2, 54), HUB_AMBER, 0.55 * halo, mark=False))
+    if not BARE:    # bare: no night sky behind it, so the glow would hang in the air as a smear
+        ly.append(L(sd_disk(px, top - 2, 54), HUB_AMBER, 0.55 * halo, mark=False))
     mast = sd_polygon([(px - 6, top + 8), (px + 6, top + 8), (px + 8.5, gy + 5), (px - 8.5, gy + 5)])
     ly += two_tone(mast, left_of(px), STEEL_LIT, STEEL_SHADE)
     ly.append(L(sd_round_rect(px - 36, top + 2, px + 36, top + 14, 4), STEEL_SHADE))
@@ -2338,6 +2360,17 @@ def cid_for(png_name):
     return hashlib.md5((CID_SALT + png_name).encode("ascii")).hexdigest()
 
 
+def bare_mode():
+    """T210 (2026-11-16): vanilla menus and Find It show the object on a transparent canvas, no card. The prefab m_Icon
+    files (same names and cids as the card set) get this look; the hub Build strip keeps the card from its own
+    <name>Card.png set. What stays: the snow ground (clipped to the old plate, so a run tile reads as a patch of
+    slope) and every mark. Cables and dark steel are lifted (BARE_STEEL_DARK): drawn for the blue sky, they vanish on
+    the dark menu tile."""
+    global BARE, STEEL_DARK
+    BARE = True
+    STEEL_DARK = BARE_STEEL_DARK
+
+
 def main():
     global VERBOSE
     ap = argparse.ArgumentParser(description=__doc__,
@@ -2350,9 +2383,13 @@ def main():
                          "SkiResortTab only when named here)")
     ap.add_argument("--verbose", action="store_true",
                     help="print geometry notes (chair clearance, plume path)")
+    ap.add_argument("--bare", action="store_true",
+                    help="T210: the prefab menu look (no sky, far range, step corner, foot or rim; lighter cables)")
     args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv
                          else sys.argv[1:])
     VERBOSE = args.verbose
+    if args.bare:
+        bare_mode()
     only = [s.strip() for s in args.only.split(",") if s.strip()]
     unknown = [s for s in only if s not in ALL_ICONS]
     if unknown:
