@@ -41,6 +41,16 @@ if (/[<>&`]/.test(long)) problems.push("long description holds one of < > & ` (X
 if (/[<>&`]/.test(short)) problems.push("short description holds one of < > & `");
 if (/^[ \t]+\S/m.test(long)) problems.push("long description has a line starting with a space or tab (renders as a code block)");
 if (short.length > 200) problems.push("short description is " + short.length + " characters (live maximum is 200)");
+// Paradox Mods takes at most 10 screenshots, each name ending in jpeg / jpg / png and at most 128 characters. The 1.0.1 publish was
+// refused by the server with 11 ("screenshotNames: Must have 10 or less elements").
+{
+  const shots = [...fs.readFileSync(XML, "utf8").matchAll(/<Screenshot Value="([^"]*)"\s*\/>/g)].map((m) => m[1]);
+  if (shots.length > 10) problems.push(shots.length + " Screenshot lines (Paradox Mods takes at most 10)");
+  for (const s of shots) {
+    if (!/\.(jpe?g|png)$/i.test(s) || s.length > 128) problems.push("Screenshot " + s + ": must end in .jpg / .jpeg / .png, at most 128 characters");
+    else if (!fs.existsSync(path.join(path.dirname(XML), "..", s))) problems.push("Screenshot " + s + " does not exist");
+  }
+}
 
 const raw = fs.readFileSync(XML, "utf8");
 const bom = raw.charCodeAt(0) === 0xFEFF;
