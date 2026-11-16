@@ -25,6 +25,14 @@ Template (copy above the newest entry):
 Notes...
 ```
 
+## 1.0.1 (PDX version 2, unreleased)
+- Save compatible with previous: yes
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1, TrackPack 1
+- Do not load in older versions: yes
+
+A save now keeps how deep the snow guns have built each cat track. 1.0.0 ignores that and loads the save as before, so going back loses
+nothing else. Release notes to follow.
+
 ## 1.0.0 (PDX version 1, 2026-11-12)
 - Save compatible with previous: n/a (first release)
 - Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1

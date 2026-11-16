@@ -35,6 +35,7 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiLodgeNumber.cs" Link="SkiLodgeNumber.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiMergedLodge.cs" Link="SkiMergedLodge.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiTrackSnow.cs" Link="SkiTrackSnow.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiTrackPack.cs" Link="SkiTrackPack.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunName.cs" Link="SkiRunName.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSeasonPass.cs" Link="SkiSeasonPass.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortHistory.cs" Link="SkiResortHistory.cs" />

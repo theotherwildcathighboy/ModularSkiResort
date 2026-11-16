@@ -896,10 +896,9 @@ namespace ResortBatch
         {
             const string W = "cattrack/real-snow";
             const float freezing = 0f, margin = 3.3f, baseH = 1000f, lapse = 0.0065f, lo = 1000f, hi = 1300f, dt = 0.05f;
-            float threshold = RunSnowRules.ThresholdC(RunKind.CatTrack, freezing, margin);
             float gun = RunSnowRules.TrackGunShare(true, true, lo, hi, -5f, freezing, margin, baseH, lapse);
             float cold = RunSnowRules.TrackColdShare(lo, hi, -5f, freezing, baseH, lapse);
-            Check(gun == 1f && cold == 1f && Math.Abs(threshold - 3.3f) < 1e-5f, W, "setup: -5 C, the guns cover all of it");
+            Check(gun == 1f && cold == 1f, W, "setup: -5 C, the guns cover all of it");
 
             // One table pass of a track: the label and mean from the snow under it (the share at its label's bar, the mean) and its made snow.
             RunSnowState Pass(RunSnowState from, float naturalOpen, float naturalKeep, float naturalMean, RunSnowRules.TrackMadeSnow made,
@@ -914,7 +913,7 @@ namespace ResortBatch
             // CT220-1: guns on, 5 mm. The first pass after the guns start: the made share is 100 % at once (the bill's rule), the pack 5 mm.
             var track = new RunSnowRules.TrackMadeSnow();
             float fiveMmHours = 0.005f / RunSnowRules.TrackBuildRateMPerHour;
-            RunSnowRules.StepTrackMadeSnow(ref track, fiveMmHours, gun, cold, -5f, threshold, false, out bool _);
+            RunSnowRules.StepTrackMadeSnow(ref track, fiveMmHours, gun, cold, -5f, false, out bool _);
             Check(track.Share == 1f && Math.Abs(track.DepthM - 0.005f) < 1e-4f, W, "CT220-1a the guns start: made 100 % on " + track.DepthM + " m");
             foreach (RunSnowState from in new[] { RunSnowState.Closed, RunSnowState.Unknown })
             {
@@ -936,7 +935,7 @@ namespace ResortBatch
             for (int step = 0; step < 100; step++)
             {
                 float before = build.Share;
-                RunSnowRules.StepTrackMadeSnow(ref build, dt, gun, cold, -5f, threshold, false, out bool _);
+                RunSnowRules.StepTrackMadeSnow(ref build, dt, gun, cold, -5f, false, out bool _);
                 RunSnowRules.StepTrackGunWork(ref build, before, gun, 0f, dt);
                 hours += dt;
                 state = Pass(state, 0f, 0f, 0.005f, build, out float _, out float mean);
@@ -971,7 +970,7 @@ namespace ResortBatch
             bool openUnder3ft = false;
             for (int step = 0; step < 100 && closeAt < 0f; step++)
             {
-                RunSnowRules.StepTrackMadeSnow(ref thaw, dt, 0f, 0f, 12f, threshold, false, out bool _);
+                RunSnowRules.StepTrackMadeSnow(ref thaw, dt, 0f, 0f, 12f, false, out bool _);
                 hours += dt;
                 state = Pass(state, 0f, 0f, 0f, thaw, out float _, out float _);
                 if (state == RunSnowState.Open && thaw.DepthM < RunSnowRules.SkiableDepthM)
@@ -989,39 +988,80 @@ namespace ResortBatch
             Check(closeAt >= melt12 - 1e-3f && closeAt <= melt12 + dt + 1e-3f, W,
                   "CT220-3b closed after " + closeAt + " game h at 12 C (a run pack: " + melt12 + " h)");
 
-            // CT220-3c: the r1b case. 15 C at the track while the day mean still gives the guns the whole vertical. The guns cannot make
-            // snow in that air and no spell runs above 10 C, so the pack melts and the track closes. Before, the share held it Open on 0-0.1 m.
-            var spell15 = RunSnowRules.TrackFromSave(1f);
-            state = RunSnowState.Open;
-            for (int step = 0; step < 40; step++)
-            {
-                RunSnowRules.StepTrackMadeSnow(ref spell15, dt, 1f, 1f, 15f, threshold, false, out bool _);
-                state = Pass(state, 0f, 0f, 0.05f, spell15, out float _, out float _);
-            }
-            Check(state == RunSnowState.Closed && spell15.DepthM < RunSnowRules.KeepDepthM, W,
-                  "CT220-3c 15 C at the track, guns covered by the day mean: closed after 2 game h (pack " + spell15.DepthM + " m)");
+            // CT220-3c (bridge pass r1c): the guns follow the air at the track NOW, by elevation, not the day mean. A track at 1900-2200 m
+            // (base 1000 m, lapse 0.0065 C/m): at a 9 C day mean the day-mean rule gave its guns the whole vertical. At 15 C air now it is
+            // 7.2-9.2 C at the track, too warm for them: share 0.
+            float dayMeanGun = RunSnowRules.TrackGunShare(true, true, 1900f, 2200f, 9f, freezing, margin, baseH, lapse);
+            float airGun = RunSnowRules.TrackGunShare(true, true, 1900f, 2200f, 15f, freezing, margin, baseH, lapse);
+            Check(dayMeanGun == 1f && airGun == 0f, W, "CT220-3c 15 C air, 9 C day mean: the guns cover " + airGun + " (the day mean gave " +
+                  dayMeanGun + ")");
 
-            // CT220-3d: 5 C at the track with the same day mean: too warm for the guns, under 10 C. The spell holds the pack (a run's
-            // protection), and it stays Open.
+            // CT220-3d: a warm spell at 6 C at the track (guns too warm, under 10 C). The spell holds the pack for the largest run budget (72 h,
+            // DECISIONS 574: a gun run of the same heights holds as long). Then the pack melts at the run rate and the track closes at the keep
+            // bar, RunMeltOutHours(6) later.
+            var spell6 = RunSnowRules.TrackFromSave(1f);
+            state = RunSnowState.Open;
+            hours = 0f;
+            float close6 = -1f, close6Depth = float.NaN;
+            bool held6 = false;
+            for (int step = 0; step < 4000 && close6 < 0f; step++)
+            {
+                RunSnowRules.StepTrackMadeSnow(ref spell6, dt, 0f, 0f, 6f, false, out bool s6);
+                held6 |= s6;
+                hours += dt;
+                state = Pass(state, 0f, 0f, 0f, spell6, out float _, out float _);
+                if (state == RunSnowState.Closed)
+                {
+                    close6 = hours;
+                    close6Depth = spell6.DepthM;
+                }
+            }
+            float want6 = RunSnowRules.MaxBudgetHours(false) + RunSnowRules.RunMeltOutHours(6f);
+            Check(held6 && close6 >= want6 - 2f * dt && close6 <= want6 + 2f * dt && close6Depth < RunSnowRules.KeepDepthM, W,
+                  "CT220-3d 6 C spell: held, closed at the keep bar after " + close6 + " game h (budget + melt " + want6 + " h, pack " +
+                  close6Depth + " m)");
+
+            // CT220-3e: 5 C at the track for 2 game hours: the spell holds the pack and it stays Open (a gun run holds as long).
             var hold = RunSnowRules.TrackFromSave(1f);
             state = RunSnowState.Open;
             bool held = false;
             for (int step = 0; step < 40; step++)
             {
-                RunSnowRules.StepTrackMadeSnow(ref hold, dt, 1f, 1f, 5f, threshold, false, out bool s);
+                RunSnowRules.StepTrackMadeSnow(ref hold, dt, 0f, 0f, 5f, false, out bool s);
                 held |= s;
                 state = Pass(state, 0f, 0f, 0.05f, hold, out float _, out float _);
             }
             Check(held && state == RunSnowState.Open && hold.DepthM == RunSnowRules.GunStopDepthM &&
-                  hold.Spell.State == RunSnowRules.ProtectState.Active, W, "CT220-3d 5 C at the track: the spell holds the pack, Open");
+                  hold.Spell.State == RunSnowRules.ProtectState.Active, W, "CT220-3e 5 C at the track: the spell holds the pack, Open");
 
-            // CT220-4: a load. The save holds the share only (SkiTrackSnow v1). A saved share is a full pack, and the first label (Unknown)
-            // keeps it Open. No saved share: no pack.
-            var loaded = RunSnowRules.TrackFromSave(0.8f);
-            var none = RunSnowRules.TrackFromSave(0f);
-            Check(loaded.Share == 0.8f && loaded.DepthM == RunSnowRules.GunStopDepthM && none.DepthM == 0f && none.Share == 0f &&
-                  Pass(RunSnowState.Unknown, 0f, 0f, float.NaN, loaded, out float _, out float _) == RunSnowState.Open, W,
-                  "CT220-4 a saved share loads as a full pack and reads Open");
+            // CT220-4: a load. A 1.0.1 save keeps the pack depth (SkiTrackPack). r1c loadcheck d: a save written just after gun start held
+            // 0.12 m and reloaded Open at 96 cm. Now it reloads Closed and keeps building. An old save (no SkiTrackPack: NaN) loads as
+            // before: a saved share is a full pack, Open. No saved share: no pack.
+            var early = RunSnowRules.TrackFromSave(1f, RunSnowRules.TrackDepthFromMm(RunSnowRules.TrackDepthToMm(0.12f)));
+            var old = RunSnowRules.TrackFromSave(0.8f);
+            var none = RunSnowRules.TrackFromSave(0f, 0.5f);
+            Check(Math.Abs(early.DepthM - 0.12f) < 1e-6f && Pass(RunSnowState.Unknown, 0f, 0f, float.NaN, early, out float _, out float _) ==
+                  RunSnowState.Closed, W, "CT220-4a a save at 0.12 m reloads Closed on " + early.DepthM + " m");
+            var open1 = RunSnowRules.TrackFromSave(1f, 0.5f);
+            Check(Pass(RunSnowState.Unknown, 0f, 0f, float.NaN, open1, out float _, out float _) == RunSnowState.Open, W,
+                  "CT220-4b a save at 0.5 m (open, on the keep bar) reloads Open");
+            Check(old.Share == 0.8f && old.DepthM == RunSnowRules.GunStopDepthM && none.DepthM == 0f && none.Share == 0f &&
+                  Pass(RunSnowState.Unknown, 0f, 0f, float.NaN, old, out float _, out float _) == RunSnowState.Open, W,
+                  "CT220-4c an old save without the pack depth loads as before: a full pack, Open");
+            Check(RunSnowRules.TrackDepthToMm(0.123f) == 123 && RunSnowRules.TrackDepthToMm(5f) == 960 && RunSnowRules.TrackDepthToMm(float.NaN) == 0 &&
+                  RunSnowRules.TrackDepthToMm(-1f) == 0 && RunSnowRules.TrackDepthFromMm(2000) == RunSnowRules.GunStopDepthM &&
+                  RunSnowRules.TrackDepthFromMm(-5) == 0f && Math.Abs(RunSnowRules.TrackFromSave(1f, 3f).DepthM - RunSnowRules.GunStopDepthM) < 1e-6f,
+                  W, "CT220-4d the saved millimeters round-trip and clamp");
+
+            // CT220-4e: an estimate never opens a track (r1c 18:24:13: "0.0 texel(s), mean NaN m, estimated (day-mean 14.5 C)"). It keeps an
+            // Open track open, as a NaN share does.
+            foreach (RunSnowState from in new[] { RunSnowState.Unknown, RunSnowState.Closed })
+            {
+                float est = RunSnowRules.TrackEstimatedSnowShare(from, 1f);
+                Check(est == 0f && Pass(from, est, est, float.NaN, new RunSnowRules.TrackMadeSnow(), out float _, out float _) == RunSnowState.Closed,
+                      W, "CT220-4e a natural estimate of 100 % from " + from + ": Closed");
+            }
+            Check(RunSnowRules.TrackEstimatedSnowShare(RunSnowState.Open, 0.7f) == 0.7f, W, "CT220-4f the estimate keeps an Open track open");
 
             // CT220-5: the mean. Made share 50 % on 0.96 m, 1 cm of natural snow: 0.485 m. Estimated (NaN natural): the made part only.
             // Nothing at all: NaN, as an estimated run.
@@ -1042,7 +1082,7 @@ namespace ResortBatch
             // CT220-6 (T211): the school's +12 needs the track open on snow. In summer (no gun or cold share, 20 C, no snow under it) the
             // track is Closed, its open factor 0, and the school gets nothing.
             var summer = new RunSnowRules.TrackMadeSnow();
-            RunSnowRules.StepTrackMadeSnow(ref summer, 1f, 0f, 0f, 20f, threshold, false, out bool _);
+            RunSnowRules.StepTrackMadeSnow(ref summer, 1f, 0f, 0f, 20f, false, out bool _);
             RunSnowState summerLabel = Pass(RunSnowState.Unknown, 0f, 0f, 0f, summer, out float summerShare, out float _);
             Score.AreaInput area = Area();
             area.SchoolActive = true;
