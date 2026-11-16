@@ -49,21 +49,43 @@ function Add-Gate([string]$name, [string]$kind, [string]$cwd, [string]$cmd, [str
 }
 $mod = Join-Path $Repo 'mod\SkiResortMod'
 Add-Gate 'compile' 'heavy' $mod 'dotnet build -t:Compile'
-foreach ($n in @(
-        @('us-english', 'check-us-english.js'), @('stats-hash', 'check-stats-hash.js'), @('user-paths', 'check-no-user-paths.js'),
-        @('phase-deletes', 'check-ui-phase-deletes.js'), @('run-props', 'check-run-props.js'), @('lift-align', 'check-lift-align.js'),
-        @('lift-align-self', 'check-lift-align.js --self-test'), @('main-thread-jobs', 'check-main-thread-jobs.js'),
-        @('surface-self', 'game-surface-check.js --self-test'), @('surface', 'game-surface-check.js'), @('lodge-identity', 'check-lodge-identity.js'),
-        @('listing', 'sync-listing.js --check'), @('locale', 'export-locale.js --check'), @('hub-symbols', 'export-hub-symbols.js --check'),
-        @('ste', 'check-ste.js'), @('tooltip-units', 'check-tooltip-units.js'))) {
-    Add-Gate $n[0] 'node' $Repo "node tools\$($n[1])"
-}
+# The node gates are DERIVED from the 'gates' job of .github/workflows/ci.yml, so this list cannot drift from CI (2026-11-16: three branches went red on
+# check-run-props because a hand-kept list missed it). Every `node ...` command line of that job runs here, in its working-directory.
+# Only gates CI does not run (tooltip-units, ui-contract) are added by hand below.
 $nm = Join-Path $Ui 'node_modules'
+$ci = Join-Path $Repo '.github\workflows\ci.yml'
+$ciGates = 0
+if (Test-Path -LiteralPath $ci) {
+    $inJob = $false; $wd = ''; $inRun = $false
+    foreach ($line in Get-Content -LiteralPath $ci) {
+        if ($line -match '^  (\w[\w-]*):\s*$') { $inJob = ($Matches[1] -eq 'gates'); $wd = ''; $inRun = $false; continue }
+        if (-not $inJob) { continue }
+        if ($line -match '^\s+- (name|uses):') { $wd = ''; $inRun = $false }
+        if ($line -match '^\s+working-directory:\s*(\S+)') { $wd = $Matches[1]; continue }
+        $cmds = @()
+        if ($line -match '^\s+run:\s*\|\s*$') { $inRun = $true; continue }
+        elseif ($line -match '^\s+run:\s*(.+)$') { $inRun = $false; $cmds = @($Matches[1].Trim()) }
+        elseif ($inRun -and $line -match '^\s{10,}(\S.*)$') { $cmds = @($Matches[1].Trim()) }
+        elseif ($inRun -and $line.Trim()) { $inRun = $false }
+        foreach ($c in $cmds) {
+            if ($c -notmatch '^node (\S+)\s*(.*)$') { continue }
+            $script = $Matches[1] -replace '/', '\'
+            $rest = $Matches[2].Trim()
+            $isUi = ($wd -eq 'mod/SkiResortUI')
+            $cwd = $Repo; $need = ''
+            if ($isUi) { $cwd = $Ui; $need = $nm }
+            $name = ([IO.Path]::GetFileNameWithoutExtension($script) -replace '^(check|test)-', '')
+            if ($rest) { $name += '-' + ($rest -replace '[^\w]+', '') }
+            if ($isUi) { $name = 'ui-' + $name }
+            Add-Gate $name 'node' $cwd "node $script $rest" '' $need
+            $ciGates++
+        }
+    }
+}
+if ($ciGates -lt 10) { Write-Warning "gates: only $ciGates node gates found in ci.yml: the parser is out of date with the workflow" }
+Add-Gate 'tooltip-units' 'node' $Repo 'node tools\check-tooltip-units.js'   # local only, CI does not run it
 Add-Gate 'ui-typecheck' 'heavy' $Ui 'npm run typecheck' '' $nm
-Add-Gate 'ui-contract' 'node' $Ui 'node tools\check-bundle.js --contract-only' '' $nm
-Add-Gate 'ui-hub-rules' 'node' $Ui 'node tools\test-hub-rules.js' '' $nm
-Add-Gate 'ui-history-rules' 'node' $Ui 'node tools\test-history-rules.js' '' $nm
-Add-Gate 'ui-gate-fixtures' 'node' $Ui 'node tools\test-gate-fixtures.js' '' $nm
+Add-Gate 'ui-contract' 'node' $Ui 'node tools\check-bundle.js --contract-only' '' $nm   # local only
 Add-Gate 'ui-build' 'heavy' $Ui 'npm run build' 'ui-typecheck' $nm
 Add-Gate 'ui-hub-layout' 'heavy' $Ui 'node tools\test-hub-layout.js --quick' 'ui-build' $nm
 foreach ($h in 'LiftBatch', 'ResortBatch', 'SlopeBatch', 'GladeBatch', 'GradeBatch', 'BuildingBatch', 'BindingBatch', 'AutoGenBatch') {
