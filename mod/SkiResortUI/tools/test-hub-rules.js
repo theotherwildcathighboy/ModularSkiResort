@@ -957,6 +957,61 @@ function run(srcDir) {
     eq("T40.1 color literals and legacy variables below the token block", [end > 0, scss.includes(":global(.legacy-interface) .tipLines {"), literals, legacy], [true, true, [], []]);
   }
 
+  // T46 the control scale (T202, DECISIONS 668, docs/DESIGN-SYSTEM.md section 2.1): every class a hub <Button> carries either declares a
+  // height that stands in CONTROL_HEIGHT with exactly that value, or is a modifier / inherits its height (NO_OWN_HEIGHT). A text button is
+  // 26 rem x fontScale, whatever its class (the three heights of one role, 22.4 / 26 / 30, were the 2026-11-15 audit's F1). A new Button
+  // class that is in neither table fails: pick its height from the scale and list it with the reason.
+  {
+    const TEXT = "calc(26rem * var(--fontScale))";
+    const CONTROL_HEIGHT = {
+      // text buttons: one height
+      actionButton: TEXT, segButton: TEXT, startButton: TEXT, stepButton: TEXT, treeToolButton: TEXT, areaName: TEXT,
+      // icon buttons, tabs, chips, check rows
+      headerButton: "calc(24rem * var(--fontScale))", tabButton: "calc(24rem * var(--fontScale))", rowPen: "calc(22rem * var(--fontScale))",
+      pickerChip: "calc(22rem * var(--fontScale))", toggleAct: "calc(22rem * var(--fontScale))", pagerButton: "calc(20rem * var(--fontScale))",
+      // tiles
+      tile: "calc(33.1rem * var(--fontScale) + 36.315rem * var(--fontScaleChange) + 8.5rem)",
+      buildTile: "calc(12rem + 44rem * var(--fontScale))",
+      // rows that hold text: em of the text
+      infoLine: "calc(1.3em + 10rem)", overlayItem: "calc(1.3em + 10rem)", liftFly: "1.4em", pisteToggle: "1.6em", popoverRow: "1.45em",
+      problemSlot: "1.45em", runFly: "1.9em",
+    };
+    const NO_OWN_HEIGHT = new Set([
+      "areaNameOpen", "buildTileActive", "buildTileLocked", "buttonOn", "fitText", "foldRow", "foldRowOpen", "hiddenKeepSpace", "histSeg",
+      "histSegNext", "infoHeader", "lodgeRow", "mergeAction", "overlayItemOn", "pagerButtonOff", "pickerChipOn", "planRow", "planRowOff",
+      "problemClickable", "problemDim", "problemMoreButton", "problemMoreOn", "rowTrashArmed", "segButtonNext", "tabButtonOn", "tileOn",
+    ]);
+    const hubDir = path.join(srcDir, "hub");
+    const scssNoComments = fs.readFileSync(path.join(hubDir, "hub.module.scss"), "utf8").replace(/\/\/[^\n]*/g, "");
+    const used = new Set();
+    for (const f of fs.readdirSync(hubDir).filter((n) => n.endsWith(".tsx"))) {
+      const s = fs.readFileSync(path.join(hubDir, f), "utf8");
+      for (let i = s.indexOf("<Button"); i >= 0; i = s.indexOf("<Button", i + 1)) {
+        let j = i + 7, depth = 0;   // the opening tag ends at the first ">" outside braces that is not an arrow
+        for (; j < s.length; j++) {
+          const c = s[j];
+          if (c === "{") depth++; else if (c === "}") depth--; else if (c === ">" && depth === 0 && s[j - 1] !== "=") break;
+        }
+        for (const m of s.slice(i, j).matchAll(/styles\.(\w+)/g)) used.add(m[1]);
+      }
+    }
+    const heightOf = (cls) => {
+      const m = scssNoComments.match(new RegExp("(?:^|[\\s,}])\\." + cls + "\\s*\\{([^}]*)\\}", "m"));
+      const h = m && m[1].match(/(?<![-\w])height:\s*([^;]+);/);
+      return h ? h[1].trim().replace(/\s+/g, " ") : null;
+    };
+    const bad = [];
+    for (const cls of [...used].sort()) {
+      const h = heightOf(cls);
+      if (cls in CONTROL_HEIGHT) { if (h !== CONTROL_HEIGHT[cls]) bad.push(`${cls}: height ${h} (the control scale says ${CONTROL_HEIGHT[cls]})`); }
+      else if (NO_OWN_HEIGHT.has(cls)) { if (h !== null) bad.push(`${cls}: listed as no own height, but declares ${h}`); }
+      else bad.push(`${cls}: a hub Button class in neither table (declare a height from the scale and list it in CONTROL_HEIGHT, or list it in NO_OWN_HEIGHT)`);
+    }
+    const stale = [...Object.keys(CONTROL_HEIGHT), ...NO_OWN_HEIGHT].filter((c) => !used.has(c));
+    eq("T46.1 every hub Button class has a height from the control scale (text buttons 26 rem x fontScale)", [bad, stale, used.size > 30], [[], [], true]);
+    eq("T46.2 the text-button classes all share one height", [...["actionButton", "segButton", "startButton", "stepButton", "treeToolButton"].map(heightOf)], Array(5).fill(TEXT));
+  }
+
   // T41 a count names what it counts (hub redesign 2026-11-07, DECISIONS 613): the band's "+3" read as an attraction delta and
   // "3 more" still left "3 more what?". No player string may show a count placeholder (N, COUNT, MORE, NUM) signed ("+{N}")
   // or end on "{N} more" without its noun. "Runs without a lift: {N}", "{N} more problems" and "{NAME} and {N} more" (the named
