@@ -235,7 +235,7 @@ export const HUB_LOC = {
   difficulty: ["SkiResort.Hub.DIFFICULTY", "Difficulty"],
   pending: ["SkiResort.Hub.PENDING", "Being rated"],
   unrateable: ["SkiResort.Hub.UNRATEABLE", "Cannot be rated: outline too large or too thin, or no terrain under it"],
-  mountainTipVertical: ["SkiResort.Hub.MOUNTAIN_TIP[Vertical]", "From the lowest run bottom to the highest run top, closed runs too. ≈: some runs are still being rated."],
+  mountainTipVertical: ["SkiResort.Hub.MOUNTAIN_TIP[Vertical]", "From the lowest run bottom to the highest run top, closed runs too."],
   area: ["SkiResort.Hub.AREA", "Skiable area"],
   areaTip: ["SkiResort.Hub.AREA_TIP", "The area of all runs, measured flat on the map, not along the slope."],
   // Snow is always two numbers: depth in cm and run coverage in %. "≈" marks an estimate. tools/test-hub-rules.js T18 guards it.
@@ -603,6 +603,8 @@ export const HUB_LOC = {
 /* Placeholder entries: only as <LocText entry={HUB_FMT.x} args={...} /> (gate R5, R13). */
 export const HUB_FMT = {
   mountainCatTracks: ["SkiResort.Hub.MOUNTAIN_FMT[CatTracks]", "Cat tracks: {N}"],
+  /* the Mountain header's value (T213): {M} = ResortRow.verticalM as a height */
+  mountainVertical: ["SkiResort.Hub.MOUNTAIN_FMT[Vertical]", "Vertical drop: {M}"],
   // folded per-lift band rows (hubRules.foldBandRows), the Lifts tile's power line, the list pager
   problemGroupLiftUnfinished: ["SkiResort.Hub.PROBLEM_GROUP[LiftUnfinished]", "Unfinished: {NAMES}"],
   problemGroupLiftNoPower: ["SkiResort.Hub.PROBLEM_GROUP[LiftNoPower]", "No power: {NAMES}"],

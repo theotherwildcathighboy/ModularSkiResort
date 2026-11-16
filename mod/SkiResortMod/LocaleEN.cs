@@ -1274,7 +1274,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RECEIPT_MISSING[LodgeBase]", "Other lodges: {E} of 24" },
                 { "SkiResort.Hub.SHARE_TIP", "This ski area's part of what draws tourists to your city. The game squares each score, so 100 draws four times as much as 50." },
                 { "SkiResort.Hub.SECTION[Mountain]", "Mountain" },
-                { "SkiResort.Hub.MOUNTAIN_TIP[Vertical]", "From the lowest run bottom to the highest run top, closed runs too. ≈: some runs are still being rated." },
+                { "SkiResort.Hub.MOUNTAIN_TIP[Vertical]", "From the lowest run bottom to the highest run top, closed runs too." },
                 { "SkiResort.Hub.AREA_TIP", "The area of all runs, measured flat on the map, not along the slope." },
                 // Snow is always depth in cm + run coverage in %.
                 { "SkiResort.Hub.MOUNTAIN[SnowDepth]", "Snow depth" },
@@ -1292,6 +1292,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MOUNTAIN[Night]", "Lit runs" },
                 { "SkiResort.Hub.MOUNTAIN_TIP[Night]", "Runs with floodlights on, open for night skiing." },
                 { "SkiResort.Hub.MOUNTAIN_FMT[CatTracks]", "Cat tracks: {N}" },
+                // The Mountain header's value (T213): the vertical with its name. {M} = ResortRow.verticalM as a height.
+                { "SkiResort.Hub.MOUNTAIN_FMT[Vertical]", "Vertical drop: {M}" },
                 { "SkiResort.Hub.MOUNTAIN_TIP[Depth]", "Average snow depth on the runs." },
                 { "SkiResort.Hub.MOUNTAIN_TIP[Snow]", "Share of the run area with enough snow to ski. Opening a run takes deeper snow than keeping it open." },
                 { "SkiResort.Hub.UNLINKED_NOTE", "These runs and lifts belong to no ski area, so they score nothing and draw no guests." },

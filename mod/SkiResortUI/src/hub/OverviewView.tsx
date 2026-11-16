@@ -138,8 +138,10 @@ function MountainSection({ row, live, city, unrateable, areaRuns, areaLifts, t, 
   const snowTip = (head: string, body: string): JSX.Element => (
     <TipLines lines={[head, body, how, city.snowVisualsOff && t(HUB_LOC.statusTipVisuals)]} />
   );
-  const vertical = row.verticalM >= 0 ? <Num value={row.verticalM} unit={Unit.Height} /> : DASH;
-  const verticalMark = row.verticalM >= 0 && row.verticalApprox ? "≈" : null;
+  // T213: the header's value names itself ("Vertical drop: 4,681 ft"). No "≈" mark: a run is rated within a second of its drawing, so
+  // ResortRow.verticalApprox (pending runs on node heights) is never worth a glyph and a tooltip line.
+  const vertical = row.verticalM >= 0
+    ? <LocText entry={HUB_FMT.mountainVertical} args={{ M: numArg(row.verticalM, Unit.Height) }} /> : DASH;
   const f = mountainFacts(areaRuns, areaLifts, LIFT_TYPE_IDS);
   const rows = (
     <>
@@ -201,7 +203,7 @@ function MountainSection({ row, live, city, unrateable, areaRuns, areaLifts, t, 
   if (folded) {
     // The header row carries the vertical (the section's headline number). The snow is on the status line above.
     return (
-      <Fold view="overview" id="mountain" header label={t(HUB_LOC.sectionMountain)} value={vertical} mark={verticalMark}
+      <Fold view="overview" id="mountain" header label={t(HUB_LOC.sectionMountain)} value={vertical}
         tip={t(HUB_LOC.mountainTipVertical)}>
         {rows}
       </Fold>
@@ -209,7 +211,7 @@ function MountainSection({ row, live, city, unrateable, areaRuns, areaLifts, t, 
   }
   return (
     <>
-      <InfoLine header label={t(HUB_LOC.sectionMountain)} value={vertical} mark={verticalMark} tip={t(HUB_LOC.mountainTipVertical)} />
+      <InfoLine header label={t(HUB_LOC.sectionMountain)} value={vertical} tip={t(HUB_LOC.mountainTipVertical)} />
       {rows}
     </>
   );
