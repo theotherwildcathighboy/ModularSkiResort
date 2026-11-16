@@ -4,8 +4,12 @@
   (docs/research/field/old-save-checklist.md; the bridge op `loadcheck`, tools/testbridge/TestBridgeSystem.LoadCheck.cs).
 
 .DESCRIPTION
-  Needs a running game in the DEV setup (tools/dev-mode.ps1 -Mode Dev, a playset WITHOUT the Paradox Mods subscription,
-  --developerMode --uiDeveloperMode, live reload off) with the bridge READY. It never builds, deploys or starts the game.
+  Needs a running game with the test bridge READY (--developerMode --uiDeveloperMode, live reload off). It never builds, deploys or
+  starts the game. The setup depends on the save (release/saves-by-release/README.md):
+    - The light and modded saves: the dev setup (tools/dev-mode.ps1 -Mode Dev, a playset WITHOUT the Paradox Mods subscription).
+    - The Ash Flat save (dev prefab IDs): the pack overlay, that is the published pack (subscription 167215 enabled) with the candidate
+      build laid over it, and ImportedData present. In the dev setup alone it shows 0 runs, 0 Welcome Signs and 30 unknown prefab IDs
+      (only stations and lift lines resolve, through ImportedData), so parts (b) to (d) check nothing.
 
   Steps:
     1. Copies the baseline save (read-only, in release/saves-by-release/) into the game's Saves folder as loadcheck_<stem>.cok,
@@ -162,6 +166,9 @@ function Compare-Counts($expected, $actual) {
     $diffs = @()
     $keys = @($expected.Keys) + @($actual.Keys) | Sort-Object -Unique
     foreach ($k in $keys) {
+        # A persisted type the baseline does not list is new since that release (SaveLayouts appends rows, e.g. SkiTrackPack in
+        # 1.0.1): an old save has none of it, and the new build adds it. Not a difference.
+        if (-not $expected.Contains($k) -and $k -like 'persisted.*') { continue }
         $e = if ($expected.Contains($k)) { $expected[$k] } else { 0 }
         $a = if ($actual.Contains($k)) { $actual[$k] } else { 0 }
         if ("$e" -ne "$a") { $diffs += "$k expected $e, got $a" }
@@ -178,7 +185,7 @@ function ConvertTo-OrderedCounts($obj) {
 # ---- preconditions ----------------------------------------------------------------------------------------------------
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Stop-Check 2 'node is not on PATH' }
 if (-not (Get-Process Cities2 -ErrorAction SilentlyContinue)) {
-    Stop-Check 2 'Cities2 is not running. Start it in the dev setup (tools\dev-mode.ps1 -Mode Dev, a playset without the subscription, --developerMode --uiDeveloperMode).'
+    Stop-Check 2 'Cities2 is not running. Start it with the bridge, --developerMode --uiDeveloperMode: the dev setup for the light and modded saves, the pack overlay with ImportedData for Ash Flat (release/saves-by-release/README.md).'
 }
 
 if (-not $Save -and -not $NoLoad) {
