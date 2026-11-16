@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    T222 season simulator (round 2 snowpack report): runs a natural run, a gun run and a cat track through a vanilla climate year, with
+    today's rules (protection hold, managed melt, StepTrackMadeSnow) and with the prototype pack step (RunSnowRules.PackStep). A report
+    tool, not a test host: CI does not run it. It links the real rule files, so the simulation exercises the code it reports on.
+    Run: see the header of Program.cs (dotnet run with the climate CSV dir and the out dir as arguments).
+    Lives OUTSIDE mod/SkiResortMod on purpose (the mod csproj globs **/*.cs).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\EntityRef.cs" Link="EntityRef.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunSnowRules.cs" Link="RunSnowRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SnowGunPlumeRules.cs" Link="SnowGunPlumeRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SnowLineRules.cs" Link="SnowLineRules.cs" />
+  </ItemGroup>
+</Project>

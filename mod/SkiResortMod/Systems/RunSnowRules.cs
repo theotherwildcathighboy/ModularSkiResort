@@ -946,5 +946,163 @@ namespace SkiResortMod.Systems
             }
             return (float)(sum / DayMeanSamples);
         }
+
+        // ---------------------------------------------------------------------------------------------------------------------------
+        // T222 PROTOTYPE (round 2, not wired): ONE snow pack step for a run texel and a cat track cell.
+        //
+        // The physics rule: made snow is not special for melting. It melts at the game's rate like natural snow and lasts longer only
+        // because the guns build more of it. So the step has no hold, no budget, no aspect or spring factor and no 10 C cut. It has:
+        // - the gun gate: the guns may make snow (season, switch, snowmaking feature: gunsAvailable) and the air at the cell is at most
+        //   freezing + the gun margin;
+        // - the gun hysteresis, the same as SnowGunPlumeRules.NextGunState but on the pack's own stop depth: Running below the restart
+        //   line, Stopped at the stop depth, kept in the band. Unknown (a load, no history) in the band reads Stopped, under the restart
+        //   line Running. So the state after a load follows from the saved depth alone (T223);
+        // - the build: the injection's ramp per hour (RampPerTopupM x rate x (floor + gain x chill) x windows per hour), never above the
+        //   stop depth and never lowering deeper (natural) snow;
+        // - the melt: PackMeltPerHourPerC x (air - freezing) per game hour above freezing. A run texel lives in the game's snow map and
+        //   the game's shader melts it, so the run path passes applyMelt false and the step adds the build only. A cat track cell has no
+        //   texel (DECISIONS 551), so the mod melts it with the same number. That number is the one tuning point both paths share: it
+        //   must be calibrated against vanilla (a bridge probe), and today's RunMeltPerHourM is an estimate.
+        //
+        // The per-surface part is only where the depth lives: a snow map texel (read, raised by the merge, melted by the game) or a
+        // track cell (SkiTrackPack, raised and melted here).
+
+        /// <summary>The pack's gun state. The same values as SnowGunPlumeRules.GunState, so the plume system can read either.</summary>
+        public enum PackGun : byte { Unknown = 0, Stopped = 1, Running = 2 }
+
+        /// <summary>The tunable numbers of the pack step. <see cref="PackParams.Proposed"/> holds the proposal, <see cref="PackParams.Today"/>
+        /// today's stop depth.</summary>
+        public struct PackParams
+        {
+            public float StopDepthM;          // the guns build to this and stop (today GunStopDepthM, 0.96 m)
+            public float RestartBandM;        // they restart below StopDepthM - this (0.05 m)
+            public float MeltPerHourPerC;     // the game's melt, m per game hour per degree above freezing (CALIBRATE)
+            public float FreezingC;           // ClimateSystem.freezingTemperature (0 in every vanilla climate)
+            public float MarginC;             // the gun margin above freezing (ClampMargin of the setting, default 3.3)
+
+            public static PackParams With(float stopDepthM, float meltPerHourPerC, float marginC = DefaultSnowmakingMarginC) =>
+                new PackParams
+                {
+                    StopDepthM = stopDepthM,
+                    RestartBandM = GunRestartBandM,
+                    MeltPerHourPerC = meltPerHourPerC,
+                    FreezingC = 0f,
+                    MarginC = marginC,
+                };
+
+            /// <summary>Today's stop depth and today's melt estimate.</summary>
+            public static PackParams Today => With(GunStopDepthM, RunMeltPerHourM(1f));
+
+            /// <summary>The proposal: a deeper base. The melt stays today's estimate until the probe measures it.</summary>
+            public static PackParams Proposed => With(ProposedStopDepthM, RunMeltPerHourM(1f));
+        }
+
+        /// <summary>The proposed gun base (flagged to the owner: 2.0 m is the recommendation of the round 2 snowpack report, a design
+        /// value from the season simulation, not a measurement). Below the 2.5-4 m natural peak at the top of a cold map.</summary>
+        public const float ProposedStopDepthM = 2.00f;
+
+        /// <summary>Top-up windows per game hour (170.7).</summary>
+        public const float WindowsPerGameHour = FramesPerGameHour / TopupIntervalFrames;
+
+        /// <summary>The mean texel's noise rate (RampRateMin + RampRateSpan / 2 = 1.125): a cat track cell builds at it.</summary>
+        public const float MeanRampRate = RampRateMin + 0.5f * RampRateSpan;
+
+        /// <summary>Meters the guns add per game hour at <paramref name="airC"/> against the gun threshold <paramref name="thresholdC"/>
+        /// (freezing + margin), at the noise rate <paramref name="rateFactor"/>: the injection's ramp per window times the windows per hour.
+        /// 0 above the threshold and for NaN. About 0.27 m/h at the threshold and 1.54 m/h at full chill for the mean rate.</summary>
+        public static float PackBuildPerHourM(float airC, float thresholdC, float rateFactor)
+        {
+            if (!(airC <= thresholdC))
+                return 0f;
+            float chill = Math.Max(0f, Math.Min(1f, (thresholdC - airC) / RampChillSpanC));
+            return RampPerTopupM * Math.Max(0f, rateFactor) * (RampChillFloor + RampChillGain * chill) * WindowsPerGameHour;
+        }
+
+        /// <summary>Meters the game melts per game hour at <paramref name="airC"/>: (air - freezing) x the rate. 0 at or below freezing
+        /// and for NaN.</summary>
+        public static float PackMeltPerHourM(in PackParams p, float airC)
+        {
+            float above = airC - p.FreezingC;
+            return above > 0f ? above * p.MeltPerHourPerC : 0f;
+        }
+
+        /// <summary>The hysteresis on the pack's own stop depth. NaN keeps the state. At or above the stop depth (less the merge's
+        /// tolerance): Stopped. Below the restart line: Running. In the band: kept, Unknown reads Stopped.</summary>
+        public static PackGun NextPackGun(in PackParams p, PackGun previous, float depthM)
+        {
+            if (float.IsNaN(depthM))
+                return previous;
+            if (depthM >= p.StopDepthM - HalfQuantum * SnowHeightScaleM)
+                return PackGun.Stopped;
+            if (depthM < p.StopDepthM - p.RestartBandM)
+                return PackGun.Running;
+            return previous == PackGun.Running ? PackGun.Running : PackGun.Stopped;
+        }
+
+        /// <summary>The result of one pack step.</summary>
+        public struct PackResult
+        {
+            public float DepthM;      // the depth after the step
+            public float BuiltM;      // meters the guns added this step (the ledger's made snow)
+            public float MeltedM;     // meters the step melted (0 for a run texel: the game melts it)
+            public bool GunsMaking;   // the guns added snow on this cell this step (the ledger, the per-texel bill mask)
+        }
+
+        /// <summary>ONE pack step, for a run texel and a cat track cell. <paramref name="depthM"/>: the pack now (for a texel, the snow map
+        /// depth, natural snow included). <paramref name="airC"/>: the air at the cell (the lapse applied). <paramref name="gunsAvailable"/>:
+        /// the cell has snowmaking, the switch is on and it is the gun season (GunsMakeSnow). <paramref name="dtHours"/>: game hours since the
+        /// last step (clamped to 0..MaxProtectStepHours). <paramref name="gunNow"/>: the state NextPackGun decided this pass on the surface's
+        /// pack (a run: SnowGunPlumeRules.PackDepthM over its texels, one state for the run; a track: its own depth), before the step.
+        /// <paramref name="rateFactor"/>: the texel's noise rate (MeanRampRate for a track). <paramref name="applyMelt"/>: false for a run
+        /// texel (the game's shader melts it), true for a track cell. Order: the melt comes off, then the build goes on, never above the stop
+        /// depth and never lowering deeper snow.</summary>
+        public static PackResult PackStep(in PackParams p, float depthM, float airC, bool gunsAvailable, PackGun gunNow, float dtHours,
+            float rateFactor, bool applyMelt)
+        {
+            float depth = depthM >= 0f ? depthM : 0f;   // NaN and negatives: bare
+            float dt = dtHours > 0f ? Math.Min(dtHours, MaxProtectStepHours) : 0f;
+            PackGun next = gunNow;
+            float melted = 0f;
+            if (applyMelt)
+            {
+                melted = Math.Min(depth, PackMeltPerHourM(p, airC) * dt);
+                depth -= melted;
+            }
+            float built = 0f;
+            float build = gunsAvailable && next == PackGun.Running
+                ? PackBuildPerHourM(airC, p.FreezingC + p.MarginC, rateFactor) * dt : 0f;
+            if (build > 0f && depth < p.StopDepthM)
+            {
+                built = Math.Min(build, p.StopDepthM - depth);
+                depth += built;
+            }
+            return new PackResult
+            {
+                DepthM = depth,
+                BuiltM = built,
+                MeltedM = melted,
+                GunsMaking = built > 0f,
+            };
+        }
+
+        /// <summary>The gun state a cell starts a load with: NextPackGun from Unknown on its saved depth, so a load never needs the gun
+        /// history (T223). A pack under the restart line resumes at once, one in the band waits, as a run does today.</summary>
+        public static PackGun PackGunAfterLoad(in PackParams p, float savedDepthM) => NextPackGun(p, PackGun.Unknown, savedDepthM);
+
+        /// <summary>The largest pack a track cell saves: the snow map's own scale (8 m). SkiTrackPack.m_DepthMm is an i32, so a deeper base
+        /// needs NO layout change: only the clamp moves from GunStopDepthM to this. A 1.0.1 build that loads a deeper value clamps it to its
+        /// own 0.96 m (TrackDepthFromMm), a graceful downgrade.</summary>
+        public const float PackSaveMaxDepthM = SnowHeightScaleM;
+
+        /// <summary>A pack depth as SkiTrackPack saves it: whole millimeters, 0..PackSaveMaxDepthM. NaN or less than 0 saves 0.</summary>
+        public static int PackDepthToMm(float depthM) => !(depthM > 0f) ? 0 : (int)Math.Round(Math.Min(depthM, PackSaveMaxDepthM) * 1000f);
+
+        /// <summary>The saved millimeters as meters, 0..PackSaveMaxDepthM.</summary>
+        public static float PackDepthFromMm(int mm) => mm <= 0 ? 0f : Math.Min(mm / 1000f, PackSaveMaxDepthM);
+
+        /// <summary>Whether a cell's guns make snow now, from the state the last step left and the air now. The plume system and the
+        /// snowmaking bill read THIS (not a runtime work counter), so a load bills and shows plumes from the first pass on (T223).</summary>
+        public static bool PackGunsMaking(in PackParams p, PackGun gun, float airC, bool gunsAvailable) =>
+            gunsAvailable && gun == PackGun.Running && airC <= p.FreezingC + p.MarginC;
     }
 }
