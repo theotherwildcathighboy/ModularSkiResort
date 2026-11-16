@@ -295,6 +295,7 @@ export const HUB_LOC = {
   runGunsWarm: ["SkiResort.Hub.RUN_GUNS[TooWarm]", "Snow guns off: too warm"],
   runGunsSeason: ["SkiResort.Hub.RUN_GUNS[OutOfSeason]", "Snow guns off: they run from 2 months before winter to 1 month after"],
   runGunsWaiting: ["SkiResort.Hub.RUN_GUNS[Waiting]", "Snow guns: off until the run's snow is first read"],
+  runGunsHeld: ["SkiResort.Hub.RUN_GUNS[Held]", "Snow guns off: too warm, but the made snow still holds"],
   runOpenGating: ["SkiResort.Hub.RUN_OPEN_GATING", "Counts as open: Snow & season gating is off in Options."],
   runOpenNone: ["SkiResort.Hub.RUN_OPEN_NONE", "Not linked: belongs to no ski area, so it has no open or closed state."],
   runServedAnon: ["SkiResort.Hub.RUN_SERVED_ANON", "A running lift reaches its top."],

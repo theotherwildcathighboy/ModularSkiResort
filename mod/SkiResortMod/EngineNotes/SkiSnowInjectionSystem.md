@@ -87,7 +87,8 @@ snow is a model, `RunSnowRules.TrackMadeSnow`. The model has a share of the vert
   (bridge pass r1c, "day mean 13.3 C").
 - The guns build the pack from 0 to the gun stop depth (0.96 m) in `TrackBuildHours` (about 1.06 game h). They build while they
   cover some of the vertical.
-- The made share counts at the run bars (`TrackMadeCountedShare`): at 3 ft while the track is closed, at 1 ft while it is open.
+- The made share counts at the run bars (`TrackMadeCountedShare`). An open track counts it at 1 ft. A closed track counts it at
+  3 ft. A track with no known state (Unknown) also counts it at 3 ft. A run with no known state counts at 1 ft (`MeasuredShare`).
   So the track opens about 1 game hour after its guns start, not at once. Before, it opened on 1-8 mm (bridge pass r1b).
 - When the guns do not hold the pack, the protection spell holds it, as for a gun run. It holds up to the largest run budget
   (72 h), and never above 10 C at the track. After the spell, it melts at `RunMeltPerHourM` and the track closes at the keep bar.
@@ -96,9 +97,24 @@ snow is a model, `RunSnowRules.TrackMadeSnow`. The model has a share of the vert
   (`TrackMeanDepthM`). Before, the line printed NaN.
 - A pass that carries the measurement over starts from the snow under the track (`RunSnow.SnowShare`, `SnowMeanDepthM`), not
   from last pass's share with the made snow.
-- The save holds the share (SkiTrackSnow v1, unchanged) and the pack depth in millimeters (SkiTrackPack v1, new in 1.0.1). A save
-  without SkiTrackPack (1.0.0) loads a saved share as a full pack (`TrackFromSave`), the 1.0.0 rule. Before SkiTrackPack, a save
-  made just after gun start reloaded 32 tracks Open on a 0.12 m pack (bridge pass r1c, loadcheck d).
+- The save holds three values. SkiTrackSnow v1 holds the share (unchanged). SkiTrackPack v2 holds the pack depth in millimeters
+  and the open state. SkiTrackPack is new in 1.0.1. Its v2 added the state before any release carried the type.
+- A track without a table entry starts from its saved state (`SavedTrackState`, `TrackStateFromSave`). This applies to its first
+  refresh of a load and to `GetRunSnow` before that refresh. `QueueTrackSave` writes the values after the label is set.
+- A save without SkiTrackPack (1.0.0) loads a saved share as a full pack (`TrackFromSave`). A full pack clears both bars, so the
+  track reloads as in 1.0.0. A v1 value (unreleased test saves) has no state. It reads as Unknown and counts at 3 ft.
+- History: before SkiTrackPack, 32 tracks reloaded Open on a 0.12 m pack. The save was made just after gun start (bridge pass
+  r1c, loadcheck d). With v1, Unknown counted at 1 ft. A resave held every track Closed on 0.352 m. After the load, 44 of 45 tracks
+  read Open at 24-37 cm. 39 groomers came 7 s after the load (bridge pass r1d, loadcheck d).
+- While the injection runs, these read the model, not the day mean (bridge pass r1d):
+  - The hub's gun line: `TryGetCatTrackModel`, `HubRules.TrackGunWhyOf` (contract 49).
+  - The bill and the stats' cost row: `CatTrackGunsCanRun` reads `TrackMadeSnow.GunReach`. That is the guns' reach at the air
+    now with the switch on (`TrackGunReach`). Held or too warm: no reach, no grooming, snowmaking or lights bill.
+  - The plumes: `CatTrackGunsMakingSnow` reads `TrackGunsBuilding`. Idle at the stop depth, held or too warm: no plume.
+  With the injection off, all three use the day-mean estimate, the rule the track's open state then follows. On Oct 1 (10.5 C
+  air, 14.3 C day mean) the day-mean rule billed nothing and showed no plume while the guns built.
+- The bill's gun work (`GunWorkHours`) is not saved. A track reloaded under the stop depth builds with no snowmaking bill until
+  its share rises again. The hub still says "making snow" (`TrackGunsBuilding` counts a pack under the stop depth).
 - The snowmaking bill is unchanged (`StepTrackGunWork` on the share).
 - An estimate never opens a track (`TrackEstimatedSnowShare`): it keeps an Open track open, as a NaN share does. Before, an
   estimated track opened on "0.0 texel(s), mean NaN m" at a 14.5 C day mean (bridge pass r1c). While the injection runs,

@@ -81,9 +81,11 @@ namespace SkiResortMod.Systems
                 new LayoutVersion(1, 6, "m_Index:i32 m_Form:u8")),
             new Layout("SkiMergedLodge", "MergedLodge", KindComponent,
                 new LayoutVersion(1, 11, "m_Tier:u8 m_Flags:u8 m_FeePaid:i32 m_Serial:i32")),
-            // 1.0.1 (T220): a cat track's made-snow pack depth, beside SkiTrackSnow (a new type: that layout never changes).
+            // 1.0.1 (T220): a cat track's made-snow pack depth, beside SkiTrackSnow (a new type: that layout never changes). v2 appends the
+            // open state (bridge pass r1d loadcheck d) before any release carried the type: v1 lives only in unreleased 1.0.1 test saves.
             new Layout("SkiTrackPack", "TrackPack", KindComponent,
-                new LayoutVersion(1, 5, "m_DepthMm:i32")),
+                new LayoutVersion(1, 5, "m_DepthMm:i32"),
+                new LayoutVersion(2, 6, "m_Flags:u8")),
         };
         // FROZEN-END
 

@@ -255,13 +255,14 @@ namespace SkiResortMod.Systems
             Census(total, flips);
         }
 
-        /// <summary>Whether this run's guns run now: the injection's flag, or on a cat track (no injection, no texels) the can-run rule.</summary>
+        /// <summary>Whether this run's guns run now: the injection's flag, or on a cat track (no injection, no texels) its made-snow model
+        /// (CatTrackGunsMakingSnow: building by the air at the track now; T220), the day-mean can-run rule while the injection is off.</summary>
         private bool RunGunsRunning(Entity run)
         {
             if (run == Entity.Null || !EntityManager.Exists(run) || !EntityManager.HasComponent<PrefabRef>(run))
                 return false;
             if (EntityManager.GetComponentData<PrefabRef>(run).m_Prefab == m_CatTrackPrefab && m_CatTrackPrefab != Entity.Null)
-                return m_Catalog.TryGetRow(run, out SkiRunCatalogSystem.RunRow row) && m_Injection.CatTrackGunsCanRun(run, row.NodeBottomM, row.NodeTopM);
+                return m_Catalog.TryGetRow(run, out SkiRunCatalogSystem.RunRow row) && m_Injection.CatTrackGunsMakingSnow(run, row.NodeBottomM, row.NodeTopM);
             m_Injection.TryGetRunGunsRunning(run, out bool running);
             return running;
         }

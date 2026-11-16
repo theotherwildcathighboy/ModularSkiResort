@@ -22,8 +22,9 @@ namespace SkiResortMod.Systems
 
     /// <summary>bindings.ts OPEN_STATE (gate R17).</summary>
     /// <summary>bindings.ts RUN_GUN_WHY (gate R17), RunLive.gunWhy. On a snowmaking or night run, it tells whether its snow guns make snow
-    /// now and why not. None = not a gun run, not bound, or snow gating off.</summary>
-    public enum RunGunWhy : byte { None = 0, Making = 1, DepthReached = 2, TooWarm = 3, OutOfSeason = 4, Waiting = 5 }
+    /// now and why not. None = not a gun run, not bound, or snow gating off. Held (contract 49, cat tracks only): the guns are off, too warm,
+    /// and the protection spell holds the made snow (TrackGunWhyOf).</summary>
+    public enum RunGunWhy : byte { None = 0, Making = 1, DepthReached = 2, TooWarm = 3, OutOfSeason = 4, Waiting = 5, Held = 6 }
 
     public enum RunOpenState : sbyte { None = -1, Closed = 0, Partly = 1, Open = 2 }
 
@@ -301,6 +302,27 @@ namespace SkiResortMod.Systems
             if (runningNow)
                 return RunGunWhy.Making;
             return stateRunning ? RunGunWhy.TooWarm : RunGunWhy.DepthReached;
+        }
+
+        /// <summary>A cat track's snow-gun line from its made-snow model (SkiSnowInjectionSystem.TryGetCatTrackModel, T220): the guns follow
+        /// the air at the track now, not the day mean (bridge pass r1d: the day-mean rule said "too warm" on 12 tracks whose guns were
+        /// building, and "making" on tracks whose guns had stopped). <paramref name="gunRun"/> = bound and the gun switch on.
+        /// <paramref name="stepped"/> = the model has a value this load (else Waiting, as a run before its first measurement).
+        /// <paramref name="gunShare"/> = the share of the vertical the guns covered in the last step. <paramref name="building"/> = they still
+        /// build or bill (RunSnowRules.TrackGunsBuilding). <paramref name="held"/> = the protection spell is Active. Order: None, out of
+        /// season, Waiting, Making (covering and building), DepthReached (covering, the pack at the gun stop depth), Held (none covered, the
+        /// spell holds the made snow), TooWarm.</summary>
+        public static RunGunWhy TrackGunWhyOf(bool gunRun, bool gating, bool inSeason, bool stepped, float gunShare, bool building, bool held)
+        {
+            if (!gunRun || !gating)
+                return RunGunWhy.None;
+            if (!inSeason)
+                return RunGunWhy.OutOfSeason;
+            if (!stepped)
+                return RunGunWhy.Waiting;
+            if (gunShare > 0f)
+                return building ? RunGunWhy.Making : RunGunWhy.DepthReached;
+            return held ? RunGunWhy.Held : RunGunWhy.TooWarm;
         }
 
         /// <summary>What decides a push of the build binding. Odd multipliers only. An even factor shifts the early items out of the 32

@@ -449,6 +449,14 @@ Appended fields and bindings by contract:
   It holds the `varietyBands` bits plus 8 for a cat track, over the member runs that count while open. `VARIETY_BAND.CatTrack` = 8.
   A bit in `bandsWhenOpen` that `varietyBands` lacks means: such runs exist, and none is open. The receipt then says "open green run".
   PROBLEM 25 (SchoolNoGreenRun) `detail` 1 means: the school's run (a green piste or a cat track) exists, and none is open.
+- 49 (1.0.1, T220 follow-up, bridge pass r1d): `RUN_GUN_WHY.Held` = 6. While the injection runs, a cat track's `gunWhy` reads its
+  made-snow model (`HubRules.TrackGunWhyOf`). The values:
+  - Making: the guns cover some of it by the air now and build.
+  - DepthReached: the pack is at the gun stop depth.
+  - Held: no gun share, and the protection spell holds the made snow.
+  - TooWarm: no gun share and no hold.
+  The day-mean rule (`CatTrackGunsCanRun`) said "too warm" while the guns built and "making" after they stopped. With the
+  injection off, the day-mean rule stays.
 - 42: the runs-first plans (Resort Planner round, task R2-b). `QuickRunsState` loses `mix`, `liftsKnob` and `home`. `QuickRunsLift` loses
   `wantedKey` and gains `flagged`, `waits`, `overLimitTowers`. `QuickRunsPlan` loses `pods` and gains `trackKm`. `QuickRunsState` gains `tracks`
   and `QuickRunsPod` gains `tracks`. `runs`, `enabled`, `count` and `variety` count pistes only. `QuickRunsSheetRow` gains `flagged`, `waits`,

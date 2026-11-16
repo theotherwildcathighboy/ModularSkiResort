@@ -517,10 +517,13 @@ namespace SkiResortMod.Systems
         //   estimate at the current air temperature (SnowLineSystem's local temperature), not at the day mean (bridge pass r1c).
         // - The guns build the pack as a run's guns do: from bare ground to the gun stop depth in TrackBuildHours, while some of the
         //   vertical is cold enough for them.
-        // - The share counts at the open bar (3 ft) while the track is closed and at the keep bar (1 ft) while it is open
-        //   (TrackMadeCountedShare, the MeasuredShare rule).
+        // - The share counts at the open bar (3 ft) while the track is closed or its state is not known, and at the keep bar (1 ft) while
+        //   it is open (TrackMadeCountedShare).
         // - The pack melts at RunMeltPerHourM when the guns do not hold it and the spell does not.
-        // - The save keeps the depth (SkiTrackPack). A save without it loads saved made snow as a full pack (TrackFromSave).
+        // - The save keeps the depth and the open state (SkiTrackPack v2). A load restores the state as the track's previous state
+        //   (TrackStateFromSave): a track saved Open on 0.5 m reloads Open, one saved Closed on 0.35 m reloads Closed (bridge pass r1d
+        //   loadcheck d: Unknown counted at the keep bar, 44 tracks reopened at 24-37 cm and 39 groomers spawned). A save without
+        //   SkiTrackPack loads saved made snow as a full pack (TrackFromSave), so a 1.0.0 save reloads as before.
         // - An estimate never opens a track (TrackEstimatedSnowShare): it has no measured snow under it.
         public const float TrackWarmEpsilon = 1e-4f;   // a share difference below this is the same height
         // The game's melt per top-up window per degree above freezing, as ProtectRaisePerTopupM's derivation estimates it (6.4 mm per
@@ -552,6 +555,8 @@ namespace SkiResortMod.Systems
             public float DepthM;      // T220: the made pack's depth on that share, 0..GunStopDepthM. Saved in SkiTrackPack (TrackFromSave)
             public ProtectRun Spell;  // the protection spell over it. Runtime only (a load refills the budget, as for a run)
             public float GunWorkHours; // game hours its guns still work on snow they just raised (StepTrackGunWork). Runtime only
+            public float GunShare;    // the share its guns covered in the last step (StepTrackMadeSnow): the hub's gun line. Runtime only
+            public float GunReach;    // the share they would cover with the switch on, same step and air (CatTrackGunsCanRun). Runtime only
         }
 
         // A track's model raises its made snow at once, but a run's guns take time to build a pack and then stop at depth: they bill
@@ -596,12 +601,32 @@ namespace SkiResortMod.Systems
             return previous == RunSnowState.Open ? estimate : 0f;
         }
 
-        /// <summary>The made share that counts for the open state, the run rule (MeasuredShare): at the open bar (3 ft) while the track is
-        /// Closed, at the keep bar (1 ft) while it is Open or Unknown. Under the bar it counts 0.</summary>
+        /// <summary>The made share that counts for the open state: at the keep bar (1 ft) while the track is Open, at the open bar (3 ft)
+        /// while it is Closed or Unknown. Under the bar it counts 0. Unknown differs from a run's MeasuredShare (keep bar): a track's state
+        /// comes back from the save (TrackStateFromSave), so Unknown means no saved state (a 1.0.0 save loads a full pack, which clears both
+        /// bars, or an unreleased v1 SkiTrackPack). At the keep bar, a v1 save made just after gun start (0.35 m, Closed) reloaded Open.
+        /// </summary>
         public static float TrackMadeCountedShare(RunSnowState previous, in TrackMadeSnow track)
         {
             float share = Clamp01(track.Share);
-            return MeasuredShare(previous, track.DepthM >= SkiableDepthM ? share : 0f, track.DepthM >= KeepDepthM ? share : 0f);
+            return previous == RunSnowState.Open ? (track.DepthM >= KeepDepthM ? share : 0f) : (track.DepthM >= SkiableDepthM ? share : 0f);
+        }
+
+        /// <summary>A track's open state from its saved SkiTrackPack, the previous state of its first refresh (and of GetRunSnow before it).
+        /// <paramref name="stateSaved"/>: the value is v2 or newer (SkiTrackPack.StateSaved). No saved state (no SkiTrackPack, or v1): Unknown.
+        /// </summary>
+        public static RunSnowState TrackStateFromSave(bool stateSaved, bool savedOpen)
+        {
+            if (!stateSaved)
+                return RunSnowState.Unknown;
+            return savedOpen ? RunSnowState.Open : RunSnowState.Closed;
+        }
+
+        /// <summary>A track's share before its first refresh of a load (GetRunSnow while the injection runs): the natural estimate as it
+        /// counts from the saved state (TrackEstimatedSnowShare) and its saved made snow as it counts (TrackMadeCountedShare).</summary>
+        public static float TrackShareBeforeRefresh(RunSnowState saved, float estimate, in TrackMadeSnow made)
+        {
+            return TrackShare(TrackEstimatedSnowShare(saved, estimate), TrackMadeCountedShare(saved, made));
         }
 
         /// <summary>A track's mean snow depth for the hub and the logs: on its made share, the larger of the made pack and the natural mean.
@@ -640,6 +665,20 @@ namespace SkiResortMod.Systems
         /// <summary>The track's guns are building snow now: the snowmaking step bills (SkiRunUpkeepRates.TrackUpkeep).</summary>
         public static bool TrackGunsWorking(in TrackMadeSnow track) => track.GunWorkHours > 0f;
 
+        /// <summary>The hub's "making snow" for a track (HubRules.TrackGunWhyOf): its guns covered some of the vertical in the last step and
+        /// still build the pack (under the gun stop depth) or work on snow they just raised (the bill). After a load the work is not saved, so
+        /// a pack under the stop depth counts too.</summary>
+        public static bool TrackGunsBuilding(in TrackMadeSnow track) =>
+            track.GunShare > 0f && (track.GunWorkHours > 0f || track.DepthM < GunStopDepthM);
+
+        /// <summary>A track's guns can run by its model (SkiSnowInjectionSystem.CatTrackGunsCanRun while the injection runs): the gun season and
+        /// some of the vertical cold enough for them at the air now, the switch aside (GunReach). The grooming, snowmaking and lights bill and
+        /// the stats' cost row follow it. Held or too warm: no reach, no bill.</summary>
+        public static bool TrackGunsCanRun(bool inSeason, in TrackMadeSnow track) => inSeason && track.GunReach > 0f;
+
+        /// <summary>The protection spell holds the track's made snow now (the hub's "held" gun line).</summary>
+        public static bool TrackHeld(in TrackMadeSnow track) => track.Spell.State == ProtectState.Active;
+
         /// <summary>The share of a track's vertical its guns cover now: the part where the air is at most freezing + the margin, while they
         /// make snow (the gun season and the switch, GunsMakeSnow), else 0. <paramref name="airC"/> is the air at
         /// <paramref name="baseHeight"/>: the current air (StepTrack, T220: a run texel's gun gate), or a day mean for an estimate.</summary>
@@ -649,6 +688,14 @@ namespace SkiResortMod.Systems
             if (!GunsMakeSnow(RunKind.CatTrack, inGunSeason, gunsOn))
                 return 0f;
             return EstimatedShare(bottomY, topY, airC, ThresholdC(RunKind.CatTrack, freezingC, snowmakingMarginC), baseHeight, lapsePerM);
+        }
+
+        /// <summary>The share a track's guns would cover with the switch on (TrackGunShare with gunsOn true): TrackMadeSnow.GunReach, the gate
+        /// of its grooming and lights bill (CatTrackGunsCanRun), which bills lights whatever the switch (DECISIONS 579). Never made snow.</summary>
+        public static float TrackGunReach(bool inGunSeason, float bottomY, float topY, float airC, float freezingC, float snowmakingMarginC,
+            float baseHeight, float lapsePerM)
+        {
+            return TrackGunShare(inGunSeason, true, bottomY, topY, airC, freezingC, snowmakingMarginC, baseHeight, lapsePerM);
         }
 
         /// <summary>The share of a track's vertical the cold keeps without help: the part at or below freezing. <paramref name="airC"/> as
@@ -670,6 +717,7 @@ namespace SkiResortMod.Systems
         {
             gunShare = Clamp01(gunShare);
             coldShare = Clamp01(coldShare);
+            track.GunShare = gunShare;
             if (!(track.Share >= 0f))
                 track.Share = 0f;   // NaN from a hand-edited save
             if (!(track.DepthM >= 0f))
