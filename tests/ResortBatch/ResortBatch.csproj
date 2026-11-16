@@ -116,6 +116,7 @@
   <ItemGroup>
     <Compile Include="CatTrackTests.cs" />
     <Compile Include="TrackUpkeepTests.cs" />
+    <Compile Include="SnowPackTests.cs" />
     <Compile Include="RunFeaturesTests.cs" />
     <Compile Include="RunFeaturesR2Tests.cs" />
     <Compile Include="RunTypesR3Tests.cs" />
