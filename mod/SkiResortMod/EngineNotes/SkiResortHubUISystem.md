@@ -457,6 +457,11 @@ Appended fields and bindings by contract:
   - TooWarm: no gun share and no hold.
   The day-mean rule (`CatTrackGunsCanRun`) said "too warm" while the guns built and "making" after they stopped. With the
   injection off, the day-mean rule stays.
+- 50 (1.0.2, T226 / T225, DECISIONS 666, 668): `CityStats` appends `tourismBonusPct`, `tourismBonusSumPct` (floats, percent),
+  `tourismBonusCapPct` (the Options cap, 0 = off) and `touristsDayMean` (-1 until 3 game hours are sampled). `ResortLive` appends the
+  area's bonus part (`bonusPct`, `bonusSizePct`, `bonusLiftLines`, `bonusTierPoints`, `bonusOpenSharePct`, -1 without a score) and its
+  merged hotels (`hotelGuests`, `hotelRented`, `hotelRooms`, -1 without one). Source: `ResortTourismBonusSystem`, `HotelRentersOf`.
+  The Guests view's "Tourists drawn" estimate row is gone (the `estKnown` / `estTourists` fields stay on the wire, unused by the UI).
 - 42: the runs-first plans (Resort Planner round, task R2-b). `QuickRunsState` loses `mix`, `liftsKnob` and `home`. `QuickRunsLift` loses
   `wantedKey` and gains `flagged`, `waits`, `overLimitTowers`. `QuickRunsPlan` loses `pods` and gains `trackKm`. `QuickRunsState` gains `tracks`
   and `QuickRunsPod` gains `tracks`. `runs`, `enabled`, `count` and `variety` count pistes only. `QuickRunsSheetRow` gains `flagged`, `waits`,

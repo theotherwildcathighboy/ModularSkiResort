@@ -504,6 +504,22 @@ const R2B = [
 ];
 
 // Planner text (DECISIONS 648): the plan with every warning, the plan at its largest, and the preview with trees on. `--list=plantext` picks this list.
+// Round 2 tourism (T226 / T225, DECISIONS 666, 668): the Overview tourism group closed and open, each new row's tooltip, the Guests view
+// without the "Tourists drawn" estimate, and the bonus off. `--list=r2tourism` picks this list.
+const TO_SCN = "Big resort, notes (runs being checked, Tourism Overhaul, trip planner mod blocks ski days)";
+const R2TOURISM = [
+  ["r2t-01-overview-group-closed-1080", 1080, { scenario: ASH, view: 0 }],
+  ["r2t-02-overview-group-open-1080", 1080, { scenario: ASH, view: 0, fold: 1 }],
+  ["r2t-03-tip-value-1080", 1080, { scenario: ASH, view: 0, fold: 1, hover: "Value to the city" }],
+  ["r2t-04-tip-bonus-1080", 1080, { scenario: ASH, view: 0, fold: 1, hover: "Resort tourism bonus" }],
+  ["r2t-05-tip-tourists-1080", 1080, { scenario: ASH, view: 0, fold: 1, hover: "Tourists in the city" }],
+  ["r2t-06-tip-hotel-1080", 1080, { scenario: ASH, view: 0, fold: 1, hover: "Staying at resort hotels" }],
+  ["r2t-07-guests-no-estimate-1080", 1080, { scenario: ASH, view: 3 }],
+  ["r2t-08-overview-tourism-overhaul-1080", 1080, { scenario: TO_SCN, view: 0, fold: 1 }],
+  ["r2t-09-tip-tourists-to-1080", 1080, { scenario: TO_SCN, view: 0, fold: 1, hover: "Tourists in the city" }],
+  ["r2t-10-bonus-off-1080", 1080, { scenario: "Ash Flat, resort tourism bonus off", view: 0, fold: 1, hover: "Resort tourism bonus" }],
+];
+
 const PLANTEXT = [
   ["plantext-plan-1080", 1080, { scenario: "Resort Planner plan, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
   ["plantext-plan-15-lifts-1080", 1080, { scenario: "Resort Planner plan, 15 lifts (flagged, waiting, other runs), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
@@ -676,7 +692,7 @@ async function main() {
     const b = browsers[0];
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg),
-        process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

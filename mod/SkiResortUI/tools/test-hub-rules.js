@@ -355,6 +355,20 @@ function run(srcDir) {
   eq("T16.3 cityIncomeShown", [R.cityIncomeShown({ cityIncomeEst: 4200 }, { tourismOverhaul: false }), R.cityIncomeShown({ cityIncomeEst: 0 }, { tourismOverhaul: false }),
     R.cityIncomeShown({ cityIncomeEst: -1 }, { tourismOverhaul: false }), R.cityIncomeShown({ cityIncomeEst: 4200 }, { tourismOverhaul: true }),
     R.cityIncomeShown(null, { tourismOverhaul: false })], [true, true, false, false, false]);
+  // T226 / T225 (contract 50): the Overview tourism group.
+  eq("T16.4 valueToCity: net + city income, only where the city income row is drawn",
+    [R.valueToCity({ netMonth: 138600, cityIncomeEst: 390000 }, { tourismOverhaul: false }), R.valueToCity({ netMonth: -5000, cityIncomeEst: 2000 }, { tourismOverhaul: false }),
+      R.valueToCity({ netMonth: 138600, cityIncomeEst: -1 }, { tourismOverhaul: false }), R.valueToCity({ netMonth: 138600, cityIncomeEst: 390000 }, { tourismOverhaul: true }),
+      R.valueToCity(null, { tourismOverhaul: false })], [528600, -3000, null, null, null]);
+  eq("T16.5 hotelShown", [R.hotelShown({ hotelGuests: 0 }), R.hotelShown({ hotelGuests: 1240 }), R.hotelShown({ hotelGuests: -1 }), R.hotelShown({}), R.hotelShown(null)],
+    [true, true, false, false, false]);
+  eq("T16.6 bonusCapped", [R.bonusCapped({ tourismBonusCapPct: 10, tourismBonusSumPct: 12.5 }), R.bonusCapped({ tourismBonusCapPct: 10, tourismBonusSumPct: 10 }),
+    R.bonusCapped({ tourismBonusCapPct: 0, tourismBonusSumPct: 7 }), R.bonusCapped({ tourismBonusCapPct: 10, tourismBonusSumPct: 2.9 })], [true, false, false, false]);
+  eq("T16.7 bonusParts: 2 % base, 0.25 % per lift line and lodge point, only for a qualifying area",
+    [R.bonusParts({ bonusPct: 2.93, bonusSizePct: 3.25, bonusLiftLines: 2, bonusTierPoints: 3, bonusOpenSharePct: 90 }),
+      R.bonusParts({ bonusPct: 0, bonusSizePct: 0, bonusLiftLines: 0, bonusTierPoints: 2, bonusOpenSharePct: 100 }),
+      R.bonusParts({ bonusPct: -1, bonusSizePct: -1, bonusLiftLines: -1, bonusTierPoints: -1, bonusOpenSharePct: -1 }), R.bonusParts(null)],
+    [{ base: 2, lifts: 0.5, lodges: 0.75, openPct: 90 }, { base: 0, lifts: 0, lodges: 0, openPct: 100 }, null, null]);
   // The Build strip's three tabs over the real BUILD_ITEMS table.
   const kindTabs = {};
   for (const m of META) kindTabs[m.id] = R.tabOfItem(m.id, META);
@@ -595,12 +609,12 @@ function run(srcDir) {
       [{ built: 1, drawn: 5 }, null, null, { built: 2, drawn: 2 }]);
     const read = (n) => fs.readFileSync(path.join(srcDir, "hub", n), "utf8");
     const fit = read("fit.tsx"), state = read("hubState.ts"), strip = read("BuildStrip.tsx"), tiles = read("ViewTiles.tsx");
-    eq("T26.7 never a scrollbar, source facts: folds closed by default + accordion, pager always drawn, folds in Attraction / Guests / Finances, no pager in Runs / Lifts (T131)",
+    eq("T26.7 never a scrollbar, source facts: folds closed by default + accordion, pager always drawn, folds in Attraction (3 since T226) / Guests / Finances, no pager in Runs / Lifts (T131)",
       [/export const FOLD_DEFAULT: Readonly<Record<string, string>> = \{\};/.test(state), /open \? "" : id/.test(state),
         /<div className=\{styles\.pagerRow\}>/.test(fit),
         (read("OverviewView.tsx").match(/<Fold\b/g) || []).length, (read("GuestsView.tsx").match(/<Fold\b/g) || []).length,
         (read("MoneyView.tsx").match(/<Fold\b/g) || []).length, /<Pager fit=\{fit\} \/>/.test(read("RunsView.tsx")), /<Pager fit=\{fit\} \/>/.test(read("LiftsView.tsx"))],
-      [true, true, true, 2, 4, 3, false, false]);
+      [true, true, true, 3, 4, 3, false, false]);   // Overview: Mountain, Resort tourism bonus (T226), Merged
     // T27 the Lifts-tab toggle mirrors the tree tool: liftLine$ + liftLineToggle, ok panel only.
     const binds = fs.readFileSync(path.join(srcDir, "bindings.ts"), "utf8");
     eq("T27.1 lift generator: contract 12 or later (13 = T136), liftLine binding + liftLineToggle trigger, toggle on the Lifts tab only in the ok panel",

@@ -166,6 +166,18 @@ namespace SkiResortMod.Settings
                     "at full efficiency, a small ski area scores about 50. A medium one scores about 95, a " +
                     "large one about 160."
                 },
+                // T226 (DECISIONS 666): numbers are TourismBonusRules' (ResortBatch TB-1 holds them).
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ResortTourismBonusPct)),
+                    "Resort tourism bonus"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ResortTourismBonusPct)),
+                    "The most that your ski areas together add to the city's attractiveness, as an airport does. A ski area with a running " +
+                    "lift and a lodge adds 2 %. Each running lift adds 0.25 %. Each lodge point adds 0.25 %: Mountain Hut and A-Frame 1, " +
+                    "Chalet 2, Summit and Grand 3, a merged building 2. The share of the resort that is open multiplies the total, so the " +
+                    "bonus is highest in the ski season. 0 turns the bonus off. Default 10 %."
+                },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.BackcountryValuePercent)),
                     "Backcountry run value"

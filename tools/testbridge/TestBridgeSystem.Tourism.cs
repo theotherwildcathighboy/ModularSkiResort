@@ -6,7 +6,10 @@
 //   {op:"tourism", action:"start", every:2048}   sample every N simulation frames (default 2048 = 128 a game day); clears the samples
 //   {op:"tourism", action:"read", from:0}        samples from index `from`, plus the arrivals so far
 //   {op:"tourism", action:"stop"}
-//   {op:"tourism", action:"bonus", pct:5}        SkiResortSettings.ResortAttractionDevPct (prototype builds only)
+//   {op:"tourism", action:"bonus", pct:10}       the "Resort tourism bonus" option (SkiResortSettings.ResortTourismBonusPct, 1.0.2+, int 0-20),
+//                                                else the prototype's ResortAttractionDevPct (r2/tourism-lab builds)
+//   {op:"tourism", action:"income"}              the TouristIncome and TouristCount statistics: last value, collection type, the last 40
+//                                                samples (32 a game day); T226 "Value to the city" under Tourism Overhaul
 //
 // Vanilla formulas (decompile 1.6.4f1 TourismSystem.cs:95-106, 171-180): s = sum a^2 / 10^4 over every AttractivenessProvider,
 // A0 = 200 / (1 + e^(-0.3 s)) - 100, A = A0 + delta.x, then A += A * delta.y (CityUtils.ApplyModifier), rounded; target = 15 A up to
@@ -71,8 +74,10 @@ namespace SkiTestBridge
                     return new JObject { ["stopped"] = true, ["count"] = m_TourSamples.Count };
                 case "bonus":
                     return TourBonus(args);
+                case "income":
+                    return TourIncome();
                 default:
-                    throw new ArgumentException("action: snapshot, start, read, stop, bonus");
+                    throw new ArgumentException("action: snapshot, start, read, stop, bonus, income");
             }
         }
 
@@ -214,7 +219,10 @@ namespace SkiTestBridge
                 ["average"] = t.m_AverageTourists,
             };
             if (!full)
+            {
+                row["bonusApplied"] = TourBonusSystemState()?["applied"];
                 return row;
+            }
 
             row["providers"] = providers;
             row["ourProviders"] = ours;
@@ -225,6 +233,8 @@ namespace SkiTestBridge
             row["hotels"] = TourHotels(mergedType);
             try { row["ledger"] = LcLedger(); } catch (Exception e) { row["ledger"] = "unavailable: " + e.Message; }
             row["bonusSetting"] = TourBonusValue();
+            row["bonusSystem"] = TourBonusSystemState();
+            try { row["touristIncome"] = TourStatistic(StatisticType.TouristIncome, 0); } catch (Exception e) { row["touristIncome"] = "unavailable: " + e.Message; }
             return row;
         }
 
@@ -267,7 +277,65 @@ namespace SkiTestBridge
             settings = null;
             Type modType = FindTypeByName("SkiResortMod.Mod");
             settings = modType?.GetProperty("Settings", BindingFlags.Static | BindingFlags.Public)?.GetValue(null);
-            return settings?.GetType().GetProperty("ResortAttractionDevPct");
+            return settings?.GetType().GetProperty("ResortTourismBonusPct") ?? settings?.GetType().GetProperty("ResortAttractionDevPct");
+        }
+
+        /// <summary>ResortTourismBonusSystem's internal state (1.0.2+): applied, cap, sum, day mean. Null on an older build.</summary>
+        private JObject TourBonusSystemState()
+        {
+            Type t = FindTypeByName("SkiResortMod.Systems.ResortTourismBonusSystem");
+            if (t == null)
+                return null;
+            object sys = World.GetExistingSystemManaged(t);
+            if (sys == null)
+                return null;
+            const BindingFlags F = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            JToken Read(string name) { object v = t.GetProperty(name, F)?.GetValue(sys); return v == null ? null : JToken.FromObject(v); }
+            return new JObject { ["applied"] = Read("AppliedPct"), ["cap"] = Read("CapPct"), ["sum"] = Read("SumPct"), ["dayMean"] = Read("TouristsDayMean") };
+        }
+
+        /// <summary>One city statistic: GetStatisticValue, its prefab's collection type and the last <paramref name="last"/> samples
+        /// (m_TotalValue, newest last).</summary>
+        private JObject TourStatistic(StatisticType type, int last)
+        {
+            CityStatisticsSystem stats = World.GetOrCreateSystemManaged<CityStatisticsSystem>();
+            var o = new JObject { ["value"] = stats.GetStatisticValue(type) };
+            EntityQuery q = EntityManager.CreateEntityQuery(ComponentType.ReadOnly<StatisticsData>());
+            using (NativeArray<Entity> es = q.ToEntityArray(Allocator.Temp))
+            {
+                foreach (Entity e in es)
+                {
+                    StatisticsData d = EntityManager.GetComponentData<StatisticsData>(e);
+                    if (d.m_StatisticType == type)
+                        o["collection"] = d.m_CollectionType.ToString();
+                }
+            }
+            q.Dispose();
+            if (last > 0)
+            {
+                NativeArray<long> data = stats.GetStatisticDataArrayLong(type);
+                var arr = new JArray();
+                for (int i = Math.Max(0, data.Length - last); i < data.Length; i++)
+                    arr.Add(data[i]);
+                o["samples"] = arr;
+                o["sampleCount"] = data.Length;
+            }
+            return o;
+        }
+
+        private JObject TourIncome()
+        {
+            if (m_City.City == Entity.Null)
+                throw new InvalidOperationException("no city loaded");
+            return new JObject
+            {
+                ["frame"] = m_Simulation.frameIndex,
+                ["time"] = TimeState(),
+                ["touristIncome"] = TourStatistic(StatisticType.TouristIncome, 40),
+                ["touristCount"] = TourStatistic(StatisticType.TouristCount, 40),
+                ["tourismOverhaul"] = AppDomain.CurrentDomain.GetAssemblies().Any(asm => asm.GetName().Name.IndexOf("TourismOverhaul", StringComparison.OrdinalIgnoreCase) >= 0),
+                ["bonusSystem"] = TourBonusSystemState(),
+            };
         }
 
         private JToken TourBonusValue()
@@ -278,14 +346,14 @@ namespace SkiTestBridge
 
         private JObject TourBonus(JObject args)
         {
-            PropertyInfo p = TourBonusProperty(out object s) ?? throw new InvalidOperationException("this SkiResortMod build has no ResortAttractionDevPct");
+            PropertyInfo p = TourBonusProperty(out object s) ?? throw new InvalidOperationException("this SkiResortMod build has neither ResortTourismBonusPct nor ResortAttractionDevPct");
             double before = Convert.ToDouble(p.GetValue(s));
             if (args["pct"] != null)
             {
                 p.SetValue(s, Convert.ChangeType((double)args["pct"], p.PropertyType));
-                Mod.Log.Info($"[tourism] ResortAttractionDevPct {before} -> {p.GetValue(s)}");
+                Mod.Log.Info($"[tourism] {p.Name} {before} -> {p.GetValue(s)}");
             }
-            return new JObject { ["before"] = before, ["now"] = Convert.ToDouble(p.GetValue(s)) };
+            return new JObject { ["setting"] = p.Name, ["before"] = before, ["now"] = Convert.ToDouble(p.GetValue(s)) };
         }
     }
 }
