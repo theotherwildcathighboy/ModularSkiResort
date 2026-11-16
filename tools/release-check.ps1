@@ -24,8 +24,14 @@
 #   surface     node tools\game-surface-check.js --require-decompile passes. The code, the prefabs, the vanilla references and the
 #               tested-version strings all match tools\game-surface.lock. The lock matches the decompile of the game it names
 #               (docs/PIPELINE.md section 7)
+#   version     the release number is the same in all three places (T227): FileVersion in mod/SkiResortMod/SkiResortMod.csproj equals
+#               ModVersion in Properties/PublishConfiguration.xml plus ".0" (1.0.2 and 1.0.2.0), the built SkiResortMod.dll carries that
+#               FileVersion, and AssemblyVersion is still the pinned 1.0.0.0 (it never moves: saves name the assembly)
+#   ci          CI is green on this commit (DECISIONS 664): the "ci.yml" run for the HEAD commit finished with success (gh, read-only; needs
+#               the commit pushed and a clean tracked tree: a dirty tree builds code CI never saw). -SkipCi leaves the check out for an
+#               offline dry run. Never skip it for a real upload
 
-param([string]$DeployDir)
+param([string]$DeployDir, [switch]$SkipCi)
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -211,6 +217,55 @@ try {
     else { Add-Result "surface" "FAIL" ("{0}; first: {1}" -f $last, (($out | Select-Object -First 2) -join " | ")) }
 } catch {
     Add-Result "surface" "FAIL" ("node tools\game-surface-check.js did not run: {0}" -f $_.Exception.Message)
+}
+
+# version (T227): csproj FileVersion == ModVersion + ".0", the DLL carries it, AssemblyVersion stays pinned
+try {
+    $csprojText = [System.IO.File]::ReadAllText((Join-Path $root "mod\SkiResortMod\SkiResortMod.csproj"))
+    $fileVer = [regex]::Match($csprojText, "<FileVersion>([^<]+)</FileVersion>").Groups[1].Value
+    $asmVer = [regex]::Match($csprojText, "<AssemblyVersion>([^<]+)</AssemblyVersion>").Groups[1].Value
+    $pubText = [System.IO.File]::ReadAllText((Join-Path $root "mod\SkiResortMod\Properties\PublishConfiguration.xml"))
+    $modVer = [regex]::Match($pubText, '<ModVersion\s+Value="([^"]+)"').Groups[1].Value
+    $dllVer = if (Test-Path -LiteralPath $dllPath) { [System.Diagnostics.FileVersionInfo]::GetVersionInfo($dllPath).FileVersion } else { "(no dll)" }
+    $problems = @()
+    if (-not $fileVer -or -not $modVer) { $problems += "could not read FileVersion ($fileVer) or ModVersion ($modVer)" }
+    else {
+        if ($fileVer -ne "$modVer.0") { $problems += "FileVersion $fileVer in SkiResortMod.csproj is not ModVersion $modVer + .0 (PublishConfiguration.xml)" }
+        if ($dllVer -ne "$modVer.0") { $problems += "the DLL carries FileVersion $dllVer, expected $modVer.0 (rebuild after the bump)" }
+    }
+    if ($asmVer -ne "1.0.0.0") { $problems += "AssemblyVersion is $asmVer, it must stay 1.0.0.0" }
+    if ($problems.Count -eq 0) { Add-Result "version" "PASS" ("ModVersion {0}, FileVersion {1} in the csproj and the DLL, AssemblyVersion {2} pinned" -f $modVer, $fileVer, $asmVer) }
+    else { Add-Result "version" "FAIL" ($problems -join "; ") }
+} catch {
+    Add-Result "version" "FAIL" ("could not check the versions: {0}" -f $_.Exception.Message)
+}
+
+# ci: the ci.yml run of the HEAD commit is a success (gh is read-only here)
+if ($SkipCi) {
+    Add-Result "ci" "PASS" "SKIPPED (-SkipCi): not a valid check for an upload"
+} else {
+    try {
+        $ghGlob = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages\GitHub.cli_*\bin\gh.exe'
+        $gh = @(Get-ChildItem $ghGlob -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName)
+        if (-not $gh) { $cmd = Get-Command gh -ErrorAction SilentlyContinue; if ($cmd) { $gh = @($cmd.Source) } }
+        if (-not $gh) { throw "gh not found (winget GitHub.cli)" }
+        $head = ((& git -C $root rev-parse HEAD) -join "").Trim()
+        if ($head.Length -ne 40) { throw "no git HEAD in $root" }
+        $dirty = @(& git -C $root status --porcelain --untracked-files=no)
+        Push-Location $root
+        try { $json = (& $gh[0] run list --workflow ci.yml --commit $head --limit 5 --json status,conclusion,url,headSha) -join "" }
+        finally { Pop-Location }
+        if ($LASTEXITCODE -ne 0) { throw "gh run list failed (exit $LASTEXITCODE): $json" }
+        $runs = @($json | ConvertFrom-Json)
+        $short = $head.Substring(0, 8)
+        $ok = @($runs | Where-Object { $_.status -eq "completed" -and $_.conclusion -eq "success" })
+        if ($dirty.Count -gt 0) { Add-Result "ci" "FAIL" ("{0} tracked file(s) differ from commit {1}: CI never saw this code (commit and push first)" -f $dirty.Count, $short) }
+        elseif ($ok.Count -gt 0) { Add-Result "ci" "PASS" ("ci.yml is green on {0}: {1}" -f $short, $ok[0].url) }
+        elseif ($runs.Count -eq 0) { Add-Result "ci" "FAIL" ("no ci.yml run for {0}: push the commit and wait for CI" -f $short) }
+        else { Add-Result "ci" "FAIL" ("ci.yml on {0} is {1}/{2}: {3}" -f $short, $runs[0].status, $runs[0].conclusion, $runs[0].url) }
+    } catch {
+        Add-Result "ci" "FAIL" ("could not read CI: {0}" -f $_.Exception.Message)
+    }
 }
 
 $fail = @($results | Where-Object { $_.Status -eq "FAIL" }).Count
