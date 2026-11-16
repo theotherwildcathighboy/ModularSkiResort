@@ -199,7 +199,7 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < count; i++)
             {
                 SkiRunCatalogSystem.RunRow row = m_Catalog.GetRow(i);
-                if (row.Gate == Entity.Null || row.Kind == (int)RunKind.CatTrack || row.OutlineXZ == null || row.OutlineY == null ||
+                if (row.Gate == Entity.Null || RunFeatures.FromKind(row.Kind).IsCatTrack || row.OutlineXZ == null || row.OutlineY == null ||
                     row.OutlineY.Length != row.OutlineXZ.Length)
                     continue;
                 m_Extremes.TryGetValue(row.Gate, out Extremes x);
