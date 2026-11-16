@@ -65,7 +65,7 @@ snow", never corruption. Defensive contract (ChairPinSystem precedent):
 ## Per-run snow measurement
 
 Every evaluated pass measures these values for every bound run of all four types:
-- The share of its footprint with skiable snow (`RunSnowRules.IsSkiable`: the open bar, 3 ft = 0.91 m; once open, the keep bar, 1 ft). Fringe texels (own target under the bar, the feathered edge, at most `FringeMaxDepthM`) are left out of the share and the mean (`RunSnowRules.IsFringeTarget`, T183: counted at their own target, a narrow run opened on a few mm).
+- The share of its footprint with skiable snow (`RunSnowRules.IsSkiable`). A closed run counts at the open bar, 3 ft = 0.91 m. An open run counts at the keep bar, 1 ft. Fringe texels are left out of the share and the mean (`RunSnowRules.IsFringeTarget`). A fringe texel has its own target under the bar: the feathered edge, at most `FringeMaxDepthM`. Before T183 they counted at their own target, and a narrow run opened on a few mm.
 - Its mean depth.
 
 It measures from the newest snapshot of the
@@ -79,6 +79,22 @@ The inert path ("all runs inert, too warm": no mask, decay, protected or stopped
 measure-only readback for the natural AND the bound injected runs (T183, post-release round 1). Before, it asked only for natural runs.
 A city with no natural run then lost its snapshot after MaxSnapshotAgeFrames. Every run fell to the day-mean estimate (cold air at
 the top, no snow on the map). Runs read open with no visible snow.
+
+Cat tracks (T220, 1.0.1). The system measures a cat track like a natural run: it never injects snow on it (DECISIONS 551). Its guns'
+snow is a model, `RunSnowRules.TrackMadeSnow`. The model has a share of the vertical and a pack depth:
+- The guns build the pack from 0 to the gun stop depth (0.96 m) in `TrackBuildHours` (about 1.06 game h). They build only while
+  they make snow and the air at the track is at or below freezing + the margin.
+- The made share counts at the run bars (`TrackMadeCountedShare`): at 3 ft while the track is closed, at 1 ft while it is open.
+  So the track opens about 1 game hour after its guns start, not at once. Before, it opened on 1-8 mm (bridge pass r1b).
+- When the guns do not hold the pack, the protection spell holds it. After the spell, it melts at `RunMeltPerHourM`.
+- The track's share is the larger of the snow under it and the counted made share.
+- Its mean depth (hub, `Snow [open]` line) is the made pack on the made share and the measured mean on the rest
+  (`TrackMeanDepthM`). Before, the line printed NaN.
+- A pass that carries the measurement over starts from the snow under the track (`RunSnow.SnowShare`, `SnowMeanDepthM`), not
+  from last pass's share with the made snow.
+- The save holds the share only (SkiTrackSnow v1, unchanged). A saved share loads as a full pack (`TrackFromSave`).
+- The snowmaking bill is unchanged (`StepTrackGunWork` on the share).
+- While the injection runs, `GetRunSnow` estimates a track not yet in the table on natural snow plus its saved made snow.
 
 - Cheaper top-ups work in two ways:
   - A dry skip (no readback, merge or upload) happens when all of these hold:
