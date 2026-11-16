@@ -20,7 +20,7 @@ import { displayUnits$, gradeScheme$ } from "../bindings";
 import type { LocEntry } from "../l10n";
 import { GLYPH_INFO, unitNbsp } from "./hubRules";
 import { EU_TEXT, HUB_FMT } from "./hubText";
-import { areaHa, bandShape, euClassShape, isEuropean, schemeEntry, slopeValue, speed, unitSettingsFor, unpackUnits } from "./units";
+import { areaHa, bandShape, euClassShape, imperialMiles, isEuropean, schemeEntry, slopeValue, speed, unitSettingsFor, unpackUnits } from "./units";
 import type { DisplayUnits } from "./units";
 import { IconKey, iconKeyOf } from "./iconKey";
 import styles from "./hub.module.scss";
@@ -59,17 +59,34 @@ export function depthValue(cm: number, inches: boolean): number {
   return inches ? Math.round(cm / 2.54) : cm;
 }
 
+/** Vanilla's mile text (Common.VALUE_MILE, its {SIGN} as installed index.js eu: "-", "+" or "±" when signed), for the imperial lengths
+ *  from 500 yd that vanilla would still show in yards (units.ts imperialMiles, T215). */
+function mileText(loc: Localization, miles: number, signed?: boolean): string {
+  const sign = miles < 0 ? "-" : !signed ? "" : miles > 0 ? "+" : "±";
+  const value = LocalizedNumber.renderString(loc, { value: Math.abs(miles), unit: Unit.FloatSingleFraction });
+  return LocalizedString.renderString(loc, { id: "Common.VALUE_MILE", fallback: "{SIGN}{VALUE} mi", args: { SIGN: sign, VALUE: value } });
+}
+
+/** THE number render of the hub: vanilla's formatter on unitLoc, except the imperial lengths from 500 yd (mileText). */
+function renderNumber(loc: Localization, p: LocalizedNumberProps): string {
+  if (p.unit === Unit.Length && typeof p.value === "number") {
+    const miles = imperialMiles(p.value, unpackUnits(displayUnits$.value).lengthImperial);
+    if (Number.isFinite(miles)) return mileText(loc, miles, p.signed);
+  }
+  return LocalizedNumber.renderString(unitLoc(loc, p.unit as string), p);
+}
+
 /** LocalizedNumber's text with the number-unit space as U+00A0 (hubRules unitNbsp): vanilla writes "376 m" with an ASCII space. A
  *  LocComponent renders exactly its renderString in a fragment (installed index.js@434221 createLocComponent), so this is the same
  *  text node with one character changed. */
 function NumText({ value, unit, signed }: { value: number; unit: Unit; signed?: boolean }): JSX.Element {
   const loc = useLocalization();
   useValue(displayUnits$);   // re-render when a unit choice changes (unitLoc reads it)
-  return <>{unitNbsp(LocalizedNumber.renderString(unitLoc(loc, unit), { value, unit, signed }))}</>;
+  return <>{unitNbsp(renderNumber(loc, { value, unit, signed }))}</>;
 }
 
 /** LocalizedNumber in the mod's unit choices: the same renderString on unitLoc. A LocComponent, so it may be a <LocText> argument. */
-const renderUnitNumber: LocStringRenderer<LocalizedNumberProps> = (loc, p) => LocalizedNumber.renderString(unitLoc(loc, p.unit as string), p);
+const renderUnitNumber: LocStringRenderer<LocalizedNumberProps> = (loc, p) => renderNumber(loc, p);
 const unitNumberPropsEqual: PropsAreEqual<LocalizedNumberProps> = (a, b) => LocalizedNumber.propsAreEqual(a, b);
 function UnitNumberView(p: LocalizedNumberProps): JSX.Element {
   const loc = useLocalization();
@@ -218,7 +235,8 @@ function zeroDigits(s: string): string {
 /**
  * Calls `LocalizedNumber.renderString(loc, {value, unit})` on the widest plausible values and zeroes the digits. The result
  * is memoized on the localization context. Samples:
- * - length: 999 m, 1,608 m (the yard/mile switch) and 99,900 m ("99.9 km": 99,000 would print "99 km")
+ * - length: 457 m (the widest yards, 500 yd), 999 m, 1,608 m (vanilla's yard/mile switch) and 99,900 m ("99.9 km": 99,000 would print
+ *   "99 km")
  * - height: 999 and 2,999 m (real drops are below 3 km)
  * - area: 99,999 m^2 and 9,900,000 m^2
  * - percent: 199
@@ -228,13 +246,12 @@ export function useNumberSamples(): NumberSamples {
   const units = useValue(displayUnits$);   // the samples follow the unit choices (unitLoc)
   return useMemo(() => {
     try {
-      const render = LocalizedNumber.renderString;
-      if (typeof render !== "function") return NO_SAMPLES;
-      const r = (value: number, unit: Unit, signed?: boolean): string => zeroDigits(String(render(unitLoc(loc, unit), { value, unit, signed })));
+      if (typeof LocalizedNumber.renderString !== "function") return NO_SAMPLES;
+      const r = (value: number, unit: Unit, signed?: boolean): string => zeroDigits(String(renderNumber(loc, { value, unit, signed })));
       const uniq = (xs: string[]): string[] => xs.filter((x, i) => xs.indexOf(x) === i);
       return {
         ok: true,
-        length: uniq([r(999, Unit.Length), r(1608, Unit.Length), r(99900, Unit.Length)]),
+        length: uniq([r(457, Unit.Length), r(999, Unit.Length), r(1608, Unit.Length), r(99900, Unit.Length)]),
         height: uniq([r(999, Unit.Height), r(2999, Unit.Height)]),
         area: uniq([r(99999, Unit.Area), r(9900000, Unit.Area)]),
         percent: [r(199, Unit.Percentage)],

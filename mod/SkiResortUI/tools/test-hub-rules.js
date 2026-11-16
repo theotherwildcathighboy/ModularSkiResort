@@ -1315,10 +1315,15 @@ function run(srcDir) {
     eq("T60.14 slopeValue: degrees one decimal, or whole percent grade; unknown stays -1",
       [U.slopeValue(25, false), U.slopeValue(25, true), U.slopeValue(35.4, true), U.slopeValue(40, false), U.slopeValue(-1, true), U.slopeValue(NaN, false)],
       [14, 25, 35, 21.8, -1, -1]);
+    eq("T60.19 imperialMiles (T215): yards under 500 yd (457.2 m), miles with one decimal from there up to vanilla's own switch at 1,609 m; metric and non-finite give NaN; equals DisplayUnits.ImperialMilesFromM",
+      [U.imperialMiles(457.1, true), U.imperialMiles(457.2, true), U.imperialMiles(-457.2, true), U.imperialMiles(1000, true), U.imperialMiles(1608, true),
+        U.imperialMiles(1609, true), U.imperialMiles(1000, false), U.imperialMiles(NaN, true), U.IMPERIAL_MILES_FROM_M, U.METERS_PER_YARD, U.METERS_PER_MILE],
+      [NaN, 0.3, -0.3, 0.6, 1, NaN, NaN, NaN, 457.2, 0.9144, 1609.344]);
     const partsSrc = fs.readFileSync(path.join(srcDir, "hub", "parts.tsx"), "utf8");
     const viewSrcs = allSrc.filter(([p]) => /[\\/]hub[\\/]/.test(p) && !/units\.ts$/.test(p));
-    eq("T60.15 every number goes through unitLoc (Num, numArg, the width samples); no view reads the game's unit setting itself; slopes use slopeArg",
-      [partsSrc.includes("LocalizedNumber.renderString(unitLoc(loc, unit)"), partsSrc.includes("<UnitNumber value={value}"), partsSrc.includes("render(unitLoc(loc, unit)"),
+    eq("T60.15 every number goes through renderNumber = unitLoc + the 500 yd miles (Num, numArg, the width samples); no view reads the game's unit setting itself; slopes use slopeArg",
+      [partsSrc.includes("LocalizedNumber.renderString(unitLoc(loc, p.unit as string), p)") && partsSrc.includes("unitNbsp(renderNumber(loc, { value, unit, signed }))"),
+        partsSrc.includes("<UnitNumber value={value}"), partsSrc.includes("zeroDigits(String(renderNumber(loc, { value, unit, signed })))"),
         viewSrcs.filter(([, x]) => /useInches|unitSettings\.unitSystem/.test(x)).map(([p]) => path.basename(p)),
         viewSrcs.filter(([, x]) => /pctToDeg1\(/.test(x)).map(([p]) => path.basename(p))],
       [true, true, true, [], []]);

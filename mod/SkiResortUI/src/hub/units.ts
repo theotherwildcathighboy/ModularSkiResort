@@ -21,6 +21,20 @@ export const FEET_PER_METER = 3.28084;
 export const ACRES_PER_HECTARE = 2.471054;
 export const CM_PER_INCH = 2.54;
 export const FEET_PER_MINUTE_PER_MPS = 196.8504;
+export const METERS_PER_YARD = 0.9144;
+export const METERS_PER_MILE = 1609.344;
+
+/** Imperial lengths: whole yards under 500 yd, miles with one decimal from 500 yd (T215, C# DisplayUnits.ImperialMilesFromM). Vanilla's
+ *  Unit.Length switches at 1,609 m (one mile), so parts.tsx formats the miles from here itself. */
+export const IMPERIAL_MILES_FROM_M = 457.2;
+
+/** The miles an imperial length shows when the mod formats it itself (500 yd up to vanilla's own mile switch), rounded to one decimal.
+ *  NaN = vanilla's Unit.Length formats it (metric, under 500 yd, from 1,609 m on, or not finite). */
+export function imperialMiles(m: number, imperial: boolean): number {
+  if (!imperial || !Number.isFinite(m)) return NaN;
+  const a = Math.abs(m);
+  return a >= IMPERIAL_MILES_FROM_M && a < 1609 ? round1(m / METERS_PER_MILE) : NaN;
+}
 
 /** The key suffix of a European text variant. */
 export const EU_SUFFIX = "@EU";

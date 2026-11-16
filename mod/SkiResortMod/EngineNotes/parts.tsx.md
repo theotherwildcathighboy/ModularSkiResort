@@ -6,7 +6,9 @@ Facts about the installed 1.6.2f1 `Cities2_Data/Content/Game/UI/index.js` / `ind
   Always pass an element (`<Num/>`) or a non-empty string.
 - `cs2/l10n` `LocalizedNumber` is `Fc` (`@192159`), a LocComponent (`@434250` `createLocComponent`). Its `renderString` (`@503029`) is the
   unit formatter. It turns the first digit-space-digit into a no-break space. The formatter table (`@503780`) has these units:
-  - Length: m < 1,000 m else km with 1 decimal, yd < 1,609 m else mi.
+  - Length: m < 1,000 m else km with 1 decimal, yd < 1,609 m else mi (`Common.VALUE_MILE`, args SIGN / VALUE, 1 decimal). The hub
+    shows miles from 500 yd (T215): `renderNumber` formats 457.2-1,609 m itself through `Common.VALUE_MILE` and a FloatSingleFraction
+    VALUE (units.ts `imperialMiles`, C# `DisplayUnits.ImperialMilesFromM`).
   - Height: whole m / ft.
   - Area: m^2 / ft^2 below 100,000 m^2 else km^2 / acres.
   - Percentage: whole %.
