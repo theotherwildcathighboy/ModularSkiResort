@@ -363,6 +363,14 @@
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
     "Ash Flat, thawing": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { seasonHint: 3, snowDepthCm: 22, snowPct: 54, topTempC: 3 }), live2],
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
+    // T209: a city loaded paused. C# sends -1 for every live number and no problem rows until the first simulation frames (HubRules.LoadSettleFrames).
+    "Ash Flat, stats settling after a load": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { runsOpen: -1, runsPartly: -1, attraction: -1,
+      attractionFull: -1, lodgesActive: -1, liftsComplete: -1, liftsCounted: -1, efficiencyPct: -1, openSharePct: -1, snowPct: -1, snowDepthCm: -1 }), live2],
+      selectedResort: SIGN, runs, runLive, lifts, problems: [], history, build: buildItems({ built: ["school"] }) }),
+    // T207, T218: imperial lengths, one run that cannot be rated (pale orange swatch) and a run of exactly one acre (singular unit).
+    "Ash Flat, imperial: one acre run, a run that cannot be rated": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN,
+      runs: runs.map((r, i) => (i === 1 ? Object.assign({}, r, { areaM2: 4046.873 }) : i === 3 ? Object.assign({}, r, { band: -2, gradePct: -1 }) : r)),
+      runLive, lifts, problems, history, build: buildItems({ built: ["school"] }), displayUnits: 3 }),
     // Contract 36: the merge overlay armed from the Merged buildings fold (the chip on, and its tooltip counts 14 green, 3 gray outlines).
     "Ash Flat, merge overlay armed": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
       problems, history, build: buildItems({ built: ["school"] }), mergeOverlay: { armed: true, allowed: 14, tooSmall: 3, geometry: true, reachM: 800 } }),
@@ -482,7 +490,7 @@
       { sign: SIGN, code: 8, severity: 1, subject: NULL, subjectTop: NULL, name: "", count: 1, pct: 50, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "lift" },
       { sign: SIGN, code: 24, severity: 1, subject: E(405), subjectTop: NULL, name: "", count: 2, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "" },
     ], history, build: buildItems({ built: ["school"] }) });
-  // Code 30 LiftBend (owner verdict 2026-11-02: warn, never refuse): Meadow Quad's tower 12 turns the rope 12.4 deg in plan. A dim
+  // Code 30 LiftBend (geometry limits warn, never refuse: DECISIONS 600): Meadow Quad's tower 12 turns the rope 12.4 deg in plan. A dim
   // row appears in the band's second slot, under a severity-2 lift row. subject = the tower's net node, no top (focusLift flies to the tower).
   window.SkiScenarios["Ash Flat (runs, lifts, problems), a lift bend"] = Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2],
     selectedResort: SIGN, runs, runLive, lifts, history, build: buildItems({ built: ["school"] }),

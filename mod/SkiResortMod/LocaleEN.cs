@@ -427,6 +427,7 @@ namespace SkiResortMod
                 { "SkiResort.Unit.SQUARE_KILOMETERS", "{N} km²" },
                 { "SkiResort.Unit.SQUARE_FEET", "{N} ft²" },
                 { "SkiResort.Unit.ACRES", "{N} acres" },
+                { "SkiResort.Unit.ACRE", "{N} acre" },
                 { "SkiResort.Unit.LABELED", "{LABEL}: {VALUE}" },
 
                 // --- Glade tool tooltip -----------------------------------------------------------------------
@@ -1116,6 +1117,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.START_STEP[4]", "A lodge within 800 m of the runs" },
                 { "SkiResort.Hub.STATUS_NO_RUNS", "Closed" },
                 { "SkiResort.Hub.STATUS_UNLINKED", "No Welcome Sign in range" },
+                { "SkiResort.Hub.STATUS_SETTLING", "Resort numbers fill in once time runs" },
                 { "SkiResort.Hub.STATUS_TIP_RULE", "<mark:open> Open: enough snow on 60 % of the run, then down to 40 % on thinner snow. <mark:patchy> Patchy: in between. <mark:closed> Closed: below 40 %." },
                 { "SkiResort.Hub.STATUS_TIP_ESTIMATED", "Some runs are estimated from the day's temperature until their snow can be measured." },
                 { "SkiResort.Hub.STATUS_TIP_GATING", "Snow & season gating is off in Options, so every run counts as open." },
@@ -1289,8 +1291,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MOUNTAIN[SnowDepth]", "Snow depth" },
                 { "SkiResort.Hub.MOUNTAIN[SnowCover]", "Run coverage" },
                 // T177: the Mountain fold's fact sheet.
-                { "SkiResort.Hub.MOUNTAIN[Runs]", "Runs" },
-                { "SkiResort.Hub.MOUNTAIN_TIP[Runs]", "Runs of the area, open or closed. The legend above counts them by rating." },
+                { "SkiResort.Hub.MOUNTAIN[Runs]", "Pistes" },
+                { "SkiResort.Hub.MOUNTAIN_TIP[Runs]", "Ski runs of the area, open or closed, without cat tracks. The legend above counts them by rating." },
                 { "SkiResort.Hub.MOUNTAIN[Longest]", "Longest run" },
                 { "SkiResort.Hub.MOUNTAIN_TIP[Longest]", "Measured flat on the map, not along the slope." },
                 { "SkiResort.Hub.MOUNTAIN[Lifts]", "Lifts" },
@@ -1627,6 +1629,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.DIFF_TIP_UNRATEABLE", "Cannot be rated: {N}" },
                 { "SkiResort.Hub.AREA_HA", "{HA} ha" },
                 { "SkiResort.Hub.AREA_ACRES", "{HA} acres" },
+                { "SkiResort.Hub.AREA_ACRE", "{HA} acre" },
                 { "SkiResort.Hub.SPEED_MPS", "{N} m/s" },
                 { "SkiResort.Hub.SPEED_FPM", "{N} ft/min" },
                 { "SkiResort.Hub.SNOW_DEPTH", "{DEPTH} cm" },

@@ -232,7 +232,7 @@ namespace SkiResortMod.Systems
         {
             switch (band)
             {
-                case -2: r = 220; g = 150; b = 60; return;
+                case -2: r = 246; g = 200; b = 140; return;
                 case 0: r = 170; g = 180; b = 190; return;
                 case 1: r = 76; g = 175; b = 80; return;
                 case 2: r = 52; g = 120; b = 220; return;

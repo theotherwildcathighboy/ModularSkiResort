@@ -575,6 +575,7 @@ namespace SkiResortMod.Systems
         private ValueBinding<int> m_FollowBinding;
         private ValueBinding<int> m_GradeSchemeBinding;   // contract 44: the run grading the player sees (GradeScheme: 0 North American, 1 European). Always observed, a compare per frame
         private CityConfigurationSystem m_CityConfigForScheme;
+        private int m_LoggedUnits = -1;   // DisplayState.Packed last logged (T217)
         private ValueBinding<int> m_DisplayUnitsBinding;   // contract 46: the resolved unit and slope choices (DisplayUnits.PackUnits). Always observed, a compare per frame
         private ValueBinding<HubRunReplaced> m_RunReplaced;   // contract 32: not a panel binding (HubPanel moves its focus)
         private int m_RunReplacedSeq;
@@ -1080,7 +1081,15 @@ namespace SkiResortMod.Systems
                 m_GradeSchemeBinding.Update((int)DisplayState.Refresh(m_CityConfigForScheme, m_PrefabSystem,
                     Mod.Settings?.RunGradeScheme ?? GradeSchemeOption.Auto));
                 // Lengths, weather and slope (Options, Auto = the game's settings): resolved live, pushed only on a change.
-                m_DisplayUnitsBinding.Update(DisplayState.Packed);
+                int packedUnits = DisplayState.Packed;
+                if (packedUnits != m_LoggedUnits)
+                {
+                    // T217: one line per change, so a field test can tell the option from what the hub shows (Options said Degrees, the hub drew percent).
+                    m_LoggedUnits = packedUnits;
+                    Mod.Log.Info($"Units: lengths {(DisplayState.LengthImperial ? "imperial" : "metric")}, weather depth {(DisplayState.DepthImperial ? "inches" : "cm")}, " +
+                                 $"temperature {DisplayState.Temperature}, slope {(DisplayState.SlopePercent ? "percent" : "degrees")} (option {Mod.Settings?.SlopeUnit}), packed {packedUnits}");
+                }
+                m_DisplayUnitsBinding.Update(packedUnits);
 
                 // World selection: selected-resort mapping (rule 2), then auto-open (one compare per frame).
                 Entity selected = m_ToolSystem.selected;

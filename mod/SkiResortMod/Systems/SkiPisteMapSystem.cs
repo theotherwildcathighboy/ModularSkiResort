@@ -93,18 +93,19 @@ namespace SkiResortMod.Systems
         }
 
         // Colors by (int)PisteStyle (Pending, Unrateable, Flat, Green, Blue, Black, DoubleBlack): the hub's band colors, sRGB / 255.
+        // Unrateable is a pale orange (T207): the saturated orange it had read as the European ski route (orange, black edge).
         // Outline = fill and width 0 except the black runs' white edge.
         // Red and Route (European grading only, T162 rev. 2): the red piste, and the ski route's orange with a black edge like its marker.
         // One palette for both schemes: the scheme picks the style (PisteMapRules.StyleOf(band, scheme, gradePct)), the colors per style
         // stay the same (DisplayUnits.ClassRgb / EuRgb, sRGB bytes).
         private static readonly UnityEngine.Color[] s_Fill =
         {
-            Rgb(255, 255, 255, 0.45f), Rgb(220, 150, 60, 0.9f), Rgb(170, 180, 190, 0.9f), Rgb(76, 175, 80, 0.95f),
+            Rgb(255, 255, 255, 0.45f), Rgb(246, 200, 140, 0.9f), Rgb(170, 180, 190, 0.9f), Rgb(76, 175, 80, 0.95f),
             Rgb(52, 120, 220, 0.95f), Rgb(14, 14, 18, 0.95f), Rgb(0, 0, 0, 1f), Rgb(214, 48, 40, 0.95f), Rgb(240, 130, 20, 0.95f),
         };
         private static readonly UnityEngine.Color[] s_Outline =
         {
-            Rgb(255, 255, 255, 0.45f), Rgb(220, 150, 60, 0.9f), Rgb(170, 180, 190, 0.9f), Rgb(76, 175, 80, 0.95f),
+            Rgb(255, 255, 255, 0.45f), Rgb(246, 200, 140, 0.9f), Rgb(170, 180, 190, 0.9f), Rgb(76, 175, 80, 0.95f),
             Rgb(52, 120, 220, 0.95f), Rgb(255, 255, 255, 0.85f), Rgb(255, 255, 255, 0.95f), Rgb(214, 48, 40, 0.95f), Rgb(14, 14, 18, 0.95f),
         };
         private static readonly float[] s_OutlineWidth = { 0f, 0f, 0f, 0f, 0f, Tuning.OutlineBlackM, Tuning.OutlineDoubleBlackM, 0f, Tuning.OutlineBlackM };

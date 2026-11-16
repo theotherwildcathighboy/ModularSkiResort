@@ -136,7 +136,7 @@ function run(srcDir) {
   const lv = (status, est = false, extra = {}) => Object.assign({ status, snowEstimated: est, runsOpen: 4, runsPartly: 1, liftsComplete: 2, nextStep: 0, ticketGate: 0, ticketIncomeMonth: 8000, ticketIncomeEstimated: false, buildingsMonth: 6000, wagesMonth: 15000 }, extra);
   eq("T4.1 unlinked", R.statusVariant(row(2, 1), null), "unlinked");
   eq("T4.2 unknown", R.statusVariant(row(7), null), "unknown");
-  eq("T4.2b not known yet", R.statusVariant(row(7), lv(0, false, { runsOpen: -1 })), "unknown");
+  eq("T4.2b not known yet (T209)", R.statusVariant(row(7), lv(0, false, { runsOpen: -1 })), "settling");
   eq("T4.2c not known yet: no hint", R.statusHint(row(7), lv(0, false, { runsOpen: -1 })), "none");
   eq("T4.3 noRuns", R.statusVariant(row(0), lv(0)), "noRuns");
   eq("T4.4 line", R.statusVariant(row(7), lv(2)), "line");
@@ -870,7 +870,7 @@ function run(srcDir) {
   eq("T35.3 a cat track row shows its running cost (billed by plan area while its guns can run)",
     [read(path.join("hub", "RunList.tsx")).includes("row.kind !== RUN_KIND.Natural && row.bound && {\n          label: t(HUB_LOC.runCost)")], [true]);
 
-  // T36 (owner verdict 2026-11-02: warn, never refuse) code 30 LiftBend: a dim band row naming the lift, the bend (detail = tenths) and the
+  // T36 (geometry limits warn, never refuse: DECISIONS 600) code 30 LiftBend: a dim band row naming the lift, the bend (detail = tenths) and the
   // tower (count). Its click flies to the bent tower (focusLift with the tower node as subject and no top, SkiResortHubUISystem).
   eq("T36.1 code 30: variant liftBend, click lift, info glyph", [BIND.PROBLEM.LiftBend, R.problemVariant(P(A, 30, 1, { count: 7, detail: 124 })),
     R.problemClick(P(A, 30, 1)), R.problemIcon(P(A, 30, 1)).tone], [30, "liftBend", "lift", "info"]);

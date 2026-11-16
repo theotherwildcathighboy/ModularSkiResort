@@ -263,13 +263,14 @@ export function resortCountsVariant(runs: number, lodges: number): ResortCountsV
 }
 
 
-export type StatusVariant = "unlinked" | "unknown" | "noRuns" | "line" | "lineEst" | "one" | "oneEst"
+export type StatusVariant = "unlinked" | "unknown" | "settling" | "noRuns" | "line" | "lineEst" | "one" | "oneEst"
   | "partly" | "partlyEst" | "partlyOne" | "partlyOneEst";
 
 export function statusVariant(row: ResortRow | null, live: ResortLive | null): StatusVariant {
   if (row && row.kind === 1) return "unlinked";
-  // runsOpen -1: not known yet (paused right after a load, or no result).
-  if (!row || !live || live.runsOpen < 0) return "unknown";
+  if (!row || !live) return "unknown";
+  // runsOpen -1 on a real row: the numbers are not known yet (a city loaded paused, HubRules.LoadSettleFrames). T209: one sentence, not dashes.
+  if (live.runsOpen < 0) return "settling";
   if ((row.runs | 0) <= 0 || live.status === RESORT_STATUS.NoRuns) return "noRuns";
   const one = (row.runs | 0) === 1;
   // No run fully open but some partly open -> count the partly open ones. That way the word

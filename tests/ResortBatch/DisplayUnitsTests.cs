@@ -135,7 +135,7 @@ namespace ResortBatch
             RunLabelRules.BandRgb(1, GradeScheme.NorthAmerican, 20f, out r, out g, out b);
             Eq(r * 1000000 + g * 1000 + b, 76175080, w, "BandRgb(green band, 20 %, North American) (unchanged: the grade is ignored)");
             RunLabelRules.BandRgb(-2, GradeScheme.European, 20f, out r, out g, out b);
-            Eq(r * 1000000 + g * 1000 + b, 220150060, w, "BandRgb(cannot be rated, European) (unchanged)");
+            Eq(r * 1000000 + g * 1000 + b, 246200140, w, "BandRgb(cannot be rated, European) (pale orange, T207)");
             // The values the hub reads (bindings.ts GRADE_SCHEME) and the Options values (saved settings) never move.
             Eq((int)GradeScheme.NorthAmerican * 10 + (int)GradeScheme.European, 1, w, "GradeScheme values 0 / 1");
             Eq((int)GradeSchemeOption.Auto * 100 + (int)GradeSchemeOption.NorthAmerican * 10 + (int)GradeSchemeOption.European, 12, w, "GradeSchemeOption values 0 / 1 / 2");

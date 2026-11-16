@@ -54,6 +54,7 @@ namespace SkiResortMod.Systems
             public string Text;
             public sbyte Band;
             public float GradePct;      // the crux, % (European grading reads its class from it, T162 rev. 2)
+            public GradeScheme Scheme;  // the grading the meshes were colored with (T216: a switch recolors them)
             public float3 Pos;          // world (x, terrain + LiftM, z)
             public float TextWidth;     // local units of the mesh (before the scale)
             public float TextHeight;    // the same
@@ -294,11 +295,13 @@ namespace SkiResortMod.Systems
                 }
                 label.Pos = pos;
                 label.ExtentM = extent;
-                if (label.Parts.Count == 0 || label.Text != text || label.Band != row.Band || label.GradePct != row.GradePct)
+                if (label.Parts.Count == 0 || label.Text != text || label.Band != row.Band || label.GradePct != row.GradePct ||
+                    label.Scheme != m_BuiltScheme)
                 {
                     label.Text = text;
                     label.Band = row.Band;
                     label.GradePct = row.GradePct;
+                    label.Scheme = m_BuiltScheme;
                     BuildMeshes(label);
                     label.AppliedStep = -1;
                     m_Step = -1;                            // the new meshes carry alpha 255: re-apply the current step

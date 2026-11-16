@@ -32,6 +32,7 @@ function StatusSentence({ row, live, t }: { row: ResortRow | null; live: ResortL
   const v = statusVariant(row, live);
   if (v === "unlinked") return <>{t(HUB_LOC.statusUnlinked)}</>;
   if (v === "noRuns") return <>{t(HUB_LOC.statusNoRuns)}</>;
+  if (v === "settling") return <>{t(HUB_LOC.statusSettling)}</>;
   if (v === "unknown" || !row || !live) return <>{"–"}</>;
   const STATE = t(STATUS_WORD[statusWord(live.status)]);
   const OPEN = numArg(live.runsOpen, Unit.Integer);
@@ -389,7 +390,7 @@ export function StatusBlock({ statusRef, problemsRef }: {
       <div ref={problemsRef} className={cx(styles.problems, styles.problemsAnchor)}>
         {slots.map((b, i) => (
           <ProblemSlot key={i} b={b} slot={i} more={i === BAND_SLOTS - 1 ? more : 0} factors={factors} live={l} t={t}
-            noneLine={i === 0 && band.length === 0 && !(l && statusVariant(row, l) === "unknown")} popOpen={popOpen} />
+            noneLine={i === 0 && band.length === 0 && !(l && (statusVariant(row, l) === "unknown" || statusVariant(row, l) === "settling"))} popOpen={popOpen} />
         ))}
         {popOpen && (
           <div className={cx(styles.overlayCard, styles.overlayBelow)}>

@@ -203,6 +203,27 @@ namespace SkiResortMod.Systems
 
         public static bool FactsKnownAfterLoad(uint framesSinceLoad) => framesSinceLoad >= LoadSettleFrames;
 
+        /// <summary>T218: a building name that reads as an asset id (no space: "ValmerinChalet01GrandV2", or the id "Assets.NAME[X]" a
+        /// building without a localized name leaves) as words: the id wrapper is cut, then a space goes between a lower-case letter and a
+        /// capital or a digit, and between a digit and a capital ("Valmerin Chalet 01 Grand V2"). A name with a space (a localized or a typed name) comes back as it is.</summary>
+        public static string ReadableBuildingName(string name)
+        {
+            if (string.IsNullOrEmpty(name) || name.IndexOf(' ') >= 0)
+                return name ?? "";
+            int open = name.LastIndexOf('['), close = name.LastIndexOf(']');
+            if (open >= 0 && close > open + 1)
+                name = name.Substring(open + 1, close - open - 1);
+            var sb = new System.Text.StringBuilder(name.Length + 4);
+            for (int i = 0; i < name.Length; i++)
+            {
+                char c = name[i];
+                if (i > 0 && ((char.IsLower(name[i - 1]) && (char.IsUpper(c) || char.IsDigit(c))) || (char.IsDigit(name[i - 1]) && char.IsUpper(c))))
+                    sb.Append(' ');
+                sb.Append(c == '_' ? ' ' : c);
+            }
+            return sb.ToString();
+        }
+
         // An alias of SkiCatalog.FixedGrip.SpeedMps, as ChairPinSystem's is: one source (tests/ResortBatch CatalogGuardTests CG-1, CG-2).
         public const float ChairSpeedMps = SkiCatalog.FixedGrip.SpeedMps;
         public const float MinCountedFraction = 0.25f;  // never project tickets from less than a quarter month

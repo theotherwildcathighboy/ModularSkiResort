@@ -461,6 +461,12 @@ const R1F = [
 
 // R2-b: the runs-first plan at its largest (15 lifts, groups, flagged and waiting lines, cat tracks in the totals), its sheet with the planner closed, and the knob
 // rows without the hidden knobs. `--list=r2b` picks this list.
+// Small fixes of round 2 (T207, T209, T218): the status line while the stats settle, the Mountain section, a run tooltip with one acre.
+const R2SF = [
+  ["r2sf-settling-1080", 1080, { scenario: "Ash Flat, stats settling after a load", view: 0 }],
+  ["r2sf-mountain-1080", 1080, { scenario: "Ash Flat, imperial: one acre run, a run that cannot be rated", view: 0, fold: 1 }],
+  ["r2sf-run-tooltip-1080", 1080, { scenario: "Ash Flat, imperial: one acre run, a run that cannot be rated", view: 1, hover: "Run 2", hoverIn: "div" }],
+];
 const R2B = [
   ["r2b-plan-15-lifts-top-1080", 1080, { scenario: "Resort Planner plan, 15 lifts (flagged, waiting, other runs), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
   ["r2b-sheet-15-rows-flagged-1080", 1080, { scenario: "Resort Planner lifts, 15 rows (flagged tower, waiting), Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
@@ -639,7 +645,7 @@ async function main() {
     const b = browsers[0];
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg),
-        process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

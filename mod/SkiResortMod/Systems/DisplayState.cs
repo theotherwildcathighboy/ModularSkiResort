@@ -168,8 +168,10 @@ namespace SkiResortMod.Systems
             if (imp)
             {
                 float ft2 = m2 / 0.092903f;
-                return Math.Abs(ft2) < 100000f ? UnitNumber("SQUARE_FEET", new LocalizedNumber<int>(DisplayUnits.Whole(ft2), "integer"))
-                    : UnitNumber("ACRES", new LocalizedNumber<float>(DisplayUnits.Round1(m2 / 4046.873f), "floatSingleFraction"));
+                if (Math.Abs(ft2) < 100000f)
+                    return UnitNumber("SQUARE_FEET", new LocalizedNumber<int>(DisplayUnits.Whole(ft2), "integer"));
+                float acres = DisplayUnits.Round1(m2 / 4046.873f);
+                return UnitNumber(acres == 1f ? "ACRE" : "ACRES", new LocalizedNumber<float>(acres, "floatSingleFraction"));   // T218: "1 acre"
             }
             return Math.Abs(m2) < 100000f ? UnitNumber("SQUARE_METERS", new LocalizedNumber<int>(DisplayUnits.Whole(m2), "integer"))
                 : UnitNumber("SQUARE_KILOMETERS", new LocalizedNumber<float>(DisplayUnits.Round1(m2 / 1e6f), "floatSingleFraction"));
