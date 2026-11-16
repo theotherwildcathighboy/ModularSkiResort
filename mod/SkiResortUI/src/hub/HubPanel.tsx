@@ -19,7 +19,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { GuestsView } from "./GuestsView";
 import { HistoryView } from "./HistoryView";
 import { AreaList, HubHeader } from "./HubHeader";
-import { NO_FOCUS, areaListOpen$, focused$, footerShape$, folds$, openFold, problemsOpen$, resetHoverRun, runToolSeen, sendHoverRun, useHubConnection, view$ } from "./hubState";
+import { NO_FOCUS, areaListOpen$, focused$, footerShape$, folds$, openFold, problemsOpen$, resetHoverRun, runToolSeen, sendHoverRun, syncCardOpen$, useHubConnection, view$ } from "./hubState";
 import { FitContext, Pager, useViewPager } from "./fit";
 import type { HubConnection } from "./hubState";
 import { HUB_FMT, HUB_LOC } from "./hubText";
@@ -120,6 +120,7 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
     }
     sendHoverRun(NULL_ENTITY);
     problemsOpen$.update(false);   // the popover lists the old area's rows
+    syncCardOpen$.update(false);   // contract 51: the Sync card lists one area
   }, [areaKey]);
 
   // A re-emitted run (Groomed toggled: a new entity, DECISIONS 577): the focus follows it

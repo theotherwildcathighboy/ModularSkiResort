@@ -11,8 +11,10 @@
  * longest run, complete lifts by type, uphill capacity, snowmaking share, lit runs (hubRules.mountainFacts over the area's rows).
  * Fixed heights only, so a value change never changes layout. Panel file: subscribes resorts$, selectedResort$, resortLive$, runs$, lifts$,
  * problems$, city$.
- * Its MergedFold subscribes mergedLodges$ (contract 35).
+ * Its MergedFold subscribes mergedLodges$ (contract 35). Contract 51: SyncLine / SyncCard subscribe sync$; the card replaces the sections while
+ * syncCardOpen$ is on.
  */
+import { useEffect } from "react";
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
 import { BAND, GRADE_SCHEME, LIFT_TYPE_IDS, PROBLEM, build$, city$, gradeScheme$, lifts$, problems$, resortLive$, resorts$, runs$, sameEntity, selectedResort$ } from "../bindings";
@@ -34,6 +36,8 @@ import {
 import { currentResort, liftsOf, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
 import { MergedFold } from "./MergedFold";
+import { syncCardOpen$ } from "./hubState";
+import { SyncCard, SyncLine } from "./SyncCard";
 import styles from "./hub.module.scss";
 
 const DASH = "–";
@@ -419,6 +423,8 @@ export function OverviewView(): JSX.Element {
   const problems = useValue(problems$);
   const city = useValue(city$);
   const build = useValue(build$); // the school tile's AlreadyBuilt lock (hubRules.schoolBuiltOf)
+  const syncOpen = useValue(syncCardOpen$);
+  useEffect(() => () => syncCardOpen$.update(false), []);   // a view switch closes the Sync card
 
   const cur = currentResort(resortEntries(resorts), selected);
   const row = cur.row;
@@ -430,9 +436,11 @@ export function OverviewView(): JSX.Element {
   const areaLifts = liftsOf(lifts, sign);
   const unrateable = unrateableCount(areaRuns);
 
+  if (syncOpen) return <SyncCard sign={sign} />;   // contract 51: in place of the sections
   if (unlinked) {
     return (
       <>
+        <SyncLine sign={null} />
         <MountainSection row={row} live={l} city={city} unrateable={unrateable} areaRuns={areaRuns} areaLifts={areaLifts} t={t} />
         <MergedFold sign={null} />
         <Divider />
@@ -444,6 +452,7 @@ export function OverviewView(): JSX.Element {
   }
   return (
     <>
+      <SyncLine sign={row.sign} />
       <Receipt row={row} l={l} city={city} problems={problems} build={build} areaRuns={areaRuns} t={t} />
       <Divider />
       <MountainSection row={row} live={l} city={city} unrateable={unrateable} areaRuns={areaRuns} areaLifts={areaLifts} t={t} folded />

@@ -3443,3 +3443,103 @@
   align-items: center;
   margin-right: 10rem;
 }
+
+// -- Sync Resort (contract 51, SyncCard.tsx) ---------------------------------------------------------------
+// Spacing from the hub scale (2 / 4 / 6 / 8 / 10 / 12 / 20 rem). Buttons use .actionButton (the one 26 rem x fontScale text height).
+.syncLine {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  padding: 6rem 10rem 6rem 10rem;
+}
+
+.syncCard {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding-bottom: 8rem;
+}
+
+.syncTitle {
+  padding: 8rem 10rem 4rem 10rem;
+  font-size: var(--fontSizeM);
+  color: var(--accentColorNormal);
+}
+
+.syncNote {
+  padding: 2rem 10rem 6rem 10rem;
+  color: var(--hubTextDim);
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  white-space: normal;
+}
+
+.syncRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 4rem 10rem 4rem 0rem;
+}
+
+// The row's toggle is a .planRow (check box + text, its own 10 rem left padding): a click checks or unchecks the row
+.syncWhat {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  padding-right: 8rem;
+}
+
+.syncText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  padding-left: 6rem;
+}
+
+.syncName {
+  max-width: 100%;
+  color: var(--normalTextColor);
+  font-size: var(--fontSizeS);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.syncSentence {
+  color: var(--hubTextDim);
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  white-space: normal;
+}
+
+.syncState {
+  color: var(--hubTextDim);
+  font-size: var(--fontSizeXS);
+}
+
+.syncStateBad {
+  color: var(--hubBad);
+}
+
+.syncKeep {
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+.syncActions {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  padding: 8rem 10rem 0rem 10rem;
+}
+
+.syncGap {
+  margin-left: 8rem;
+}

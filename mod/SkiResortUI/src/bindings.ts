@@ -329,6 +329,45 @@ export interface MergeOverlayState {
   reachM: number;
 }
 
+/** Contract 51: SkiSyncSystem.ItemState of a Sync card row. */
+export const SYNC_STATE = { Open: 0, Queued: 1, Working: 2, Failed: 3, HandEdited: 4 } as const;
+
+/** Contract 51: one ski area with objects Sync can bring up to date (n > 0). sign Entity.Null = Not linked. */
+export interface SyncArea {
+  sign: Entity;
+  n: number;
+}
+
+/** Contract 51: one row of the open Sync card (the card's area only). */
+export interface SyncRow {
+  entity: Entity;
+  /** SkiRulesKind (C#): 4 = a patrol building. */
+  kind: number;
+  /** SkiSyncCatalog step number (hubText SYNC_STEP). */
+  step: number;
+  name: string;
+  /** The row's check box: false = skipped by the next Sync. */
+  include: boolean;
+  /** SYNC_STATE. */
+  state: number;
+}
+
+/** Contract 51: Sync Resort (SkiResortHubUISystem.Sync.cs). ready = the load's intake finished. */
+export interface SyncState {
+  ready: boolean;
+  areas: readonly SyncArea[];
+  /** The Sync card is open (C# draws the world rings only then) for sign. */
+  open: boolean;
+  sign: Entity;
+  rows: readonly SyncRow[];
+  /** A Sync runs: objects queued or waiting for their check. */
+  running: boolean;
+  /** The last Sync of this session: objects synced, not synced, started. */
+  done: number;
+  failed: number;
+  total: number;
+}
+
 /** Contract 35: one merged building, any state (the Overview's Merged buildings fold). */
 export interface MergedLodgeRow {
   /** Its ski area's sign, Entity.Null = none. */
@@ -1129,6 +1168,7 @@ export const BINDING = {
   mergeOverlay: "mergeOverlay",  // contract 36: the merge overlay's armed state
   gradeScheme: "gradeScheme",  // contract 44: the run grading the player sees (GRADE_SCHEME), always observed
   displayUnits: "displayUnits",  // contract 46: the resolved unit and slope choices (UNITS bits), always observed
+  sync: "sync",  // contract 51: Sync Resort (the Overview's button and card)
 } as const;
 
 /** Trigger names (UI -> C#). */
@@ -1164,6 +1204,10 @@ export const TRIGGER = {
   mergeBuilding: "mergeBuilding",  // contract 35: the merge card's tier buttons
   unmergeBuilding: "unmergeBuilding",
   armMergeOverlay: "armMergeOverlay",  // contract 36: the Merged buildings fold's overlay chip
+  syncCard: "syncCard",  // contract 51: Sync Resort card open / closed (sign, open)
+  syncInclude: "syncInclude",  // contract 51: a row's check box (entity, on)
+  syncKeep: "syncKeep",  // contract 51: a row's Keep as is (entity)
+  syncRun: "syncRun",  // contract 51: the card's Sync button (sign)
 } as const;
 
 /**
@@ -1240,6 +1284,7 @@ export const FALLBACK = {
   mergeCard: { shown: false, building: { index: 0, version: 0 }, name: "", area: "", tier: -1, allowedMask: 0, refusal: 0, state: 6, outcome: 0, charge: [], monthly: [], near: false, geometry: true, reachM: 0 } as MergeCardState,
   mergedLodges: EMPTY_MERGED,
   mergeOverlay: { armed: false, allowed: 0, tooSmall: 0, geometry: true, reachM: 0 } as MergeOverlayState,
+  sync: { ready: false, areas: [], open: false, sign: { index: 0, version: 0 }, rows: [], running: false, done: 0, failed: 0, total: 0 } as SyncState,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -1275,6 +1320,8 @@ export const mergeCard$: ValueBinding<MergeCardState> = bindValue<MergeCardState
 export const mergedLodges$: ValueBinding<readonly MergedLodgeRow[]> = bindValue<readonly MergedLodgeRow[]>(GROUP, BINDING.mergedLodges, FALLBACK.mergedLodges);
 /** The merge overlay's armed state. Panel only, the Overview's Merged buildings fold (no Demand). */
 export const mergeOverlay$: ValueBinding<MergeOverlayState> = bindValue<MergeOverlayState>(GROUP, BINDING.mergeOverlay, FALLBACK.mergeOverlay);
+/** Contract 51: Sync Resort. Panel only, the Overview subscribes it (no Demand). */
+export const sync$: ValueBinding<SyncState> = bindValue<SyncState>(GROUP, BINDING.sync, FALLBACK.sync);
 /** One row per sign, then the Not linked row (always last). Panel only. */
 export const resorts$: ValueBinding<readonly ResortRow[]> = bindValue<readonly ResortRow[]>(GROUP, BINDING.resorts, FALLBACK.resorts);
 /** The moving values of each `resorts` row. Panel only: read by leaf components only. */
@@ -1388,4 +1435,12 @@ export const hubTriggers = {
   unmergeBuilding: (building: Entity): void => fire(TRIGGER.unmergeBuilding, wire(building)),
   /** Arm (true) or disarm (false) the merge overlay. C# answers through mergeOverlay$ (Escape, a merge and a load disarm it too). */
   armMergeOverlay: (on: boolean): void => fire(TRIGGER.armMergeOverlay, on),
+  /** Open (true) or close (false) the Sync card for an area (Entity.Null = Not linked). C# draws the world rings while it is open. */
+  syncCard: (sign: Entity, open: boolean): void => fire(TRIGGER.syncCard, wire(sign), open),
+  /** A Sync card row's check box: false skips the object in the next Sync. */
+  syncInclude: (entity: Entity, on: boolean): void => fire(TRIGGER.syncInclude, wire(entity), on),
+  /** Keep as is: C# stamps the object current; it leaves the list. */
+  syncKeep: (entity: Entity): void => fire(TRIGGER.syncKeep, wire(entity)),
+  /** Sync the checked rows of the area. Free, no undo. */
+  syncRun: (sign: Entity): void => fire(TRIGGER.syncRun, wire(sign)),
 } as const;

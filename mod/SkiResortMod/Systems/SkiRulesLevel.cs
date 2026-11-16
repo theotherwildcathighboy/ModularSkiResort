@@ -1,8 +1,8 @@
 // The per-object rules stamp's pure rules (T229, DECISIONS 670; design docs/research/round2-2026-11-16/sync-resort/DESIGN.md section 4.1).
 // An object our tools build carries SkiRulesStamp with the rules level it was built under (Current). An object loaded from a save without
 // the stamp reads as level 0 ("unknown, built before 1.0.2"). An object loaded WITH a stamp keeps its level: loading never re-stamps.
-// The level is a hint, never the truth: a later sync step acts only when its own check says so (670). 1.0.2 ships the stamp only: no
-// engine, no button, nothing the player sees.
+// The level is a hint, never the truth: a later sync step acts only when its own check says so (670). The Sync engine
+// (SkiSyncSystem, step catalog SkiSyncCatalog) reads the level to skip steps an object has already passed.
 // One global level, not one per type (design 4.2: one append-only step catalog with a kind mask per step). Level 1 = the 1.0.2 baseline:
 // everything 1.0.1 changed for built objects (the Patrol Hut firewood row, the filler kept out of lift corridors) is in it, so the
 // engine's first catalog numbers those steps 1 and an object at level 1 needs none of them. Raise Current by one per new catalog step;
@@ -34,11 +34,11 @@ namespace SkiResortMod.Systems
         /// <summary>The level of an object without a stamp: a save from before 1.0.2, or an object our writers never stamped.</summary>
         public const int Unknown = 0;
 
-        /// <summary>SkiRulesStamp.m_Flags bit: the player chose "keep as is" up to m_Rules (reserved for the sync engine, never set in 1.0.2).</summary>
+        /// <summary>SkiRulesStamp.m_Flags bit: the player chose "Keep as is" in the Sync card (SkiSyncSystem); m_Rules was set to Current.</summary>
         public const byte FlagKept = 1;
 
-        /// <summary>SkiRulesStamp.m_Flags bit: a lift line moved or raised by a tool that is not ours (reserved for the sync engine's
-        /// hand-edit marker, design 4.6; never set in 1.0.2). Other bits are reserved and never reused.</summary>
+        /// <summary>SkiRulesStamp.m_Flags bit: a lift section built or changed by a tool that is not ours (SkiRulesStampSystem.MarkHandEdited,
+        /// design 4.6). A step that re-plans towers lists and skips it. Never cleared. Other bits are reserved and never reused.</summary>
         public const byte FlagHandEdited = 2;
 
         /// <summary>Kinds in census order.</summary>
@@ -88,18 +88,23 @@ namespace SkiResortMod.Systems
         /// <summary>One kind's counts: objects of the kind, and how many read at level 0, at Current, at another level (older, newer).</summary>
         public struct Count
         {
-            public int Total, Level0, Current, Other;
+            public int Total, Level0, Current, Other, HandEdited, Kept;
 
-            public void Add(int level)
+            public void Add(int level) => Add(level, 0);
+
+            public void Add(int level, byte flags)
             {
                 Total++;
                 if (level == Unknown) Level0++;
                 else if (level == SkiRulesLevel.Current) Current++;
                 else Other++;
+                if ((flags & FlagHandEdited) != 0) HandEdited++;
+                if ((flags & FlagKept) != 0) Kept++;
             }
 
             public override string ToString() =>
-                Total + " (" + Level0 + " at 0, " + Current + " at " + SkiRulesLevel.Current + (Other > 0 ? ", " + Other + " other" : "") + ")";
+                Total + " (" + Level0 + " at 0, " + Current + " at " + SkiRulesLevel.Current + (Other > 0 ? ", " + Other + " other" : "") +
+                (HandEdited > 0 ? ", " + HandEdited + " edited by hand" : "") + (Kept > 0 ? ", " + Kept + " kept as is" : "") + ")";
         }
 
         /// <summary>The census line body: "lift sections 12 (12 at 0, 0 at 1), runs 3 (...)". Kinds with no object are left out.</summary>

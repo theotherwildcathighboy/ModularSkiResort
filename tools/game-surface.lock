@@ -367,7 +367,9 @@ type Game.Prefabs.ObjectData struct 6d1cc80b7c m_Archetype:EntityArchetype
 type Game.Prefabs.ObjectGeometryData struct cd17a72fad m_Bounds:Bounds3 m_Size:float3 m_Pivot:float3 m_LegSize:float3 m_LegOffset:float2 m_Flags:GeometryFlags m_MinLod:int m_Layers:MeshLayer m_SubObjectMask:ObjectRequirementFlags
 type Game.Prefabs.ObjectInitializeSystem class 15043f8835
 type Game.Prefabs.ObjectPrefab class 0b3dc04860
+type Game.Prefabs.ObjectRequirementElement struct d9fac0bdc0 m_Requirement:Entity m_Group:ushort m_Type:ObjectRequirementType m_RequireFlags:ObjectRequirementFlags m_ForbidFlags:ObjectRequirementFlags
 type Game.Prefabs.ObjectRequirementFlags enum fb9096d474 Renter=1 Children=2 Snow=4 Teens=8 GoodWealth=16 Dogs=32 Homeless=64
+type Game.Prefabs.ObjectRequirementType enum 82e490bf5a SelectOnly=1 IgnoreExplicit=2
 type Game.Prefabs.OverlayConfigurationData struct 23dd49ef1a
 type Game.Prefabs.OverlayConfigurationPrefab class 71fe60614c
 type Game.Prefabs.Park class 4d139890ff
@@ -379,6 +381,7 @@ type Game.Prefabs.PedestrianPathfind class 80bd999622
 type Game.Prefabs.PlaceableNetData struct e71927f763 m_ElevationRange:Bounds1 m_UndergroundPrefab:Entity m_PlacementFlags:PlacementFlags m_SetUpgradeFlags:CompositionFlags m_UnsetUpgradeFlags:CompositionFlags m_DefaultConstructionCost:uint m_DefaultUpkeepCost:float m_SnapDistance:float m_MinWaterElevation:float m_XPReward:int
 type Game.Prefabs.PlaceableObjectData struct 69445f7ce5 m_PlacementOffset:float3 m_ConstructionCost:uint m_XPReward:int m_DefaultProbability:byte m_RotationSymmetry:RotationSymmetry m_SubReplacementType:SubReplacementType m_Flags:Game.Objects.PlacementFlags
 type Game.Prefabs.PlaceholderObjectData struct b09a48713c m_RequirementMask:ObjectRequirementFlags m_RandomizeGroupIndex:bool
+type Game.Prefabs.PlaceholderObjectElement struct 6e29bfe4f0 m_Object:Entity
 type Game.Prefabs.PolicyData struct 5c816eb40c m_Visibility:int
 type Game.Prefabs.PowerLinePrefab class dc12fe4361
 type Game.Prefabs.PrefabBase class 5e8b147f2a
@@ -746,6 +749,7 @@ anchor SkiSnowInjectionSystem after Game.Simulation.SnowSystem GameSimulation in
 anchor SkiSnowLineOverlaySystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiStationAlignSystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiStubCleanupSystem before Game.Objects.SubElementDeleteSystem PostTool
+anchor SkiSyncOverlaySystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor StationFacingRefusalSystem before Game.Tools.ValidationSystem.Components ModificationEnd
 anchor StationFacingTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
 anchor StationLvMarkerSystem before Game.Rendering.OverlayRenderSystem Rendering

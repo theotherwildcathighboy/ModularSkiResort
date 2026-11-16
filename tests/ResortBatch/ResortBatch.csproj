@@ -22,6 +22,8 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="RulesStampTests.cs" />
+    <Compile Include="SyncCatalogTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSyncCatalog.cs" Link="SkiSyncCatalog.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRulesLevel.cs" Link="SkiRulesLevel.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\EntityRef.cs" Link="EntityRef.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortIndex.cs" Link="SkiResortIndex.cs" />

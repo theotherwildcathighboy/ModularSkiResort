@@ -35,7 +35,7 @@ namespace ResortBatch
             C(L.IsNewer(2) && !L.IsNewer(1) && !L.IsNewer(0), W, "only a level above Current is from a newer build");
             C(L.CarriedLevel(false, 1) == 0 && L.CarriedLevel(true, 0) == 0 && L.CarriedLevel(true, 1) == 1 && L.CarriedLevel(true, 3) == 3, W,
               "a re-emit carries the source level (absent -> explicit 0), never Current");
-            C(L.FlagKept == 1 && L.FlagHandEdited == 2, W, "flag bits 1 and 2 (reserved for the sync engine)");
+            C(L.FlagKept == 1 && L.FlagHandEdited == 2, W, "flag bits 1 (Keep as is) and 2 (edited by hand)");
             C(L.KindCount == Enum.GetValues(typeof(SkiRulesKind)).Length, W, "KindCount covers every kind");
         }
 

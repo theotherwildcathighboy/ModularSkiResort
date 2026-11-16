@@ -1,6 +1,6 @@
-// Stamps what our tools create with the rules level it was built under (SkiRulesStamp = SkiRulesLevel.Current; T229, DECISIONS 670). 1.0.2
-// ships the stamp only: no sync engine, no button, nothing the player sees. The point is that every object built from now on carries its
-// level, so the later sync steps (design docs/research/round2-2026-11-16/sync-resort/DESIGN.md) know what was built under which rules.
+// Stamps what our tools create with the rules level it was built under (SkiRulesStamp = SkiRulesLevel.Current; T229, DECISIONS 670). Every
+// object built from now on carries its level, so the Sync engine (SkiSyncSystem, design docs/research/round2-2026-11-16/sync-resort/DESIGN.md)
+// knows which steps it already passed. It also marks lift sections changed by a tool that is not ours (FlagHandEdited, MarkHandEdited).
 // What gets stamped, at creation only (the entity's Created tag, not Temp, not Deleted, no stamp yet):
 //   * lift line sections (Game.Net.Edge of a lift line prefab, no Owner: a station's stub sub-net is not a section). Sections are edited
 //     one by one, so a line is as current as its oldest section. Not in LiftTowerFitSystem: the fit's own load-time writes re-queue those
@@ -49,7 +49,9 @@ namespace SkiResortMod.Systems
 
         private SkiPrefabCatalogSystem m_Catalog;
         private SkiRunOwnershipSystem m_Ownership;
-        private EntityQuery m_New, m_CreatedAny, m_Edges, m_Buildings, m_Areas, m_Merged;
+        private ToolSystem m_ToolSystem;
+        private EntityQuery m_New, m_CreatedAny, m_Edges, m_Buildings, m_Areas, m_Merged, m_LiftTouched;
+        private int m_HandMarked;
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_GuardLogged, m_LoadCensusDone;
         private int m_Frame, m_GuardSeen, m_GuardCreated, m_CensusDue;
         private readonly int[] m_NewByKind = new int[SkiRulesLevel.KindCount];
@@ -59,6 +61,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_Catalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
+            m_ToolSystem = World.GetOrCreateSystemManaged<ToolSystem>();
             ComponentType[] anyKind =
             {
                 ComponentType.ReadOnly<Game.Net.Edge>(),
@@ -98,6 +101,18 @@ namespace SkiResortMod.Systems
                 All = new[] { ComponentType.ReadOnly<SkiMergedLodge>() },
                 None = new[] { ComponentType.ReadOnly<Temp>(), ComponentType.ReadOnly<Deleted>() },
             });
+            // The hand-edit marker: lift sections and tower nodes built or changed this frame (filtered to lift prefabs in the pass)
+            m_LiftTouched = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<PrefabRef>(), ComponentType.ReadOnly<Game.Net.Edge>() },
+                Any = new[] { ComponentType.ReadOnly<Created>(), ComponentType.ReadOnly<Updated>() },
+                None = new[] { ComponentType.ReadOnly<Temp>(), ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Owner>() },
+            }, new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<PrefabRef>(), ComponentType.ReadOnly<Game.Net.Node>() },
+                Any = new[] { ComponentType.ReadOnly<Created>(), ComponentType.ReadOnly<Updated>() },
+                None = new[] { ComponentType.ReadOnly<Temp>(), ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Owner>() },
+            });
             Mod.Log.Info($"{nameof(SkiRulesStampSystem)} created");
         }
 
@@ -106,7 +121,7 @@ namespace SkiResortMod.Systems
             base.OnGameLoadingComplete(purpose, mode);
             m_Armed = mode == GameMode.Game;
             m_Disabled = m_ErrorLogged = m_GuardLogged = m_LoadCensusDone = false;
-            m_Frame = m_GuardSeen = m_GuardCreated = 0;
+            m_Frame = m_GuardSeen = m_GuardCreated = m_HandMarked = 0;
             m_CensusDue = -1;
             Array.Clear(m_NewByKind, 0, m_NewByKind.Length);
             LastCensusLine = null;
@@ -143,8 +158,11 @@ namespace SkiResortMod.Systems
                     m_LoadCensusDone = true;
                     LogCensus("load");
                 }
+                string handTool = HandToolName();
                 if (!m_New.IsEmptyIgnoreFilter)
-                    StampNew();
+                    StampNew(handTool);
+                if (handTool != null && !m_LiftTouched.IsEmptyIgnoreFilter)
+                    MarkHandEdited(handTool);
                 if (m_CensusDue >= 0 && m_Frame >= m_CensusDue)
                 {
                     m_CensusDue = -1;
@@ -208,7 +226,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private void StampNew()
+        private void StampNew(string handTool)
         {
             int stamped = 0;
             Array.Clear(m_NewByKind, 0, m_NewByKind.Length);
@@ -220,7 +238,10 @@ namespace SkiResortMod.Systems
                     int kind = KindOf(entities[i], prefabs[i].m_Prefab);
                     if (kind < 0)
                         continue;
-                    EntityManager.AddComponentData(entities[i], new SkiRulesStamp(SkiRulesLevel.Current));
+                    var stamp = new SkiRulesStamp(SkiRulesLevel.Current);
+                    if (handTool != null && kind == (int)SkiRulesKind.LiftEdge)
+                        stamp.m_Flags |= SkiRulesLevel.FlagHandEdited;   // a section drawn by a tool that is not ours (MarkHandEdited logs it)
+                    EntityManager.AddComponentData(entities[i], stamp);
                     m_NewByKind[kind]++;
                     stamped++;
                 }
@@ -236,6 +257,105 @@ namespace SkiResortMod.Systems
             }
             Mod.Log.Info($"Stamp [new]: {sb} at rules level {SkiRulesLevel.Current}");
             m_CensusDue = m_Frame + CensusQuietFrames;
+        }
+
+        /// <summary>The name of the active tool when it is a tool that edits lift lines by hand (not ours, not the default tool, not the
+        /// bulldozer, not the terrain tool), else null. Our tools and the tower fit write lift nodes under our own rules; the bulldozer only
+        /// removes; the terrain brush changes the ground under a line, not its towers. Anything else that builds or changes a lift section or a
+        /// tower node (Move It, the vanilla elevation or replace tools, a relocated station) is a hand edit (design 4.6, DECISIONS 670).</summary>
+        private string HandToolName()
+        {
+            ToolBaseSystem tool = m_ToolSystem.activeTool;
+            if (tool == null || tool is DefaultToolSystem || tool is BulldozeToolSystem || tool is TerrainToolSystem)
+                return null;
+            if (tool.GetType().Assembly == typeof(SkiRulesStampSystem).Assembly)
+                return null;
+            return tool.toolID ?? tool.GetType().Name;
+        }
+
+        /// <summary>Marks the lift sections built or changed this frame by a hand tool: m_Flags HandEdited on the section, and on every
+        /// section of a changed tower node. A section without a stamp gets one at level 0 (absent and 0 read the same) so the flag has a
+        /// home. A step that re-plans towers lists and skips these sections (SyncStep.SkipsHandEdited). The flag is never cleared.</summary>
+        private void MarkHandEdited(string handTool)
+        {
+            HashSet<Entity> lines = m_Catalog.LiftLinePrefabSet;
+            int marked = 0;
+            using (NativeArray<Entity> entities = m_LiftTouched.ToEntityArray(Allocator.Temp))
+            using (NativeArray<PrefabRef> prefabs = m_LiftTouched.ToComponentDataArray<PrefabRef>(Allocator.Temp))
+            {
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    if (!lines.Contains(prefabs[i].m_Prefab))
+                        continue;
+                    Entity e = entities[i];
+                    if (EntityManager.HasComponent<Game.Net.Edge>(e))
+                    {
+                        marked += MarkSection(e);
+                    }
+                    else if (EntityManager.TryGetBuffer(e, true, out DynamicBuffer<Game.Net.ConnectedEdge> connected))
+                    {
+                        for (int c = 0; c < connected.Length; c++)
+                        {
+                            Entity edge = connected[c].m_Edge;
+                            if (!EntityManager.HasComponent<Owner>(edge) && !EntityManager.HasComponent<Temp>(edge) &&
+                                !EntityManager.HasComponent<Deleted>(edge) && EntityManager.TryGetComponent(edge, out PrefabRef ep) &&
+                                lines.Contains(ep.m_Prefab))
+                                marked += MarkSection(edge);
+                        }
+                    }
+                }
+            }
+            if (marked == 0)
+                return;
+            m_HandMarked += marked;
+            Mod.Log.Info($"Stamp [hand]: {marked} lift section(s) marked edited by hand (tool {handTool}; {m_HandMarked} this session). " +
+                         "A later tower re-plan lists and skips them");
+        }
+
+        /// <summary>1 when the flag was newly set on this section.</summary>
+        private int MarkSection(Entity edge)
+        {
+            if (EntityManager.TryGetComponent(edge, out SkiRulesStamp s))
+            {
+                if ((s.m_Flags & SkiRulesLevel.FlagHandEdited) != 0)
+                    return 0;
+                s.m_Flags |= SkiRulesLevel.FlagHandEdited;
+                EntityManager.SetComponentData(edge, s);
+                return 1;
+            }
+            var stamp = new SkiRulesStamp(SkiRulesLevel.Unknown);
+            stamp.m_Flags = SkiRulesLevel.FlagHandEdited;
+            EntityManager.AddComponentData(edge, stamp);
+            return 1;
+        }
+
+        /// <summary>The load census ran (the guard is over and the run prefab sets were ready). The sync intake waits for it.</summary>
+        internal bool LoadSettled => m_Armed && !m_Disabled && m_LoadCensusDone;
+
+        /// <summary>The kind of an object of ours (SkiRulesKind as int), or -1. For the sync intake.</summary>
+        internal int KindOfEntity(Entity entity)
+        {
+            return EntityManager.TryGetComponent(entity, out PrefabRef pr) ? KindOf(entity, pr.m_Prefab) : -1;
+        }
+
+        /// <summary>Stamps an object Current (a sync step finished, "Keep as is", or a silent intake verdict). Keeps the flags and adds
+        /// <paramref name="addFlags"/>.</summary>
+        internal static void StampCurrent(EntityManager em, Entity entity, byte addFlags) =>
+            StampLevel(em, entity, SkiRulesLevel.Current, addFlags);
+
+        /// <summary>Stamps an object at <paramref name="level"/> (a sync step finished and a later one waits). Keeps the flags.</summary>
+        internal static void StampLevel(EntityManager em, Entity entity, int level, byte addFlags)
+        {
+            if (em.TryGetComponent(entity, out SkiRulesStamp s))
+            {
+                s.m_Rules = level;
+                s.m_Flags |= addFlags;
+                em.SetComponentData(entity, s);
+                return;
+            }
+            var stamp = new SkiRulesStamp(level);
+            stamp.m_Flags = addFlags;
+            em.AddComponentData(entity, stamp);
         }
 
         /// <summary>A merged building is built under this build's rules (SkiMergeSystem.Merge). Keeps an existing stamp's flags.</summary>
@@ -285,7 +405,7 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < merged.Length; i++)
                 {
                     bool has = EntityManager.TryGetComponent(merged[i], out SkiRulesStamp s);
-                    counts[(int)SkiRulesKind.Merged].Add(SkiRulesLevel.LevelOf(has, s.m_Rules));
+                    counts[(int)SkiRulesKind.Merged].Add(SkiRulesLevel.LevelOf(has, s.m_Rules), has ? s.m_Flags : (byte)0);
                 }
             }
             return counts;
@@ -304,7 +424,7 @@ namespace SkiResortMod.Systems
                     if (kind < 0)
                         continue;
                     bool has = EntityManager.TryGetComponent(entities[i], out SkiRulesStamp s);
-                    counts[kind].Add(SkiRulesLevel.LevelOf(has, s.m_Rules));
+                    counts[kind].Add(SkiRulesLevel.LevelOf(has, s.m_Rules), has ? s.m_Flags : (byte)0);
                 }
             }
         }

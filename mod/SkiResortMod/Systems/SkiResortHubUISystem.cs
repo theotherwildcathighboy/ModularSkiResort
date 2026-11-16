@@ -503,6 +503,7 @@ namespace SkiResortMod.Systems
             SetDrawRun,                      // contract 33: the Run tile's option row (Text = key, Int = value)
             MergeBuilding, UnmergeBuilding,  // contract 35: the merge card (Int = tier) in SkiResortHubUISystem.Merge.cs
             ArmMergeOverlay,                 // contract 36: the merge overlay chip (Bool = arm)
+            SyncCard, SyncInclude, SyncKeep, SyncRun,   // contract 51: Sync Resort (SkiResortHubUISystem.Sync.cs)
         }
 
         private struct Request
@@ -829,6 +830,7 @@ namespace SkiResortMod.Systems
             AddBinding(m_Merged);         // contract 35: panel binding (the Overview fold), no Demand
             AddBinding(m_MergeCard = new ValueBinding<HubMergeCardState>(Group, "mergeCard", default));   // contract 35: always observed, like busCard
             AddBinding(m_MergeOverlayBinding = new ValueBinding<HubMergeOverlay>(Group, "mergeOverlay", default));   // contract 36: panel binding, no Demand
+            AddBinding(m_SyncBinding = new RawValueBinding(Group, "sync", WriteSync));   // contract 51: Sync Resort, panel binding, no Demand
 
             // Triggers (UI → C#): bindings.ts TRIGGER.
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -841,6 +843,10 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<Entity, int>(Group, "mergeBuilding", OnMergeBuilding));   // contract 35
             AddBinding(new TriggerBinding<Entity>(Group, "unmergeBuilding", OnUnmergeBuilding));
             AddBinding(new TriggerBinding<bool>(Group, "armMergeOverlay", OnArmMergeOverlay));   // contract 36
+            AddBinding(new TriggerBinding<Entity, bool>(Group, "syncCard", OnSyncCard));   // contract 51: Sync Resort
+            AddBinding(new TriggerBinding<Entity, bool>(Group, "syncInclude", OnSyncInclude));
+            AddBinding(new TriggerBinding<Entity>(Group, "syncKeep", OnSyncKeep));
+            AddBinding(new TriggerBinding<Entity>(Group, "syncRun", OnSyncRun));
             AddBinding(new TriggerBinding(Group, "gladeToggle", OnGladeToggle));
             AddBinding(new TriggerBinding<int>(Group, "gladeSetLevel", OnGladeSetLevel));
             AddBinding(new TriggerBinding<bool>(Group, "gladeSetTreeLine", OnGladeSetTreeLine));
@@ -1421,6 +1427,12 @@ namespace SkiResortMod.Systems
                 case RequestKind.ArmMergeOverlay:
                     ApplyArmMergeOverlay(r.Bool, r.Source);
                     break;
+                case RequestKind.SyncCard:
+                case RequestKind.SyncInclude:
+                case RequestKind.SyncKeep:
+                case RequestKind.SyncRun:
+                    ApplySync(r);
+                    break;
             }
         }
 
@@ -1562,6 +1574,8 @@ namespace SkiResortMod.Systems
                 return;
             }
             m_HubOpen.Update(open);
+            if (!open)
+                CloseSyncCardWithHub();
             Mod.Log.Info($"Hub [{(open ? "open" : "close")}] {why}");
             LastTriggerText = why + (open ? ": opened" : ": closed");
         }
@@ -2983,6 +2997,7 @@ namespace SkiResortMod.Systems
             PushArray(m_LodgeParkingPush, lodgeParkingActive, m_LodgeParkingRevision, m_LodgeParkingRows.Count);
             PushMerged();
             PushMergeOverlay();
+            PushSync();
 
             if (cityActive)
                 m_City.Update(m_Stats.City);   // our comparer dedups (struct, field by field)
@@ -4871,6 +4886,7 @@ namespace SkiResortMod.Systems
                     m_Stats.Demand = false;
                 if (m_HubOpen != null)
                     m_HubOpen.Update(false);
+                CloseSyncCardWithHub();
                 // ContractAbsent: the UI's existing absent path (bindings.ts CONTRACT_ABSENT, hubState.ts):
                 // launchers toggle a local flag and the panel shows LOC.notConnected. OnGamePreload restores it.
                 if (m_Contract != null)

@@ -305,6 +305,12 @@ namespace SkiResortMod
             // (a re-emitted run already has its stamp, so this pass leaves it alone). Not load-bearing for anyone else.
             updateSystem.UpdateAt<SkiRulesStampSystem>(SystemUpdatePhase.ModificationEnd);
 
+            // Sync Resort (T229, DECISIONS 670): the engine that brings objects built under older rules up to date. Modification1 is
+            // load-bearing: step 1 creates vanilla's {Event, SubObjectsUpdated} entity, which Game.Objects.SubObjectSystem reads at
+            // Modification2B and PrepareCleanUpSystem destroys at the end of the frame. MainLoop, so it runs paused too. Its intake waits
+            // for SkiRulesStampSystem's load census (LoadSettled), not for an update order.
+            updateSystem.UpdateAt<SkiSyncSystem>(SystemUpdatePhase.Modification1);
+
             // Lodge-score watcher. ModificationEnd is load-bearing: CleanUpSystem strips Created/Updated at Cleanup, BEFORE GameSimulation
             // (SystemOrder.cs:54, 74), so the attractiveness system never sees a placement. This system only sets its pending flag.
             updateSystem.UpdateAt<SkiResortAttractivenessWatchSystem>(SystemUpdatePhase.ModificationEnd);
@@ -451,6 +457,9 @@ namespace SkiResortMod
             // Merge overlay (hub-armed, P2.6). Before OverlayRenderSystem (same reason as the snow line). ONE anchor only. Draws nothing
             // until the hub's armMergeOverlay trigger arms it. Game mode only inside.
             updateSystem.UpdateBefore<SkiMergeOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
+            // Sync card markers (T229): rings around the listed objects while the hub's Sync card is open. UpdateBefore OverlayRenderSystem
+            // is load-bearing, as for the merge overlay: the renderer uploads and clears its lists in the same frame.
+            updateSystem.UpdateBefore<SkiSyncOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
 
             // Ski area ring (the radius option on the ground). Before OverlayRenderSystem (same reason as the snow line). ONE anchor only.
             // Gated by ShowSkiAreaRadius inside. Game mode only.
