@@ -5,7 +5,8 @@
 //   fringe  a target under the bar (the feathered edge, at most 0.02 m; the share and mean skip it)
 //   warm    too warm for the gate (the game melts it; counted at its depth)
 //   stopped a stopped gun run's cold texel (no target this pass; counted)
-//   none    inside the outline but no target: dropped by the edge noise (counted at its depth, never raised)
+//   none    inside the outline but no target: dropped by the edge noise (never raised; counted only when no full, warm or stopped
+//           texel is there, RunSnowRules.CountDroppedTexels)
 // Per class: count, mean depth, the share at the open bar, the mean chill (full only), and depth quantiles of the full texels.
 // "countedShare" is the run's open share as the fold forms it from these classes (texel centers only, so an estimate: the fold weighs
 // partly covered edge texels by their coverage). Read-only.
@@ -144,6 +145,8 @@ namespace SkiTestBridge
                     }
                     var classes = new JObject();
                     int counted = 0, countedOpen = 0;
+                    // the fold's rule since round 2: fringe never counts, dropped ("none") only when nothing else is measured
+                    bool countNone = cls["full"].N + cls["warm"].N + cls["stopped"].N == 0;
                     foreach (KeyValuePair<string, TexelClass> kv in cls)
                     {
                         TexelClass t = kv.Value;
@@ -156,7 +159,7 @@ namespace SkiTestBridge
                         if (kv.Key == "full")
                             o["meanChill"] = t.N > 0 ? Math.Round(t.Chill / t.N, 3) : (double?)null;
                         classes[kv.Key] = o;
-                        if (kv.Key != "fringe")
+                        if (kv.Key != "fringe" && (kv.Key != "none" || countNone))
                         {
                             counted += t.N;
                             countedOpen += t.Open;
