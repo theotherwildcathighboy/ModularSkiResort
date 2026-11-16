@@ -74,7 +74,7 @@ if ($Take -or ($Owner -and -not $Release)) {
     if (-not $lock -and $running -and -not $Owner) { Out-State 'owner-playing' 'refused: Cities2 is running with no lock (the owner is playing). Wait.' 1 }
     if ($WhatIf) { Out-State 'dry' "WOULD write the lock for '$who' ($LockFile)" 0 }
     Write-Lock $who
-    Out-State 'held' "LOCK TAKEN by $who at $((Get-Lock).since). Release with: tools\game-lock.ps1 -Release -Name $who (after world.ps1 -World Player and the game closed)." 0
+    Out-State 'held' "LOCK TAKEN by $who at $((Get-Lock).since). Release with: tools\game-lock.ps1 -Release $(if ($Owner) { '-Owner' } else { "-Name $who" }) (after world.ps1 -World Player and the game closed)." 0
 }
 
 # ---- Release ---------------------------------------------------------------------------------------------------------------
