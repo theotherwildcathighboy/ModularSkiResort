@@ -209,7 +209,7 @@ namespace SkiResortMod.Systems
             if (!m_Ownership.PrefabSetsReady)
                 return -1;
             int k = m_Ownership.KindOf(prefab);
-            return k < 0 ? -1 : k == (int)RunKind.CatTrack ? (int)SkiRulesKind.CatTrack : (int)SkiRulesKind.Run;
+            return k < 0 ? -1 : RunFeatures.FromKind(k).IsCatTrack ? (int)SkiRulesKind.CatTrack : (int)SkiRulesKind.Run;
         }
 
         private void CountGuard()

@@ -88,56 +88,13 @@ Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset. Source: the newest entry of release/CHANGELOG.md (tools/sync-listing.js copies it)-->
 	<ChangeLog>
-**Resort Planner:**
-- No more long green lines outside the region while planning.
-- The lift list scrolls, and the steps read in a clearer order.
-- The planner stays open when you build a lift that needs hand placement.
-- No station on top of another station.
-- Runs reach the run they join, and cat tracks come out in one piece.
-- The planner is on by default.
+**Saves:**
+- Lifts, runs, cat tracks and resort buildings built from now on remember the version that built them, so a later update can bring older ones up to date.
+- A city saved with 1.0.2 still loads in 1.0.1, but that version forgets which version built what.
 
-**Hub:**
-- Fly to an unfinished lift.
-- Click a run to go to it.
-- Mountain stats.
-- Clearer wording when the ski school is not working, for example off-season.
-- Warnings say "open" when the runs exist but are all closed, for example "no open green run or cat track".
-- The Mountain section labels its number: "Vertical drop".
-- An open cat track counts as the ski school's run. Cat tracks do not count toward Variety.
-
-**Units:**
-- Degrees for slopes everywhere.
-- Four display options: run grading, lengths and elevation, and weather are Auto by default (grading follows the city's map theme, the units follow the game's setting). Slope shows degrees by default.
-- European grading: green, blue, red, black, ski route.
-- Imperial lengths switch from yards to miles at 500 yd.
-
-**Assets:**
-- Staff Only signs on the doors.
-- New flags.
-- Patrol Hut firewood.
-- 3D icons.
-- The Chalet, A-Frame and Grand run off-grid when a cat track links them to a road lodge or bus depot.
-- New thumbnail and launcher icon.
-
-**Season:**
-- A run or cat track needs real snow to read Open, with clearer snow text.
-- Snow guns on cat tracks now work like the guns on runs: they follow the air temperature, and they need about one game hour to build the snow.
-- The planner's tree filler keeps out of lift corridors, the tram's too.
-
-**Economy:**
-- Ticket default 80 to 100, season pass x2 to x4.
-- Lodges and the school close off-season (an option).
-- Cat tracks pay snowmaking only while their guns make snow.
-- Guests without a car who live far from every lodge start at the bus depot.
-
-**Ski way:**
-- A narrow grading mode in the cat track tool: the Ski way button in the hub's Runs tab, or Ctrl+Shift+J.
-
-**Behind the scenes:**
-- Dev-only screens out of the release build.
-- Lift towers keep their saved shape on load.
-- Less log noise.
-- Saves from 1.0.0 load fine.
+**Sync resort:**
+- When an update changes how resort objects should look, the hub's Overview shows "Sync resort" with the objects of that ski area that are out of date. The first one: Patrol Huts placed before 1.0.1 get their firewood pile.
+- Each object can be skipped or kept as it is. Sync is free and has no undo.
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme". PLACEHOLDER: the DISCORD_URL token stands for the Discord bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or delete this line if only the forum thread is used (the same gate and the same UNVERIFIED publisher behavior as ForumLink)-->
 	<ExternalLink Type="discord" Url="https://discord.com/channels/263634513861541888/1570379334672326736" />
