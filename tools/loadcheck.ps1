@@ -141,7 +141,7 @@ function Install-SaveCopy([string]$source, [string]$gameName) {
     foreach ($c in Get-ChildItem $savesDir.FullName -Filter *.cok -File | Where-Object { $_.Length -eq $srcLen -and $_.Name -notlike 'loadcheck_*' }) {
         if (-not $srcHash) { $srcHash = (Get-FileHash -LiteralPath $source).Hash }
         if ((Get-FileHash -LiteralPath $c.FullName).Hash -eq $srcHash) {
-            $script:StagedName = [IO.Path]::GetFileNameWithoutExtension($c.Name)
+            $script:StagedName = [Uri]::UnescapeDataString([IO.Path]::GetFileNameWithoutExtension($c.Name))   # the game escapes "." as %2E in file names; the list shows the plain name
             Write-Output "  save copy: not needed, the game already lists a byte-identical save as '$($script:StagedName)' (loaded read-only by name, never saved over)"
             return $c.FullName
         }
