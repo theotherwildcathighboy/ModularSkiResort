@@ -31,6 +31,7 @@
 .PARAMETER GameName    The save name inside the game (default "SRM Baseline <Version> <What>"). Must be new.
 .PARAMETER Alias       Run the prefabalias op first (the old save carries dev-made prefab ids).
 .PARAMETER Stage       Only stage the copy of -Save (game CLOSED; T205), then exit.
+.PARAMETER FinishOnly  Skip the alias and the loadcheck (they already ran and the new save is loaded): only copy the save, write the census baseline, print the README row.
 .PARAMETER NoMonth     Skip the in-game month of loadcheck part (c).
 .PARAMETER OutDir      Where the loadcheck JSON reports go (default docs\research\field\<date>\loadcheck).
 .PARAMETER WriteReadme Append the row to release/saves-by-release/README.md.
@@ -50,6 +51,7 @@ param(
     [string]$GameName,
     [switch]$Alias,
     [switch]$Stage,
+    [switch]$FinishOnly,
     [switch]$NoMonth,
     [string]$OutDir,
     [switch]$WriteReadme,
@@ -120,6 +122,8 @@ if ($WhatIf) {
 }
 if (-not (Get-Process Cities2 -ErrorAction SilentlyContinue)) { Stop-Resave 2 'Cities2 is not running: stage with -Stage (game closed), start the game, wait for the bridge READY, run this again' }
 
+$report = $null
+if (-not $FinishOnly) {
 # ---- 1. alias (dev-id saves) ---------------------------------------------------------------------------------------------
 if ($Alias) {
     $list = Join-Path $PSScriptRoot 'shipped-prefabs.json'
@@ -139,13 +143,19 @@ $out = @(& $PS @lc 2>&1 | ForEach-Object { Write-Host "$_"; "$_" })   # streamed
 $code = $LASTEXITCODE
 if ($code -ne 0) { Stop-Resave $(if ($code -eq 1) { 1 } else { 3 }) "loadcheck exit ${code}: nothing was copied into $Release. Read the lines above." }
 $reportLine = @($out | Where-Object { $_ -match '^report: ' }) | Select-Object -Last 1
-$report = $null
 if ($reportLine) { try { $report = Get-Content ($reportLine -replace '^report: ', '') -Raw -Encoding UTF8 | ConvertFrom-Json } catch { } }
+}
 
+if ($FinishOnly -and $OutDir) {
+    $j = Get-ChildItem $OutDir -Filter "$oldStem-*.json" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($j) { try { $report = Get-Content $j.FullName -Raw -Encoding UTF8 | ConvertFrom-Json } catch { } }
+}
 # ---- 3. copy the new save into release/saves-by-release, census baseline ------------------------------------------------------
 $savesDir = Get-ChildItem (Join-Path $UserData 'Saves') -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-$src = Join-Path $savesDir.FullName "$GameName.cok"
-if (-not (Test-Path -LiteralPath $src)) { Stop-Resave 3 "the new save is not at $src" }
+# The game escapes characters in a save's file name ('.' becomes %2E): match on the unescaped name.
+$srcFile = Get-ChildItem $savesDir.FullName -Filter *.cok -File | Where-Object { [Uri]::UnescapeDataString([IO.Path]::GetFileNameWithoutExtension($_.Name)) -eq $GameName } | Select-Object -First 1
+if (-not $srcFile) { Stop-Resave 3 "the new save '$GameName' is not in $($savesDir.FullName)" }
+$src = $srcFile.FullName
 Copy-Item -LiteralPath $src -Destination $newCok
 if (Test-Path -LiteralPath "$src.cid") { Copy-Item -LiteralPath "$src.cid" -Destination "$newCok.cid" }
 Write-Output "  copied: $newCok ($('{0:N1}' -f ((Get-Item $newCok).Length / 1MB)) MB)"
