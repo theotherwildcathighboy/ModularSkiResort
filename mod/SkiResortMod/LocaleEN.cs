@@ -1035,9 +1035,12 @@ namespace SkiResortMod
                 // Contract 48 (T200): the snow report.
                 { "SkiResort.Hub.SNOW_REPORT[Title]", "Snow report" },
                 { "SkiResort.Hub.SNOW_REPORT[Depth]", "Snow depth" },
-                { "SkiResort.Hub.SNOW_REPORT[New24]", "New snow, last 24 hours" },
+                { "SkiResort.Hub.SNOW_REPORT[New24]", "New snow, 24 hours" },
+                { "SkiResort.Hub.SNOW_REPORT[Summit]", "Summit" },
+                { "SkiResort.Hub.SNOW_REPORT[Base]", "Base" },
+                { "SkiResort.Hub.SNOW_REPORT[Temp]", "Temperature" },
                 { "SkiResort.Hub.SNOW_REPORT[Season]", "Season snowfall" },
-                { "SkiResort.Hub.SNOW_REPORT[NotMeasured]", "Not measured yet" },
+                { "SkiResort.Hub.SNOW_REPORT[NotMeasured]", "Snow depth is not measured yet." },
                 { "SkiResort.Hub.SNOW_REPORT[NoRuns]", "No runs yet. Base and summit are the lowest and highest point of the runs." },
                 // The merge card (contract 35) and the Overview's merged buildings fold.
                 { "SkiResort.Hub.MERGE_CARD[Title]", "Merge into a ski area" },

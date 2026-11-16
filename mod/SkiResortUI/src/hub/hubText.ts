@@ -28,9 +28,12 @@ export const HUB_LOC = {
   /* contract 48 (T200): the snow report (the Welcome Sign card, the status tooltip) */
   snowReportTitle: ["SkiResort.Hub.SNOW_REPORT[Title]", "Snow report"],
   snowReportDepth: ["SkiResort.Hub.SNOW_REPORT[Depth]", "Snow depth"],
-  snowReportNew24: ["SkiResort.Hub.SNOW_REPORT[New24]", "New snow, last 24 hours"],
+  snowReportNew24: ["SkiResort.Hub.SNOW_REPORT[New24]", "New snow, 24 hours"],
+  snowReportSummit: ["SkiResort.Hub.SNOW_REPORT[Summit]", "Summit"],
+  snowReportBase: ["SkiResort.Hub.SNOW_REPORT[Base]", "Base"],
+  snowReportTemp: ["SkiResort.Hub.SNOW_REPORT[Temp]", "Temperature"],
   snowReportSeason: ["SkiResort.Hub.SNOW_REPORT[Season]", "Season snowfall"],
-  snowReportNotMeasured: ["SkiResort.Hub.SNOW_REPORT[NotMeasured]", "Not measured yet"],
+  snowReportNotMeasured: ["SkiResort.Hub.SNOW_REPORT[NotMeasured]", "Snow depth is not measured yet."],
   snowReportNoRuns: ["SkiResort.Hub.SNOW_REPORT[NoRuns]", "No runs yet. Base and summit are the lowest and highest point of the runs."],
 
   /* the merge card (contract 35) and the Overview's merged buildings fold */

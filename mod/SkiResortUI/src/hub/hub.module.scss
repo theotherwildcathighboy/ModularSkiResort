@@ -1904,7 +1904,7 @@
   padding-right: 10rem;
 }
 
-// Contract 48 (T200): the snow report card's notes (no runs yet, the season's first month). Dim, wraps.
+// Contract 50 (T200): the snow report card's notes (no runs yet, the season's first month). Dim, wraps.
 .snowCardNote {
   padding-top: 4rem;
   padding-left: 10rem;
@@ -1914,6 +1914,61 @@
   color: var(--hubTextDim);
 }
 
+// T200 layout A (the board): a Summit | Base head, then label rows with two fixed-width value columns. Flex only. The column width
+// is 4.2em of the text, and the card grows faster than the Ski Bus card (460rem per +1 of scale: the game's text is about 2x at 1.5), so
+// the label keeps its room: 340 / 455 / 570 rem at 1.0 / 1.25 / 1.5. The card has free space on its right.
+.snowCard {
+  width: calc(340rem + 460rem * var(--fontScaleChange));
+}
+
+.snowHead {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
+  height: calc(2.45em + 6rem);
+  padding-left: 10rem;
+  padding-right: 10rem;
+  font-size: var(--fontSizeS);
+  line-height: 130%;
+}
+
+.snowHeadLabel {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+}
+
+.snowCol {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 4.2em;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.snowColName {
+  font-size: var(--fontSizeXS);
+  color: var(--hubTextDim);
+}
+
+.snowRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  height: calc(1.3em + 10rem);
+  padding-left: 10rem;
+  padding-right: 10rem;
+  font-size: var(--fontSizeS);
+  line-height: 130%;
+}
+
+.snowRowAlt {
+  background-color: var(--hubTrack);
+}
+
 .busCardTitle {
   padding-top: 8rem;
   padding-bottom: 8rem;
@@ -1921,6 +1976,11 @@
   padding-right: 10rem;
   font-size: var(--fontSizeM);
   color: var(--accentColorNormal);
+}
+
+// The snow card's title reads as text, not a control (T202 F7: the accent color is for controls and selection). After .busCardTitle.
+.snowCardTitle {
+  color: var(--normalTextColor);
 }
 
 // -- receipt and list rows (design 5.2): the vanilla InfoRow metrics ---------------------------------
