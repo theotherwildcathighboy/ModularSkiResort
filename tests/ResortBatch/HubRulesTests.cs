@@ -1031,7 +1031,7 @@ namespace ResortBatch
             if (!threw)
                 Rows("P16 null lists", o, new[] { P(HubProblemCode.NoLift, 1, pct: 0, build: "baseStation") });
 
-            // P47 lift bend (owner verdict 2026-11-02: warn, never refuse).
+            // P47 lift bend (geometry limits warn, never refuse: DECISIONS 600).
             // A complete (0, 1) or open (2) row with BendTenths > 0 gets one dim row. The dim row has severity 1, Count = the tower number
             // and Detail = tenths of a degree. It comes after the lift's own severity-2 row.
             // An unfinished (3) or stations-only (4) row never gets a dim row. Neither does a row whose bend the census did not flag (BendTenths 0).

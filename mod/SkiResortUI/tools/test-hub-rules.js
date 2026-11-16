@@ -870,7 +870,7 @@ function run(srcDir) {
   eq("T35.3 a cat track row shows its running cost (billed by plan area while its guns can run)",
     [read(path.join("hub", "RunList.tsx")).includes("row.kind !== RUN_KIND.Natural && row.bound && {\n          label: t(HUB_LOC.runCost)")], [true]);
 
-  // T36 (owner verdict 2026-11-02: warn, never refuse) code 30 LiftBend: a dim band row naming the lift, the bend (detail = tenths) and the
+  // T36 (geometry limits warn, never refuse: DECISIONS 600) code 30 LiftBend: a dim band row naming the lift, the bend (detail = tenths) and the
   // tower (count). Its click flies to the bent tower (focusLift with the tower node as subject and no top, SkiResortHubUISystem).
   eq("T36.1 code 30: variant liftBend, click lift, info glyph", [BIND.PROBLEM.LiftBend, R.problemVariant(P(A, 30, 1, { count: 7, detail: 124 })),
     R.problemClick(P(A, 30, 1)), R.problemIcon(P(A, 30, 1)).tone], [30, "liftBend", "lift", "info"]);

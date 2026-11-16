@@ -482,7 +482,7 @@
       { sign: SIGN, code: 8, severity: 1, subject: NULL, subjectTop: NULL, name: "", count: 1, pct: 50, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "lift" },
       { sign: SIGN, code: 24, severity: 1, subject: E(405), subjectTop: NULL, name: "", count: 2, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "" },
     ], history, build: buildItems({ built: ["school"] }) });
-  // Code 30 LiftBend (owner verdict 2026-11-02: warn, never refuse): Meadow Quad's tower 12 turns the rope 12.4 deg in plan. A dim
+  // Code 30 LiftBend (geometry limits warn, never refuse: DECISIONS 600): Meadow Quad's tower 12 turns the rope 12.4 deg in plan. A dim
   // row appears in the band's second slot, under a severity-2 lift row. subject = the tower's net node, no top (focusLift flies to the tower).
   window.SkiScenarios["Ash Flat (runs, lifts, problems), a lift bend"] = Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2],
     selectedResort: SIGN, runs, runLive, lifts, history, build: buildItems({ built: ["school"] }),

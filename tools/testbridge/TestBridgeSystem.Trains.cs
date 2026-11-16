@@ -1,5 +1,5 @@
-// Gate G8 for the pitched sheave trains (lift alignment Phase 2, docs lift-alignment-2026-11-02. Articulated halves, owner verdict
-// 2026-11-02 option C). For each line tower whose mesh has bones named "TrainFront*" / "TrainBack*", the gate compares two values.
+// Gate G8 for the pitched sheave trains (lift alignment Phase 2, docs lift-alignment-2026-11-02. Articulated halves, DECISIONS 570
+// option C). For each line tower whose mesh has bones named "TrainFront*" / "TrainBack*", the gate compares two values.
 // The first is the pitch each bone shows (rotation relative to its rest, about x, nose up along the tower's +z). The second is an
 // independent expectation. It is the analytic hanging-lane end slopes (chord -/+ 4h, LaneSystem.cs:4128-4138) of the rope lanes
 // ending on the tower's anchors, averaged per side. Lanes leaving toward +z feed the front half, and lanes leaving toward -z feed

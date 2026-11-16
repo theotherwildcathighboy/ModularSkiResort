@@ -1,4 +1,4 @@
-// Plan bends at lift towers (docs: lift-alignment-2026-11-02 C6 / F6, owner verdict 2026-11-02: warn, never refuse): the census row's
+// Plan bends at lift towers (docs: lift-alignment-2026-11-02 C6 / F6, geometry limits warn, never refuse: DECISIONS 600): the census row's
 // sharpest tower bend (LiftCensus.MeasureBends: BendDeg / BendTower / BendNode / BendAt), the hub's number for it
 // (LiftCensus.BendWarnTenths) and the lift tool's joint check (LiftLineInput.JoinBendWarnDeg). Where-tags `bend/...`, BT-1..BT-10.
 // Pinned:
