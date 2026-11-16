@@ -53,22 +53,30 @@ const curShort = (x.match(shortRe) || [])[1];
 if (curLong === undefined || curShort === undefined) { console.error("PublishConfiguration.xml: ShortDescription / LongDescription not found"); process.exit(2); }
 const same = curLong.trim() === long && curShort === short;
 
-// The change log: release/CHANGELOG.md's newest entry, one line per bullet, into <ChangeLog>. The docs page repeats its "Layout versions" line.
+// The change log: release/CHANGELOG.md's newest entry, one line per bullet, into <ChangeLog>, with a plain header in place of the three
+// technical lines (below). The docs page repeats its "Layout versions" line.
 const cl = fs.readFileSync(path.join(ROOT, "release", "CHANGELOG.md"), "utf8").replace(/\r\n/g, "\n");
 // YYYY-MM-DD is the date placeholder of a patch entry until its upload day (RELEASE-CHECKLIST: fill the date at upload).
 const clStart = cl.search(/^## \d+\.\d+\.\d+ \(PDX version -?\d*, (unreleased|YYYY-MM-DD|\d{4}-\d{2}-\d{2})\)$/m);
 if (clStart < 0) { console.error("CHANGELOG.md: newest entry not found"); process.exit(2); }
 const clRest = cl.slice(clStart);
 const clEnd = clRest.indexOf("\n## ", 1);
-const log = (clEnd < 0 ? clRest : clRest.slice(0, clEnd)).split("\n").slice(1).join("\n").trim()
+const entry = (clEnd < 0 ? clRest : clRest.slice(0, clEnd)).split("\n").slice(1).join("\n").trim()
   .replace(/\n[ \t]+/g, " ")
   .replace(/ Draft notes \(check against the build at upload\):/, "");
+// Players get a plain header (owner, 2026-11-15): the three technical lines (save compatible, layout versions, do not load in older
+// versions) stay in CHANGELOG.md, GitHub and the docs site. The Paradox box gets one line in their place when the save is compatible.
+const prevVersion = clEnd < 0 ? null : (clRest.slice(clEnd).match(/^## (\d+\.\d+\.\d+) /m) || [])[1];
+const compatible = /^- Save compatible with previous: yes\s*$/m.test(entry);
+let log = entry.split("\n").filter((l) => !/^- (Save compatible with previous|Layout versions|Do not load in older versions):/.test(l))
+  .join("\n").trim();
+if (compatible && prevVersion) log = "Saves from " + prevVersion + " load fine.\n\n" + log;
 if (/[<>&`]/.test(log)) problems.push("change log holds one of < > & `");
 const logRe = /<ChangeLog>\n?([\s\S]*?)\n?[ \t]*<\/ChangeLog>/;
 const curLog = (x.match(logRe) || [])[1];
 if (curLog === undefined) { console.error("PublishConfiguration.xml: ChangeLog not found"); process.exit(2); }
 const sameLog = curLog.trim() === log;
-const layoutLine = (log.match(/^- Layout versions: .*$/m) || [""])[0];
+const layoutLine = (entry.match(/^- Layout versions: .*$/m) || [""])[0];
 const mdx = fs.readFileSync(path.join(ROOT, "docs-site", "src", "content", "docs", "changelog.mdx"), "utf8");
 if (!layoutLine || !mdx.includes(layoutLine)) problems.push("docs-site changelog.mdx does not carry the line: " + layoutLine);
 
