@@ -271,6 +271,34 @@ namespace SkiResortMod.Systems
             m_MergeCard.Update(MergeCardNow());
         }
 
+        /// <summary>A merged building's name for the card and the fold (T218): the player's own name as typed, else the game's localized
+        /// name, else the localized "Assets.NAME[prefab]" of its prefab (a building from another mod whose Localization points nowhere),
+        /// else the asset id as words (HubRules.ReadableBuildingName).</summary>
+        private string MergedBuildingName(Entity building)
+        {
+            if (m_NameSystem.TryGetCustomName(building, out string custom) && !string.IsNullOrEmpty(custom))
+                return custom;
+            string name = m_NameSystem.GetRenderedLabelName(building);
+            if (!string.IsNullOrEmpty(name) && name.IndexOf(' ') >= 0)
+                return name;
+            try
+            {
+                if (EntityManager.TryGetComponent(building, out Game.Prefabs.PrefabRef pref) && pref.m_Prefab != Entity.Null)
+                {
+                    string prefabName = m_PrefabSystem.GetPrefabName(pref.m_Prefab);
+                    var dictionary = Game.SceneFlow.GameManager.instance?.localizationManager?.activeDictionary;
+                    if (!string.IsNullOrEmpty(prefabName) && dictionary != null &&
+                        dictionary.TryGetValue("Assets.NAME[" + prefabName + "]", out string localized) && !string.IsNullOrEmpty(localized))
+                        return localized;
+                }
+            }
+            catch (Exception)
+            {
+                // a prefab being torn down: the id as words below
+            }
+            return HubRules.ReadableBuildingName(name);
+        }
+
         /// <summary>The building the card shows for a selection: one that is merged, or a kind that can be merged while a ski area exists.
         /// A too-small lot counts, so the card says why. Null for anything else, our own buildings included.</summary>
         private Entity MergeCardBuildingOf(Entity selected)
@@ -297,7 +325,7 @@ namespace SkiResortMod.Systems
             {
                 Shown = true,
                 Building = b,
-                Name = m_NameSystem.GetRenderedLabelName(b),
+                Name = MergedBuildingName(b),
                 Tier = -1,
                 State = (int)MergeRules.State.Unknown,
                 Outcome = merge.LastOutcomeBuilding == b ? (int)merge.LastOutcome : 0,
@@ -382,7 +410,7 @@ namespace SkiResortMod.Systems
                 {
                     Sign = v.Sign,
                     Building = v.Building,
-                    Name = m_NameSystem.GetRenderedLabelName(v.Building),
+                    Name = MergedBuildingName(v.Building),
                     Tier = v.Tier,
                     State = (int)v.State,
                     Monthly = MergeRules.Billed(v.State) ? MergeSystem.MonthlyFeeOf(v.Building, v.Tier) : 0,

@@ -32,6 +32,11 @@ namespace ResortBatch
             check(!HubRules.FactsKnownAfterLoad(0u), "load settle", "frame 0");
             check(!HubRules.FactsKnownAfterLoad(HubRules.LoadSettleFrames - 1u), "load settle", "one short");
             check(HubRules.FactsKnownAfterLoad(HubRules.LoadSettleFrames), "load settle", "settled");
+            // T218: asset ids read as words, real names stay
+            check(HubRules.ReadableBuildingName("ValmerinChalet01GrandV2") == "Valmerin Chalet 01 Grand V2", "building name", "camel id");
+            check(HubRules.ReadableBuildingName("Assets.NAME[AlpineHut_02]") == "Alpine Hut 02", "building name", "id wrapper cut");
+            check(HubRules.ReadableBuildingName("Warming hut") == "Warming hut", "building name", "a name with a space stays");
+            check(HubRules.ReadableBuildingName("Cabin") == "Cabin" && HubRules.ReadableBuildingName(null) == "", "building name", "one word, null");
             SectionA();
             SectionB();
             SectionC();

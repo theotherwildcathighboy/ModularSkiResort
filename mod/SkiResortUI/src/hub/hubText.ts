@@ -251,8 +251,8 @@ export const HUB_LOC = {
   mountainSnowDepth: ["SkiResort.Hub.MOUNTAIN[SnowDepth]", "Snow depth"],
   mountainSnowCover: ["SkiResort.Hub.MOUNTAIN[SnowCover]", "Run coverage"],
   /* T177: the Mountain fold's fact sheet (hubRules.mountainFacts) */
-  mountainRuns: ["SkiResort.Hub.MOUNTAIN[Runs]", "Runs"],
-  mountainTipRuns: ["SkiResort.Hub.MOUNTAIN_TIP[Runs]", "Runs of the area, open or closed. The legend above counts them by rating."],
+  mountainRuns: ["SkiResort.Hub.MOUNTAIN[Runs]", "Pistes"],
+  mountainTipRuns: ["SkiResort.Hub.MOUNTAIN_TIP[Runs]", "Ski runs of the area, open or closed, without cat tracks. The legend above counts them by rating."],
   mountainLongest: ["SkiResort.Hub.MOUNTAIN[Longest]", "Longest run"],
   mountainTipLongest: ["SkiResort.Hub.MOUNTAIN_TIP[Longest]", "Measured flat on the map, not along the slope."],
   mountainLifts: ["SkiResort.Hub.MOUNTAIN[Lifts]", "Lifts"],
@@ -728,6 +728,7 @@ export const HUB_FMT = {
   areaHa: ["SkiResort.Hub.AREA_HA", "{HA} ha"],
   /** Options > Lengths and elevation is imperial (T161, parts.tsx areaArg / speedArg). */
   areaAcres: ["SkiResort.Hub.AREA_ACRES", "{HA} acres"],
+  areaAcre: ["SkiResort.Hub.AREA_ACRE", "{HA} acre"],
   speedMps: ["SkiResort.Hub.SPEED_MPS", "{N} m/s"],
   speedFpm: ["SkiResort.Hub.SPEED_FPM", "{N} ft/min"],
   snowDepth: ["SkiResort.Hub.SNOW_DEPTH", "{DEPTH} cm"],
