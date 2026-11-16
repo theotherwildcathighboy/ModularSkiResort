@@ -25,8 +25,8 @@ namespace SkiTestBridge
         private const double kFringeBarNorm = 0.91 / 8.0;
         private const double kHalfQuantum = 0.5 / 65535.0;
 
-        /// <summary>Op "runTexels": {kinds (default [1, 2]: snowmaking, night), optional names [..], optional entity}. Per run the texel
-        /// classes of the injection's planes under its outline (see the file header).</summary>
+        /// <summary>Op "runTexels": {kinds (default [1, 2]: snowmaking, night), optional names [..], optional entity}. Per run the outline's
+        /// elevation range (yMin, yMax) and center, and the texel classes of the injection's planes under it (see the file header).</summary>
         private JObject RunTexelsCommand(JObject args)
         {
             var kinds = new HashSet<int>();
@@ -73,9 +73,12 @@ namespace SkiTestBridge
                     DynamicBuffer<Game.Areas.Node> nodes = EntityManager.GetBuffer<Game.Areas.Node>(e, true);
                     var ring = new float2[nodes.Length];
                     float2 lo = new float2(float.MaxValue), hi = new float2(float.MinValue);
+                    float yLo = float.MaxValue, yHi = float.MinValue;
                     for (int k = 0; k < nodes.Length; k++)
                     {
                         ring[k] = nodes[k].m_Position.xz;
+                        yLo = math.min(yLo, nodes[k].m_Position.y);
+                        yHi = math.max(yHi, nodes[k].m_Position.y);
                         lo = math.min(lo, ring[k]);
                         hi = math.max(hi, ring[k]);
                     }
@@ -148,6 +151,9 @@ namespace SkiTestBridge
                         ["entity"] = e.Index,
                         ["name"] = name,
                         ["kind"] = kind,
+                        ["yMin"] = Math.Round(yLo, 1),
+                        ["yMax"] = Math.Round(yHi, 1),
+                        ["center"] = new JArray(Math.Round((lo.x + hi.x) * 0.5f, 1), Math.Round((lo.y + hi.y) * 0.5f, 1)),
                         ["texels"] = cls["full"].N + cls["fringe"].N + cls["warm"].N + cls["stopped"].N + cls["none"].N,
                         ["classes"] = classes,
                         ["fullQuantilesM"] = q,
