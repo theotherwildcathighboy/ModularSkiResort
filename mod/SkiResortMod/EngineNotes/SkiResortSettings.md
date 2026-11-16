@@ -48,21 +48,21 @@ Key bindings are plain `ModSetting` members (no `UIInputActionCollection`, no re
 
 - Glade toggle is Ctrl+Shift+G (plain Ctrl+G showed a conflict marker: Move It `Key_TB_TerrainHeight` and Merts ToolBox
   `OpenGridTool` both default to Ctrl+G, T214 audit). A saved rebind survives.
-- A changed default reaches players who never rebound the key: the settings file keeps only fields that differ from a fresh defaults
-  object (AssetDatabase.cs:613-666, Setting.cs:151-155, DiffUtility; GameManager.cs:83 cleanupSettings, 1.6.2f1 decompile). Two
-  exceptions: a binding once written stays in the file with its full value, also after a reset to default; and a partial rebind
-  stores only the changed field (a key-only rebind keeps the new default's modifiers). So a new default stays in the same modifier
-  family.
+- A changed default reaches players who never rebound the key. The settings file keeps only the fields that differ from a fresh
+  defaults object (AssetDatabase.cs:613-666, Setting.cs:151-155, DiffUtility, GameManager.cs:83 cleanupSettings, 1.6.2f1 decompile).
+  Exception 1: a binding once written stays in the file with its full value, also after a reset to default. Exception 2: a partial
+  rebind stores only the changed field. A key-only rebind thus keeps the modifiers of the new default. So a new default stays in the
+  same modifier family.
 - `DumpDiagnostics` is Ctrl+Alt+G. Every live probe logged ctrl/shift/alt+G all live, so no vanilla binding on G disallows
   modifiers (`PathEquals` uses the path-only comparer when either side disallows them, ProxyBinding.cs:822-825, and the runtime pass,
   InputConflictResolution.cs:148-182, disables the losing mod action).
 - Ctrl+Alt+G vs our Alt+G: an Allow-modifiers composite gets a prohibition processor for every supported modifier the binding does
   not use (InputManager.cs:2104-2112). So Alt+G should not fire on Ctrl+Alt+G (Unity-side behavior unverified).
 - Ctrl+Shift+D was rejected: D is vanilla's camera-right key and a press would pan the camera off the run being dumped.
-- Ski way (`CatTrackSkiWay`) is Ctrl+Shift+J (T214). 1.0.0 shipped Ctrl+Shift+N, and in the field it opened Node Controller, whose
-  default is Ctrl+N: a mod key with fewer modifiers can fire on a chord that adds one, whatever the exact-match processors suggest
-  (field fact, 2026-11-15). So a default must avoid the letter in every modifier family the common mods and vanilla use. J is the
-  only letter with no binding at all among vanilla and the audited mods (docs/research/post-release-round1/T214-keys.md, private).
+- Ski way (`CatTrackSkiWay`) is Ctrl+Shift+J (T214). 1.0.0 shipped Ctrl+Shift+N. In the field (2026-11-15) that chord opened
+  Node Controller, and the installed Node Controller declares Ctrl+N. So a mod key can fire on a chord with one more modifier, against
+  what the prohibition processors suggest. A default must therefore avoid its letter in every modifier family. J is the only letter
+  with no binding among vanilla and the audited mods (docs/research/post-release-round1/T214-keys.md, private).
   Ctrl+Shift+W showed the triangle in the integration build: Write Everywhere (BelzontWE) `EnableTool` defaults to Ctrl+Shift+W.
 
 ### Default-chord audit (2026-11-14, game 1.6.4f1)
