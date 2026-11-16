@@ -125,6 +125,11 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<SkiResortAttractivenessSystem, Game.Simulation.AttractionSystem>(
                 SystemUpdatePhase.GameSimulation);
 
+            // T226 PROTOTYPE (r2/tourism-lab only): after CityModifierUpdateSystem, which clears and rebuilds the city modifier buffer every
+            // 256 frames; runs every frame and re-applies only after a rebuild. Off (no work) while ResortAttractionDevPct is 0.
+            updateSystem.UpdateAfter<ResortAttractionPrototypeSystem, Game.Simulation.CityModifierUpdateSystem>(
+                SystemUpdatePhase.GameSimulation);
+
             // Snow-line / climate oracle: pull-based (Enabled = false, no per-tick work). Consumers pull snow and season gating, the
             // snowmaking margin, the ambient and the cached 24-hour day mean. It logs the climate constants once per load.
             updateSystem.UpdateAt<SnowLineSystem>(SystemUpdatePhase.GameSimulation);

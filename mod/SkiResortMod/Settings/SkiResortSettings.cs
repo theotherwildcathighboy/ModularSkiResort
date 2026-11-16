@@ -324,6 +324,11 @@ namespace SkiResortMod.Settings
         // Cat track tool (grades the corridor and builds the run in one action). Read live by CatTrackGradeToolSystem.ReadParams. Values
         // are clamped there. A change re-solves the open plan.
 
+        /// <summary>T226 prototype (r2/tourism-lab, never shipped as is): a relative city Attractiveness bonus in percent for the bridge
+        /// A/B (ResortAttractionPrototypeSystem). 0 = off, the default. Set only through the test bridge (`tourism` op, action `bonus`).</summary>
+        [SettingsUIHidden]
+        public float ResortAttractionDevPct { get; set; }
+
         /// <summary>Legacy (1.0.0): the cat track's steepest grade in percent. Hidden since T160 (slopes show in degrees). Mod.OnLoad moves
         /// a changed value into CatTrackGradeMaxDeg once (DisplayUnits.LegacyPctToDeg) and puts this back to 25. Never rename.</summary>
         [SettingsUIHidden]
@@ -509,6 +514,7 @@ namespace SkiResortMod.Settings
         public override void SetDefaults()
         {
             SkiAreaRadiusKm = SkiAreaRadiusRules.DefaultKm;
+            ResortAttractionDevPct = 0f;
             AttractivenessScaleK = DefaultAttractivenessScaleK;
             BackcountryValuePercent = DefaultBackcountryValuePercent;
             LiftTicketPrice = SkiMoneyRules.TicketPriceDefault;
