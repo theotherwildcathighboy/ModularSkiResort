@@ -11,13 +11,13 @@
   -Action Ensure -Name <n>     Activate only if <n> is not active already. Exit 0 = it was active, 3 = switched, restart needed.
   -Action Clone -From <n> -Name "SRM Test ..."   copy an existing playset into a new one (an existing "SRM Test ..." of that name is reused)
   -Action Create -Name "SRM Test ..."            an empty playset
-  -Action Enable -ModId <id> -On $true|$false    enable or disable ONE mod in the ACTIVE playset (only an "SRM Test ..." playset)
+  -Action Enable -ModId <id> -On true|false    enable or disable ONE mod in the ACTIVE playset (only an "SRM Test ..." playset)
   The bridge refuses to create anything not named "SRM Test ..." and has no delete, rename or edit: the owner's playsets are never touched.
   A new playset syncs to the owner's Paradox account like any playset made in the Paradox Mods screen.
 
   Typical: world.ps1 -World Asset says which playset is wanted; the recipe for the Asset world's playset:
     playset.ps1 -Action Clone -From "Standard Mod Set" -Name "SRM Test Asset"; playset.ps1 -Action Activate -Name "SRM Test Asset"
-    playset.ps1 -Action Enable -ModId 167215 -On $false     (then quit; start; world.ps1 -World Status)
+    playset.ps1 -Action Enable -ModId 167215 -On false     (then quit; start; world.ps1 -World Status)
 
   Exit: 0 ok, 1 the bridge op failed, 2 the game / bridge is not there, 3 ok but a restart is needed.
 #>
@@ -27,7 +27,7 @@ param(
     [string]$Id,
     [string]$From,
     [string]$ModId,
-    [bool]$On = $true,
+    [string]$On = 'true',
     [int]$TimeoutSec = 90
 )
 
@@ -90,7 +90,7 @@ switch ($Action) {
     }
     'Enable' {
         if (-not $ModId) { Write-Output 'playset: -ModId'; exit 1 }
-        $res = Run-Job @{ op = 'playset'; action = 'enable'; modId = $ModId; enable = $On }
+        $res = Run-Job @{ op = 'playset'; action = 'enable'; modId = $ModId; enable = ($On -match '^(1|true|yes|on)$') }
         Write-Output "mod $($res.mod) $(if ($res.enabled) { 'enabled' } else { 'disabled' }) in '$($res.playset)'. Restart the game."
         exit 3
     }

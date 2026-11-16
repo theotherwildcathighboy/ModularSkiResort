@@ -135,9 +135,8 @@ if ($Alias) {
 $lc = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $LoadCheck, '-Save', $Save, '-Resave', '-ResaveName', $GameName)
 if ($NoMonth) { $lc += '-NoMonth' }
 if ($OutDir) { $lc += @('-OutDir', $OutDir) }
-$out = & $PS @lc 2>&1 | ForEach-Object { "$_"; Write-Output "$_" | Out-Null }
+$out = @(& $PS @lc 2>&1 | ForEach-Object { Write-Host "$_"; "$_" })   # streamed to the console while it is captured
 $code = $LASTEXITCODE
-$out | ForEach-Object { Write-Output $_ }
 if ($code -ne 0) { Stop-Resave $(if ($code -eq 1) { 1 } else { 3 }) "loadcheck exit ${code}: nothing was copied into $Release. Read the lines above." }
 $reportLine = @($out | Where-Object { $_ -match '^report: ' }) | Select-Object -Last 1
 $report = $null
@@ -153,8 +152,7 @@ Write-Output "  copied: $newCok ($('{0:N1}' -f ((Get-Item $newCok).Length / 1MB)
 # The reloaded city IS the new save: write its census baseline beside the copy.
 $lc2 = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $LoadCheck, '-NoLoad', '-NoMonth', '-WriteBaseline', '-Save', $newCok)
 if ($OutDir) { $lc2 += @('-OutDir', $OutDir) }
-$out2 = & $PS @lc2 2>&1
-$out2 | ForEach-Object { Write-Output "$_" }
+$null = @(& $PS @lc2 2>&1 | ForEach-Object { Write-Host "$_" })
 if (-not (Test-Path -LiteralPath (Join-Path $Release "$newStem.census.json"))) { Stop-Resave 3 'the census baseline was not written' }
 foreach ($f in "$newCok", "$newCok.cid") { if (Test-Path -LiteralPath $f) { (Get-Item -LiteralPath $f).IsReadOnly = $true } }
 
