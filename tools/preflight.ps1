@@ -51,6 +51,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# Native stderr under Windows PowerShell 5.1: with "Stop", a node check that writes to stderr (console.error) under 2>&1 raises a
+# terminating NativeCommandError and aborts preflight before the summary. Every node check runs through Invoke-Node: "Continue" for the
+# call, every line as text. $LASTEXITCODE is global, so the caller still reads the exit code of the check.
+function Invoke-Node {
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try { & node @args 2>&1 | ForEach-Object { "$_" } } finally { $ErrorActionPreference = $prev }
+}
 if (-not (Test-Path $ImportedData)) { Write-Output "FATAL: ImportedData not found: $ImportedData"; exit 1 }
 
 # Known vanilla references (docs/PIPELINE.md + docs/research/{vanilla-reuse,golfpack-dissection,trails-surfaces-glades}.md)
@@ -770,9 +778,9 @@ foreach ($mn in $mlNames) {
 # tools/check-us-english.js (word list inside) scans the locale sources, the hub's locale tuples, the mod's log calls and the
 # docs-site prose, and (T130 part 2) the comments of every source file and the prose of docs/; any British spelling is a FAIL. Its --self-test proves the word list still catches its fixtures.
 $usJs = Join-Path $PSScriptRoot "check-us-english.js"
-$usOut = @(& node $usJs 2>&1)
+$usOut = @(Invoke-Node $usJs)
 $usExit = $LASTEXITCODE
-$usSelf = @(& node $usJs --self-test 2>&1)
+$usSelf = @(Invoke-Node $usJs --self-test)
 $usSelfExit = $LASTEXITCODE
 if ($usExit -ne 0) {
     foreach ($l in $usOut) { if ("$l" -match '^\S+:\d+: ') { $rows.Add("FAIL  USENGLISH $l"); $failures++ } }
@@ -784,13 +792,13 @@ if ($usExit -ne 0) {
 }
 
 # ---- 12a. STATSHASH: every hub stats row field feeds its change hash (2026-10-31; DECISIONS 494) ---------------------------------
-$shOut = @(& node (Join-Path $PSScriptRoot "check-stats-hash.js") 2>&1)
+$shOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-stats-hash.js"))
 if ($LASTEXITCODE -ne 0) { $rows.Add("FAIL  STATSHASH $($shOut -join ' ')"); $failures++ } else { $rows.Add("OK    STATSHASH $(($shOut | Select-Object -Last 1))") }
 
 # ---- 12b. USERPATHS: no absolute C:\Users paths in tracked or new files (release blocker 2026-10-22; DECISIONS 377) -----
 # Generators (cs2_bldg.py, welcome_sign.py, lodge.py, cs2_review.write_pack) still write absolute paths into new manifests:
 # this gate stops them reaching a commit. Use repo-relative paths or %USERPROFILE% / %TEMP% placeholders.
-$upOut = @(& node (Join-Path $PSScriptRoot "check-no-user-paths.js") 2>&1)
+$upOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-no-user-paths.js"))
 if ($LASTEXITCODE -ne 0) {
     foreach ($l in $upOut) { if ("$l" -match '^\S+:\d+: ') { $rows.Add("FAIL  USERPATHS $l"); $failures++ } }
     if (-not ($upOut | Where-Object { "$_" -match '^\S+:\d+: ' })) { $rows.Add("FAIL  USERPATHS $($upOut -join ' ')"); $failures++ }
@@ -799,7 +807,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ---- 12c. LATEDELETE: no Deleted tag from a phase after ModificationSystem (native crash, field test 2026-10-31) -----
-$ldOut = @(& node (Join-Path $PSScriptRoot "check-ui-phase-deletes.js") 2>&1)
+$ldOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-ui-phase-deletes.js"))
 if ($LASTEXITCODE -ne 0) {
     foreach ($l in $ldOut) { $rows.Add("FAIL  LATEDELETE $l"); $failures++ }
 } else {
@@ -807,7 +815,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ---- 12c. TOOLTIPUNITS: a ProgressTooltip only with a unit the game formats (raw "<percentage>" in the planner scan, T155) ------
-$tuOut = @(& node (Join-Path $PSScriptRoot "check-tooltip-units.js") 2>&1)
+$tuOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-tooltip-units.js"))
 if ($LASTEXITCODE -ne 0) {
     foreach ($l in $tuOut) { $rows.Add("FAIL  TOOLTIPUNITS $l"); $failures++ }
 } else {
@@ -815,7 +823,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ---- 12c. RUNPROPS: the run prop placer's text rules (consumers on the tag, sliders look only, table = prefabs; 2026-11-01) ------
-$rpOut = @(& node (Join-Path $PSScriptRoot "check-run-props.js") 2>&1)
+$rpOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-run-props.js"))
 if ($LASTEXITCODE -ne 0) {
     foreach ($l in $rpOut) { $rows.Add("FAIL  RUNPROPS $l"); $failures++ }
 } else {
@@ -823,7 +831,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ---- 12d. ALIGN: lift alignment gates (rope-point pin, one haul-rope lane per lift type; lift-alignment-2026-11-02 G2 / G3) ------
-$alOut = @(& node (Join-Path $PSScriptRoot "check-lift-align.js") --root $ImportedData 2>&1)
+$alOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-lift-align.js") --root $ImportedData)
 if ($LASTEXITCODE -ne 0) {
     foreach ($l in $alOut) { $rows.Add("FAIL  ALIGN    $l"); $failures++ }
 } else {
@@ -831,7 +839,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ---- 12c. JOBREAD: no main-thread access to components the city's jobs write (big-city pass 2026-11-01; DECISIONS 521) --------
-$jrOut = @(& node (Join-Path $PSScriptRoot "check-main-thread-jobs.js") 2>&1)
+$jrOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-main-thread-jobs.js"))
 if ($LASTEXITCODE -ne 0) {
     foreach ($l in $jrOut) { $rows.Add("FAIL  JOBREAD $l"); $failures++ }
 } else {
@@ -839,7 +847,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ---- 12c. LODGEID: every prefab-keyed lodge lookup is reviewed for merged buildings (merge asset P1, EngineNotes/SkiMergeSystem.md) ---
-$liOut = @(& node (Join-Path $PSScriptRoot "check-lodge-identity.js") 2>&1)
+$liOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-lodge-identity.js"))
 if ($LASTEXITCODE -ne 0) {
     foreach ($l in $liOut) { $rows.Add("FAIL  LODGEID $l"); $failures++ }
 } else {
@@ -849,9 +857,9 @@ if ($LASTEXITCODE -ne 0) {
 # ---- 12e. GAMESURFACE: the mod's whole dependency on Game.dll against tools/game-surface.lock (patch readiness, 2026-11-03) ------
 # Types, field layouts, enum numbers, vanilla anchors, prefab fields, vanilla references and the tested-version strings. With no
 # decompile beside the repo it runs the code-against-lock half only. Patch-day steps: docs/PIPELINE.md section 7.
-$gsSelf = @(& node (Join-Path $PSScriptRoot "game-surface-check.js") --self-test 2>&1)
+$gsSelf = @(Invoke-Node (Join-Path $PSScriptRoot "game-surface-check.js") --self-test)
 if ($LASTEXITCODE -ne 0) { foreach ($l in $gsSelf) { $rows.Add("FAIL  GAMESURFACE self-test: $l"); $failures++ } }
-$gsOut = @(& node (Join-Path $PSScriptRoot "game-surface-check.js") 2>&1)
+$gsOut = @(Invoke-Node (Join-Path $PSScriptRoot "game-surface-check.js"))
 if ($LASTEXITCODE -ne 0) {
     $gsFails = @($gsOut | Where-Object { "$_" -like "FAIL*" })
     if ($gsFails.Count -eq 0) { $gsFails = @($gsOut | Select-Object -Last 1) }
@@ -863,7 +871,7 @@ if ($LASTEXITCODE -ne 0) {
 # ---- 12c. LOCALE: locale/en-US.json (the translation template) matches the English dictionaries -------------------------------
 # tools/export-locale.js --check regenerates the file in memory from LocaleEN.cs and Settings/LocaleEN.cs and compares it with the
 # one on disk; it also fails on a duplicate key, an unreadable value or a hub text that differs from hubText.ts.
-$locOut = @(& node (Join-Path $PSScriptRoot "export-locale.js") --check 2>&1)
+$locOut = @(Invoke-Node (Join-Path $PSScriptRoot "export-locale.js") --check)
 if ($LASTEXITCODE -ne 0) {
     $rows.Add("FAIL  LOCALE $(($locOut | Select-Object -Last 1))"); $failures++
 } else {
@@ -873,7 +881,7 @@ if ($LASTEXITCODE -ne 0) {
 # ---- 12c2. SYMBOLS: the docs-site symbol table matches the hub's icon table (round 622) ------------------------------------------
 # tools/export-hub-symbols.js --check regenerates docs-site/src/data/hub-symbols.json and the icon copies in docs-site/public/icons/hub
 # from mod/SkiResortUI/src/hub/hubIcons.ts + hubText.ts, and fails on a difference, an icon without a meaning or no page showing the table.
-$symOut = @(& node (Join-Path $PSScriptRoot "export-hub-symbols.js") --check 2>&1)
+$symOut = @(Invoke-Node (Join-Path $PSScriptRoot "export-hub-symbols.js") --check)
 if ($LASTEXITCODE -ne 0) {
     $rows.Add("FAIL  SYMBOLS $(($symOut | Select-Object -Last 1))"); $failures++
 } else {
@@ -883,8 +891,8 @@ if ($LASTEXITCODE -ne 0) {
 # ---- 12c3. NOVANILLAART: no copy of game art in the repo (round 622) -----------------------------------------------------------
 # The hub may reference an installed game icon by its Media/ path; a copy in the repo would be published with it. tools/check-no-vanilla-art.js
 # compares every repo image with the installed UI Media folder (byte copies, and SVG paths copied into our own files). No game: SKIP.
-$nvOut = @(& node (Join-Path $PSScriptRoot "check-no-vanilla-art.js") 2>&1)
-$nvSelf = @(& node (Join-Path $PSScriptRoot "check-no-vanilla-art.js") --self-test 2>&1)
+$nvOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-no-vanilla-art.js"))
+$nvSelf = @(Invoke-Node (Join-Path $PSScriptRoot "check-no-vanilla-art.js") --self-test)
 $nvSelfCode = $LASTEXITCODE
 if ($nvSelfCode -ne 0) { $rows.Add("FAIL  NOVANILLAART self-test: $(($nvSelf | Select-Object -Last 1))"); $failures++ }
 elseif ("$($nvOut | Select-Object -Last 1)" -notmatch 'PASS|SKIP') { foreach ($l in $nvOut) { $rows.Add("FAIL  NOVANILLAART $l") }; $failures++ }
@@ -893,7 +901,7 @@ else { $rows.Add("OK    NOVANILLAART $(($nvOut | Select-Object -Last 1))") }
 # ---- 12d. STE: ASD-STE100 ratchet on player text and docs (DECISIONS 614) ------------------------------------------------------
 # tools/check-ste.js counts the hard structural STE findings per target (semicolon, long sentence, phrasal verb, synonym rotation...).
 # A count above tools/ste-lint/baseline.json fails. A lower count passes. Lower the baseline with --write after a cleanup.
-$steOut = @(& node (Join-Path $PSScriptRoot "check-ste.js") 2>&1)
+$steOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-ste.js"))
 if ($LASTEXITCODE -ne 0) {
     $steFails = @($steOut | Where-Object { "$_" -match '^FAIL' })
     foreach ($l in $steFails) { $rows.Add("FAIL  STE $($l -replace '^FAIL\s+', '')"); $failures++ }
