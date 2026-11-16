@@ -112,6 +112,16 @@ candidates. `dump` leaves out `Deleted` entities unless `none` is given. Pass `n
 
 ### Save and load
 
+**Unlock dialogs after a load (2026-11-16).** The first load of a vanilla or older save in a playset queues dozens of "New Signature Building
+Available" panels (45 in Royston). Each one pauses the simulation (TimeUISystem forced pause) until its OK is pressed, so a test sees speed 0 and
+no frames. DOM mouse events and real clicks do not dismiss them; the button's React `onClick` prop does. `__dclearPopups()` (helpers.js)
+presses OK until none is left and replies "popups cleared: N". `tools/loadcheck.ps1` and `sheet.mjs` (step `load`) call it after every load and log
+the count; call it yourself after a `__dload` of your own. Never use native input for this.
+
+**The Load Game list is virtualized (T205).** About 20 rows exist in the DOM; `__dfindSave(name)` scrolls the list until the row shows.
+`__dload` uses it. A staged copy lists only with its own `.cid`, and not at all while a byte-identical save is already listed
+(loadcheck then loads that save by its own name). The game escapes `.` in a save's file name as `%2E`.
+
 Use the pause menu with real clicks.
 
 To save:

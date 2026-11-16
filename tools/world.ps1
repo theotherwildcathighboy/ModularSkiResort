@@ -155,6 +155,6 @@ try {
 if ($WhatIf) { Write-Host 'dry run done. Nothing changed.'; exit 0 }
 $after = Get-WorldState
 Write-Host "now:  $($after.line)"
-if (-not $after.playsetOk) { Write-Host "TODO: pick the playset '$($after.wantPlayset)' in the game's Paradox Mods screen (this script never edits playsets)." }
+if (-not $after.playsetOk) { Write-Host "TODO: pick the playset '$($after.wantPlayset)' in the game's Paradox Mods screen, or with the game running at the main menu: toolsplayset.ps1 -Action Ensure -Name '$($after.wantPlayset)' (the game's own SDK, T221), then restart the game. This script never edits playsets." }
 if ($after.launch -notmatch 'uiDeveloperMode') { Write-Host 'TODO: launch with --developerMode --uiDeveloperMode (Steam launch options, or the direct start in tools/testbridge/README.md).' }
 exit ([int](-not $after.clean))

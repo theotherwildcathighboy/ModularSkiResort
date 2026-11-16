@@ -167,6 +167,7 @@ async function runStep(raw, no, depth) {
             catch (e) { throw new Error('the game did not report READY after the load: ' + String(e.stdout || e.message).slice(0, 200)); }
             inject();
             op({ op: 'autosave', on: false });
+            const pop = page('__dclearPopups()', 120); if (pop.value && !/ 0$/.test(String(pop.value))) console.log('    ' + pop.value);
             break;
         }
         case 'saveas': {

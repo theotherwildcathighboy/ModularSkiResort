@@ -199,6 +199,8 @@ function Load-City([string]$name, [string]$label) {
     # (The page helper __dload calls loadcheck/loadMark just before the load dialog click: the debug port does not answer while the load runs.)
     Wait-Ready $t
     Invoke-Node @('--inject', $Helpers, '--force') | Out-Null
+    $pop = Invoke-Page '__dclearPopups()' 120
+    if ("$pop" -notmatch ' 0$') { Write-Output "  $pop (each one paused the simulation)" }
     # A game load builds a new world: its autosave system starts ON again, so the off switch from before the load is gone.
     Invoke-Bridge @{ op = 'autosave'; on = $false } | Out-Null
 }

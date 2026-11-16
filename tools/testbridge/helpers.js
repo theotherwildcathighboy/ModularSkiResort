@@ -148,6 +148,20 @@ window.__dload = async (name) => {
   const y = __dtext("Yes");
   return "loading " + name + " yes " + (y ? 1 : 0) + " | " + log.join(" | ");
 };
+// A vanilla save from before some unlocks queues dozens of "New Signature Building Available" panels after the load (45 in Royston, 2026-11-16).
+// Each one pauses the simulation (TimeUISystem forced pause) until its OK is pressed, and only the React onClick prop dismisses it (DOM mouse
+// events and real clicks did nothing). Presses OK until none is left; replies the count. tools/loadcheck.ps1 calls it after every load.
+window.__dclearPopups = async () => {
+  let n = 0;
+  for (let i = 0; i < 200; i++) {
+    const o = __dfind("OK")[0]; if (!o) break;
+    const b = o.closest("button"); if (!b) break;
+    const k = Object.keys(b).find(x => x.startsWith("__reactProps")); if (!k || !b[k].onClick) break;
+    b[k].onClick({ stopPropagation() {}, preventDefault() {}, target: b, currentTarget: b }); n++;
+    await __sleep(450);
+  }
+  return "popups cleared: " + n;
+};
 window.__dsetInput = (inp, v) => { const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value"); if (d && d.set) d.set.call(inp, v); else inp.value = v; inp.dispatchEvent(new Event("input", { bubbles: true })); inp.dispatchEvent(new Event("change", { bubbles: true })); return inp.value; };
 // Saves under a NEW name to the Local target (saveTarget is restored afterward). Stops without clicking when an overwrite "Yes" shows
 // (an existing name), same rule as __save. Replies "saved <name> resume <0|1> target <previous> | ...".
