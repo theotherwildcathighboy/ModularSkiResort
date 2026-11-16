@@ -56,7 +56,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.RunGradeScheme)),
                     "How run difficulty is named and marked. North American: green circle, blue square, black diamond, " +
-                    "double black diamond. European: blue, red, black and expert black pistes. Auto follows the city's " +
+                    "double black diamond. European: green, blue, red and black pistes, and ski routes. Auto follows the city's " +
                     "map theme. Only names, markers and colors change: ratings, the score and saves stay the same."
                 },
                 { m_Setting.GetEnumValueLocaleID(GradeSchemeOption.Auto), "Auto (city theme)" },

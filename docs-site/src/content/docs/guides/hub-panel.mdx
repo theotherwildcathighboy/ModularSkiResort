@@ -16,7 +16,7 @@ The **Ski Resort hub** is the mod's single panel.
 ## Frame
 
 - **Header:** one ski area, keyed to its Welcome Sign. The name opens the list of ski areas. Pen: rename (an empty name restores the default). Info button: [Symbols](#hub-symbols). Runs and lifts outside every sign's radius (**5 km** by default, option **Ski area radius**) are listed as *Not linked to a ski area* and score **0**.
-- **Status line:** *Open* (every run is open), *Partly open* or *Closed*, with snow depth and cover, *Powder day* or a season warning. *≈* marks estimated snow. Tooltip: run counts by state, and whether the snow is measured or estimated. The rule: [Snow Conditions](/guides/runs-and-snow/#snow-conditions).
+- **Status line:** *Open* (every run is open), *Patchy* or *Closed*, with snow depth and cover, *Powder day* or a season warning. *≈* marks estimated snow. Tooltip: run counts by state, and whether the snow is measured or estimated. The rule: [Snow Conditions](/guides/runs-and-snow/#snow-conditions).
 - **Problem line:** the worst problem (*Lodge or school: road required*), with a button for the rest. Hover: why it matters, and for a missing lodge, stopped lodges or low efficiency, the attraction score once it is fixed. Click: fly to the cause. See [Troubleshooting](/guides/troubleshooting/).
 - **Tiles:** Attraction, Runs open, Lifts, Guests, Finances, History. Each opens its view.
 - **Start card:** while the city has no Welcome Sign. Replaces all content with the four steps to a first resort.
@@ -27,21 +27,23 @@ Ski area score on the game's attraction scale, **0** to **200** (a landmark is *
 
 - **Receipt:** **Lodge base**, the fold *Runs, lifts and school* (**Runs**, **Lifts**, **Ski school**, **Variety**, **Vertical**), **Efficiency** and the result, **Attraction**. The fold's number is the attraction scale × the square root of its terms combined. The section header tooltip has the full equation.
 - **Missing lines:** a row tooltip ends with what the row misses, in yellow (*Missing: blue run*, *Not in full: 2 closed · 1 no lift*).
-- **Mountain fold:** the **vertical** (lowest run bottom to highest run top), the run difficulty mix and the **skiable area**.
+- **Mountain fold:** the mountain's fact sheet. The **vertical** (lowest run bottom to highest run top), the run difficulty mix and the **skiable area**. Snow depth and run coverage. **Runs** by rating, with the cat tracks. **Longest run**, measured flat on the map. **Lifts** by type and **Uphill capacity**. **Snowmaking**: the share of the run area with snow guns on. **Lit runs**.
 - **Merged buildings:** a fold, while the ski area has one, with the buildings merged in as lodges and their tier or state. See [Merged Buildings](/guides/lodges-school-patrol/#merged-buildings).
 - **Share of city tourism:** sets how many tourists come to the city, not where they go. See [Tourist Draw](/reference/attraction/#tourist-draw).
 
 ## Runs
 
-Per run: a state dot, the difficulty, the name, lift service (**↑** column), length and drop.
+Per run: a state dot, the difficulty (in the grading of option **Run grading**), the name, lift service (**↑** column), length and drop.
 
 - **Row click:** fly to the run and show its feature rows (Groomed, Snow guns, Lights) above the list. A cat track's trash button is there too.
-- **Also here:** the **Piste map** switch, the tree rows while the Tree tool is on, and the Resort Planner's rows and lift list ([Resort Planner](/guides/runs-and-snow/#resort-planner-experimental)).
+- **Reshape:** the button on the selected run opens the Run tool, which moves the corners of any run on the map. Reshaping costs nothing more.
+- **Also here:** the **Piste map** switch, the tree rows while the Tree tool is on, and the Resort Planner's rows and lift list ([Resort Planner](/guides/runs-and-snow/#resort-planner)).
 
 ## Lifts
 
 Per lift: a status mark, the name and a status word, then capacity (skiers per hour) and the number of runs it serves. The lift type shows while the ski area mixes types. Tooltip: length, rise, ride time and upkeep.
 
+- **Row click:** fly to the lift. An unfinished lift with stations and no line yet flies to its stations.
 - **Status words:** *Running*, *No power*, *Chairs stopped*, *Section missing*, *Unfinished*, *Closed*.
 - **Total row:** *Capacity, all lifts*, summed across complete lifts with power and an open run. Its tooltip has the total length.
 
@@ -80,7 +82,7 @@ Guests, finances and attraction per month.
 Three tabs along the bottom hold every tool: a row of chips, a row of tiles and a status line. The strip stays open while a tool it started is in use.
 
 - **Lifts:** chips for the lift type (Fixed-grip, Detachable, Gondola, Tram) and the **Lift tool** (**Ctrl+Shift+L**). Tiles: Base station, Top station, Lift line. Tile icons: <Icon name="lift-fixed-grip" alt="Fixed-grip lift icon" /> <Icon name="lift-detachable" alt="Detachable lift icon" /> <Icon name="lift-gondola" alt="Gondola icon" /> <Icon name="lift-tram" alt="Aerial tram icon" />
-- **Runs:** tiles Run ([Run Features](/guides/runs-and-snow/#run-features)), Cat track (**Ctrl+Shift+K**, [Cat Track Tool](/guides/runs-and-snow/#cat-track-tool)) and Fence (the Safety Net Fence, decorative orange netting). Chips: **Tree tool**, **Resort Planner** (off until turned on in Options), **Delete cat tracks** and **Ski way** (narrow cut-only cat tracks). Tile icons: <Icon name="run-groomed" alt="Run icon" /> <Icon name="run-cat-track" alt="Cat track icon" />
+- **Runs:** tiles Run ([Run Features](/guides/runs-and-snow/#run-features)), Cat track (**Ctrl+Shift+K**, [Cat Track Tool](/guides/runs-and-snow/#cat-track-tool)) and Fence (the Safety Net Fence, decorative orange netting). Chips: **Tree tool**, **Resort Planner**, **Delete cat tracks** and **Ski way** (narrow cut-only cat tracks, **Ctrl+Shift+J** in the cat track tool). Tile icons: <Icon name="run-groomed" alt="Run icon" /> <Icon name="run-cat-track" alt="Cat track icon" />
 - **Buildings:** chip **Lodges**: the Welcome Sign (*Sign*) and the five lodges. Chip **Services**: the Ski Bus Depot, the Ski School and the two patrol buildings. Chip **Mergeable buildings**: see [Merged Buildings](/guides/lodges-school-patrol/#merged-buildings).
 - **Padlock:** the tile is not available yet. Click it: the status line gives the reason.
 - **Yellow dot:** one at a time. It marks the tile that solves the first problem on the problem line (with no Welcome Sign: the Sign tile). When that tile is on another tab or behind another chip, the dot sits on the tab or the chip.

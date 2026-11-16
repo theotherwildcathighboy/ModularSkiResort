@@ -21,10 +21,10 @@ Guest entry point and skier room source. No lodge: attraction score **0**.
 | Building | Tier | Role |
 |---|---|---|
 | <Icon name="lodge-hut" alt="Mountain Hut icon" /> **Mountain Hut** | Warming hut | Small hut for mid-mountain or roadless sites. |
-| <Icon name="lodge-a-frame" alt="A-Frame Day Lodge icon" /> **A-Frame Day Lodge** | Day lodge | First lodge, where guests arrive. Cheapest. Default. |
-| <Icon name="lodge-chalet" alt="Chalet Lodge icon" /> **Chalet Lodge** | Base lodge | Bigger base lodge. Ski days stay full at a higher ticket price. |
+| <Icon name="lodge-a-frame" alt="A-Frame Day Lodge icon" /> **A-Frame Day Lodge** | Day lodge | First lodge, where guests arrive. Cheapest. Default. Needs a road or a cat track. |
+| <Icon name="lodge-chalet" alt="Chalet Lodge icon" /> **Chalet Lodge** | Base lodge | Bigger base lodge. Ski days stay full at a higher ticket price. Needs a road or a cat track. |
 | <Icon name="lodge-summit" alt="Swanky Summit Lodge icon" /> **Swanky Summit Lodge** | Mountain restaurant | Luxury restaurant on the mountain. High summer appeal when a lift or a lift-served run reaches it. |
-| <Icon name="lodge-grand" alt="Swanky Grand Lodge icon" /> **Swanky Grand Lodge** | Flagship lodge | Flagship base lodge. Most skier room. |
+| <Icon name="lodge-grand" alt="Swanky Grand Lodge icon" /> **Swanky Grand Lodge** | Flagship lodge | Flagship base lodge. Most skier room. Needs a road or a cat track. |
 
 - **Tier:** the lodge's role for the score. The hub shows your own lodges by building (*A-frame*, *Chalet 2*) and merged buildings by tier.
 - **Build limit:** none.
@@ -55,12 +55,13 @@ without being rebuilt.
 Ski days send skiers to a lodge, so they need one. Any tier works if it meets the rules below. A lodge too far from the runs still counts toward attraction and gets tourists and residents on leisure, but no ski-day guests.
 
 - **Road access:** needs a road. Hub line: *Lodge or school: road required*. Exempt: Mountain Hut and Swanky Summit Lodge.
-- **Off-road A-Frame, Chalet or Grand:** a cat track within **25 m** of the lot, whose chain of cat tracks reaches a lodge with a road or the Ski Bus Depot of the same ski area, replaces the road and city power, water, garbage and mail: no warnings, no utility fees. Its staff move to the job host (below). It gets no guests by road and no parking count. A broken chain keeps it supplied for one game hour, so a section can be redrawn.
+- **Off-road A-Frame, Chalet or Grand:** a cat track within **25 m** of the lot, whose chain of cat tracks reaches a lodge with a road or the Ski Bus Depot of the same ski area, replaces the road and city power, water, garbage and mail: no warnings, no utility fees. Its staff move to the job host (below). It gets no guests by road and no parking count. A broken chain keeps it supplied for one game hour, so a section can be redrawn. Off-road with no chain, it gets the game's power and water warnings. The tip of the hub line *Lodge or school: road required* says which buildings a cat track can supply.
 - **Services:** missing staff, power or water lower sign efficiency, and attraction with it. A lodge deactivated in its info panel counts **0**.
 - **Steep ground:** the A-Frame Day Lodge and the Swanky Grand Lodge level their lots. The other lodges, the Ski School and both patrol buildings keep the slope they stand on and are meant to be built into the hillside with the terrain tools or Move It. On very steep ground they sink, and the game can flag No Pedestrian Access. See [Ground and Slopes](/reference/buildings/#ground-and-slopes).
 - **Distance to runs:** ski-day guests only target a lodge within **800 m** of the ski area's runs or lift stations.
 - **Parking:** car spaces of any kind within **600 m**, counted per lodge with a road. Tourist parties from outside the city drive, and none arrive at a lodge with 0 spaces. The nearer the spaces, the more come. Hotel guests within **900 m** walk. A blue ring shows the 600 m when you place or select a lodge with a road. Hub line: *Lodge without parking* (*No parking: Lodge X*). The hub's **Guests** view shows each lodge's count.
 - **Off-season staff:** after **12 game hours** with no open run, lodges and the Ski School keep **half** their staff (rounded up) and wages until a run opens. Staff on the job host halve too. Patrol stays full. Upkeep stays. Option *Half staff off-season*, default on.
+- **Off-season closing:** when a ski area turns off-season, its lodges and Ski School are deactivated: a tenth of the upkeep, no wages. They open again an hour after a run opens. A building you deactivate or activate yourself stays as you set it, and so does a lodge built off-season. The hub counts them in *Lodges deactivated*. Option *Close lodges off-season*, default on.
 - **Job host:** the active lodge with a road nearest the Welcome Sign, else the sign, employs the staff of the buildings without staff of their own (Hut, Summit, both patrol buildings, an off-road lodge). They take the job host's education mix.
 
 ## Guests at a Far Hill
@@ -76,10 +77,10 @@ Residents only take ski days within the longest ski-day trip (**7 km** by defaul
 
 <Icon name="building-school" alt="Ski School icon" /> Sells lessons and brings locals skiing more often. See [Passes and Lessons](/guides/passes-and-lessons/).
 
-- **Score:** **+12** to *Runs, lifts and school* while at least one green run or cat track counts. A cat track still does not count toward Variety.
+- **Score:** **+12** to *Runs, lifts and school* while at least one green run or cat track counts. European grading also takes a blue run. A cat track still does not count toward Variety.
 - **Demand:** locals ski **20 %** more often.
 - **Limit:** one per ski area. A second school adds nothing.
-- **Adds 0** with the hub status *No ski school*, *No green run or cat track*, *No run open yet* or *Deactivated*. *No open green run or cat track* means: they exist, and all of them are closed.
+- **Adds 0** with the hub status *No ski school*, *No green run or cat track*, *No run open yet* or *School deactivated*. European grading reads *No green or blue run or cat track*. *No open green run or cat track* means: they exist, and all of them are closed. Off-season closing shows *School deactivated*.
 - **Terrain:** the school keeps the slope and is the most demanding building to fit. Level the ground at the top of the magic-carpet area, then slope it down to its base.
 
 ## Ski Patrol

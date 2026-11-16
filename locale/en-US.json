@@ -7,7 +7,7 @@
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.OpenHubOnSignSelect]": "Open the hub when a Welcome Sign is selected",
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.OpenHubOnSignSelect]": "Selecting a Ski Area Welcome Sign opens the Ski Resort hub beside its panel. It never closes the hub. The hub closes with its X or Escape.",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.RunGradeScheme]": "Run grading",
-  "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.RunGradeScheme]": "How run difficulty is named and marked. North American: green circle, blue square, black diamond, double black diamond. European: blue, red, black and expert black pistes. Auto follows the city's map theme. Only names, markers and colors change: ratings, the score and saves stay the same.",
+  "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.RunGradeScheme]": "How run difficulty is named and marked. North American: green circle, blue square, black diamond, double black diamond. European: green, blue, red and black pistes, and ski routes. Auto follows the city's map theme. Only names, markers and colors change: ratings, the score and saves stay the same.",
   "Options.SkiResortMod.SkiResortMod.Mod.GRADESCHEMEOPTION[Auto]": "Auto (city theme)",
   "Options.SkiResortMod.SkiResortMod.Mod.GRADESCHEMEOPTION[NorthAmerican]": "North American",
   "Options.SkiResortMod.SkiResortMod.Mod.GRADESCHEMEOPTION[European]": "European",

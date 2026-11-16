@@ -2,6 +2,7 @@
 
 - **Modular Golf Course Pack** by joergeske (Paradox Mods ID 144768) — the modular-recreation
   concept that inspired this project's architecture. Credit only; not required.
+- **Lexa** ([lexakeenen.com](https://lexakeenen.com/)) — designed the mod's logo and in-game icon.
 - **Meapy — CS2-TourismOverhaul** — studied for how tourism and attractions work and for
   compatibility. Credit only; not required. The mod detects it by assembly name to show a hub
   notice and changes nothing in it.

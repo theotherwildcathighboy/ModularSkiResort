@@ -55,7 +55,8 @@ const same = curLong.trim() === long && curShort === short;
 
 // The change log: release/CHANGELOG.md's newest entry, one line per bullet, into <ChangeLog>. The docs page repeats its "Layout versions" line.
 const cl = fs.readFileSync(path.join(ROOT, "release", "CHANGELOG.md"), "utf8").replace(/\r\n/g, "\n");
-const clStart = cl.search(/^## \d+\.\d+\.\d+ \(PDX version -?\d*, (unreleased|\d{4}-\d{2}-\d{2})\)$/m);
+// YYYY-MM-DD is the date placeholder of a patch entry until its upload day (RELEASE-CHECKLIST: fill the date at upload).
+const clStart = cl.search(/^## \d+\.\d+\.\d+ \(PDX version -?\d*, (unreleased|YYYY-MM-DD|\d{4}-\d{2}-\d{2})\)$/m);
 if (clStart < 0) { console.error("CHANGELOG.md: newest entry not found"); process.exit(2); }
 const clRest = cl.slice(clStart);
 const clEnd = clRest.indexOf("\n## ", 1);
