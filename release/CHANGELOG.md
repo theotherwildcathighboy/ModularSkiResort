@@ -25,7 +25,7 @@ Template (copy above the newest entry):
 Notes...
 ```
 
-## 1.0.1 (PDX version 2, YYYY-MM-DD)
+## 1.0.1 (PDX version 2, 2026-11-16)
 - Save compatible with previous: yes
 - Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1, TrackPack 2
 - Do not load in older versions: yes
