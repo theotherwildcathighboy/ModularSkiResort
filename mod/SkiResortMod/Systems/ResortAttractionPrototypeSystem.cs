@@ -48,7 +48,6 @@ namespace SkiResortMod.Systems
             bool rebuilt = !m_HaveWritten || math.any(now != m_Written);
             if (!rebuilt && pct == m_AppliedPct)
                 return;
-            bool vanillaChanged = rebuilt && math.any(now != m_Vanilla);
             if (rebuilt)
                 m_Vanilla = now;
 
@@ -59,7 +58,9 @@ namespace SkiResortMod.Systems
             while (mods.Length <= type)
                 mods.Add(default);
             mods[type] = new CityModifier { m_Delta = value };
-            if (vanillaChanged || pct != m_AppliedPct)   // not on every 256-frame rebuild: that would be ~1,000 lines a game day
+            // Only on a setting change: vanilla value drifts with building efficiency, and logging each drift gave 1,011 lines in 15 game
+            // days (bridge A/B, 2026-11-16).
+            if (pct != m_AppliedPct)
                 Mod.Log.Info($"[T226 proto] Attractiveness modifier: vanilla ({m_Vanilla.x:0.####}, {m_Vanilla.y:0.####}) + {pct:0.##} % -> ({value.x:0.####}, {value.y:0.####})");
             m_Written = value;
             m_AppliedPct = pct;
