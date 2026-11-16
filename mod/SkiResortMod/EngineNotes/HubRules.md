@@ -111,7 +111,8 @@ rule R17 of mod/SkiResortUI/tools/check-bundle.js compares each name and value w
     Text "{NAME}: {CARRIERS} pass {M} m above the ground" (or "touch the
     ground" at 0). The tip names the span ("Between towers {A} and {B}" / "Between tower {N} and the station" / "Between the stations"). The reason: the row must fit a 1080 band line (about 49 characters). A click flies to the low point (`ApplyFocusLift`, subject =
     `LowEdge`). Warn, never refuse. Like every row, the cut removes it when the band is full.
-  - `SummitLodgesNotServed` > 0 -> `SummitLodgeNotLiftServed` (severity 1, count). `SchoolNoGreenRun` (severity 1).
+  - `SummitLodgesNotServed` > 0 -> `SummitLodgeNotLiftServed` (severity 1, count). `SchoolNoGreenRun` (severity 1). Its Detail is 1 when
+    `SchoolRunClosed`: the green run or cat track of the school exists, and none is open (T212).
   - Then the final steps:
     - A stable insertion sort by (severity descending, code ascending, insertion order).
     - A cut to `MaxBandRows` SLOTS. The rows of a `FoldedCodes` code (unfinished, no power, section missing, as listed in hubRules.ts

@@ -21,7 +21,7 @@ import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
   efficiencyAtFloor, factorRowsOf, hectares, liftsMissing, liveOf, mountainFacts, lodgeExtraShort, receiptPartsVariant, resultVariant, runsMissing, schoolBuiltOf,
-  schoolFlagOf, schoolMissingOf, schoolState, scoreBarParts, varietyMissing, verticalShort,
+  schoolFlagOf, schoolMissingOf, schoolState, scoreBarParts, varietyClosed, varietyMissing, verticalShort,
 } from "./hubRules";
 import type { VarietyNeed } from "./hubRules";
 import { IconText, MissingLine } from "./iconText";
@@ -138,8 +138,10 @@ function MountainSection({ row, live, city, unrateable, areaRuns, areaLifts, t, 
   const snowTip = (head: string, body: string): JSX.Element => (
     <TipLines lines={[head, body, how, city.snowVisualsOff && t(HUB_LOC.statusTipVisuals)]} />
   );
-  const vertical = row.verticalM >= 0 ? <Num value={row.verticalM} unit={Unit.Height} /> : DASH;
-  const verticalMark = row.verticalM >= 0 && row.verticalApprox ? "≈" : null;
+  // T213: the header's value names itself ("Vertical drop: 4,681 ft"). No "≈" mark: a run is rated within a second of its drawing, so
+  // ResortRow.verticalApprox (pending runs on node heights) is never worth a glyph and a tooltip line.
+  const vertical = row.verticalM >= 0
+    ? <LocText entry={HUB_FMT.mountainVertical} args={{ M: numArg(row.verticalM, Unit.Height) }} /> : DASH;
   const f = mountainFacts(areaRuns, areaLifts, LIFT_TYPE_IDS);
   const rows = (
     <>
@@ -201,7 +203,7 @@ function MountainSection({ row, live, city, unrateable, areaRuns, areaLifts, t, 
   if (folded) {
     // The header row carries the vertical (the section's headline number). The snow is on the status line above.
     return (
-      <Fold view="overview" id="mountain" header label={t(HUB_LOC.sectionMountain)} value={vertical} mark={verticalMark}
+      <Fold view="overview" id="mountain" header label={t(HUB_LOC.sectionMountain)} value={vertical}
         tip={t(HUB_LOC.mountainTipVertical)}>
         {rows}
       </Fold>
@@ -209,7 +211,7 @@ function MountainSection({ row, live, city, unrateable, areaRuns, areaLifts, t, 
   }
   return (
     <>
-      <InfoLine header label={t(HUB_LOC.sectionMountain)} value={vertical} mark={verticalMark} tip={t(HUB_LOC.mountainTipVertical)} />
+      <InfoLine header label={t(HUB_LOC.sectionMountain)} value={vertical} tip={t(HUB_LOC.mountainTipVertical)} />
       {rows}
     </>
   );
@@ -226,12 +228,16 @@ function problemOf(problems: readonly ProblemRow[] | null | undefined, sign: Res
 const NEED_BANDS: Record<VarietyNeed, readonly number[]> = { green: [BAND.Green], blue: [BAND.Blue], black: [BAND.Black, BAND.DoubleBlack] };
 
 /** The Variety row's missing line: "Missing:" and one part per need. */
-function varietyMissingLine(needs: readonly VarietyNeed[]): JSX.Element {
+function varietyMissingLine(needs: readonly VarietyNeed[], l: ResortLive | null): JSX.Element {
+  // T212: "open green run" while green runs exist and none is open (hubRules.varietyClosed).
   return (
     <MissingLine key="m" head={HUB_LOC.receiptMissingVariety} parts={[
-      needs.includes("green") && <IconText key="g" entry={HUB_LOC.varietyNeedGreen} line />,
-      needs.includes("blue") && <IconText key="b" entry={HUB_LOC.varietyNeedBlue} line />,
-      needs.includes("black") && <IconText key="k" entry={HUB_LOC.varietyNeedBlack} line />,
+      needs.includes("green") && (varietyClosed(l, "green")
+        ? <IconText key="g" entry={HUB_LOC.varietyNeedGreenOpen} line /> : <IconText key="g" entry={HUB_LOC.varietyNeedGreen} line />),
+      needs.includes("blue") && (varietyClosed(l, "blue")
+        ? <IconText key="b" entry={HUB_LOC.varietyNeedBlueOpen} line /> : <IconText key="b" entry={HUB_LOC.varietyNeedBlue} line />),
+      needs.includes("black") && (varietyClosed(l, "black")
+        ? <IconText key="k" entry={HUB_LOC.varietyNeedBlackOpen} line /> : <IconText key="k" entry={HUB_LOC.varietyNeedBlack} line />),
     ]} />
   );
 }
@@ -363,7 +369,7 @@ function Receipt({ row, l, city, problems, build, areaRuns, t }: {
       <InfoLine sub op="×" label={t(HUB_LOC.receiptRowVariety)}
         flagShapes={needs.length > 0 ? needs.flatMap((n) => NEED_BANDS[n].map((b) => <BandMarker key={`${n}-${b}`} band={b} />)) : undefined}
         value={parts.VARIETY}
-        tip={<TipLines lines={[<IconText key="r" entry={HUB_LOC.receiptTipVariety} />, needs.length > 0 && varietyMissingLine(needs)]} />} />
+        tip={<TipLines lines={[<IconText key="r" entry={HUB_LOC.receiptTipVariety} />, needs.length > 0 && varietyMissingLine(needs, l)]} />} />
       <InfoLine sub op="×" label={t(HUB_LOC.receiptRowVertical)}
         value={parts.VERTICAL}
         tip={<TipLines lines={[

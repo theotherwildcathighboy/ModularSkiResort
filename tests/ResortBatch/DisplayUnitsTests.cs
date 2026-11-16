@@ -82,14 +82,20 @@ namespace ResortBatch
         private static void SectionText()
         {
             const string w = "DU-4 text";
-            // vanilla's "length" thresholds: m under 1,000 m, else km; yd under 1,609 m, else mi
+            // vanilla's metric "length" thresholds: m under 1,000 m, else km. Imperial (T215): yd under 500 yd (457.2 m), else mi
             Eq(DisplayUnits.LengthText(376f, false), "376 m", w, "LengthText(376, metric)");
             Eq(DisplayUnits.LengthText(999.4f, false), "999 m", w, "LengthText(999.4, metric)");
             Eq(DisplayUnits.LengthText(1000f, false), "1.0 km", w, "LengthText(1000, metric)");
             Eq(DisplayUnits.LengthText(12345f, false), "12.3 km", w, "LengthText(12345, metric)");
             Eq(DisplayUnits.LengthText(100f, true), "109 yd", w, "LengthText(100, imperial)");
-            Eq(DisplayUnits.LengthText(1600f, true), "1,750 yd", w, "LengthText(1600, imperial)");
+            Eq(DisplayUnits.LengthText(457.1f, true), "500 yd", w, "LengthText(457.1, imperial): the last yard value");
+            Eq(DisplayUnits.LengthText(457.2f, true), "0.3 mi", w, "LengthText(457.2 = 500 yd, imperial): miles from here");
+            Eq(DisplayUnits.LengthText(-457.2f, true), "-0.3 mi", w, "LengthText(-457.2, imperial): the switch on the magnitude");
+            Eq(DisplayUnits.LengthText(1000f, true), "0.6 mi", w, "LengthText(1000, imperial)");
+            Eq(DisplayUnits.LengthText(1600f, true), "1.0 mi", w, "LengthText(1600, imperial)");
             Eq(DisplayUnits.LengthText(1609f, true), "1.0 mi", w, "LengthText(1609, imperial)");
+            Check(Math.Abs(DisplayUnits.ImperialMilesFromM - 500.0 * DisplayUnits.MetersPerYard) < 1e-3 && !DisplayUnits.ShowsMiles(float.NaN), w,
+                  "ImperialMilesFromM is 500 yd; NaN never shows miles");
             Eq(DisplayUnits.LengthText(5000f, true), "3.1 mi", w, "LengthText(5000, imperial)");
             Eq(DisplayUnits.LengthText(float.NaN, false), "–", w, "LengthText(NaN)");
             Eq(DisplayUnits.AreaHaText(3.24f, false), "3.2 ha", w, "AreaHaText(3.24, metric)");

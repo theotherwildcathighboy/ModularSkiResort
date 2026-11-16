@@ -94,6 +94,8 @@
     passesPreSeason: 85, passIncomePreSeason: 25500, cityIncomeEst: 390000,
     // Contract 40 (icon scheme, DECISIONS 620): every VARIETY_BAND bit set, the vertical at the full bonus.
     varietyBands: 7, verticalShortM: 0,
+    // Contract 48 (T212): every band and a cat track count while open.
+    bandsWhenOpen: 15,
   };
   const live2 = Object.assign({}, live, { sign: SIGN2, status: 0, runsOpen: 0, runsPartly: 0, snowPct: 0, attraction: 0, attractionFull: 0, lodgesActive: 0, estKnown: false, estTourists: 0, nextStep: 1, netMonth: 0, skiDaysState: 3, guestsThisMonth: 0, ticketIncomeMonth: 0 });
   const problems = [
@@ -295,7 +297,7 @@
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800 };
-  const base = { hubOpen: false, contract: 47, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 48, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
@@ -389,6 +391,13 @@
       selectedResort: SIGN, runs, runLive: runLive.map((r) => r.entity.index === 203 ? Object.assign({}, r, { openState: 0, openFactor: 0, valueNow: 0 })
         : r.entity.index === 204 ? Object.assign({}, r, { openState: 1, openFactor: 0.5, snowPct: 52, valueNow: 0.4 }) : r),
       lifts, problems, history, build: buildItems({ built: ["school"] }) }),
+    // T211 / T212 (contract 48): a fall day, European grading (the longest texts). The green runs and the cat track exist but are closed
+    // (bandsWhenOpen 15, varietyBands 6): row 25 with detail 1 ("no open green or blue run or cat track"), the School row's flag, and the
+    // Variety line "open green or blue run".
+    "Ash Flat fall, European grading, the school's runs closed": Object.assign({}, base, { hubOpen: true, resorts,
+      resortLive: [Object.assign({}, live, { schoolValue: 0, varietyBands: 6, bandsWhenOpen: 15, varietyMultiplier: 1 }), live2], selectedResort: SIGN, runs, runLive,
+      lifts, problems: problems.concat([{ sign: SIGN, code: 25, severity: 1, subject: E(401), subjectTop: NULL, name: "", count: -1, pct: -1, factor: "",
+        more: 0, detail: 1, ifFixed: -1, buildItem: "" }]), history, gradeScheme: 1, build: buildItems({ built: ["school"] }) }),
     // Icons v2 (round 622): the same area with no ski school built (schoolValue 0, no school problem): the School row reads
     // "No ski school" and its tooltip the missing line "Missing: an active <icon:school>".
     "Ash Flat, no ski school": Object.assign({}, base, { hubOpen: true, resorts,

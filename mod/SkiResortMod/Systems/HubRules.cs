@@ -109,10 +109,11 @@ namespace SkiResortMod.Systems
         public bool EfficiencyRowWasOn;
         // Active lodges whose row counts more when summit-served (MuSummit > Mu) and that no complete, powered lift top reaches
         // within 300 m.
-        // Next field (SchoolNoGreenRun): the school is active and runs count, but none of them is a counted green run (its +12 and its
-        // demand share need one).
+        // Next field (SchoolNoGreenRun): the school is active and runs count, but none of them is a counted green run or cat track (its +12
+        // and its demand share need one, T211). SchoolRunClosed: such a run exists but none is open (T212: the row's Detail 1).
         public int SummitLodgesNotServed;
         public bool SchoolNoGreenRun;
+        public bool SchoolRunClosed;
         // The area's top-level ski schools with no road edge. They join the LodgeNoRoad row's count, never its "every lodge" severity.
         // Next field (FreeSchools): on the Not linked entry, the top-level schools linked to no sign (row SchoolsNotLinked).
         public int SchoolsNoRoad;
@@ -633,6 +634,13 @@ namespace SkiResortMod.Systems
             return Math.Max(0.0, SkiResortScore.VerticalRefM - v);
         }
 
+        /// <summary>T212: the school's run exists but none is open. True when <paramref name="bandsWhenOpen"/> (Result.BandsWhenOpen) holds
+        /// a green piste or a cat track. The caller sends it only with SchoolNoGreenRun, so no such run is counted then.</summary>
+        public static bool SchoolRunClosed(int bandsWhenOpen)
+        {
+            return (bandsWhenOpen & (SkiResortScore.VarietyGreen | SkiResortScore.BandCatTrack)) != 0;
+        }
+
         /// <summary>A run's value fully open: BandValue × SizeFactor × TypeFactor × ServedFactor (non-finite → 0).</summary>
         public static double RunValueFull(in SkiResortScore.RunPart p)
         {
@@ -920,7 +928,7 @@ namespace SkiResortMod.Systems
             if (summitNotServed > 0)
                 output.Add(Row(HubProblemCode.SummitLodgeNotLiftServed, 1, count: summitNotServed));
             if (input.SchoolNoGreenRun)
-                output.Add(Row(HubProblemCode.SchoolNoGreenRun, 1));
+                output.Add(Row(HubProblemCode.SchoolNoGreenRun, 1, detail: input.SchoolRunClosed ? 1 : 0));
 
             SortAndCut(output);
 

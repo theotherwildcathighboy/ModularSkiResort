@@ -107,7 +107,9 @@ export const HUB_LOC = {
   problemTipSignNoRoad: ["SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "No active lodge with a road. The sign is the job host for the Hut, Summit, patrol and off-road lodges. Their staff come by road."],
   problemNoParkingNearLodge: ["SkiResort.Hub.PROBLEM[NoParkingNearLodge]", "Lodge without parking"],
   problemLodgeNotSlopeside: ["SkiResort.Hub.PROBLEM[LodgeNotSlopeside]", "Lodge is far from the runs"],
-  problemSchoolNoGreenRun: ["SkiResort.Hub.PROBLEM[SchoolNoGreenRun]", "Ski school: no green run"],
+  problemSchoolNoGreenRun: ["SkiResort.Hub.PROBLEM[SchoolNoGreenRun]", "Ski school: no green run or cat track"],
+  /* the same row with detail 1 (T212): the school's runs exist, none is open */
+  problemSchoolNoOpenRun: ["SkiResort.Hub.PROBLEM[SchoolNoGreenRun.Closed]", "Ski school: no open green run or cat track"],
   problemNoLift: ["SkiResort.Hub.PROBLEM[NoLift]", "No lift yet"],
   problemTipNoLodge: ["SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Ski days need any lodge within 800 m of the runs or lift stations. With no lodge, attraction is 0."],
   problemTipLodgesAllOff: ["SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "Deactivated lodges do not count."],
@@ -140,7 +142,7 @@ export const HUB_LOC = {
   /* C# HubProblemCode LiftBend (over LiftAlignMath.BendWarnDeg, 5 deg). Shown only. The lift is unchanged */
   problemTipLiftBend: ["SkiResort.Hub.PROBLEM_TIP[LiftBend]", "Real lift lines turn 5° or less at a tower. Past that the rope runs off the outer wheels. The lift still runs and scores."],
   problemTipSummitLodgeNotLiftServed: ["SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "With every run closed, a Hut or Summit lodge scores more near a working lift top (300 m) or a served run (100 m)."],
-  problemTipSchoolNoGreenRun: ["SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while at least one <icon:green> run is <icon:openpatchy>."],
+  problemTipSchoolNoGreenRun: ["SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while at least one <icon:green> run or cat track is <icon:openpatchy>."],
   pagePrev: ["SkiResort.Hub.PAGE_PREV", "Previous page"],
   pageNext: ["SkiResort.Hub.PAGE_NEXT", "Next page"],
   liftTool: ["SkiResort.Hub.LIFT_TOOL", "Lift tool"],
@@ -174,7 +176,7 @@ export const HUB_LOC = {
   receiptTipRuns: ["SkiResort.Hub.RECEIPT_TIP[Runs]", "The total of all runs. Harder and bigger runs score more, and a run needs snow and a lift to score in full."],
   receiptTipLifts: ["SkiResort.Hub.RECEIPT_TIP[Lifts]", "Points per complete, powered lift: fixed-grip 6, detachable 15, gondola 25, tram 30. While every run is closed, chairlifts and gondolas add a quarter."],
   /* the school's line of the RECEIPT_PARTS tooltip (shown while ResortLive.schoolValue > 0) */
-  receiptTipSchool: ["SkiResort.Hub.RECEIPT_TIP[School]", "An active ski school adds 12 while at least one <icon:green> run is <icon:openpatchy>."],
+  receiptTipSchool: ["SkiResort.Hub.RECEIPT_TIP[School]", "An active ski school adds 12 while at least one <icon:green> run or cat track is <icon:openpatchy>."],
   receiptTipVariety: ["SkiResort.Hub.RECEIPT_TIP[Variety]", "+15 % (1.15) while at least one <icon:green>, one <icon:blue> and one <icon:black> or <icon:dblack> run is <icon:openpatchy>. Otherwise no bonus."],
   /*
    * each term of the "Runs, lifts and school" section is its own labeled row. The full equation is the section header's tooltip
@@ -190,7 +192,9 @@ export const HUB_LOC = {
    * all, or a school but no green run counts)
    */
   noSchool: ["SkiResort.Hub.NO_SCHOOL", "No ski school"],
-  schoolNoGreen: ["SkiResort.Hub.SCHOOL_NO_GREEN", "No green run"],
+  schoolNoGreen: ["SkiResort.Hub.SCHOOL_NO_GREEN", "No green run or cat track"],
+  /* T212: the school's runs exist, none is open (hubRules.schoolState "noOpenGreen") */
+  schoolNoOpenGreen: ["SkiResort.Hub.SCHOOL_NO_OPEN_GREEN", "No open green run or cat track"],
   /* a school that is built but adds 0 says why (hubRules.schoolState "off" / "waiting") */
   schoolOff: ["SkiResort.Hub.SCHOOL_OFF", "School deactivated"],
   schoolWaiting: ["SkiResort.Hub.SCHOOL_WAITING", "No run open yet"],
@@ -223,8 +227,12 @@ export const HUB_LOC = {
   varietyNeedGreen: ["SkiResort.Hub.RECEIPT_MISSING[Variety.Green]", "<icon:green> run"],
   varietyNeedBlue: ["SkiResort.Hub.RECEIPT_MISSING[Variety.Blue]", "<icon:blue> run"],
   varietyNeedBlack: ["SkiResort.Hub.RECEIPT_MISSING[Variety.Black]", "<icon:black> or <icon:dblack> run"],
+  /* the same needs while such runs exist and none is open (T212, hubRules.varietyClosed) */
+  varietyNeedGreenOpen: ["SkiResort.Hub.RECEIPT_MISSING[Variety.GreenOpen]", "open <icon:green> run"],
+  varietyNeedBlueOpen: ["SkiResort.Hub.RECEIPT_MISSING[Variety.BlueOpen]", "open <icon:blue> run"],
+  varietyNeedBlackOpen: ["SkiResort.Hub.RECEIPT_MISSING[Variety.BlackOpen]", "open <icon:black> or <icon:dblack> run"],
   receiptMissingSchoolNone: ["SkiResort.Hub.RECEIPT_MISSING[SchoolNone]", "Missing: an active <icon:school>"],
-  receiptMissingSchoolGreen: ["SkiResort.Hub.RECEIPT_MISSING[SchoolGreen]", "Missing: a <icon:green> run that is <icon:openpatchy>"],
+  receiptMissingSchoolGreen: ["SkiResort.Hub.RECEIPT_MISSING[SchoolGreen]", "Missing: a <icon:green> run or cat track that is <icon:openpatchy>"],
   receiptMissingSchoolWaiting: ["SkiResort.Hub.RECEIPT_MISSING[SchoolWaiting]", "No run is <icon:openpatchy>"],
   receiptMissingRuns: ["SkiResort.Hub.RECEIPT_MISSING[Runs]", "Not in full:"],
   receiptMissingLifts: ["SkiResort.Hub.RECEIPT_MISSING[Lifts]", "Not counted:"],
@@ -235,7 +243,7 @@ export const HUB_LOC = {
   difficulty: ["SkiResort.Hub.DIFFICULTY", "Difficulty"],
   pending: ["SkiResort.Hub.PENDING", "Being rated"],
   unrateable: ["SkiResort.Hub.UNRATEABLE", "Cannot be rated: outline too large or too thin, or no terrain under it"],
-  mountainTipVertical: ["SkiResort.Hub.MOUNTAIN_TIP[Vertical]", "From the lowest run bottom to the highest run top, closed runs too. ≈: some runs are still being rated."],
+  mountainTipVertical: ["SkiResort.Hub.MOUNTAIN_TIP[Vertical]", "From the lowest run bottom to the highest run top, closed runs too."],
   area: ["SkiResort.Hub.AREA", "Skiable area"],
   areaTip: ["SkiResort.Hub.AREA_TIP", "The area of all runs, measured flat on the map, not along the slope."],
   // Snow is always two numbers: depth in cm and run coverage in %. "≈" marks an estimate. tools/test-hub-rules.js T18 guards it.
@@ -453,12 +461,12 @@ export const HUB_LOC = {
   locked: ["SkiResort.Hub.LOCKED", "Not available yet"],
   buildHintSign: ["SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: lifts and runs within its radius join it."],
   buildHintLodge: ["SkiResort.Hub.BUILD_HINT_LODGE", "Ski-day guests only use lodges within 800 m of runs or stations."],
-  buildShortSchool: ["SkiResort.Hub.BUILD_SHORT[School]", "Teaches on green runs."],
+  buildShortSchool: ["SkiResort.Hub.BUILD_SHORT[School]", "Teaches on green runs and cat tracks."],
   buildShortDepot: ["SkiResort.Hub.BUILD_SHORT[Depot]", "Ski days start here, in town."],
   buildHintFence: ["SkiResort.Hub.BUILD_HINT_FENCE", "Decorative only."],
   buildShortPatrol: ["SkiResort.Hub.BUILD_SHORT[Patrol]", "Covers the steep runs nearby."],
   buildTipDepot: ["SkiResort.Hub.BUILD_TIP_DEPOT", "Coach bill: 1,500 a month plus 300 per straight-line km to the nearest hill lodge. It adds no skier room and no score."],
-  buildTipSchool: ["SkiResort.Hub.BUILD_TIP_SCHOOL", "+12 on the Ski school row of the score while a <icon:green> run is <icon:openpatchy>. Residents go skiing 20 % more often."],
+  buildTipSchool: ["SkiResort.Hub.BUILD_TIP_SCHOOL", "+12 on the Ski school row of the score while a <icon:green> run or cat track is <icon:openpatchy>. Residents go skiing 20 % more often."],
   buildTipPatrol: ["SkiResort.Hub.BUILD_TIP_PATROL", "Within 1 km, <icon:black> and <icon:dblack> runs score 15 % more. Runs there without a lift still score at least 70 %."],
   /* the A-frame, Chalet and Grand tiles (buildItems.ts ROAD_OPTIONAL_LODGES): LodgeSupplyRule, LiftServedRule.LinkMeters */
   buildTipRoadOptional: ["SkiResort.Hub.BUILD_TIP_ROAD_OPTIONAL", "Needs a road, or a cat track within 25 m linked to a road lodge or bus depot. A cat track brings utilities, not guests."],
@@ -531,7 +539,7 @@ export const HUB_LOC = {
   catTrackDelete: ["SkiResort.Hub.CAT_TRACK_DELETE", "Delete cat tracks"],
   catTrackDeleteTip: ["SkiResort.Hub.CAT_TRACK_DELETE_TIP", "Opens the cat track tool in delete mode. The ground stays graded, no refund. Ctrl+Shift+D in the tool."],
   catTrackSkiWay: ["SkiResort.Hub.CAT_TRACK_SKI_WAY", "Ski way"],
-  catTrackSkiWayTip: ["SkiResort.Hub.CAT_TRACK_SKI_WAY_TIP", "Cat tracks become ski ways: 10 m wide, cut into the hillside with nothing filled below, for steep faces. Ctrl+Shift+N in the tool."],
+  catTrackSkiWayTip: ["SkiResort.Hub.CAT_TRACK_SKI_WAY_TIP", "Cat tracks become ski ways: 10 m wide, cut into the hillside with nothing filled below, for steep faces. Ctrl+Shift+J in the tool."],
   quickUnavailable: ["SkiResort.Hub.QUICK_UNAVAILABLE", "The Resort Planner is not available right now."],
   quickScan: ["SkiResort.Hub.QUICK_SCAN", "Scan"],
   quickScanTip: ["SkiResort.Hub.QUICK_SCAN_TIP", "Scan the outlined region for runs. Enter does the same."],
@@ -603,6 +611,8 @@ export const HUB_LOC = {
 /* Placeholder entries: only as <LocText entry={HUB_FMT.x} args={...} /> (gate R5, R13). */
 export const HUB_FMT = {
   mountainCatTracks: ["SkiResort.Hub.MOUNTAIN_FMT[CatTracks]", "Cat tracks: {N}"],
+  /* the Mountain header's value (T213): {M} = ResortRow.verticalM as a height */
+  mountainVertical: ["SkiResort.Hub.MOUNTAIN_FMT[Vertical]", "Vertical drop: {M}"],
   // folded per-lift band rows (hubRules.foldBandRows), the Lifts tile's power line, the list pager
   problemGroupLiftUnfinished: ["SkiResort.Hub.PROBLEM_GROUP[LiftUnfinished]", "Unfinished: {NAMES}"],
   problemGroupLiftNoPower: ["SkiResort.Hub.PROBLEM_GROUP[LiftNoPower]", "No power: {NAMES}"],
@@ -1328,14 +1338,16 @@ export const EU_TEXT_ENTRIES: readonly LocEntry[] = [
   ["SkiResort.Tooltip.QUICK_VERDICT[Blue]@EU", "Red way home"],
   ["SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]@EU", "Ski route only"],
   ["SkiResort.Tooltip.QUICK_MIX_HONEST@EU", "Terrain: green or blue {G} % · red {B} % · black {K} %"],
-  ["SkiResort.Hub.PROBLEM[SchoolNoGreenRun]@EU", "Ski school: no green or blue run"],
-  ["SkiResort.Hub.SCHOOL_NO_GREEN@EU", "No green or blue run"],
+  ["SkiResort.Hub.PROBLEM[SchoolNoGreenRun]@EU", "Ski school: no green or blue run or cat track"],
+  ["SkiResort.Hub.PROBLEM[SchoolNoGreenRun.Closed]@EU", "Ski school: no open green or blue run or cat track"],
+  ["SkiResort.Hub.SCHOOL_NO_GREEN@EU", "No green or blue run or cat track"],
+  ["SkiResort.Hub.SCHOOL_NO_OPEN_GREEN@EU", "No open green or blue run or cat track"],
   ["SkiResort.Hub.ICON[green]@EU", "green or blue"],
   ["SkiResort.Hub.ICON[blue]@EU", "red"],
   ["SkiResort.Hub.ICON[dblack]@EU", "ski route"],
   ["SkiResort.Hub.RUN_TYPE_NOTE@EU", "Natural green, blue and red runs count less. A groomed run counts in full."],
   ["SkiResort.Hub.RUN_CAT_TRACK_NOTE@EU", "A cat track always rates green or blue and counts a quarter of a run its size, in the score and the skier room."],
-  ["SkiResort.Hub.BUILD_SHORT[School]@EU", "Teaches on green and blue runs."],
+  ["SkiResort.Hub.BUILD_SHORT[School]@EU", "Teaches on green and blue runs and cat tracks."],
   ["SkiResort.Hub.BUILD_SHORT[CatTrack]@EU", "Always green or blue. Counts as a quarter run."],
 ];
 

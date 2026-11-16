@@ -131,16 +131,18 @@ namespace SkiResortMod.Systems
         private static ILocElement UnitNumber(string key, ILocElement n) => LocalizedString.Id(UnitPrefix + key, ("N", n));
 
         /// <summary>A horizontal distance in meters: m / km, or yd / mi (Options > Lengths and elevation). Vanilla "length" when that
-        /// matches the game's setting, else the same thresholds (DisplayUnits.LengthText) with the SkiResort.Unit.* keys.</summary>
+        /// matches the game's setting, else the same thresholds (DisplayUnits.LengthText) with the SkiResort.Unit.* keys. Imperial
+        /// lengths from 500 yd always take the MILES key: vanilla would show yards up to one mile (T215, DisplayUnits.ShowsMiles).</summary>
         internal static ILocElement Length(float m)
         {
             bool imp = DisplayState.LengthImperial;
+            if (imp && DisplayUnits.ShowsMiles(m))
+                return UnitNumber("MILES", new LocalizedNumber<float>(DisplayUnits.Round1((float)(m / DisplayUnits.MetersPerMile)), "floatSingleFraction"));
             if (imp == DisplayState.GameImperial)
                 return new LocalizedNumber<int>(DisplayUnits.Whole(m), "length");
             float a = Math.Abs(m);
             if (imp)
-                return a < 1609f ? UnitNumber("YARDS", new LocalizedNumber<int>(DisplayUnits.Whole(m / 0.9144f), "integer"))
-                    : UnitNumber("MILES", new LocalizedNumber<float>(DisplayUnits.Round1(m / 1609.344f), "floatSingleFraction"));
+                return UnitNumber("YARDS", new LocalizedNumber<int>(DisplayUnits.Whole(m / DisplayUnits.MetersPerYard), "integer"));
             return a < 1000f ? UnitNumber("METERS", new LocalizedNumber<int>(DisplayUnits.Whole(m), "integer"))
                 : UnitNumber("KILOMETERS", new LocalizedNumber<float>(DisplayUnits.Round1(m / 1000f), "floatSingleFraction"));
         }

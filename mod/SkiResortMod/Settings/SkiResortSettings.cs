@@ -460,9 +460,10 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding CatTrackDeleteModeBinding { get; set; }
 
-        /// <summary>Switches the cat track tool between the standard track and the Ski way (default Ctrl+Shift+N, T194). Live only while
-        /// that tool is open (CatTrackGradeHotkeySystem).</summary>
-        [SettingsUIKeyboardBinding(BindingKeyboard.N, ActCatTrackSkiWay, ctrl: true, shift: true)]
+        /// <summary>Switches the cat track tool between the standard track and the Ski way (default Ctrl+Shift+J, T214; 1.0.0 shipped
+        /// Ctrl+Shift+N, which opened Node Controller). J is the one letter that no vanilla key and no common mod binds with any modifier
+        /// (EngineNotes/SkiResortSettings.md, Default chords). Live only while that tool is open (CatTrackGradeHotkeySystem).</summary>
+        [SettingsUIKeyboardBinding(BindingKeyboard.J, ActCatTrackSkiWay, ctrl: true, shift: true)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding CatTrackSkiWayBinding { get; set; }
 

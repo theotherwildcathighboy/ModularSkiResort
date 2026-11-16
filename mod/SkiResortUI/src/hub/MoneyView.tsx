@@ -267,12 +267,15 @@ function PassRows({ l, month, samples, t }: { l: ResortLive | null; month: strin
 function LessonRow({ l, city, school, samples, t }: {
   l: ResortLive | null; city: CityStats; school: SchoolState; samples: NumberSamples; t: Translate;
 }): JSX.Element | null {
-  // Lessons need an installed, switched-on school and a counted green run: "none", "noGreen" and "off" are the 0s with a cause.
-  if (!l || (!netRowShown("lessons", l, city) && school !== "none" && school !== "noGreen" && school !== "off")) return null;
+  // Lessons need an installed, switched-on school and a counted green run or cat track: "none", "noGreen", "noOpenGreen" and "off" are
+  // the 0s with a cause.
+  const noRun = school === "noGreen" || school === "noOpenGreen";
+  if (!l || (!netRowShown("lessons", l, city) && school !== "none" && !noRun && school !== "off")) return null;
   return (
     <InfoLine
       sub
-      flag={school === "none" ? t(HUB_LOC.noSchool) : school === "noGreen" ? t(HUB_LOC.schoolNoGreen) : school === "off" ? t(HUB_LOC.schoolOff) : undefined}
+      flag={school === "none" ? t(HUB_LOC.noSchool) : school === "noGreen" ? t(HUB_LOC.schoolNoGreen)
+        : school === "noOpenGreen" ? t(HUB_LOC.schoolNoOpenGreen) : school === "off" ? t(HUB_LOC.schoolOff) : undefined}
       label={<LocText entry={HUB_FMT.moneyRowLessons} args={{ N: numArg(Math.max(0, l.lessonsThisMonth), Unit.Integer) }} />}
       value={<Cell samples={samples}>{incomeValue(l.lessonIncomeMonth)}</Cell>}
       tip={t(HUB_LOC.moneyTipLessons)}

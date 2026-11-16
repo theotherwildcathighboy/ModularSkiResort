@@ -124,6 +124,14 @@ namespace SkiResortMod.Systems
         public const float AcresPerHectare = 2.471054f;           // 10,000 / 4,046.873 m² (vanilla's acre)
         public const float CmPerInch = 2.54f;
         public const float FeetPerMinutePerMps = 196.8504f;        // 60 * 3.28084: US lifts quote line speed in ft/min
+        public const float MetersPerYard = 0.9144f;
+        public const double MetersPerMile = 1609.344;
+        // Imperial lengths show whole yards under 500 yd and miles with one decimal from 500 yd (T215). Vanilla's "length" switches at
+        // 1,609 m (one mile), so the mod formats 457.2-1,609 m itself (DisplayText.Length, hub units.ts IMPERIAL_MILES_FROM_M).
+        public const float ImperialMilesFromM = 457.2f;   // 500 x 0.9144
+
+        /// <summary>True when an imperial length of <paramref name="m"/> meters shows in miles (500 yd and up). NaN gives false.</summary>
+        public static bool ShowsMiles(float m) => Math.Abs(m) >= ImperialMilesFromM;
 
         /// <summary>Grade (rise / run, 0.25 = 25 %) to degrees. Negative grades give negative degrees. Not finite gives NaN.</summary>
         public static float GradeToDeg(float grade)
@@ -168,15 +176,15 @@ namespace SkiResortMod.Systems
         public static int Depth(float cm, bool imperial) => Whole(imperial ? cm / CmPerInch : cm);
 
         /// <summary>A distance as text where C# writes the string itself (3D labels, template tooltips), with vanilla's thresholds
-        /// (installed index.js "length"): under 1,000 m whole meters, else km with one decimal; imperial under 1,609 m whole yards, else
-        /// miles with one decimal. Invariant culture, thousands separated.</summary>
+        /// (installed index.js "length"): under 1,000 m whole meters, else km with one decimal. Imperial: whole yards under 500 yd, else
+        /// miles with one decimal (T215, ShowsMiles; vanilla switches at one mile). Invariant culture, thousands separated.</summary>
         public static string LengthText(float m, bool imperial)
         {
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             if (float.IsNaN(m) || float.IsInfinity(m))
                 return "–";
             if (imperial)
-                return Math.Abs(m) < 1609f ? Whole(m / 0.9144f).ToString("#,0", inv) + " yd" : (m / 1609.344).ToString("#,0.0", inv) + " mi";
+                return !ShowsMiles(m) ? Whole(m / MetersPerYard).ToString("#,0", inv) + " yd" : (m / MetersPerMile).ToString("#,0.0", inv) + " mi";
             return Math.Abs(m) < 1000f ? Whole(m).ToString("#,0", inv) + " m" : (m / 1000.0).ToString("#,0.0", inv) + " km";
         }
 

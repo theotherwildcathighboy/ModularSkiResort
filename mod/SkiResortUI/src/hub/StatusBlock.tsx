@@ -140,7 +140,7 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "liftTrainLimit": return <LocText entry={HUB_FMT.problemLiftTrainLimit} args={{ NAME, N }} />;
     case "liftLowSpan": return <LowSpanText p={p} t={t} NAME={NAME} />;
     case "summitLodgeNotLiftServed": return <LocText entry={HUB_FMT.problemSummitLodgeNotLiftServed} args={{ N }} />;
-    case "schoolNoGreenRun": return <>{t(HUB_LOC.problemSchoolNoGreenRun)}</>;
+    case "schoolNoGreenRun": return <>{t(p.detail === 1 ? HUB_LOC.problemSchoolNoOpenRun : HUB_LOC.problemSchoolNoGreenRun)}</>;
     case "schoolsNotLinked": return <LocText entry={HUB_FMT.problemSchoolsNotLinked} args={{ N }} />;
     default: return <>{"–"}</>;
   }

@@ -15,8 +15,9 @@ Generation does not move on a chunk reorder. A is clamped before rounding: a non
 ## The cat track (2026-10-24)
 
 A member run (kind 4) at a quarter weight: type factor `CatTrackFactor` 0.25 when rated green, else 0 (unrateable or pending count
-nothing). `RunSkiersPerDay` x `CatTrackSkiersFactor` 0.25. It counts in Runs / RunsOpen / RunsCounted. It never counts in the variety or
-school green, the vertical / TopM, or the end of the summer mode. Otherwise a summit-to-base track would double S through the vertical
+nothing). `RunSkiersPerDay` x `CatTrackSkiersFactor` 0.25. It counts in Runs / RunsOpen / RunsCounted. It never counts in the variety
+green, the vertical / TopM, or the end of the summer mode. It does serve the ski school (T211, 1.0.1: `SchoolRunCounted` = a counted
+green piste or a counted cat track). Otherwise a summit-to-base track would double S through the vertical
 multiplier, or flip lodges and lifts to their winter shares on its own. Its green comes from the catalog row
 (SkiRunRatingRules.CatTrackBand: every rated cat track is Green, the tool grades it under 25 %). ResortBatch CT139-M / CT139-G.
 
@@ -54,7 +55,9 @@ sum (summer ? SummerShare x ScoreValue : ScoreValue). Both sums are ascending. S
 
 ## School and patrol
 
-`S += SchoolRule.ScoreValueOf(area.SchoolActive, GreenCounted)` before variety and vertical. Patrol: `RunInput.Patrolled` ->
+`S += SchoolRule.ScoreValueOf(area.SchoolActive, SchoolRunCounted)` before variety and vertical. Since T211 a counted cat track serves
+the school. Variety keeps `GreenCounted`. `BandsWhenOpen` (T212) holds the variety bits plus `BandCatTrack` 8. It covers the runs whose
+full value is > 0, open or not. A bit here but not in `VarietyBands` makes the hub say "no open green run". Patrol: `RunInput.Patrolled` ->
 `PatrolRule.TypeFactorOf` / `ServedFactorOf` in the run part.
 
 ## Threading and platform

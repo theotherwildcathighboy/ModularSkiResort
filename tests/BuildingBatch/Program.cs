@@ -172,14 +172,14 @@ namespace BuildingBatch
         }
 
         /// <summary>The stats system's problem input for one area (SkiResortStatsSystem.cs: SchoolNoGreenRun = hasResult &&
-        /// r.SchoolActive && r.RunsCounted > 0 && !r.GreenCounted), the rest fixed.</summary>
+        /// r.SchoolActive && r.RunsCounted > 0 && !r.SchoolRunCounted), the rest fixed.</summary>
         private static List<HubProblem> Problems(in Score.Result r)
         {
             var input = new HubProblemInput
             {
                 Lodges = 1, LodgesActive = 1, EfficiencyPct = 100, Runs = r.Runs, AttractionFull = r.AttractionFullEfficiency,
                 IfOneLodge = -1, IfLodgesOn = -1, BackcountryPct = 40, LiftRows = 0,
-                SchoolNoGreenRun = r.SchoolActive && r.RunsCounted > 0 && !r.GreenCounted,
+                SchoolNoGreenRun = r.SchoolActive && r.RunsCounted > 0 && !r.SchoolRunCounted,
             };
             var rows = new List<HubProblem>();
             HubProblems.Build(input, rows);

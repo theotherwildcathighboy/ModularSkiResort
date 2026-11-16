@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 47;
+export const HUB_CONTRACT = 48;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -87,8 +87,9 @@ export const GRADE_SCHEME = { NorthAmerican: 0, European: 1 } as const;
 export const UNITS = { LengthImperial: 1, DepthImperial: 2, TempShift: 2, TempMask: 3, SlopePercent: 16 } as const;
 
 /** ResortLive.varietyBands bits (contract 40). C#: SkiResortScore.VarietyGreen / VarietyBlue / VarietyBlack / VarietyAll (literal ints,
- *  ResortBatch guards the values). Black covers double-black: either one sets it. */
-export const VARIETY_BAND = { Green: 1, Blue: 2, Black: 4, All: 7 } as const;
+ *  ResortBatch guards the values). Black covers double-black: either one sets it. CatTrack (C# BandCatTrack, contract 48) appears only in
+ *  ResortLive.bandsWhenOpen: a cat track never sets a variety bit. */
+export const VARIETY_BAND = { Green: 1, Blue: 2, Black: 4, All: 7, CatTrack: 8 } as const;
 
 /** LiftRow.state (stats rules). The values are literal ints in C#, with no enum. */
 export const LIFT_STATE = { Running: 0, Static: 1, Open: 2, Unfinished: 3, StationsOnly: 4 } as const;
@@ -127,7 +128,7 @@ export const PROBLEM = {
   LodgeNotSlopeside: 22,  // active lodges more than 800 m from the runs and stations (sev 1). Uses `count`
   MixedLiftTypes: 23,  // a lift's line and stations span two of our lift types (sev 2). Counts are 0
   SummitLodgeNotLiftServed: 24,  // summit-bonus lodges no working lift's top reaches (sev 1). Uses `count`
-  SchoolNoGreenRun: 25,  // the ski school is on but no green run counts (sev 1). `subject` = the top-level school
+  SchoolNoGreenRun: 25,  // the ski school is on but no green run or cat track counts (sev 1). `detail` 1 = such runs exist, none open (contract 48). `subject` = the top-level school
   SchoolsNotLinked: 26,  // top-level ski schools on no sign, Not linked entry (sev 1). Uses `count`. `subject` = the first
   SkiDaysNoGuestsNear: 27,  // an open hill with almost no homes or hotels within a ski day's drive (sev 2). `detail` = the nearest in tenths of a km
   DepotNoHillLodge: 28,  // a bus depot's area has no passing hill lodge (sev 1). Uses `count`. `subject` = the first such depot
@@ -854,6 +855,9 @@ export interface ResortLive {
   varietyBands: number;
   /** Contract 40: meters to the full vertical bonus (C# HubRules.VerticalShortM, 600 m minus the score's vertical, never below 0). -1 without a score. */
   verticalShortM: number;
+  /** Contract 48 (T212): varietyBands' bits plus VARIETY_BAND.CatTrack over the member runs that count while open (open or not; C#
+   *  Result.BandsWhenOpen). A bit here that varietyBands lacks = such runs exist and none is open ("open green run"). -1 without a score. */
+  bandsWhenOpen: number;
 }
 
 /** One run of ours: identity, rating, service, value parts. */

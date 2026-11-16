@@ -482,6 +482,20 @@ function run(srcDir) {
     R.schoolState({ schoolValue: 0, summer: true, varietyBands: 0 }, [], S1, true), R.schoolState({ schoolValue: 0, summer: false, varietyBands: 0 }, [], S1, false)],
     ["noGreen", "noGreen", "off", "off", "off", "waiting", "none"]);
   eq("T19.8 the Lessons row flags no green run (T186)", fs.readFileSync(path.join(srcDir, "hub", "MoneyView.tsx"), "utf8").includes('school === "noGreen" ? t(HUB_LOC.schoolNoGreen)'), true);
+  // T211 / T212: row 25's detail 1 = the school's runs (green or cat track) exist, none open. Without the row, bandsWhenOpen decides
+  // (green or cat track bit set: "noOpenGreen"). Both flag and missing line.
+  const P25c = [{ sign: S1, code: BIND.PROBLEM.SchoolNoGreenRun, detail: 1 }];
+  eq("T19.9 schoolState noOpenGreen (T212)", [R.schoolState({ schoolValue: 0 }, P25c, S1), R.schoolState({ schoolValue: 0 }, P25, S1),
+    R.schoolState({ schoolValue: 0, summer: false, varietyBands: 6, bandsWhenOpen: 7 }, [], S1, true),
+    R.schoolState({ schoolValue: 0, summer: false, varietyBands: 6, bandsWhenOpen: 6 | 8 }, [], S1, true),
+    R.schoolState({ schoolValue: 0, summer: false, varietyBands: 6, bandsWhenOpen: 6 }, [], S1, true),
+    R.schoolState({ schoolValue: 0, summer: false, varietyBands: 6 }, [], S1, true), R.schoolState({ schoolValue: 12 }, P25c, S1)],
+    ["noOpenGreen", "noGreen", "noOpenGreen", "noOpenGreen", "noGreen", "noGreen", "on"]);
+  eq("T19.10 noOpenGreen's flag and missing line; the Lessons row and the problem row read it",
+    [R.schoolFlagOf("noOpenGreen"), R.schoolMissingOf("noOpenGreen"), R.schoolMissingOf("noGreen"),
+      fs.readFileSync(path.join(srcDir, "hub", "MoneyView.tsx"), "utf8").includes('school === "noOpenGreen" ? t(HUB_LOC.schoolNoOpenGreen)'),
+      fs.readFileSync(path.join(srcDir, "hub", "StatusBlock.tsx"), "utf8").includes("p.detail === 1 ? HUB_LOC.problemSchoolNoOpenRun : HUB_LOC.problemSchoolNoGreenRun")],
+    ["schoolNoOpenGreen", "receiptMissingSchoolGreen", "receiptMissingSchoolGreen", true, true]);
   // T177: the Mountain fact sheet. Pistes exclude cat tracks; longest by lengthM; snowmaking share of piste plan area; complete lifts by type.
   {
     const CT = BIND.RUN_KIND.CatTrack, G = BIND.RUN_KIND.Groomed, N = BIND.RUN_KIND.Natural, LS = BIND.LIFT_STATE;
@@ -990,8 +1004,13 @@ function run(srcDir) {
         R.varietyMissing(L({})), R.varietyMissing(L({ varietyBands: -1 })), R.varietyMissing(L({ varietyBands: undefined })),
         R.varietyMissing(L({ varietyBands: 1, summer: true })), R.varietyMissing(null)],
       [["black"], ["green", "blue"], ["green", "blue", "black"], [], [], [], [], []]);
-    eq("T42.7 VARIETY_BAND bits equal C# SkiResortScore.VarietyGreen / Blue / Black / All (ResortBatch VB guards the C# side)",
-      BIND.VARIETY_BAND, { Green: 1, Blue: 2, Black: 4, All: 7 });
+    eq("T42.7 VARIETY_BAND bits equal C# SkiResortScore.VarietyGreen / Blue / Black / All and BandCatTrack (ResortBatch VB / CT212-7 guard the C# side)",
+      BIND.VARIETY_BAND, { Green: 1, Blue: 2, Black: 4, All: 7, CatTrack: 8 });
+    eq("T42.21 varietyClosed (T212): a need whose runs exist (bandsWhenOpen) but none counts says open; unknown or absent bandsWhenOpen never does",
+      [R.varietyClosed(L({ varietyBands: 2, bandsWhenOpen: 3 }), "green"), R.varietyClosed(L({ varietyBands: 2, bandsWhenOpen: 3 }), "black"),
+        R.varietyClosed(L({ varietyBands: 0, bandsWhenOpen: 4 | 8 }), "black"), R.varietyClosed(L({ varietyBands: 0, bandsWhenOpen: 8 }), "green"),
+        R.varietyClosed(L({ varietyBands: 0, bandsWhenOpen: -1 }), "green"), R.varietyClosed(L({ varietyBands: 0 }), "green"), R.varietyClosed(null, "blue")],
+      [true, false, true, false, false, false, false]);
     const ROW = { runs: 6, liftRows: 4 };
     eq("T42.8 verticalShort / liftsMissing / runsMissing / lodgeExtraShort / efficiencyAtFloor",
       [R.verticalShort(L({ verticalShortM: 140 })), R.verticalShort(L({ verticalShortM: 0.2 })), R.verticalShort(L({ verticalShortM: -1 })),
@@ -1084,10 +1103,20 @@ function run(srcDir) {
     // word (T18.4's rule). Placeholders count as the one word they print.
     const fam = new Map();
     for (const [k, v] of tuples) {
-      const m = /^SkiResort\.Hub\.RECEIPT_MISSING\[([A-Za-z]+)(?:\.[A-Za-z]+)?\]$/.exec(k);
-      if (m) fam.set(m[1], (fam.get(m[1]) || 0) + words(v));
+      const m = /^SkiResort\.Hub\.RECEIPT_MISSING\[([A-Za-z]+)(?:\.([A-Za-z]+))?\]$/.exec(k);
+      if (m && !(m[2] && /Open$/.test(m[2]))) fam.set(m[1], (fam.get(m[1]) || 0) + words(v));   // the T212 "open" parts: T18.5b
     }
     eq("T18.5 every missing line is at most 10 words with all its parts", [fam.size >= 7, [...fam].filter(([, n]) => n > 10)], [true, []]);
+    // T18.5b (T212): a part may show as its "open" variant. Outside summer a counted piste sets one band, so at most two needs show:
+    // the head plus the two longest parts, each in its longer form, is at most 10 words.
+    {
+      const tv = new Map(tuples);
+      const part = (n) => Math.max(words(tv.get("SkiResort.Hub.RECEIPT_MISSING[Variety." + n + "]") || ""),
+        words(tv.get("SkiResort.Hub.RECEIPT_MISSING[Variety." + n + "Open]") || ""));
+      const sizes = ["Green", "Blue", "Black"].map(part).sort((a, b) => b - a);
+      eq("T18.5b the Variety line with its open parts (two needs at most) is at most 10 words",
+        words(tv.get("SkiResort.Hub.RECEIPT_MISSING[Variety]") || "") + sizes[0] + sizes[1] <= 10, true);
+    }
 
     // The icon SVGs: well-formed XML (no "--" in a comment, balanced tags, quoted attributes) and every fill / stroke (with its opacity)
     // from the on-dark palette, the --hubOnDark* tokens of the token block (the icons sit on the dark tooltip ground). Two of them repeat
@@ -1315,10 +1344,15 @@ function run(srcDir) {
     eq("T60.14 slopeValue: degrees one decimal, or whole percent grade; unknown stays -1",
       [U.slopeValue(25, false), U.slopeValue(25, true), U.slopeValue(35.4, true), U.slopeValue(40, false), U.slopeValue(-1, true), U.slopeValue(NaN, false)],
       [14, 25, 35, 21.8, -1, -1]);
+    eq("T60.19 imperialMiles (T215): yards under 500 yd (457.2 m), miles with one decimal from there up to vanilla's own switch at 1,609 m; metric and non-finite give NaN; equals DisplayUnits.ImperialMilesFromM",
+      [U.imperialMiles(457.1, true), U.imperialMiles(457.2, true), U.imperialMiles(-457.2, true), U.imperialMiles(1000, true), U.imperialMiles(1608, true),
+        U.imperialMiles(1609, true), U.imperialMiles(1000, false), U.imperialMiles(NaN, true), U.IMPERIAL_MILES_FROM_M, U.METERS_PER_YARD, U.METERS_PER_MILE],
+      [NaN, 0.3, -0.3, 0.6, 1, NaN, NaN, NaN, 457.2, 0.9144, 1609.344]);
     const partsSrc = fs.readFileSync(path.join(srcDir, "hub", "parts.tsx"), "utf8");
     const viewSrcs = allSrc.filter(([p]) => /[\\/]hub[\\/]/.test(p) && !/units\.ts$/.test(p));
-    eq("T60.15 every number goes through unitLoc (Num, numArg, the width samples); no view reads the game's unit setting itself; slopes use slopeArg",
-      [partsSrc.includes("LocalizedNumber.renderString(unitLoc(loc, unit)"), partsSrc.includes("<UnitNumber value={value}"), partsSrc.includes("render(unitLoc(loc, unit)"),
+    eq("T60.15 every number goes through renderNumber = unitLoc + the 500 yd miles (Num, numArg, the width samples); no view reads the game's unit setting itself; slopes use slopeArg",
+      [partsSrc.includes("LocalizedNumber.renderString(unitLoc(loc, p.unit as string), p)") && partsSrc.includes("unitNbsp(renderNumber(loc, { value, unit, signed }))"),
+        partsSrc.includes("<UnitNumber value={value}"), partsSrc.includes("zeroDigits(String(renderNumber(loc, { value, unit, signed })))"),
         viewSrcs.filter(([, x]) => /useInches|unitSettings\.unitSystem/.test(x)).map(([p]) => path.basename(p)),
         viewSrcs.filter(([, x]) => /pctToDeg1\(/.test(x)).map(([p]) => path.basename(p))],
       [true, true, true, [], []]);

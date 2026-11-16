@@ -1587,6 +1587,14 @@ namespace ResortBatch
             Expect("I5c rows 24 and 25", x, o,
                 P(HubProblemCode.SummitLodgeNotLiftServed, 1, count: 2),
                 P(HubProblemCode.SchoolNoGreenRun, 1));
+            x.SchoolRunClosed = true;
+            Expect("I5c2 row 25 with the school's runs all closed (T212): detail 1", x, o,
+                P(HubProblemCode.SummitLodgeNotLiftServed, 1, count: 2),
+                P(HubProblemCode.SchoolNoGreenRun, 1, detail: 1));
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(LT(0, true, true, true, 0));
+            x.SchoolRunClosed = true;
+            Expect("I5c3 SchoolRunClosed alone makes no row", x, o);
             x = In(1, 1, 100, 1, 3);
             x.Lifts = Ls(LT(0, true, true, true, 0));
             x.SummitLodgesNotServed = 3;

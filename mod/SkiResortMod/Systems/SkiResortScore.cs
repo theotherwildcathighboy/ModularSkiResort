@@ -28,6 +28,8 @@ namespace SkiResortMod.Systems
         public const double VarietyFactor = 1.15;
         // Result.VarietyBands bits (bindings.ts VARIETY_BAND): a counted, Rated run of that band. Black covers double-black too.
         public const int VarietyGreen = 1, VarietyBlue = 2, VarietyBlack = 4, VarietyAll = 7;
+        /// <summary>Result.BandsWhenOpen's bit for a cat track (T212). Never a variety band: a cat track sets no VarietyBands bit.</summary>
+        public const int BandCatTrack = 8;
         public const double VerticalRefM = 600.0;
         public const double FirstLodgeBase = 20.0; // = SkiCatalog.Lodges[0].B (the A-frame, LadderTests guard)
         public const double LodgeExtra = 4.0; // = SkiCatalog.Lodges[0].E
@@ -171,10 +173,16 @@ namespace SkiResortMod.Systems
             public int PriceTolerance; // max PriceTolerance over the active lodges (0 without)
             public int RunsPatrolled; // member runs with RunInput.Patrolled (all member runs, counted or not)
             public bool SchoolActive;
-            public bool GreenCounted; // a counted run Rated Green (the variety flag `green`)
+            public bool GreenCounted; // a counted piste Rated Green (the variety flag `green`). Cat tracks never set it
             // Hub contract 40: the three variety flags as bits (VarietyGreen | VarietyBlue | VarietyBlack). Variety == (VarietyBands == VarietyAll).
             // The hub's "Missing:" line names the cleared bits, so the UI never recomputes the rule (D10).
             public int VarietyBands;
+            // Appended (1.0.1, T211 / T212), in Equals. SchoolRunCounted: the ski school's run, a counted green piste or a counted cat track
+            // (GreenCounted || a cat track counts). It gates SchoolValue and SchoolRule.DemandFactorOf. Variety keeps GreenCounted.
+            // BandsWhenOpen: the VarietyBands bits plus BandCatTrack over the member runs that count while open (full value > 0, open or
+            // not). A bit here but not in VarietyBands = such runs exist and none is open (the hub's "no open green run").
+            public bool SchoolRunCounted;
+            public int BandsWhenOpen;
 
             /// <summary>Exact field compare (for the Generation). It is bit-exact in any run order, because RunsValue (and RunsValueFull and
             /// RunsCapacity) is summed in ascending order. Every field, doubles bit for bit (Same). The lift sums are ascending too and the
@@ -200,7 +208,8 @@ namespace SkiResortMod.Systems
                        Same(LiftsApplied, o.LiftsApplied) && Same(SchoolValue, o.SchoolValue) &&
                        LodgeBestIndex == o.LodgeBestIndex &&
                        PriceTolerance == o.PriceTolerance && RunsPatrolled == o.RunsPatrolled &&
-                       SchoolActive == o.SchoolActive && GreenCounted == o.GreenCounted && VarietyBands == o.VarietyBands;
+                       SchoolActive == o.SchoolActive && GreenCounted == o.GreenCounted && VarietyBands == o.VarietyBands &&
+                       SchoolRunCounted == o.SchoolRunCounted && BandsWhenOpen == o.BandsWhenOpen;
             }
         }
 
@@ -276,6 +285,7 @@ namespace SkiResortMod.Systems
             // the band flags.
             bool green = false, blue = false, black = false, heights = false;
             int catCounted = 0;   // counted cat tracks: not a reason to leave the summer mode
+            int whenOpen = 0;     // Result.BandsWhenOpen
             double top = double.NegativeInfinity, bottom = double.PositiveInfinity;
             int runCount = runs?.Count ?? 0;
             for (int i = 0; i < runCount; i++)
@@ -329,8 +339,16 @@ namespace SkiResortMod.Systems
                 // The run's value with the open factor ignored (OpenShare's denominator), the same left-to-right product without its last
                 // factor.
                 double full = part.BandValue * part.SizeFactor * part.TypeFactor * part.ServedFactor;
+                var features = RunFeatures.FromKind(run.Kind);
                 if (full > 0.0)
+                {
                     s_FullValues.Add(full);
+                    // Counts while open (counted <=> full > 0 and open > 0). A cat track's full value is > 0 only when Rated Green.
+                    if (features.IsCatTrack)
+                        whenOpen |= BandCatTrack;
+                    else if (run.State == BandState.Rated)
+                        whenOpen |= VarietyBitOf(run.Band);
+                }
 
                 if (!part.Counted)
                     continue;
@@ -339,13 +357,12 @@ namespace SkiResortMod.Systems
                 double skiers = RunSkiersPerDay(run, part);
                 if (skiers > 0.0)
                     s_CapacityValues.Add(skiers);
-                var features = RunFeatures.FromKind(run.Kind);
                 if (CountsAsNight(features))
                     r.NightRunsCounted++;
                 if (features.IsCatTrack)
                 {
                     catCounted++;
-                    continue;   // no height range, no band flag (see CatTrackFactor)
+                    continue;   // no height range, no band flag (see CatTrackFactor). It still serves the school (SchoolRunCounted)
                 }
                 if (IsFinite(run.TopM) && IsFinite(run.BottomM))
                 {
@@ -423,8 +440,10 @@ namespace SkiResortMod.Systems
             // Step 6: S, lodge base, A_open, efficiency (NaN and <= 0 give 0). The school joins S before variety and vertical (+ 0.0
             // without one: bit for bit). The lodge term is the ladder's season value.
             r.GreenCounted = green;
+            r.SchoolRunCounted = green || catCounted > 0;   // T211: a counted cat track serves the school, never Variety
+            r.BandsWhenOpen = whenOpen;
             r.SchoolActive = area.SchoolActive;
-            r.SchoolValue = SchoolRule.ScoreValueOf(area.SchoolActive, green);
+            r.SchoolValue = SchoolRule.ScoreValueOf(area.SchoolActive, r.SchoolRunCounted);
             r.S = (r.RunsValue + r.LiftsApplied + r.SchoolValue) * r.VarietyMultiplier * r.VerticalMultiplier;
             int n;
             if (area.Lodges != null)
@@ -498,6 +517,19 @@ namespace SkiResortMod.Systems
                 flags |= ScoreFlags.NoRuns;
             r.Flags = flags;
             return r;
+        }
+
+        /// <summary>The VarietyBands bit of a Rated band: green, blue, black (double-black too). Flat and out of range give 0.</summary>
+        public static int VarietyBitOf(byte band)
+        {
+            switch (band)
+            {
+                case BandGreen: return VarietyGreen;
+                case BandBlue: return VarietyBlue;
+                case BandBlack:
+                case BandDoubleBlack: return VarietyBlack;
+                default: return 0;
+            }
         }
 
         /// <summary>size_i (knee at SizeKneeM2): <= 0 or NaN gives 0. Below the knee it is proportional (SizeLog(knee) x a / knee). From the
