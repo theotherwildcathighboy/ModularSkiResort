@@ -287,6 +287,28 @@ namespace SkiResortMod.Systems
             return ownTargetNorm >= 2f * HalfQuantum && ownTargetNorm < barNorm - HalfQuantum;
         }
 
+        /// <summary>An injected run's share and mean count its cold texels that the edge noise dropped (no target, never raised) only when
+        /// its other measured weight (full, warm and stopped texels; fringe is never counted) is under MinFootprintTexels. Else a narrow
+        /// run whose edge is mostly dropped texels could never open on made snow (round 2). The fallback keeps a spineless run (fringe and
+        /// dropped texels only) measured: without it, the run falls to the day-mean estimate and can open bare.</summary>
+        public static bool CountDroppedTexels(double measuredFootprintW)
+        {
+            return !(measuredFootprintW >= MinFootprintTexels);
+        }
+
+        /// <summary>The factor on an injected run's per-texel ramp rates that brings their mean to MeanRampRate (the cat track's rate), from
+        /// the sum of the merge's ramp noise (0..1) over the run's <paramref name="n"/> cold full-target texels. The noise keeps its texture
+        /// inside the run. Before round 2 a narrow run sat on one or two coarse 8 x 8 texel noise cells, and its mean rate ranged 0.56 to
+        /// 1.69: it opened from 0.67x to 2x the track's time over the same vertical. 1 with no full texel.</summary>
+        public static float RunRateScale(double noiseSum, int n)
+        {
+            if (n <= 0 || double.IsNaN(noiseSum))
+                return 1f;
+            double mean = noiseSum / n;
+            mean = mean < 0.0 ? 0.0 : mean > 1.0 ? 1.0 : mean;
+            return MeanRampRate / (RampRateMin + RampRateSpan * (float)mean);
+        }
+
         // Gun and groomed targets and the ramp (SkiSnowInjectionSystem.Tuning points at these).
         // The base the guns guarantee within a night is the open bar itself.
         public const float GunTargetDepthM = SkiableDepthM;

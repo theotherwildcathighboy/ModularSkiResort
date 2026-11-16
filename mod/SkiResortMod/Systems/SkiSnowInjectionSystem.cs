@@ -244,6 +244,12 @@ namespace SkiResortMod.Systems
             public int Cold;              // contained texels with localT <= ThermalThresholdC (injected runs)
             public ulong FootprintHash;   // wrapping Σ RunSnowRules.Mix64((ulong)idx) over contained texels
             public float FootprintW, WhiteW, KeepW, DepthW, ExcludedW;
+            // The same sums over the cold texels the edge noise dropped (no target, never raised). They count only for a run with no other
+            // measured texel (RunSnowRules.CountDroppedTexels).
+            public float DropFootprintW, DropWhiteW, DropKeepW, DropDepthW;
+            // The merge's ramp noise summed over this run's cold full-target texels (RunSnowRules.RunRateScale).
+            public float NoiseSum;
+            public int NoiseN;
             // The pack measure over this run's cold texels with a target (Measure only), in normalized units: sum of own target and sum of
             // min(depth, own target). A second count: the cold texels a stopped gun run held off.
             public float GunTargetW, GunPackW;
@@ -368,6 +374,11 @@ namespace SkiResortMod.Systems
                     float ownValue = RouteTexel(idx, tx, ty, ref partial, out bool cold);
                     if (cold)
                         partial.Cold++;
+                    if (ownValue >= TargetNorm)
+                    {
+                        partial.NoiseSum += RampNoise01(tx, ty);
+                        partial.NoiseN++;
+                    }
                     if (Measure)
                     {
                         float w = math.min(Scratch[idx], 1f);
@@ -375,7 +386,19 @@ namespace SkiResortMod.Systems
                         // A fringe texel (own target under the open bar: the feathered edge, at most FringeMaxDepthM) is left out of the
                         // share and the mean. Counted at its own target, a narrow run that was mostly fringe opened on a few mm of snow (T183,
                         // owner test 2026-11-15: 60 % "skiable" at a 4 mm mean). Counted at the full bar, it could never open.
-                        if (!RunSnowRules.IsFringeTarget(ownValue, BarNorm))
+                        // A cold texel the edge noise dropped (no target) is the ragged edge too: the guns never raise it. Counted at its
+                        // depth, it kept a narrow run shut on made snow at any sim speed (round 2: Upper Hidden Couloir, 31 of 53 counted
+                        // texels dropped, so at most 42 % could reach the bar). Its own sums count only when nothing else is measured.
+                        if (cold && ownValue <= 0f)
+                        {
+                            partial.DropFootprintW += w;
+                            partial.DropDepthW += w * dn;
+                            if (RunSnowRules.IsSkiable(dn, 0f, BarNorm))
+                                partial.DropWhiteW += w;
+                            if (RunSnowRules.IsSkiable(dn, 0f, RunSnowRules.KeepNorm))
+                                partial.DropKeepW += w;
+                        }
+                        else if (!RunSnowRules.IsFringeTarget(ownValue, BarNorm))
                         {
                             partial.FootprintW += w;
                             partial.DepthW += w * dn;
@@ -571,6 +594,8 @@ namespace SkiResortMod.Systems
             [NativeDisableParallelForRestriction] public NativeArray<float2> Upload;
             public NativeArray<MergeRowPartial> Partials;
             public float StepScale;          // RunSnowRules.StepScale of the frames since the last evaluated pass
+            [ReadOnly] public NativeArray<ushort> Owner;
+            [ReadOnly] public NativeArray<float> SlotRateScale;   // per Owner slot: RunSnowRules.RunRateScale (index 0 and unknown slots: 1)
 
             public void Execute(int row)
             {
@@ -596,10 +621,12 @@ namespace SkiResortMod.Systems
                     // partial), its noise rate and chill the ramp's.
                     if (target - depth > HalfQuantum)
                     {
-                        float rate = 0.65f * Hash01(tx >> 3, row >> 3, 0x6ADE)
-                                   + 0.35f * Hash01(tx, row, 0x6AF7);
+                        // The texel's noise rate, scaled so that the run that owns the texel builds at the mean rate on average (round 2:
+                        // a narrow run on one or two slow 8 x 8 noise cells built up to 2x slower than a cat track beside it).
+                        int owner = Owner[i];
+                        float runScale = owner < SlotRateScale.Length ? SlotRateScale[owner] : 1f;
                         depth = RunSnowRules.PackRaiseTexelM(depth * SnowHeightScaleM, target * SnowHeightScaleM, RampMask[i],
-                            Tuning.RampRateMin + Tuning.RampRateSpan * rate, StepScale) / SnowHeightScaleM;
+                            (Tuning.RampRateMin + Tuning.RampRateSpan * RampNoise01(tx, row)) * runScale, StepScale) / SnowHeightScaleM;
                         p.Injected++;
                     }
                     Upload[i] = new float2(depth, raw.y * inv);
@@ -679,6 +706,8 @@ namespace SkiResortMod.Systems
         private NativeArray<float> m_RampMask;     // chill factor 0..1 per texel (gun output)
         // Owner = the run slot (1..N, schedule order) that claimed the texel for the ledger.
         private NativeArray<ushort> m_Owner;
+        // Per Owner slot, this pass: the factor that brings the run's mean ramp noise rate to the mean rate (RunSnowRules.RunRateScale).
+        private NativeArray<float> m_SlotRateScale;
         private NativeArray<float> m_Scratch;      // per-run additive coverage accumulator
         private NativeArray<Ushort2> m_Readback;
         private NativeArray<Ushort2> m_MeasureReadback;   // the measure-only snapshot (4 MB)
@@ -1274,6 +1303,8 @@ namespace SkiResortMod.Systems
                 m_WarmMask.Dispose();
             if (m_Owner.IsCreated)
                 m_Owner.Dispose();
+            if (m_SlotRateScale.IsCreated)
+                m_SlotRateScale.Dispose();
             if (m_RampMask.IsCreated)
                 m_RampMask.Dispose();
             if (m_Scratch.IsCreated)
@@ -1773,9 +1804,16 @@ namespace SkiResortMod.Systems
             double globalDepthSum = 0.0, runDepthSum = 0.0;
             int runTexels = 0;
             // Ramp steps scale with the frames since the last evaluated pass (a skip spell, which provably had nothing to do, does not
-            // inflate it), clamped 1..4. At 1x and 2x the floor never binds, elapsed is 64, stepScale is exactly 1f and x * 1f == x: the merge
-            // is the unscaled one. PackStep never builds past the texel's target.
+            // inflate it), at least 1, at most MaxStepScale (6 game hours, a jump in the frame counter). At 1x and 2x elapsed is 64, stepScale is
+            // exactly 1f and x * 1f == x: the merge is the unscaled one. PackStep never builds past the texel's target.
             float stepScale = RunSnowRules.StepScale(elapsedFrames);
+            if (!m_SlotRateScale.IsCreated)
+            {
+                // no BuildMask with a run yet this session: every slot builds at its own noise rate (factor 1)
+                m_SlotRateScale = new NativeArray<float>(64, Allocator.Persistent);
+                for (int s = 0; s < m_SlotRateScale.Length; s++)
+                    m_SlotRateScale[s] = 1f;
+            }
             var mergePartials = new NativeArray<MergeRowPartial>(TexSize, Allocator.TempJob);
             try
             {
@@ -1788,6 +1826,8 @@ namespace SkiResortMod.Systems
                     Upload = m_Upload,
                     Partials = mergePartials,
                     StepScale = stepScale,
+                    Owner = m_Owner,
+                    SlotRateScale = m_SlotRateScale,
                 }.ScheduleParallel(TexSize, RowBatch, default).Complete();
 
                 for (int r = 0; r < TexSize; r++)
@@ -3238,6 +3278,15 @@ namespace SkiResortMod.Systems
             m_RunStoppedNext.Clear();
             m_GunStateNext.Clear();
             m_GunRunningNext.Clear();
+            // the per-slot rate scale the merge reads (slot 0 and any slot without full texels: 1). Grown, never shrunk.
+            if (!m_SlotRateScale.IsCreated || m_SlotRateScale.Length < pending.Count + 1)
+            {
+                if (m_SlotRateScale.IsCreated)
+                    m_SlotRateScale.Dispose();
+                m_SlotRateScale = new NativeArray<float>(math.max(64, pending.Count + 1), Allocator.Persistent);
+            }
+            for (int s = 0; s < m_SlotRateScale.Length; s++)
+                m_SlotRateScale[s] = 1f;
             for (int p = 0; p < pending.Count; p++)
             {
                 PendingRun run = pending[p];
@@ -3245,7 +3294,10 @@ namespace SkiResortMod.Systems
                 int contained = 0, cold = 0, stopped = 0, stoppedClaimed = 0;
                 ulong footprintHash = 0;
                 double footprintW = 0.0, whiteW = 0.0, keepW = 0.0, depthW = 0.0;
+                double dropFootprintW = 0.0, dropWhiteW = 0.0, dropKeepW = 0.0, dropDepthW = 0.0;
                 double gunTargetW = 0.0, gunPackW = 0.0;
+                double noiseSum = 0.0;
+                int noiseN = 0;
                 for (int r = 0; r < run.Partials.Length; r++)
                 {
                     FoldRowPartial part = run.Partials[r];
@@ -3260,8 +3312,25 @@ namespace SkiResortMod.Systems
                     whiteW += part.WhiteW;
                     keepW += part.KeepW;
                     depthW += part.DepthW;
+                    dropFootprintW += part.DropFootprintW;
+                    dropWhiteW += part.DropWhiteW;
+                    dropKeepW += part.DropKeepW;
+                    dropDepthW += part.DropDepthW;
+                    noiseSum += part.NoiseSum;
+                    noiseN += part.NoiseN;
                     gunTargetW += part.GunTargetW;
                     gunPackW += part.GunPackW;
+                }
+                if (run.Slot > 0 && run.Slot < m_SlotRateScale.Length)
+                    m_SlotRateScale[run.Slot] = RunSnowRules.RunRateScale(noiseSum, noiseN);
+                // A run with no measured texel but the noise-dropped ones (a spineless narrow run) keeps them: without, it would fall to the
+                // day-mean estimate and could open bare.
+                if (RunSnowRules.CountDroppedTexels(footprintW))
+                {
+                    footprintW += dropFootprintW;
+                    whiteW += dropWhiteW;
+                    keepW += dropKeepW;
+                    depthW += dropDepthW;
                 }
                 stats.StoppedTexels += stopped;
                 if (run.GunRun)
@@ -3671,6 +3740,13 @@ namespace SkiResortMod.Systems
 
         /// <summary>Deterministic per-cell hash noise in [0,1) — integer mix, no state,
         /// identical every top-up (a shimmering edge would read as simulation noise).</summary>
+        /// <summary>The merge's per-texel ramp noise in 0..1: a coarse octave over 8 x 8 texel cells (0.65) and a fine one per texel (0.35).
+        /// The fold sums it over a run's full texels for the run's rate scale (RunSnowRules.RunRateScale).</summary>
+        private static float RampNoise01(int tx, int ty)
+        {
+            return 0.65f * Hash01(tx >> 3, ty >> 3, 0x6ADE) + 0.35f * Hash01(tx, ty, 0x6AF7);
+        }
+
         private static float Hash01(int x, int y, int salt)
         {
             uint h = (uint)(x * 374761393 + y * 668265263 + salt * 1442695041);

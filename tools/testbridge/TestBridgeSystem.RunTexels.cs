@@ -53,6 +53,10 @@ namespace SkiTestBridge
             NativeArray<float> mask = PlaneOf(inj, injType, "m_Mask");
             NativeArray<float> warm = PlaneOf(inj, injType, "m_WarmMask");
             NativeArray<float> ramp = PlaneOf(inj, injType, "m_RampMask");
+            System.Reflection.FieldInfo upField = injType.GetField("m_Upload", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var upload = upField != null ? (NativeArray<float2>)upField.GetValue(inj) : default;
+            if (!upload.IsCreated || upload.Length != kSnowTex * kSnowTex)
+                throw new InvalidOperationException("m_Upload is not built yet (no write pass?)");
 
             int runCount = (int)statsType.GetProperty("RunCount").GetValue(stats);
             System.Reflection.MethodInfo getRun = statsType.GetMethod("GetRun");
@@ -91,6 +95,11 @@ namespace SkiTestBridge
                     foreach (string c in new[] { "full", "fringe", "warm", "stopped", "none" })
                         cls[c] = new TexelClass();
                     var fullDepths = new List<double>();
+                    // the full texels by terrain slope (rise over run across one texel): count, mean depth now, mean depth the last pass
+                    // uploaded. A map under the upload means the game took snow away between the write and this read.
+                    var bins = new SlopeBin[kSlopeEdges.Length + 1];
+                    for (int b = 0; b < bins.Length; b++)
+                        bins[b] = new SlopeBin();
                     for (int ty = y0; ty <= y1; ty++)
                     {
                         for (int tx = x0; tx <= x1; tx++)
@@ -119,6 +128,17 @@ namespace SkiTestBridge
                             {
                                 t.Chill += ramp[idx];
                                 fullDepths.Add(d);
+                                float hx = 0.5f * texel.x, hz = 0.5f * texel.y;
+                                float gx = (TerrainHeight(c.x + hx, c.y) - TerrainHeight(c.x - hx, c.y)) / texel.x;
+                                float gz = (TerrainHeight(c.x, c.y + hz) - TerrainHeight(c.x, c.y - hz)) / texel.y;
+                                float slope = math.sqrt(gx * gx + gz * gz);
+                                int b = 0;
+                                while (b < kSlopeEdges.Length && slope >= kSlopeEdges[b])
+                                    b++;
+                                SlopeBin sb = bins[b];
+                                sb.N++;
+                                sb.Depth += d;
+                                sb.Up += upload[idx].x * kSnowScaleM;
                             }
                         }
                     }
@@ -142,6 +162,19 @@ namespace SkiTestBridge
                             countedOpen += t.Open;
                         }
                     }
+                    var bySlope = new JArray();
+                    for (int b = 0; b < bins.Length; b++)
+                    {
+                        if (bins[b].N == 0)
+                            continue;
+                        bySlope.Add(new JObject
+                        {
+                            ["slopeFrom"] = b == 0 ? 0f : kSlopeEdges[b - 1],
+                            ["n"] = bins[b].N,
+                            ["meanM"] = Math.Round(bins[b].Depth / bins[b].N, 3),
+                            ["lastUploadM"] = Math.Round(bins[b].Up / bins[b].N, 3),
+                        });
+                    }
                     fullDepths.Sort();
                     var q = new JObject();
                     foreach (double p in new[] { 0.1, 0.4, 0.5, 0.9 })
@@ -157,6 +190,7 @@ namespace SkiTestBridge
                         ["texels"] = cls["full"].N + cls["fringe"].N + cls["warm"].N + cls["stopped"].N + cls["none"].N,
                         ["classes"] = classes,
                         ["fullQuantilesM"] = q,
+                        ["fullBySlope"] = bySlope,
                         ["countedShare"] = counted > 0 ? Math.Round((double)countedOpen / counted, 3) : (double?)null,
                         ["countedTexels"] = counted,
                     });
@@ -178,6 +212,14 @@ namespace SkiTestBridge
             if (!a.IsCreated || a.Length != kSnowTex * kSnowTex)
                 throw new InvalidOperationException(field + " is not built yet (no evaluated pass?)");
             return a;
+        }
+
+        private static readonly float[] kSlopeEdges = { 0.2f, 0.4f, 0.6f, 0.8f, 1.0f };
+
+        private sealed class SlopeBin
+        {
+            public int N;
+            public double Depth, Up;
         }
 
         private sealed class TexelClass

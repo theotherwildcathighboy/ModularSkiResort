@@ -71,7 +71,7 @@ snow", never corruption. Defensive contract (ChairPinSystem precedent):
 ## Per-run snow measurement
 
 Every evaluated pass measures these values for every bound run of all four types:
-- The share of its footprint with skiable snow (`RunSnowRules.IsSkiable`). A closed run counts at the open bar, 3 ft = 0.91 m. An open run counts at the keep bar, 1 ft. Fringe texels are left out of the share and the mean (`RunSnowRules.IsFringeTarget`). A fringe texel has its own target under the bar: the feathered edge, at most `FringeMaxDepthM`. Before T183 they counted at their own target, and a narrow run opened on a few mm.
+- The share of its footprint with skiable snow (`RunSnowRules.IsSkiable`). A closed run counts at the open bar, 3 ft = 0.91 m. An open run counts at the keep bar, 1 ft. Fringe texels are left out of the share and the mean (`RunSnowRules.IsFringeTarget`). A fringe texel has its own target under the bar: the feathered edge, at most `FringeMaxDepthM`. Before T183 they counted at their own target, and a narrow run opened on a few mm. The cold texels that the edge noise dropped (no target) are also left out. The guns never raise them. Before round 2 they counted at their depth, and a narrow run could never open on made snow. Upper Hidden Couloir had 31 dropped texels of 53 counted. So at most 42 % could reach the bar. A run whose only measured texels are dropped ones (a narrow run with no spine) still counts them (`RunSnowRules.CountDroppedTexels`). Without them it would fall to the day-mean estimate and could open bare. Gate: ResortBatch `SnowSpeedTests` SS5.
 - Its mean depth.
 
 It measures from the newest snapshot of the
@@ -96,6 +96,11 @@ snow is a model, `RunSnowRules.TrackMadeSnow`. The model has a share of the vert
   the measured rule the game melts a run texel with). Then it steps the gun state on the pack of the cold cells (`NextPackGun`:
   stop at 2.0 m, restart below 1.95 m). The measured natural snow under the track is the floor of that pack. Last it builds each cold cell with
   the run's ramp (`PackStep`, the mean noise rate). So a track and a run over the same vertical open, close and make snow alike. No hold: a warm track melts as a run does.
+- A run builds at the same mean rate (round 2). The merge's per-texel noise has a coarse octave over 8 x 8 texel cells (112 m). A
+  narrow run sits on one or two of these cells. Before round 2 its mean rate was a random 0.56 to 1.69, against 1.125 for the track.
+  It opened from 0.67x to 2x the track's time over the same vertical. Now the fold sums the noise over each run's cold full-target
+  texels. The merge multiplies a texel's rate by its owner run's `RunSnowRules.RunRateScale` (`m_SlotRateScale`, by `Owner` slot).
+  The texture inside a run stays. Gate: ResortBatch `SnowSpeedTests` SS6.
 - The made share counts at the run bars (`TrackMadeCountedShare`: the share of cells at the bar). An open track counts it at 1 ft.
   A closed track counts it at 3 ft. A track with no known state (Unknown) also counts it at 3 ft. A run with no known state counts
   at 1 ft (`MeasuredShare`). So the track opens about 0.6 game h after its guns start at full chill, not at once.

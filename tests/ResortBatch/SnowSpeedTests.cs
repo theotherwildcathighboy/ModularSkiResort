@@ -10,6 +10,8 @@
 //        (chill 0.875). Above freezing the measured melt law (0.0425 x air / depth) melts thin snow faster than the guns build, so neither
 //        surface builds from bare there; that law is fitted on 0.3-2.0 m patches, so it is not a check here.
 // - SS4: no catch-up burst: a pause adds no frames, and the first pass after a load raises one window, however old the save.
+// - SS5: a run's share leaves out the texels the edge noise dropped (never raised), with a fallback for a run with nothing else.
+// - SS6: a run's mean ramp rate is the track's (RunRateScale), whatever coarse noise cells it sits on.
 
 using System;
 using System.Collections.Generic;
@@ -43,12 +45,12 @@ namespace ResortBatch
 
         /// <summary>Game hours until the run's open share (texels at the bar) reaches OpenAtShare. <paramref name="maxScale"/>: the step
         /// cap to apply (the live MaxStepScale, or the pre-round-2 4).</summary>
-        private static float RunOpensAtH(uint framesPerPass, float airC, float maxScale)
+        private static float RunOpensAtH(uint framesPerPass, float airC, float maxScale, List<float> rates = null)
         {
             var p = RunSnowRules.PackParams.Default;
             float threshold = p.FreezingC + p.MarginC;
             float chill = Math.Max(0f, Math.Min(1f, (threshold - airC) / RunSnowRules.RampChillSpanC));
-            List<float> rates = TexelRates();
+            rates = rates ?? TexelRates();
             var depth = new float[rates.Count];
             float dtH = framesPerPass / RunSnowRules.FramesPerGameHour;
             float scale = Math.Min(RunSnowRules.StepScale(framesPerPass), maxScale);
@@ -139,6 +141,51 @@ namespace ResortBatch
             RunSnowRules.StepTrackPack(ref tl, p0, 1000f, 1000f, -5f, 1000f, 0f, true, true, 0f);
             check(tl.C0 == 0.5f && Math.Abs(afterPause - d0 - oneWindow) < 1e-5f, W,
                   "SS4b the first pass of a load: one window on a run texel, nothing on a track cell (dt 0)");
+
+            // SS5: the texels a run's share counts. The round 2 game turn read Upper Hidden Couloir at -5 C: 22 full texels, 59 fringe, 31
+            // dropped by the edge noise (no target, never raised). Counted at their depth (0 m on made snow), the dropped ones capped the
+            // share at 22 / 53 = 42 %, under OpenAtShare, so the run could never open on made snow. They now count only for a run with no
+            // other measured texel.
+            check(!RunSnowRules.CountDroppedTexels(22.0) && !RunSnowRules.CountDroppedTexels(RunSnowRules.MinFootprintTexels), W,
+                  "SS5a a run with measured full texels leaves its noise-dropped texels out of its share and mean");
+            check(RunSnowRules.CountDroppedTexels(0.0) && RunSnowRules.CountDroppedTexels(0.4) && RunSnowRules.CountDroppedTexels(double.NaN), W,
+                  "SS5b a spineless run (fringe and dropped texels only, Moonbeam: 11 + 9) keeps its dropped texels: it stays measured, " +
+                  "never falls to the day-mean estimate, and never opens bare");
+            check(22f / 53f < RunSnowRules.OpenAtShare, W,
+                  "SS5c the cause: with the dropped texels counted, the Couloir's share topped out at 22 / 53 under the open share");
+
+            // SS6: the run's mean rate. The merge's noise has a coarse octave over 8 x 8 texel cells, so a narrow run sits on one or two cells
+            // and its mean rate is that cell's, not the mean (the round 2 game turn: the Couloir's full texels built at about 0.83 of the
+            // mean rate). RunRateScale brings each run's mean to MeanRampRate and keeps the texture inside it.
+            check(RunSnowRules.RunRateScale(0.0, 0) == 1f && RunSnowRules.RunRateScale(double.NaN, 4) == 1f &&
+                  Math.Abs(RunSnowRules.RunRateScale(50.0, 100) - 1f) < 1e-6f, W,
+                  "SS6a the rate scale: 1 with no full texel, 1 at the mean noise (0.5)");
+            bool meanOk = true;
+            foreach (double m in new[] { 0.0, 0.1, 0.3, 0.7, 1.0 })
+                meanOk &= Math.Abs((RunSnowRules.RampRateMin + RunSnowRules.RampRateSpan * (float)m) * RunSnowRules.RunRateScale(m * 40, 40)
+                                   - RunSnowRules.MeanRampRate) < 1e-5f;
+            check(meanOk, W, "SS6b a run's scaled mean rate is MeanRampRate at any mean noise 0..1");
+            float trackSlow = TrackOpensAtH(FramesPerPass(1, 0.5f), -5f);
+            foreach (float coarse in new[] { 0.1f, 0.9f })
+            {
+                // one coarse cell: the fine octave alone varies across the run's texels
+                var raw = new List<float>();
+                double noiseSum = 0.0;
+                for (int j = 0; j < 40; j++)
+                {
+                    float noise = 0.65f * coarse + 0.35f * (j + 0.5f) / 40f;
+                    noiseSum += noise;
+                    raw.Add(RunSnowRules.RampRateMin + RunSnowRules.RampRateSpan * noise);
+                }
+                float k = RunSnowRules.RunRateScale(noiseSum, raw.Count);
+                var scaled = raw.ConvertAll(r => r * k);
+                float before = RunOpensAtH(FramesPerPass(1, 0.5f), -5f, RunSnowRules.MaxStepScale, raw);
+                float after = RunOpensAtH(FramesPerPass(1, 0.5f), -5f, RunSnowRules.MaxStepScale, scaled);
+                Console.WriteLine($"INFO  SnowSpeed: a run on one coarse noise cell {coarse:F1}: opens {before:F3} h unscaled, {after:F3} h scaled " +
+                                  $"(x{k:F3}), track {trackSlow:F3} h");
+                check(after >= trackSlow - 0.02f && after - trackSlow <= 0.06f, W,
+                      $"SS6c a run on one coarse cell {coarse:F1} opens with the track: {after:F3} h (unscaled {before:F3} h), track {trackSlow:F3} h");
+            }
         }
     }
 }
