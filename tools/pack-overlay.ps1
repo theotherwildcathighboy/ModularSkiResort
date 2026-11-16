@@ -249,12 +249,12 @@ try {
     if ($dry) { Write-Host "WOULD write the overlay state ($StatePath): label '$Label', $($files.Count) laid, $($added.Count) new, .cok $(if ($cokSrc) { 'yes' } else { 'no' })"; exit 0 }
 
     $added | Set-Content -LiteralPath $AddedPath -Encoding UTF8
-    $stateObj = [ordered]@{ label = $Label; at = (Get-Date).ToString('s'); from = $src; cok = [bool]$cokSrc; laid = @($laid); added = @($added) }
+    $stateObj = [ordered]@{ label = $Label; at = (Get-Date).ToString('s'); from = $src; cok = [bool]$cokSrc; laid = $laid.ToArray(); added = $added.ToArray() }
     [IO.File]::WriteAllText($StatePath, ($stateObj | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding $false))
     Write-Host "overlaid $($laid.Count) file(s), $($added.Count) new; .cok $(if ($cokSrc) { 'laid' } else { 'not laid (the pack keeps its shipped assets)' })"
     $bad = Invoke-Verify
     exit ([int]($bad -gt 0))
 } catch {
-    Write-Host $_.Exception.Message
+    Write-Host $_.Exception.Message; if ($env:SRM_DEBUG) { Write-Host $_.InvocationInfo.PositionMessage }
     exit 1
 }
