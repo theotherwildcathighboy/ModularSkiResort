@@ -59,10 +59,10 @@ export function depthValue(cm: number, inches: boolean): number {
   return inches ? Math.round(cm / 2.54) : cm;
 }
 
-/** Vanilla's mile text (Common.VALUE_MILE, its {SIGN} as installed index.js eu: "-", "+" or "±" when signed), for the imperial lengths
+/** Vanilla's mile text (Common.VALUE_MILE, its {SIGN} as installed index.js eu: "-", or "+" when signed; never 0 here), for the imperial lengths
  *  from 500 yd that vanilla would still show in yards (units.ts imperialMiles, T215). */
 function mileText(loc: Localization, miles: number, signed?: boolean): string {
-  const sign = miles < 0 ? "-" : !signed ? "" : miles > 0 ? "+" : "±";
+  const sign = miles < 0 ? "-" : signed ? "+" : "";
   const value = LocalizedNumber.renderString(loc, { value: Math.abs(miles), unit: Unit.FloatSingleFraction });
   return LocalizedString.renderString(loc, { id: "Common.VALUE_MILE", fallback: "{SIGN}{VALUE} mi", args: { SIGN: sign, VALUE: value } });
 }
