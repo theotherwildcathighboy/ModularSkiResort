@@ -830,7 +830,8 @@ namespace SkiResortMod.Systems
         private double m_CostMeasureRequestMs;
         private int m_CostLatencyMin, m_CostLatencyMax;
         private long m_CostMeasuredTexels;
-        private int m_StepClampedPasses;         // evaluated passes where the x4 cap binds
+        private int m_StepClampedPasses;         // evaluated passes where the step cap binds (MaxStepScale)
+        private float m_StepMax;                 // the largest step of the cost record (windows)
 
         /// <summary>Mean snow depth (m) over the runs' masked texels, measured each merge pass. The decal system dresses trails by snow
         /// presence, not temperature, so green can never appear while the runs are still white.</summary>
@@ -1445,6 +1446,7 @@ namespace SkiResortMod.Systems
             m_LastEvalFrame = 0;
             m_TableAllMeasured = false;
             m_StepClampedPasses = 0;
+            m_StepMax = 0f;
             m_Summary = default;
             m_MultFull = m_MultPartly = m_MultZero = 0;
             m_OpenLog.Reset();
@@ -1487,7 +1489,7 @@ namespace SkiResortMod.Systems
                              $"too-warm texels melt at the game's rate (no hold, no managed melt, T222); top-up every " +
                              $"{Tuning.TopupIntervalFrames} sim frames + once on first sim tick, at most one per " +
                              $"{RunSnowRules.MinPassIntervalS:F2} s wall clock (ramp and decay scaled by elapsed " +
-                             $"frames / {Tuning.TopupIntervalFrames}, cap x{RunSnowRules.MaxStepScale:F0}); dry skip " +
+                             $"frames / {Tuning.TopupIntervalFrames}, cap x{RunSnowRules.MaxStepScale:F0} = {RunSnowRules.MaxPackStepHours:F0} game hours); dry skip " +
                              "when no run texel is cold and the footprint was bare at the last real pass; packed skip " +
                              "when no run texel is cold, the runs held >= " +
                              $"{RunSnowRules.PackedSkipMinRunDepthM:F2} m and every measured run's snow share was >= " +
@@ -1552,7 +1554,13 @@ namespace SkiResortMod.Systems
                 // Resort-present bit (ResortPresence header): a city whose last pass found no run polygon and that has no sign, run or lift of ours
                 // does no work here: no planes, no area walk, no sync.
                 if (m_NoRunsSettled && !m_MeasurePending && !ResortPresence.Present)
+                {
+                    // Keep the last-pass frame current: the raise steps on the frames since the last pass, and a run drawn after a long
+                    // idle spell must start from one window, not from the whole spell (no catch-up burst).
+                    if (!m_InitialTopupPending)
+                        m_LastTopupFrame = frame;
                     return;
+                }
                 if (!m_InitialTopupPending &&
                     frame - m_LastTopupFrame < (uint)Tuning.TopupIntervalFrames)
                     return;
@@ -2836,13 +2844,16 @@ namespace SkiResortMod.Systems
             m_CostMeasuredTexels = 0;
         }
 
-        /// <summary>Every pass that built the mask counts as evaluated (real, skipped or idle). Also counts the passes where the x4 step cap
-        /// binds. The cost record takes only passes with at least one bound run to measure (injected or natural): an empty city would
+        /// <summary>Every pass that built the mask counts as evaluated (real, skipped or idle). Also keeps the largest step and counts the
+        /// passes where the step cap (MaxStepScale, 6 game hours) binds. The cost record takes only passes with at least one bound run to measure (injected or natural): an empty city would
         /// otherwise write the line over 64 idle passes.</summary>
         private void NoteEvaluatedPass(float now, uint elapsedFrames, MaskStats stats)
         {
-            if (elapsedFrames / (float)Tuning.TopupIntervalFrames > RunSnowRules.MaxStepScale)
+            float step = elapsedFrames / (float)Tuning.TopupIntervalFrames;
+            if (step > RunSnowRules.MaxStepScale)
                 m_StepClampedPasses++;
+            if (step > m_StepMax)
+                m_StepMax = step;
             int boundInjected = stats.SnowmakingTotal + stats.GroomedTotal + stats.NightTotal - stats.UnboundRuns;
             bool work = boundInjected > 0 || stats.NaturalScheduled > 0;
             m_CostThisPass = work && !m_CostLogged && m_CostPasses < CostPasses;
@@ -2898,7 +2909,7 @@ namespace SkiResortMod.Systems
                          $"pass(es) with {m_CostNaturalRunsMax} run(s), measure-only readbacks {m_CostMeasureRequests} " +
                          $"(request mean {Mean(m_CostMeasureRequestMs, m_CostMeasureRequests):F3} ms, latency {latency} " +
                          $"rendered frame(s)), per-run measurement over {(n > 0 ? m_CostMeasuredTexels / n : 0)} texel(s) " +
-                         $"per pass, step clamped at x{RunSnowRules.MaxStepScale:F0} on {m_StepClampedPasses} pass(es)");
+                         $"per pass, step up to x{m_StepMax:F2} (cap x{RunSnowRules.MaxStepScale:F0}, bound on {m_StepClampedPasses} pass(es))");
         }
 
         // Buffer contract guard — the single dependency surface. Checked once per load.

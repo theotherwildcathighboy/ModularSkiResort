@@ -91,7 +91,13 @@ namespace SkiResortMod.Systems
         public const float MaxSnowmakingMarginC = 6f;
         // Top-up cadence and skip limits
         public const int TopupIntervalFrames = 64;     // the injection's Tuning.TopupIntervalFrames points here
-        public const float MaxStepScale = 4f;          // covers 8× (3.75). A step never spans more than 4 windows
+        // The raise steps on sim time like a cat track (StepTrackPack): a pass credits every sim frame since the last pass. The wall-clock
+        // floor below postpones passes at high sim speeds (about 240 frames a pass at speed 8, more when the frame rate drops), so a cap
+        // of a few windows threw snow away there: before round 2 it was 4 windows, and at speed 8 a night run built slower than a cat track
+        // over the same vertical (snow REPORT section 6). The only cap left is the track's, MaxPackStepHours (a jump in the frame counter).
+        // No catch-up burst: the first pass after a load counts one window, a paused game adds no frames, and a city with no run keeps the
+        // last-pass frame current (the injection's OnUpdate).
+        public const float MaxStepScale = MaxPackStepHours * FramesPerGameHour / TopupIntervalFrames;   // 1024 windows = 6 game hours
         public const float MinPassIntervalS = 0.5f;    // at most two evaluated passes per wall-clock second
         public const uint ForcedRealPassFrames = 1024; // 16 windows
         public const uint MeasureIntervalFrames = 1024;
@@ -650,8 +656,8 @@ namespace SkiResortMod.Systems
             return (float)(s <= 0.0 ? 0.0 : s >= 1.0 ? 1.0 : s);
         }
 
-        /// <summary>Ramp and decay steps scale with the frames since the last evaluated pass.
-        /// Exactly 1 at 64 frames (bit-identical to today at 1× and 2×), capped at 4.</summary>
+        /// <summary>The raise step in top-up windows: the sim frames since the last evaluated pass / 64. Exactly 1 at 64 frames (the
+        /// speed 1 cadence), at least 1, at most MaxStepScale (MaxPackStepHours, the track's cap).</summary>
         public static float StepScale(uint elapsedFrames)
         {
             float s = elapsedFrames / (float)TopupIntervalFrames;

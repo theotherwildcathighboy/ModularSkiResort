@@ -54,6 +54,7 @@ namespace ResortBatch
             CatTrackTests.Run(Check);
             TrackUpkeepTests.Run(Check);
             SnowPackTests.Run(Check);
+            SnowSpeedTests.Run(Check);
             RunFeaturesTests.Run(Check);
             RunFeaturesR2Tests.Run(Check);
             RunTypesR3Tests.Run(Check);

@@ -53,7 +53,7 @@ namespace ResortBatch
                   RunSnowRules.CloseBelowShare == 0.40f && RunSnowRules.MultiplierDeadBand == 0.05f &&
                   RunSnowRules.DefaultSnowmakingMarginC == 3.3f && RunSnowRules.ForcedRealPassFrames == 1024u &&
                   RunSnowRules.MeasureIntervalFrames == 1024u && RunSnowRules.MaxSnapshotAgeFrames == 4096u &&
-                  RunSnowRules.MinPassIntervalS == 0.5f && RunSnowRules.MaxStepScale == 4f &&
+                  RunSnowRules.MinPassIntervalS == 0.5f && RunSnowRules.MaxStepScale == 1024f &&
                   RunSnowRules.TopupIntervalFrames == 64 && RunSnowRules.DayMeanSamples == 24,
                 W, "a tuning constant moved: the literal oracles below assume the ch3 §2 values (T09: skiable bar 15 cm, margin 3.3 C)");
             check((byte)RunKind.Natural == 3, W, "RunKind.Natural = " + (byte)RunKind.Natural + ", expected 3 (appended, never renumbered)");
@@ -236,8 +236,8 @@ namespace ResortBatch
         private static void StepScaleCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S12 StepScale";
-            uint[] frames = { 64u, 0u, 32u, 96u, 120u, 240u, 256u, 1000u };
-            float[] expected = { 1f, 1f, 1f, 1.5f, 1.875f, 3.75f, 4f, 4f };
+            uint[] frames = { 64u, 0u, 32u, 96u, 120u, 240u, 256u, 1000u, 65536u, 100000u };
+            float[] expected = { 1f, 1f, 1f, 1.5f, 1.875f, 3.75f, 4f, 15.625f, 1024f, 1024f };
             for (int i = 0; i < frames.Length; i++)
             {
                 float got = RunSnowRules.StepScale(frames[i]);

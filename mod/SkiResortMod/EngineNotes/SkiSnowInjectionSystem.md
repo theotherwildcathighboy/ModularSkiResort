@@ -139,8 +139,12 @@ snow is a model, `RunSnowRules.TrackMadeSnow`. The model has a share of the vert
 
     A forced real pass runs every 1,024 sim frames.
   - At most one evaluated pass per 0.5 s of wall clock (the first after a load is exempt). The merge's ramp step scales
-    with the frames since the last evaluated pass. The scale is `RunSnowRules.StepScale`: exactly 1 at 64 frames (bit-identical at 1x
-    and 2x), cap x4.
+    with the frames since the last evaluated pass. The scale is `RunSnowRules.StepScale`: exactly 1 at 64 frames (speeds 1 and 2).
+    Its only cap is the track's 6 game hours (1,024 windows). So a run builds on sim time at any speed, as a cat track does.
+    Before round 2 the cap was x4. At speed 8 a pass spans 240 to 384 frames (3.75 to 6 windows). So a night run built up to
+    1.7x slower than a cat track over the same vertical (snow REPORT section 6, `SnowSpeedTests`).
+  - No catch-up burst. The first pass after a load counts one window. A paused game adds no frames. A city with no run keeps
+    the last-pass frame current, so a run drawn after an idle spell starts from one window.
 
 ## Packed skip beside the dry skip
 

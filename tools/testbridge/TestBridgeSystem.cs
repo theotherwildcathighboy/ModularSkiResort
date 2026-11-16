@@ -116,6 +116,7 @@ namespace SkiTestBridge
                 case "heights": return Heights(args);
                 case "snow": return SnowCommand(args);
                 case "runSnow": return RunSnowCommand(args);
+                case "runTexels": return RunTexelsCommand(args);
                 case "perf": return PerfCommand(args);
                 case "tiles": return UnlockTiles();
                 case "pm": return PhotoMode(args);
