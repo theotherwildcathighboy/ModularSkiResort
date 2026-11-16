@@ -1076,6 +1076,7 @@
   "SkiResort.Hub.START_STEP[4]": "A lodge within 800 m of the runs",
   "SkiResort.Hub.STATUS_NO_RUNS": "Closed",
   "SkiResort.Hub.STATUS_UNLINKED": "No Welcome Sign in range",
+  "SkiResort.Hub.STATUS_SETTLING": "Resort numbers fill in once time runs",
   "SkiResort.Hub.STATUS_TIP_RULE": "<mark:open> Open: enough snow on 60 % of the run, then down to 40 % on thinner snow. <mark:patchy> Patchy: in between. <mark:closed> Closed: below 40 %.",
   "SkiResort.Hub.STATUS_TIP_ESTIMATED": "Some runs are estimated from the day's temperature until their snow can be measured.",
   "SkiResort.Hub.STATUS_TIP_GATING": "Snow & season gating is off in Options, so every run counts as open.",
