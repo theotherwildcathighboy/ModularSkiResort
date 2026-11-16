@@ -19,7 +19,8 @@
 //     - They stay out of injection (the prefab is named only in the measure-only set).
 //     - The run rule estimates them: one RunSnowRules.EstimatedRunShare call for an unmeasured run and one for GetRunSnow,
 //       both with the pass's gun season once known (DECISIONS 571).
-//     A track's made snow uses only TrackGunShare and TrackColdShare, once each, in StepTrack.
+//     A track's made snow uses only TrackGunShare and TrackColdShare, once each, in StepTrack. Its bill's gate (GunReach, T220 r1d)
+//     comes from that gun share or TrackGunReach at the same air, once, in StepTrack.
 //  R8 house style: Game mode only, ARMED line, one-shot catch, [cost] line, and the tag is added in one place.
 //  R9 run types: the count of run kind names per mod file only goes down (systems move to RunFeatures in R2).
 //     One exception: the shim file EntityRef.cs rose in R2 for SnowKind.
@@ -176,6 +177,9 @@ need(injection.split("RunSnowRules.TrackGunShare(").length === 2 && injection.sp
      stepTrack.includes("RunSnowRules.TrackGunShare(m_GunSeasonKnown && m_PassGunSeason, input.GunsOn,") &&
      stepTrack.includes("RunSnowRules.TrackColdShare(") && stepTrack.includes("RunSnowRules.StepTrackMadeSnow("),
      "R7 SkiSnowInjectionSystem.cs: a cat track's made snow must come from TrackGunShare (with the known season and its switch) and TrackColdShare, once each, in StepTrack");
+need(injection.split("RunSnowRules.TrackGunReach(").length === 2 &&
+     stepTrack.includes("made.GunReach = input.GunsOn ? gun : RunSnowRules.TrackGunReach(m_GunSeasonKnown && m_PassGunSeason,"),
+     "R7 SkiSnowInjectionSystem.cs: a cat track's bill gate (GunReach) must come from its gun share or TrackGunReach with the known season, once, in StepTrack (T220 r1d: the bill and plumes follow the air at the track now)");
 need(!/RunSnowRules\.(EstimatedShare|ThresholdC|EstimateThresholdC)\(/.test(injection),
      "R7 SkiSnowInjectionSystem.cs: an estimate bypasses RunSnowRules.EstimatedRunShare (runs and cat tracks must share one rule)");
 need((body(injection, "private void RefreshRunSnow(") || "").includes("RunSnowRules.EstimatedRunShare(") &&

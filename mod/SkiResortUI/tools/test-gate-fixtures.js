@@ -58,8 +58,11 @@ function main() {
   try {
     const fresh = (name) => {
       const dir = path.join(tmp, name);
-      const cs = path.join(dir, "cs");
-      const src = path.join(dir, "src");
+      // The copies keep the repo layout (mod/SkiResortMod beside mod/SkiResortUI/src): test-hub-rules (rule R18) reads the C# twin
+      // DisplayUnits.cs at src/../../SkiResortMod/Systems (T215). A flat cs/ + src/ copy left that read pointing at nothing, so the
+      // baseline failed with ENOENT.
+      const cs = path.join(dir, "SkiResortMod");
+      const src = path.join(dir, "SkiResortUI", "src");
       copyTree(CS_REAL, cs, (f) => /\.cs$/i.test(f));
       copyTree(SRC_REAL, src, () => true);
       return { cs, src, hub: path.join(cs, "Systems", "SkiResortHubUISystem.cs") };

@@ -988,11 +988,29 @@ namespace SkiResortMod.Systems
         internal bool GunSeasonKnown => m_GunSeasonKnown;
 
         /// <summary>Whether a cat track's guns can run: bound (only bound runs are scheduled or billed, as for a gun run), the gun season and part of
-        /// the track cold enough at the day-mean temperature (SnowGunPlumeRules.TrackGunsCanRun). The code asks it with the guns on, so in the season the
-        /// share is the guns' own reach, freezing + the margin. No state: a cat track stays out of the fold.</summary>
+        /// the track cold enough for the guns, with the switch on (their reach, freezing + the margin). While the injection runs and the track has
+        /// a model: by the air at the track now (TrackMadeSnow.GunReach, RunSnowRules.TrackGunsCanRun), as its made snow follows (T220, bridge pass
+        /// r1d: on Oct 1 the day mean said no while the guns built). A held track (no reach) cannot. Otherwise: the day-mean estimate
+        /// (SnowGunPlumeRules.TrackGunsCanRun), the rule its open state then follows. Gates the track's grooming, snowmaking and lights bill
+        /// (SkiRunUpkeepSystem.TrackUpkeepOf) and the stats' cost row. No state: a cat track stays out of the fold.</summary>
         internal bool CatTrackGunsCanRun(Entity run, float bottomY, float topY)
         {
-            return IsRunBound(run) && SnowGunPlumeRules.TrackGunsCanRun(m_GunSeasonKnown && m_PassGunSeason, EstimateShare(RunKind.CatTrack, bottomY, topY));
+            if (!IsRunBound(run))
+                return false;
+            bool inSeason = m_GunSeasonKnown && m_PassGunSeason;
+            if (TryGetCatTrackModel(run, out RunSnowRules.TrackMadeSnow made))
+                return RunSnowRules.TrackGunsCanRun(inSeason, made);
+            return SnowGunPlumeRules.TrackGunsCanRun(inSeason, EstimateShare(RunKind.CatTrack, bottomY, topY));
+        }
+
+        /// <summary>Whether a cat track's guns make snow now (its plumes, SkiSnowGunPlumeSystem). While the injection runs and the track has a
+        /// model: the hub's "making snow" (RunSnowRules.TrackGunsBuilding: they cover some of it by the air now and build the pack). Idle at
+        /// the gun stop depth, held or too warm: no plume. Otherwise CatTrackGunsCanRun's day-mean rule.</summary>
+        internal bool CatTrackGunsMakingSnow(Entity run, float bottomY, float topY)
+        {
+            if (IsRunBound(run) && TryGetCatTrackModel(run, out RunSnowRules.TrackMadeSnow made))
+                return m_GunSeasonKnown && m_PassGunSeason && RunSnowRules.TrackGunsBuilding(made);
+            return CatTrackGunsCanRun(run, bottomY, topY);
         }
 
         /// <summary>A cat track's made-snow model as of the last refresh (RunSnowRules.TrackMadeSnow: GunShare, GunWorkHours, DepthM, Spell),
@@ -2632,6 +2650,9 @@ namespace SkiResortMod.Systems
             float before = made.Share;
             RunSnowRules.ProtectEnd end = RunSnowRules.StepTrackMadeSnow(ref made, dtHours, gun, cold, trackC, m_PassSpring, out bool started);
             RunSnowRules.StepTrackGunWork(ref made, before, gun, measuredShare, dtHours);
+            // The guns' reach with the switch on (CatTrackGunsCanRun: the grooming and lights bill, the stats' season): the same air now.
+            made.GunReach = input.GunsOn ? gun : RunSnowRules.TrackGunReach(m_GunSeasonKnown && m_PassGunSeason, input.BottomY, input.TopY,
+                airC, freezing, margin, airBase, airLapse);
             if (started)
                 Mod.Log.Info($"Snow [track] cat track {input.Run.Index}:{input.Run.Version} made snow held: {made.Share * 100f:F0} % made, {made.DepthM:F2} m, " +
                              $"guns cover {gun * 100f:F0} %, cold keeps {cold * 100f:F0} %, air at the track {trackC:F1} C; budget " +

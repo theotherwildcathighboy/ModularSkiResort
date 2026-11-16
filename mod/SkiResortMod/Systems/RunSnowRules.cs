@@ -556,6 +556,7 @@ namespace SkiResortMod.Systems
             public ProtectRun Spell;  // the protection spell over it. Runtime only (a load refills the budget, as for a run)
             public float GunWorkHours; // game hours its guns still work on snow they just raised (StepTrackGunWork). Runtime only
             public float GunShare;    // the share its guns covered in the last step (StepTrackMadeSnow): the hub's gun line. Runtime only
+            public float GunReach;    // the share they would cover with the switch on, same step and air (CatTrackGunsCanRun). Runtime only
         }
 
         // A track's model raises its made snow at once, but a run's guns take time to build a pack and then stop at depth: they bill
@@ -670,6 +671,11 @@ namespace SkiResortMod.Systems
         public static bool TrackGunsBuilding(in TrackMadeSnow track) =>
             track.GunShare > 0f && (track.GunWorkHours > 0f || track.DepthM < GunStopDepthM);
 
+        /// <summary>A track's guns can run by its model (SkiSnowInjectionSystem.CatTrackGunsCanRun while the injection runs): the gun season and
+        /// some of the vertical cold enough for them at the air now, the switch aside (GunReach). The grooming, snowmaking and lights bill and
+        /// the stats' cost row follow it. Held or too warm: no reach, no bill.</summary>
+        public static bool TrackGunsCanRun(bool inSeason, in TrackMadeSnow track) => inSeason && track.GunReach > 0f;
+
         /// <summary>The protection spell holds the track's made snow now (the hub's "held" gun line).</summary>
         public static bool TrackHeld(in TrackMadeSnow track) => track.Spell.State == ProtectState.Active;
 
@@ -682,6 +688,14 @@ namespace SkiResortMod.Systems
             if (!GunsMakeSnow(RunKind.CatTrack, inGunSeason, gunsOn))
                 return 0f;
             return EstimatedShare(bottomY, topY, airC, ThresholdC(RunKind.CatTrack, freezingC, snowmakingMarginC), baseHeight, lapsePerM);
+        }
+
+        /// <summary>The share a track's guns would cover with the switch on (TrackGunShare with gunsOn true): TrackMadeSnow.GunReach, the gate
+        /// of its grooming and lights bill (CatTrackGunsCanRun), which bills lights whatever the switch (DECISIONS 579). Never made snow.</summary>
+        public static float TrackGunReach(bool inGunSeason, float bottomY, float topY, float airC, float freezingC, float snowmakingMarginC,
+            float baseHeight, float lapsePerM)
+        {
+            return TrackGunShare(inGunSeason, true, bottomY, topY, airC, freezingC, snowmakingMarginC, baseHeight, lapsePerM);
         }
 
         /// <summary>The share of a track's vertical the cold keeps without help: the part at or below freezing. <paramref name="airC"/> as

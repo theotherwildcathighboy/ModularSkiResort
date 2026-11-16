@@ -1433,6 +1433,7 @@ namespace SkiResortMod.Systems
                 if (bound && catTrack)
                 {
                     snow = m_Injection.GetRunSnow(row.Entity, (RunKind)row.Kind, row.NodeBottomM, row.NodeTopM);   // the estimate: never injected
+                    // The charge's gate: the model's reach by the air at the track now while the injection runs (T220), else the day mean.
                     bool trackInSeason = m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM);
                     RunUpkeep track = SkiRunUpkeepSystem.TrackUpkeepOf(m_Injection, m_RunProps, row);   // the charge's own rule
                     if (track.LitHa > 0f)

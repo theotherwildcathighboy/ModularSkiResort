@@ -33,3 +33,5 @@ The ECS writes and the census are not testable headless.
 - `Diff`.
 - Billing: `TrackGunsCanRun`, `TrackBilledHa` with the guns On and Off, `GunsOn`, and `GunWhyOf` for a track and for a track set to Off.
   `TrackGunLine` (T220, contract 49): `HubRules.TrackGunWhyOf` from the made-snow model: Making, DepthReached, Held, TooWarm.
+  `TrackBillModel` (T220 r1d): the bill gate (`TrackGunsCanRun` on `GunReach`) and the plumes (`TrackGunsBuilding`) by the air now.
+  Oct 1 (10.5 C now, 14.3 C day mean): billed, plumes on. At the stop depth: no snowmaking, no plume. Held: no bill, no plume.
