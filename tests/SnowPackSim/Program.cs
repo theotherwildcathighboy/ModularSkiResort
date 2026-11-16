@@ -28,7 +28,15 @@ namespace SnowPackSim
         private const int HoursPerYear = 288;
         private const float MarginC = RunSnowRules.DefaultSnowmakingMarginC;
         private static float s_AddPerPrecipHourM;
-        private static float s_Melt;
+        private static float s_Melt;   // the melt's depth term (RunSnowRules.MeltDepthCoef, m^2/h/C); the floor is the game's
+
+        /// <summary>The live pack parameters with stop depth <paramref name="stop"/> and this run's depth term.</summary>
+        private static RunSnowRules.PackParams MeltParams(float stop)
+        {
+            RunSnowRules.PackParams p = RunSnowRules.PackParams.With(stop);
+            p.MeltDepthCoef = s_Melt;
+            return p;
+        }
 
         private static float CellY(int i) => BottomM + (TopM - BottomM) * i / (Cells - 1);
         private static float Local(float tBase, float y) => tBase - LapsePerM * y;
@@ -68,7 +76,7 @@ namespace SnowPackSim
             {
                 float t = Local(tBase, CellY(i));
                 if (t <= 0f) d[i] += s_AddPerPrecipHourM * precip * Dt;
-                else d[i] = Math.Max(0f, d[i] - s_Melt * t * Dt);
+                else d[i] = Math.Max(0f, d[i] - RunSnowRules.PackMeltM(MeltParams(2f), d[i], t, Dt));
             }
         }
 
@@ -142,7 +150,7 @@ namespace SnowPackSim
                 // a run.
                 for (int i = 0; i < Cells; i++)
                 {
-                    float melted = Math.Max(0f, D[i] - RunSnowRules.PackMeltPerHourM(m_P, Local(tBase, CellY(i))) * Dt);
+                    float melted = Math.Max(0f, D[i] - RunSnowRules.PackMeltM(m_P, D[i], Local(tBase, CellY(i)), Dt));
                     float fall = Math.Max(0f, nat[i] - m_NatPrev[i]);
                     m_NatPrev[i] = nat[i];
                     D[i] = Math.Max(melted + fall, nat[i]);
@@ -208,10 +216,10 @@ namespace SnowPackSim
 
         private static List<Surface> MakeSurfaces()
         {
-            var p096 = RunSnowRules.PackParams.With(RunSnowRules.LegacyTrackStopDepthM, s_Melt);
-            var p150 = RunSnowRules.PackParams.With(1.5f, s_Melt);
-            var p200 = RunSnowRules.PackParams.With(2.0f, s_Melt);
-            var p300 = RunSnowRules.PackParams.With(3.0f, s_Melt);
+            var p096 = MeltParams(RunSnowRules.LegacyTrackStopDepthM);
+            var p150 = MeltParams(1.5f);
+            var p200 = MeltParams(2.0f);
+            var p300 = MeltParams(3.0f);
             return new List<Surface>
             {
                 new Natural { Name = "natural" },
@@ -306,12 +314,12 @@ namespace SnowPackSim
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
             if (args.Length < 2)
             {
-                Console.WriteLine("usage: SnowPackSim <climate csv dir> <out dir> [melt m/h/C list, default 0.109,0.26] [add m per precip-hour, default 0.35]");
+                Console.WriteLine("usage: SnowPackSim <climate csv dir> <out dir> [melt depth-term list (m^2/h/C), default 0.0425] [add m per precip-hour, default 0.35]");
                 return 2;
             }
             string dir = args[0], outDir = args[1];
             Directory.CreateDirectory(outDir);
-            var melts = args.Length > 2 ? args[2].Split(',') : new[] { "0.109227", "0.26" };
+            var melts = args.Length > 2 ? args[2].Split(',') : new[] { "0.0425" };
             s_AddPerPrecipHourM = args.Length > 3 ? float.Parse(args[3], CultureInfo.InvariantCulture) : 0.35f;
             var summary = new StringBuilder();
             summary.AppendLine("Cells " + Cells + " from " + BottomM + " to " + TopM + " m above the base height, add " + s_AddPerPrecipHourM

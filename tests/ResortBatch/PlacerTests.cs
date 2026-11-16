@@ -629,7 +629,7 @@ namespace ResortBatch
             Check(built.DepthM == RunSnowRules.GunStopDepthM && b2.Grooming > 0f && b2.Snowmaking == 0f && !Plume(built, 10.5f), w,
                   "at the base: grooming " + b2.Grooming + ", no snowmaking, no plume");
             // Warm (18 C at the base, 10.46 to 7.46 C at the track): guns off, no bill, no plume, and no hold (T222): the pack melts.
-            var warm = Step(built, 18f, true, 0.1f);
+            var warm = Step(built, 18f, true, 0.5f);   // 2 m melts at the game's floor, 0.333 m/h: 0.17 m in 0.5 h
             RunUpkeep b3 = Bill(warm, true);
             Check(warm.GunShare == 0f && !RunSnowRules.TrackGunsCanRun(true, warm) && b3.Total == 0f && !Plume(warm, 18f) &&
                   warm.DepthM < RunSnowRules.GunStopDepthM - 0.1f, w, "warm: guns off, bill " + b3.Total + ", no plume, pack melting " + warm.DepthM + " m");

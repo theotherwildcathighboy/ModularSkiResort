@@ -287,7 +287,7 @@ namespace SkiResortMod.Systems
         // T222 (DECISIONS 667): the guns of a snowmaking run, a night run and a cat track build the pack to GunStopDepthM, a 2.0 m base, and
         // then STOP. They restart only when the pack falls below GunStopDepthM - GunRestartBandM (1.95 m, SnowGunPlumeRules.RestartBelowM).
         // They never run on a pack that is already that deep (natural snow included). Made snow melts at the game's rate like natural snow
-        // (PackMeltPerHourM); it lasts longer only because the guns build more of it. 2.0 m is a design value from the round 2 season
+        // (PackMeltM); it lasts longer only because the guns build more of it. 2.0 m is a design value from the round 2 season
         // simulation (snowpack REPORT section 3): under the 2.5-4 m natural peak at the top of a cold map, and a deeper base adds under
         // 3 open hours a season for 14-30 % more made snow. Before T222 it was 0.96 m with a two-month protection hold.
         public const float GunRestartBandM = 0.05f;
@@ -324,13 +324,18 @@ namespace SkiResortMod.Systems
             return windows * TopupIntervalFrames / FramesPerGameHour;
         }
 
-        // The game's melt (T222). We can only WRITE depth; the game's shader melts it (SnowSystem.AddSnow: _MeltMultiplier 2e-5, the
-        // temperature, rain, the sun direction; compiled HLSL, the form is unreadable). MeltPerHourPerC is that melt as measured by the
-        // round 2 bridge melt probe (tools/testbridge meltprobe, docs/research/round2-2026-11-16/snow): meters of depth per game hour per
-        // degree C of local air above freezing. A run texel's snow is melted by the game itself; a cat track cell, which has no texel
-        // (DECISIONS 551), is melted by the mod with this number, so a track and a run beside it melt alike. The pre-T222 estimate
-        // (MeltPerWindowPerCM, 0.109 m/h/C) was 2.4x low.
-        public const float MeltPerHourPerC = 0.26f;
+        // The game's melt (T222). We can only WRITE depth; the game's shader melts it (SnowSystem.AddSnow every 4 frames: _MeltMultiplier
+        // 2e-5, the temperature, rain, the sun direction; compiled HLSL, the form is unreadable). The round 2 bridge melt probe (tools/
+        // testbridge meltprobe; 9 runs, forced 2 / 5 / 10 / 20 C and rain, flat and both aspects, 0.3 to 2.0 m patches) measured it as
+        //   dd/dt = -max(MeltFloorPerHourM, MeltDepthCoef x air / d)   while the local air is above freezing, 0 at or below it:
+        // deep snow loses at least one R16 quantum (8 / 65535 m) per 4-frame snow update, 0.333 m per game hour, at ANY air above freezing;
+        // thin or warm snow melts faster, inversely with the depth (0.0425 m^2/h/C, RMS 3.1 cm over 54 patch series). Aspect, slope and
+        // rain made no difference. So a 2.0 m pack melts at 0.333 m/h up to ~16 C of air. A run texel is melted by the game itself; a cat
+        // track cell, which has no texel (DECISIONS 551), is melted by the mod with this rule (PackMeltM), so a track and a run beside it
+        // melt alike. The snowpack report's linear estimate (0.26 m/h/C) was 4x too fast for deep snow at 5 C.
+        public const int SnowUpdateIntervalFrames = 4;                                                       // = SnowSystem.GetUpdateInterval
+        public const float MeltFloorPerHourM = SnowHeightScaleM / 65535f * (FramesPerGameHour / SnowUpdateIntervalFrames);   // 0.33334
+        public const float MeltDepthCoef = 0.0425f;   // m^2 per game hour per C above freezing
         public const float MaxPackStepHours = 6f;     // a single pass never credits more than this (a jump in the frame counter)
 
         /// <summary>Sim frames to game hours, capped at MaxPackStepHours.</summary>
@@ -527,7 +532,7 @@ namespace SkiResortMod.Systems
         /// <summary>One pass of a track's made snow (T222). <paramref name="gunsAvailable"/>: the guns may make snow (the gun season and
         /// the switch, GunsMakeSnow). <paramref name="reachAvailable"/>: the same with the switch on (GunReach). <paramref name="airAtBaseC"/>,
         /// <paramref name="baseHeight"/>, <paramref name="lapsePerM"/>: the air now by elevation (SnowLineSystem's coefficients). The order is the
-        /// pack step's: every cell melts at its own air (PackMeltPerHourM), the gun state steps on the pack of the cold cells (NextPackGun:
+        /// pack step's: every cell melts at its own air (PackMeltM), the gun state steps on the pack of the cold cells (NextPackGun:
         /// min(cell, stop) averaged; no cold cell keeps the state), then PackStep builds every cold cell (never above the stop depth). dt 0 (the
         /// first pass of a load) melts and builds nothing but still decides the state and MakingShare from the depth.
         /// <paramref name="naturalDepthM"/>: the measured natural snow under the track (NaN when estimated). It only feeds the gun decision
@@ -547,7 +552,7 @@ namespace SkiResortMod.Systems
                 float d = track.Cell(i);
                 if (!(d >= 0f))
                     d = 0f;   // NaN from a hand-edited save
-                d = Math.Max(0f, d - PackMeltPerHourM(p, air) * dt);
+                d = Math.Max(0f, d - PackMeltM(p, d, air, dt));
                 track.SetCell(i, d);
                 if (air <= threshold)
                 {
@@ -773,10 +778,10 @@ namespace SkiResortMod.Systems
         //   line Running. So the state after a load follows from the saved depth alone (T223);
         // - the build: the injection's ramp per hour (RampPerTopupM x rate x (floor + gain x chill) x windows per hour), never above the
         //   stop depth and never lowering deeper (natural) snow;
-        // - the melt: PackMeltPerHourPerC x (air - freezing) per game hour above freezing. A run texel lives in the game's snow map and
-        //   the game's shader melts it, so the run path passes applyMelt false and the step adds the build only. A cat track cell has no
-        //   texel (DECISIONS 551), so the mod melts it with the same number. That number is the one tuning point both paths share: it
-        //   is MeltPerHourPerC, measured against vanilla by the round 2 bridge melt probe.
+        // - the melt: max(MeltFloorPerHourM, MeltDepthCoef x (air - freezing) / depth) per game hour above freezing (PackMeltM). A run
+        //   texel lives in the game's snow map and the game's shader melts it, so the run path passes applyMelt false and the step adds
+        //   the build only. A cat track cell has no texel (DECISIONS 551), so the mod melts it with the same rule. That rule is the one
+        //   tuning point both paths share, measured against vanilla by the round 2 bridge melt probe.
         //
         // The per-surface part is only where the depth lives: a snow map texel (read, raised by the merge, melted by the game) or a
         // track cell (SkiTrackPack, raised and melted here).
@@ -790,16 +795,19 @@ namespace SkiResortMod.Systems
         {
             public float StopDepthM;          // the guns build to this and stop (GunStopDepthM, 2.0 m)
             public float RestartBandM;        // they restart below StopDepthM - this (0.05 m)
-            public float MeltPerHourPerC;     // the game's melt, m per game hour per degree above freezing (MeltPerHourPerC, measured)
+            public float MeltFloorPerHourM;   // the game's melt floor, m per game hour at any air above freezing (MeltFloorPerHourM)
+            public float MeltDepthCoef;       // the game's depth term, m^2 per game hour per degree above freezing (MeltDepthCoef)
             public float FreezingC;           // ClimateSystem.freezingTemperature (0 in every vanilla climate)
             public float MarginC;             // the gun margin above freezing (ClampMargin of the setting, default 3.3)
 
-            public static PackParams With(float stopDepthM, float meltPerHourPerC, float marginC = DefaultSnowmakingMarginC) =>
+            /// <summary>The measured melt with the stop depth <paramref name="stopDepthM"/>, freezing 0 C.</summary>
+            public static PackParams With(float stopDepthM, float marginC = DefaultSnowmakingMarginC) =>
                 new PackParams
                 {
                     StopDepthM = stopDepthM,
                     RestartBandM = GunRestartBandM,
-                    MeltPerHourPerC = meltPerHourPerC,
+                    MeltFloorPerHourM = RunSnowRules.MeltFloorPerHourM,
+                    MeltDepthCoef = RunSnowRules.MeltDepthCoef,
                     FreezingC = 0f,
                     MarginC = marginC,
                 };
@@ -807,7 +815,7 @@ namespace SkiResortMod.Systems
             /// <summary>The live parameters: the 2.0 m base, the measured melt, the climate's freezing and the gun margin of this pass.</summary>
             public static PackParams For(float freezingC, float marginC)
             {
-                PackParams p = With(GunStopDepthM, RunSnowRules.MeltPerHourPerC, marginC);
+                PackParams p = With(GunStopDepthM, marginC);
                 p.FreezingC = float.IsNaN(freezingC) ? 0f : freezingC;
                 return p;
             }
@@ -833,12 +841,41 @@ namespace SkiResortMod.Systems
             return RampPerTopupM * Math.Max(0f, rateFactor) * (RampChillFloor + RampChillGain * chill) * WindowsPerGameHour;
         }
 
-        /// <summary>Meters the game melts per game hour at <paramref name="airC"/>: (air - freezing) x the rate. 0 at or below freezing
-        /// and for NaN.</summary>
-        public static float PackMeltPerHourM(in PackParams p, float airC)
+        /// <summary>The game's melt rate now, m per game hour, for <paramref name="depthM"/> of snow at <paramref name="airC"/>:
+        /// max(floor, coef x (air - freezing) / depth). 0 at or below freezing, for NaN and for no snow.</summary>
+        public static float PackMeltPerHourM(in PackParams p, float airC, float depthM)
         {
             float above = airC - p.FreezingC;
-            return above > 0f ? above * p.MeltPerHourPerC : 0f;
+            if (!(above > 0f) || !(depthM > 0f))
+                return 0f;
+            return Math.Max(p.MeltFloorPerHourM, p.MeltDepthCoef * above / depthM);
+        }
+
+        /// <summary>Meters the game melts off <paramref name="depthM"/> of snow in <paramref name="dtHours"/> game hours at
+        /// <paramref name="airC"/>: dd/dt = -max(floor, coef x above / d), integrated exactly (the floor down to the crossover depth
+        /// coef x above / floor, then d^2 falls by 2 x coef x above per hour). At most the depth; 0 at or below freezing and for NaN.</summary>
+        public static float PackMeltM(in PackParams p, float depthM, float airC, float dtHours)
+        {
+            float above = airC - p.FreezingC;
+            float d = depthM > 0f ? depthM : 0f;
+            if (!(above > 0f) || d <= 0f || !(dtHours > 0f))
+                return 0f;
+            float k = Math.Max(0f, p.MeltDepthCoef) * above;
+            float floor = Math.Max(0f, p.MeltFloorPerHourM);
+            float t = dtHours;
+            float x = d;
+            float cross = floor > 0f ? k / floor : float.PositiveInfinity;   // below this depth the depth term is the faster
+            if (x > cross)
+            {
+                float toCross = (x - cross) / floor;
+                if (t <= toCross)
+                    return floor * t;
+                t -= toCross;
+                x = cross;
+            }
+            float r = x * x - 2f * k * t;
+            float left = r > 0f ? (float)Math.Sqrt(r) : 0f;
+            return Math.Min(d, d - left);
         }
 
         /// <summary>The hysteresis on the pack's own stop depth. NaN keeps the state. At or above the stop depth (less the merge's
@@ -880,7 +917,7 @@ namespace SkiResortMod.Systems
             float melted = 0f;
             if (applyMelt)
             {
-                melted = Math.Min(depth, PackMeltPerHourM(p, airC) * dt);
+                melted = PackMeltM(p, depth, airC, dt);
                 depth -= melted;
             }
             float built = 0f;
@@ -911,7 +948,7 @@ namespace SkiResortMod.Systems
         /// melts the texel. Returns the new depth (m).</summary>
         public static float PackRaiseTexelM(float depthM, float targetM, float chill, float rateFactor, float stepScale)
         {
-            var p = new PackParams { StopDepthM = targetM, RestartBandM = GunRestartBandM, MeltPerHourPerC = MeltPerHourPerC, FreezingC = 0f, MarginC = 0f };
+            var p = new PackParams { StopDepthM = targetM, RestartBandM = GunRestartBandM, MeltFloorPerHourM = MeltFloorPerHourM, MeltDepthCoef = MeltDepthCoef, FreezingC = 0f, MarginC = 0f };
             return PackStep(p, depthM, -chill * RampChillSpanC, true, PackGun.Running, stepScale / WindowsPerGameHour, rateFactor, applyMelt: false).DepthM;
         }
 

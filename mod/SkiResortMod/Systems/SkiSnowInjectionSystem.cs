@@ -1513,7 +1513,8 @@ namespace SkiResortMod.Systems
                              $"{RunSnowRules.SkiableDepthM:F2} m), slowest texel reaches the gun target in " +
                              $"{RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, -3f, RunSnowRules.DefaultSnowmakingMarginC, RunSnowRules.RampRateMin)):F1} " +
                              "game h at -3 C; made snow melts at the game's rate, " +
-                             $"{RunSnowRules.MeltPerHourPerC:F2} m per game hour per C above freezing (cat tracks melt by it; T222, no hold); " +
+                             $"max({RunSnowRules.MeltFloorPerHourM:F3} m, {RunSnowRules.MeltDepthCoef:F4} x C above freezing / depth) per game hour " +
+                             "(measured; cat tracks melt by it; T222, no hold); " +
                              "snow made ledger per run (Snow [made] once per game day, catalog DUMP row; not saved); " +
                              // the guns stop and restart (SnowGunPlumeRules).
                              $"T46: the guns of a snowmaking or night run or a cat track build to {RunSnowRules.GunStopDepthM:F2} m and STOP there " +

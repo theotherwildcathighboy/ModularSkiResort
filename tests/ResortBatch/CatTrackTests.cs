@@ -626,6 +626,22 @@ namespace ResortBatch
         /// <summary>CT222-M (T222, DECISIONS 667): a cat track's made snow is a pack in RunSnowRules.TrackCells cells down its vertical, each
         /// stepped by the one pack step a run texel uses (StepTrackPack): melt at the measured rate at the cell's own air, the gun hysteresis on
         /// the 2.0 m base (restart below 1.95 m), the build at the injection's ramp. No hold, no budget. Oracles are hand values.</summary>
+        /// <summary>Game hours for the measured melt (RunSnowRules.PackMeltM) to take a cell from d0 down to d1 at airC above freezing:
+        /// the floor down to the crossover depth (coef x air / floor), then d^2 falls by 2 x coef x air per hour.</summary>
+        private static float HoursToMelt(float d0, float d1, float airC)
+        {
+            float k = RunSnowRules.MeltDepthCoef * airC, f = RunSnowRules.MeltFloorPerHourM, cross = k / f, h = 0f;
+            if (d0 > cross)
+            {
+                float stop = Math.Max(cross, d1);
+                h += (d0 - stop) / f;
+                d0 = stop;
+            }
+            if (d0 > d1)
+                h += (d0 * d0 - d1 * d1) / (2f * k);
+            return h;
+        }
+
         private static void SnowMeasure()
         {
             const string W = "cattrack/measure";
@@ -665,18 +681,18 @@ namespace ResortBatch
             Check(Math.Abs(track.DepthM - 2f) < 1e-5f && track.Gun == RunSnowRules.PackGun.Stopped && track.MakingShare == 0f &&
                   !RunSnowRules.TrackGunsBuilding(track), W, "the pack stops at the 2.0 m base, the guns stop (" + track.DepthM + " m)");
 
-            // The hysteresis, no lapse (every cell at the base air). +0.5 C: the melt is 0.5 x 0.26 = 0.13 m/h. 0.02 m off (in the band): the
-            // guns stay stopped. Under 1.95 m they restart and build back to 2.0 m in the same pass.
+            // The hysteresis, no lapse (every cell at the base air). +0.5 C: 2 m of snow melts at the game's floor, 0.33334 m/h. 0.02 m off
+            // (in the band): the guns stay stopped. Under 1.95 m they restart and build back to 2.0 m in the same pass.
             var band = track;
-            RunSnowRules.StepTrackPack(ref band, p, lo, hi, 0.5f, baseH, 0f, true, true, 0.02f / 0.13f);
+            RunSnowRules.StepTrackPack(ref band, p, lo, hi, 0.5f, baseH, 0f, true, true, 0.02f / RunSnowRules.MeltFloorPerHourM);
             Check(Math.Abs(band.DepthM - 1.98f) < 1e-4f && band.Gun == RunSnowRules.PackGun.Stopped && band.MakingShare == 0f, W,
                   "in the band (" + band.DepthM + " m): the guns stay stopped");
             RunSnowRules.StepTrackPack(ref band, p, lo, hi, 0.5f, baseH, 0f, true, true, 0.4f);
             Check(band.Gun == RunSnowRules.PackGun.Running && band.MakingShare == 1f && Math.Abs(band.DepthM - 2f) < 1e-4f, W,
                   "under 1.95 m the guns restart and refill (" + band.DepthM + " m)");
 
-            // The thaw: 10 C everywhere, too warm for the guns. 2.6 m/h. From 2.0 m, Open: it closes when the cells fall under the keep bar
-            // (0.30 m), 1.7 / 2.6 = 0.654 h later. No hold.
+            // The thaw: 10 C everywhere, too warm for the guns. From 2.0 m, Open: it closes when the cells fall under the keep bar (0.30 m):
+            // the floor to 1.275 m (2.175 h), then (1.6256 - 0.09) / 0.85 = 1.807 h, 3.98 h in all. No hold.
             var thaw = track;
             RunSnowState label = RunSnowState.Open;
             float hours = 0f, closeAt = -1f;
@@ -688,17 +704,19 @@ namespace ResortBatch
                 if (label != RunSnowState.Open)
                     closeAt = hours;
             }
-            float want = (2f - RunSnowRules.KeepDepthM) / (10f * RunSnowRules.MeltPerHourPerC);
+            float want = HoursToMelt(2f, RunSnowRules.KeepDepthM, 10f);
             Check(closeAt >= want - 1e-3f && closeAt <= want + 0.05f + 1e-3f && thaw.GunReach == 0f, W,
                   "10 C: closed at the keep bar after " + closeAt + " game h (want " + want + ")");
             RunSnowRules.StepTrackPack(ref thaw, p, lo, hi, 10f, baseH, 0f, true, true, 1f);
             Check(thaw.Share == 0f && thaw.DepthM == 0f, W, "10 C: gone after the next hour");
 
-            // The lapse: at 1 C at the base, cells above 1153.8 m are below freezing and keep their snow; the lower cells melt.
+            // The lapse: at 1 C at the base, cells above 1153.8 m are below freezing and keep their snow; the lower cells melt, deep snow at
+            // the game's floor whatever the air above freezing (0.15 C on cell 4, 0.88 C on cell 7): 3 h take 1.0 m off both.
             var lapsed = track;
-            RunSnowRules.StepTrackPack(ref lapsed, p, lo, hi, 1f, baseH, lapse, false, false, 6f);
-            Check(lapsed.C0 == 2f && lapsed.C3 == 2f && lapsed.C4 < 2f && lapsed.C7 < lapsed.C4, W,
-                  "1 C at the base: the top half keeps 2.0 m, the bottom melts (" + lapsed.C4 + ", " + lapsed.C7 + ")");
+            RunSnowRules.StepTrackPack(ref lapsed, p, lo, hi, 1f, baseH, lapse, false, false, 3f);
+            Check(lapsed.C0 == 2f && lapsed.C3 == 2f && Math.Abs(lapsed.C4 - (2f - 3f * RunSnowRules.MeltFloorPerHourM)) < 1e-4f &&
+                  Math.Abs(lapsed.C7 - lapsed.C4) < 1e-4f, W,
+                  "1 C at the base: the top half keeps 2.0 m, the bottom melts at the floor (" + lapsed.C4 + ", " + lapsed.C7 + ")");
 
             // Below freezing nothing melts.
             var frozen = track;
@@ -922,7 +940,7 @@ namespace ResortBatch
             }
             // Closed when fewer than 40 % of the cells hold 1 ft: 4 of 8 (50 %) keep it open, so it closes when cell 3 (1168.75 m, 10.90 C) goes.
             float air3 = 12f - (RunSnowRules.TrackCellY(lo, hi, 3) - baseH) * lapse;
-            float want3 = (RunSnowRules.GunStopDepthM - RunSnowRules.KeepDepthM) / (air3 * RunSnowRules.MeltPerHourPerC);
+            float want3 = HoursToMelt(RunSnowRules.GunStopDepthM, RunSnowRules.KeepDepthM, air3);
             Check(openUnder3ft && closeAt >= want3 - 1e-3f && closeAt <= want3 + dt + 1e-3f, W,
                   "CT222-3a 12 C: Open under 3 ft, closed at the keep bar after " + closeAt + " game h (want " + want3 + ", no hold)");
 

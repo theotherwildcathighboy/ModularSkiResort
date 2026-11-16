@@ -573,7 +573,7 @@ namespace ResortBatch
                 W, "T222 gun base 2.0 m, restart 1.95 m; groomed ceiling 0.96 m (the 3 ft bar + the band)");
             check(RunSnowRules.GunTargetDepthM >= RunSnowRules.SkiableDepthM, W, "the gun target reaches the open bar");
             check(RunSnowRules.GroomedTargetDepthM > RunSnowRules.SkiableDepthM, W, "the groomed target clears the open bar");
-            check(RunSnowRules.MeltPerHourPerC > 0f && RunSnowRules.MaxPackStepHours == 6f, W, "a measured melt rate, a 6 h step cap");
+            check(RunSnowRules.MeltFloorPerHourM > 0f && RunSnowRules.MeltDepthCoef > 0f && RunSnowRules.MaxPackStepHours == 6f, W, "a measured melt, a 6 h step cap");
         }
 
         private static void T09SkiableBar(Func<bool, string, string, bool> check)
@@ -632,9 +632,10 @@ namespace ResortBatch
                   Near(RunSnowRules.PackBuildPerHourM(3.3f, 3.3f, RunSnowRules.MeanRampRate), 0.004 * 1.125 * 0.35 * RunSnowRules.WindowsPerGameHour, 1e-4) &&
                   RunSnowRules.PackBuildPerHourM(3.4f, 3.3f, 1f) == 0f && RunSnowRules.PackBuildPerHourM(float.NaN, 3.3f, 1f) == 0f, W,
                   "the build per hour is the ramp per window x the windows per hour; none above the gate or for NaN");
-            check(Near(RunSnowRules.PackMeltPerHourM(p, 10f), 10.0 * RunSnowRules.MeltPerHourPerC, 1e-6) && RunSnowRules.PackMeltPerHourM(p, 0f) == 0f &&
-                  RunSnowRules.PackMeltPerHourM(p, -5f) == 0f && RunSnowRules.PackMeltPerHourM(p, float.NaN) == 0f, W,
-                  "the melt is linear above freezing, none at or below it or for NaN");
+            check(Near(RunSnowRules.PackMeltPerHourM(p, 10f, 2f), RunSnowRules.MeltFloorPerHourM, 1e-6) &&
+                  Near(RunSnowRules.PackMeltPerHourM(p, 10f, 0.25f), 10.0 * RunSnowRules.MeltDepthCoef / 0.25, 1e-5) && RunSnowRules.PackMeltPerHourM(p, 0f, 1f) == 0f &&
+                  RunSnowRules.PackMeltPerHourM(p, -5f, 1f) == 0f && RunSnowRules.PackMeltPerHourM(p, float.NaN, 1f) == 0f, W,
+                  "the melt: the floor for deep snow, coef x air / depth for thin, none at or below freezing or for NaN");
             // The hysteresis
             check(RunSnowRules.NextPackGun(p, RunSnowRules.PackGun.Unknown, 2f) == RunSnowRules.PackGun.Stopped &&
                   RunSnowRules.NextPackGun(p, RunSnowRules.PackGun.Running, 2f) == RunSnowRules.PackGun.Stopped &&
@@ -654,7 +655,7 @@ namespace ResortBatch
             r = RunSnowRules.PackStep(p, 3f, -5f, true, RunSnowRules.PackGun.Running, 1f, RunSnowRules.MeanRampRate, true);
             check(r.DepthM == 3f && !r.GunsMaking, W, "deeper natural snow is never lowered");
             r = RunSnowRules.PackStep(p, 1f, 5f, true, RunSnowRules.PackGun.Running, 0.5f, RunSnowRules.MeanRampRate, true);
-            check(Near(r.DepthM, 1.0 - 2.5 * RunSnowRules.MeltPerHourPerC, 1e-5) && !r.GunsMaking, W, "5 C: no build, the melt only (a track cell)");
+            check(Near(r.DepthM, 1.0 - 0.5 * RunSnowRules.MeltFloorPerHourM, 1e-5) && !r.GunsMaking, W, "5 C: no build, the melt only (a track cell; 1 m is on the floor)");
             r = RunSnowRules.PackStep(p, 1f, 5f, true, RunSnowRules.PackGun.Running, 0.5f, RunSnowRules.MeanRampRate, false);
             check(r.DepthM == 1f && r.MeltedM == 0f, W, "a run texel (applyMelt false): the game melts it, the step does not");
             r = RunSnowRules.PackStep(p, 1f, -5f, true, RunSnowRules.PackGun.Stopped, 1f, RunSnowRules.MeanRampRate, true);
