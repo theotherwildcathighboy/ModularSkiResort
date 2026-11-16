@@ -155,9 +155,15 @@ function Install-SaveCopy([string]$source, [string]$gameName) {
         (Get-Item $target).IsReadOnly = $false
         $copied = $true
     }
+    # Observed 2026-11-16 (snow report section 7): a staged 1.0.0 copy stayed unlisted while its .cid, kept from an earlier staging (10:50), matched the
+    # hash; the 1.0.1 copy, whose .cid was rewritten, listed. The rule is not in the decompile, so staging with the game closed now ALWAYS writes a
+    # fresh .cid (new id, new time) and touches the .cok. With the game running a kept .cid stays (the running game already indexed it).
     $newCid = $false
-    if (-not (Test-Path $cid)) {
+    $gameClosed = -not (Get-Process Cities2 -ErrorAction SilentlyContinue)
+    if (-not (Test-Path $cid) -or $gameClosed) {
+        if (Test-Path $cid) { (Get-Item $cid).IsReadOnly = $false }
         [IO.File]::WriteAllText($cid, [guid]::NewGuid().ToString('N'), (New-Object Text.UTF8Encoding $false))
+        if ($gameClosed) { (Get-Item $target).LastWriteTime = Get-Date }
         $newCid = $true
     }
     Write-Output "  save copy: $target$(if ($copied) { ' (new)' } else { ' (unchanged)' }), .cid $(if ($newCid) { 'written (fresh id)' } else { 'kept' })"
