@@ -87,7 +87,8 @@ snow is a model, `RunSnowRules.TrackMadeSnow`. The model has a share of the vert
   (bridge pass r1c, "day mean 13.3 C").
 - The guns build the pack from 0 to the gun stop depth (0.96 m) in `TrackBuildHours` (about 1.06 game h). They build while they
   cover some of the vertical.
-- The made share counts at the run bars (`TrackMadeCountedShare`): at 3 ft while the track is closed, at 1 ft while it is open.
+- The made share counts at the run bars (`TrackMadeCountedShare`): at 1 ft while the track is open, at 3 ft while it is closed or
+  its state is not known (Unknown). A run's Unknown counts at 1 ft (`MeasuredShare`).
   So the track opens about 1 game hour after its guns start, not at once. Before, it opened on 1-8 mm (bridge pass r1b).
 - When the guns do not hold the pack, the protection spell holds it, as for a gun run. It holds up to the largest run budget
   (72 h), and never above 10 C at the track. After the spell, it melts at `RunMeltPerHourM` and the track closes at the keep bar.
@@ -96,9 +97,16 @@ snow is a model, `RunSnowRules.TrackMadeSnow`. The model has a share of the vert
   (`TrackMeanDepthM`). Before, the line printed NaN.
 - A pass that carries the measurement over starts from the snow under the track (`RunSnow.SnowShare`, `SnowMeanDepthM`), not
   from last pass's share with the made snow.
-- The save holds the share (SkiTrackSnow v1, unchanged) and the pack depth in millimeters (SkiTrackPack v1, new in 1.0.1). A save
-  without SkiTrackPack (1.0.0) loads a saved share as a full pack (`TrackFromSave`), the 1.0.0 rule. Before SkiTrackPack, a save
-  made just after gun start reloaded 32 tracks Open on a 0.12 m pack (bridge pass r1c, loadcheck d).
+- The save holds the share (SkiTrackSnow v1, unchanged), the pack depth in millimeters and the open state (SkiTrackPack v2, new in
+  1.0.1; v2 appended the state before any release carried the type). A track without a table entry (its first refresh of a load,
+  and `GetRunSnow` before it) starts from its saved state (`SavedTrackState` -> `TrackStateFromSave`). A save without SkiTrackPack
+  (1.0.0) loads a saved share as a full pack (`TrackFromSave`), the 1.0.0 rule; a full pack clears both bars, so it reloads as before.
+  A v1 value (unreleased test saves) has no state: Unknown, the 3 ft bar. `QueueTrackSave` writes after the label is set.
+  History: before SkiTrackPack, a save made just after gun start reloaded 32 tracks Open on a 0.12 m pack (bridge pass r1c,
+  loadcheck d). With v1, Unknown counted at 1 ft: a resave holding every track Closed on 0.352 m reloaded 44 of 45 Open at 24-37 cm
+  and spawned 39 groomers 7 s after the load (bridge pass r1d, loadcheck d).
+- The hub's gun line reads the model (`TryGetCatTrackModel`, `HubRules.TrackGunWhyOf`, contract 49). `CatTrackGunsCanRun` (the
+  day-mean estimate) still gates the track bill (SkiRunUpkeepSystem.TrackUpkeepOf) and the plumes (SkiSnowGunPlumeSystem).
 - The snowmaking bill is unchanged (`StepTrackGunWork` on the share).
 - An estimate never opens a track (`TrackEstimatedSnowShare`): it keeps an Open track open, as a NaN share does. Before, an
   estimated track opened on "0.0 texel(s), mean NaN m" at a 14.5 C day mean (bridge pass r1c). While the injection runs,

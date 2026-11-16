@@ -574,7 +574,7 @@ namespace ResortBatch
             // The hub's gun row for a track set to Off: no line (the stats system passes gunRun = bound && guns on).
             Check(HubRules.GunWhyOf(false, true, true, true, true, true) == RunGunWhy.None, w, "track set to Off: no gun line");
 
-            // The hub's gun row for a track: the track has no pack to fill, so never "the snow is deep enough".
+            // The hub's gun row for a track while the injection is off (the day-mean rule its open state then follows): never "deep enough".
             foreach (bool canRun in new[] { false, true })
             {
                 RunGunWhy why = HubRules.GunWhyOf(true, true, true, true, true, canRun);
@@ -584,6 +584,57 @@ namespace ResortBatch
             Check(HubRules.GunWhyOf(true, true, false, true, true, false) == RunGunWhy.OutOfSeason, w, "track out of season");
             Check(HubRules.GunWhyOf(false, true, true, true, true, true) == RunGunWhy.None, w, "an unbound track: no row");
             Check(HubRules.GunWhyOf(true, false, true, true, true, true) == RunGunWhy.None, w, "snow rules off: no row");
+
+            TrackGunLine();
+        }
+
+        /// <summary>T220 (bridge pass r1d): while the injection runs, a cat track's gun line reads its made-snow model, which follows the air
+        /// at the track now. The day-mean rule said "too warm" on 12 tracks whose guns were building (Oct 1, day mean 14.3 C, air at the
+        /// tracks -6.0 to +2.8 C) and "making" on tracks whose guns had stopped (the warm peak).</summary>
+        private static void TrackGunLine()
+        {
+            const string w = "cattrack gun line";
+            const float freezing = 0f, margin = 3.3f, baseH = 596f, lapse = 0.01f, lo = 1600f, hi = 1900f;
+            RunGunWhy Line(in RunSnowRules.TrackMadeSnow m) =>
+                HubRules.TrackGunWhyOf(true, true, true, true, m.GunShare, RunSnowRules.TrackGunsBuilding(m), RunSnowRules.TrackHeld(m));
+
+            // Oct 1: 10.5 C air at the base, 14.3 C day mean. The track at 1,600-1,900 m is 0.5 to -2.5 C: the guns cover all of it and
+            // build. The day mean (4.3 to 1.3 C at the track) gave the day-mean rule only the part under 3.3 C.
+            float gunNow = RunSnowRules.TrackGunShare(true, true, lo, hi, 10.5f, freezing, margin, baseH, lapse);
+            var build = new RunSnowRules.TrackMadeSnow();
+            RunSnowRules.StepTrackMadeSnow(ref build, 0.1f, gunNow, 0f, -1f, false, out bool _);
+            RunSnowRules.StepTrackGunWork(ref build, 0f, gunNow, float.NaN, 0.1f);
+            Check(gunNow == 1f && Line(build) == RunGunWhy.Making, w, "guns cover " + gunNow + " by the air now, building: " + Line(build));
+            // Built to the gun stop depth, work done: the snow is deep enough (the bill has stopped too).
+            for (int i = 0; i < 40; i++)
+            {
+                RunSnowRules.StepTrackMadeSnow(ref build, 0.1f, gunNow, 0f, -1f, false, out bool _);
+                RunSnowRules.StepTrackGunWork(ref build, build.Share, gunNow, float.NaN, 0.1f);
+            }
+            Check(build.DepthM == RunSnowRules.GunStopDepthM && !RunSnowRules.TrackGunsWorking(build) && Line(build) == RunGunWhy.DepthReached, w,
+                  "pack at the stop depth, guns idle: " + Line(build));
+            // A reloaded pack under the stop depth (gun work is not saved): still making snow.
+            var reloaded = RunSnowRules.TrackFromSave(1f, 0.35f);
+            RunSnowRules.StepTrackMadeSnow(ref reloaded, 0f, gunNow, 0f, -1f, false, out bool _);
+            Check(Line(reloaded) == RunGunWhy.Making, w, "a reloaded 0.35 m pack with the guns on: " + Line(reloaded));
+            // Warm peak: 20 C at the base, the track at 9.96 to 6.96 C (8.5 C mid). No gun share; the spell holds the pack: Held, never Making.
+            float gunWarm = RunSnowRules.TrackGunShare(true, true, lo, hi, 20f, freezing, margin, baseH, lapse);
+            var warm = build;
+            RunSnowRules.StepTrackMadeSnow(ref warm, 0.1f, gunWarm, 0f, 8.5f, false, out bool started);
+            Check(gunWarm == 0f && started && Line(warm) == RunGunWhy.Held, w, "8.5 C at the track, the spell holds: " + Line(warm));
+            // Above 10 C at the track: no spell, the guns off: too warm.
+            var hot = build;
+            RunSnowRules.StepTrackMadeSnow(ref hot, 0.1f, 0f, 0f, 12f, false, out bool _);
+            Check(Line(hot) == RunGunWhy.TooWarm, w, "12 C at the track, no hold: " + Line(hot));
+            // No made snow and too warm: too warm (nothing to hold).
+            var bare = new RunSnowRules.TrackMadeSnow();
+            RunSnowRules.StepTrackMadeSnow(ref bare, 0.1f, 0f, 0f, 6f, false, out bool _);
+            Check(Line(bare) == RunGunWhy.TooWarm, w, "bare and warm: " + Line(bare));
+            // Order: None (unbound / switch Off, gating off), out of season, Waiting before the first refresh.
+            Check(HubRules.TrackGunWhyOf(false, true, true, true, 1f, true, false) == RunGunWhy.None &&
+                  HubRules.TrackGunWhyOf(true, false, true, true, 1f, true, false) == RunGunWhy.None &&
+                  HubRules.TrackGunWhyOf(true, true, false, true, 1f, true, false) == RunGunWhy.OutOfSeason &&
+                  HubRules.TrackGunWhyOf(true, true, true, false, 1f, true, false) == RunGunWhy.Waiting, w, "None, out of season, Waiting");
         }
     }
 }

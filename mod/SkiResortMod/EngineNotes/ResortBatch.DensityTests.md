@@ -32,3 +32,4 @@ The ECS writes and the census are not testable headless.
 - `RingKey`.
 - `Diff`.
 - Billing: `TrackGunsCanRun`, `TrackBilledHa` with the guns On and Off, `GunsOn`, and `GunWhyOf` for a track and for a track set to Off.
+  `TrackGunLine` (T220, contract 49): `HubRules.TrackGunWhyOf` from the made-snow model: Making, DepthReached, Held, TooWarm.

@@ -1324,6 +1324,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_GUNS[TooWarm]", "Snow guns off: too warm" },
                 { "SkiResort.Hub.RUN_GUNS[OutOfSeason]", "Snow guns off: they run from 2 months before winter to 1 month after" },
                 { "SkiResort.Hub.RUN_GUNS[Waiting]", "Snow guns: off until the run's snow is first read" },
+                { "SkiResort.Hub.RUN_GUNS[Held]", "Snow guns off: too warm, but the made snow still holds" },
                 { "SkiResort.Hub.RUN_OPEN_GATING", "Counts as open: Snow & season gating is off in Options." },
                 { "SkiResort.Hub.RUN_OPEN_NONE", "Not linked: belongs to no ski area, so it has no open or closed state." },
                 { "SkiResort.Hub.RUN_SERVED_ANON", "A running lift reaches its top." },

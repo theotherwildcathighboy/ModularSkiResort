@@ -1561,9 +1561,7 @@ namespace SkiResortMod.Systems
                     CostMonth = (int)Math.Round(cost, MidpointRounding.AwayFromZero),
                     SnowDepthCm = bound && snow.Source == RunSnowSource.Measured ? HubRules.DepthCm(snow.MeanDepthM) : -1,
                     GunWhy = catTrack   // a track set to Off is not a gun run: no gun line
-                        ? (int)HubRules.GunWhyOf(bound && trackGunsOn, m_SnowLine.IsSnowGatingEnabled(), m_Injection.GunSeasonNow,
-                                                 m_Injection.GunSeasonKnown, true,
-                                                 bound && m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM))
+                        ? (int)TrackGunWhyOf(row, bound && trackGunsOn)
                         : (int)GunWhyOf(row.Entity, bound && row.Features.Snowmaking),
                 });
                 m_RunTops.Add(row.NodeTopPos);
@@ -1571,6 +1569,19 @@ namespace SkiResortMod.Systems
                 m_RunHeights.Add(row.OutlineY);
                 m_RunAreas.Add(bound ? resort : -1);
             }
+        }
+
+        /// <summary>A cat track's snow-gun line. While the injection runs: its made-snow model (HubRules.TrackGunWhyOf: guns on by the air at
+        /// the track now, held, or too warm; T220, bridge pass r1d). Otherwise the day-mean rule the track's open state then follows
+        /// (CatTrackGunsCanRun through HubRules.GunWhyOf, never "deep enough").</summary>
+        private RunGunWhy TrackGunWhyOf(in SkiRunCatalogSystem.RunRow row, bool gunRun)
+        {
+            bool gating = m_SnowLine.IsSnowGatingEnabled();
+            if (m_Injection.TryGetCatTrackModel(row.Entity, out RunSnowRules.TrackMadeSnow made))
+                return HubRules.TrackGunWhyOf(gunRun, gating, m_Injection.GunSeasonNow, m_Injection.GunSeasonKnown, made.GunShare,
+                                              RunSnowRules.TrackGunsBuilding(made), RunSnowRules.TrackHeld(made));
+            return HubRules.GunWhyOf(gunRun, gating, m_Injection.GunSeasonNow, m_Injection.GunSeasonKnown, true,
+                                     gunRun && m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM));
         }
 
         /// <summary>The run's snow-gun line (HubRules.GunWhyOf) from the injection's per-run gun state and season.</summary>

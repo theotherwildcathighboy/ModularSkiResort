@@ -889,7 +889,7 @@ namespace ResortBatch
         }
 
         /// <summary>CT220 (1.0.1): a cat track is Open only on real snow. Its made snow has a pack depth that its guns build at a run's
-        /// speed. Its made share counts at the run bars: 3 ft to open, 1 ft to stay open (TrackMadeCountedShare, the MeasuredShare rule).
+        /// speed. Its made share counts at the run bars: 3 ft to open, 1 ft to stay open (TrackMadeCountedShare; with no known state, 3 ft).
         /// One pass of the table: share = TrackShare(snow under it, counted made share), label = NextState. Bridge pass r1b: at gun start 32
         /// tracks read Open on 1-8 mm and the open line printed "mean NaN m".</summary>
         private static void RealSnow()
@@ -1042,9 +1042,10 @@ namespace ResortBatch
             var none = RunSnowRules.TrackFromSave(0f, 0.5f);
             Check(Math.Abs(early.DepthM - 0.12f) < 1e-6f && Pass(RunSnowState.Unknown, 0f, 0f, float.NaN, early, out float _, out float _) ==
                   RunSnowState.Closed, W, "CT220-4a a save at 0.12 m reloads Closed on " + early.DepthM + " m");
+            // r1d: the open state is saved too (SkiTrackPack v2). Saved Open at 0.5 m (on the keep bar): Open again. CT220-7 has the rest.
             var open1 = RunSnowRules.TrackFromSave(1f, 0.5f);
-            Check(Pass(RunSnowState.Unknown, 0f, 0f, float.NaN, open1, out float _, out float _) == RunSnowState.Open, W,
-                  "CT220-4b a save at 0.5 m (open, on the keep bar) reloads Open");
+            Check(Pass(RunSnowRules.TrackStateFromSave(true, true), 0f, 0f, float.NaN, open1, out float _, out float _) == RunSnowState.Open, W,
+                  "CT220-4b a save at 0.5 m, saved Open, reloads Open");
             Check(old.Share == 0.8f && old.DepthM == RunSnowRules.GunStopDepthM && none.DepthM == 0f && none.Share == 0f &&
                   Pass(RunSnowState.Unknown, 0f, 0f, float.NaN, old, out float _, out float _) == RunSnowState.Open, W,
                   "CT220-4c an old save without the pack depth loads as before: a full pack, Open");
@@ -1092,6 +1093,69 @@ namespace ResortBatch
             Score.Result r = Score.Compute(area, new List<Score.RunInput> { cat }, lifts, null);
             Check(summerLabel == RunSnowState.Closed && !r.SchoolRunCounted && r.SchoolValue == 0.0, W,
                   "CT220-6 summer: the cat track is Closed, no school bonus");
+
+            // CT220-7 (bridge pass r1d, loadcheck d): a save made right after gun start held every gun track Closed on a 0.352 m pack. The
+            // open state was not saved, Unknown counted the made snow at the keep bar, and GetRunSnow's fallback gave share 1.0: 39
+            // groomers 7 s after the load, 44 of 45 tracks Open at 24-37 cm. Now SkiTrackPack v2 saves the state and the load restores it.
+            // Each case: GetRunSnow before the first refresh (TrackShareBeforeRefresh at a worst-case natural estimate of 100 %), the
+            // groomer's season step on that share (GroomerRules.SeasonStep, Wanted), then the first refresh (dt 0, guns on at -5 C).
+            RunSnowState LoadCase(string name, RunSnowState saved, RunSnowRules.TrackMadeSnow made, out bool groomer)
+            {
+                float before = RunSnowRules.TrackShareBeforeRefresh(saved, 1f, made);
+                RunSnowState fallback = RunSnowRules.NextState(saved, before);
+                RunSnowState season = RunSnowState.Unknown;
+                groomer = GroomerRules.Wanted(true, true, GroomerRules.SeasonStep(ref season, before), true);
+                RunSnowRules.StepTrackMadeSnow(ref made, 0f, gun, cold, -5f, false, out bool _);
+                RunSnowState first = Pass(saved, 0f, 0f, float.NaN, made, out float _, out float _);
+                Check(first == fallback, W, "CT220-7 " + name + ": the fallback (" + fallback + ") and the first refresh (" + first + ") agree");
+                return first;
+            }
+            const float r1dDepth = 0.352f;
+            var closed35 = RunSnowRules.TrackFromSave(1f, RunSnowRules.TrackDepthFromMm(RunSnowRules.TrackDepthToMm(r1dDepth)));
+            RunSnowState closedState = RunSnowRules.TrackStateFromSave(true, false);
+            Check(LoadCase("saved Closed at 0.352 m", closedState, closed35, out bool g7a) == RunSnowState.Closed && !g7a, W,
+                  "CT220-7a saved Closed at 0.352 m (v2): reloads Closed, no groomer");
+            // It keeps building from 0.352 m and opens at 3 ft, (0.91 - 0.352) / build rate later (not from bare ground).
+            var rebuild = closed35;
+            state = closedState;
+            hours = 0f;
+            float reopenAt = -1f;
+            for (int step = 0; step < 100 && reopenAt < 0f; step++)
+            {
+                RunSnowRules.StepTrackMadeSnow(ref rebuild, dt, gun, cold, -5f, false, out bool _);
+                hours += dt;
+                state = Pass(state, 0f, 0f, float.NaN, rebuild, out float _, out float _);
+                if (state == RunSnowState.Open)
+                    reopenAt = hours;
+            }
+            float wantReopen = (RunSnowRules.SkiableDepthM - r1dDepth) / RunSnowRules.TrackBuildRateMPerHour;
+            Check(reopenAt >= wantReopen - 1e-3f && reopenAt <= wantReopen + dt + 1e-3f, W,
+                  "CT220-7b it keeps building and opens at 3 ft after " + reopenAt + " game h (want " + wantReopen + ")");
+            var open50 = RunSnowRules.TrackFromSave(1f, RunSnowRules.TrackDepthFromMm(RunSnowRules.TrackDepthToMm(0.5f)));
+            Check(LoadCase("saved Open at 0.5 m", RunSnowRules.TrackStateFromSave(true, true), open50, out bool g7c) == RunSnowState.Open && g7c, W,
+                  "CT220-7c saved Open at 0.5 m (v2): reloads Open, its groomer is wanted");
+            // No saved state: Unknown counts made snow at the open bar. A v1 value (an unreleased 1.0.1 test save, e.g. the r1d loadcheck
+            // resave) at 0.352 m reloads Closed. The documented cost: a v1 track that was Open on 0.30-0.91 m reloads Closed too, until its
+            // guns refill it.
+            RunSnowState none7 = RunSnowRules.TrackStateFromSave(false, true);
+            Check(none7 == RunSnowState.Unknown && LoadCase("v1 at 0.352 m", none7, closed35, out bool g7d) == RunSnowState.Closed && !g7d, W,
+                  "CT220-7d no saved state (v1) at 0.352 m: Closed, no groomer");
+            Check(LoadCase("v1 at 0.5 m", none7, open50, out bool _) == RunSnowState.Closed, W,
+                  "CT220-7e no saved state (v1) at 0.5 m: Closed until the guns refill it (the cost)");
+            // A 1.0.0 save (SkiTrackSnow, no SkiTrackPack): a saved share is a full pack, Open as before. No saved share: Closed.
+            Check(LoadCase("1.0.0 share 80 %", none7, RunSnowRules.TrackFromSave(0.8f), out bool g7f) == RunSnowState.Open && g7f, W,
+                  "CT220-7f a 1.0.0 save with made snow reloads Open, as in 1.0.0");
+            Check(LoadCase("1.0.0 no made snow", none7, RunSnowRules.TrackFromSave(0f), out bool g7g) == RunSnowState.Closed && !g7g, W,
+                  "CT220-7g a 1.0.0 save without made snow reloads Closed");
+            // The flag the save writes (state == Open) reads back as the same state.
+            foreach (RunSnowState s7 in new[] { RunSnowState.Open, RunSnowState.Closed })
+                Check(RunSnowRules.TrackStateFromSave(true, s7 == RunSnowState.Open) == s7, W, "CT220-7h the saved flag round-trips " + s7);
+            // From Open the made snow counts at the keep bar, from Closed and Unknown at the open bar.
+            var half = new RunSnowRules.TrackMadeSnow { Share = 1f, DepthM = 0.5f };
+            Check(RunSnowRules.TrackMadeCountedShare(RunSnowState.Open, half) == 1f &&
+                  RunSnowRules.TrackMadeCountedShare(RunSnowState.Closed, half) == 0f &&
+                  RunSnowRules.TrackMadeCountedShare(RunSnowState.Unknown, half) == 0f, W,
+                  "CT220-7i 0.5 m counts from Open only (Unknown uses the open bar)");
         }
 
         /// <summary>The hub's run state from the live snow read (DECISIONS 571 c): the clamp SkiResortScore applies to its open factor.</summary>

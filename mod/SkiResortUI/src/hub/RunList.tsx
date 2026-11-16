@@ -88,7 +88,8 @@ function runTip(p: RunLineProps, name: string, typeName: string, units: DisplayU
     : gunWhy === RUN_GUN_WHY.DepthReached ? t(HUB_LOC.runGunsDepth)
       : gunWhy === RUN_GUN_WHY.TooWarm ? t(HUB_LOC.runGunsWarm)
         : gunWhy === RUN_GUN_WHY.OutOfSeason ? t(HUB_LOC.runGunsSeason)
-          : gunWhy === RUN_GUN_WHY.Waiting ? t(HUB_LOC.runGunsWaiting) : null;
+          : gunWhy === RUN_GUN_WHY.Waiting ? t(HUB_LOC.runGunsWaiting)
+            : gunWhy === RUN_GUN_WHY.Held ? t(HUB_LOC.runGunsHeld) : null;
   let servedLine: string | JSX.Element | null = null;
   if (row.served) {
     servedLine = liftName ? <LocText key="s" entry={HUB_FMT.runServed} args={{ NAME: liftName }} /> : t(HUB_LOC.runServedAnon);

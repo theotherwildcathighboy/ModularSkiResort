@@ -823,12 +823,13 @@ namespace SkiResortMod.Systems
         private Dictionary<Entity, RunSnowRules.TrackMadeSnow> m_TrackMade = new Dictionary<Entity, RunSnowRules.TrackMadeSnow>();
         private Dictionary<Entity, RunSnowRules.TrackMadeSnow> m_TrackMadeNext = new Dictionary<Entity, RunSnowRules.TrackMadeSnow>();
         private readonly List<TrackSave> m_TrackSaves = new List<TrackSave>();
-        // One track's values to save: SkiTrackSnow (the made share) and SkiTrackPack (the pack depth, T220).
+        // One track's values to save: SkiTrackSnow (the made share) and SkiTrackPack (the pack depth, T220, and the open state, v2).
         private struct TrackSave
         {
             public Entity Track;
             public int Permille;
             public int DepthMm;
+            public bool Open;
         }
         private int m_GunSeasonLogged = -1;          // the last season state logged (-1 none this load)
         private float m_GunWinterStart = SnowLineRules.CalendarWinterStart;   // this climate's winter, read once per load
@@ -994,6 +995,15 @@ namespace SkiResortMod.Systems
             return IsRunBound(run) && SnowGunPlumeRules.TrackGunsCanRun(m_GunSeasonKnown && m_PassGunSeason, EstimateShare(RunKind.CatTrack, bottomY, topY));
         }
 
+        /// <summary>A cat track's made-snow model as of the last refresh (RunSnowRules.TrackMadeSnow: GunShare, GunWorkHours, DepthM, Spell),
+        /// the state the guns actually follow (the air at the track now, T220). The hub's gun line reads it (HubRules.TrackGunWhyOf). False
+        /// while the injection is not running (the day-mean rule, CatTrackGunsCanRun, stands in) or before the track's first refresh.</summary>
+        internal bool TryGetCatTrackModel(Entity run, out RunSnowRules.TrackMadeSnow made)
+        {
+            made = default;
+            return m_Armed && !m_Disabled && m_TrackMade.TryGetValue(run, out made);
+        }
+
         /// <summary>A cat track's guns are building made snow now (RunSnowRules.TrackGunsWorking): its snowmaking step bills
         /// (SkiRunUpkeepRates.TrackUpkeep). False for a track not stepped this load.</summary>
         internal bool CatTrackGunsWorking(Entity run)
@@ -1149,15 +1159,19 @@ namespace SkiResortMod.Systems
                 bool gunsOn = kind != RunKind.CatTrack || m_RunProps.CatTrackGunsOn(run);
                 float share = EstimateShare(kind, bottomY, topY, gunsOn);
                 // While the injection runs, a cat track's guns are its made-snow model (a pack built over game hours, T220), and an estimate
-                // never opens it (TrackEstimatedSnowShare). Until its first refresh it reads its saved made snow (SkiTrackSnow, SkiTrackPack).
+                // never opens it (TrackEstimatedSnowShare). Until its first refresh it reads its saved made snow and saved open state
+                // (SkiTrackSnow, SkiTrackPack v2), the same previous state its first refresh uses (bridge pass r1d loadcheck d).
+                RunSnowState previous = RunSnowState.Unknown;
                 if (isTrack && m_Armed && !m_Disabled)
-                    share = RunSnowRules.TrackShare(RunSnowRules.TrackEstimatedSnowShare(RunSnowState.Unknown, share),
-                        RunSnowRules.TrackMadeCountedShare(RunSnowState.Unknown, SavedTrack(run)));
+                {
+                    previous = SavedTrackState(run);
+                    share = RunSnowRules.TrackShareBeforeRefresh(previous, share, SavedTrack(run));
+                }
                 s = new RunSnow
                 {
                     Kind = kind,
                     Source = RunSnowSource.Estimated,
-                    State = RunSnowRules.NextState(RunSnowState.Unknown, share),
+                    State = RunSnowRules.NextState(previous, share),
                     Share = share,
                     Multiplier = RunSnowRules.OpenMultiplier(share),
                     MeanDepthM = float.NaN,
@@ -2270,7 +2284,9 @@ namespace SkiResortMod.Systems
                 RunSnowInput input = m_RunSnowInputs[i];
                 bool hasPrev = m_RunSnow.TryGetValue(input.Run, out RunSnow prev);
                 bool isTrack = input.Kind == RunKind.CatTrack;
-                RunSnowState prevState = hasPrev ? prev.State : RunSnowState.Unknown;
+                // A track without a table entry (its first refresh of a load) starts from its saved open state (SkiTrackPack v2,
+                // TrackStateFromSave; Unknown without one). A run's label is not saved: Unknown.
+                RunSnowState prevState = hasPrev ? prev.State : isTrack ? SavedTrackState(input.Run) : RunSnowState.Unknown;
                 var next = new RunSnow
                 {
                     Kind = input.Kind,
@@ -2282,7 +2298,7 @@ namespace SkiResortMod.Systems
                 if (input.Measured)
                 {
                     // Opens at the open bar (3 ft), stays open on the keep bar (1 ft): RunSnowRules.MeasuredShare.
-                    share = RunSnowRules.MeasuredShare(hasPrev ? prev.State : RunSnowState.Unknown,
+                    share = RunSnowRules.MeasuredShare(prevState,
                         RunSnowRules.ShareFromSums(input.WhiteW, input.FootprintW), RunSnowRules.ShareFromSums(input.KeepW, input.FootprintW));
                     if (!float.IsNaN(share))
                     {
@@ -2340,6 +2356,8 @@ namespace SkiResortMod.Systems
                     uncalm++;
                 next.Share = share;
                 next.State = RunSnowRules.NextState(prevState, share);
+                if (isTrack)
+                    QueueTrackSave(input.Run, next.State);
                 float m = RunSnowRules.OpenMultiplier(share);
                 next.Multiplier = hasPrev && !RunSnowRules.Republish(prev.Multiplier, m) ? prev.Multiplier : m;
                 if (!hasPrev || prev.State != next.State || prev.Multiplier != next.Multiplier ||
@@ -2589,15 +2607,15 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>One cat track's made snow for this refresh (RunSnowRules.StepTrackMadeSnow). The steps:
-        /// - Seed it from its saved SkiTrackSnow on its first refresh of a load.
+        /// - Seed it from its saved SkiTrackSnow and SkiTrackPack on its first refresh of a load (the caller restores the saved open state).
         /// - Raise it by its guns: the part of its vertical where the air NOW is at most freezing + the margin, while GunsMakeSnow (a run
         ///   texel's gun gate, by elevation: T220, bridge pass r1c). Build its pack while they cover some of it.
         /// - Hold it with the protection machine at the largest run budget.
         /// - Melt it at a run pack's speed after that (RunMeltOutHours).
         /// - Count its guns' work on what they raised above <paramref name="measuredShare"/> (the snow map under it, NaN when only
         ///   estimated) and above what it held (StepTrackGunWork: the snowmaking bill).
-        /// Queues the saved value when it moved. Returns the track's share: the larger of <paramref name="snowShare"/> (measured, or the
-        /// natural estimate) and the made share as it counts from <paramref name="previous"/> (TrackMadeCountedShare: the run bars).</summary>
+        /// QueueTrackSave queues the saved values after the label. Returns the track's share: the larger of <paramref name="snowShare"/>
+        /// (measured, or the natural estimate) and the made share as it counts from <paramref name="previous"/> (TrackMadeCountedShare).</summary>
         private float StepTrack(in RunSnowInput input, RunSnowState previous, float snowShare, float measuredShare, float dayMean, float freezing,
             float margin, float dtHours, out RunSnowRules.TrackMadeSnow made)
         {
@@ -2631,11 +2649,23 @@ namespace SkiResortMod.Systems
                              $"{(input.GunsOn ? "on" : "Off")}, season {(m_GunSeasonKnown ? (m_PassGunSeason ? "IN" : "OUT") : "unknown")}, " +
                              $"air at the track {trackC:F1} C, day mean {dayMean:F1} C)");
             m_TrackMadeNext[input.Run] = made;
+            return RunSnowRules.TrackShare(snowShare, RunSnowRules.TrackMadeCountedShare(previous, made));
+        }
+
+        /// <summary>After a track's label is set (RefreshRunSnow): queues its saved values when the made share, the pack depth or the open
+        /// state moved (SkiTrackSnow, SkiTrackPack v2). PublishTracks writes them.</summary>
+        private void QueueTrackSave(Entity run, RunSnowState state)
+        {
+            if (!m_TrackMadeNext.TryGetValue(run, out RunSnowRules.TrackMadeSnow made))
+                return;
             int permille = SkiTrackSnow.ToPermille(made.Share);
             int depthMm = RunSnowRules.TrackDepthToMm(made.DepthM);
-            if (!hasSaved || saved.m_MadePermille != permille || !hasPack || pack.m_DepthMm != depthMm)
-                m_TrackSaves.Add(new TrackSave { Track = input.Run, Permille = permille, DepthMm = depthMm });
-            return RunSnowRules.TrackShare(snowShare, RunSnowRules.TrackMadeCountedShare(previous, made));
+            bool open = state == RunSnowState.Open;
+            bool hasSaved = EntityManager.TryGetComponent(run, out SkiTrackSnow saved);
+            bool hasPack = EntityManager.TryGetComponent(run, out SkiTrackPack pack);
+            if (!hasSaved || saved.m_MadePermille != permille || !hasPack || pack.m_DepthMm != depthMm || !pack.StateSaved ||
+                pack.SavedOpen != open)
+                m_TrackSaves.Add(new TrackSave { Track = run, Permille = permille, DepthMm = depthMm, Open = open });
         }
 
         /// <summary>A track's saved made snow (SkiTrackSnow and SkiTrackPack, RunSnowRules.TrackFromSave). None saved: no made snow.</summary>
@@ -2645,6 +2675,14 @@ namespace SkiResortMod.Systems
                 return default;
             return RunSnowRules.TrackFromSave(saved.Share,
                 EntityManager.TryGetComponent(run, out SkiTrackPack pack) ? RunSnowRules.TrackDepthFromMm(pack.m_DepthMm) : float.NaN);
+        }
+
+        /// <summary>A track's saved open state (SkiTrackPack v2, RunSnowRules.TrackStateFromSave). Unknown without SkiTrackPack or with a
+        /// v1 value.</summary>
+        private RunSnowState SavedTrackState(Entity run)
+        {
+            bool has = EntityManager.TryGetComponent(run, out SkiTrackPack pack);
+            return RunSnowRules.TrackStateFromSave(has && pack.StateSaved, pack.SavedOpen);
         }
 
         /// <summary>After a refresh: the stepped made snow replaces the old (a track no longer in the table drops out). The moved values
@@ -2665,7 +2703,7 @@ namespace SkiResortMod.Systems
                     EntityManager.SetComponentData(track, value);
                 else
                     EntityManager.AddComponentData(track, value);
-                var packValue = new SkiTrackPack(m_TrackSaves[i].DepthMm);
+                var packValue = new SkiTrackPack(m_TrackSaves[i].DepthMm, m_TrackSaves[i].Open);
                 if (EntityManager.HasComponent<SkiTrackPack>(track))
                     EntityManager.SetComponentData(track, packValue);
                 else
