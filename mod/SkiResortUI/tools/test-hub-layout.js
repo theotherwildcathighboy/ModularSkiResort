@@ -464,7 +464,7 @@ const R1F = [
 // Small fixes of round 2 (T207, T209, T218): the status line while the stats settle, the Mountain section, a run tooltip with one acre.
 const R2SF = [
   ["r2sf-settling-1080", 1080, { scenario: "Ash Flat, stats settling after a load", view: 0 }],
-  ["r2sf-mountain-1080", 1080, { scenario: "Ash Flat, imperial: one acre run, a run that cannot be rated", view: 0, fold: 0 }],
+  ["r2sf-mountain-1080", 1080, { scenario: "Ash Flat, imperial: one acre run, a run that cannot be rated", view: 0, fold: 1 }],
   ["r2sf-run-tooltip-1080", 1080, { scenario: "Ash Flat, imperial: one acre run, a run that cannot be rated", view: 1, hover: "Run 2", hoverIn: "div" }],
 ];
 const R2B = [
