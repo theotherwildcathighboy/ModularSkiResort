@@ -1893,7 +1893,7 @@ namespace SkiResortMod
                 // CatTrackGradeTooltipSystem / CatTrackGradeToolSystem through LocalizedString.Id(key, args) (GradeMsg); the log keeps the full
                 // detail. Every text: plain sentences, at most 25 words, no em dash (GradeBatch GR-23). Numbers are whole numbers:
                 // LENGTH / SHORT in m, MAX / LIMIT in %, CUT / FILL in m³.
-                { "SkiResort.CatTrack.PROMPT_EMPTY", "Click where the cat track starts. Right click closes the tool. The hub's Runs tab has Delete cat tracks and Ski way, a narrow track for steep faces." },
+                { "SkiResort.CatTrack.PROMPT_EMPTY", "Click where the cat track starts. Right click closes the tool. The hub's Runs tab has Delete cat tracks and Ski way for steep faces." },
                 { "SkiResort.CatTrack.PROMPT_ONE", "Click the next point of the track. Right click goes back a step." },
                 { "SkiResort.CatTrack.PROMPT_PATH", "Click to add a point. Drag a point to move it. Enter builds the track. Right click or Esc goes back a step." },
                 { "SkiResort.CatTrack.PROMPT_DRAG", "Release to put the point here. Right click cancels the move." },
