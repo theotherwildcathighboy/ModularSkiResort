@@ -119,13 +119,25 @@ window.__dfind = (t, minx = 0) => [...document.querySelectorAll("*")].filter(e =
 window.__dtext = (t, minx = 0) => { const el = __dfind(t, minx)[0]; if (!el) return null; __dclkEl(el); return t; };
 window.__sleep = (ms) => new Promise(r => setTimeout(r, ms));
 window.__dpause = async () => { if (__dfind("Save Game").length || __dfind("Load Game").length) return "menu open"; const el = [...document.querySelectorAll("[class*=pause-menu-layout] button")].find(b => b.innerHTML.includes("Gear.svg")); if (!el) return "no pause toggle"; __dclkEl(el); await __sleep(1200); return "pause toggle"; };
+// The Load Game list is VIRTUALIZED (about 20 rows are in the DOM, the rest are created while the list scrolls): a save far down the list
+// (sorted by date, newest first) is not found by a plain query (T205: the staged copies were listed all along; `no save <name>` came from
+// looking only at the first rows). Scrolls the list from the top in steps of about two thirds of its height until the row shows.
+window.__dfindSave = async (name) => {
+  const rows = () => [...document.querySelectorAll("*")].find(e => e.children.length === 0 && e.textContent.trim() === name && e.getBoundingClientRect().width > 0);
+  let el = rows(); if (el) return el;
+  const sc = [...document.querySelectorAll("*")].filter(e => e.scrollHeight > e.clientHeight + 20 && e.clientHeight > 200).sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
+  if (!sc) return null;
+  const step = Math.max(200, Math.floor(sc.clientHeight * 0.6));
+  for (let pos = 0; pos <= sc.scrollHeight; pos += step) { sc.scrollTop = pos; await __sleep(350); el = rows(); if (el) return el; }
+  return null;
+};
 // Opens Load Game, clicks the save, answers the load dialog and the discard dialog. Replies "loading <name> yes <0|1>", or why not:
 // "no save <name>" = the game does not list that file (T205: stage it with the game closed, see tools/loadcheck.ps1 -StageOnly).
 window.__dload = async (name) => {
   const log = [];
   log.push(await __dpause());
   log.push(__dtext("Load Game")); await __sleep(1500);
-  const el = [...document.querySelectorAll("*")].find(e => e.children.length === 0 && e.textContent.trim() === name);
+  const el = await __dfindSave(name);
   if (!el) return log.concat("no save " + name).join(" | ");
   await __scrollTo(el); await __sleep(300);
   __dclkEl(el); await __sleep(800);

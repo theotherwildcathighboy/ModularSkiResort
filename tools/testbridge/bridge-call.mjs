@@ -8,7 +8,7 @@
 // Arguments are base64 (UTF-8) so PowerShell 5.1 cannot strip the quotes of a JSON string on the way to a native command.
 //   --op <b64 json>        engine.call("skitest.cmd", json); prints the bridge's reply (a JSON string) as is.
 //   --js <b64 expression>  evaluates the expression (a value or a promise); prints {"ok":true,"value":...} or {"ok":false,"error":...}.
-//   --inject <file>        evaluates the file (tools/testbridge/helpers.js) unless window.__st already exists; prints {"ok":true,"injected":bool}.
+//   --inject <file>        evaluates the file (tools/testbridge/helpers.js) unless window.__st already exists (--force: always); prints {"ok":true,"injected":bool}.
 //   --timeout <s>          how long to wait for a promise (default 60).
 //   --host, --port         default localhost:9444 (GAMEFACE_HOST / GAMEFACE_PORT).
 // Exit: 0 ok, 1 the call failed or timed out, 2 the game's debug port does not answer.
@@ -97,9 +97,10 @@ try {
     out({ ok: true, value }, 0);
   } else if (opt('inject') != null) {
     const has = await evaluate(`typeof window.__st === 'function'`);
-    if (!has) await evaluate(fs.readFileSync(opt('inject'), 'utf8') + '\n;1');
+    const force = args.includes('--force');   // re-evaluate even when the helpers are there (a changed helpers.js reaches a running page)
+    if (!has || force) await evaluate(fs.readFileSync(opt('inject'), 'utf8') + '\n;1');
     ws.close();
-    out({ ok: true, injected: !has }, 0);
+    out({ ok: true, injected: !has || force }, 0);
   } else {
     ws.close();
     out({ ok: false, error: 'pass --op, --js or --inject' }, 1);

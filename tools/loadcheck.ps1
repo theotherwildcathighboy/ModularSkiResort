@@ -15,8 +15,8 @@
 
   Steps:
     1. Copies the baseline save (read-only, in release/saves-by-release/) into the game's Saves folder as loadcheck_<stem>.cok with a
-       FRESH .cid beside it (T205: the game lists a save by its .cid, a copy without one was never listed, even after a restart; the
-       original's .cid would duplicate its asset id. UNVERIFIED in game). Stage the copy with the game CLOSED (-StageOnly does only
+       FRESH .cid beside it (T205: observed 2026-11-16: with its own .cid a copy lists unless a byte-identical save is listed already; then
+       that save is loaded by its own name, read-only, never saved over). Stage the copy with the game CLOSED (-StageOnly does only
        this and exits): the game indexes the Saves folder at start. The original never loads and never gets saved over.
     2. Op loadcheck begin (log offsets), then the page helper __dload (T224: the pause menu by DOM mouse events, no OS input, so no
        window focus and no mouse; helpers.js), then tools/testbridge/wait-ready.ps1.
@@ -52,6 +52,10 @@
 .PARAMETER AnyWorld
   Run in a world other than a clean PLAYER (tools/world.ps1 -World Status). The world gate is off and the report says so.
 
+.PARAMETER ResaveName
+  With -Resave: the save name for part (d) (default bridgelc<MMddHHmmss>). tools/resave-baseline.ps1 uses it for "SRM Baseline <x.y.z> ...".
+  The bridge stops at an existing name (overwrite dialog), so the name must be new.
+
 .PARAMETER StageOnly
   Copy the baseline save into the Saves folder with a fresh .cid and exit. Run it with the game closed, before the launch, so the game
   lists the copy (T205). Needs no game, no bridge and no node.
@@ -70,6 +74,7 @@ param(
     [switch]$DiscardCity,
     [switch]$AnyWorld,
     [switch]$StageOnly,
+    [string]$ResaveName,
     [int]$MonthTimeoutMinutes = 45,
     [string]$OutDir
 )
@@ -120,12 +125,28 @@ function Show-Game {
 
 # T205: the game lists a save by its .cid (32 hex characters, the asset id) beside the .cok. A copy made without one was never listed,
 # even after a restart, and a copy WITH the original's .cid would duplicate its asset id. So a staged copy gets its own fresh id.
-# UNVERIFIED in game (decompile 1.6.4f1 has no Colossal.IO.AssetDatabase source to read). The game indexes the Saves folder at its start:
+# Observed 2026-11-16: with a fresh .cid the ashflat copy listed (its original is not in Saves); the light copy did NOT, while the byte-identical
+# lightvale1.cok sat in Saves. So a duplicate of a listed save stays hidden (hypothesis: the embedded save id; the AssetDatabase source is not in
+# the 1.6.4f1 decompile). The game indexes the Saves folder at its start:
 # stage with the game closed (-StageOnly). A copy staged while the game runs may stay unlisted until the next start.
 function Install-SaveCopy([string]$source, [string]$gameName) {
     $savesRoot = Join-Path $UserData 'Saves'
     $savesDir = Get-ChildItem $savesRoot -Directory -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if (-not $savesDir) { Stop-Check 2 "no Saves folder under $savesRoot" }
+    # T205 (observed in game 2026-11-16, not a controlled test): the game lists a copy when it has its own .cid and no byte-identical save is listed already
+    # (a copy of lightvale1.cok stayed hidden while the original sat in Saves; a copy of a baseline whose original is gone lists fine).
+    # So an identical save that is already in Saves is used by its own name: nothing is staged, nothing is written.
+    $srcLen = (Get-Item -LiteralPath $source).Length
+    $srcHash = $null
+    foreach ($c in Get-ChildItem $savesDir.FullName -Filter *.cok -File | Where-Object { $_.Length -eq $srcLen -and $_.Name -notlike 'loadcheck_*' }) {
+        if (-not $srcHash) { $srcHash = (Get-FileHash -LiteralPath $source).Hash }
+        if ((Get-FileHash -LiteralPath $c.FullName).Hash -eq $srcHash) {
+            $script:StagedName = [IO.Path]::GetFileNameWithoutExtension($c.Name)
+            Write-Output "  save copy: not needed, the game already lists a byte-identical save as '$($script:StagedName)' (loaded read-only by name, never saved over)"
+            return $c.FullName
+        }
+    }
+    $script:StagedName = $gameName
     $target = Join-Path $savesDir.FullName "$gameName.cok"
     $cid = "$target.cid"
     $copied = $false
@@ -173,11 +194,11 @@ function Load-City([string]$name, [string]$label) {
     $r = Invoke-Page "__dload($(ConvertTo-Json $name))" 60
     Write-Output "  __dload: $r"
     if ("$r" -notmatch '^loading ') {
-        Stop-Check 2 "the load did not start ($r). 'no save <name>' means the game does not list the copy: stage it with the game closed (loadcheck.ps1 -StageOnly), then start the game (T205, unverified)."
+        Stop-Check 2 "the load did not start ($r). 'no save <name>' means the game does not list the copy: stage it with the game closed (loadcheck.ps1 -StageOnly), then start the game (T205)."
     }
     # (The page helper __dload calls loadcheck/loadMark just before the load dialog click: the debug port does not answer while the load runs.)
     Wait-Ready $t
-    Invoke-Node @('--inject', $Helpers) | Out-Null
+    Invoke-Node @('--inject', $Helpers, '--force') | Out-Null
     # A game load builds a new world: its autosave system starts ON again, so the off switch from before the load is gone.
     Invoke-Bridge @{ op = 'autosave'; on = $false } | Out-Null
 }
@@ -267,7 +288,7 @@ if (-not $NoLoad -and $status.gameMode -ne 'MainMenu' -and -not $DiscardCity) {
 }
 try { Invoke-Bridge @{ op = 'loadcheck'; action = 'status' } | Out-Null }
 catch { Stop-Check 2 "the deployed bridge has no loadcheck op: deploy tools/testbridge with the game closed ($($_.Exception.Message))" }
-Invoke-Node @('--inject', $Helpers) | Out-Null
+Invoke-Node @('--inject', $Helpers, '--force') | Out-Null
 
 $autosave = (Invoke-Bridge @{ op = 'autosave' }).enabled
 Invoke-Bridge @{ op = 'autosave'; on = $false } | Out-Null
@@ -281,8 +302,8 @@ $result = [ordered]@{
 try {
     # ---- load --------------------------------------------------------------------------------------------------------
     if (-not $NoLoad) {
-        $gameName = "loadcheck_$Stem"
-        $null = Install-SaveCopy $Save $gameName
+        $null = Install-SaveCopy $Save "loadcheck_$Stem"
+        $gameName = $script:StagedName
         $result.gameSave = $gameName
         Load-City $gameName $Stem
     }
@@ -379,7 +400,7 @@ try {
     # (d)
     if ($Resave) {
         $before = (Invoke-Bridge @{ op = 'loadcheck'; action = 'census' }).census
-        $saveName = 'bridgelc' + (Get-Date).ToString('MMddHHmmss')
+        $saveName = if ($ResaveName) { $ResaveName } else { 'bridgelc' + (Get-Date).ToString('MMddHHmmss') }
         Show-Game
         $s = Invoke-Page "__dsave($(ConvertTo-Json $saveName))" 60
         Write-Output "  __dsave: $s"
