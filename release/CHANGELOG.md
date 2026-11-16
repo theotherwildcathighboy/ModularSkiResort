@@ -27,8 +27,8 @@ Notes...
 
 ## 1.0.1 (PDX version 2, YYYY-MM-DD)
 - Save compatible with previous: yes
-- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1
-- Do not load in older versions: no
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1, TrackPack 1
+- Do not load in older versions: yes
 
 **Resort Planner:**
 - No more long green lines outside the region while planning.
@@ -62,7 +62,7 @@ Notes...
 - New thumbnail and launcher icon.
 
 **Season:**
-- A run or cat track needs real snow to read Open, with clearer snow text. A cat track's guns need about one game hour to build its snow.
+- A run or cat track needs real snow to read Open, with clearer snow text. A cat track's snow guns follow the air at the track, need about one game hour to build its snow, and a warm spell melts it. A save keeps how deep they have built it.
 - The planner's tree filler keeps out of lift corridors, the tram's too.
 - The tram no longer stands still, in summer too, in a game that loads the mod's assets twice.
 
