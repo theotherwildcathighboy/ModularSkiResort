@@ -372,7 +372,8 @@ export function areaArg(ha: number | undefined, imperial: boolean): JSX.Element 
   const HA = numArg(areaHa(v, imperial), Unit.FloatSingleFraction);
   // T218: "1 acre", never "1 acres" (the number as shown, one decimal)
   const one = imperial && Math.round(areaHa(v, true) * 10) === 10;
-  return imperial ? <LocText entry={one ? HUB_FMT.areaAcre : HUB_FMT.areaAcres} args={{ HA }} /> : <LocText entry={HUB_FMT.areaHa} args={{ HA }} />;
+  if (!imperial) return <LocText entry={HUB_FMT.areaHa} args={{ HA }} />;
+  return one ? <LocText entry={HUB_FMT.areaAcre} args={{ HA }} /> : <LocText entry={HUB_FMT.areaAcres} args={{ HA }} />;
 }
 
 /** A lift's line speed as a <LocText> argument: "5 m/s", or "984 ft/min" when `imperial` (DisplayUnits.lengthImperial, T161; US lifts quote
