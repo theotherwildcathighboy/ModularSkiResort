@@ -86,7 +86,7 @@ export const HUB_LOC = {
 
   startTitle: ["SkiResort.Hub.START_TITLE", "Start a ski area"],
   startStep1: ["SkiResort.Hub.START_STEP[1]", "Welcome Sign"],
-  startStep2: ["SkiResort.Hub.START_STEP[2]", "A lift: two stations, then the line"],
+  startStep2: ["SkiResort.Hub.START_STEP[2]", "A lift: two stations, the line, and low-voltage power"],
   startStep3: ["SkiResort.Hub.START_STEP[3]", "Runs from the top of the lift"],
   startStep4: ["SkiResort.Hub.START_STEP[4]", "A lodge within 800 m of the runs"],
   placeSign: ["SkiResort.Hub.PLACE_SIGN", "Place Welcome Sign"],

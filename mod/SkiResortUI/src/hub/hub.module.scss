@@ -2325,38 +2325,21 @@
   display: flex;
 }
 
+// T202 F3 (DECISIONS 668): the step indicator is text, not a box. It takes no click, so it must not look like a chip or a button.
+// Done steps use the disabled text color, the steps to come the dim color, the current step is bold in the normal text color.
 .stepItem {
-  margin-right: 4rem;
-  padding-top: 1rem;
-  padding-bottom: 1rem;
-  padding-left: 6rem;
-  padding-right: 6rem;
-  border-radius: 3rem;
+  margin-right: 10rem;
   white-space: nowrap;
-  color: var(--normalTextColor);
-  opacity: 0.75;
-  border-style: solid;
-  border-top-width: 1rem;
-  border-right-width: 1rem;
-  border-bottom-width: 1rem;
-  border-left-width: 1rem;
-  border-top-color: rgba(0, 0, 0, 0);
-  border-right-color: rgba(0, 0, 0, 0);
-  border-bottom-color: rgba(0, 0, 0, 0);
-  border-left-color: rgba(0, 0, 0, 0);
+  color: var(--hubTextDim);
 }
 
 .stepDone {
-  opacity: 0.4;
+  color: var(--textColorDisabled);
 }
 
 .stepNow {
-  opacity: 1;
-  background-color: var(--selectedColor);
-  border-top-color: var(--accentColorNormal);
-  border-right-color: var(--accentColorNormal);
-  border-bottom-color: var(--accentColorNormal);
-  border-left-color: var(--accentColorNormal);
+  color: var(--normalTextColor);
+  font-weight: bold;
 }
 
 .quickCaption {

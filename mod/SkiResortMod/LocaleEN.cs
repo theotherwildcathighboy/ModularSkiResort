@@ -1122,7 +1122,7 @@ namespace SkiResortMod
                 // STATUS_WORD, SEASON_HINT, SEASON_TIP, LIFT_STATUS, RUN_TYPE, BUILD_SHORT[run kinds], NEXT, NEXT2.
                 { "SkiResort.Hub.START_TITLE", "Start a ski area" },
                 { "SkiResort.Hub.START_STEP[1]", "Welcome Sign" },
-                { "SkiResort.Hub.START_STEP[2]", "A lift: two stations, then the line" },
+                { "SkiResort.Hub.START_STEP[2]", "A lift: two stations, the line, and low-voltage power" },
                 { "SkiResort.Hub.START_STEP[3]", "Runs from the top of the lift" },
                 { "SkiResort.Hub.START_STEP[4]", "A lodge within 800 m of the runs" },
                 { "SkiResort.Hub.STATUS_NO_RUNS", "Closed" },
