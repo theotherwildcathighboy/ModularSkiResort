@@ -36,6 +36,7 @@ namespace ResortBatch
             OpenState();
             Minimal();
             GreenRule();
+            School();
             Snow();
             SnowMeasure();
             LiveOpen();
@@ -377,7 +378,9 @@ namespace ResortBatch
             Check(Math.Abs(r.RunsCapacity - clean.RunsCapacity - 0.25 * 4.0 * Score.SkiersPerHaGreen) < 1e-9, W,
                   $"capacity +{r.RunsCapacity - clean.RunsCapacity:F2} skiers, expected 4 ha x 45 x 0.25 = 45");
             Check(r.RunsValue > clean.RunsValue, W, "the score grows");
-            Check(!r.GreenCounted && !r.Variety && r.VarietyMultiplier == clean.VarietyMultiplier, W, "a green cat track sets no variety / school green");
+            Check(!r.GreenCounted && !r.Variety && r.VarietyMultiplier == clean.VarietyMultiplier && r.VarietyBands == clean.VarietyBands, W,
+                  "a green cat track sets no variety green");
+            Check(r.SchoolRunCounted && !clean.SchoolRunCounted, W, "a counted cat track serves the school (T211)");
             Check(r.VerticalM == clean.VerticalM && r.TopM == clean.TopM, W, $"vertical {r.VerticalM} / top {r.TopM} must ignore the cat track ({clean.VerticalM} / {clean.TopM})");
             Check(r.NightRunsCounted == clean.NightRunsCounted, W, "no night run");
 
@@ -402,6 +405,58 @@ namespace ResortBatch
                 Check(b.Runs == 1 && b.RunsCounted == 0 && b.RunsValue == 0.0 && b.RunsCapacity == 0.0 && !bp[0].Counted, W,
                       $"a cat track {bad.State} band {bad.Band} must be worth 0 (counted {b.RunsCounted}, value {b.RunsValue})");
             }
+        }
+
+        /// <summary>CT211: an open cat track serves the ski school, never Variety. CT212: BandsWhenOpen names the runs that exist but are all
+        /// closed (the hub's "no open green run").</summary>
+        private static void School()
+        {
+            const string W = "cattrack/school";
+            Score.AreaInput area = Area();
+            area.SchoolActive = true;
+            var lifts = new List<Score.LiftInput> { new Score.LiftInput { Complete = true, Powered = true, TypeIndex = 0 } };
+            Score.RunInput cat = Input(4, Score.BandGreen, 40000.0);
+            Score.RunInput blue = Input(0, Score.BandBlue, 60000.0), black = Input(1, Score.BandBlack, 30000.0);
+
+            // An open cat track alone satisfies the school.
+            Score.Result lone = Score.Compute(area, new List<Score.RunInput> { cat }, lifts, null);
+            Check(lone.SchoolRunCounted && lone.SchoolValue == SchoolRule.ScoreValue, W, "CT211-1 an open cat track alone: school +12");
+            Check(!lone.GreenCounted && lone.VarietyBands == 0 && !lone.Variety, W, "CT211-2 it sets no variety green");
+            Check(SchoolRule.DemandFactorOf(lone.SchoolActive, lone.SchoolRunCounted) == SchoolRule.DemandFactor, W, "CT211-3 locals x 1.2 with it");
+
+            // Blue + black + cat track: Variety still misses green, the runs score the same as with the school off.
+            var mixed = new List<Score.RunInput> { blue, cat, black };
+            Score.Result withSchool = Score.Compute(area, mixed, lifts, null);
+            Score.Result noSchool = Score.Compute(Area(), mixed, lifts, null);
+            Check(withSchool.VarietyBands == (Score.VarietyBlue | Score.VarietyBlack) && !withSchool.Variety && withSchool.VarietyMultiplier == 1.0, W,
+                  "CT211-4 a cat track does not complete Variety's green");
+            Check(withSchool.RunsValue == noSchool.RunsValue && withSchool.SchoolValue == SchoolRule.ScoreValue && noSchool.SchoolValue == 0.0, W,
+                  "CT211-5 the runs' value does not change; the school adds its 12");
+            Check(withSchool.BandsWhenOpen == (Score.VarietyBlue | Score.VarietyBlack | Score.BandCatTrack), W,
+                  "CT212-1 BandsWhenOpen: blue, black, cat track; got " + withSchool.BandsWhenOpen);
+
+            // A closed cat track: the school gets nothing, but the hub knows the track exists.
+            Score.RunInput closedCat = cat;
+            closedCat.OpenFactor = 0.0;
+            Score.Result closed = Score.Compute(area, new List<Score.RunInput> { blue, closedCat }, lifts, null);
+            Check(!closed.SchoolRunCounted && closed.SchoolValue == 0.0, W, "CT212-2 a closed cat track: no school value");
+            Check((closed.BandsWhenOpen & Score.BandCatTrack) != 0 && HubRules.SchoolRunClosed(closed.BandsWhenOpen), W,
+                  "CT212-3 the closed track still shows in BandsWhenOpen: the row says no open run");
+
+            // A closed green piste beside an open blue: green in BandsWhenOpen, not in VarietyBands.
+            Score.RunInput closedGreen = Input(0, Score.BandGreen, 40000.0);
+            closedGreen.OpenFactor = 0.0;
+            Score.Result fall = Score.Compute(area, new List<Score.RunInput> { blue, closedGreen }, lifts, null);
+            Check((fall.VarietyBands & Score.VarietyGreen) == 0 && (fall.BandsWhenOpen & Score.VarietyGreen) != 0 && !fall.SchoolRunCounted &&
+                  HubRules.SchoolRunClosed(fall.BandsWhenOpen), W, "CT212-4 a closed green piste: no open green run");
+            Score.Result none = Score.Compute(area, new List<Score.RunInput> { blue }, lifts, null);
+            Check(!HubRules.SchoolRunClosed(none.BandsWhenOpen) && none.BandsWhenOpen == Score.VarietyBlue, W,
+                  "CT212-5 no green run and no cat track: no green run at all");
+            // A blue cat track (never sent by the catalog) is worth 0 and so never in BandsWhenOpen.
+            Score.Result badCat = Score.Compute(area, new List<Score.RunInput> { Input(4, Score.BandBlue, 40000.0) }, lifts, null);
+            Check(badCat.BandsWhenOpen == 0 && !badCat.SchoolRunCounted, W, "CT212-6 a cat track worth 0 serves nothing");
+            Check(Score.BandCatTrack == 8 && (Score.BandCatTrack & Score.VarietyAll) == 0 && Score.VarietyBitOf(Score.BandDoubleBlack) == Score.VarietyBlack &&
+                  Score.VarietyBitOf(Score.BandFlat) == 0, W, "CT212-7 the bits: cat track 8, outside VarietyAll; double-black sets black");
         }
 
         /// <summary>CT139-G: the green rule. A rated cat track reads Green whatever band the classifier gave. The tool grades it under 25 %.

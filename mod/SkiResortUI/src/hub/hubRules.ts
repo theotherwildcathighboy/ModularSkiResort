@@ -1038,37 +1038,45 @@ export function schoolBuiltOf(build: readonly BuildItem[] | null | undefined): b
 
 /** The ski school of a sign, for the rows whose 0 has a cause. The states:
  *  - "on" = its value counts (schoolValue > 0).
- *  - "noGreen" = runs count but no green one (the sign's PROBLEM.SchoolNoGreenRun row, C# HubProblemCode 25, sent
- *    only while RunsCounted > 0, SkiResortStatsSystem.cs:2700).
+ *  - "noGreen" = runs count but no green one and no cat track (the sign's PROBLEM.SchoolNoGreenRun row, C# HubProblemCode 25, sent
+ *    only while RunsCounted > 0, SkiResortStatsSystem.cs:2700; a counted cat track serves the school since T211).
+ *  - "noOpenGreen" = the same, while a green run or a cat track that would count exists but none is open (T212: row 25's detail 1, or
+ *    without the row ResortLive.bandsWhenOpen).
  *  - "waiting" = built, no run counts at all (live.summer: SkiResortScore.cs
  *    :414 summer ⇔ RunsCounted == 0, so SchoolRule gives +0, SkiResortScore.cs:467).
  *    Row 25 is a dim band row: the band keeps at most 8 (HubRules.MaxBandRows), so it can be cut. The score's own green bit
  *    (varietyBands & VARIETY_BAND green, C# Result.VarietyBands = the GreenCounted flag, SkiResortScore.cs:416) decides too (T186: a
- *    full band made a school with no counted green run read "Deactivated").
+ *    full band made a school with no counted green run read "Deactivated"). Without row 25 the fallback cannot tell a switched-off
+ *    school beside an open cat track from a missing run (rare: only a full band cuts the row).
  *  - "off" = built, runs count, a green run counts, still 0. The only way is SchoolActive false, the building switched off
  *    (BuildingOption.Inactive, SkiResortAttractivenessSystem.cs:1445). varietyBands unknown (< 0) falls back to "off".
  *  - "none" = no school.
  *  - "unknown" = no live row or schoolValue < 0.
  *  `built` = schoolBuiltOf(build) for the SAME shown sign. It reads only C#'s fields: no new contract field.
  *  A school on a sign with no runs must not read "No ski school" (no row 25 there). */
-export type SchoolState = "on" | "noGreen" | "waiting" | "off" | "none" | "unknown";
+export type SchoolState = "on" | "noGreen" | "noOpenGreen" | "waiting" | "off" | "none" | "unknown";
 export function schoolState(l: ResortLive | null, problems: readonly ProblemRow[] | null | undefined, sign: Entity | null | undefined,
   built = false): SchoolState {
   if (!l || !(l.schoolValue >= 0)) return "unknown";
   if (l.schoolValue > 0) return "on";
-  for (const p of problems ?? []) if (p && p.code === PROBLEM.SchoolNoGreenRun && sameEntity(p.sign, sign)) return "noGreen";
+  for (const p of problems ?? []) {
+    if (p && p.code === PROBLEM.SchoolNoGreenRun && sameEntity(p.sign, sign)) return p.detail === 1 ? "noOpenGreen" : "noGreen";
+  }
   if (!built) return "none";
   if (l.summer) return "waiting";
   const bands = typeof l.varietyBands === "number" ? l.varietyBands : -1;
-  return bands >= 0 && (bands & VARIETY_BAND.Green) === 0 ? "noGreen" : "off";
+  if (!(bands >= 0) || (bands & VARIETY_BAND.Green) !== 0) return "off";
+  const whenOpen = typeof l.bandsWhenOpen === "number" ? l.bandsWhenOpen : -1;
+  return whenOpen >= 0 && (whenOpen & (VARIETY_BAND.Green | VARIETY_BAND.CatTrack)) !== 0 ? "noOpenGreen" : "noGreen";
 }
 
 /** The School row's flag (HUB_LOC key name) by state. null = no flag ("on" / "unknown"). "waiting" is a state, not a fault: the
  *  row draws it dim (InfoLine flagDim). */
-export function schoolFlagOf(s: SchoolState): "noSchool" | "schoolNoGreen" | "schoolOff" | "schoolWaiting" | null {
+export function schoolFlagOf(s: SchoolState): "noSchool" | "schoolNoGreen" | "schoolNoOpenGreen" | "schoolOff" | "schoolWaiting" | null {
   switch (s) {
     case "none": return "noSchool";
     case "noGreen": return "schoolNoGreen";
+    case "noOpenGreen": return "schoolNoOpenGreen";
     case "off": return "schoolOff";
     case "waiting": return "schoolWaiting";
     default: return null;
@@ -1301,6 +1309,14 @@ export function varietyMissing(l: ResortLive | null | undefined): VarietyNeed[] 
   return out;
 }
 
+/** T212: a need of varietyMissing whose runs exist (they count while open, ResortLive.bandsWhenOpen) but none is open: the line says
+ *  "open green run". False when bandsWhenOpen is unknown (-1). */
+export function varietyClosed(l: ResortLive | null | undefined, need: VarietyNeed): boolean {
+  if (!l || !(l.bandsWhenOpen >= 0)) return false;
+  const bit = need === "green" ? VARIETY_BAND.Green : need === "blue" ? VARIETY_BAND.Blue : VARIETY_BAND.Black;
+  return ((l.bandsWhenOpen | 0) & bit) !== 0 && ((l.varietyBands | 0) & bit) === 0;
+}
+
 /** Meters to the full vertical bonus, or -1 = no line (unknown, or under half a meter: the bonus is full). */
 export function verticalShort(l: ResortLive | null | undefined): number {
   if (!l || !(l.verticalShortM >= 0.5)) return -1;
@@ -1345,7 +1361,7 @@ export function efficiencyAtFloor(l: ResortLive | null | undefined): boolean {
 export function schoolMissingOf(s: SchoolState): "receiptMissingSchoolNone" | "receiptMissingSchoolGreen" | "receiptMissingSchoolWaiting" | null {
   switch (s) {
     case "none": case "off": return "receiptMissingSchoolNone";
-    case "noGreen": return "receiptMissingSchoolGreen";
+    case "noGreen": case "noOpenGreen": return "receiptMissingSchoolGreen";
     case "waiting": return "receiptMissingSchoolWaiting";
     default: return null;
   }

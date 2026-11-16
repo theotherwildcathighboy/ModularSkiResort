@@ -2402,7 +2402,7 @@ namespace SkiResortMod.Systems
             structKey = SkiRunRatingRules.Mix(structKey, (uint)r.Flags);
             // The ladder's best tier, the school and the patrolled runs.
             structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.LodgeBestIndex));
-            structKey = SkiRunRatingRules.Mix(structKey, (r.SchoolActive ? 1u : 0u) | (r.GreenCounted ? 2u : 0u));
+            structKey = SkiRunRatingRules.Mix(structKey, (r.SchoolActive ? 1u : 0u) | (r.GreenCounted ? 2u : 0u) | (r.SchoolRunCounted ? 4u : 0u));
             structKey = SkiRunRatingRules.Mix(structKey, unchecked((uint)r.RunsPatrolled));
             bool heldForRatings = slot.Held && r.RunsPending > 0 && !ratingFailed;
             structKey = SkiRunRatingRules.Mix(structKey, !slot.Held ? 0u : heldForRatings ? 1u : 2u);
@@ -2445,8 +2445,8 @@ namespace SkiResortMod.Systems
             string liftsText = r.LiftsValue == SkiResortScore.LiftValue * r.LiftsCounted
                 ? Invariant($"lifts {r.LiftsCounted} × 6 × {r.LiftShare:0.##}")
                 : Invariant($"lifts {r.LiftsCounted} = {r.LiftsValue:0.##} pts × {r.LiftShare:0.##}");
-            string extras = (r.SchoolActive ? (r.GreenCounted ? "; school on (+" + r.SchoolValue.ToString("0.##", CultureInfo.InvariantCulture) + ")"
-                                                              : "; school on (no counted green run: +0)") : "") +
+            string extras = (r.SchoolActive ? (r.SchoolRunCounted ? "; school on (+" + r.SchoolValue.ToString("0.##", CultureInfo.InvariantCulture) + ")"
+                                                              : "; school on (no counted green run or cat track: +0)") : "") +
                             (r.RunsPatrolled > 0 ? Invariant($"; patrolled {r.RunsPatrolled}") : "");
             string text =
                 Invariant($"Attractiveness: area {slot.Sign.Index}:{slot.Sign.Version} A {r.Attraction} = round(({r.LodgeBase:0.##} × {r.LodgeShare:0.##} + ") +
@@ -2950,7 +2950,8 @@ namespace SkiResortMod.Systems
                     sb.Append(" summit-served");
             }
             sb.Append("; school ").Append(r.SchoolActive ? "on" : "off").Append(" (").Append(slot.Schools).Append(" listed, green counted ")
-              .Append(r.GreenCounted ? "y" : "n").Append(", +").Append(r.SchoolValue.ToString("0.##", ic)).Append("); patrols ")
+              .Append(r.GreenCounted ? "y" : "n").Append(", school run counted ").Append(r.SchoolRunCounted ? "y" : "n")
+              .Append(", bands when open ").Append(r.BandsWhenOpen).Append(", +").Append(r.SchoolValue.ToString("0.##", ic)).Append("); patrols ")
               .Append(slot.PatrolEntities.Count).Append(" (").Append(slot.PatrolXz.Count).Append(" with a position), bus depots ")
               .Append(slot.DepotActive.Count).Append(", runs patrolled ")
               .Append(r.RunsPatrolled).Append("; lifts value ").Append(r.LiftsValue.ToString("0.##", ic)).Append(", applied ")
@@ -3086,7 +3087,7 @@ namespace SkiResortMod.Systems
                 sb.Append(i > 0 ? ", " : "").Append(l.Id).Append(' ').Append(l.ScoreValue.ToString("0.##", ic)).Append(" / ")
                   .Append(l.SummerShare.ToString("0.##", ic));
             }
-            sb.Append("; school +").Append(SchoolRule.ScoreValue.ToString("0.##", ic)).Append(" to S while a green run counts; patrol: expert runs within ")
+            sb.Append("; school +").Append(SchoolRule.ScoreValue.ToString("0.##", ic)).Append(" to S while a green run or a cat track counts; patrol: expert runs within ")
               .Append(PatrolRule.RadiusM.ToString("0", ic)).Append(" m ×").Append(PatrolRule.ExpertFactor.ToString("0.##", ic))
               .Append(", an unserved patrolled run served at least ").Append((PatrolRule.BackcountryServedMin * 100.0).ToString("0", ic)).Append(" %");
             return sb.ToString();

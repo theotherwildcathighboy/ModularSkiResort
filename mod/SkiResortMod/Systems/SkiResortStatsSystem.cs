@@ -116,6 +116,9 @@ namespace SkiResortMod.Systems
         // VerticalShortM = HubRules.VerticalShortM (meters to the full vertical bonus). Both -1 without a Result.
         public int VarietyBands;
         public float VerticalShortM;
+        // Contract 48 (T212): Result.BandsWhenOpen (VarietyBands' bits plus BandCatTrack 8 over the runs that count while open). -1 without a
+        // Result.
+        public int BandsWhenOpen;
 
         /// <summary>The terms NetMonth was computed from (-1 unknown).</summary>
         public HubMonthMoney NetTerms => new HubMonthMoney
@@ -2162,6 +2165,7 @@ namespace SkiResortMod.Systems
                     live.VerticalMultiplier = (float)r.VerticalMultiplier;
                     live.ScoreVerticalM = (float)r.VerticalM;
                     live.VarietyBands = r.VarietyBands;
+                    live.BandsWhenOpen = r.BandsWhenOpen;
                     live.VerticalShortM = (float)HubRules.VerticalShortM(in r);
                     live.EfficiencyPct = v.EfficiencyUsedPct;
                     // The ladder, school and patrol facts of the Result.
@@ -2180,6 +2184,7 @@ namespace SkiResortMod.Systems
                     live.LiftsComplete = live.LiftsCounted = live.EfficiencyPct = live.OpenSharePct = -1;
                     live.VarietyMultiplier = live.VerticalMultiplier = 1f;
                     live.VarietyBands = -1;
+                    live.BandsWhenOpen = -1;
                     live.VerticalShortM = -1f;
                     live.LodgeBest = ""; // no result: no best lodge, the counts 0
                 }
@@ -2450,7 +2455,7 @@ namespace SkiResortMod.Systems
                 BuildingsMonth = -1, WagesMonth = -1,
                 VarietyMultiplier = 1f, VerticalMultiplier = 1f,
                 // no ski area: no score, so the missing lines have nothing to name (contract 40).
-                VarietyBands = -1, VerticalShortM = -1f,
+                VarietyBands = -1, VerticalShortM = -1f, BandsWhenOpen = -1,
                 // no ski area, no ski days: State and Limit 0, the other eight -1.
                 SkiDaysState = 0, SkiDaysLimit = 0,
                 SkiDaysThisMonth = -1, SkiDaysLastMonth = -1, SkiDaysSent = -1, SkiDaysSentCar = -1, SkiDaysSentNoCar = -1,
@@ -2752,9 +2757,11 @@ namespace SkiResortMod.Systems
                     DepotsNoRoad = skiDayRows ? d.DepotsNoRoad : 0,
                     // Did the band show the Efficiency row on this area's previous build?
                     EfficiencyRowWasOn = !notLinked && m_EffRowOn.Contains(sign),
-                    // Rows 24 and 25. School: active, runs count, none of them a counted green.
+                    // Rows 24 and 25. School: active, runs count, none of them a counted green or cat track (T211). Closed: such a run
+                    // exists but none is open (T212, the row's detail 1).
                     SummitLodgesNotServed = notLinked ? 0 : work.SummitNotServed,
-                    SchoolNoGreenRun = hasResult && r.SchoolActive && r.RunsCounted > 0 && !r.GreenCounted,
+                    SchoolNoGreenRun = hasResult && r.SchoolActive && r.RunsCounted > 0 && !r.SchoolRunCounted,
+                    SchoolRunClosed = hasResult && HubRules.SchoolRunClosed(r.BandsWhenOpen),
                     // Road-less top-level schools join LodgeNoRoad. Unlinked ones get their Not linked row.
                     SchoolsNoRoad = notLinked ? 0 : schoolsNoRoad,
                     FreeSchools = notLinked ? schoolsHere : 0,
@@ -3152,6 +3159,7 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.CostsMonth);
                 h = Mix(h, (uint)r.VarietyBands);
                 h = MixF(h, r.VerticalShortM);
+                h = Mix(h, (uint)r.BandsWhenOpen);
             }
             return Mix(h, (uint)rows.Count);
         }
@@ -3518,7 +3526,7 @@ namespace SkiResortMod.Systems
             sb.Append("      lodges: best ").Append(bestName).Append(", extras ").Append(F(l.LodgeExtra, "0.##"))
               .Append(", capacity ").Append(capacity)
               .Append(", tolerance ").Append(l.PriceTolerance).Append("; school ")
-              .Append(hasResult && v.Result.SchoolActive ? (v.Result.GreenCounted ? "on (green counted)" : "on (no counted green run)") : "off")
+              .Append(hasResult && v.Result.SchoolActive ? (v.Result.SchoolRunCounted ? (v.Result.GreenCounted ? "on (green counted)" : "on (cat track counted)") : "on (no counted green run or cat track)") : "off")
               .Append(" worth ").Append(F(l.SchoolValue, "0.##")).Append("; patrols ").Append(patrols).Append(", runs patrolled ")
               .Append(l.PatrolledRuns).Append("; lodge spend/month ").Append(l.LodgeSpendMonth)
               .Append("; passes this season ").Append(l.PassesSoldSeason).Append(" +").Append(l.PassIncomeSeason)

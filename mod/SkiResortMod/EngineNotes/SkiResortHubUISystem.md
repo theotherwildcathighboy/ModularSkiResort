@@ -445,6 +445,10 @@ Appended fields and bindings by contract:
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan). `quickRunsSet` gains `lifts`,
   `home`, `pod`, `lift`. The integration branch carries this bump from the A7 merge, so its gates stay green. Re-bump if main takes
   22 first.
+- 48 (1.0.1, T211 / T212): `ResortLive` appends `bandsWhenOpen` (int, `SkiResortScore.Result.BandsWhenOpen`, -1 without a score).
+  It holds the `varietyBands` bits plus 8 for a cat track, over the member runs that count while open. `VARIETY_BAND.CatTrack` = 8.
+  A bit in `bandsWhenOpen` that `varietyBands` lacks means: such runs exist, and none is open. The receipt then says "open green run".
+  PROBLEM 25 (SchoolNoGreenRun) `detail` 1 means: the school's run (a green piste or a cat track) exists, and none is open.
 - 42: the runs-first plans (Resort Planner round, task R2-b). `QuickRunsState` loses `mix`, `liftsKnob` and `home`. `QuickRunsLift` loses
   `wantedKey` and gains `flagged`, `waits`, `overLimitTowers`. `QuickRunsPlan` loses `pods` and gains `trackKm`. `QuickRunsState` gains `tracks`
   and `QuickRunsPod` gains `tracks`. `runs`, `enabled`, `count` and `variety` count pistes only. `QuickRunsSheetRow` gains `flagged`, `waits`,

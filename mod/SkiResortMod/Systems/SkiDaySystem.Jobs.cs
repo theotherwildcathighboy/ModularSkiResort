@@ -224,7 +224,7 @@ namespace SkiResortMod.Systems
             public int LodgeStart, LodgeCount, RunStart, RunCount, StationStart, StationCount, Attraction, RunsCounted;
             public byte ScoreKnown, WriteHeld, NightRunOpen;
             public double Efficiency, RunsCapacity, OpenShare, Powder;   // Powder NaN = unknown (0 in the formulas)
-            public double SchoolFactor;   // SchoolRule.DemandFactorOf(Result.SchoolActive, GreenCounted). 1 = none
+            public double SchoolFactor;   // SchoolRule.DemandFactorOf(Result.SchoolActive, SchoolRunCounted). 1 = none
         }
 
         /// <summary>One active lodge of the snapshot (the sign itself excluded). Lodges of one area are contiguous.

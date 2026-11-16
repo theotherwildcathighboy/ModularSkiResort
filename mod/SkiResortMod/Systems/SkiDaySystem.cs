@@ -3061,7 +3061,7 @@ namespace SkiResortMod.Systems
                     OpenShare = known ? SkiDayRules.OpenShare(r.RunsValue, r.RunsValueFull) : 0.0,
                     Powder = powder,
                     // Locals × 1.2 while the school is active and a green run counts.
-                    SchoolFactor = known ? SchoolRule.DemandFactorOf(r.SchoolActive, r.GreenCounted) : 1.0,
+                    SchoolFactor = known ? SchoolRule.DemandFactorOf(r.SchoolActive, r.SchoolRunCounted) : 1.0,
                 });
                 for (int c = 0; c < 3; c++)
                     m_Tracks.Add(mem.Tracks[c]);

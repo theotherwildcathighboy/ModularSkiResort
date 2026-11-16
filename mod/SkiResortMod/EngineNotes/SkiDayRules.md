@@ -23,7 +23,7 @@ Old signatures stay bit-identical to the new one called with today's arguments (
   (A-frame 360, hut 200, mid 720, summit 480, grand 1,080). The old `(runs, n, ...)` = `(runs, 360 n, n, ...)`. The limit is Lodges
   when no target (road) lodge passes.
 - `Chance(..., price, priceTolerance, schoolFactor, confidence, knobs)`: residents x `schoolFactor` (`SchoolRule`, 1.2 while the
-  school is active with a counted green run) outside the cap like W and P. Tourists ignore it. The old signature =
+  school is active with a counted green run or cat track, Result.SchoolRunCounted) outside the cap like W and P. Tourists ignore it. The old signature =
   `(..., price, 0, 1.0, ...)`.
 
 ## Trip model

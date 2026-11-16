@@ -47,7 +47,7 @@ namespace SkiResortMod
                 { "Assets.NAME[SkiGroomerA]", "Snow Groomer" },
                 { "Assets.DESCRIPTION[SkiGroomerA]", "Grooms a cat track while it is open, with its lights on from dusk to dawn." },
                 { "Assets.NAME[SkiSchool]", "Ski School" },
-                { "Assets.DESCRIPTION[SkiSchool]", "Teaches on the green runs: the ski area scores more and locals come more often." },
+                { "Assets.DESCRIPTION[SkiSchool]", "Teaches on green runs and cat tracks: the ski area scores more and locals come more often." },
                 { "Assets.NAME[SkiPatrolHut]", "Ski Patrol Hut" },
                 { "Assets.DESCRIPTION[SkiPatrolHut]", "Patrols the steep runs nearby. No road needed." },
                 { "Assets.NAME[SkiPatrolHQ]", "Ski Patrol HQ" },
@@ -1140,8 +1140,11 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[NoParkingNearLodge]", "Lodge without parking" },
                 { "SkiResort.Hub.PROBLEM[LodgeNotSlopeside]", "Lodge is far from the runs" },
                 // C# HubProblemCode SchoolNoGreenRun (MixedLiftTypes and SummitLodgeNotLiftServed carry a placeholder: block (e) FMT).
-                { "SkiResort.Hub.PROBLEM[SchoolNoGreenRun]", "Ski school: no green run" },
-                { "SkiResort.Hub.PROBLEM[SchoolNoGreenRun]@EU", "Ski school: no green or blue run" },
+                { "SkiResort.Hub.PROBLEM[SchoolNoGreenRun]", "Ski school: no green run or cat track" },
+                { "SkiResort.Hub.PROBLEM[SchoolNoGreenRun]@EU", "Ski school: no green or blue run or cat track" },
+                // The same row with detail 1 (T212): such runs exist, none is open.
+                { "SkiResort.Hub.PROBLEM[SchoolNoGreenRun.Closed]", "Ski school: no open green run or cat track" },
+                { "SkiResort.Hub.PROBLEM[SchoolNoGreenRun.Closed]@EU", "Ski school: no open green or blue run or cat track" },
                 { "SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Ski days need any lodge within 800 m of the runs or lift stations. With no lodge, attraction is 0." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "Deactivated lodges do not count." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "Deactivated lodges do not count in the lodge base." },
@@ -1184,7 +1187,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[LiftTrainLimit]", "Wheels tilt 30° beyond the tower's lean (detachables, gondolas 40°, tram saddles 60°) and fold 40° (trams 60°). Past that the rope leaves them." },
                 { "SkiResort.Hub.PROBLEM_TIP[LiftBend]", "Real lift lines turn 5° or less at a tower. Past that the rope runs off the outer wheels. The lift still runs and scores." },
                 { "SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "With every run closed, a Hut or Summit lodge scores more near a working lift top (300 m) or a served run (100 m)." },
-                { "SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while at least one <icon:green> run is <icon:openpatchy>." },
+                { "SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while at least one <icon:green> run or cat track is <icon:openpatchy>." },
                 { "SkiResort.Hub.TILE[Attraction]", "Attraction" },
                 { "SkiResort.Hub.TILE[Runs]", "Runs" },
                 { "SkiResort.Hub.TILE[RunsOpen]", "Runs open" },
@@ -1214,7 +1217,7 @@ namespace SkiResortMod
                 // CG-T4: every Loop type's "<name> <ScoreValue>" in index order and the summer-share words.
                 { "SkiResort.Hub.RECEIPT_TIP[Lifts]", "Points per complete, powered lift: fixed-grip 6, detachable 15, gondola 25, tram 30. While every run is closed, chairlifts and gondolas add a quarter." },
                 // The school's line of the receipt's parts tooltip (shown while ResortLive.schoolValue > 0).
-                { "SkiResort.Hub.RECEIPT_TIP[School]", "An active ski school adds 12 while at least one <icon:green> run is <icon:openpatchy>." },
+                { "SkiResort.Hub.RECEIPT_TIP[School]", "An active ski school adds 12 while at least one <icon:green> run or cat track is <icon:openpatchy>." },
                 { "SkiResort.Hub.RECEIPT_TIP[Variety]", "+15 % (1.15) while at least one <icon:green>, one <icon:blue> and one <icon:black> or <icon:dblack> run is <icon:openpatchy>. Otherwise no bonus." },
                 // One labeled row per term of the "Runs, lifts and school" section; a school row / lessons row whose 0 has a
                 // cause says it with the warning glyph.
@@ -1224,8 +1227,10 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RECEIPT_ROW[Variety]", "Variety" },
                 { "SkiResort.Hub.RECEIPT_ROW[Vertical]", "Vertical" },
                 { "SkiResort.Hub.NO_SCHOOL", "No ski school" },
-                { "SkiResort.Hub.SCHOOL_NO_GREEN", "No green run" },
-                { "SkiResort.Hub.SCHOOL_NO_GREEN@EU", "No green or blue run" },
+                { "SkiResort.Hub.SCHOOL_NO_GREEN", "No green run or cat track" },
+                { "SkiResort.Hub.SCHOOL_NO_GREEN@EU", "No green or blue run or cat track" },
+                { "SkiResort.Hub.SCHOOL_NO_OPEN_GREEN", "No open green run or cat track" },
+                { "SkiResort.Hub.SCHOOL_NO_OPEN_GREEN@EU", "No open green or blue run or cat track" },
                 { "SkiResort.Hub.SCHOOL_OFF", "School deactivated" },
                 { "SkiResort.Hub.SCHOOL_WAITING", "No run open yet" },
                 { "SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –" },
@@ -1259,8 +1264,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RECEIPT_MISSING[Variety.Green]", "<icon:green> run" },
                 { "SkiResort.Hub.RECEIPT_MISSING[Variety.Blue]", "<icon:blue> run" },
                 { "SkiResort.Hub.RECEIPT_MISSING[Variety.Black]", "<icon:black> or <icon:dblack> run" },
+                // The same needs while such runs exist and none is open (T212, ResortLive.bandsWhenOpen).
+                { "SkiResort.Hub.RECEIPT_MISSING[Variety.GreenOpen]", "open <icon:green> run" },
+                { "SkiResort.Hub.RECEIPT_MISSING[Variety.BlueOpen]", "open <icon:blue> run" },
+                { "SkiResort.Hub.RECEIPT_MISSING[Variety.BlackOpen]", "open <icon:black> or <icon:dblack> run" },
                 { "SkiResort.Hub.RECEIPT_MISSING[SchoolNone]", "Missing: an active <icon:school>" },
-                { "SkiResort.Hub.RECEIPT_MISSING[SchoolGreen]", "Missing: a <icon:green> run that is <icon:openpatchy>" },
+                { "SkiResort.Hub.RECEIPT_MISSING[SchoolGreen]", "Missing: a <icon:green> run or cat track that is <icon:openpatchy>" },
                 { "SkiResort.Hub.RECEIPT_MISSING[SchoolWaiting]", "No run is <icon:openpatchy>" },
                 { "SkiResort.Hub.RECEIPT_MISSING[Runs]", "Not in full:" },
                 { "SkiResort.Hub.RECEIPT_MISSING[Lifts]", "Not counted:" },
@@ -1480,12 +1489,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.UNLINKED_MONEY", "Runs and lifts that are not linked earn nothing. Their upkeep is still charged." },
                 // The school and patrol tiles, the luxury tiers, the pickers. CG-T6
                 // derives "+12", "20 %" (School), "1 km", "15 %", "70 %" (Patrol) and "40" (the luxury PriceTolerance) from SkiCatalog.
-                { "SkiResort.Hub.BUILD_SHORT[School]", "Teaches on green runs." },
-                { "SkiResort.Hub.BUILD_SHORT[School]@EU", "Teaches on green and blue runs." },
+                { "SkiResort.Hub.BUILD_SHORT[School]", "Teaches on green runs and cat tracks." },
+                { "SkiResort.Hub.BUILD_SHORT[School]@EU", "Teaches on green and blue runs and cat tracks." },
                 { "SkiResort.Hub.BUILD_SHORT[Depot]", "Ski days start here, in town." },
                 { "SkiResort.Hub.BUILD_TIP_DEPOT", "Coach bill: 1,500 a month plus 300 per straight-line km to the nearest hill lodge. It adds no skier room and no score." },
                 { "SkiResort.Hub.BUILD_SHORT[Patrol]", "Covers the steep runs nearby." },
-                { "SkiResort.Hub.BUILD_TIP_SCHOOL", "+12 on the Ski school row of the score while a <icon:green> run is <icon:openpatchy>. Residents go skiing 20 % more often." },
+                { "SkiResort.Hub.BUILD_TIP_SCHOOL", "+12 on the Ski school row of the score while a <icon:green> run or cat track is <icon:openpatchy>. Residents go skiing 20 % more often." },
                 { "SkiResort.Hub.BUILD_TIP_ROAD_OPTIONAL", "Needs a road, or a cat track within 25 m linked to a road lodge or bus depot. A cat track brings utilities, not guests." },
                 { "SkiResort.Hub.BUILD_TIP_PATROL", "Within 1 km, <icon:black> and <icon:dblack> runs score 15 % more. Runs there without a lift still score at least 70 %." },
                 { "SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days stay full at a lift ticket price up to 40 higher." },
