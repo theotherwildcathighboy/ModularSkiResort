@@ -6,7 +6,7 @@
 #   PLAYER  the published pack (the Paradox Mods subscription, playset "Standard Mod Set") + the test bridge. ImportedData parked.
 #           Optionally with a candidate build laid over the pack (-Build, and -Cok for its new .cok). Used for ALL play, tests, field tests
 #           and baseline saves: it is what a player has.
-#   ASSET   the dev mod (Mods\SkiResortMod) + the test bridge + ImportedData, the pack not loaded (playset "Standard Mod Set Unsub SRM").
+#   ASSET   the dev mod (Mods\SkiResortMod) + the test bridge + ImportedData, the pack not loaded (playset "SRM Test Asset"; "Standard Mod Set Unsub SRM" is still accepted).
 #           For Editor imports and previews only. Its saves are throwaway, named "DEV ...".
 #
 #   -World Status   (default) ONE line, e.g.
@@ -41,7 +41,8 @@ $PackOverlay = Join-Path $PSScriptRoot 'pack-overlay.ps1'
 $UserData = Join-Path $env:USERPROFILE 'AppData\LocalLow\Colossal Order\Cities Skylines II'
 $AsideDir = Join-Path $env:USERPROFILE 'Documents\CS2-mods-aside'
 $PlayerPlayset = 'Standard Mod Set'
-$AssetPlayset = 'Standard Mod Set Unsub SRM'
+$AssetPlayset = 'SRM Test Asset'                  # preferred (167215 disabled); the older name below is still accepted
+$AssetPlaysetOld = 'Standard Mod Set Unsub SRM'
 
 function Get-Dev { (& $DevMode -Mode Status -Json) -join '' | ConvertFrom-Json }
 function Get-Pack {
@@ -66,7 +67,7 @@ function Get-WorldState {
         $problems += "ImportedData $(if ($importedLoaded) { 'loaded' } else { 'parked' })"
         $problems += "pack $(if ($packOn) { 'enabled' } else { "not enabled ($($d.enabled))" }) in playset '$($d.playset)'"
     }
-    $want = if ($name -eq 'ASSET') { $AssetPlayset } elseif ($Playset) { $Playset } else { $PlayerPlayset }
+    $want = if ($name -eq 'ASSET') { if ($d.playset -eq $AssetPlaysetOld) { $AssetPlaysetOld } else { $AssetPlayset } } elseif ($Playset) { $Playset } else { $PlayerPlayset }
     $playsetOk = ($d.playset -eq $want)
     $bridgeText = if ($bridgeOn) { 'bridge on' } else { 'bridge off' }
     $overlayText = ''
