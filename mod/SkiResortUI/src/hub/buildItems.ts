@@ -4,7 +4,8 @@
  * any difference, a missing icon, or a group that does not hold every id once. So keep BUILD_ITEMS, BUILD_GROUPS and
  * BUILD_ITEM_ICON literal. C# owns what each id launches and which ids it sends. This file only maps an id to icon, group,
  * strip position and badge. This bundle ignores an id it does not know. It does not draw a known id that C# did not send.
- * Icons are the prefabs' own UIObject icons (assetdb://global/<id>, gamedata-mirror/ImportedData/<Prefab>/<Prefab>.Prefab "m_Icon").
+ * Icons (T210, 1.0.2): the hub keeps the style-E card, its own set gamedata-mirror/ImportedData/SkiResortIcons/<Name>Card.png
+ * (assetdb://global/<the .png.cid>). The prefabs' UIObject m_Icon is <Name>.png, the bare vanilla-menu look (gate T17.13).
  */
 import { BUILD_ITEM_IDS, RUN_KIND } from "../bindings";
 import type { BuildItem, BuildItemId, RunKind } from "../bindings";
@@ -54,42 +55,42 @@ export const BUILD_ITEMS: readonly BuildItemMeta[] = [
   { id: "safetyFence", kind: "fence", liftType: "", runKind: -1 },
 ];
 
-const ICON_SIGN = "assetdb://global/b0f0f5932ab14cacca5ab8afef91f6dc"; // SkiResortGate.Prefab:48
-const ICON_LODGE = "assetdb://global/68de897b1138f9c779cff55258956cde"; // SkiAFrameDayLodge.Prefab:86
-const ICON_LINE = "assetdb://global/890dda430068b39807412dc4ce0e9af8"; // SkiChairliftHV.Prefab:202 (SkiChairliftLine.png, style E)
-const ICON_BASE = "assetdb://global/c019a1e22083fd0285b4b6cf21f98f3c"; // SkiBaseStationBuilding.Prefab:50
-const ICON_TOP = "assetdb://global/3eb0d7b98fc9ee162816d9bb77056956"; // SkiTopStationBuilding.Prefab:44
+const ICON_SIGN = "assetdb://global/18e4c114588746cdda8369362705a36a"; // SkiResortGateCard.png
+const ICON_LODGE = "assetdb://global/aa8a888e96f1187be9f6a6f6a4b836d2"; // SkiAFrameDayLodgeCard.png
+const ICON_LINE = "assetdb://global/57c96252de1426ed9c156a6540f0402c"; // SkiChairliftLineCard.png
+const ICON_BASE = "assetdb://global/71e7c5f91d3f6206a688f1a3b822c8e0"; // SkiBaseStationBuildingCard.png
+const ICON_TOP = "assetdb://global/0590f468d0542b9d808e8bbb4f9c28c9"; // SkiTopStationBuildingCard.png
 
 export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   sign: ICON_SIGN,
   lodge: ICON_LODGE,
-  // SkiResortIcons/<file>.png.cid (gamedata-mirror/ImportedData/SkiResortIcons/). Each prefab's m_Icon carries the same id
-  lodgeHut: "assetdb://global/a5cbeffe37ecc4a08dba75e5f41721a8", // SkiLodgeHut.png
-  lodgeMid: "assetdb://global/d3df64753c68a935d57aff51fc52815b", // SkiLodgeMid.png
-  lodgeSummit: "assetdb://global/1d6966e5716f604d124d7da9130493cd", // SkiLodgeSummit.png
-  lodgeGrand: "assetdb://global/25a71e28e84f3c9ab4e7140a389daf95", // SkiLodgeGrand.png
-  busDepot: "assetdb://global/9deaad385be65b851a036bf5fb1f7854", // SkiBusDepot.png
-  school: "assetdb://global/91cfab697c3e967769f87e74ef15d585", // SkiSchool.png
-  patrolHut: "assetdb://global/c5c30e4a00c458311ceb5944a68e5628", // SkiPatrolHut.png
-  patrolHQ: "assetdb://global/c0fb5f466715cb377e38bf2ea57f75f8", // SkiPatrolHQ.png
+  // SkiResortIcons/<file>Card.png.cid (gamedata-mirror/ImportedData/SkiResortIcons/). The prefab m_Icon is <file>.png (bare)
+  lodgeHut: "assetdb://global/691484d394075ff16442b7922b43792e", // SkiLodgeHutCard.png
+  lodgeMid: "assetdb://global/9612a3336f94f95e3a319c1edfc0c060", // SkiLodgeMidCard.png
+  lodgeSummit: "assetdb://global/5788df57f9c120d48cd9b722f841ad41", // SkiLodgeSummitCard.png
+  lodgeGrand: "assetdb://global/6bb60ccd3e6b85985840ca7a1e89d522", // SkiLodgeGrandCard.png
+  busDepot: "assetdb://global/5744dbb5fcc1a9b5a062d5d33d7b988a", // SkiBusDepotCard.png
+  school: "assetdb://global/67484b450f60a3b395c203af90404157", // SkiSchoolCard.png
+  patrolHut: "assetdb://global/66e373cc6884cd6b423109da234c205a", // SkiPatrolHutCard.png
+  patrolHQ: "assetdb://global/0b9ff4fc9e536390ca687590edcaa1f4", // SkiPatrolHQCard.png
   baseStation: ICON_BASE,
   topStation: ICON_TOP,
   lift: ICON_LINE,
-  baseStationDetachable: "assetdb://global/8ec27f87a6a893c66a4874eb0ea37ade", // SkiDQBaseStationBuilding.png
-  topStationDetachable: "assetdb://global/c88f224955a093d4cc6f65ed3aef3f13", // SkiDQTopStationBuilding.png
-  liftDetachable: "assetdb://global/f9f84b7904b1e6eadedf2dd84621ccb9", // SkiDetachableLine.png (SkiDetachableHV)
-  baseStationGondola: "assetdb://global/6ec56586a0f75099238aed5b6fc78db2", // SkiGondolaBaseStationBuilding.png
-  topStationGondola: "assetdb://global/eb97c9e8b0bef4a6f1466b33d2368459", // SkiGondolaTopStationBuilding.png
-  liftGondola: "assetdb://global/bb635c9ad1e17621e3fffec16bc80256", // SkiGondolaLine.png (SkiGondolaHV)
-  baseStationTram: "assetdb://global/346a857e6774be57ac9b39faae5eb43e", // SkiTramBaseStationBuilding.png
-  topStationTram: "assetdb://global/9988b8f6ee556ce5159e1ff361b8b2c8", // SkiTramTopStationBuilding.png
-  liftTram: "assetdb://global/84b357124bf9365a0b29833f2ea85ed5", // SkiTramLine.png (SkiTramHV)
-  runNatural: "assetdb://global/6cf0402a558e436be4459d740b432f98", // SkiRunNaturalA.Prefab:65
-  runGroomed: "assetdb://global/092ca9d440ccbca7cf9783c4da1790f5", // SkiRunGroomedA.Prefab:65
-  runSnowmaking: "assetdb://global/bc121f42eed0fd6829eacccc5b69b4f8", // SkiRunSnowmakingA.Prefab:65
-  runNight: "assetdb://global/a239eef8d124c3ec467a5d8afaa7e447", // SkiRunNightA.Prefab:65
-  runCatTrack: "assetdb://global/746a4b7f2c2ea595edf43d1ecc8a8520", // SkiRunCatTrackA.Prefab:65 (SkiRunCatTrackA.png)
-  safetyFence: "assetdb://global/0e39601f806f95d2a8a542e3575d7e75", // SkiSafetyFence.png (SkiSafetyFence.Prefab UIObject m_Icon)
+  baseStationDetachable: "assetdb://global/4d2f785beba173c1a40d64170e76795c", // SkiDQBaseStationBuildingCard.png
+  topStationDetachable: "assetdb://global/b0db82a0cb4af09c5765ece43b90476a", // SkiDQTopStationBuildingCard.png
+  liftDetachable: "assetdb://global/8c151f93e6073afda7201f3828902f22", // SkiDetachableLineCard.png
+  baseStationGondola: "assetdb://global/198dcaf0c7ce1d7b5e29d5502b687104", // SkiGondolaBaseStationBuildingCard.png
+  topStationGondola: "assetdb://global/b87f8c72a75e6db3a81f065113fc8810", // SkiGondolaTopStationBuildingCard.png
+  liftGondola: "assetdb://global/07a86bcf6968feffe19b93a5bb5fa472", // SkiGondolaLineCard.png
+  baseStationTram: "assetdb://global/7b8170111918fd0120ad29d95e062ed0", // SkiTramBaseStationBuildingCard.png
+  topStationTram: "assetdb://global/b87f9a333891d2a5e720c7c6a33e2278", // SkiTramTopStationBuildingCard.png
+  liftTram: "assetdb://global/3e078fee5f882252a00a10562f1521c8", // SkiTramLineCard.png
+  runNatural: "assetdb://global/a47d45b182fdb2d96054e43a07a12567", // SkiRunNaturalACard.png
+  runGroomed: "assetdb://global/39e0ea0cc6f2afc51df7d862cb4dc483", // SkiRunGroomedACard.png
+  runSnowmaking: "assetdb://global/6ba85d68b4edba124b061e1aba603418", // SkiRunSnowmakingACard.png
+  runNight: "assetdb://global/acbe49545a195c954b5d2d3cbe8e68b0", // SkiRunNightACard.png
+  runCatTrack: "assetdb://global/731f946165b587fbc604cabe42137d25", // SkiRunCatTrackACard.png
+  safetyFence: "assetdb://global/0e897d5b08f9709ec85c012e572319b5", // SkiSafetyFenceCard.png
 };
 
 /** Four groups in build order (gate R16 checks every id appears exactly once). Group 1's lodge tiers and group 3's

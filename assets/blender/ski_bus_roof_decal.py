@@ -4,9 +4,10 @@ ski_bus_roof_decal.py - the coach's roof mark (T219, 2026-11-16): one text-free 
 Why: SkiCoachBus.Prefab carried SkiBusDecalA twice on the roof (x +-0.62, turned +-90 degrees about Y), each row reading from
 its own side of the street. From any camera one of the two reads upside down (the owner's 2026-11-15 photo: "twice, mirrored
 or upside down"). Text on a roof can only read one way up. A mark can read from every side: this decal is the two-peak mark
-of the shipped launcher glyph (ski_launcher_glyph.cand_c, as on the side livery and the welcome sign) inside a cream
-ring, its peaks pointing to the coach's front. The ring makes it a badge from any side (the bare peaks read as an arrowhead
-from the side, critic pass 2026-11-16). The side rows keep "SKI BUS".
+of the resort's designer mark (lexa_mark.py: variant 01, lift, run and peak with snowflakes, the hub launcher's glyph)
+inside a cream ring, the mark's top toward the coach's front. The ring makes it a badge from any side (a bare mark read as
+an arrowhead from the side, critic pass 2026-11-16). The side rows keep "SKI BUS". The first draft used the two peaks of
+the old launcher glyph (ski_launcher_glyph.cand_c); the owner's verdict on A asked for the designer mark everywhere.
 
 MODELED STAND-IN: no vanilla prop carries this mark. One mesh, SkiBusRoofDecalA, built and exported exactly like
 SkiBusDecalA (ski_bus_decal.py, the import contract and frame notes there): the 12-tri projection box of the DefaultDecal
@@ -41,14 +42,14 @@ if _HERE not in sys.path:
 import cs2_asset              # noqa: E402
 import cs2_signset as SS      # noqa: E402
 import ski_bus_panel as P     # noqa: E402
-import ski_launcher_glyph as G  # noqa: E402
+import lexa_mark as LM          # noqa: E402
 
 NAME = "SkiBusRoofDecalA"
 TEX = 1024
 MARK_W = 1.50                 # m, the roundel's diameter (game x and z). The roof's flat crown is about 2.2 m of the 2.55 m body
 RING_W = 0.10                 # m, the ring's stroke
-PEAK_SHARE = 0.62             # the peaks' width as a share of the diameter
-PEAK_DROP = 0.04              # m the peaks sit below the center (their mass is low, the eye wants them centered)
+MARK_SHARE = 0.60             # the designer mark's ink width as a share of the diameter: its ink box (aspect 1.27) fits the
+                              # ring's inside with about 6 cm to spare at the bottom corners (the ground line runs full width)
 EDGE = 0.06                   # m of clear field around the mark inside the box
 PPM = 560.0                   # px/m: (1.50 + 2 x 0.06) x 560 = 907 px of the 1024 sheet, mip-safe margin left
 HALF_Y = 0.20                 # projection depth each way (ski_bus_decal.HALF_Y)
@@ -77,43 +78,25 @@ def parse_args(argv=None):
 # ======================================================================================
 
 def mark_cov():
-    """(coverage (h, w) rows bottom-up, half_x m, half_z m): a cream roundel, MARK_W across, with the two peaks inside,
-    peaks toward +v (the front). The ring makes the badge rotation-neutral: the bare peaks, seen from the side, read as
-    an arrowhead (critic pass 2026-11-16)."""
-    peaks = peaks_cov(MARK_W * PEAK_SHARE)
+    """(coverage (h, w) rows bottom-up, half_x m, half_z m): a cream roundel, MARK_W across, with the designer mark
+    inside, its top toward +v (the front). The ring makes the badge rotation-neutral."""
     d = int(round(MARK_W * PPM))
+    mark = LM.coverage(int(round(MARK_W * MARK_SHARE * PPM)), ss=4)[::-1]   # top-down -> bottom-up (row 0 = -v = the rear)
     yy, xx = np.mgrid[0:d, 0:d].astype(np.float64)
     r = np.hypot(xx + 0.5 - d / 2.0, yy + 0.5 - d / 2.0)
     r_out, r_in = d / 2.0, d / 2.0 - RING_W * PPM
     ring = np.clip(r_out - r, 0.0, 1.0) * np.clip(r - r_in, 0.0, 1.0)
     cov = ring.astype(np.float32)
-    ph, pw = peaks.shape
-    y0 = int(round(d / 2.0 - ph / 2.0 - PEAK_DROP * PPM))        # optical center: the base sits a little low
-    x0 = (d - pw) // 2
-    cov[y0:y0 + ph, x0:x0 + pw] = np.maximum(cov[y0:y0 + ph, x0:x0 + pw], peaks)
+    mh, mw = mark.shape
+    y0, x0 = (d - mh) // 2, (d - mw) // 2
+    corner = np.hypot(mw / 2.0, mh / 2.0)
+    if corner > r_in - 0.03 * PPM:
+        raise RuntimeError(f"the mark's ink box corner ({corner / PPM:.3f} m) reaches the ring ({r_in / PPM:.3f} m)")
+    cov[y0:y0 + mh, x0:x0 + mw] = np.maximum(cov[y0:y0 + mh, x0:x0 + mw], mark)
     e = int(round(EDGE * PPM))
     out = np.zeros((d + 2 * e, d + 2 * e), np.float32)
     out[e:e + d, e:e + d] = cov
     return out, out.shape[1] / PPM / 2.0, out.shape[0] / PPM / 2.0
-
-
-def peaks_cov(width_m):
-    """The two peaks alone, width_m wide, rows bottom-up, cropped to the ink."""
-    fill = G.cand_c()[0]
-    if fill[0] != "fill":
-        raise RuntimeError("ski_launcher_glyph.cand_c no longer starts with its peaks")
-    pts = np.array(fill[1], np.float64)
-    lo, hi = pts.min(0), pts.max(0)
-    w_units, h_units = float(hi[0] - lo[0]), float(hi[1] - lo[1])
-    k = (G.CANVAS - 8.0) / max(w_units, h_units)
-    c = (lo + hi) / 2.0
-    prims = [("fill", [tuple(v) for v in (pts - c) * k + G.CANVAS / 2.0])]
-    m_per_unit = width_m / (w_units * k)
-    s = int(round(G.CANVAS * m_per_unit * PPM))                   # the glyph canvas in px at PPM
-    glyph = G.render_alpha(prims, s, ss=8)[::-1]                  # top-down -> bottom-up (row 0 = -v = the rear)
-    rows = np.where(glyph.max(axis=1) > 0.0)[0]
-    cols = np.where(glyph.max(axis=0) > 0.0)[0]
-    return glyph[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1].astype(np.float32)
 
 
 def paint_maps(cov):
@@ -178,7 +161,7 @@ def check_mesh(ob, rect, half_x):
         if (lay[li].uv.x > (rect[0] + rect[2]) / (2.0 * TEX)) != (co.x < 0.0):
             raise RuntimeError("u does not grow along game +X: the art would mirror")
         if (lay[li].uv.y > (rect[1] + rect[3]) / (2.0 * TEX)) != (co.y < 0.0):
-            raise RuntimeError("v does not grow along game +Z: the peaks would point to the rear")
+            raise RuntimeError("v does not grow along game +Z: the mark's top would point to the rear")
     return {"tris": sum(len(p.vertices) - 2 for p in me.polygons), "ppm": (rect[2] - rect[0]) / (2.0 * half_x)}
 
 
@@ -396,7 +379,7 @@ def preview(args, roof_ob, asset_dir):
     roof_mat = mat_tex("RoofMark", os.path.join(asset_dir, f"{NAME}_BaseColor.png"))
     opts = [
         ("before", "shipped 1.0.1: two SKI BUS roof rows", [(side_ob, side_mat, r) for r in ROOF_ROWS_SHIPPED]),
-        ("A", "A (recommended): one roof roundel with the peaks", [(roof_ob, roof_mat, ROOF_ROW_A)]),
+        ("A", "A (recommended): one roof roundel with the designer mark", [(roof_ob, roof_mat, ROOF_ROW_A)]),
         ("B", "B: no roof decal (prefab only, no import)", []),
         ("C", "C: one SKI BUS roof row (reads upside down from the left)", [(side_ob, side_mat, ROOF_ROW_C)]),
     ]

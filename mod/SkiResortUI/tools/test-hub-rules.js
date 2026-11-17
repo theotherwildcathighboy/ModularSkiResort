@@ -367,9 +367,9 @@ function run(srcDir) {
   eq("T17.3 spot rows", [kindTabs.sign, kindTabs.lodgeGrand, kindTabs.school, kindTabs.patrolHQ, kindTabs.liftTram, kindTabs.topStationGondola, kindTabs.runNight],
     ["buildings", "buildings", "buildings", "buildings", "lifts", "lifts", "runs"]);
   // The safety net fence (a net prefab drawn like a path) is a Runs-tab tile of its own kind. It is not a run item and not a lift or a building.
-  eq("T17.3b the safety fence: kind fence, Runs tab, not a run item, its own group, its own style-E icon (SkiSafetyFence.png, 2026-10-26)",
+  eq("T17.3b the safety fence: kind fence, Runs tab, not a run item, its own group, its own style-E icon (SkiSafetyFenceCard.png: the hub card set since T210)",
     [META.find((m) => m.id === "safetyFence").kind, kindTabs.safetyFence, R.RUN_ITEMS.has("safetyFence"), R.runKindOfItem("safetyFence"), R.tabOfKind("fence"),
-      ITEMS.BUILD_GROUPS.filter((g) => g.includes("safetyFence")).map((g) => g.length), ITEMS.BUILD_ITEM_ICON.safetyFence === "assetdb://global/0e39601f806f95d2a8a542e3575d7e75",
+      ITEMS.BUILD_GROUPS.filter((g) => g.includes("safetyFence")).map((g) => g.length), ITEMS.BUILD_ITEM_ICON.safetyFence === "assetdb://global/0e897d5b08f9709ec85c012e572319b5",
       R.runToolActive([{ id: "safetyFence", active: true, locked: false, reason: "" }], false)],
     ["fence", "runs", false, undefined, "runs", [1], true, false]);
   eq("T17.4 tabOfItem of an unknown id / null", [R.tabOfItem("nope", META), R.tabOfItem(null, META), R.tabOfKind("weird")], [null, null, null]);
@@ -755,6 +755,20 @@ function run(srcDir) {
   // in the lot (|m_LevelMinOffset| < 100 m, not block A's 1600 m away), or the pad it cuts has no level plane. m_DontLower alone is no state.
   const mirror = path.resolve(__dirname, "..", "..", "..", "gamedata-mirror", "ImportedData");
   const catalogCs = fs.readFileSync(path.join(csDir, "Systems", "SkiCatalog.cs"), "utf8");
+  // T210 (1.0.2): two icon sets. The prefab m_Icon is <Name>.png (bare, the vanilla menu look); the hub Build strip keeps the card,
+  // <Name>Card.png. Every BUILD_ITEM_ICON must resolve to a Card file in the mirror, and every Card file must have its bare twin
+  // with other bytes (a bulk copy of a card run over the prefab icons, or a hub id left on a prefab icon, fails here).
+  {
+    const iconDir = path.join(mirror, "SkiResortIcons");
+    const byCid = {};
+    for (const f of fs.readdirSync(iconDir).filter((f) => f.endsWith(".png.cid"))) byCid[fs.readFileSync(path.join(iconDir, f), "utf8").trim()] = f.slice(0, -4);
+    const hubFiles = Object.entries(ITEMS.BUILD_ITEM_ICON).map(([id, url]) => [id, byCid[String(url).replace("assetdb://global/", "")] || "(no file)"]);
+    const notCard = hubFiles.filter(([, f]) => !f.endsWith("Card.png")).map(([id, f]) => id + " -> " + f);
+    const cards = fs.readdirSync(iconDir).filter((f) => f.endsWith("Card.png"));
+    const twins = cards.filter((c) => { const b = path.join(iconDir, c.replace(/Card\.png$/, ".png"));
+      return !fs.existsSync(b) || fs.readFileSync(b).equals(fs.readFileSync(path.join(iconDir, c))); });
+    eq("T17.13 (T210) the hub shows the Card set; each Card file has a bare twin with other bytes", [notCard, twins, cards.length >= hubFiles.length], [[], [], true]);
+  }
   const blocksOf = (txt) => {
     const re = /"\$type": "\d+\|Game\.Prefabs\.(\w+), Game"/g; const at = []; let m;
     while ((m = re.exec(txt))) at.push({ i: m.index, name: m[1] });
