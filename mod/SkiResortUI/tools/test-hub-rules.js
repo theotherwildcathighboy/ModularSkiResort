@@ -764,10 +764,16 @@ function run(srcDir) {
     for (const f of fs.readdirSync(iconDir).filter((f) => f.endsWith(".png.cid"))) byCid[fs.readFileSync(path.join(iconDir, f), "utf8").trim()] = f.slice(0, -4);
     const hubFiles = Object.entries(ITEMS.BUILD_ITEM_ICON).map(([id, url]) => [id, byCid[String(url).replace("assetdb://global/", "")] || "(no file)"]);
     const notCard = hubFiles.filter(([, f]) => !f.endsWith("Card.png")).map(([id, f]) => id + " -> " + f);
+    // The ten flat glyphs (lift lines, run types, cat track, fence) keep the card in the menu too (owner verdict G1, 2026-11-16):
+    // their twin is byte-identical on purpose. Every other Card file must differ from its twin.
+    const KEEP_CARD = new Set(["SkiChairliftLine", "SkiDetachableLine", "SkiGondolaLine", "SkiTramLine", "SkiRunCatTrackA", "SkiRunGroomedA",
+      "SkiRunNaturalA", "SkiRunNightA", "SkiRunSnowmakingA", "SkiSafetyFence"]);
     const cards = fs.readdirSync(iconDir).filter((f) => f.endsWith("Card.png"));
-    const twins = cards.filter((c) => { const b = path.join(iconDir, c.replace(/Card\.png$/, ".png"));
-      return !fs.existsSync(b) || fs.readFileSync(b).equals(fs.readFileSync(path.join(iconDir, c))); });
-    eq("T17.13 (T210) the hub shows the Card set; each Card file has a bare twin with other bytes", [notCard, twins, cards.length >= hubFiles.length], [[], [], true]);
+    const twins = cards.filter((c) => { const base = c.replace(/Card\.png$/, ""); const b = path.join(iconDir, base + ".png");
+      if (!fs.existsSync(b)) return true;
+      const same = fs.readFileSync(b).equals(fs.readFileSync(path.join(iconDir, c)));
+      return KEEP_CARD.has(base) ? !same : same; });
+    eq("T17.13 (T210) the hub shows the Card set; each Card file has a twin (bare, other bytes; the ten G1 glyphs identical)", [notCard, twins, cards.length >= hubFiles.length], [[], [], true]);
   }
   const blocksOf = (txt) => {
     const re = /"\$type": "\d+\|Game\.Prefabs\.(\w+), Game"/g; const at = []; let m;
