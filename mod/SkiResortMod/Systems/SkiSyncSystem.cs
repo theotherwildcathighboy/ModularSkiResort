@@ -86,6 +86,7 @@ namespace SkiResortMod.Systems
         private int m_RunDone, m_RunFailed, m_RunTotal;
         private readonly Dictionary<Entity, int> m_Rows = new Dictionary<Entity, int>();
         private readonly Dictionary<Entity, int> m_Placed = new Dictionary<Entity, int>();
+        private readonly Dictionary<Entity, Entity> m_VariantOf = new Dictionary<Entity, Entity>();   // variant prefab -> its placeholder row
 
         /// <summary>Moves when the item list or an item's state changes (the hub pushes on it).</summary>
         internal int Revision => m_Revision;
@@ -322,7 +323,7 @@ namespace SkiResortMod.Systems
                          $"{m_VerdictCount[(int)SyncVerdict.NothingPending]} with nothing to check, " +
                          $"{m_VerdictCount[(int)SyncVerdict.HandEdited]} edited by hand (skipped), " +
                          $"{m_VerdictCount[(int)SyncVerdict.Newer]} from a newer build (left alone)" +
-                         (m_Attractiveness.HasSnapshot ? string.Empty : "; area links not ready, items show under Not linked"));
+                         (m_Attractiveness.HasSnapshot ? string.Empty : "; area links not known yet: items show under Not linked until they are"));
             m_Intake.Clear();
             m_IntakeAt = 0;
         }
@@ -374,17 +375,28 @@ namespace SkiResortMod.Systems
                 !EntityManager.TryGetBuffer(pr.m_Prefab, true, out DynamicBuffer<Game.Prefabs.SubObject> rows) || rows.Length == 0)
                 return 0;
             m_Rows.Clear();
+            m_VariantOf.Clear();
             for (int i = 0; i < rows.Length; i++)
             {
                 Game.Prefabs.SubObject r = rows[i];
                 Entity p = r.m_Prefab;
                 if (p == Entity.Null)
                     continue;
-                bool placeholder = EntityManager.HasBuffer<PlaceholderObjectElement>(p);
+                bool placeholder = EntityManager.TryGetBuffer(p, true, out DynamicBuffer<PlaceholderObjectElement> variants);
                 bool requirement = EntityManager.HasBuffer<ObjectRequirementElement>(p);
-                if (!SkiSyncCatalog.RowCounts(r.m_Probability, (int)r.m_Flags & RequireMask, placeholder, requirement))
+                bool freeVariant = false;
+                if (placeholder)
+                    for (int v = 0; v < variants.Length; v++)
+                        if (variants[v].m_Object != Entity.Null && !EntityManager.HasBuffer<ObjectRequirementElement>(variants[v].m_Object))
+                            freeVariant = true;
+                if (!SkiSyncCatalog.RowCounts(r.m_Probability, (int)r.m_Flags & RequireMask, placeholder, requirement, freeVariant))
                     continue;
                 m_Rows[p] = (m_Rows.TryGetValue(p, out int n) ? n : 0) + 1;
+                // A placed part of any variant satisfies the placeholder row (the hut's firewood row spawns FirewoodPile01)
+                if (placeholder)
+                    for (int v = 0; v < variants.Length; v++)
+                        if (variants[v].m_Object != Entity.Null && !m_VariantOf.ContainsKey(variants[v].m_Object))
+                            m_VariantOf[variants[v].m_Object] = p;
             }
             if (m_Rows.Count == 0)
                 return 0;
@@ -400,8 +412,11 @@ namespace SkiResortMod.Systems
                         continue;
                     if (EntityManager.HasComponent<Game.Buildings.Building>(c) || EntityManager.HasComponent<Game.Buildings.ServiceUpgrade>(c))
                         continue;
-                    if (EntityManager.TryGetComponent(c, out PrefabRef cp) && m_Rows.ContainsKey(cp.m_Prefab))
-                        m_Placed[cp.m_Prefab] = (m_Placed.TryGetValue(cp.m_Prefab, out int k) ? k : 0) + 1;
+                    if (!EntityManager.TryGetComponent(c, out PrefabRef cp))
+                        continue;
+                    Entity key = m_Rows.ContainsKey(cp.m_Prefab) ? cp.m_Prefab : m_VariantOf.TryGetValue(cp.m_Prefab, out Entity ph) ? ph : Entity.Null;
+                    if (key != Entity.Null)
+                        m_Placed[key] = (m_Placed.TryGetValue(key, out int k) ? k : 0) + 1;
                 }
             }
             int missing = 0;

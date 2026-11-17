@@ -108,11 +108,14 @@ namespace ResortBatch
         private static void Parts()
         {
             const string W = "sync SY-4 parts";
-            C(S.RowCounts(100, 0, false, false), W, "a plain row (probability 100, no requirement) counts");
-            C(!S.RowCounts(50, 0, false, false), W, "a random row does not count");
-            C(!S.RowCounts(100, 0x10, false, false), W, "a row that requires an elevated spot does not count");
-            C(!S.RowCounts(100, 0, true, false), W, "a placeholder row spawns another prefab: not compared by prefab");
-            C(!S.RowCounts(100, 0, false, true), W, "a row gated by an object requirement (weather, theme) does not count");
+            C(S.RowCounts(100, 0, false, false, false), W, "a plain row (probability 100, no requirement) counts");
+            C(!S.RowCounts(50, 0, false, false, false), W, "a random row does not count");
+            C(!S.RowCounts(100, 0x10, false, false, false), W, "a row that requires an elevated spot does not count");
+            C(S.RowCounts(100, 0, true, false, true), W,
+              "a placeholder row with a free variant counts (the firewood pile row is a placeholder: game turn r2-sync Case A)");
+            C(!S.RowCounts(100, 0, true, false, false), W, "a placeholder row whose variants are all gated by a requirement does not count");
+            C(!S.RowCounts(100, 0, false, true, false), W, "a row gated by an object requirement (weather, theme) does not count");
+            C(!S.RowCounts(100, 0, true, true, true), W, "a placeholder gated by its own requirement does not count");
             // The 1.0.0 hut: the prefab now has one firewood row, the hut has no firewood part
             C(S.Missing(1, 0) == 1 && S.Extra(1, 0) == 0, W, "a 1.0.0 hut lacks one firewood pile");
             C(S.Missing(1, 1) == 0 && S.Extra(1, 1) == 0, W, "after the rebuild: one row, one part, no duplicate");

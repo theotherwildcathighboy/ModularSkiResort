@@ -142,10 +142,11 @@ namespace SkiResortMod.Systems
         public static int Take(int queued, int perFrame) => Math.Max(0, Math.Min(queued, perFrame));
 
         /// <summary>A part row counts for the "lacks a part" check only when vanilla always places it: probability 100, no placement
-        /// requirement, and the part prefab is neither a placeholder (it spawns another prefab) nor gated by an object requirement (weather,
-        /// theme). <paramref name="requireFlags"/> = the row's flags masked with the Require* bits.</summary>
-        public static bool RowCounts(int probability, int requireFlags, bool placeholder, bool requirement) =>
-            probability >= 100 && requireFlags == 0 && !placeholder && !requirement;
+        /// requirement, and the part prefab is not gated by an object requirement (weather, theme). A placeholder row (it spawns one of its
+        /// variants, the Patrol Hut's firewood pile) counts when at least one variant has no object requirement; a placed part of any of its
+        /// variants then satisfies it. <paramref name="requireFlags"/> = the row's flags masked with the Require* bits.</summary>
+        public static bool RowCounts(int probability, int requireFlags, bool placeholder, bool requirement, bool freeVariant) =>
+            probability >= 100 && requireFlags == 0 && !requirement && (!placeholder || freeVariant);
 
         /// <summary>Parts a building lacks for one part prefab: rows minus placed parts of that prefab, never negative.</summary>
         public static int Missing(int rows, int placed) => Math.Max(0, rows - placed);
