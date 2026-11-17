@@ -790,11 +790,13 @@ export function cityIncomeShown(l: ResortLive | null, _city: CityStats): boolean
 
 /** T226 / T225 / the value line (contract 50, DECISIONS 666, 668). */
 
-/** "Value to the city": the resort's net this month plus the area's city tourist income (the Money view's estimate row). null when that
- *  row is not drawn (no figure). */
-export function valueToCity(l: ResortLive | null, city: CityStats): number | null {
-  if (!l || !cityIncomeShown(l, city) || typeof l.netMonth !== "number" || !Number.isFinite(l.netMonth)) return null;
-  return l.netMonth + l.cityIncomeEst;
+/** "Tourist spending drawn" (Overview): the area's share of the game's TouristIncome statistic, the Money view's estimate row. That
+ *  statistic is money tourists bring minus money they take home (HouseholdInitializeSystem :242, HouseholdMoveAwaySystem :173), so it
+ *  is their spending at city businesses, not city money: it is never added to the resort's net (round 2 r2-tourism REPORT, D4).
+ *  null when the Money row is not drawn (no figure). */
+export function touristSpendingDrawn(l: ResortLive | null, city: CityStats): number | null {
+  if (!l || !cityIncomeShown(l, city)) return null;
+  return l.cityIncomeEst;
 }
 
 /** The "Staying at resort hotels" row: drawn when the area has a merged hotel (C# sends -1 without one). */

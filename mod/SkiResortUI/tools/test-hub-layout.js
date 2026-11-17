@@ -510,7 +510,7 @@ const TO_SCN = "Big resort, notes (runs being checked, Tourism Overhaul, trip pl
 const R2TOURISM = [
   ["r2t-01-overview-group-closed-1080", 1080, { scenario: ASH, view: 0 }],
   ["r2t-02-overview-group-open-1080", 1080, { scenario: ASH, view: 0, fold: 1 }],
-  ["r2t-03-tip-value-1080", 1080, { scenario: ASH, view: 0, fold: 1, hover: "Value to the city" }],
+  ["r2t-03-tip-spending-1080", 1080, { scenario: ASH, view: 0, fold: 1, hover: "Tourist spending drawn" }],
   ["r2t-04-tip-bonus-1080", 1080, { scenario: ASH, view: 0, fold: 1, hover: "Resort tourism bonus" }],
   ["r2t-05-tip-tourists-1080", 1080, { scenario: ASH, view: 0, fold: 1, hover: "Tourists in the city" }],
   ["r2t-06-tip-hotel-1080", 1080, { scenario: ASH, view: 0, fold: 1, hover: "Staying at resort hotels" }],
@@ -520,7 +520,8 @@ const R2TOURISM = [
   ["r2t-10-bonus-off-1080", 1080, { scenario: "Ash Flat, resort tourism bonus off", view: 0, fold: 1, hover: "Resort tourism bonus" }],
   // the city tourist income row under Tourism Overhaul (shown since the in-game check: the statistic counts under TO)
   ["r2t-11-money-also-to-1080", 1080, { scenario: TO_SCN, view: 4, fold: 2 }],
-  ["r2t-12-tip-value-to-1080", 1080, { scenario: TO_SCN, view: 0, fold: 1, hover: "Value to the city" }],
+  ["r2t-12-tip-spending-to-1080", 1080, { scenario: TO_SCN, view: 0, fold: 1, hover: "Tourist spending drawn" }],
+  ["r2t-13-tip-money-spending-to-1080", 1080, { scenario: TO_SCN, view: 4, fold: 2, hover: "Tourist spending" }],
 ];
 
 const PLANTEXT = [

@@ -8,6 +8,9 @@
 //   {op:"tourism", action:"stop"}
 //   {op:"tourism", action:"bonus", pct:10}       the "Resort tourism bonus" option (SkiResortSettings.ResortTourismBonusPct, 1.0.2+, int 0-20),
 //                                                else the prototype's ResortAttractionDevPct (r2/tourism-lab builds)
+//   {op:"tourism", action:"budget"}              the city's budget as the game's budget panel shows it (CityServiceBudgetSystem: monthly income
+//                                                and expense per source, balance), the city's money, the tourist wealth parameters
+//                                                (EconomyParameterData) and the money the tourist households in the city hold now
 //   {op:"tourism", action:"income"}              the TouristIncome and TouristCount statistics: last value, collection type, the last 40
 //                                                samples (32 a game day); T226 "Value to the city" under Tourism Overhaul
 //
@@ -76,8 +79,10 @@ namespace SkiTestBridge
                     return TourBonus(args);
                 case "income":
                     return TourIncome();
+                case "budget":
+                    return TourBudget();
                 default:
-                    throw new ArgumentException("action: snapshot, start, read, stop, bonus, income");
+                    throw new ArgumentException("action: snapshot, start, read, stop, bonus, income, budget");
             }
         }
 
@@ -320,6 +325,78 @@ namespace SkiTestBridge
                 o["samples"] = arr;
                 o["sampleCount"] = data.Length;
             }
+            return o;
+        }
+
+        /// <summary>The D4 check: the city's monthly budget (the budget panel's numbers), its money, the tourist wealth parameters and what
+        /// the tourists hold now. Read only.</summary>
+        private JObject TourBudget()
+        {
+            if (m_City.City == Entity.Null)
+                throw new InvalidOperationException("no city loaded");
+            CityServiceBudgetSystem budget = World.GetOrCreateSystemManaged<CityServiceBudgetSystem>();
+            var income = new JObject();
+            foreach (IncomeSource src in Enum.GetValues(typeof(IncomeSource)))
+                if (src != IncomeSource.Count)
+                    income[src.ToString()] = budget.GetIncome(src);
+            var expense = new JObject();
+            foreach (ExpenseSource src in Enum.GetValues(typeof(ExpenseSource)))
+                if (src.ToString() != "Count")
+                    expense[src.ToString()] = budget.GetExpense(src);
+
+            var o = new JObject
+            {
+                ["frame"] = m_Simulation.frameIndex,
+                ["time"] = TimeState(),
+                ["totalIncome"] = budget.GetTotalIncome(),
+                ["totalExpenses"] = budget.GetTotalExpenses(),
+                ["balance"] = budget.GetBalance(),
+                ["income"] = income,
+                ["expenses"] = expense,
+            };
+            try { o["cityMoney"] = EntityManager.GetComponentData<PlayerMoney>(m_City.City).money; } catch (Exception e) { o["cityMoney"] = "unavailable: " + e.Message; }
+
+            EntityQuery eq = EntityManager.CreateEntityQuery(ComponentType.ReadOnly<EconomyParameterData>());
+            if (eq.CalculateEntityCount() > 0)
+            {
+                EconomyParameterData econ = eq.GetSingleton<EconomyParameterData>();
+                o["touristWealthRange"] = econ.m_TouristInitialWealthRange;
+                o["touristWealthOffset"] = econ.m_TouristInitialWealthOffset;
+            }
+            eq.Dispose();
+
+            // The tourist households now: count, how many are leaving (MovingAway), and their money.
+            EntityQuery tq = EntityManager.CreateEntityQuery(new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<TouristHousehold>(), ComponentType.ReadOnly<Household>(), ComponentType.ReadOnly<Game.Economy.Resources>() },
+                None = new[] { ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Temp>() },
+            });
+            var money = new List<long>();
+            int leaving = 0;
+            using (NativeArray<Entity> hs = tq.ToEntityArray(Allocator.Temp))
+            {
+                foreach (Entity h in hs)
+                {
+                    DynamicBuffer<Game.Economy.Resources> res = EntityManager.GetBuffer<Game.Economy.Resources>(h, true);
+                    money.Add(Game.Economy.EconomyUtils.GetResources(Game.Economy.Resource.Money, res));
+                    if (EntityManager.HasComponent<Game.Agents.MovingAway>(h))
+                        leaving++;
+                }
+            }
+            tq.Dispose();
+            money.Sort();
+            long Q(double f) => money.Count == 0 ? 0 : money[Math.Min(money.Count - 1, (int)(f * money.Count))];
+            o["tourists"] = new JObject
+            {
+                ["households"] = money.Count,
+                ["movingAway"] = leaving,
+                ["moneySum"] = money.Sum(),
+                ["moneyMean"] = money.Count == 0 ? 0 : Math.Round(money.Average()),
+                ["p10"] = Q(0.1), ["p50"] = Q(0.5), ["p90"] = Q(0.9),
+                ["min"] = money.Count == 0 ? 0 : money[0], ["max"] = money.Count == 0 ? 0 : money[money.Count - 1],
+            };
+            try { o["touristIncome"] = TourStatistic(StatisticType.TouristIncome, 40); } catch (Exception e) { o["touristIncome"] = "unavailable: " + e.Message; }
+            o["tourismOverhaul"] = AppDomain.CurrentDomain.GetAssemblies().Any(asm => asm.GetName().Name.IndexOf("TourismOverhaul", StringComparison.OrdinalIgnoreCase) >= 0);
             return o;
         }
 

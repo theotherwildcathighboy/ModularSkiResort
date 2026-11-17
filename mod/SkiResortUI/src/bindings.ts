@@ -815,11 +815,12 @@ export interface ResortLive {
   passesPreSeason: number;
   /** What those pre-season passes paid. -1 unknown. */
   passIncomePreSeason: number;
-  /** The resort's share of the city's tourist draw (sharePct) x the game's TouristIncome statistic, in money. -1 unknown, no share, or
-   *  Tourism Overhaul detected. C# SkiResortStatsSystem reads CityStatisticsSystem.GetStatisticValue(StatisticType.TouristIncome)
-   *  (decompile 1.6.0f1 Game.Simulation/CityStatisticsSystem.cs:574). The value is an int in money, the last statistics entry's total.
-   *  The game samples it kUpdatesPerDay = 32 times a game day (:363). BudgetSystem.cs:172-174, 280 reads it the same way. An ESTIMATE:
-   *  whether that entry is a cumulative or a daily window is prefab data, not in the decompile. */
+  /** The resort's share of the city's tourist draw (sharePct) x the game's TouristIncome statistic, in money. -1 unknown or no share.
+   *  C# SkiResortStatsSystem reads CityStatisticsSystem.GetStatisticValue(StatisticType.TouristIncome). Measured in game (2026-11-16):
+   *  collection Daily = the rolling sum of the last 32 samples (CityStatisticsSystem.cs:324-335, 1.6.4f1), one game day = one month.
+   *  It books a tourist household's starting money at arrival (HouseholdInitializeSystem.cs:242) minus its money at departure
+   *  (HouseholdMoveAwaySystem.cs:173): tourists' SPENDING at city businesses (lodging, leisure, shops), not city money. The name stays
+   *  for the contract. */
   cityIncomeEst: number;
   // The one Net's money rows: appended in this order, as in C# WriteResortLive.
   // The Net's rows of the month in progress not sent above (ticketsThisMonth and lessonIncomeMonth are the other two). -1 unknown.

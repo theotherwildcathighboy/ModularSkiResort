@@ -356,10 +356,10 @@ function run(srcDir) {
     R.cityIncomeShown({ cityIncomeEst: -1 }, { tourismOverhaul: false }), R.cityIncomeShown({ cityIncomeEst: 4200 }, { tourismOverhaul: true }),
     R.cityIncomeShown(null, { tourismOverhaul: false })], [true, true, false, true, false]);
   // T226 / T225 (contract 50): the Overview tourism group.
-  eq("T16.4 valueToCity: net + city income, only where the city income row is drawn",
-    [R.valueToCity({ netMonth: 138600, cityIncomeEst: 390000 }, { tourismOverhaul: false }), R.valueToCity({ netMonth: -5000, cityIncomeEst: 2000 }, { tourismOverhaul: false }),
-      R.valueToCity({ netMonth: 138600, cityIncomeEst: -1 }, { tourismOverhaul: false }), R.valueToCity({ netMonth: 138600, cityIncomeEst: 390000 }, { tourismOverhaul: true }),
-      R.valueToCity(null, { tourismOverhaul: false })], [528600, -3000, null, 528600, null]);
+  eq("T16.4 touristSpendingDrawn: the city-income estimate alone (never added to the net), only where that row is drawn",
+    [R.touristSpendingDrawn({ netMonth: 138600, cityIncomeEst: 390000 }, { tourismOverhaul: false }), R.touristSpendingDrawn({ netMonth: -5000, cityIncomeEst: 2000 }, { tourismOverhaul: false }),
+      R.touristSpendingDrawn({ netMonth: 138600, cityIncomeEst: -1 }, { tourismOverhaul: false }), R.touristSpendingDrawn({ netMonth: 138600, cityIncomeEst: 390000 }, { tourismOverhaul: true }),
+      R.touristSpendingDrawn(null, { tourismOverhaul: false })], [390000, 2000, null, 390000, null]);
   eq("T16.5 hotelShown", [R.hotelShown({ hotelGuests: 0 }), R.hotelShown({ hotelGuests: 1240 }), R.hotelShown({ hotelGuests: -1 }), R.hotelShown({}), R.hotelShown(null)],
     [true, true, false, false, false]);
   eq("T16.6 bonusCapped", [R.bonusCapped({ tourismBonusCapPct: 10, tourismBonusSumPct: 12.5 }), R.bonusCapped({ tourismBonusCapPct: 10, tourismBonusSumPct: 10 }),

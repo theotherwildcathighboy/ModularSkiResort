@@ -20,7 +20,7 @@ import type { BuildItem, CityStats, LiftRow, ProblemRow, ResortLive, ResortRow, 
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
-  bonusCapped, bonusParts, efficiencyAtFloor, factorRowsOf, hotelShown, valueToCity, hectares, liftsMissing, liveOf, mountainFacts, lodgeExtraShort, receiptPartsVariant, resultVariant, runsMissing, schoolBuiltOf,
+  bonusCapped, bonusParts, efficiencyAtFloor, factorRowsOf, hotelShown, touristSpendingDrawn, hectares, liftsMissing, liveOf, mountainFacts, lodgeExtraShort, receiptPartsVariant, resultVariant, runsMissing, schoolBuiltOf,
   schoolFlagOf, schoolMissingOf, schoolState, scoreBarParts, varietyClosed, varietyMissing, verticalShort,
 } from "./hubRules";
 import type { VarietyNeed } from "./hubRules";
@@ -29,7 +29,7 @@ import { BAND_NAME, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, euClassEntry, facto
 import { euCounts } from "./units";
 import type { BuildItemId } from "../bindings";
 import {
-  BandMarker, Divider, FlexBar, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, Tip, TipLines, areaArg, cx, depthValue, numArg, useUnits,
+  BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, areaArg, cx, depthValue, numArg, useUnits,
 } from "./parts";
 import { currentResort, liftsOf, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
@@ -409,11 +409,11 @@ function Receipt({ row, l, city, problems, build, areaRuns, t }: {
   );
 }
 
-/** T226 / T225 (DECISIONS 666, 668): the Overview tourism group. "Value to the city" (the resort's net + the area's city tourist income,
- *  when the Money view's estimate row exists), then the resort tourism bonus as a fold whose rows are the city's tourists (day mean)
+/** T226 / T225 (DECISIONS 666, 668): the Overview tourism group. "Tourist spending drawn" (the area's share of what tourists spend in
+ *  the city, when the Money view's estimate row exists; never added to the resort's net, it is not city money), then the resort tourism bonus as a fold whose rows are the city's tourists (day mean)
  *  and the area's resort hotels (merged buildings, their own row). */
 function TourismGroup({ l, city, t }: { l: ResortLive | null; city: CityStats; t: Translate }): JSX.Element {
-  const value = valueToCity(l, city);
+  const value = touristSpendingDrawn(l, city);
   const parts = bonusParts(l);
   const off = city.tourismBonusCapPct <= 0;
   const pct = (v: number) => numArg(v, Unit.PercentageSingleFraction, false, false);
@@ -421,14 +421,10 @@ function TourismGroup({ l, city, t }: { l: ResortLive | null; city: CityStats; t
     <>
       {value !== null && l && (
         <InfoLine
-          label={t(HUB_LOC.valueRow)}
+          label={t(HUB_LOC.spendRow)}
           mark="≈"
-          value={<LocText entry={HUB_FMT.valueMonth} args={{ MONEY: numArg(value, Unit.Money, true, false) }} />}
-          tip={<TipLines lines={[
-            t(HUB_LOC.valueTip),
-            { label: t(HUB_LOC.valueTipNet), value: <SignedNum value={l.netMonth} unit={Unit.Money} /> },
-            { label: t(HUB_LOC.valueTipCity), value: <SignedNum value={l.cityIncomeEst} unit={Unit.Money} /> },
-          ]} />}
+          value={<LocText entry={HUB_FMT.spendMonth} args={{ MONEY: numArg(value, Unit.Money, false, false) }} />}
+          tip={<TipLines lines={[t(HUB_LOC.spendTip), t(HUB_LOC.spendTipBusiness), city.tourismOverhaul && t(HUB_LOC.spendTipTo)]} />}
         />
       )}
       <Fold view="overview" id="tourism" header label={t(HUB_LOC.bonusRow)}

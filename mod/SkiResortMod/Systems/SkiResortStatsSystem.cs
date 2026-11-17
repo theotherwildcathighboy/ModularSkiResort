@@ -92,8 +92,9 @@ namespace SkiResortMod.Systems
         // pre-season sale (-1 unknown).
         // CityIncomeEst = the resort's SharePct of the game's TouristIncome statistic
         // (CityStatisticsSystem.GetStatisticValue(StatisticType.TouristIncome), sampled 32 times a game day, CityStatisticsSystem.cs:363).
-        // -1 unknown, no share, or Tourism Overhaul detected (the UI hides the row then). An estimate:
-        // the statistic's window (cumulative / daily) is prefab data, not in the decompile. More: EngineNotes/SkiResortStatsSystem.md
+        // Collection Daily (measured): the last game day = one month. It is money tourists bring (HouseholdInitializeSystem :242) minus
+        // money they take home (HouseholdMoveAwaySystem :173), i.e. their spending at city businesses, NOT city money (the hub calls it
+        // "Tourist spending"). -1 unknown or no share. More: EngineNotes/SkiResortStatsSystem.md
         public int LessonsThisMonth, LessonsLastMonth, LessonIncomeMonth, PassesPreSeason, PassIncomePreSeason, CityIncomeEst;
         // The Net's rows (EngineNotes/HubRules.md ONE NET), appended in this order: the rows of NetMonth for the month in progress that are not
         // already sent (TicketsThisMonth and LessonIncomeMonth are the ticket and lesson rows).
