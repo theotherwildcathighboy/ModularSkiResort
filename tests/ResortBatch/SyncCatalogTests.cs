@@ -2,7 +2,8 @@
 //   SY-1 the catalog: append-only numbering 1..n, Current = the last number = SkiRulesLevel.Current, step 1 = patrol parts, Offer
 //   SY-2 the intake verdict: newer left alone, nothing pending, silent stamp, Offer, Auto, hand-edited lines skipped, order of checks
 //   SY-3 "Keep as is" and the hand-edit flag
-//   SY-4 the parts check: which rows count, missing and extra parts (the 1.0.0 Patrol Hut without its firewood pile)
+//   SY-4 the parts check: which rows count, missing and extra parts (the 1.0.0 Patrol Hut without its firewood pile), the variant
+//        gate (a garbage bin on a building with no garbage is never placed)
 //   SY-5 the run budget
 //   SY-6 the census line with the hand-edit and kept counts
 // Oracles are literal hand values.
@@ -121,6 +122,19 @@ namespace ResortBatch
             C(S.Missing(1, 1) == 0 && S.Extra(1, 1) == 0, W, "after the rebuild: one row, one part, no duplicate");
             C(S.Missing(2, 3) == 0 && S.Extra(2, 3) == 1, W, "a part beyond its rows is counted as extra (the duplicate check)");
             C(S.Missing(3, 1) == 2, W, "two missing of three");
+            // The variant gate (Corwen 2026-11-17: 10 stations and huts "lack TrashbinRandom01"). Trashbin01-04 are QuantityObjects of
+            // Garbage; vanilla places them only on a GarbageProducer, and our roadless buildings have garbage accumulation 0.
+            C(S.VariantPlaceable(false, true, false, true, false), W, "a variant with no QuantityObject is placeable (FirewoodPile01-03)");
+            C(!S.VariantPlaceable(true, false, true, true, false), W,
+              "a garbage bin variant on a building with no garbage is not placeable (a station's TrashbinRandom01 row: not missing)");
+            C(S.VariantPlaceable(true, false, true, true, true), W, "a garbage bin variant on a garbage producer is placeable (Mid / Grand lodge)");
+            C(S.VariantPlaceable(true, true, false, true, false), W, "a QuantityObject with no resource and no map feature is placeable");
+            C(!S.VariantPlaceable(true, false, false, true, true), W, "another quantity resource is not modeled: not placeable, the row is not counted");
+            C(!S.VariantPlaceable(true, true, false, false, true), W, "a map-feature variant (a work vehicle's) is not placeable");
+            // The row rule over the gate: no placeable variant = the placeholder row does not count
+            bool stationBins = S.RowCounts(100, 0, true, false, S.VariantPlaceable(true, false, true, true, false));
+            bool lodgeBins = S.RowCounts(100, 0, true, false, S.VariantPlaceable(true, false, true, true, true));
+            C(!stationBins && lodgeBins, W, "a station's bin row does not count, a garbage-producing lodge's does");
         }
 
         // SY-5

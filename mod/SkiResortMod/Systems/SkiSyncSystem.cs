@@ -87,6 +87,7 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<Entity, int> m_Rows = new Dictionary<Entity, int>();
         private readonly Dictionary<Entity, int> m_Placed = new Dictionary<Entity, int>();
         private readonly Dictionary<Entity, Entity> m_VariantOf = new Dictionary<Entity, Entity>();   // variant prefab -> its placeholder row
+        private int m_QuantityGatedRows;   // placeholder rows vanilla cannot place on their building (SkiSyncCatalog.VariantPlaceable), for the [assets] line
 
         /// <summary>Moves when the item list or an item's state changes (the hub pushes on it).</summary>
         internal int Revision => m_Revision;
@@ -361,8 +362,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Parts the building lacks: for each part prefab, the rows vanilla always places (SkiSyncCatalog.RowCounts) minus the placed
-        /// parts of that prefab owned by the building. <paramref name="detail"/> (optional) gets "prefab xN" per missing prefab.</summary>
+        /// <summary>Parts the building lacks: for each part prefab, the rows vanilla always places (SkiSyncCatalog.RowCounts; a placeholder
+        /// row needs a variant vanilla can place on this building, SkiSyncCatalog.VariantPlaceable) minus the placed parts of that prefab
+        /// owned by the building. <paramref name="detail"/> (optional) gets "prefab xN" per missing prefab.</summary>
         internal int MissingParts(Entity building, StringBuilder detail)
         {
             return CountParts(building, detail, out int _);
@@ -384,13 +386,29 @@ namespace SkiResortMod.Systems
                     continue;
                 bool placeholder = EntityManager.TryGetBuffer(p, true, out DynamicBuffer<PlaceholderObjectElement> variants);
                 bool requirement = EntityManager.HasBuffer<ObjectRequirementElement>(p);
-                bool freeVariant = false;
+                bool freeVariant = false, gatedVariant = false;
                 if (placeholder)
+                {
+                    bool garbageProducer = EntityManager.HasComponent<Game.Buildings.GarbageProducer>(building);
                     for (int v = 0; v < variants.Length; v++)
-                        if (variants[v].m_Object != Entity.Null && !EntityManager.HasBuffer<ObjectRequirementElement>(variants[v].m_Object))
+                    {
+                        Entity variant = variants[v].m_Object;
+                        if (variant == Entity.Null || EntityManager.HasBuffer<ObjectRequirementElement>(variant))
+                            continue;
+                        bool quantity = EntityManager.TryGetComponent(variant, out QuantityObjectData q);
+                        if (SkiSyncCatalog.VariantPlaceable(quantity, q.m_Resources == Game.Economy.Resource.NoResource, q.m_Resources == Game.Economy.Resource.Garbage,
+                                                            q.m_MapFeature == Game.Areas.MapFeature.None, garbageProducer))
                             freeVariant = true;
+                        else
+                            gatedVariant = true;
+                    }
+                }
                 if (!SkiSyncCatalog.RowCounts(r.m_Probability, (int)r.m_Flags & RequireMask, placeholder, requirement, freeVariant))
+                {
+                    if (gatedVariant && !freeVariant && SkiSyncCatalog.RowCounts(r.m_Probability, (int)r.m_Flags & RequireMask, true, requirement, true))
+                        m_QuantityGatedRows++;
                     continue;
+                }
                 m_Rows[p] = (m_Rows.TryGetValue(p, out int n) ? n : 0) + 1;
                 // A placed part of any variant satisfies the placeholder row (the hut's firewood row spawns FirewoodPile01)
                 if (placeholder)
@@ -608,6 +626,7 @@ namespace SkiResortMod.Systems
             var byPrefab = new SortedDictionary<string, int[]>(StringComparer.Ordinal);   // name -> {checked, missing}
             var details = new SortedDictionary<string, string>(StringComparer.Ordinal);
             int checkedCount = 0, missingCount = 0;
+            m_QuantityGatedRows = 0;
             using (NativeArray<Entity> entities = m_Buildings.ToEntityArray(Allocator.Temp))
             {
                 var detail = new StringBuilder();
@@ -629,9 +648,14 @@ namespace SkiResortMod.Systems
                     details[name] = detail.ToString();
                 }
             }
+            // Rows vanilla never places on that building (a garbage bin on one with no garbage): named once, never counted as missing
+            string gated = m_QuantityGatedRows == 0 ? string.Empty
+                : $" {m_QuantityGatedRows} placeholder row(s) not counted: vanilla places those variants only where the building supplies what " +
+                  "they show (the trash bins of a building with no garbage).";
             if (missingCount == 0)
             {
-                Mod.Log.Info($"Sync [assets]: {checkedCount} building(s) of ours checked; every placed building has a part for each row of its prefab");
+                Mod.Log.Info($"Sync [assets]: {checkedCount} building(s) of ours checked; every placed building has a part for each row of its prefab" +
+                             (gated.Length > 0 ? "." + gated : string.Empty));
                 return;
             }
             var sb = new StringBuilder();
@@ -643,7 +667,7 @@ namespace SkiResortMod.Systems
                   .Append(kv.Value[0]).Append(" lack ").Append(details[kv.Key]);
             }
             Mod.Log.Info($"Sync [assets]: {checkedCount} building(s) of ours checked; {missingCount} lack a part their prefab has — {sb}. " +
-                         "(A load keeps the saved parts only: a row added to the prefab later is not placed until the parts are rebuilt.)");
+                         "(A load keeps the saved parts only: a row added to the prefab later is not placed until the parts are rebuilt.)" + gated);
         }
 
         // ---- helpers -------------------------------------------------------------------------------------------------------------

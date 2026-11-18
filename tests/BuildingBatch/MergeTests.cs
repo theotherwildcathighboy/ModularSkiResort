@@ -7,6 +7,7 @@
 // - MA1-MA7: the attraction combine and the share term
 // - MT1-MT8: states
 // - MD1-MD3: the duplicate guard
+// - ME1-ME5: the merged building's own efficiency (LackResources ignored)
 
 using System;
 using System.Collections.Generic;
@@ -179,6 +180,33 @@ namespace BuildingBatch
             check(MergeRules.OverlayRebuild(true, false, 6, 5, 10, 10, false) && MergeRules.OverlayRebuild(true, false, 5, 5, 11, 10, false) &&
                   MergeRules.OverlayRebuild(true, false, 5, 5, 10, 10, true), "MO14", "the areas, the building count or an unmerge rebuild it");
             check(!MergeRules.OverlayRebuild(false, true, 6, 5, 11, 10, true), "MO15", "never while disarmed");
+
+            // ME1-ME5: a merged building's vanilla LackResources never reaches the area (the off-season 0 % / 99 % flap, Corwen 2026-11-17).
+            check(MergeRules.OwnFactor(true, 0f) == 1f && MergeRules.OwnFactor(true, 1f) == 1f, "ME1",
+                  "LackResources reads as 1 whatever vanilla wrote (0 on a tick that produced nothing)");
+            check(MergeRules.OwnFactor(false, 0f) == 0f && MergeRules.OwnFactor(false, 0.5f) == 0.5f && MergeRules.OwnFactor(false, 1f) == 1f,
+                  "ME2", "every other factor counts as read (a power cut or a budget cut still shows)");
+            // The off-season fold: the merged building is the only active lodge (5 own lodges closed), so the mean is its value alone.
+            // Its buffer: ServiceBudget 1, LackResources 0. The sign: 0.99 with staffing 1 (the pass's log: "sign now 99 %" / "0 %").
+            float[] read = { 1f, 0f };                               // as vanilla's buffer holds it
+            float[] folded = { MergeRules.OwnFactor(false, 1f), MergeRules.OwnFactor(true, 0f) };
+            float before = OffSeasonArea(0.99f, SkiResortScore.SignEfficiency(read, 2), SkiCatalog.Lodges[2].B);
+            float after = OffSeasonArea(0.99f, SkiResortScore.SignEfficiency(folded, 2), SkiCatalog.Lodges[2].B);
+            check(before == 0f, "ME3", "regression shape: the raw buffer zeroes the area (" + before + ")");
+            check(after == 0.99f, "ME4", "with the rule the area keeps the sign's 99 % (" + after + ")");
+            // In season the own lodges dilute it, but the flag still moved the mean: with the rule the merged lodge's tick no longer counts.
+            float[] withShortage = { MergeRules.OwnFactor(false, 1f), MergeRules.OwnFactor(true, 0f), MergeRules.OwnFactor(false, 0.5f) };
+            check(SkiResortScore.SignEfficiency(withShortage, 3) == 0.5f, "ME5",
+                  "a real factor (budget 50 %) still lowers the merged lodge next to an ignored LackResources");
+        }
+
+        /// <summary>The area efficiency with one carried (merged) lodge in the mean: SchoolLinkRules.AreaEfficiency over
+        /// MountainJobsRules.MountainEfficiency, as SkiResortAttractivenessSystem.FoldLodgeEfficiency does it (sign staffing 1).</summary>
+        private static float OffSeasonArea(float sign, float own, double weight)
+        {
+            float signTerm = MountainJobsRules.SignTerm(sign, sign, true);
+            double sum = weight * MountainJobsRules.MountainEfficiency(own, 1f);
+            return SchoolLinkRules.AreaEfficiency(signTerm, sum, weight);
         }
 
         private static void Kind(Func<bool, string, string, bool> check, string id, string what, MergeRules.Facts f,
