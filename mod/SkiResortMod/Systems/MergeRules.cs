@@ -330,6 +330,17 @@ namespace SkiResortMod.Systems
                 return false;
             return justArmed || requested || geometryRevision != builtGeometryRevision || buildingCount != builtBuildingCount;
         }
+
+        /// <summary>One vanilla efficiency factor of a merged building as the area's lodge mean reads it. LackResources
+        /// (<paramref name="lackResources"/>) reads as 1, in and out of season: ProcessingCompanySystem.cs:198 (1.6.4f1) sets it to 0 on
+        /// any company tick that produced nothing (a rounded-down small output or a missing input), so it flips 0 / 1 between ticks, and
+        /// vanilla's own readers leave it out (GetEfficiencyExcludingFactor, ProcessingCompanySystem.cs:166, VehicleUtils.cs:2386). The
+        /// goods are the building's own trade, not a ski-area service. Off-season the merged building is often the only active lodge, so
+        /// the flag zeroed the whole area (the 0 % / 99 % flap). Every other factor counts as read.</summary>
+        public static float OwnFactor(bool lackResources, float value)
+        {
+            return lackResources ? 1f : value;
+        }
     }
 
     /// <summary>The one answer to "which lodge tier is this building?": the catalog row of our prefab, else the tier a SkiMergedLodge tag

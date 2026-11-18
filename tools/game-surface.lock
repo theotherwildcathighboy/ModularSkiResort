@@ -17,6 +17,7 @@ type Game.Areas.Geometry struct a191a019a5 burst:r:SkiDaySystem m_Bounds:Bounds3
 type Game.Areas.GeometryFlags enum f1b9e4315c burst:r:SkiRunOutlineSystem PhysicalGeometry=1 CanOverrideObjects=2 ProtectedArea=4 ClearArea=8 ClipTerrain=16 ShiftTerrain=32 OnWaterSurface=64 PseudoRandom=128 RequireWater=256 HiddenIngame=512 SubAreaBatch=1024
 type Game.Areas.GeometrySystem class 5ad5d6adfd
 type Game.Areas.HangaroundLocation struct ba08b02559
+type Game.Areas.MapFeature enum 06a10c2e34 None=-1 Area=0 BuildableLand=1 FertileLand=2 Forest=3 Oil=4 Ore=5 SurfaceWater=6 GroundWater=7 Fish=8 Count=9
 type Game.Areas.MapTileSystem class ed58bc65e6
 type Game.Areas.Node struct fec35a2838 burst:r:SkiDaySystem,SkiRunOutlineSystem m_Position:float3 m_Elevation:float
 type Game.Areas.RaycastJobs class f4f1c7a1fc
@@ -397,6 +398,7 @@ type Game.Prefabs.ProceduralAnimationProperties class a92e33d640
 type Game.Prefabs.ProceduralBone struct fd9b1bd3de m_Position:float3 m_ObjectPosition:float3 m_Rotation:quaternion m_ObjectRotation:quaternion m_Scale:float3 m_BindPose:float4x4 m_Type:BoneType m_ParentIndex:int m_BindIndex:int m_HierarchyDepth:int m_ConnectionID:int m_SourceIndex:int m_Speed:float m_Acceleration:float
 type Game.Prefabs.PublicTransportPurpose enum 7d4e59f7fb burst:r:SkiDaySystem TransportLine=1 Evacuation=2 PrisonerTransport=4 Other=8
 type Game.Prefabs.PublicTransportVehicleData struct 673a8a75b9 burst:r:SkiDaySystem m_TransportType:TransportType m_PassengerCapacity:int m_PurposeMask:PublicTransportPurpose m_MaintenanceRange:float
+type Game.Prefabs.QuantityObjectData struct 627a938a34 m_Resources:Resource m_MapFeature:MapFeature m_StepMask:uint
 type Game.Prefabs.RenderPrefab class 4305b6e10b
 type Game.Prefabs.RenderedArea class 8a037928a2
 type Game.Prefabs.RenderingSettingsData struct c06d036e74 m_HoveredColor:Color m_OverrideColor:Color m_WarningColor:Color m_ErrorColor:Color m_OwnerColor:Color
@@ -556,6 +558,7 @@ type Game.Simulation.ParkingFacilityAISystem class 1989e710b8
 type Game.Simulation.PathfindSetupSystem class c7a5f6536a
 type Game.Simulation.PersonalCarAISystem class f41bcbdeee
 type Game.Simulation.PlanetarySystem class bf3239d9ac
+type Game.Simulation.ProcessingCompanySystem class e9d8e84083
 type Game.Simulation.RandomTrafficDispatchSystem class 07411b7e01
 type Game.Simulation.ResidentAISystem class 34d6eebf1d
 type Game.Simulation.ResourceBuyerSystem class 9f056677d3

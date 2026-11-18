@@ -148,6 +148,24 @@ namespace SkiResortMod.Systems
         public static bool RowCounts(int probability, int requireFlags, bool placeholder, bool requirement, bool freeVariant) =>
             probability >= 100 && requireFlags == 0 && !requirement && (!placeholder || freeVariant);
 
+        /// <summary>Whether vanilla can place one placeholder variant on this building. A variant with a QuantityObject is a fill-level
+        /// prop: vanilla skips it unless the owner supplies what it shows (SubObjectSystem.cs:2223-2287, 1.6.4f1). The gate this check
+        /// models is garbage: Trashbin01-04 (the variants of TrashbinRandom01) show Garbage and are placed only on a building with a
+        /// GarbageProducer, which a prefab gets only with garbage accumulation above 0 (ConsumptionData.cs:30-33). Our roadless stations and
+        /// huts have 0, so vanilla never places their bins: not a missing part. A variant with no quantity resource and no map feature is
+        /// placeable. Any other quantity resource or a map feature (stored goods, a delivery truck, a work vehicle) is not modeled and
+        /// reads as not placeable, so its row is not counted.</summary>
+        public static bool VariantPlaceable(bool quantity, bool noResources, bool garbageOnly, bool noMapFeature, bool garbageProducer)
+        {
+            if (!quantity)
+                return true;
+            if (!noMapFeature)
+                return false;
+            if (noResources)
+                return true;
+            return garbageOnly && garbageProducer;
+        }
+
         /// <summary>Parts a building lacks for one part prefab: rows minus placed parts of that prefab, never negative.</summary>
         public static int Missing(int rows, int placed) => Math.Max(0, rows - placed);
 

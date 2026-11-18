@@ -1573,7 +1573,7 @@ namespace SkiResortMod.Systems
                 float efficiency = 1f;
                 if (kind == SchoolLinkRules.KindLodge && active)
                 {
-                    efficiency = ReadLodgeEfficiency(building, null);
+                    efficiency = ReadLodgeEfficiency(building, null, merged);
                     hash = SkiRunRatingRules.Mix(hash, unchecked((uint)(int)Math.Round(100.0 * efficiency)));
                 }
                 if (next == null)
@@ -1615,7 +1615,7 @@ namespace SkiResortMod.Systems
                             Active = active,
                             HasRoad = hasRoad,
                             Destroyed = EntityManager.HasComponent<Destroyed>(building),
-                            Own = active ? ReadLodgeEfficiency(building, null) : 1f,
+                            Own = active ? ReadLodgeEfficiency(building, null, true) : 1f,
                         });
                 }
                 else if (m_LiveLodges.Contains(building) && m_LodgeClaimed.Add(building))
@@ -1639,7 +1639,7 @@ namespace SkiResortMod.Systems
                     });
                     // The tier base is the weight (SkiCatalog.Lodges B, the school and patrol huts weigh 0).
                     double weight = known ? def.B : 0.0;
-                    efficiency = ReadLodgeEfficiency(building, slot);
+                    efficiency = ReadLodgeEfficiency(building, slot, false);
                     // A lodge whose jobs ride on the carrier takes the carrier's staffing for its slice, folded in below once the carrier
                     // is known (MountainJobsRules). The fold then takes the sign term without it, so it counts once.
                     if (known && weight > 0.0 && (def.SignJobs > 0 || LodgeSupplyRule.JobsLeave(def.RoadRule, hasRoad, supplied)))
@@ -1859,8 +1859,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>A top-level lodge's efficiency (SkiResortScore.SignEfficiency over its own Efficiency buffer: a
         /// top-level CityServiceBuilding has one, Park.cs:27-37, none → 1). With <paramref name="slot"/> its factors below 1 are
-        /// merged into the area's list, keeping the worst value per factor (the hub's Efficiency rows).</summary>
-        private float ReadLodgeEfficiency(Entity lodge, AreaSlot slot)
+        /// merged into the area's list, keeping the worst value per factor (the hub's Efficiency rows). A <paramref name="merged"/>
+        /// building's LackResources reads as 1 (MergeRules.OwnFactor: the off-season 0 % / 99 % flap).</summary>
+        private float ReadLodgeEfficiency(Entity lodge, AreaSlot slot, bool merged)
         {
             if (!EntityManager.TryGetBuffer(lodge, isReadOnly: true, out DynamicBuffer<Efficiency> factors))
                 return 1f;
@@ -1870,6 +1871,8 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < count; i++)
             {
                 Efficiency factor = factors[i];
+                if (merged)
+                    factor.m_Efficiency = MergeRules.OwnFactor(factor.m_Factor == EfficiencyFactor.LackResources, factor.m_Efficiency);
                 m_LodgeFactorValues[i] = factor.m_Efficiency;
                 if (slot == null || !(factor.m_Efficiency < 1f))
                     continue;
