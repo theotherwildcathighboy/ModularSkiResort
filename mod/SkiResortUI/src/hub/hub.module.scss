@@ -2232,6 +2232,58 @@
   color: var(--hubTextDim);
 }
 
+// T240: the price line with its stepper. The text is the .subLine look; the two buttons sit at the row end (as a tree stepper, smaller).
+.priceRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  padding-left: 22rem;
+  padding-right: 10rem;
+}
+
+.priceRowText {
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: var(--hubTextDim);
+}
+
+.priceStepper {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-left: 8rem;
+}
+
+.priceStep {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: calc(22rem * var(--fontScale));
+  height: calc(22rem * var(--fontScale));
+  padding: 0rem;
+  font-size: var(--fontSizeS);
+}
+
+.priceStepNext {
+  margin-left: 2rem;
+}
+
+.priceStep[disabled] {
+  opacity: 0.45;
+}
+
 .divider {
   flex-shrink: 0;
   height: 1rem;

@@ -1002,7 +1002,7 @@ function run(srcDir) {
       actionButton: TEXT, segButton: TEXT, startButton: TEXT, stepButton: TEXT, treeToolButton: TEXT, areaName: TEXT,
       // icon buttons, tabs, chips, check rows
       headerButton: "calc(24rem * var(--fontScale))", tabButton: "calc(24rem * var(--fontScale))", tabChevron: "calc(24rem * var(--fontScale))", rowPen: "calc(22rem * var(--fontScale))",
-      pickerChip: "calc(22rem * var(--fontScale))", toggleAct: "calc(22rem * var(--fontScale))", pagerButton: "calc(20rem * var(--fontScale))",
+      pickerChip: "calc(22rem * var(--fontScale))", priceStep: "calc(22rem * var(--fontScale))", toggleAct: "calc(22rem * var(--fontScale))", pagerButton: "calc(20rem * var(--fontScale))",
       // tiles
       tile: "calc(33.1rem * var(--fontScale) + 36.315rem * var(--fontScaleChange) + 8.5rem)",
       buildTile: "calc(12rem + 44rem * var(--fontScale))",
@@ -1013,7 +1013,7 @@ function run(srcDir) {
     const NO_OWN_HEIGHT = new Set([
       "areaNameOpen", "buildTileActive", "buildTileLocked", "buttonOn", "fitText", "foldRow", "foldRowOpen", "hiddenKeepSpace", "histSeg",
       "histSegNext", "infoHeader", "lodgeRow", "mergeAction", "overlayItemOn", "pagerButtonOff", "pickerChipOn", "planRow", "planRowOff",
-      "problemClickable", "problemDim", "problemMoreButton", "problemMoreOn", "rowTrashArmed", "segButtonNext", "tabButtonOn", "tileOn",
+      "problemClickable", "problemDim", "problemMoreButton", "problemMoreOn", "rowTrashArmed", "priceStepNext", "segButtonNext", "tabButtonOn", "tileOn",
     ]);
     const hubDir = path.join(srcDir, "hub");
     const scssNoComments = fs.readFileSync(path.join(hubDir, "hub.module.scss"), "utf8").replace(/\/\/[^\n]*/g, "");
@@ -1485,6 +1485,20 @@ function run(srcDir) {
     eq("T246.5 chevron while engaged keeps it open", R.chevronClick(true, true), true);
     eq("T246.6 strip slots: the most tiles and gaps", R.stripSlots([{ tiles: 3, groups: 1 }, { tiles: 3, groups: 2 }, { tiles: 6, groups: 2 }, { tiles: 4, groups: 3 }]), { slots: 6, gaps: 2 });
     eq("T246.7 strip slots: no rows", R.stripSlots([]), { slots: 1, gaps: 0 });
+  }
+
+  // T240: the Money view's price stepper (C# SkiMoneyRules.SnapTicketPrice mirrors snapTicketPrice: MoneyBatch has the same rows)
+  {
+    eq("T240.1 snap: below 0", R.snapTicketPrice(-5), 0);
+    eq("T240.2 snap: 2 down, 3 up", [R.snapTicketPrice(2), R.snapTicketPrice(3)], [0, 5]);
+    eq("T240.3 snap: on the step", R.snapTicketPrice(105), 105);
+    eq("T240.4 snap: 198 and 999 to the max", [R.snapTicketPrice(198), R.snapTicketPrice(999)], [200, 200]);
+    eq("T240.5 step: 100 down and up", [R.steppedPrice(100, -1), R.steppedPrice(100, 1)], [95, 105]);
+    eq("T240.6 step: ends hold", [R.steppedPrice(0, -1), R.steppedPrice(200, 1)], [0, 200]);
+    eq("T240.7 step: an off-step price snaps first", R.steppedPrice(102, 1), 105);
+    eq("T240.8 buttons: unknown, 0, 100, 200", [-1, 0, 100, 200].map((p) => [R.priceStepEnabled(p, -1), R.priceStepEnabled(p, 1)]),
+      [[false, false], [false, true], [true, true], [true, false]]);
+    eq("T240.9 full demand by tolerance (A-frame / hut 0, chalet 20, summit / grand 40)", [0, 20, 40].map((x) => R.priceFullWith(x)), [40, 60, 80]);
   }
 
   const hr = require("./test-history-rules").run(srcDir);

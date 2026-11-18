@@ -1518,6 +1518,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Title]", "Lift ticket price" },
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Where]", "Options > Modular Ski Resort > Ski area balance. One price for every ski area." },
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Who]", "Only ski days react to it. Other visitors and the attraction score ignore it." },
+                // T240 (contract 54): the price stepper and the Full demand row (hubText.ts mirrors them)
+                { "SkiResort.Hub.MONEY_PRICE_TIP[Shared]", "One price for every ski area in the city. It is the same setting as Options > Modular Ski Resort > Ski area balance." },
+                { "SkiResort.Hub.MONEY_FULL_DEMAND_TIP[Title]", "Full demand" },
+                { "SkiResort.Hub.MONEY_FULL_DEMAND_TIP[What]", "Ski days come in full numbers at any lift ticket price up to this limit. The best lodge in the ski area sets it:" },
+                { "SkiResort.Hub.MONEY_FULL_DEMAND_LINE", "Full demand up to {FULL}" },
+                { "SkiResort.Hub.MONEY_FULL_DEMAND_TIP[Slope]", "Above it, every {STEP} more takes {PCT} of full demand off, down to {MIN} at {MAX}." },
                 // The Money view's lodge-spend income row (only while it earned money this month).
                 { "SkiResort.Hub.MONEY_ROW[LodgeSpend]", "Lodge spend" },
                 { "SkiResort.Hub.MONEY_ROW[PassesMonth]", "Season passes sold" },

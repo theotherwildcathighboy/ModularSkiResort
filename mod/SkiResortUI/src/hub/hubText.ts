@@ -479,6 +479,11 @@ export const HUB_LOC = {
   moneyPriceTitle: ["SkiResort.Hub.MONEY_PRICE_TIP[Title]", "Lift ticket price"],
   moneyPriceTipWhere: ["SkiResort.Hub.MONEY_PRICE_TIP[Where]", "Options > Modular Ski Resort > Ski area balance. One price for every ski area."],
   moneyPriceTipWho: ["SkiResort.Hub.MONEY_PRICE_TIP[Who]", "Only ski days react to it. Other visitors and the attraction score ignore it."],
+  // T240 (contract 54): the price line's stepper sets the price here too. The tip says the setting is global.
+  moneyPriceTipShared: ["SkiResort.Hub.MONEY_PRICE_TIP[Shared]", "One price for every ski area in the city. It is the same setting as Options > Modular Ski Resort > Ski area balance."],
+  // T240: the Full demand row's tooltip, lines without a placeholder (the lodge rows are the lodges' names, ASSET_NAME)
+  moneyFullDemandTitle: ["SkiResort.Hub.MONEY_FULL_DEMAND_TIP[Title]", "Full demand"],
+  moneyFullDemandTipWhat: ["SkiResort.Hub.MONEY_FULL_DEMAND_TIP[What]", "Ski days come in full numbers at any lift ticket price up to this limit. The best lodge in the ski area sets it:"],
   // the lodge-spend income row (drawn only while lodgeSpendMonth > 0, hubRules.lodgeSpendShown)
   moneyRowLodgeSpend: ["SkiResort.Hub.MONEY_ROW[LodgeSpend]", "Lodge spend"],
   moneyRowPassesMonth: ["SkiResort.Hub.MONEY_ROW[PassesMonth]", "Season passes sold"],
@@ -858,6 +863,10 @@ export const HUB_FMT = {
   moneyPriceTipTolerance: ["SkiResort.Hub.MONEY_PRICE_TIP[Tolerance]", "This ski area's lodges keep ski days full up to {FULL}."],
   moneyRowNatural: ["SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA}"],
   moneyRowGrooming: ["SkiResort.Hub.MONEY_ROW[Grooming]", "Grooming · {HA} with snow"],
+  /* T240: {FULL} = hubRules.priceFullWith(ResortLive.priceTolerance) (Money): 40, 60 with a Chalet Lodge, 80 with a Swanky lodge */
+  moneyFullDemandLine: ["SkiResort.Hub.MONEY_FULL_DEMAND_LINE", "Full demand up to {FULL}"],
+  /* T240: {STEP} = 10 (Money), {PCT} = 5 (Percentage), {MIN} = priceFactorPct(PRICE_MAX, tolerance) (Percentage), {MAX} = PRICE_MAX (Money) */
+  moneyFullDemandTipSlope: ["SkiResort.Hub.MONEY_FULL_DEMAND_TIP[Slope]", "Above it, every {STEP} more takes {PCT} of full demand off, down to {MIN} at {MAX}."],
   moneyRowSnowmaking: ["SkiResort.Hub.MONEY_ROW[Snowmaking]", "Snowmaking · {HA} where the guns run"],
   moneyRowLights: ["SkiResort.Hub.MONEY_ROW[Lights]", "Lights · {HA} with snow"],
   moneyRowCatTracks: ["SkiResort.Hub.MONEY_ROW[CatTracks]", "Cat tracks · {HA} with guns on"],

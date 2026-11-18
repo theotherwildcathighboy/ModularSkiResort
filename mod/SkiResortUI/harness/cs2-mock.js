@@ -119,6 +119,7 @@
     gladeToggle: () => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { active: !g.active })); },
     gladeSetLevel: (level) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { level })); },
     gladeSetTreeLine: (treeLine) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { treeLine: !!treeLine })); },
+    setTicketPrice: (price) => { const c = get("city"); if (c) set("city", Object.assign({}, c, { ticketPrice: Math.min(200, Math.max(0, Math.round(price / 5) * 5)) })); },
     launch: (id) => {
       const items = get("build") || [];
       set("build", items.map((it) => Object.assign({}, it, { active: it.id === id ? !it.active : false })));

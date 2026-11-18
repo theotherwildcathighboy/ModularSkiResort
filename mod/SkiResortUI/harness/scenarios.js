@@ -93,7 +93,7 @@
     liftCostMonth: 5500, liftsBilled: 2, liftsBilledReduced: 1, buildingsMonth: 9800, wagesMonth: 31200, jobs: 64, jobsFilled: 58,
     netMonth: 138600, netEstimated: false,
     skiDaysState: 6, skiDaysThisMonth: 2410, skiDaysLastMonth: 3300, skiDaysSent: 2600, skiDaysSentCar: 1900, skiDaysSentNoCar: 700, skiDaysNow: 310, skiDaysCap: 480, skiDaysLimit: 2, skiDaysPowderPct: 35,
-    lodgeBest: "lodgeMid", lodgeExtra: 1, luxuryIgnored: 0, schoolValue: 12, patrolledRuns: 3, priceTolerance: 78, lodgeSpendMonth: 46000,
+    lodgeBest: "lodgeMid", lodgeExtra: 1, luxuryIgnored: 0, schoolValue: 12, patrolledRuns: 3, priceTolerance: 20, lodgeSpendMonth: 46000,
     passesSoldSeason: 420, passIncomeSeason: 126000, passHoldersThisMonth: 390, passHoldersLastMonth: 410, lessonsThisMonth: 120, lessonsLastMonth: 160, lessonIncomeMonth: 9600,
     passesPreSeason: 85, passIncomePreSeason: 25500, cityIncomeEst: 390000,
     // Contract 40 (icon scheme, DECISIONS 620): every VARIETY_BAND bit set, the vertical at the full bonus.
@@ -307,7 +307,7 @@
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800 };
   const snowCardHidden = { shown: false, report: Object.assign({}, snowReport, { known: false }) };
-  const base = { hubOpen: false, contract: 52, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 54, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },

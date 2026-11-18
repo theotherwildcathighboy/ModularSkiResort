@@ -773,6 +773,27 @@ export function priceFullWith(tolerance: number): number {
   return PRICE_NO_EFFECT_MAX + toleranceOf(tolerance);
 }
 
+/** The Options slider's step for the lift ticket price (C# SkiMoneyRules.TicketPriceStep). */
+export const PRICE_STEP = 5;
+
+/** T240: a price as the Options slider stores it: clamped to 0-PRICE_MAX and snapped to the nearest PRICE_STEP (half up). Mirrors
+ *  C# SkiMoneyRules.SnapTicketPrice, which C# applies to the setTicketPrice trigger. */
+export function snapTicketPrice(price: number): number {
+  const p = Math.min(PRICE_MAX, Math.max(0, Math.round(Number.isFinite(price) ? price : 0)));
+  return Math.min(PRICE_MAX, Math.floor((p + PRICE_STEP / 2) / PRICE_STEP) * PRICE_STEP);
+}
+
+/** T240: the price one stepper click asks for (dir -1 = the minus button, +1 = the plus button), from the price shown. */
+export function steppedPrice(price: number, dir: 1 | -1): number {
+  return snapTicketPrice(snapTicketPrice(price) + dir * PRICE_STEP);
+}
+
+/** T240: the stepper's buttons. Off while the price is unknown (-1) and at the ends of the range. */
+export function priceStepEnabled(price: number, dir: 1 | -1): boolean {
+  if (!(price >= 0)) return false;
+  return dir < 0 ? price > 0 : price < PRICE_MAX;
+}
+
 /** The Overview's RECEIPT_PARTS line - "school" (RECEIPT_PARTS_SCHOOL, the school term shown) while the
  *  model counts a school value above 0, else "plain". */
 export function receiptPartsVariant(l: ResortLive | null): "school" | "plain" {

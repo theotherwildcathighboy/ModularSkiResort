@@ -7,20 +7,23 @@
  * ticket price and the ski-day share (priceFactorPct mirrors C# SkiDayRules.PriceFactor). RUNNING COSTS and ALSO are Folds, one open at a time.
  * Panel file (rule R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$.
  */
+import { useEffect, useState } from "react";
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
-import { RUN_KIND, build$, city$, problems$, resortLive$, resorts$, runs$, selectedResort$ } from "../bindings";
+import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
+import { RUN_KIND, build$, city$, hubTriggers, problems$, resortLive$, resorts$, runs$, selectedResort$ } from "../bindings";
 import type { BuildItem, BuildItemId, CityStats, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import { BUILD_ITEMS, findBuildItem } from "./buildItems";
 import {
-  PRICE_EXAMPLES, PRICE_NO_EFFECT_MAX, cityIncomeShown, hubPrice, liveOf, netRowShown, passesShown, presaleShown, priceFactorPct,
-  priceFullWith, schoolBuiltOf, schoolState, ticketsRow,
+  PRICE_EXAMPLES, PRICE_MAX, PRICE_NO_EFFECT_MAX, cityIncomeShown, hubPrice, liveOf, netRowShown, passesShown, presaleShown, priceFactorPct,
+  priceFullWith, priceStepEnabled, schoolBuiltOf, schoolState, steppedPrice, ticketsRow,
 } from "./hubRules";
 import type { SchoolState } from "./hubRules";
-import { HUB_FMT, HUB_LOC, LIFT_TYPE, monthName } from "./hubText";
-import { Divider, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, TipLines, areaArg, numArg, useNumberSamples, useUnits } from "./parts";
+import { ASSET_NAME, HUB_FMT, HUB_LOC, LIFT_TYPE, monthName } from "./hubText";
+import { Divider, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, Tip, TipLines, areaArg, cx, numArg, useNumberSamples, useUnits } from "./parts";
 import type { NumberSamples } from "./parts";
 import { currentResort, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
@@ -327,28 +330,84 @@ function TicketsRow({ l, price, samples, t }: { l: ResortLive | null; price: num
   );
 }
 
+/* T240: how long the stepper shows the price it asked for before it falls back to the city binding's (C# refused, or no answer). */
+const PRICE_PENDING_MS = 3000;
+
 /** Under the tickets row, the Options price and what it does to ski days (the factor as a whole percent,
- *  hubRules.priceFactorPct). The line is read-only. The tooltip says where to change it.
- *  `price` = hubRules.hubPrice(city): -1 ("–") until C# sends the city. One text node (check-bundle rule R13). */
+ *  hubRules.priceFactorPct). T240 (contract 54): the – / + buttons at the row end set the price (trigger setTicketPrice, the Options
+ *  setting, every ski area). The row shows the asked price at once and the city binding's once C# answers.
+ *  `price` = hubRules.hubPrice(city): -1 ("–") until C# sends the city. The label is one text node (check-bundle rule R13). */
 function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; t: Translate }): JSX.Element {
+  const [pending, setPending] = useState<number | null>(null);
+  useEffect(() => { if (pending !== null && pending === price) setPending(null); }, [price, pending]);
+  useEffect(() => {
+    if (pending === null) return undefined;
+    const id = window.setTimeout(() => setPending(null), PRICE_PENDING_MS);
+    return () => window.clearTimeout(id);
+  }, [pending]);
+  const shown = pending !== null && price >= 0 ? pending : price;
+  const step = (dir: 1 | -1): void => {
+    const next = steppedPrice(shown, dir);
+    setPending(next);
+    hubTriggers.setTicketPrice(next);
+  };
   // The area's lodges' price tolerance (ResortLive.priceTolerance, -1 unknown reads as 0).
   const tol = tolerance > 0 ? tolerance : 0;
-  const pct = priceFactorPct(price, tol);
+  const pct = priceFactorPct(shown, tol);
   const ex = (i: number): { P: JSX.Element | string; F: JSX.Element | string } => ({
     P: numArg(PRICE_EXAMPLES[i], Unit.Money), F: numArg(priceFactorPct(PRICE_EXAMPLES[i]), Unit.Percentage),
   });
   const [a, b, c] = [ex(0), ex(1), ex(2)];
+  const tip = <TipLines lines={[
+    t(HUB_LOC.moneyPriceTitle),
+    <LocText key="c" entry={HUB_FMT.moneyPriceTipCurve} args={{
+      FULL: numArg(PRICE_NO_EFFECT_MAX, Unit.Money), P1: a.P, F1: a.F, P2: b.P, F2: b.F, P3: c.P, F3: c.F,
+    }} />,
+    tol > 0 && <LocText key="t" entry={HUB_FMT.moneyPriceTipTolerance} args={{ FULL: numArg(priceFullWith(tol), Unit.Money) }} />,
+    t(HUB_LOC.moneyPriceTipShared),
+    t(HUB_LOC.moneyPriceTipWho),
+  ]} />;
   return (
-    <SubLine tip={<TipLines lines={[
-      t(HUB_LOC.moneyPriceTitle),
-      t(HUB_LOC.moneyPriceTipWhere),
-      <LocText key="c" entry={HUB_FMT.moneyPriceTipCurve} args={{
-        FULL: numArg(PRICE_NO_EFFECT_MAX, Unit.Money), P1: a.P, F1: a.F, P2: b.P, F2: b.F, P3: c.P, F3: c.F,
-      }} />,
-      tol > 0 && <LocText key="t" entry={HUB_FMT.moneyPriceTipTolerance} args={{ FULL: numArg(priceFullWith(tol), Unit.Money) }} />,
-      t(HUB_LOC.moneyPriceTipWho),
-    ]} />}>
-      {pct < 0 ? DASH : <LocText entry={HUB_FMT.moneyPriceLine} args={{ PRICE: numArg(price, Unit.Money), PCT: numArg(pct, Unit.Percentage) }} />}
+    <Tip tip={tip}>
+      <div className={styles.priceRow}>
+        <div className={styles.priceRowText}>
+          {pct < 0 ? DASH : <LocText entry={HUB_FMT.moneyPriceLine} args={{ PRICE: numArg(shown, Unit.Money), PCT: numArg(pct, Unit.Percentage) }} />}
+        </div>
+        <div className={styles.priceStepper}>
+          <Button focusKey={FOCUS_DISABLED} variant="flat" className={styles.priceStep} disabled={!priceStepEnabled(shown, -1)}
+            onSelect={() => step(-1)}>{"–"}</Button>
+          <Button focusKey={FOCUS_DISABLED} variant="flat" className={cx(styles.priceStep, styles.priceStepNext)} disabled={!priceStepEnabled(shown, 1)}
+            onSelect={() => step(1)}>{"+"}</Button>
+        </div>
+      </div>
+    </Tip>
+  );
+}
+
+/* T240: the lodges in the order of their tolerance (A-frame / hut 0, chalet 20, summit / grand 40: SkiCatalog.Lodges PriceTolerance). */
+const LODGE_TOLERANCE: ReadonlyArray<[BuildItemId, number]> = [
+  ["lodge", 0], ["lodgeHut", 0], ["lodgeMid", 20], ["lodgeSummit", 40], ["lodgeGrand", 40],
+];
+
+/** T240: the price up to which ski days come in full numbers in this area (40 + the best lodge's tolerance, hubRules.priceFullWith).
+ *  The tooltip lists each lodge's limit and the slope above it. -1 tolerance (not known yet) shows "–". */
+function FullDemandLine({ tolerance, t }: { tolerance: number; t: Translate }): JSX.Element {
+  const tol = tolerance > 0 ? tolerance : 0;
+  const tip = <TipLines lines={[
+    t(HUB_LOC.moneyFullDemandTitle),
+    t(HUB_LOC.moneyFullDemandTipWhat),
+    ...LODGE_TOLERANCE.map(([id, x]) => {
+      const name = ASSET_NAME[id];
+      return { label: name ? t(name) : id, value: numArg(priceFullWith(x), Unit.Money) };
+    }),
+    <LocText key="s" entry={HUB_FMT.moneyFullDemandTipSlope} args={{
+      STEP: numArg(10, Unit.Money), PCT: numArg(5, Unit.Percentage), MIN: numArg(priceFactorPct(PRICE_MAX, tol), Unit.Percentage),
+      MAX: numArg(PRICE_MAX, Unit.Money),
+    }} />,
+  ]} />;
+  return (
+    <SubLine tip={tip}>
+      {tolerance < 0 ? DASH : <LocText entry={HUB_FMT.moneyFullDemandLine} args={{ FULL: numArg(priceFullWith(tol), Unit.Money) }} />}
     </SubLine>
   );
 }
@@ -385,6 +444,7 @@ function SignMoney({ row, l, city, build, feats, problems, samples, t }: {
         value={<Cell samples={samples}>{incomeValue(l ? l.incomeMonth ?? -1 : -1)}</Cell>}>
       <TicketsRow l={l} price={city.ticketPrice} samples={samples} t={t} />
       <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} t={t} />
+      <FullDemandLine tolerance={l ? l.priceTolerance : -1} t={t} />
       <LodgeSpendRow l={l} city={city} samples={samples} t={t} />
       <LessonRow l={l} city={city} school={schoolState(l, problems, row.sign, schoolBuiltOf(build))} samples={samples} t={t} />
       <PassesMonthRow l={l} city={city} samples={samples} t={t} />
