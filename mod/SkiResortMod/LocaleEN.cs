@@ -32,7 +32,7 @@ namespace SkiResortMod
                 { "Assets.NAME[SkiLodgeHut]", "Mountain Hut" },
                 { "Assets.DESCRIPTION[SkiLodgeHut]", "A small hut on the slopes, no road needed. Counts more in summer near a lift's top." },
                 { "Assets.NAME[SkiLodgeMid]", "Chalet Lodge" },
-                { "Assets.DESCRIPTION[SkiLodgeMid]", "Bigger base lodge, higher ticket price. Needs a road, or a cat track." },
+                { "Assets.DESCRIPTION[SkiLodgeMid]", "Bigger base lodge. Ski days come in full numbers at a lift ticket price up to ¢60, not ¢40. Needs a road, or a cat track." },
                 // The two luxury tiers say "Swanky" (the summit lodge is its smaller sibling, mesh SkiLodgeSwankyTop*).
                 { "Assets.NAME[SkiLodgeSummit]", "Swanky Summit Lodge" },
                 { "Assets.DESCRIPTION[SkiLodgeSummit]", "Glass-and-stone restaurant on the mountain, near a lift's top station." },
@@ -1063,7 +1063,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SNOW_REPORT[NoRuns]", "No runs yet. Base and summit are the lowest and highest point of the runs." },
                 // The merge card (contract 35) and the Overview's merged buildings fold.
                 { "SkiResort.Hub.MERGE_CARD[Title]", "Merge into a ski area" },
-                { "SkiResort.Hub.MERGE_CARD[Tip]", "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, billed only near the runs and lifts." },
+                { "SkiResort.Hub.MERGE_CARD[Tip]", "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, billed only near the runs and lifts. Near is measured from the runs and lifts in a straight line, not from the Welcome Sign." },
                 { "SkiResort.Hub.MERGE_CARD[Note]", "Becomes one of this ski area's lodges and keeps working as before. Its tier adds score, skier room, staff and tourism. Guests still arrive through the road lodges." },
                 { "SkiResort.Hub.MERGE_CARD[Near]", "Near the runs and lifts" },
                 { "SkiResort.Hub.MERGE_CARD[Far]", "Too far from the runs and lifts to count" },
@@ -1098,7 +1098,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RESORT_COUNTS[LodgeOne]", "{RUNS} runs · 1 lodge" },
                 { "SkiResort.Hub.RESORT_COUNTS[One]", "1 run · 1 lodge" },
                 { "SkiResort.Hub.UNLINKED_ENTRY", "Not linked to a ski area" },
-                { "SkiResort.Hub.UNLINKED_HINT", "Out of range of every Welcome Sign." },
+                { "SkiResort.Hub.UNLINKED_HINT", "Out of range of every Welcome Sign. The range is measured from the sign in a straight line, not along roads." },
                 { "SkiResort.Hub.RENAME", "Rename" },
                 { "SkiResort.Hub.RENAME_TIP", "An empty name restores the default." },
                 // The trash button of a cat track's Runs row (DECISIONS 423b): first click arms, second deletes.
@@ -1129,7 +1129,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_NAME_TIP", "The name is stored on the base station, or on the top station while there is no base." },
                 { "SkiResort.Hub.LIFT_SIGN_TIP", "A lift is linked to the ski area of its base station. A run stays linked to the ski area it was drawn for." },
                 // Build strip.
-                { "SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: lifts and runs within its radius join it." },
+                { "SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: lifts and runs within its radius, measured in a straight line from the sign, join it." },
                 // An extra TOOLTIP line of the base, top and lift tiles (the footer's two
                 // one-string lines would cut it at 130-150 % text; src/hub/BuildStrip.tsx header).
                 // The link states.
@@ -1240,6 +1240,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RECEIPT[LodgeBase]", "Lodge base" },
                 { "SkiResort.Hub.RECEIPT[LodgeBaseHalf]", "Lodge base, halved" },
                 { "SkiResort.Hub.RECEIPT[LodgeBaseNone]", "Lodge base, no lodge" },
+                { "SkiResort.Hub.RECEIPT[LodgeBaseClosed]", "Lodge base, lodges closed" },
                 // The lodge ladder (CG-T5: "up to <Ladder.ExtraCap>").
                 { "SkiResort.Hub.RECEIPT_TIP[LodgeBase]", "The best lodge's value, plus a little for each other lodge, up to 24 more. About half while every run is closed." },
                 { "SkiResort.Hub.RECEIPT[Terrain]", "Runs, lifts and school" },
@@ -1263,6 +1264,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SCHOOL_NO_OPEN_GREEN@EU", "No open green or blue run or cat track" },
                 { "SkiResort.Hub.SCHOOL_OFF", "School deactivated" },
                 { "SkiResort.Hub.SCHOOL_WAITING", "No run open yet" },
+                { "SkiResort.Hub.SCHOOL_CLOSED", "Closed: off-season" },
                 { "SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –" },
                 { "SkiResort.Hub.RECEIPT[Efficiency]", "Efficiency" },
                 // One wording across the hub ("garbage").
@@ -1550,7 +1552,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_TIP_SCHOOL", "+12 on the Ski school row of the score while a <icon:green> run or cat track is <icon:openpatchy>. Residents go skiing 20 % more often." },
                 { "SkiResort.Hub.BUILD_TIP_ROAD_OPTIONAL", "Needs a road, or a cat track within 25 m linked to a road lodge or bus depot. A cat track brings utilities, not guests." },
                 { "SkiResort.Hub.BUILD_TIP_PATROL", "Within 1 km, <icon:black> and <icon:dblack> runs score 15 % more. Runs there without a lift still score at least 70 %." },
-                { "SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days stay full at a lift ticket price up to 40 higher." },
+                { "SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days come in full numbers at any lift ticket price up to {FULL}." },
                 { "SkiResort.Hub.LIFT_TYPE[fixedGrip]", "Fixed-grip" },
                 { "SkiResort.Hub.LIFT_TYPE[detachable]", "Detachable" },
                 { "SkiResort.Hub.LIFT_TYPE[gondola]", "Gondola" },
@@ -1614,6 +1616,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.STATUS_SNOW", "{DEPTH} cm · {PCT}" },
                 { "SkiResort.Hub.STATUS_SNOW_IN", "{DEPTH} in · {PCT}" },  // US customary units
                 { "SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges deactivated: {N}" },
+                { "SkiResort.Hub.LODGES_OFF_SEASON", "Lodges closed for the off-season: {N}" },
                 { "SkiResort.Hub.PROBLEM[Efficiency]", "Efficiency {PCT}: {REASON}" },
                 { "SkiResort.Hub.PROBLEM[EfficiencyBare]", "Efficiency {PCT}" },  // no factor to name (folded lodge staffing)
                 { "SkiResort.Hub.PROBLEM[NotRunning]", "Welcome Sign stopped: {REASON}" },
@@ -1727,7 +1730,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_PRICE_LINE", "Ticket {PRICE} · demand {PCT}" },
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Curve]", "Ski days: as many at any price up to {FULL}, then fewer: {F1} as many at {P1}, {F2} at {P2}, {F3} at {P3}." },
                 // FULL = 40 + tolerance (the Chalet has 20, so not "Luxury lodges").
-                { "SkiResort.Hub.MONEY_PRICE_TIP[Tolerance]", "This ski area's lodges keep ski days full up to {FULL}." },
+                { "SkiResort.Hub.MONEY_PRICE_TIP[Tolerance]", "This ski area's lodges raise that limit to {FULL}." },
                 { "SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA}" },
                 // The runs row by feature (R3, DECISIONS 578; SkiRunUpkeepRates.PisteUpkeep).
                 { "SkiResort.Hub.MONEY_ROW[Grooming]", "Grooming · {HA} with snow" },
@@ -1809,6 +1812,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SEASON_HINT[WaitingForSnow]", "Waiting for snow" },
                 { "SkiResort.Hub.SEASON_HINT[TooWarm]", "Too warm for snow" },
                 { "SkiResort.Hub.SEASON_HINT[GatingOff]", "Snow & season gating off" },
+                { "SkiResort.Hub.SEASON_HINT[ClosedForSummer]", "Closed for the summer" },
                 // Each tip says what it reads (the day average at the top decides
                 // natural snow, the live gun gates decide "snow guns").
                 { "SkiResort.Hub.SEASON_TIP[SnowSeason]", "At or below freezing: natural snow can fall." },
@@ -1816,6 +1820,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SEASON_TIP[Thawing]", "Above freezing and no snow gun running. Runs stay open on the snow that is left." },
                 { "SkiResort.Hub.SEASON_TIP[WaitingForSnow]", "Cold enough for snow or snow guns, but no run has enough snow yet." },
                 { "SkiResort.Hub.SEASON_TIP[TooWarm]", "Too warm for snow guns. Runs reopen when it cools. With Snow & season gating off in Options, every run counts as open." },
+                { "SkiResort.Hub.SEASON_TIP[ClosedForSummer]", "No run is open and it is too warm for snow guns, so the ski area is in its off-season. Runs reopen when it cools." },
                 { "SkiResort.Hub.LIFT_STATUS[Running]", "Running" },
                 { "SkiResort.Hub.LIFT_STATUS[NoPower]", "No power" },
                 { "SkiResort.Hub.LIFT_STATUS[ChairsStopped]", "Chairs stopped" },
@@ -1834,7 +1839,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_SHORT[Natural]", "Natural snow only, no upkeep. Easy runs score less." },
                 { "SkiResort.Hub.BUILD_SHORT[CatTrack]", "Always green. Counts as a quarter run." },
                 { "SkiResort.Hub.BUILD_SHORT[CatTrack]@EU", "Always green or blue. Counts as a quarter run." },
-                { "SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within its radius." },
+                { "SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within its radius, measured in a straight line." },
                 { "SkiResort.Hub.NEXT[Lodge]", "Ski-day guests need a lodge within 800 m of the runs." },
                 { "SkiResort.Hub.NEXT[Lift]", "Runs a lift serves count in full." },
                 { "SkiResort.Hub.NEXT[Run]", "Natural runs have no upkeep. The others pay upkeep per hectare." },

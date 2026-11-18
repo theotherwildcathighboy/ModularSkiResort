@@ -630,6 +630,26 @@ namespace ResortBatch
             x.Lifts = Ls(L(0, true, true, true));
             Expect("P8 some off", x, o, P(HubProblemCode.LodgesSomeOff, 1, count: 1));
 
+            // P7b (T237): off-season, both lodges closed by the resort: no lodge row. One the player switched off still is one.
+            x = In(2, 0, 100, 1, 10);
+            x.IfLodgesOn = 96;
+            x.OffSeason = true;
+            x.LodgesClosedByResort = 2;
+            x.Lifts = Ls(L(0, true, true, true));
+            Expect("P7b off-season, all closed by the resort", x, o);
+            x.LodgesClosedByResort = 1;
+            Expect("P7c off-season, one closed by the resort, one switched off", x, o, P(HubProblemCode.LodgesSomeOff, 1, count: 1));
+            x.OffSeason = false;   // in season the marker alone is no excuse
+            x.LodgesClosedByResort = 2;
+            Expect("P7d in season: still all off", x, o, P(HubProblemCode.LodgesAllOff, 3, count: 2, ifFixed: 96));
+            x = In(3, 2, 100, 1, 5);
+            x.OffSeason = true;
+            x.LodgesClosedByResort = 1;
+            x.Lifts = Ls(L(0, true, true, true));
+            Expect("P7e off-season, the one off lodge was closed by the resort", x, o);
+            x.LodgesClosedByResort = 0;
+            Expect("P7f off-season, the one off lodge is the player's", x, o, P(HubProblemCode.LodgesSomeOff, 1, count: 1));
+
             // P9 lift mix
             x = In(1, 1, 100, 4, 2);
             x.Lifts = Ls(L(2, true, true, true), L(3, true, true, false), L(1, true, true, true), L(0, false, true, true));
@@ -1508,6 +1528,13 @@ namespace ResortBatch
                "H18 Season(false,7,5,true,true,true,true,1.5,0,2)");
             Eq(HubRules.Season(true, 7, 5, true, true, true, false, float.NaN, 0f, 2f), SeasonHint.None, w,
                "H18 Season(true,7,5,true,true,true,false,NaN,0,2)");
+            // T236 (contract 53): too warm for snow while the area is off-season reads ClosedForSummer, appended as 7. Every other branch is
+            // unchanged, and WaitingForSnow (cold enough) stays WaitingForSnow.
+            Eq((int)SeasonHint.ClosedForSummer, 7, w, "T236 ClosedForSummer appended as 7");
+            Eq(HubRules.Season(true, 7, 0, false, false, false, true, 5f, 0f, 2f, offSeason: true), SeasonHint.ClosedForSummer, w, "T236 off-season, warm");
+            Eq(HubRules.Season(true, 7, 0, false, false, false, true, 5f, 0f, 2f, offSeason: false), SeasonHint.TooWarm, w, "T236 in season, warm");
+            Eq(HubRules.Season(true, 7, 0, false, false, false, true, -1f, 0f, 2f, offSeason: true), SeasonHint.WaitingForSnow, w, "T236 off-season, cold");
+            Eq(HubRules.Season(true, 7, 5, false, false, false, true, 5f, 0f, 2f, offSeason: true), SeasonHint.Thawing, w, "T236 a run open: Thawing");
         }
 
         // I. lift types

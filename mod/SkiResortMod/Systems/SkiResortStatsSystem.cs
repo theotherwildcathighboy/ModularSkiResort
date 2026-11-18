@@ -130,6 +130,10 @@ namespace SkiResortMod.Systems
         public float BonusPct, BonusSizePct;
         public int BonusLiftLines, BonusTierPoints, BonusOpenSharePct;
         public int HotelGuests, HotelRented, HotelRooms;
+        // Contract 53 (T237 / T238): LodgesOffSeason = the area's lodges the resort closed for the off-season (0 none). SchoolOffSeason = its
+        // ski school is closed that way. The hub says "Closed: off-season" for them, not "Deactivated".
+        public int LodgesOffSeason;
+        public bool SchoolOffSeason;
 
         /// <summary>The terms NetMonth was computed from (-1 unknown).</summary>
         public HubMonthMoney NetTerms => new HubMonthMoney
@@ -337,6 +341,7 @@ namespace SkiResortMod.Systems
         private SkiRunOwnershipSystem m_Ownership;
         private SkiResortAttractivenessSystem m_Attractiveness;
         private MountainJobsSystem m_MountainJobs;   // the SignNoRoad row: only while the sign carries jobs
+        private OffSeasonStaffSystem m_OffSeason;   // IsOffSeason: the season hint "Closed for the summer" (T236)
         private SkiSnowInjectionSystem m_Injection;
         private LiftCensusSystem m_Census;
         private ChairPinSystem m_ChairPin;
@@ -468,6 +473,7 @@ namespace SkiResortMod.Systems
         {
             public HubSnowSums Snow;
             public int RunsOpen, RunsPartly, LodgesActive, CompleteLifts;
+            public int LodgesClosedByResort;   // inactive lodges the resort closed for the off-season (OffSeasonStaffSystem.IsClosedByResort), T237
             public double RunsValueFull;
             public float TopM;                 // −∞ = none
             public bool AnyGunRun;             // a bound snowmaking or night run
@@ -601,6 +607,7 @@ namespace SkiResortMod.Systems
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
             m_MountainJobs = World.GetOrCreateSystemManaged<MountainJobsSystem>();
+            m_OffSeason = World.GetOrCreateSystemManaged<OffSeasonStaffSystem>();
             m_Injection = World.GetOrCreateSystemManaged<SkiSnowInjectionSystem>();
             m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             m_ChairPin = World.GetOrCreateSystemManaged<ChairPinSystem>();
@@ -1378,6 +1385,8 @@ namespace SkiResortMod.Systems
                 m_LodgeIn.Add(new SkiResortAggregate.LodgeIn { Resort = resort, Score = 0, Free = free });
                 if (!free && resort < resorts && m_LodgeActive.Contains(lodge))
                     m_Work[resort].LodgesActive++;
+                else if (!free && resort < resorts && !m_MergedTierOf.ContainsKey(lodge) && m_OffSeason.IsClosedByResort(lodge))
+                    m_Work[resort].LodgesClosedByResort++;
                 if (!free && resort < resorts && m_NoRoad.Contains(lodge))
                 {
                     // The same lodge set as the aggregate's Lodges count, so LodgesNoRoad <= Lodges.
@@ -1469,6 +1478,23 @@ namespace SkiResortMod.Systems
                         firstNoRoad = school;
                 }
             }
+        }
+
+        /// <summary>True when a top-level ski school linked to <paramref name="sign"/> is closed by the resort for the off-season (T238).</summary>
+        private bool SchoolClosedByResort(Entity sign)
+        {
+            HashSet<Entity> schoolPrefabs = m_PrefabCatalog.SchoolPrefabSet;
+            for (int t = 0; t < m_TopLevel.Count; t++)
+            {
+                Entity school = m_TopLevel[t];
+                if (m_TopLevelSigns[t] != sign || school == Entity.Null || !EntityManager.Exists(school) ||
+                    EntityManager.HasComponent<Deleted>(school) || EntityManager.HasComponent<Temp>(school) ||
+                    !EntityManager.TryGetComponent(school, out PrefabRef schoolRef) || !schoolPrefabs.Contains(schoolRef.m_Prefab))
+                    continue;
+                if (m_OffSeason.IsClosedByResort(school))
+                    return true;
+            }
+            return false;
         }
 
         private static bool Lower(Entity a, Entity b) => a.Index < b.Index || (a.Index == b.Index && a.Version < b.Version);
@@ -2278,7 +2304,7 @@ namespace SkiResortMod.Systems
                 live.TopTempC = live.TopTempKnown ? topTemp : 0f;
                 live.Snow = m_SnowReport.GetReport(sign);
                 live.SeasonHint = (int)HubRules.Season(gating, row.Runs, live.RunsOpen + live.RunsPartly, work.AnyGunRun,
-                    gunsLive, injectionOn && work.AnyGunOn, live.TopTempKnown, topTemp, freezing, margin);
+                    gunsLive, injectionOn && work.AnyGunOn, live.TopTempKnown, topTemp, freezing, margin, m_OffSeason.IsOffSeason(sign));
 
                 // Share, estimate, jobs (the provider walk, the sign's workplace).
                 double sRes = 0.0;
@@ -2342,6 +2368,8 @@ namespace SkiResortMod.Systems
                     live.BonusLiftLines = live.BonusTierPoints = live.BonusOpenSharePct = -1;
                 }
                 HotelRentersOf(sign, out live.HotelGuests, out live.HotelRented, out live.HotelRooms);
+                live.LodgesOffSeason = work.LodgesClosedByResort;
+                live.SchoolOffSeason = SchoolClosedByResort(sign);
                 int jobs = 0, filled = 0;
                 AddJobs(sign, ref jobs, ref filled);
                 // A linked top-level building's jobs are on its own WorkProvider (lodges, the school). The jobs of the patrol huts and mountain
@@ -2850,6 +2878,9 @@ namespace SkiResortMod.Systems
                     // Road edges, read in the building walk (no result needed: a placement fact).
                     SignNoRoad = !notLinked && work.SignNoRoad,
                     LodgesNoRoad = notLinked ? 0 : work.LodgesNoRoad,
+                    // T237: the resort-closed lodges are not a problem while the area is off-season.
+                    OffSeason = !notLinked && m_OffSeason.IsOffSeason(sign),
+                    LodgesClosedByResort = notLinked ? 0 : work.LodgesClosedByResort,
                     // From SkiDaySystem's view (else false / 0 / 0).
                     SkiDaysCannotReach = skiDayRows && d.CannotReach,
                     NoGuestsNearTenthsKm = skiDayRows && hasResult && r.RunsCounted > 0 && m_ReachCensus.TryGetReading(sign, out SkiReachCensusSystem.Reading near) &&
@@ -3276,6 +3307,8 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.HotelGuests);
                 h = Mix(h, (uint)r.HotelRented);
                 h = Mix(h, (uint)r.HotelRooms);
+                h = Mix(h, (uint)r.LodgesOffSeason);
+                h = Mix(h, r.SchoolOffSeason ? 1u : 0u);
             }
             return Mix(h, (uint)rows.Count);
         }

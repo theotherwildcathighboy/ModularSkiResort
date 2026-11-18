@@ -11,6 +11,8 @@
 // Contract 39: the card and the overlay state also say whether any ski area has a run outline or a lift station (Geometry, TryGetSlopesideBounds)
 // and the reach in meters (ReachM = SlopesideMaxM). With none, nothing can be Near: the card warns and its Merge button is off, and the
 // overlay chip says there is nothing to outline.
+// Contract 53: the card shows beside the game's selected-info panel only while the hub is open, the overlay is armed, or the building is
+// merged (T230). AffordMask says which tiers the city can pay now (T231).
 // Engine notes: EngineNotes/SkiMergeSystem.md
 
 using System;
@@ -32,7 +34,9 @@ namespace SkiResortMod.Systems
         /// changing) to tier t costs now. Monthly[t]: its monthly fee. Near (contract 37): within SkiDayRules.SlopesideMaxM of any area's run
         /// outline or lift station now (NearAnySlopeside, the last recompute's geometry). For a merged building, the State says it.
         /// Geometry (contract 39): some ski area has a run outline or a lift station (TryGetSlopesideBounds). ReachM (contract 39):
-        /// SkiDayRules.SlopesideMaxM in whole meters, for the card's "no runs or lift stations yet" warning.</summary>
+        /// SkiDayRules.SlopesideMaxM in whole meters, for the card's "no runs or lift stations yet" warning.
+        /// AffordMask (contract 53): bit t = the city can pay Charge[t] now (PlayerMoney). The card turns the fee red and the button off when
+        /// the chosen tier is not payable (T231).</summary>
         public struct HubMergeCardState : IJsonWritable, IEquatable<HubMergeCardState>
         {
             public bool Shown;
@@ -49,6 +53,7 @@ namespace SkiResortMod.Systems
             public bool Near;
             public bool Geometry;
             public int ReachM;
+            public int AffordMask;
 
             public void Write(IJsonWriter writer)
             {
@@ -81,6 +86,8 @@ namespace SkiResortMod.Systems
                 writer.Write(Geometry);
                 writer.PropertyName("reachM");
                 writer.Write(ReachM);
+                writer.PropertyName("affordMask");
+                writer.Write(AffordMask);
                 writer.TypeEnd();
             }
 
@@ -97,7 +104,7 @@ namespace SkiResortMod.Systems
             {
                 return Shown == other.Shown && Building == other.Building && Tier == other.Tier && AllowedMask == other.AllowedMask &&
                        Refusal == other.Refusal && State == other.State && Outcome == other.Outcome && Near == other.Near &&
-                       Geometry == other.Geometry && ReachM == other.ReachM &&
+                       Geometry == other.Geometry && ReachM == other.ReachM && AffordMask == other.AffordMask &&
                        string.Equals(Name ?? "", other.Name ?? "", StringComparison.Ordinal) &&
                        string.Equals(Area ?? "", other.Area ?? "", StringComparison.Ordinal) &&
                        SameInts(Charge, other.Charge) && SameInts(Monthly, other.Monthly);
@@ -260,8 +267,9 @@ namespace SkiResortMod.Systems
                 m_MergeCardBuilding = MergeCardBuildingOf(selected);
                 m_MergeCardTicks = 0;
             }
-            if (m_MergeCardBuilding == Entity.Null)
+            if (m_MergeCardBuilding == Entity.Null || !MergeCardMayShow(m_MergeCardBuilding))
             {
+                m_MergeCardTicks = 0;   // shown at once when the hub opens or the overlay arms
                 m_MergeCard.Update(default);
                 return;
             }
@@ -270,6 +278,11 @@ namespace SkiResortMod.Systems
             m_MergeCardTicks = MergeCardRefreshFrames;
             m_MergeCard.Update(MergeCardNow());
         }
+
+        /// <summary>T230: the card sits beside the game's selected-info panel, so an ordinary building must not get it while the hub is closed.
+        /// It shows when the hub is open, when the merge overlay is armed, or when the building is already merged (unmerge stays reachable).</summary>
+        private bool MergeCardMayShow(Entity building) =>
+            IsOpen || MergeOverlay.Armed || EntityManager.HasComponent<SkiMergedLodge>(building);
 
         /// <summary>A merged building's name for the card and the fold (T218): the player's own name as typed, else the game's localized
         /// name, else the localized "Assets.NAME[prefab]" of its prefab (a building from another mod whose Localization points nowhere),
@@ -341,10 +354,13 @@ namespace SkiResortMod.Systems
             MergeRules.Classify(facts, out MergeRules.Refusal refusal);
             card.Refusal = (int)refusal;
             card.AllowedMask = MergeRules.AllowedMask(facts.LotCells, tiers);
+            long money = merge.CityMoney();
             for (int t = 0; t < tiers; t++)
             {
                 card.Charge[t] = merge.ChargeFor(b, t);
                 card.Monthly[t] = merge.MonthlyFeeOf(b, t);
+                if (money >= card.Charge[t])
+                    card.AffordMask |= 1 << t;
             }
             if (merged)
             {

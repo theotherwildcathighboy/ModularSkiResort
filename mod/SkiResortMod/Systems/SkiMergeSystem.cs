@@ -317,6 +317,14 @@ namespace SkiResortMod.Systems
             SkiRulesStampSystem.UnstampMerged(EntityManager, building);
         }
 
+        /// <summary>The city's money now (PlayerMoney.money: unlimited money reads 2e9). long.MaxValue without a city or money component:
+        /// TryPay refuses then, but the card has nothing to compare, so it shows the tier as payable (the click says the outcome).</summary>
+        internal long CityMoney()
+        {
+            Entity city = m_CitySystem.City;
+            return city != Entity.Null && EntityManager.TryGetComponent(city, out PlayerMoney money) ? money.money : long.MaxValue;
+        }
+
         private bool TryPay(int amount)
         {
             Entity city = m_CitySystem.City;

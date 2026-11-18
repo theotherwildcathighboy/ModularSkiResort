@@ -1864,6 +1864,11 @@
   white-space: nowrap;
 }
 
+// Contract 53 (T231): a tier fee the city cannot pay now.
+.mergeTierFeeShort {
+  color: var(--hubCaution);
+}
+
 // Contract 37: the merge overlay's legend (MergedFold.MergeLegend): beside the fold's chip and in the Build strip's first status line.
 // Swatch colors = SkiMergeOverlaySystem s_Allowed / s_TooSmall (sRGB).
 .mergeLegend {

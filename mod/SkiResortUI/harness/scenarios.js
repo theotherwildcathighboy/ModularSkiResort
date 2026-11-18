@@ -103,6 +103,8 @@
     // Contract 50 (T226 / T225): 2 lift lines and 3 lodge points (size 2 + 0.5 + 0.75 = 3.25 %) x 90 % open = 2.93 %; one merged hotel.
     bonusPct: 2.93, bonusSizePct: 3.25, bonusLiftLines: 2, bonusTierPoints: 3, bonusOpenSharePct: 90,
     hotelGuests: 1240, hotelRented: 482, hotelRooms: 1029,
+    // Contract 53 (T237 / T238): nothing closed for the off-season.
+    lodgesOffSeason: 0, schoolOffSeason: false,
     // Contract 48 (T200): the snow report, a 760 m vertical, the summit below freezing, a storm in the last day.
     snowReport,
   };
@@ -305,9 +307,9 @@
     { sign: NULL, building: E(434), name: "Botanical Garden", tier: 1, state: 1, monthly: 0 },
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
-    outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800 };
+    outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800, affordMask: 31 };
   const snowCardHidden = { shown: false, report: Object.assign({}, snowReport, { known: false }) };
-  const base = { hubOpen: false, contract: 52, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 53, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
@@ -394,6 +396,10 @@
     "Ash Flat, merge card every tier": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
       problems, history, build: buildItems({ built: ["school"] }), mergeCard: Object.assign({}, mergeCard, { name: "Grand Hotel", allowedMask: 31,
         charge: [180000, 120000, 410000, 640000, 1250000], monthly: [1800, 1200, 4200, 6100, 11500] }) }),
+    // Contract 53 (T231): the city has less than the fee: the fees in the warning color, the Merge button off.
+    "Ash Flat, merge card cannot pay": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
+      problems, history, build: buildItems({ built: ["school"] }), mergeCard: Object.assign({}, mergeCard, { name: "Grand Hotel", allowedMask: 31,
+        charge: [180000, 120000, 410000, 640000, 1250000], monthly: [1800, 1200, 4200, 6100, 11500], affordMask: 3 }) }),
     // Contract 37: the merge card for a building out of reach of every run and station (its status line says it would not count).
     "Ash Flat, merge card too far": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
       problems, history, build: buildItems({ built: ["school"] }), mergeCard: Object.assign({}, mergeCard, { name: "City Park", near: false }) }),
@@ -488,6 +494,12 @@
       factor: "", more: 0, detail: 0, ifFixed: -1, buildItem: "" })).concat([problems[2], problems[3], problems[4]]), history, build: buildItems({ built: ["school"] }) });
 // 2026-11-02 field screen (hub intuitiveness pass): November, one closed run, no lift yet, three road lodges, tickets not sold because
   // no run is open. The band shows the parking warning, No lift yet and the summit lodges.
+  // Contract 53 (T236 / T237 / T238): summer. "Closed for the summer" on the status line, every lodge and the school closed by the resort: the
+  // Overview says so as a fact, the problems band lists no lodge row.
+  window.SkiScenarios["Ash Flat, closed for the summer"] = Object.assign({}, base, { hubOpen: true, resorts, selectedResort: SIGN, runs, runLive, lifts,
+    history, build: buildItems({ built: ["school"] }), city: Object.assign({}, city, { month: 7 }),
+    resortLive: [Object.assign({}, live, { status: 1, runsOpen: 0, runsPartly: 0, snowPct: 0, snowDepthCm: 0, seasonHint: 7, summer: true,
+      lodgesActive: 0, lodgesOffSeason: 5, schoolOffSeason: true, schoolValue: 0, attraction: 12, attractionFull: 34, topTempC: 14 }), live2], problems: [] });
   window.SkiScenarios["Field 2026-11-02: closed, no lift"] = Object.assign({}, base, { hubOpen: true,
     city: Object.assign({}, city, { month: 10 }),
     resorts: [Object.assign({}, resorts[0], { name: "Ski area 1", customName: false, runs: 1, rated: 1, flat: 0, green: 1, blue: 0, black: 0, lodges: 5, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 }), resorts[1]],

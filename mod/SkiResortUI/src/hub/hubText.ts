@@ -53,7 +53,7 @@ export const HUB_LOC = {
 
   /* the merge card (contract 35) and the Overview's merged buildings fold */
   mergeCardTitle: ["SkiResort.Hub.MERGE_CARD[Title]", "Merge into a ski area"],
-  mergeCardTip: ["SkiResort.Hub.MERGE_CARD[Tip]", "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, billed only near the runs and lifts."],
+  mergeCardTip: ["SkiResort.Hub.MERGE_CARD[Tip]", "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, billed only near the runs and lifts. Near is measured from the runs and lifts in a straight line, not from the Welcome Sign."],
   mergeCardNote: ["SkiResort.Hub.MERGE_CARD[Note]", "Becomes one of this ski area's lodges and keeps working as before. Its tier adds score, skier room, staff and tourism. Guests still arrive through the road lodges."],
   mergeCardNear: ["SkiResort.Hub.MERGE_CARD[Near]", "Near the runs and lifts"],
   mergeCardFar: ["SkiResort.Hub.MERGE_CARD[Far]", "Too far from the runs and lifts to count"],
@@ -92,7 +92,7 @@ export const HUB_LOC = {
   resortMenuNote: ["SkiResort.Hub.RESORT_MENU_NOTE", "Selecting a sign, a lodge or a station on the map shows its ski area here."],
   resortCountsOne: ["SkiResort.Hub.RESORT_COUNTS[One]", "1 run · 1 lodge"],
   unlinkedEntry: ["SkiResort.Hub.UNLINKED_ENTRY", "Not linked to a ski area"],
-  unlinkedHint: ["SkiResort.Hub.UNLINKED_HINT", "Out of range of every Welcome Sign."],
+  unlinkedHint: ["SkiResort.Hub.UNLINKED_HINT", "Out of range of every Welcome Sign. The range is measured from the sign in a straight line, not along roads."],
   rename: ["SkiResort.Hub.RENAME", "Rename"],
   renameTip: ["SkiResort.Hub.RENAME_TIP", "An empty name restores the default."],
   runDelete: ["SkiResort.Hub.RUN_DELETE", "Delete this cat track"],
@@ -197,6 +197,8 @@ export const HUB_LOC = {
   receiptLodgeBase: ["SkiResort.Hub.RECEIPT[LodgeBase]", "Lodge base"],
   receiptLodgeBaseHalf: ["SkiResort.Hub.RECEIPT[LodgeBaseHalf]", "Lodge base, halved"],
   receiptLodgeBaseNone: ["SkiResort.Hub.RECEIPT[LodgeBaseNone]", "Lodge base, no lodge"],
+  /* T237: every lodge is closed for the off-season (live.lodgesOffSeason > 0 and none active) */
+  receiptLodgeBaseClosed: ["SkiResort.Hub.RECEIPT[LodgeBaseClosed]", "Lodge base, lodges closed"],
   receiptTipLodgeBase: ["SkiResort.Hub.RECEIPT_TIP[LodgeBase]", "The best lodge's value, plus a little for each other lodge, up to 24 more. About half while every run is closed."],
   receiptTerrain: ["SkiResort.Hub.RECEIPT[Terrain]", "Runs, lifts and school"],
   receiptTipRuns: ["SkiResort.Hub.RECEIPT_TIP[Runs]", "The total of all runs. Harder and bigger runs score more, and a run needs snow and a lift to score in full."],
@@ -224,6 +226,8 @@ export const HUB_LOC = {
   /* a school that is built but adds 0 says why (hubRules.schoolState "off" / "waiting") */
   schoolOff: ["SkiResort.Hub.SCHOOL_OFF", "School deactivated"],
   schoolWaiting: ["SkiResort.Hub.SCHOOL_WAITING", "No run open yet"],
+  /* T238: the resort closed the school for the off-season (hubRules.schoolState "closed") */
+  schoolClosed: ["SkiResort.Hub.SCHOOL_CLOSED", "Closed: off-season"],
   receiptOpenNone: ["SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –"],
   receiptEfficiency: ["SkiResort.Hub.RECEIPT[Efficiency]", "Efficiency"],
   receiptTipEfficiency: ["SkiResort.Hub.RECEIPT_TIP[Efficiency]", "How well the Welcome Sign and its lodges work: staff, power, water, garbage, budget. The score uses a one-day average, held between 25 % and 100 %."],
@@ -500,7 +504,7 @@ export const HUB_LOC = {
   buildEmpty: ["SkiResort.Hub.BUILD_EMPTY", "No building tools were reported. See SkiResortMod.Mod.log."],
   buildActive: ["SkiResort.Hub.BUILD_ACTIVE", "In use"],
   locked: ["SkiResort.Hub.LOCKED", "Not available yet"],
-  buildHintSign: ["SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: lifts and runs within its radius join it."],
+  buildHintSign: ["SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: lifts and runs within its radius, measured in a straight line from the sign, join it."],
   buildHintLodge: ["SkiResort.Hub.BUILD_HINT_LODGE", "Ski-day guests only use lodges within 800 m of runs or stations."],
   buildShortSchool: ["SkiResort.Hub.BUILD_SHORT[School]", "Teaches on green runs and cat tracks."],
   buildShortDepot: ["SkiResort.Hub.BUILD_SHORT[Depot]", "Ski days start here, in town."],
@@ -511,7 +515,6 @@ export const HUB_LOC = {
   buildTipPatrol: ["SkiResort.Hub.BUILD_TIP_PATROL", "Within 1 km, <icon:black> and <icon:dblack> runs score 15 % more. Runs there without a lift still score at least 70 %."],
   /* the A-frame, Chalet and Grand tiles (buildItems.ts ROAD_OPTIONAL_LODGES): LodgeSupplyRule, LiftServedRule.LinkMeters */
   buildTipRoadOptional: ["SkiResort.Hub.BUILD_TIP_ROAD_OPTIONAL", "Needs a road, or a cat track within 25 m linked to a road lodge or bus depot. A cat track brings utilities, not guests."],
-  buildTipLuxury: ["SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days stay full at a lift ticket price up to 40 higher."],
   buildTipOnce: ["SkiResort.Hub.BUILD_TIP_ONCE", "One-time"],
   buildTipMonth: ["SkiResort.Hub.BUILD_TIP_MONTH", "Per month"],
   buildMonthNone: ["SkiResort.Hub.BUILD_MONTH_NONE", "Nothing"],
@@ -687,6 +690,8 @@ export const HUB_FMT = {
   statusSnow: ["SkiResort.Hub.STATUS_SNOW", "{DEPTH} cm · {PCT}"],
   statusSnowIn: ["SkiResort.Hub.STATUS_SNOW_IN", "{DEPTH} in · {PCT}"], // US customary units
   problemLodgesSomeOff: ["SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges deactivated: {N}"],
+  /* T237: the Overview line for the lodges the resort closed for the off-season (a fact, no problem) */
+  lodgesOffSeason: ["SkiResort.Hub.LODGES_OFF_SEASON", "Lodges closed for the off-season: {N}"],
   problemEfficiency: ["SkiResort.Hub.PROBLEM[Efficiency]", "Efficiency {PCT}: {REASON}"],
   problemEfficiencyBare: ["SkiResort.Hub.PROBLEM[EfficiencyBare]", "Efficiency {PCT}"],
   problemNotRunning: ["SkiResort.Hub.PROBLEM[NotRunning]", "Welcome Sign stopped: {REASON}"],
@@ -855,7 +860,9 @@ export const HUB_FMT = {
   /* {FULL} = PRICE_NO_EFFECT_MAX, {P1..P3} = PRICE_EXAMPLES (Money), {F1..F3} = their priceFactorPct (Percentage) */
   moneyPriceTipCurve: ["SkiResort.Hub.MONEY_PRICE_TIP[Curve]", "Ski days: as many at any price up to {FULL}, then fewer: {F1} as many at {P1}, {F2} at {P2}, {F3} at {P3}."],
   /* {FULL} = 40 + priceTolerance (not "Luxury lodges": the Chalet has 20) */
-  moneyPriceTipTolerance: ["SkiResort.Hub.MONEY_PRICE_TIP[Tolerance]", "This ski area's lodges keep ski days full up to {FULL}."],
+  /* {FULL} = priceFullWith(the luxury tolerance 40) = 80 */
+  buildTipLuxury: ["SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days come in full numbers at any lift ticket price up to {FULL}."],
+  moneyPriceTipTolerance: ["SkiResort.Hub.MONEY_PRICE_TIP[Tolerance]", "This ski area's lodges raise that limit to {FULL}."],
   moneyRowNatural: ["SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA}"],
   moneyRowGrooming: ["SkiResort.Hub.MONEY_ROW[Grooming]", "Grooming · {HA} with snow"],
   moneyRowSnowmaking: ["SkiResort.Hub.MONEY_ROW[Snowmaking]", "Snowmaking · {HA} where the guns run"],
@@ -964,6 +971,7 @@ export const SEASON_HINT_TEXT: ReadonlyArray<LocEntry | null> = [
   ["SkiResort.Hub.SEASON_HINT[WaitingForSnow]", "Waiting for snow"],
   ["SkiResort.Hub.SEASON_HINT[TooWarm]", "Too warm for snow"],
   ["SkiResort.Hub.SEASON_HINT[GatingOff]", "Snow & season gating off"],
+  ["SkiResort.Hub.SEASON_HINT[ClosedForSummer]", "Closed for the summer"],
 ];
 
 /*
@@ -977,6 +985,7 @@ export const SEASON_TIP_TEXT: ReadonlyArray<LocEntry | null> = [
   ["SkiResort.Hub.SEASON_TIP[Thawing]", "Above freezing and no snow gun running. Runs stay open on the snow that is left."],
   ["SkiResort.Hub.SEASON_TIP[WaitingForSnow]", "Cold enough for snow or snow guns, but no run has enough snow yet."],
   ["SkiResort.Hub.SEASON_TIP[TooWarm]", "Too warm for snow guns. Runs reopen when it cools. With Snow & season gating off in Options, every run counts as open."],
+  ["SkiResort.Hub.SEASON_TIP[ClosedForSummer]", "No run is open and it is too warm for snow guns, so the ski area is in its off-season. Runs reopen when it cools."],
   null,
 ];
 
@@ -1027,7 +1036,7 @@ export const BUILD_SHORT_RUN: Readonly<Record<RunKind, LocEntry>> = {
  */
 export const NEXT_LINE1: Readonly<Record<NextVariant, LocEntry | null>> = {
   sign: HUB_LOC.buildHintSign,
-  unlinked: ["SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within its radius."],
+  unlinked: ["SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within its radius, measured in a straight line."],
   lodge: ["SkiResort.Hub.NEXT[Lodge]", "Ski-day guests need a lodge within 800 m of the runs."],
   lift: ["SkiResort.Hub.NEXT[Lift]", "Runs a lift serves count in full."],
   run: ["SkiResort.Hub.NEXT[Run]", "Natural runs have no upkeep. The others pay upkeep per hectare."],

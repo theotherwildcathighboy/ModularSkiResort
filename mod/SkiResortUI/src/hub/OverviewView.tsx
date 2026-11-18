@@ -22,7 +22,7 @@ import type { BuildItem, CityStats, LiftRow, ProblemRow, ResortLive, ResortRow, 
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
-  bonusCapped, bonusParts, efficiencyAtFloor, factorRowsOf, hotelShown, touristSpendingDrawn, hectares, liftsMissing, liveOf, mountainFacts, lodgeExtraShort, receiptPartsVariant, resultVariant, runsMissing, schoolBuiltOf,
+  bonusCapped, bonusParts, efficiencyAtFloor, factorRowsOf, hotelShown, touristSpendingDrawn, hectares, liftsMissing, liveOf, mountainFacts, lodgeBaseLabelKey, lodgeExtraShort, receiptPartsVariant, resultVariant, runsMissing, schoolBuiltOf,
   schoolFlagOf, schoolMissingOf, schoolState, scoreBarParts, varietyClosed, varietyMissing, verticalShort,
 } from "./hubRules";
 import type { VarietyNeed } from "./hubRules";
@@ -258,8 +258,7 @@ function Receipt({ row, l, city, problems, build, areaRuns, t }: {
   const [fill, ghost, rest] = scoreBarParts(held ? -1 : attraction, full);
   const factors = factorRowsOf(problems, row.sign);
 
-  const lodgeLabel = l && l.lodgesActive === 0 ? HUB_LOC.receiptLodgeBaseNone
-    : l && l.summer ? HUB_LOC.receiptLodgeBaseHalf : HUB_LOC.receiptLodgeBase;
+  const lodgeLabel = HUB_LOC[lodgeBaseLabelKey(l)];
   const variant = resultVariant(l);
   // The best lodge's TIER name (it can be a merged building's tier, so never a building name, DECISIONS 621; an unknown id shows
   // nothing) and the school variant of the parts line.
@@ -324,6 +323,10 @@ function Receipt({ row, l, city, problems, build, areaRuns, t }: {
           lodgeShort >= 0 && <IconText key="m" entry={HUB_FMT.receiptMissingLodges} args={{ E: numArg(lodgeShort, Unit.FloatSingleFraction) }} line missing />,
         ]} />}
       />
+      {/* T237: the lodges the resort closed for the off-season are a fact here, not a problem row. */}
+      {l && l.lodgesOffSeason > 0 && (
+        <SubLine><LocText entry={HUB_FMT.lodgesOffSeason} args={{ N: numArg(l.lodgesOffSeason, Unit.Integer) }} /></SubLine>
+      )}
       {/* T80 (item 4): the section total. Its full equation is one layer down (the header's tooltip: RECEIPT_PARTS[_SCHOOL] +
           RECEIPT_ROOT, T77's two lines). Then one labeled row per term. Every number is C#'s (D10). */}
       <Fold
@@ -363,7 +366,7 @@ function Receipt({ row, l, city, problems, build, areaRuns, t }: {
         ]} />} />
       {/* Item 3: no school / no green run is a 0 with the warning glyph and the cause, not a tooltip sentence. */}
       <InfoLine sub op="+" label={t(HUB_LOC.receiptRowSchool)}
-        flag={schoolFlag ? t(HUB_LOC[schoolFlag]) : undefined} flagDim={schoolNow === "waiting"}
+        flag={schoolFlag ? t(HUB_LOC[schoolFlag]) : undefined} flagDim={schoolNow === "waiting" || schoolNow === "closed"}
         value={l && l.schoolValue >= 0 ? numArg(l.schoolValue, Unit.FloatSingleFraction, false, false) : DASH}
         tip={<TipLines lines={[
           <IconText key="r" entry={HUB_LOC.receiptTipSchool} />,

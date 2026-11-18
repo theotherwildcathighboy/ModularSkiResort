@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 52;
+export const HUB_CONTRACT = 53;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -101,7 +101,7 @@ export const RESORT_STATUS = { NoRuns: 0, Closed: 1, Partly: 2, Open: 3 } as con
 export const OPEN_STATE = { None: -1, Closed: 0, Partly: 1, Open: 2 } as const;
 
 /** ResortLive.seasonHint. C# HubRules SeasonHint. */
-export const SEASON_HINT = { None: 0, SnowSeason: 1, SnowGunsOnly: 2, Thawing: 3, WaitingForSnow: 4, TooWarm: 5, GatingOff: 6 } as const;
+export const SEASON_HINT = { None: 0, SnowSeason: 1, SnowGunsOnly: 2, Thawing: 3, WaitingForSnow: 4, TooWarm: 5, GatingOff: 6, ClosedForSummer: 7 } as const;
 
 /** ResortLive.nextStep. C# HubRules NextStepKind. */
 export const NEXT_STEP = { Done: 0, Lodge: 1, Lift: 2, Run: 3 } as const;
@@ -347,6 +347,8 @@ export interface MergeCardState {
   geometry: boolean;
   /** Contract 39: C# SkiDayRules.SlopesideMaxM in whole meters, the {M} of the warning text. */
   reachM: number;
+  /** Contract 53 (T231): bit t = the city can pay charge[t] now. A tier without its bit shows its fee in the warning color and the button is off. */
+  affordMask: number;
 }
 
 /** Contract 36: the merge overlay (C# SkiMergeOverlaySystem). While armed, the overlay outlines the buildings near a ski area that
@@ -947,6 +949,10 @@ export interface ResortLive {
   hotelGuests: number;
   hotelRented: number;
   hotelRooms: number;
+  /** Contract 53 (T237 / T238): how many of the area's lodges the resort closed for the off-season (C# OffSeasonStaffSystem.IsClosedByResort;
+   *  a lodge the player switched off is not counted), and whether its ski school is closed that way. */
+  lodgesOffSeason: number;
+  schoolOffSeason: boolean;
 }
 
 /** One run of ours: identity, rating, service, value parts. */
@@ -1340,7 +1346,7 @@ export const FALLBACK = {
   lodgeParking: EMPTY_LODGE_PARKING,
   runReplaced: { seq: 0, from: NULL_ENTITY, to: NULL_ENTITY } as RunReplaced,
   drawRun: { active: false, groomed: true, gunSpacingM: 0, lightSpacingM: 0 } as DrawRun,
-  mergeCard: { shown: false, building: { index: 0, version: 0 }, name: "", area: "", tier: -1, allowedMask: 0, refusal: 0, state: 6, outcome: 0, charge: [], monthly: [], near: false, geometry: true, reachM: 0 } as MergeCardState,
+  mergeCard: { shown: false, building: { index: 0, version: 0 }, name: "", area: "", tier: -1, allowedMask: 0, refusal: 0, state: 6, outcome: 0, charge: [], monthly: [], near: false, geometry: true, reachM: 0, affordMask: 0 } as MergeCardState,
   mergedLodges: EMPTY_MERGED,
   mergeOverlay: { armed: false, allowed: 0, tooSmall: 0, geometry: true, reachM: 0 } as MergeOverlayState,
   sync: { ready: false, areas: [], open: false, sign: { index: 0, version: 0 }, rows: [], running: false, done: 0, failed: 0, total: 0 } as SyncState,
