@@ -324,7 +324,6 @@
 }
 
 .actionButton[disabled],
-.stepButton[disabled],
 .segButton[disabled] {
   opacity: 0.45;
 }
@@ -875,27 +874,7 @@
   border-left-color: var(--hubCaution);
 }
 
-// ---- tree tool stepper and segment (TreeRows, J1) -------------------------------------------
-
-.stepper {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: nowrap;
-}
-
-.stepButton {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  flex-grow: 0;
-  flex-shrink: 0;
-  width: calc(26rem * var(--fontScale));
-  height: calc(26rem * var(--fontScale));
-  padding: 0rem;
-  font-size: var(--fontSizeM);
-}
+// ---- tree tool segment and the step value box (TreeRows, J1; the density stepper is a slider since r3/sliders) -------------------------------------------
 
 // J1: the box around the stepper's StableWidth (its blinds are the 8 level labels). Contract 3: a
 // div of its own, so its tooltip (GladeTooltip.LEVEL) attaches to a host element (parts.tsx Tip).
@@ -2237,56 +2216,157 @@
   color: var(--hubTextDim);
 }
 
-// T240: the price line with its stepper. The text is the .subLine look; the two buttons sit at the row end (as a tree stepper, smaller).
-.priceRow {
+// r3/sliders: the Money view's price and season pass: the text line, then the slider across the row (the old price row indent).
+.priceBlock {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: nowrap;
+  flex-direction: column;
   flex-shrink: 0;
   padding-left: 22rem;
   padding-right: 10rem;
 }
 
+// The line above a Money view slider: the .subLine look, one text node.
 .priceRowText {
-  flex-grow: 1;
-  flex-shrink: 1;
-  min-width: 0rem;
   padding-top: 1rem;
   padding-bottom: 1rem;
   font-size: var(--fontSizeXS);
   line-height: 130%;
   color: var(--hubTextDim);
+  white-space: nowrap;
 }
 
-.priceStepper {
+// r3/sliders (Slider.tsx): a track, its fill, a round thumb, ticks at the stops of a short list, and the readout in a fixed slot.
+// The row is 22 rem x fontScale (the chip / check row height, T46.3) and all of it is the hit area; the drawn track is 4 rem. A value
+// change moves only the absolutely placed fill and thumb, never the layout. Fill and thumb ring: the vanilla accent; hover and drag:
+// its hover color. Off: the disabled color, no pointer.
+.slider {
   display: flex;
   flex-direction: row;
   align-items: center;
-  flex-grow: 0;
-  flex-shrink: 0;
+  flex-wrap: nowrap;
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0rem;
+  height: calc(22rem * var(--fontScale));
   margin-left: 8rem;
 }
 
-.priceStep {
+.sliderWide {
+  margin-left: 0rem;
+}
+
+.sliderHit {
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: center;
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0rem;
+  height: 100%;
+  padding-left: 8rem;
+  padding-right: 8rem;
+  cursor: pointer;
+}
+
+.sliderTrack {
+  position: relative;
+  flex-grow: 1;
+  flex-shrink: 1;
+  height: 4rem;
+  border-radius: 2rem;
+  background-color: var(--hubEdge);
+}
+
+.sliderFill {
+  position: absolute;
+  left: 0rem;
+  top: 0rem;
+  height: 100%;
+  border-radius: 2rem;
+  background-color: var(--accentColorNormal);
+}
+
+.sliderTick {
+  position: absolute;
+  top: -3rem;
+  width: 2rem;
+  height: 10rem;
+  margin-left: -1rem;
+  background-color: var(--hubTick);
+}
+
+// A value worth a mark of its own (the full-demand price): a taller tick in the good color.
+.sliderMark {
+  position: absolute;
+  top: -5rem;
+  width: 2rem;
+  height: 14rem;
+  margin-left: -1rem;
+  background-color: var(--hubGood);
+}
+
+.sliderThumb {
+  position: absolute;
+  top: -6rem;
+  width: 16rem;
+  height: 16rem;
+  margin-left: -8rem;
+  border-radius: 8rem;
+  border-top-width: 2rem;
+  border-right-width: 2rem;
+  border-bottom-width: 2rem;
+  border-left-width: 2rem;
+  border-top-style: solid;
+  border-right-style: solid;
+  border-bottom-style: solid;
+  border-left-style: solid;
+  border-top-color: var(--accentColorNormal);
+  border-right-color: var(--accentColorNormal);
+  border-bottom-color: var(--accentColorNormal);
+  border-left-color: var(--accentColorNormal);
+  background-color: var(--normalTextColor);
+}
+
+.sliderHit:hover .sliderThumb,
+.sliderDrag .sliderThumb {
+  border-top-color: var(--hoverColorNormal);
+  border-right-color: var(--hoverColorNormal);
+  border-bottom-color: var(--hoverColorNormal);
+  border-left-color: var(--hoverColorNormal);
+}
+
+.sliderHit:hover .sliderFill,
+.sliderDrag .sliderFill {
+  background-color: var(--hoverColorNormal);
+}
+
+.sliderOff .sliderHit {
+  cursor: default;
+}
+
+.sliderOff .sliderFill,
+.sliderOff .sliderThumb,
+.sliderOff .sliderHit:hover .sliderFill,
+.sliderOff .sliderHit:hover .sliderThumb {
+  border-top-color: var(--textColorDisabled);
+  border-right-color: var(--textColorDisabled);
+  border-bottom-color: var(--textColorDisabled);
+  border-left-color: var(--textColorDisabled);
+  background-color: var(--textColorDisabled);
+}
+
+.sliderValue {
+  display: flex;
+  flex-direction: row;
   flex-grow: 0;
   flex-shrink: 0;
-  width: calc(22rem * var(--fontScale));
-  height: calc(22rem * var(--fontScale));
-  padding: 0rem;
-  font-size: var(--fontSizeS);
+  margin-left: 4rem;
+  color: var(--normalTextColor);
+  white-space: nowrap;
 }
 
-.priceStepNext {
-  margin-left: 2rem;
-}
-
-.priceStep[disabled] {
-  opacity: 0.45;
+.sliderOff .sliderValue {
+  color: var(--textColorDisabled);
 }
 
 .divider {

@@ -477,6 +477,27 @@ for (const h of [1080, 2160]) {
 }
 // r2/hub-views (1.0.2): T240 the Money view's price stepper and Full demand row, T245 History's "This season so far", T246 the build
 // strip on each tab (Big resort: no mode engaged, so the chevron is live). At 1080 and 2160. `--list=r2views` picks this list.
+// r3/sliders: the hub's value controls (ticket price, season pass, a run's snow guns and lights, the tree density), before and after the
+// sliders. "clickRun" picks a run row by its name (the row is a button whose text starts with it). `--list=r3sliders` picks this list.
+const PICK = "Ash Flat, no tool on (runs, lifts, problems)";
+const DRAW = "Drawing a run, Ash Flat (runs, lifts, problems)";
+const R3SLIDERS_BEFORE = [
+  ["s01-money-price-1080", 1080, { scenario: ASH, view: 4, fold: 0 }],
+  ["s02-money-price-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hover: "Ticket" }],
+  ["s05-draw-run-1080", 1080, { scenario: DRAW, view: 1 }],
+  ["s05b-draw-guns-tip-1080", 1080, { scenario: DRAW, view: 1, hover: "60 m" }],
+  ["s06-tree-tool-1080", 1080, { scenario: ASH, view: 1 }],
+  ["s06b-tree-tip-1080", 1080, { scenario: ASH, view: 1, hover: "4 · Open glade" }],
+  ["s07-planner-trees-1080", 1080, { scenario: "Quick runs open, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+];
+const R3SLIDERS = R3SLIDERS_BEFORE.concat([
+  ["s03-run-picked-1080", 1080, { scenario: PICK, view: 1, clickRun: "Run 4" }],
+  ["s04-run-guns-tip-1080", 1080, { scenario: PICK, view: 1, clickRun: "Run 4", hover: "90 m" }],
+  ["s04b-cattrack-lights-tip-1080", 1080, { scenario: PICK, view: 1, clickRun: "Cat Track", hover: "Off" }],
+  ["s08-money-pass-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hover: "Season pass" }],
+  ["s09-money-price-2160", 2160, { scenario: ASH, view: 4, fold: 0 }],
+  ["s10-run-picked-2160", 2160, { scenario: PICK, view: 1, clickRun: "Run 4" }],
+]);
 const R2VIEWS = [];
 for (const h of [1080, 2160]) {
   R2VIEWS.push(
@@ -593,8 +614,8 @@ async function shots(b, base, dir, list) {
   for (const [file, h, p0] of list) {
     const w = Math.round(h * 16 / 9);
     const p = Object.assign({}, p0);
-    const { hover, hoverIn, hoverSel, click, clickRange, hoverPlot, whole, iconMode, scrollY, scrollIn, scrollInY } = p;
-    delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode; delete p.scrollY; delete p.scrollIn; delete p.scrollInY;
+    const { hover, hoverIn, hoverSel, click, clickRange, clickRun, hoverPlot, whole, iconMode, scrollY, scrollIn, scrollInY } = p;
+    delete p.clickRun; delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode; delete p.scrollY; delete p.scrollIn; delete p.scrollInY;
     await open(b, base, w, h);
     if (iconMode) await evalAsync(b, `(() => { window.skiResortIconMode = ${JSON.stringify(iconMode)}; return true; })()`, 10000);
     const m = await evalAsync(b, `(async () => { const p = new URLSearchParams(${JSON.stringify(new URLSearchParams(Object.assign({ clean: 1 }, p)).toString())});
@@ -605,6 +626,12 @@ async function shots(b, base, dir, list) {
         const el = Array.from(document.querySelectorAll('.h-panel button')).find((e) => (e.textContent || '').trim() === want);
         if (!el) return false; el.click(); await new Promise((r) => setTimeout(r, 300)); return true; })()`, 10000);
       if (!ok) console.log(`shot ${file}: button "${want}" not found`);
+    }
+    if (clickRun) {   // pick a run row: its button's text starts with the run's name
+      const ok = await evalAsync(b, `(async () => { const want = ${JSON.stringify(clickRun)};
+        const el = Array.from(document.querySelectorAll('.h-panel button[class*="runFly"]')).find((e) => (e.textContent || '').trim().startsWith(want));
+        if (!el) return false; el.click(); await new Promise((r) => setTimeout(r, 400)); return true; })()`, 10000);
+      if (!ok) console.log(`shot ${file}: run row "${clickRun}" not found`);
     }
     if (scrollY) {   // scroll the panel's content (a long Runs view: the lower rows) by this many px
       const n = await evalAsync(b, `(() => { const e = document.querySelector('.h-panel [class*="panelContent"]'); if (!e) return 0; e.scrollTop = ${Number(scrollY)}; return 1; })()`, 10000);
@@ -754,7 +781,7 @@ async function main() {
     const b = browsers[0];
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg),
-        process.argv.includes("--list=r3ui") ? R3UI : process.argv.includes("--list=r2fix") ? R2FIX : process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2hub") ? R2HUB : process.argv.includes("--list=r2views") ? R2VIEWS : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=r3sliders-before") ? R3SLIDERS_BEFORE : process.argv.includes("--list=r3sliders") ? R3SLIDERS : process.argv.includes("--list=r3ui") ? R3UI : process.argv.includes("--list=r2fix") ? R2FIX : process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2hub") ? R2HUB : process.argv.includes("--list=r2views") ? R2VIEWS : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

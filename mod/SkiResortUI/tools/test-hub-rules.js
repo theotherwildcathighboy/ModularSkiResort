@@ -1000,10 +1000,10 @@ function run(srcDir) {
     const TEXT = "calc(26rem * var(--fontScale))";
     const CONTROL_HEIGHT = {
       // text buttons: one height
-      actionButton: TEXT, segButton: TEXT, startButton: TEXT, stepButton: TEXT, treeToolButton: TEXT, areaName: TEXT,
+      actionButton: TEXT, segButton: TEXT, startButton: TEXT, treeToolButton: TEXT, areaName: TEXT,
       // icon buttons, tabs, chips, check rows
       headerButton: "calc(24rem * var(--fontScale))", tabButton: "calc(24rem * var(--fontScale))", tabChevron: "calc(24rem * var(--fontScale))", rowPen: "calc(22rem * var(--fontScale))",
-      pickerChip: "calc(22rem * var(--fontScale))", priceStep: "calc(22rem * var(--fontScale))", toggleAct: "calc(22rem * var(--fontScale))", pagerButton: "calc(20rem * var(--fontScale))",
+      pickerChip: "calc(22rem * var(--fontScale))", toggleAct: "calc(22rem * var(--fontScale))", pagerButton: "calc(20rem * var(--fontScale))",
       // tiles
       tile: "calc(33.1rem * var(--fontScale) + 36.315rem * var(--fontScaleChange) + 8.5rem)",
       buildTile: "calc(12rem + 44rem * var(--fontScale))",
@@ -1014,7 +1014,7 @@ function run(srcDir) {
     const NO_OWN_HEIGHT = new Set([
       "areaNameOpen", "buildTileActive", "buildTileLocked", "buttonOn", "fitText", "foldRow", "foldRowOpen", "hiddenKeepSpace", "histSeg",
       "histSegNext", "infoHeader", "lodgeRow", "mergeAction", "overlayItemOn", "pagerButtonOff", "pickerChipOn", "planRow", "planRowOff",
-      "problemClickable", "problemDim", "problemMoreButton", "problemMoreOn", "rowTrashArmed", "priceStepNext", "segButtonNext", "tabButtonOn", "tileOn",
+      "problemClickable", "problemDim", "problemMoreButton", "problemMoreOn", "rowTrashArmed", "segButtonNext", "tabButtonOn", "tileOn",
     ]);
     const hubDir = path.join(srcDir, "hub");
     const scssNoComments = fs.readFileSync(path.join(hubDir, "hub.module.scss"), "utf8").replace(/\/\/[^\n]*/g, "");
@@ -1044,7 +1044,9 @@ function run(srcDir) {
     }
     const stale = [...Object.keys(CONTROL_HEIGHT), ...NO_OWN_HEIGHT].filter((c) => !used.has(c));
     eq("T46.1 every hub Button class has a height from the control scale (text buttons 26 rem x fontScale)", [bad, stale, used.size > 30], [[], [], true]);
-    eq("T46.2 the text-button classes all share one height", [...["actionButton", "segButton", "startButton", "stepButton", "treeToolButton"].map(heightOf)], Array(5).fill(TEXT));
+    eq("T46.2 the text-button classes all share one height", [...["actionButton", "segButton", "startButton", "treeToolButton"].map(heightOf)], Array(4).fill(TEXT));
+    // r3/sliders: the slider row is a control of the scale too (the chip / check row height), so a slider row and a chip row line up.
+    eq("T46.3 the slider row is 22 rem x fontScale", heightOf("slider"), "calc(22rem * var(--fontScale))");
   }
 
   // T41 a count names what it counts (hub redesign 2026-11-07, DECISIONS 613): the band's "+3" read as an attraction delta and

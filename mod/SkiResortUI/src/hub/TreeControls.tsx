@@ -2,8 +2,9 @@
  * src/hub/TreeControls.tsx - the glade (tree) tool's controls. The rows sit at the top of the Runs view while the tool is on.
  * There, the footer's Tree chip is the on/off (TreeRows toggle={false}, hub redesign 2026-11-07).
  * The same rows, with their own on/off, sit in a foldout on the contract-mismatch panel (TreesFoldout).
- * Row A: an on/off Button and the density stepper. The Button is disabled unless available or active, so an active tool can always
- * be stopped. The stepper clamps 1..8 with no wrap. The Shift+G hotkey wraps 8 -> 1.
+ * Row A: an on/off Button and the density slider (r3/sliders, 8 stops with ticks, "4 · Open glade"; it was a - / + stepper). The Button is
+ * disabled unless available or active, so an active tool can always be stopped. The slider spans 1..8. The density hotkey wraps 8 -> 1.
+ * The slider has no tooltip: its readout names the level, and there is nothing to add.
  * Row B [Run interior | Tree line]: each Button sits in its own Tip. One Tip around two focusable Buttons puts two children under
  * one vanilla Tooltip FocusBoundary. A PassThroughFocusController hosts one child ("can only host a single child" on every toggle).
  * It reads only the core `glade` binding. Content area: default focus for every Button.
@@ -16,7 +17,9 @@ import { GLADE_LEVEL_DEFAULT, GLADE_LEVEL_MAX, GLADE_LEVEL_MIN, clampGladeLevel,
 import { useT } from "../l10n";
 import { treesOpen$ } from "./hubState";
 import { HUB_LOC, gladeLevelEntry, sentKeyEntry } from "./hubText";
-import { StableWidth, Tip, cx } from "./parts";
+import { Tip, cx } from "./parts";
+import { GLADE_STOPS } from "./hubRules";
+import { Slider } from "./Slider";
 import styles from "./hub.module.scss";
 
 export function TreeRows({ toggle = true }: { toggle?: boolean } = {}): JSX.Element {
@@ -51,38 +54,9 @@ export function TreeRows({ toggle = true }: { toggle?: boolean } = {}): JSX.Elem
             {t(HUB_LOC.treeTool)}
           </Button>
         </Tip>}
-        <div className={styles.treeRowSpacer} />
-        <div className={styles.stepper}>
-          <Tip tip={t(HUB_LOC.treesFewer)}>
-            <Button
-              focusKey={FOCUS_DISABLED}
-              variant="flat"
-              className={styles.stepButton}
-              disabled={settingsDisabled || level <= GLADE_LEVEL_MIN}
-              onSelect={() => hubTriggers.gladeSetLevel(level - 1)}
-            >
-              {"–"}
-            </Button>
-          </Tip>
-          <Tip tip={t(HUB_LOC.gladeLevel)}>
-            <div className={styles.stepValue}>
-              <StableWidth samples={samples} align="center">
-                {label(level)}
-              </StableWidth>
-            </div>
-          </Tip>
-          <Tip tip={t(HUB_LOC.treesMore)}>
-            <Button
-              focusKey={FOCUS_DISABLED}
-              variant="flat"
-              className={styles.stepButton}
-              disabled={settingsDisabled || level >= GLADE_LEVEL_MAX}
-              onSelect={() => hubTriggers.gladeSetLevel(level + 1)}
-            >
-              {"+"}
-            </Button>
-          </Tip>
-        </div>
+        {!toggle && <div className={styles.quickCaption}>{t(HUB_LOC.quickTreeDensity)}</div>}
+        <Slider ticks stops={GLADE_STOPS} value={level} disabled={settingsDisabled} format={label} samples={samples}
+          onCommit={(v) => hubTriggers.gladeSetLevel(v)} />
       </div>
       {active && (
         <div className={styles.treeRow}>

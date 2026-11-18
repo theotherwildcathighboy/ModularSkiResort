@@ -114,11 +114,13 @@
     // contract 33: the Run tile's option row
     setDrawRun: (k, v) => { const g = get("drawRun"); if (g && ["groomed", "guns", "lights"].includes(k)) set("drawRun", Object.assign({}, g,
       k === "groomed" ? { groomed: !!v } : k === "guns" ? { gunSpacingM: v } : { lightSpacingM: v })); },
-    quickRunsSet: (k, v) => { const g = get("quickRuns"); if (g && ["density", "trees", "group", "species"].includes(k)) set("quickRuns", Object.assign({}, g, { [k === "trees" ? "trees" : k]: k === "trees" ? !!v : v })); },
+    quickRunsSet: (k, v) => { const g = get("quickRuns"); if (g && ["density", "trees", "group", "species", "level"].includes(k)) set("quickRuns", Object.assign({}, g, { [k === "level" ? "treeLevel" : k]: k === "trees" ? !!v : v })); },
     deleteCatTrack: (run) => { const k = (e) => e && run && e.index === run.index && e.version === run.version; set("runs", (get("runs") || []).filter((r) => !k(r.entity))); set("runLive", (get("runLive") || []).filter((r) => !k(r.entity))); },
     gladeToggle: () => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { active: !g.active })); },
     gladeSetLevel: (level) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { level })); },
     gladeSetTreeLine: (treeLine) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { treeLine: !!treeLine })); },
+    // contract 56 (r3/sliders): the season pass slider (C# clamps 2..10)
+    setPassMultiplier: (n) => { const c = get("city"); if (c) set("city", Object.assign({}, c, { passMultiplier: Math.min(10, Math.max(2, Math.round(n))) })); },
     setTicketPrice: (price) => { const c = get("city"); if (c) set("city", Object.assign({}, c, { ticketPrice: Math.min(200, Math.max(0, Math.round(price / 5) * 5)) })); },
     launch: (id) => {
       const items = get("build") || [];

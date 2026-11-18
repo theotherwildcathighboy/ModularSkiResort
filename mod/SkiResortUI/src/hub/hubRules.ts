@@ -7,7 +7,7 @@
  */
 import type { Entity } from "cs2/utils";
 import {
-  BUILD_ITEM_IDS, LIFT_STATE, QUICK_REJECT_BUCKETS, VARIETY_BAND, RUN_PROP_SPACING_MAX, RUN_PROP_SPACING_MIN, RUN_PROP_SPACING_OFF, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SEASON_HINT, SKI_DAY_LIMIT, SKI_DAY_STATE,
+  BUILD_ITEM_IDS, GLADE_LEVEL_MAX, GLADE_LEVEL_MIN, LIFT_STATE, QUICK_REJECT_BUCKETS, VARIETY_BAND, RUN_PROP_SPACING_MAX, RUN_PROP_SPACING_MIN, RUN_PROP_SPACING_OFF, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SEASON_HINT, SKI_DAY_LIMIT, SKI_DAY_STATE,
   TICKET_GATE, TRIP_PLANNER_UNKNOWN, entityId, sameEntity,
 } from "../bindings";
 import type {
@@ -803,6 +803,21 @@ export function steppedPrice(price: number, dir: 1 | -1): number {
   return snapTicketPrice(snapTicketPrice(price) + dir * PRICE_STEP);
 }
 
+/** r3/sliders: the price slider's stops, 0 to PRICE_MAX in PRICE_STEP (41 stops, as the Options slider). */
+export const PRICE_STOPS: readonly number[] = Array.from({ length: PRICE_MAX / PRICE_STEP + 1 }, (_, i) => i * PRICE_STEP);
+
+/** r3/sliders: the season pass price in lift tickets (C# SkiMoneyRules.PassMultiplierMin / Max / Default). */
+export const PASS_MULT_MIN = 2;
+export const PASS_MULT_MAX = 10;
+export const PASS_MULT_DEFAULT = 4;
+export const PASS_MULT_STOPS: readonly number[] = Array.from({ length: PASS_MULT_MAX - PASS_MULT_MIN + 1 }, (_, i) => PASS_MULT_MIN + i);
+
+/** r3/sliders: the Money view's season pass row is drawn while passes are on (share above 0) and a ticket has a price (a pass costs
+ *  tickets: C# SkiMoneyRules.PassPrice is 0 without one). A control with nothing to act on is not drawn. */
+export function passSliderShown(city: CityStats): boolean {
+  return city.passShare > 0 && city.ticketPrice > 0;
+}
+
 /** T240: the stepper's buttons. Off while the price is unknown (-1) and at the ends of the range. */
 export function priceStepEnabled(price: number, dir: 1 | -1): boolean {
   if (!(price >= 0)) return false;
@@ -1187,6 +1202,12 @@ export function schoolFlagOf(s: SchoolState): "noSchool" | "schoolNoGreen" | "sc
  */
 export const RUN_PROP_SPACING_LADDER = [20, 30, 40, 50, 60, 80, 100, 130, 160, 200];
 export const RUN_PROP_SPACING_FIRST = 50;
+
+/** r3/sliders: the tree density slider's stops, level 1..8 (bindings GLADE_LEVEL_MIN..MAX). */
+export const GLADE_STOPS: readonly number[] = Array.from({ length: GLADE_LEVEL_MAX - GLADE_LEVEL_MIN + 1 }, (_, i) => GLADE_LEVEL_MIN + i);
+
+/** r3/sliders: a spacing slider's stops, left to right: Off, then the ladder from sparse to dense, so right is always "more". */
+export const RUN_PROP_SPACING_STOPS: readonly number[] = [RUN_PROP_SPACING_OFF, ...RUN_PROP_SPACING_LADDER.slice().reverse()];
 
 /** The value a Fewer (more = false) or More (more = true) click sends. The row shows C#'s value. This only picks what to send. */
 export function runPropSpacingStep(value: number, more: boolean): number {

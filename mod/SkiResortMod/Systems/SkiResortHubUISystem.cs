@@ -43,7 +43,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 55;
+        public const int HubContract = 56;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -385,6 +385,9 @@ namespace SkiResortMod.Systems
                 // The pass share (0 = passes off).
                 writer.PropertyName("passShare");
                 writer.Write(Fin(value.PassShare));
+                // Contract 56 (r3/sliders): the season pass price in lift tickets (2..10), the Money view's pass slider.
+                writer.PropertyName("passMultiplier");
+                writer.Write(Fin(value.PassMultiplier));
                 // The calendar month 0..11 (the UI names it with vanilla Common.MONTH:<n>).
                 writer.PropertyName("month");
                 writer.Write(Fin(value.Month));
@@ -412,7 +415,7 @@ namespace SkiResortMod.Systems
                        a.SnowmakingMarginC.Equals(b.SnowmakingMarginC) && a.SnowVisualsOff == b.SnowVisualsOff &&
                        a.TourismOverhaul == b.TourismOverhaul && a.RealisticWorkplaces == b.RealisticWorkplaces &&
                        a.TripPlanner == b.TripPlanner && a.TripPlannerBlocksSkiDays == b.TripPlannerBlocksSkiDays &&
-                       a.PassShare == b.PassShare &&
+                       a.PassShare == b.PassShare && a.PassMultiplier == b.PassMultiplier &&
                        a.Month == b.Month &&
                        a.TourismBonusPct.Equals(b.TourismBonusPct) && a.TourismBonusSumPct.Equals(b.TourismBonusSumPct) &&
                        a.TourismBonusCapPct == b.TourismBonusCapPct && a.TouristsDayMean == b.TouristsDayMean;
@@ -435,6 +438,7 @@ namespace SkiResortMod.Systems
                     h = h * 31 + (c.TripPlanner ?? "").GetHashCode();
                     h = h * 31 + (c.TripPlannerBlocksSkiDays ? 1 : 0);
                     h = h * 31 + c.PassShare;
+                    h = h * 31 + c.PassMultiplier;
                     h = h * 31 + c.TourismBonusPct.GetHashCode();
                     h = h * 31 + c.TourismBonusCapPct;
                     h = h * 31 + c.TouristsDayMean;
@@ -518,7 +522,8 @@ namespace SkiResortMod.Systems
             MergeBuilding, UnmergeBuilding,  // contract 35: the merge card (Int = tier) in SkiResortHubUISystem.Merge.cs
             ArmMergeOverlay,                 // contract 36: the merge overlay chip (Bool = arm)
             SyncCard, SyncInclude, SyncKeep, SyncRun,   // contract 51: Sync Resort (SkiResortHubUISystem.Sync.cs)
-            SetTicketPrice,                  // contract 54: the Money view's price stepper (Int = price), T240
+            SetTicketPrice,                  // contract 54: the Money view's price slider (Int = price), T240
+            SetPassMultiplier,               // contract 56: the Money view's season pass slider (Int = lift tickets), r3/sliders
         }
 
         private struct Request
@@ -885,6 +890,7 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<Entity, bool>(Group, "setRunGroomed", OnSetRunGroomed));
             AddBinding(new TriggerBinding<string, int>(Group, "setDrawRun", OnSetDrawRun));
             AddBinding(new TriggerBinding<int>(Group, "setTicketPrice", OnSetTicketPrice));   // contract 54: T240
+            AddBinding(new TriggerBinding<int>(Group, "setPassMultiplier", OnSetPassMultiplier));   // contract 56: r3/sliders
 
             Mod.Log.Info($"{nameof(SkiResortHubUISystem)} created — group '{Group}', contract {HubContract}, " +
                          $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 20 value bindings, " +
@@ -1200,6 +1206,9 @@ namespace SkiResortMod.Systems
         private void OnSetTicketPrice(int price) =>
             Trigger("setTicketPrice", new Request { Kind = RequestKind.SetTicketPrice, Int = price });
 
+        private void OnSetPassMultiplier(int tickets) =>
+            Trigger("setPassMultiplier", new Request { Kind = RequestKind.SetPassMultiplier, Int = tickets });
+
         private void OnFocusLift(Entity entity, Entity top) =>
             Trigger("focusLift", new Request { Kind = RequestKind.FocusLift, Entity = entity, Entity2 = top });
 
@@ -1457,6 +1466,9 @@ namespace SkiResortMod.Systems
                 case RequestKind.SetTicketPrice:
                     ApplyTicketPrice(r.Int, r.Source);
                     break;
+                case RequestKind.SetPassMultiplier:
+                    ApplyPassMultiplier(r.Int, r.Source);
+                    break;
             }
         }
 
@@ -1480,6 +1492,28 @@ namespace SkiResortMod.Systems
             settings.LiftTicketPrice = now;
             settings.ApplyAndSave();
             Mod.Log.Info($"Hub: lift ticket price {was} -> {now} (Options LiftTicketPrice saved, every ski area){SourceSuffix(source)}");
+        }
+
+        /// <summary>Contract 56 (r3/sliders): the Money view's season pass slider writes the Options setting SeasonPassMultiplier (the pass
+        /// price in lift tickets, every ski area) and saves the options file, as ApplyTicketPrice does. Clamped to 2..10
+        /// (SkiMoneyRules.ClampPassMultiplier). SkiLiftTicketSystem reads it live. A pass sold earlier keeps its locked price.</summary>
+        private void ApplyPassMultiplier(int tickets, string source)
+        {
+            var settings = Mod.Settings;
+            if (settings == null)
+            {
+                LastTriggerText = $"setPassMultiplier({tickets}) refused: no settings";
+                Mod.Log.Warn($"Hub: setPassMultiplier({tickets}) refused, the mod settings are not loaded{SourceSuffix(source)}");
+                return;
+            }
+            int was = settings.SeasonPassMultiplier;
+            int now = SkiMoneyRules.ClampPassMultiplier(tickets);
+            LastTriggerText = $"setPassMultiplier({tickets}) -> {now}";
+            if (now == was)
+                return;
+            settings.SeasonPassMultiplier = now;
+            settings.ApplyAndSave();
+            Mod.Log.Info($"Hub: season pass price {was} -> {now} lift tickets (Options SeasonPassMultiplier saved, every ski area){SourceSuffix(source)}");
         }
 
         /// <summary>A run was re-emitted under a new entity (SkiRunReemitSystem, Modification1, main thread). The sign map, the world

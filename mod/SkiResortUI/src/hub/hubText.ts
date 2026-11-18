@@ -360,6 +360,22 @@ export const HUB_LOC = {
   runPropsMore: ["SkiResort.Hub.RUN_PROPS_MORE", "More"],
   runPropsFewerTip: ["SkiResort.Hub.RUN_PROPS_FEWER_TIP", "Farther apart. Past 200 m: off."],
   runPropsMoreTip: ["SkiResort.Hub.RUN_PROPS_MORE_TIP", "Puts them closer together, down to 20 m."],
+  /* r3/sliders: the slider tooltips, one idea per line */
+  runPropsSpacingTip: ["SkiResort.Hub.RUN_PROPS_TIP[Spacing]", "Spacing on the run's edge"],
+  runPropsSpacingTipCatTrack: ["SkiResort.Hub.RUN_PROPS_TIP[SpacingCatTrack]", "Spacing on the track's edge"],
+  runPropsGunsOff: ["SkiResort.Hub.RUN_PROPS_TIP[GunsOff]", "Off: no made snow, no upkeep"],
+  runPropsGunsCatTrack: ["SkiResort.Hub.RUN_PROPS_TIP[GunsCatTrack]", "Its snow counts but is not drawn"],
+  runPropsGunsOffCatTrack: ["SkiResort.Hub.RUN_PROPS_TIP[GunsOffCatTrack]", "Off: no upkeep, and the snow melts"],
+  runPropsLightsEvening: ["SkiResort.Hub.RUN_PROPS_TIP[LightsEvening]", "Lit runs stay open in the evening"],
+  runPropsLightsOff: ["SkiResort.Hub.RUN_PROPS_TIP[LightsOff]", "Off: no lighting upkeep"],
+  runPropsLightsCatTrack: ["SkiResort.Hub.RUN_PROPS_TIP[LightsCatTrack]", "Upkeep in the snow season only"],
+  runPropsFeeFirst: ["SkiResort.Hub.RUN_PROPS_TIP[FeeFirst]", "First time on: a one-time fee by run area"],
+  runPropsFeePaid: ["SkiResort.Hub.RUN_PROPS_TIP[FeePaid]", "Fee paid: on again costs nothing"],
+  moneyPriceTipTable: ["SkiResort.Hub.MONEY_PRICE_TIP[Table]", "Ski days at each price"],
+  moneyPriceTipEvery: ["SkiResort.Hub.MONEY_PRICE_TIP[Every]", "One price for every ski area, as in Options"],
+  moneyPriceTipOnly: ["SkiResort.Hub.MONEY_PRICE_TIP[Only]", "Only ski days react to it"],
+  moneyPassTipLocked: ["SkiResort.Hub.MONEY_PASS_TIP[Locked]", "Price locked at the sale"],
+  moneyPassTipResidents: ["SkiResort.Hub.MONEY_PASS_TIP[Residents]", "Residents buy it, tourists never"],
   cruxPitch: ["SkiResort.Tooltip.CRUX_PITCH", "Hardest unavoidable pitch"],
   steepestPatch: ["SkiResort.Tooltip.STEEPEST_PATCH", "Steepest patch (avoidable)"],
 
@@ -875,6 +891,11 @@ export const HUB_FMT = {
   moneyTicketsPrice: ["SkiResort.Hub.MONEY_TICKETS_PRICE", "Lift ticket price now: {PRICE}"],
   /* {PRICE} = hubRules.hubPrice (Money), {PCT} = hubRules.priceFactorPct (Percentage) */
   moneyPriceLine: ["SkiResort.Hub.MONEY_PRICE_LINE", "Ticket {PRICE} · demand {PCT}"],
+  /* r3/sliders: {P} / {FULL} / {PRICE} Money, {N} Integer */
+  moneyPriceTipUpTo: ["SkiResort.Hub.MONEY_PRICE_TIP[UpTo]", "Up to {P}"],
+  moneyPriceTipLodges: ["SkiResort.Hub.MONEY_PRICE_TIP[Lodges]", "Lodges here: full up to {FULL}"],
+  moneyPassLine: ["SkiResort.Hub.MONEY_PASS_LINE", "Season pass {PRICE} · {N} tickets"],
+  moneyPassTipBreakeven: ["SkiResort.Hub.MONEY_PASS_TIP[Breakeven]", "Cheaper than day tickets from ski day {N}"],
   /* {FULL} = PRICE_NO_EFFECT_MAX, {P1..P3} = PRICE_EXAMPLES (Money), {F1..F3} = their priceFactorPct (Percentage) */
   moneyPriceTipCurve: ["SkiResort.Hub.MONEY_PRICE_TIP[Curve]", "Ski days: as many at any price up to {FULL}, then fewer: {F1} as many at {P1}, {F2} at {P2}, {F3} at {P3}."],
   /* {FULL} = 40 + priceTolerance (not "Luxury lodges": the Chalet has 20) */

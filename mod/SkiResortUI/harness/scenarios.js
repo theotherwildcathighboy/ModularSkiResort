@@ -44,7 +44,7 @@
 
   const city = { known: true, daysPerYear: 365, scaleK: 4, backcountryPct: 40, ticketPrice: 65, snowGating: true,
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
-    tripPlanner: "", tripPlannerBlocksSkiDays: false, passShare: 50, month: 1,
+    tripPlanner: "", tripPlannerBlocksSkiDays: false, passShare: 50, passMultiplier: 4, month: 1,
     // Contract 50 (T226 / T225): Ash Flat's 2.9 % of a 10 % cap, a day mean of 2,430 tourists.
     tourismBonusPct: 2.93, tourismBonusSumPct: 2.93, tourismBonusCapPct: 10, touristsDayMean: 2430 };
 
@@ -309,7 +309,7 @@
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800, affordMask: 31 };
   const snowCardHidden = { shown: false, report: Object.assign({}, snowReport, { known: false }) };
-  const base = { hubOpen: false, contract: 55, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 56, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
@@ -327,6 +327,9 @@
     "Ash Flat (runs, lifts, problems), European grading, imperial, °F, percent slopes": Object.assign({}, base, { hubOpen: true, resorts,
       resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history, gradeScheme: 1, displayUnits: 23,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),
+    // r3/sliders: Ash Flat with no tool on, so a picked run shows its feature rows (the glade tool is off).
+    "Ash Flat, no tool on (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive,
+      lifts, problems, history, build: buildItems({ built: ["school"] }) }),
     // Drawing a run (contract 33): the Run tile active, its option row (Groomed on, guns every 60 m, lights Off) in place of the run panel.
     "Drawing a run, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive,
       lifts, problems, history, build: buildItems({ active: "runGroomed", built: ["school"] }),
