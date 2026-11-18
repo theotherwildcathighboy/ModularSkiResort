@@ -2,7 +2,8 @@
  * src/hub/MergeCard.tsx - the merge card beside the game's selected-info panel (contract 35), for a merged building or one that could be
  * merged. It is always mounted at the "Game" hook, like the Ski Bus card. So it reads only mergeCard$, never a panel binding.
  * The tier rows pick a tier the lot allows. Each row shows that tier's one-time fee (charge[t]), none on the current tier. A tier the lot
- * cannot take has no row. The card does not know the city's money, so no row turns red (C# says "not enough money" after the click). The button fires mergeBuilding. C# charges at once and says the outcome on the next push.
+ * cannot take has no row. A fee the city cannot pay now (MergeCardState.affordMask, contract 53) shows in the warning color, and the Merge
+ * button is off while the chosen tier is such a one. The button fires mergeBuilding. C# charges at once and says the outcome on the next push.
  * Its fees, states and refusals are C#'s numbers (SkiMergeSystem, MergeRules). The card decides nothing.
  * Contract 37: the title's tooltip holds what merging does and the fee rule (hub redesign 2026-11-07: the note under the title went).
  * Merge / unmerge are the hub's action buttons.
@@ -19,7 +20,7 @@ import { Unit } from "cs2/l10n";
 import { hubTriggers, mergeCard$ } from "../bindings";
 import type { BuildItemId, MergeCardState } from "../bindings";
 import { useT } from "../l10n";
-import { mergeGate } from "./hubRules";
+import { mergeAffordable, mergeGate } from "./hubRules";
 import type { LocEntry } from "../l10n";
 import styles from "./hub.module.scss";
 import { HUB_FMT, HUB_LOC, LODGE_TIER } from "./hubText";
@@ -58,7 +59,8 @@ export function MergeCard(): JSX.Element | null {
   const monthly = chosen >= 0 ? card.monthly[chosen] ?? 0 : 0;
   const canApply = chosen >= 0 && chosen !== card.tier && !tooSmall;
   const gate = mergeGate(merged, card.geometry, card.near);   // a first merge that would be billed and never count is off
-  const blocked = gate !== "open";
+  const unaffordable = chosen >= 0 && chosen !== card.tier && !mergeAffordable(card.affordMask, chosen);   // T231: the city cannot pay it now
+  const blocked = gate !== "open" || unaffordable;
   return (
     <div className={cx(styles.busCard, styles.mergeCard)}>
       <Tip tip={<TipLines lines={[merged ? null : t(HUB_LOC.mergeCardNote), t(HUB_LOC.mergeCardTip)]} />}>
@@ -86,7 +88,7 @@ export function MergeCard(): JSX.Element | null {
                     onSelect={() => setPick(tier)}>
                     <div className={styles.pickerLabel}>{entry ? t(entry) : String(tier)}</div>
                     {/* The one-time fee of this tier, so tiers compare without a click. The current tier of a merged building costs nothing. */}
-                    {tier !== card.tier && <div className={styles.mergeTierFee}><Num value={card.charge[tier] ?? 0} unit={Unit.Money} /></div>}
+                    {tier !== card.tier && <div className={cx(styles.mergeTierFee, !mergeAffordable(card.affordMask, tier) && styles.mergeTierFeeShort)}><Num value={card.charge[tier] ?? 0} unit={Unit.Money} /></div>}
                   </Button>
                 </div>
               );

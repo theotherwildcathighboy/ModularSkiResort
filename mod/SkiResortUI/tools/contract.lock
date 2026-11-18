@@ -2,7 +2,7 @@
 # Written by `npm run contract:lock` (tools/check-bundle.js --write-lock); checked on every build
 # (rule R3, docs/research/hub-u2-spec.md section 4.7). Do not edit by hand: change src/bindings.ts,
 # bump HUB_CONTRACT (and C#'s HubContract), run `npm run contract:lock`, review this file's diff.
-contract 52
+contract 53
 core build
 core buildStamp
 core contract
@@ -198,6 +198,7 @@ shape LodgeParkingRow.lodge : Entity
 shape LodgeParkingRow.name : string
 shape LodgeParkingRow.number : number
 shape LodgeParkingRow.sign : Entity
+shape MergeCardState.affordMask : number
 shape MergeCardState.allowedMask : number
 shape MergeCardState.area : string
 shape MergeCardState.building : Entity
@@ -413,6 +414,7 @@ shape ResortLive.lodgeIncomeMonth : number
 shape ResortLive.lodgePart : number
 shape ResortLive.lodgeSpendMonth : number
 shape ResortLive.lodgesActive : number
+shape ResortLive.lodgesOffSeason : number
 shape ResortLive.luxuryIgnored : number
 shape ResortLive.monthShare : number
 shape ResortLive.netEstimated : boolean
@@ -438,6 +440,7 @@ shape ResortLive.runsOpen : number
 shape ResortLive.runsPartly : number
 shape ResortLive.runsValue : number
 shape ResortLive.runsValueFull : number
+shape ResortLive.schoolOffSeason : boolean
 shape ResortLive.schoolValue : number
 shape ResortLive.scoreVerticalM : number
 shape ResortLive.seasonHint : number

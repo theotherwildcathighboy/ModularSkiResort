@@ -107,11 +107,12 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SkiDayLocalsPct)),
                     "Locals who ski"
                 },
-                // Description: a lower price does not bring more (false at or below 40: the price factor is 1 there, SkiDayRules)
+                // Description: a lower price does not bring more (false at or below 40 plus the best lodge's tolerance: the price factor is 1 there, SkiDayRules)
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiDayLocalsPct)),
                     "How often residents spend a day out skiing. More attraction, fresh snow and a shorter trip " +
-                    "bring more. A lift ticket price above 40 brings fewer. 0 turns ski days off for residents. " +
+                    "bring more. A lift ticket price above ¢40 brings fewer. Bigger lodges raise that limit: up to ¢60 with a " +
+                    "Chalet Lodge, up to ¢80 with a Swanky Summit or Grand Lodge. 0 turns ski days off for residents. " +
                     "Default 25 %."
                 },
                 {
@@ -150,7 +151,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiAreaRadiusKm)),
-                    "How far a ski area reaches from its Welcome Sign. Lifts, lodges, ski schools and patrol huts belong to the " +
+                    "How far a ski area reaches from its Welcome Sign, measured in a straight line, not along roads. Lifts, lodges, ski schools and patrol huts belong to the " +
                     "nearest sign within this distance. They update when this value changes, also while the game runs. A run " +
                     "links to the nearest sign within it when you draw it and keeps that sign. Default 5 km (3.1 mi)."
                 },
@@ -197,8 +198,9 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
                     "What each guest pays on arrival, one price for every ski area. Resort income shows in the Economy panel under public " +
-                    "transportation fees: the game has no ski line. Above 40 it lowers ski days: about 90 % as many at 60, 70 % at 100, 20 " +
-                    "% at 200. Visitors the game sends on its own come at any price and still pay it. 0 turns lift tickets off. Default " +
+                    "transportation fees: the game has no ski line. Above ¢40 it lowers ski days: about 90 % as many at ¢60, 70 % at ¢100, 20 " +
+                    "% at ¢200. Bigger lodges raise the ¢40 limit: up to ¢60 with a Chalet Lodge, up to ¢80 with a Swanky Summit " +
+                    "or Grand Lodge. Visitors the game sends on its own come at any price and still pay it. 0 turns lift tickets off. Default " +
                     "100."
                 },
                 // Lodge spend per guest: "price 0 = nothing charged" is documented in the slider tip. Multipliers: SkiCatalog.LodgeDef.SpendMultiplier.

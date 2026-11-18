@@ -16,7 +16,7 @@ namespace SkiResortMod.Systems
         public const float LiftFixedPerMonth = SkiCatalog.FixedGrip.FixedPerMonth;
         public const float LiftPerKmPerMonth = SkiCatalog.FixedGrip.PerKmPerMonth;
         public const float LiftReducedShare = 0.25f;
-        public const int TicketPriceDefault = 100; // the ski-day price factor at 100 is 0.7 (residents only; tourists pay any price)
+        public const int TicketPriceDefault = 100; // the ski-day price factor at 100 is 0.7 (residents and tourists alike; only a season pass holder skips it)
         public const int TicketPriceMax = 200;
         public const int TicketPriceStep = 5;
         // time (TimeSystem.kTicksPerDay, Game.Simulation/TimeSystem.cs:18). The ECS systems assert it at arm time

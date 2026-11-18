@@ -286,9 +286,17 @@ export function statusVariant(row: ResortRow | null, live: ResortLive | null): S
 export type ResultVariant = "result" | "noLodge";
 
 /** Overview receipt result label: no active lodge -> "Attraction (no lodge: 0)". That way the
- *  receipt says why lodge base 0 + runs and lifts gives 0. lodgesActive -1 (no result) -> "result". */
+ *  receipt says why lodge base 0 + runs and lifts gives 0. lodgesActive -1 (no result) -> "result". Lodges the resort closed for the
+ *  off-season (live.lodgesOffSeason, T237) are lodges: the area has them, so it never reads "no lodge". */
 export function resultVariant(live: ResortLive | null): ResultVariant {
-  return live && live.lodgesActive === 0 ? "noLodge" : "result";
+  return live && live.lodgesActive === 0 && !(live.lodgesOffSeason > 0) ? "noLodge" : "result";
+}
+
+/** The lodge base row's label key (HUB_LOC): none active -> "no lodge", or "lodges closed" while the resort closed them for the
+ *  off-season; the summer share otherwise. */
+export function lodgeBaseLabelKey(live: ResortLive | null): "receiptLodgeBaseNone" | "receiptLodgeBaseClosed" | "receiptLodgeBaseHalf" | "receiptLodgeBase" {
+  if (live && live.lodgesActive === 0) return live.lodgesOffSeason > 0 ? "receiptLodgeBaseClosed" : "receiptLodgeBaseNone";
+  return live && live.summer ? "receiptLodgeBaseHalf" : "receiptLodgeBase";
 }
 
 export type StatusWord = "open" | "partly" | "closed";
@@ -312,7 +320,8 @@ export const SNOW_KEEP_CM = 30;
 
 export type StatusHint = "powder" | "warn" | "snow" | "season" | "none";
 
-/** The SEASON_HINT values that stay on the status line as a warning (runs closing or not opening). Every other hint word
+/** The SEASON_HINT values that stay on the status line as a warning (runs closing or not opening). ClosedForSummer (T236) is a plain state,
+ *  not a warning: it shows its word in the slot (statusHint) but does not paint it as one. Every other hint word
  *  moves into the status tooltip and the slot shows the snow. */
 export const SEASON_HINT_WARN: readonly number[] = [SEASON_HINT.Thawing, SEASON_HINT.WaitingForSnow, SEASON_HINT.TooWarm];
 
@@ -328,6 +337,7 @@ export function statusHint(row: ResortRow | null, live: ResortLive | null): Stat
   if (live.skiDaysPowderPct >= POWDER_MARK_PCT) return "powder";
   // Snow on the top level, "64 cm · 88 %". A warning hint keeps the slot.
   if (SEASON_HINT_WARN.includes(live.seasonHint)) return "warn";
+  if (live.seasonHint === SEASON_HINT.ClosedForSummer) return "season";   // T236: the word, not "0 cm · 0 %"
   return live.snowDepthCm >= 0 || live.snowPct >= 0 ? "snow" : "season";
 }
 
@@ -630,6 +640,11 @@ export function mergeGate(merged: boolean, geometry: boolean, near: boolean): Me
   if (merged) return "open";
   if (!geometry) return "noGeometry";
   return near ? "open" : "far";
+}
+
+/** Contract 53 (T231): the city can pay this tier's fee now (MergeCardState.affordMask bit t). A tier the card has no bit for is not payable. */
+export function mergeAffordable(affordMask: number, tier: number): boolean {
+  return tier >= 0 && tier < 31 && (affordMask & (1 << tier)) !== 0;
 }
 
 export type FooterState = "follow" | "active" | "locked" | "empty" | "idle";
@@ -1086,11 +1101,12 @@ export function schoolBuiltOf(build: readonly BuildItem[] | null | undefined): b
  *    school beside an open cat track from a missing run (rare: only a full band cuts the row).
  *  - "off" = built, runs count, a green run counts, still 0. The only way is SchoolActive false, the building switched off
  *    (BuildingOption.Inactive, SkiResortAttractivenessSystem.cs:1445). varietyBands unknown (< 0) falls back to "off".
+ *  - "closed" = built and closed by the resort for the off-season (live.schoolOffSeason, contract 53, T238). Dim, never a fault.
  *  - "none" = no school.
  *  - "unknown" = no live row or schoolValue < 0.
  *  `built` = schoolBuiltOf(build) for the SAME shown sign. It reads only C#'s fields: no new contract field.
  *  A school on a sign with no runs must not read "No ski school" (no row 25 there). */
-export type SchoolState = "on" | "noGreen" | "noOpenGreen" | "waiting" | "off" | "none" | "unknown";
+export type SchoolState = "on" | "noGreen" | "noOpenGreen" | "waiting" | "off" | "closed" | "none" | "unknown";
 export function schoolState(l: ResortLive | null, problems: readonly ProblemRow[] | null | undefined, sign: Entity | null | undefined,
   built = false): SchoolState {
   if (!l || !(l.schoolValue >= 0)) return "unknown";
@@ -1099,6 +1115,7 @@ export function schoolState(l: ResortLive | null, problems: readonly ProblemRow[
     if (p && p.code === PROBLEM.SchoolNoGreenRun && sameEntity(p.sign, sign)) return p.detail === 1 ? "noOpenGreen" : "noGreen";
   }
   if (!built) return "none";
+  if (l.schoolOffSeason === true) return "closed";   // T238: the resort closed it for the off-season: not a fault
   if (l.summer) return "waiting";
   const bands = typeof l.varietyBands === "number" ? l.varietyBands : -1;
   if (!(bands >= 0) || (bands & VARIETY_BAND.Green) !== 0) return "off";
@@ -1108,13 +1125,14 @@ export function schoolState(l: ResortLive | null, problems: readonly ProblemRow[
 
 /** The School row's flag (HUB_LOC key name) by state. null = no flag ("on" / "unknown"). "waiting" is a state, not a fault: the
  *  row draws it dim (InfoLine flagDim). */
-export function schoolFlagOf(s: SchoolState): "noSchool" | "schoolNoGreen" | "schoolNoOpenGreen" | "schoolOff" | "schoolWaiting" | null {
+export function schoolFlagOf(s: SchoolState): "noSchool" | "schoolNoGreen" | "schoolNoOpenGreen" | "schoolOff" | "schoolWaiting" | "schoolClosed" | null {
   switch (s) {
     case "none": return "noSchool";
     case "noGreen": return "schoolNoGreen";
     case "noOpenGreen": return "schoolNoOpenGreen";
     case "off": return "schoolOff";
     case "waiting": return "schoolWaiting";
+    case "closed": return "schoolClosed";
     default: return null;
   }
 }
@@ -1399,7 +1417,7 @@ export function schoolMissingOf(s: SchoolState): "receiptMissingSchoolNone" | "r
     case "none": case "off": return "receiptMissingSchoolNone";
     case "noGreen": case "noOpenGreen": return "receiptMissingSchoolGreen";
     case "waiting": return "receiptMissingSchoolWaiting";
-    default: return null;
+    default: return null;   // "closed" too: a state, not a missing part
   }
 }
 

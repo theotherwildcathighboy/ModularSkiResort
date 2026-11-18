@@ -31,7 +31,7 @@ enough here. Every number in the texts is derived from the catalog:
 6. These tips carry derived numbers:
    - `BUILD_TIP_SCHOOL` has "+<School.ScoreValue>" and "<(DemandFactor - 1) x 100> %" (+12, 20 %).
    - `BUILD_TIP_PATROL` has "<RadiusM / 1000> km", "<(ExpertFactor - 1) x 100> %" and "<BackcountryServedMin x 100> %" (1 km, 15 %, 70 %).
-   - `BUILD_TIP_LUXURY` has the luxury tiers' `PriceTolerance` (40).
+   - `BUILD_TIP_LUXURY` has the `{FULL}` argument. The luxury tiers' `PriceTolerance` is 40, so full demand reaches 80 (`PriceFullAt - PriceSpan + 40`, T239).
    - `PROBLEM_TIP[SummitLodgeNotLiftServed]` has "<Ladder.SummitServedRadiusM> m" (300 m).
 7. Both `LIFT_RIDE_TIP` and `LIFT_CAPACITY_TIP` are shown for a tram row too. So `LIFT_RIDE_TIP` contains no "loop" and
    `LIFT_CAPACITY_TIP` no "spaced" (case-insensitive). The same holds for `LIFTS_TOTAL_CAPACITY_TIP`, the totals row that sums a tram too (no

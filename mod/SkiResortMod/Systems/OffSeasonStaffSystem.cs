@@ -76,6 +76,13 @@ namespace SkiResortMod.Systems
                    m_Areas.TryGetValue(sign, out OffSeasonState s) && s.Known && s.Off;
         }
 
+        /// <summary>True while <paramref name="sign"/>'s area is off-season (no open run for 12 game hours), whatever the staff setting says.
+        /// The hub's season hint reads it ("Closed for the summer", T236). False for Entity.Null, an unknown area, or before the first poll.</summary>
+        internal bool IsOffSeason(Entity sign)
+        {
+            return m_Armed && !m_Disabled && sign != Entity.Null && m_Areas.TryGetValue(sign, out OffSeasonState s) && s.Known && s.Off;
+        }
+
         /// <summary>A write to a building of <paramref name="sign"/>'s area waits for this load's first observation of the area
         /// (OffSeasonRules.AwaitsFirstObservation). False while not armed or once disabled, so a failed system never freezes staff.</summary>
         internal bool AwaitsFirstObservation(Entity sign)
@@ -296,6 +303,10 @@ namespace SkiResortMod.Systems
                                  : "activated again: " + (!enabled ? "closing turned off" : !linked ? "not linked to a ski area" : $"ski area {Id(sign)} in season")));
             }
         }
+
+        /// <summary>True when the resort itself closed <paramref name="b"/> (the Inactive policy entry carrying OffSeasonRules.CloseMarker).
+        /// A lodge the player switched off reads false (T237). False while not armed or once disabled.</summary>
+        internal bool IsClosedByResort(Entity b) => m_Armed && !m_Disabled && m_InactivePolicy != Entity.Null && ClosedByResort(b);
 
         /// <summary>The Inactive policy entry this mod wrote (OffSeasonRules.ClosedByResort on the building's Policy buffer).</summary>
         private bool ClosedByResort(Entity b)

@@ -445,6 +445,22 @@ Appended fields and bindings by contract:
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan). `quickRunsSet` gains `lifts`,
   `home`, `pod`, `lift`. The integration branch carries this bump from the A7 merge, so its gates stay green. Re-bump if main takes
   22 first.
+- 53 (r2/hub-fixes. The orchestrator renumbers it at merge.) Corwen playtest fixes T230, T231, T236 to T239, T241. All changes append.
+  `MergeCardState` gains `affordMask` (bit t = the city can pay `charge[t]` now, `SkiMergeSystem.CityMoney`). The tier fee shows in the
+  warning color and the Merge button is off while the chosen tier is not payable.
+  The merge card now shows beside the game's panel only while the hub is open, the merge overlay is armed, or the building is merged
+  (`MergeCardMayShow`). Before, it showed for any mergeable building once a sign existed.
+  `SEASON_HINT.ClosedForSummer` = 7. `HubRules.Season` returns it, instead of `TooWarm`, when the area is off-season
+  (`OffSeasonStaffSystem.IsOffSeason`: no run open for 12 game hours, whatever the staff setting says). It is not in `SEASON_HINT_WARN`.
+  The status slot shows its word, not the snow numbers.
+  `ResortLive` gains `lodgesOffSeason` (our lodges the resort closed, `OffSeasonStaffSystem.IsClosedByResort`: the Inactive policy with
+  `CloseMarker`) and `schoolOffSeason` (the same for the ski school). `HubProblemInput` gains `OffSeason` and `LodgesClosedByResort`.
+  While the area is off-season, those lodges are no `LodgesAllOff` or `LodgesSomeOff` row. A lodge the player switched off still is.
+  The Overview says "Lodges closed for the off-season: N" as a plain line. The school row says "Closed: off-season". A merged building is
+  never closed by the resort, so its "Deactivated" state is unchanged.
+  Ticket price text, one truth: full demand up to 40, plus the best lodge's tolerance (chalet 20, summit and grand 40). The price applies to
+  residents and tourists alike. Only a season pass holder skips it. The reach of the Welcome Sign is a straight line from the sign. The
+  merge reach (`SlopesideMaxM`) is measured from the runs and lifts, not the sign.
 - 52 (r2/hub-ui had 50. The r2 merge renumbered it after r2/tourism 50 and r2/sync 51.) The snow report (T200, SkiSnowReportSystem). The design is in docs/research/post-release-round2/T200-snow-report.md.
   `ResortLive` gains `snowReport` (`SnowReport`). `known` is false without a run outline. `baseM` and `summitM` are the lowest and highest
   outline node of the bound runs, cat tracks excluded. `tempKnown`, `baseTempC` and `summitTempC` are the temperatures now.

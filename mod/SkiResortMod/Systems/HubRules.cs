@@ -29,7 +29,7 @@ namespace SkiResortMod.Systems
     public enum RunOpenState : sbyte { None = -1, Closed = 0, Partly = 1, Open = 2 }
 
     /// <summary>bindings.ts SEASON_HINT (gate R17).</summary>
-    public enum SeasonHint : byte { None = 0, SnowSeason = 1, SnowGunsOnly = 2, Thawing = 3, WaitingForSnow = 4, TooWarm = 5, GatingOff = 6 }
+    public enum SeasonHint : byte { None = 0, SnowSeason = 1, SnowGunsOnly = 2, Thawing = 3, WaitingForSnow = 4, TooWarm = 5, GatingOff = 6, ClosedForSummer = 7 }
 
     /// <summary>bindings.ts NEXT_STEP (gate R17).</summary>
     public enum NextStepKind : byte { Done = 0, Lodge = 1, Lift = 2, Run = 3 }
@@ -100,6 +100,11 @@ namespace SkiResortMod.Systems
         // Building.m_RoadEdge is Entity.Null on the sign / on this many of the area's lodges.
         public bool SignNoRoad;
         public int LodgesNoRoad;
+        // T237: the area is off-season, and LodgesClosedByResort of its inactive lodges are the resort's own closing (the vanilla Inactive
+        // policy carrying OffSeasonRules.CloseMarker). While OffSeason they are no problem: the lodge rows count only the ones the player
+        // switched off.
+        public bool OffSeason;
+        public int LodgesClosedByResort;
         // Set by the stats system only while ski days are on (not Off) and the area has a view.
         public bool SkiDaysCannotReach;  // car confidence < 0.5 after ≥ 20 car claims
         public int NoGuestsNearTenthsKm;  // SkiDayRules.NoGuestsNear on an open hill: the nearest home or hotel in tenths of a km. 0 = no row
@@ -281,7 +286,7 @@ namespace SkiResortMod.Systems
         /// gun-gated texels at the last mask pass. Without the gates (from the load to the first mask pass) it uses the mean-based test
         /// instead. The 24-hour mean decides natural snow.</summary>
         public static SeasonHint Season(bool gating, int runs, int runsOpenAny, bool anyGunRun, bool gunsLiveKnown,
-                                        bool anyGunOn, bool topTempKnown, float topTempC, float freezingC, float marginC)
+                                        bool anyGunOn, bool topTempKnown, float topTempC, float freezingC, float marginC, bool offSeason = false)
         {
             if (!gating)
                 return SeasonHint.GatingOff;
@@ -292,7 +297,9 @@ namespace SkiResortMod.Systems
                                                    : topTempC <= freezingC + marginC);   // before the first mask pass
             if (runsOpenAny > 0)
                 return natural ? SeasonHint.SnowSeason : gun ? SeasonHint.SnowGunsOnly : SeasonHint.Thawing;
-            return natural || gun ? SeasonHint.WaitingForSnow : SeasonHint.TooWarm;
+            if (natural || gun)
+                return SeasonHint.WaitingForSnow;
+            return offSeason ? SeasonHint.ClosedForSummer : SeasonHint.TooWarm;
         }
 
         public static NextStepKind NextStep(int lodges, int liftsComplete, int runs)
@@ -792,12 +799,15 @@ namespace SkiResortMod.Systems
             }
 
             // 2. Lodges.
+            // The resort's own off-season closing is no problem (T237). The player's switched-off lodges still are.
+            int resortClosed = input.OffSeason ? Math.Max(0, Math.Min(input.LodgesClosedByResort, input.Lodges - input.LodgesActive)) : 0;
+            int playerOff = input.Lodges - input.LodgesActive - resortClosed;
             if (input.Lodges == 0)
                 output.Add(Row(HubProblemCode.NoLodge, 3, ifFixed: input.IfOneLodge, buildItem: "lodge"));
-            else if (input.LodgesActive == 0)
+            else if (input.LodgesActive == 0 && resortClosed == 0)
                 output.Add(Row(HubProblemCode.LodgesAllOff, 3, count: input.Lodges, ifFixed: input.IfLodgesOn));
-            else if (input.LodgesActive < input.Lodges)
-                output.Add(Row(HubProblemCode.LodgesSomeOff, 1, count: input.Lodges - input.LodgesActive));
+            else if (playerOff > 0)
+                output.Add(Row(HubProblemCode.LodgesSomeOff, 1, count: playerOff));
 
             // 2b. Road edges (the stats rebuild reads Building.m_RoadEdge). The game shows no warning for a sign off the road. Such a sign then gets
             // no power, water or sewage.

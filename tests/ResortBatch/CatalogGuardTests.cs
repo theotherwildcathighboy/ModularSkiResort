@@ -295,7 +295,11 @@ namespace ResortBatch
                 if (d.Luxury)
                     luxuryTolerance = Math.Max(luxuryTolerance, d.PriceTolerance);
             }
-            Contains(loc, "SkiResort.Hub.BUILD_TIP_LUXURY", W + "-t6", luxuryTolerance.ToString(CultureInfo.InvariantCulture));
+            // The text carries {FULL} (the hub fills in the full-demand price: SkiDayRules.PriceFullAt - PriceSpan + tolerance = 80, T239), so
+            // the tolerance is held by the number the hub computes, not by a literal in the text.
+            Contains(loc, "SkiResort.Hub.BUILD_TIP_LUXURY", W + "-t6", "{FULL}");
+            Check(luxuryTolerance == 40 && SkiDayRules.PriceFullAt - SkiDayRules.PriceSpan + luxuryTolerance == 80, W + "-t6",
+                  "the luxury tolerance is " + luxuryTolerance + " (hub buildItems.ts LUXURY_PRICE_TOLERANCE 40, full demand up to 80)");
             // T6c: the road-optional lodge text states the cat track link distance, the parking texts the census radius (per lodge).
             Contains(loc, "SkiResort.Hub.BUILD_TIP_ROAD_OPTIONAL", W + "-t6c",
                      LiftServedRule.LinkMeters.ToString("0", CultureInfo.InvariantCulture) + " m");

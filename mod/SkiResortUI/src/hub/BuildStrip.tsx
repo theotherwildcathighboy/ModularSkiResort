@@ -24,12 +24,12 @@ import type { BuildItem, BuildItemId, MergeOverlayState, RunKind } from "../bind
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
 import {
-  BUILD_ITEMS, BUILD_ITEM_ICON, BUILD_RUN_KIND, BUILD_STEP, BUILDING_DRAW, LUXURY_LODGES, ROAD_OPTIONAL_LODGES, buildMeta, groupBuildItems, stationRole,
+  BUILD_ITEMS, BUILD_ITEM_ICON, BUILD_RUN_KIND, BUILD_STEP, BUILDING_DRAW, LUXURY_LODGES, LUXURY_PRICE_TOLERANCE, ROAD_OPTIONAL_LODGES, buildMeta, groupBuildItems, stationRole,
 } from "./buildItems";
 import type { OrderedBuildItem, TerrainFit } from "./buildItems";
 import {
   NO_PICK, buildingFamily, dotItem, dotTarget, drawnTabs, effectiveSelection, effectiveTab, footerOpen, footerState, line1Variant, liveOf,
-  nextVariant, optionOf, pickerSets, tabClick, tabOfDot, tabOfItem, tabOfNext, visibleIds,
+  nextVariant, optionOf, pickerSets, priceFullWith, tabClick, tabOfDot, tabOfItem, tabOfNext, visibleIds,
 } from "./hubRules";
 import type { BuildTab, BuildingFamily, DotTarget, NextVariant, PickerSelection, PickerSet } from "./hubRules";
 import { buildFamily$, buildOpen$, buildTab$, footerShape$ } from "./hubState";
@@ -202,7 +202,7 @@ function tileTip(e: OrderedBuildItem, t: Translate): JSX.Element {
         run && t(HUB_LOC.buildTipReshape),
         ...runStepRows(e.item, t),
         ROAD_OPTIONAL_LODGES.has(e.id) && t(HUB_LOC.buildTipRoadOptional), // the cat track chain instead of city utilities
-        LUXURY_LODGES.has(e.id) && t(HUB_LOC.buildTipLuxury), // the luxury label and its price tolerance
+        LUXURY_LODGES.has(e.id) && <LocText key="lux" entry={HUB_FMT.buildTipLuxury} args={{ FULL: numArg(priceFullWith(LUXURY_PRICE_TOLERANCE), Unit.Money) }} />, // the luxury label and its price tolerance
         k === "depot" && t(HUB_LOC.buildTipDepot),
         k === "school" && <IconText key="school" entry={HUB_LOC.buildTipSchool} />,
         k === "patrol" && <IconText key="patrol" entry={HUB_LOC.buildTipPatrol} />,
