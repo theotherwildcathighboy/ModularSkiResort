@@ -26,8 +26,9 @@ Economy and attraction tuning.
 
 | Option | Range | Default | What it does |
 |---|---|---|---|
-| Ski area radius (km) | 2 to 10, step 0.5 | 5 | How far a ski area reaches from its Welcome Sign. Lifts and buildings follow a change. A run keeps the sign it linked to when drawn. |
+| Ski area radius (km) | 2 to 10, step 0.5 | 5 | How far a ski area reaches from its Welcome Sign, in a straight line, not along roads. Lifts and buildings follow a change. A run keeps the sign it linked to when drawn. |
 | Attraction scale (K) | 1 to 10 | 4 | How much runs and lifts add to the attraction score. See [Attraction Formula](/reference/attraction/). |
+| Resort tourism bonus | 0 to 20 % | 10 % | The most your ski areas together add to the whole city's attractiveness, as an airport does. It brings tourists to the city, not skiers. 0 turns it off. See [Resort Tourism Bonus](/reference/attraction/#resort-tourism-bonus). |
 | Backcountry run value | 0 to 100 %, step 5 | 40 % | What a run no running lift serves is worth, against a lift-served one. |
 | Lift ticket price | 0 to 200, step 5 | 100 | What each guest pays on arrival, one price for every ski area. Above 40 fewer guests come (60 with a Chalet Lodge, 80 with a Swanky Summit or Grand Lodge). 0 turns tickets off. |
 | Lodge spend per guest | 0 to 50, step 5 | 15 | What each paying guest also spends at the lodge. Bigger lodges get more: ×1 at a hut or A-frame, ×1.5 at a chalet, ×3 at a summit or grand lodge. 0 turns it off. |
@@ -72,7 +73,7 @@ Run drawing, cat tracks and the Resort Planner.
 | Show run names on the hill | On | Each run's name written on the snow along the run, in its difficulty color, at piste-map distance. |
 | Run outline width | 0 to 16, step 1, default 8 | Thickness of the outline and corner dots while you draw, edit or bulldoze a run: 0.3 m (1 ft) a step, so 8 = 2.4 m (8 ft). 0 keeps the game's thin outline. |
 | Snow-gun plumes | On | A vapor plume while the guns make snow. Look only. |
-| Snow groomers | On | One snow groomer drives each linked cat track while the track is open. Look only: snow, rating and upkeep do not change. |
+| Snow groomers | On | One snow groomer drives each linked cat track while the track is open, from dusk to dawn. Look only: snow, rating and upkeep do not change. |
 | Cat track: max slope | 3 to 14°, step 0.5, default 14° | The steepest a cat track may climb. A track that cannot stay under it turns red and asks for more length (a switchback). A max grade changed in 1.0.0 carries over in degrees. |
 | Cat track: width (m) | 8 to 32, step 1, default 20 | Width of the cat track: the flat top the tool cuts and fills, and the run built on it. |
 | Cat track: cut slope (out : down) | 1 to 3, step 0.5, default 1.5 | Meters out per meter down where the track cuts into the hill. Lower is steeper. |

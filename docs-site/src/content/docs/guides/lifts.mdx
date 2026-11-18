@@ -38,7 +38,9 @@ A run no lift serves counts as backcountry (**40 %** by default). Which runs a l
 The prompt beside the cursor names what the next click does. A line can start at a station, a loose line end or open ground.
 
 - **Towers:** click the line to add a tower, drag one to move it. Both pin the tower (blue inner ring): it stays exactly where it is, and the planner refits only the unpinned towers between pins, still setting every height. A pin too close to a station or another pin is refused ([Limits per Lift Type](#limits-per-lift-type)). Drag a tower off the line to remove it. The planner puts one back only if the line needs it there.
-- **Step back:** right click or **Esc** undoes one action. **Build:** **Enter**.
+- **Remove a tower:** right click it. The other towers stay where they are. If the longer span is over the type's limit, the planner adds a tower, but not at the removed spot.
+- **Step back:** right click elsewhere, or **Esc**, undoes one action. **Build:** **Enter**.
+- **Not enough money:** the game refuses the build, and the tool says the city does not have the money for the line.
 - **Preview:** the rope is colored by how far its lowest carrier clears the ground beyond the required minimum:
   - **Green:** at least **2 m** to spare.
   - **Amber:** 0 to 2 m to spare.
@@ -93,7 +95,7 @@ Option **Lift building aids** (default on): the bulldozer warns what a click on 
 - **Steep lines:** towers lean downhill where the rope runs steeply through them ([Limits per Lift Type](#limits-per-lift-type)).
 - **Canyons and cliffs:** the planner puts towers where the ground rises toward the rope, and uses tall towers where they let a span reach farther. If no mix of heights clears a span, the preview shows red or violet.
 - **Stations:** the detachable quad and gondola stations and the fixed-grip base station cut a level pad into the slope and fill nothing, so the slope stays below them on the downhill side. A base station cuts its pad 12 m past its lot on the line side. The aerial tram's base terminal levels its pad (cut and fill). The fixed-grip top station and the tram's top terminal keep the slope as placed. Where the ground past the pad rises faster than the chairs climb, the chairs leave below the ground: the tool shows a notice and still builds. Pick flatter ground, terraform, or move the station with Move It. Every building's ground behavior: [Ground and Slopes](/reference/buildings/#ground-and-slopes).
-- **Crossing another lift:** passed over, or under where the other lift runs high, with the towers beside the crossing raised for the game's clearance. Not built, with a notice, when no tower arrangement reaches the clearance, the crossing is too close to a station or to the other lift's towers, or the angle is under **20°**. Two lifts of the same type cannot cross.
+- **Crossing another lift:** passed over, or under where the other lift runs high, with the towers beside the crossing raised for the game's clearance. Not built, with a notice, when no tower arrangement reaches the clearance, the crossing is too close to a station or to the other lift's towers, or the angle is under **15°**. Two lifts of the same type cannot cross.
 - **Along another lift:** a line within **8 m** and **10°** of another lift over more than **15 m** is not built. The game would merge the two lines.
 - **Roads:** towers are kept off roads, rail, tram tracks and paths under the line, but not off roads and paths inside a building's lot. Where no plan avoids a road, the tower stands on it and the game reports an overlap: move the road or the tower.
 - **Cat tracks:** build them first. See [Cat Track Tool](/guides/runs-and-snow/#cat-track-tool).

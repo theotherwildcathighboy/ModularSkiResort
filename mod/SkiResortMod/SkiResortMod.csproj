@@ -24,7 +24,7 @@
 		-->
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<!-- Moves with each release (free; nothing persisted reads it). Must equal ModVersion + ".0": tools/release-check.ps1 "version" gate (T227). -->
-		<FileVersion>1.0.1.0</FileVersion>
+		<FileVersion>1.0.2.0</FileVersion>
 	</PropertyGroup>
 
 	<!--Imports must be after PropertyGroup block-->

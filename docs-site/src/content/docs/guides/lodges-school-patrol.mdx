@@ -8,7 +8,8 @@ import Shot from '../../../components/Shot.astro';
 import Icon from '../../../components/Icon.astro';
 
 All three are standalone buildings, placed from the hub **Buildings** tab like any other building. Each belongs to the
-nearest **Welcome Sign** within the ski area radius (**5 km** by default). Costs and numbers: [Buildings](/reference/buildings/).
+nearest **Welcome Sign** within the ski area radius (**5 km** by default, measured in a straight line, not along roads). Placing one
+does not leave the game's Happiness view open. A view you opened yourself stays open. Costs and numbers: [Buildings](/reference/buildings/).
 
 <Shot src="buildings-tab.jpg" label="The hub's Buildings tab: the Lodges, Services and Mergeable buildings chips, with the Welcome Sign and the five lodge tiles." />
 
@@ -22,9 +23,9 @@ Guest entry point and skier room source. No lodge: attraction score **0**.
 |---|---|---|
 | <Icon name="lodge-hut" alt="Mountain Hut icon" /> **Mountain Hut** | Warming hut | Small hut for mid-mountain or roadless sites. |
 | <Icon name="lodge-a-frame" alt="A-Frame Day Lodge icon" /> **A-Frame Day Lodge** | Day lodge | First lodge, where guests arrive. Cheapest. Default. Needs a road or a cat track. |
-| <Icon name="lodge-chalet" alt="Chalet Lodge icon" /> **Chalet Lodge** | Base lodge | Bigger base lodge. Ski days stay full at a higher ticket price. Needs a road or a cat track. |
-| <Icon name="lodge-summit" alt="Swanky Summit Lodge icon" /> **Swanky Summit Lodge** | Mountain restaurant | Luxury restaurant on the mountain. High summer appeal when a lift or a lift-served run reaches it. |
-| <Icon name="lodge-grand" alt="Swanky Grand Lodge icon" /> **Swanky Grand Lodge** | Flagship lodge | Flagship base lodge. Most skier room. Needs a road or a cat track. |
+| <Icon name="lodge-chalet" alt="Chalet Lodge icon" /> **Chalet Lodge** | Base lodge | Bigger base lodge. Raises the [ticket tolerance](#ticket-tolerance) to **60**. Needs a road or a cat track. |
+| <Icon name="lodge-summit" alt="Swanky Summit Lodge icon" /> **Swanky Summit Lodge** | Mountain restaurant | Luxury restaurant on the mountain. High summer appeal when a lift or a lift-served run reaches it. Raises the ticket tolerance to **80**. |
+| <Icon name="lodge-grand" alt="Swanky Grand Lodge icon" /> **Swanky Grand Lodge** | Flagship lodge | Flagship base lodge. Most skier room. Raises the ticket tolerance to **80**. Needs a road or a cat track. |
 
 - **Tier:** the lodge's role for the score. The hub shows your own lodges by building (*A-frame*, *Chalet 2*) and merged buildings by tier.
 - **Build limit:** none.
@@ -39,7 +40,8 @@ without being rebuilt.
 
 - **Merge:** hub > **Buildings** tab > **Mergeable buildings** chip. Buildings within **800 m** of a ski area's runs or lift
   stations are outlined: **green** when a lodge tier fits the lot, **gray** when the lot is too small. Select one (outlined
-  or not) to open the **merge card**, pick a tier and click **Merge**.
+  or not) to open the **merge card**, pick a tier and click **Merge**. The card shows while the hub is open, and always for a
+  merged building. A tier the city cannot pay for shows its fee in the warning color. **Merge** stays off for it.
 - **Keeps its own use.** A park stays a park, a signature building keeps its renters. The tier adds its lodge score,
   skier room, staff and attraction. It is not a ski-day destination: guests still need a lodge of your own.
 - **Lot size:** smallest lots: Warming hut **4** cells, Day lodge **9**, Base lodge and Mountain restaurant **16**,
@@ -63,7 +65,7 @@ Ski days send skiers to a lodge, so they need one. Any tier works if it meets th
 - **Distance to runs:** ski-day guests only target a lodge within **800 m** of the ski area's runs or lift stations.
 - **Parking:** car spaces of any kind within **600 m**, counted per lodge with a road. Tourist parties from outside the city drive, and none arrive at a lodge with 0 spaces. The nearer the spaces, the more come. Hotel guests within **900 m** walk. A blue ring shows the 600 m when you place or select a lodge with a road. Hub line: *Lodge without parking* (*No parking: Lodge X*). The hub's **Guests** view shows each lodge's count.
 - **Off-season staff:** after **12 game hours** with no open run, lodges and the Ski School keep **half** their staff (rounded up) and wages until a run opens. Staff on the job host halve too. Patrol stays full. Upkeep stays. Option *Half staff off-season*, default on.
-- **Off-season closing:** when a ski area turns off-season, its lodges and Ski School are deactivated: a tenth of the upkeep, no wages. They open again an hour after a run opens. A building you deactivate or activate yourself stays as you set it, and so does a lodge built off-season. The hub counts them in *Lodges deactivated*. Option *Close lodges off-season*, default on.
+- **Off-season closing:** when a ski area turns off-season, its lodges and Ski School are deactivated: a tenth of the upkeep, no wages. They open again an hour after a run opens. A building you deactivate or activate yourself stays as you set it, and so does a lodge built off-season. The hub does not list the lodges it closed as a problem: the Attraction view shows *Lodges closed for the off-season: N*. A lodge you deactivate yourself is still a problem (*Lodges deactivated*). Option *Close lodges off-season*, default on.
 - **Job host:** the active lodge with a road nearest the Welcome Sign, else the sign, employs the staff of the buildings without staff of their own (Hut, Summit, both patrol buildings, an off-road lodge). They take the job host's education mix.
 
 ## Guests at a Far Hill
@@ -82,7 +84,7 @@ Residents only take ski days within the longest ski-day trip (**7 km** by defaul
 - **Score:** **+12** to *Runs, lifts and school* while at least one green run or cat track counts. European grading also takes a blue run. A cat track still does not count toward Variety.
 - **Demand:** locals ski **20 %** more often.
 - **Limit:** one per ski area. A second school adds nothing.
-- **Adds 0** with the hub status *No ski school*, *No green run or cat track*, *No run open yet* or *School deactivated*. European grading reads *No green or blue run or cat track*. *No open green run or cat track* means: they exist, and all of them are closed. Off-season closing shows *School deactivated*.
+- **Adds 0** with the hub status *No ski school*, *No green run or cat track*, *No run open yet* or *School deactivated*. European grading reads *No green or blue run or cat track*. *No open green run or cat track* means: they exist, and all of them are closed. A school the resort closed for the off-season reads *Closed: off-season*, which is not a fault.
 - **Terrain:** the school keeps the slope and is the most demanding building to fit. Level the ground at the top of the magic-carpet area, then slope it down to its base.
 
 <Shot src="ski-school.jpg" label="A Ski School on graded terrain: the magic carpet, the covered carpet and the lesson area with its gates." />
@@ -111,10 +113,10 @@ Two buildings: <Icon name="building-patrol-hut" alt="Ski Patrol Hut icon" /> **S
 
 ## Ticket Tolerance
 
-Ski days stay full up to a ticket price of **40** plus lodge tolerance: Chalet **+20**, Summit and Grand **+40**. Price curve: [Passes and Lessons](/guides/passes-and-lessons/).
+**Ticket tolerance** is the lift ticket price up to which ski days stay full. It is **40**, and the best lodge of the ski area raises it: Chalet Lodge **60**, Swanky Summit or Grand Lodge **80**. Above it, fewer guests choose a ski day. The A-Frame Day Lodge and the Mountain Hut add nothing. Price curve: [Passes and Lessons](/guides/passes-and-lessons/).
 
 <Aside type="tip" title="Ski Day Limit">
 Hub **Guests** view names the current limit on ski days:
-- **Runs:** "bigger and easier runs hold more skiers at once".
+- **Runs:** bigger and easier runs hold more skiers at once.
 - **Lodges:** each holds a set number of skiers at once, more on a powder day.
 </Aside>

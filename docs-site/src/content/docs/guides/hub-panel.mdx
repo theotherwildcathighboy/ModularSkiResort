@@ -16,10 +16,11 @@ The **Ski Resort hub** is the mod's single panel.
 ## Frame
 
 - **Header:** one ski area, keyed to its Welcome Sign. The name opens the list of ski areas. Pen: rename (an empty name restores the default). Info button: [Symbols](#hub-symbols). Runs and lifts outside every sign's radius (**5 km** by default, option **Ski area radius**) are listed as *Not linked to a ski area* and score **0**.
-- **Status line:** *Open* (every run is open), *Patchy* or *Closed*, with snow depth and cover, *Powder day* or a season warning. *≈* marks estimated snow. Tooltip: run counts by state, and whether the snow is measured or estimated. The rule: [Snow Conditions](/guides/runs-and-snow/#snow-conditions).
+- **Status line:** *Open* (every run is open), *Patchy* or *Closed*, with snow depth and cover, *Powder day* or a season word. Off-season, when it is too warm for snow guns, it reads *Closed for the summer*. *≈* marks estimated snow. Tooltip: run counts by state, whether the snow is measured or estimated, and the snow report. The rule: [Snow Conditions](/guides/runs-and-snow/#snow-conditions).
 - **Problem line:** the worst problem (*Lodge or school: road required*), with a button for the rest. Hover: why it matters, and for a missing lodge, stopped lodges or low efficiency, the attraction score once it is fixed. Click: fly to the cause. See [Troubleshooting](/guides/troubleshooting/).
 - **Tiles:** Attraction, Runs open, Lifts, Guests, Finances, History. Each opens its view.
-- **Start card:** while the city has no Welcome Sign. Replaces all content with the four steps to a first resort.
+- **Start card:** while the city has no Welcome Sign. Replaces all content with the four steps to a first resort. Step 2 names the lift's low-voltage power.
+- **Snow report:** a card beside the game's panel of a selected Welcome Sign, and in the status tooltip. It has two columns, **Summit** and **Base**: the highest and lowest point of the runs. Rows: temperature, snow depth, new snow in the last 24 hours, and the snowfall of this season.
 
 ## Attraction
 
@@ -30,6 +31,10 @@ Ski area score on the game's attraction scale, **0** to **200** (a landmark is *
 - **Mountain fold:** the mountain's fact sheet. The **vertical** (lowest run bottom to highest run top), the run difficulty mix and the **skiable area**. Snow depth and run coverage. **Runs** by rating, with the cat tracks. **Longest run**, measured flat on the map. **Lifts** by type and **Uphill capacity**. **Snowmaking**: the share of the run area with snow guns on. **Lit runs**.
 - **Merged buildings:** a fold, while the ski area has one, with the buildings merged in as lodges and their tier or state. See [Merged Buildings](/guides/lodges-school-patrol/#merged-buildings).
 - **Share of city tourism:** sets how many tourists come to the city, not where they go. See [Tourist Draw](/reference/attraction/#tourist-draw).
+- **Tourist spending drawn ≈:** this ski area's share of what tourists spend in the city in a month, at hotels, shops and leisure places. It is an estimate. Businesses earn it, so it is not part of the resort's net.
+- **Resort tourism bonus:** a fold with the bonus that the ski areas add to the city's attractiveness, as an airport does. The limit is an option, default **10 %**. The tooltip shows this ski area's part. Rows: **Tourists in the city** (the average over the last game day) and, with merged buildings, **Staying at resort hotels**. See [Resort Tourism Bonus](/reference/attraction/#resort-tourism-bonus).
+- **Off-season:** *Lodges closed for the off-season: N* while the resort keeps its lodges closed. Not a problem.
+- **Sync resort:** an update can change how resort objects should look. Then a *Sync resort (N)* button lists the objects of this ski area that are out of date. Rings mark them on the map while the card is open. Uncheck an object to leave it for now, or click **Keep as is** to keep it for good. Sync is free and has no undo.
 
 ## Runs
 
@@ -62,8 +67,9 @@ Counts tourists arriving at the ski area's lodge or Welcome Sign, and residents 
 Three rows, as in the game's budget panel: **Income** (a fold), **Running costs** (a fold) and **Net so far**. The rows in the two folds sum to the net.
 
 - **Income:** lift tickets, lodge spend, season passes sold, lessons.
+- **Prices:** a slider for the lift ticket price and one for the season pass price, the same Options for every ski area. Each has a demand word, from *unaffected* to *very low*. Rules and tables: [Passes and Lessons](/guides/passes-and-lessons/).
 - **Running costs:** lifts, runs, building upkeep, staff wages, and *Ski bus* while the ski area has a [Ski Bus Depot](/guides/lodges-school-patrol/#ski-bus-depot).
-- **Excluded from net:** pass holders skiing free, and *City tourist income* (estimate of extra tourist spend elsewhere in the city).
+- **Excluded from net:** pass holders skiing free, and *Tourist spending*. That row estimates what the ski area's tourists spend at city businesses. It shows under Tourism Overhaul too.
 - **Buildings and wages:** today's rate, prorated to the share of the month elapsed.
 - **Economy panel mapping:** [Economy](/guides/economy-panel/).
 
@@ -76,10 +82,11 @@ Guests, finances and attraction per month.
 - **Charts:** guests and finances, always both. With *This ski area*, an Attraction strip under them shows the score, and on hover the snow, when each month closed.
 - **Faded bars:** partial months. **Hatched slots:** nothing recorded.
 - **First month:** closes at the end of the month the ski area starts in.
+- **This season so far:** a block below the charts. It sums this ski season from its first month to today and compares the same months of last season. It also names the best month, the average ticket, and the income and cost mix.
 
 ## Build Strip
 
-Three tabs along the bottom hold every tool: a row of chips, a row of tiles and a status line. The strip stays open while a tool it started is in use.
+Three tabs along the bottom hold every tool: a row of chips, a row of tiles and a status line. A tab click shows that tab and never closes the strip. The chevron at the end of the tab row opens and closes it. The strip keeps one size on every tab, and stays open while a tool it started is in use.
 
 - **Lifts:** chips for the lift type (Fixed-grip, Detachable, Gondola, Tram) and the **Lift tool** (**Ctrl+Shift+L**). Tiles: Base station, Top station, Lift line. Tile icons: <Icon name="lift-fixed-grip" alt="Fixed-grip lift icon" /> <Icon name="lift-detachable" alt="Detachable lift icon" /> <Icon name="lift-gondola" alt="Gondola icon" /> <Icon name="lift-tram" alt="Aerial tram icon" />
 - **Runs:** tiles Run ([Run Features](/guides/runs-and-snow/#run-features)), Cat track (**Ctrl+Shift+K**, [Cat Track Tool](/guides/runs-and-snow/#cat-track-tool)) and Fence (the Safety Net Fence, decorative orange netting). Chips: **Tree tool**, **Resort Planner**, **Delete cat tracks** and **Ski way** (narrow cut-only cat tracks, **Ctrl+Shift+J** in the cat track tool). Tile icons: <Icon name="run-groomed" alt="Run icon" /> <Icon name="run-cat-track" alt="Cat track icon" />
