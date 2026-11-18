@@ -16,7 +16,7 @@ import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import { BUILD_ITEMS, LUXURY_PRICE_TOLERANCE, findBuildItem } from "./buildItems";
 import {
-  DEMAND_EXAMPLE_BELOW, PASS_FULL_AT, PASS_PRICE_STOPS, PRICE_STOPS, cityIncomeShown, demandHeat, demandWord, fewerPct, hubPrice, liveOf,
+  DEMAND_EXAMPLE_BELOW, PASS_FULL_AT, PASS_PRICE_STOPS, PASS_SPAN, PRICE_STOPS, cityIncomeShown, demandHeat, demandWord, fewerPct, hubPrice, liveOf,
   netRowShown, passFactor, passFactorPct, passFullPrice, passSliderShown, passesShown, presaleShown, priceFactor, priceFactorPct,
   priceFullWith, schoolBuiltOf, schoolState, ticketsRow,
 } from "./hubRules";
@@ -391,7 +391,7 @@ function PassLine({ city, t }: { city: CityStats; t: Translate }): JSX.Element |
     }} />,
     // The lever line (DECISIONS 676): above the limit fewer buy; below it as many buy at a lower price; at it, none (either way trades).
     price > full ? t(HUB_LOC.moneyPassTipLower) : price < full ? t(HUB_LOC.moneyPassTipRaise) : null,
-    <LocText key="l" entry={HUB_FMT.moneyPassTipLimit} args={{ N: numArg(PASS_FULL_AT, Unit.Integer) }} />,
+    <LocText key="l" entry={HUB_FMT.moneyPassTipLimit} args={{ N: numArg(PASS_FULL_AT + PASS_SPAN, Unit.Integer) }} />,
     t(HUB_LOC.moneyPassTipLocked),
     t(HUB_LOC.moneyPassTipResidents),
   ]} />;

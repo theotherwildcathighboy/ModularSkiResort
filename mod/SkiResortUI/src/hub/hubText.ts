@@ -877,7 +877,7 @@ export const HUB_FMT = {
   moneyTipLiftsRate: ["SkiResort.Hub.MONEY_TIP[LiftsRate]", "Booked this month so far. At today's rate: {RATE} per month."],
   moneyTipSoFar: ["SkiResort.Hub.MONEY_TIP[SoFar]", "{RATE} per month at today's staff and budget. {SHARE} of the month so far. An estimate: it moves when staff or lodges change."],
   moneyRowPasses: ["SkiResort.Hub.MONEY_ROW[Passes]", "Passes this season · {N}"],
-  moneyRowPassHolders: ["SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holders, {MONTH}"],
+  moneyRowPassHolders: ["SkiResort.Hub.MONEY_ROW[PassHolders]", "Guests on a pass, {MONTH}"],
   /* {N} = the pre-season sale's passes (Integer) / the lessons taken this month (Integer) */
   moneyRowPassesPre: ["SkiResort.Hub.MONEY_ROW[PassesPre]", "Pre-season passes · {N}"],
   moneyRowLessons: ["SkiResort.Hub.MONEY_ROW[Lessons]", "Lessons · {N}"],
@@ -887,12 +887,12 @@ export const HUB_FMT = {
   moneyPriceLine: ["SkiResort.Hub.MONEY_PRICE_LINE", "Ticket {PRICE} · Demand: {WORD}"],
   moneyPassLine: ["SkiResort.Hub.MONEY_PASS_LINE", "Season pass {PRICE} · Demand: {WORD}"],
   /* r3/sliders (DECISIONS 677): {FULL} = priceFullWith(area tolerance) or passFullPrice(ticket) (Money), {PRICE} = the slider price (Money),
-   {PCT} = hubRules.fewerPct (Percentage, a multiple of 5), {N} = PASS_FULL_AT (Integer) */
+   {PCT} = hubRules.fewerPct (Percentage, a multiple of 5), {N} = PASS_FULL_AT + PASS_SPAN, where demand reaches 0 (Integer) */
   moneyPriceTipAbove: ["SkiResort.Hub.MONEY_PRICE_TIP[Above]", "Above {FULL}, fewer guests choose a ski day."],
   moneyPriceTipExample: ["SkiResort.Hub.MONEY_PRICE_TIP[Example]", "At {PRICE}, about {PCT} fewer guests ski than at {FULL}."],
   moneyPassTipAbove: ["SkiResort.Hub.MONEY_PASS_TIP[Above]", "Above {FULL}, fewer households buy a pass."],
   moneyPassTipExample: ["SkiResort.Hub.MONEY_PASS_TIP[Example]", "At {PRICE}, about {PCT} fewer households buy than at {FULL}."],
-  moneyPassTipLimit: ["SkiResort.Hub.MONEY_PASS_TIP[Limit]", "The limit is {N} times the lift ticket price."],
+  moneyPassTipLimit: ["SkiResort.Hub.MONEY_PASS_TIP[Limit]", "No household buys a pass at {N} times the lift ticket price or more."],
   /* {FULL} = priceFullWith(the luxury tolerance 40) = 80 */
   buildTipLuxury: ["SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days come in full numbers at any lift ticket price up to {FULL}."],
   moneyRowNatural: ["SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA}"],

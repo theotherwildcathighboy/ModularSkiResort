@@ -1556,7 +1556,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.GUESTS_ROW[Lessons]", "Lessons" },
                 { "SkiResort.Hub.GUESTS_TIP[Lessons]", "Guests who took a lesson, one each." },
                 { "SkiResort.Hub.MONEY_TIP[Passes]", "Sold once a season. Holders ski free all season and come more often. Share and price: Options > Modular Ski Resort > Ski area balance." },
-                { "SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holders, {MONTH}" },
+                { "SkiResort.Hub.MONEY_ROW[PassHolders]", "Guests on a pass, {MONTH}" },
                 { "SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a season pass: no lift ticket money now." },
                 { "SkiResort.Hub.GUESTS_ROW[PassHolders]", "Season pass" },
                 { "SkiResort.Hub.GUESTS_TIP[PassHolders]", "Residents who came in on a season pass. They paid once for the season and pay nothing at the gate. Tourists never hold one." },
@@ -1754,7 +1754,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Example]", "At {PRICE}, about {PCT} fewer guests ski than at {FULL}." },
                 { "SkiResort.Hub.MONEY_PASS_TIP[Above]", "Above {FULL}, fewer households buy a pass." },
                 { "SkiResort.Hub.MONEY_PASS_TIP[Example]", "At {PRICE}, about {PCT} fewer households buy than at {FULL}." },
-                { "SkiResort.Hub.MONEY_PASS_TIP[Limit]", "The limit is {N} times the lift ticket price." },
+                { "SkiResort.Hub.MONEY_PASS_TIP[Limit]", "No household buys a pass at {N} times the lift ticket price or more." },
                 { "SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA}" },
                 // The runs row by feature (R3, DECISIONS 578; SkiRunUpkeepRates.PisteUpkeep).
                 { "SkiResort.Hub.MONEY_ROW[Grooming]", "Grooming · {HA} with snow" },
