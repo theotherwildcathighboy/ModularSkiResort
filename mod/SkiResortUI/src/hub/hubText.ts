@@ -383,6 +383,11 @@ export const HUB_LOC = {
   demandLow: ["SkiResort.Hub.DEMAND_WORD[low]", "low"],
   demandVeryLow: ["SkiResort.Hub.DEMAND_WORD[veryLow]", "very low"],
   moneyPriceTipPasses: ["SkiResort.Hub.MONEY_PRICE_TIP[Passes]", "Season pass holders always come. Full table in the docs."],
+  // r3/sliders, lever lines (DECISIONS 676: "To <goal>, <action>.", no amounts; "at its maximum" when maxed)
+  moneyPriceTipLever: ["SkiResort.Hub.MONEY_PRICE_TIP[Lever]", "To raise ticket tolerance, build better lodges."],
+  moneyPriceTipMax: ["SkiResort.Hub.MONEY_PRICE_TIP[Max]", "Ticket tolerance is at its maximum."],
+  moneyPassTipLower: ["SkiResort.Hub.MONEY_PASS_TIP[Lower]", "To sell more passes, lower the pass price."],
+  moneyPassTipRaise: ["SkiResort.Hub.MONEY_PASS_TIP[Raise]", "To earn more from passes, raise the pass price."],
   cruxPitch: ["SkiResort.Tooltip.CRUX_PITCH", "Hardest unavoidable pitch"],
   steepestPatch: ["SkiResort.Tooltip.STEEPEST_PATCH", "Steepest patch (avoidable)"],
 
@@ -903,10 +908,9 @@ export const HUB_FMT = {
   moneyPriceTipLodges: ["SkiResort.Hub.MONEY_PRICE_TIP[Lodges]", "Lodges here: full up to {FULL}"],
   moneyPassLine: ["SkiResort.Hub.MONEY_PASS_LINE", "Season pass {PRICE} ({N} tickets) · Demand: {WORD}"],
   moneyPassTipBreakeven: ["SkiResort.Hub.MONEY_PASS_TIP[Breakeven]", "Cheaper than day tickets from ski day {N}"],
-  /* r3/sliders: {FULL} = priceFullWith(area tolerance) or PASS_FULL_AT, {PRICE} = the slider price, {N}/{K} = inTen(factor %), {MID}/{LUX} = priceFullWith(20 / 40) */
+  /* r3/sliders: {FULL} = priceFullWith(area tolerance) or PASS_FULL_AT, {PRICE} = the slider price, {N}/{K} = inTen(factor %) */
   moneyPriceTipAbove: ["SkiResort.Hub.MONEY_PRICE_TIP[Above]", "Above {FULL}, fewer guests choose a ski day."],
   moneyPriceTipExample: ["SkiResort.Hub.MONEY_PRICE_TIP[Example]", "At {PRICE}, about {N} in 10 still come."],
-  moneyPriceTipBetter: ["SkiResort.Hub.MONEY_PRICE_TIP[Better]", "Better lodges raise it: Chalet {MID}, Summit and Grand {LUX}. Merged buildings count by tier."],
   moneyPassTipAbove: ["SkiResort.Hub.MONEY_PASS_TIP[Above]", "Up to {FULL} tickets, everyone who wants a pass buys one. Above that, fewer do."],
   moneyPassTipExample: ["SkiResort.Hub.MONEY_PASS_TIP[Example]", "At {N} tickets, about {K} in 10 still buy."],
   /* {FULL} = PRICE_NO_EFFECT_MAX, {P1..P3} = PRICE_EXAMPLES (Money), {F1..F3} = their priceFactorPct (Percentage) */

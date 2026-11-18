@@ -14,7 +14,7 @@ import { RUN_KIND, build$, city$, hubTriggers, problems$, resortLive$, resorts$,
 import type { BuildItem, BuildItemId, CityStats, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
-import { BUILD_ITEMS, LUXURY_PRICE_TOLERANCE, MID_PRICE_TOLERANCE, findBuildItem } from "./buildItems";
+import { BUILD_ITEMS, LUXURY_PRICE_TOLERANCE, findBuildItem } from "./buildItems";
 import {
   PASS_FULL_AT, PASS_MULT_STOPS, PRICE_STOPS, cityIncomeShown, demandHeat, demandWord, hubPrice,
   inTen, liveOf, netRowShown, passFactorPct, passSliderShown, passesShown, presaleShown, priceFactorPct, priceFullWith, schoolBuiltOf, schoolState,
@@ -359,9 +359,8 @@ function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; 
     <LocText key="a" entry={HUB_FMT.moneyPriceTipAbove} args={{ FULL: numArg(full, Unit.Money) }} />,
     !tipVariantB() && now > full && pct >= 0 && pct < 95 &&
       <LocText key="e" entry={HUB_FMT.moneyPriceTipExample} args={{ PRICE: numArg(now, Unit.Money), N: numArg(inTen(pct), Unit.Integer) }} />,
-    <LocText key="b" entry={HUB_FMT.moneyPriceTipBetter} args={{
-      MID: numArg(priceFullWith(MID_PRICE_TOLERANCE), Unit.Money), LUX: numArg(priceFullWith(LUXURY_PRICE_TOLERANCE), Unit.Money),
-    }} />,
+    // The lever line (DECISIONS 676). Maxed: the area already counts a luxury-tier lodge (Summit, Grand or a merged building of that tier).
+    t(tol >= LUXURY_PRICE_TOLERANCE ? HUB_LOC.moneyPriceTipMax : HUB_LOC.moneyPriceTipLever),
     t(HUB_LOC.moneyPriceTipPasses),
   ]} />;
   const heat = (v: number): readonly [number, number] => demandHeat(priceFactorPct(v, tol));
@@ -391,6 +390,8 @@ function PassLine({ city, t }: { city: CityStats; t: Translate }): JSX.Element |
     <LocText key="a" entry={HUB_FMT.moneyPassTipAbove} args={{ FULL: numArg(PASS_FULL_AT, Unit.Integer) }} />,
     !tipVariantB() && n > PASS_FULL_AT &&
       <LocText key="e" entry={HUB_FMT.moneyPassTipExample} args={{ N: numArg(n, Unit.Integer), K: numArg(inTen(pct), Unit.Integer) }} />,
+    // The lever line (DECISIONS 676), true under the proposed pass rule: above PASS_FULL_AT fewer buy, below it as many buy at a lower price.
+    n > PASS_FULL_AT ? t(HUB_LOC.moneyPassTipLower) : n < PASS_FULL_AT ? t(HUB_LOC.moneyPassTipRaise) : null,
     <LocText key="b" entry={HUB_FMT.moneyPassTipBreakeven} args={{ N: numArg(n + 1, Unit.Integer) }} />,
     t(HUB_LOC.moneyPassTipLocked),
     t(HUB_LOC.moneyPassTipResidents),

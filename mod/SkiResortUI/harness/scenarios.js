@@ -330,6 +330,9 @@
     // r3/sliders: Ash Flat with no tool on, so a picked run shows its feature rows (the glade tool is off).
     "Ash Flat, no tool on (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive,
       lifts, problems, history, build: buildItems({ built: ["school"] }) }),
+    // r3/sliders (DECISIONS 676): a luxury lodge counted (tolerance 40), so the price tooltip says ticket tolerance is at its maximum.
+    "Ash Flat, luxury lodge (price tolerance at its maximum)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { lodgeBest: "lodgeSummit", priceTolerance: 40 }), live2],
+      selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
     // Drawing a run (contract 33): the Run tile active, its option row (Groomed on, guns every 60 m, lights Off) in place of the run panel.
     "Drawing a run, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive,
       lifts, problems, history, build: buildItems({ active: "runGroomed", built: ["school"] }),

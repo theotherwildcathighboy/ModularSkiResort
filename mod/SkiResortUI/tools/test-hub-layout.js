@@ -518,6 +518,8 @@ const R3PRICE = [
   ["p07-pass-8-tip-a-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [1, 0.25, 0.75, true], hoverSel: PRICE_TEXT, hoverIdx: 1 }],
   ["p08-pass-8-tip-b-1080", 1080, { scenario: ASH, view: 4, fold: 0, js: TIP_B, drag: [1, 0.25, 0.75, true], hoverSel: PRICE_TEXT, hoverIdx: 1 }],
   ["p09-pass-4-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: PRICE_TEXT, hoverIdx: 1 }],
+  ["p11-price-120-tip-a-maxed-1080", 1080, { scenario: "Ash Flat, luxury lodge (price tolerance at its maximum)", view: 4, fold: 0, drag: [0, 0.5, 0.6, true], hoverSel: PRICE_TEXT }],
+  ["p12-pass-3-tip-a-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [1, 0.25, 0.125, true], hoverSel: PRICE_TEXT, hoverIdx: 1 }],
   ["p10-money-price-pass-2160", 2160, { scenario: ASH, view: 4, fold: 0 }],
 ];
 const R2VIEWS = [];
