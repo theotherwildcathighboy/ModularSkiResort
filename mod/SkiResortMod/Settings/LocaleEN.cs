@@ -399,7 +399,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.Groomers)),
-                    "One snow groomer drives each linked cat track while the track is open. Look only: snow, rating " +
+                    "From dusk to dawn, one snow groomer drives each linked cat track that is open. Look only: snow, rating " +
                     "and upkeep do not change. Default on."
                 },
                 // The cat track tool's knobs

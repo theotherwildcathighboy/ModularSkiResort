@@ -856,7 +856,7 @@ export const HUB_FMT = {
   lodgeBuildingNumbered: ["SkiResort.Hub.LODGE_BUILDING_NUMBERED", "{NAME} {N}"],
   guestsMonthLast: ["SkiResort.Hub.GUESTS_MONTH[Last]", "{MONTH}"],
   guestsTipPaid: ["SkiResort.Hub.GUESTS_TIP[Paid]", "{MONTH}: {GUESTS} guests, {PAID} paid, {HOLDERS} on a pass, {UNPAID} could not pay, {FREE} free while tickets were off or closed."],
-  ticketsNoteOpen: ["SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest without a season pass pays {PRICE} on arrival. To change it, use the ticket slider in the Money view."],
+  ticketsNoteOpen: ["SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest without a season pass pays {PRICE} on arrival. To change it, use the ticket slider in the Finances view."],
   /* both guest bars' tooltip, {MAX} = hubRules.guestBarScale */
   guestsBarScale: ["SkiResort.Hub.GUESTS_BAR_SCALE", "Full bar: {MAX} guests"],
   /* {N} = skiDaysCap, the capacity at once */

@@ -1727,7 +1727,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_RIDE_MIN", "{MIN} min" },
                 { "SkiResort.Hub.CAPACITY_VALUE", "{CAP} skiers/h" },
                 { "SkiResort.Hub.GUESTS_TIP[Paid]", "{MONTH}: {GUESTS} guests, {PAID} paid, {HOLDERS} on a pass, {UNPAID} could not pay, {FREE} free while tickets were off or closed." },
-                { "SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest without a season pass pays {PRICE} on arrival. To change it, use the ticket slider in the Money view." },
+                { "SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest without a season pass pays {PRICE} on arrival. To change it, use the ticket slider in the Finances view." },
                 // The Guests view's trip-planner note when a known mod is loaded; NAME = CityStats.tripPlanner.
                 { "SkiResort.Hub.TRIP_PLANNER_NOTE[Known]", "Detected: {NAME}. It replaces the game's trip planner, so trip times can differ." },
                 { "SkiResort.Hub.TRIP_PLANNER_NOTE[KnownOff]", "Ski days off: {NAME} replaced the game's leisure systems." },
