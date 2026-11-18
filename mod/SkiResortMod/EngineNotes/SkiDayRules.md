@@ -38,3 +38,22 @@ false, so every send is bit-identical). The measure helpers at the end of the cl
 - `HillClosedForCount`, `ClosingEdgeOf`, `MiddayRearmDue`, `DoneDayOf`, `CostDayEnded`.
 
 `Advance`'s closedShort overload closes a partial month when a jump lands a month later.
+
+## Reach causes (T249)
+
+The hub row "Ski-day cars not arriving" (`UpdateCannotReach`) now names a cause. The data was in the measure blocks only.
+
+- `ReachCauseOf` sorts one failed claim, first match:
+  1. NoRoute: the walker carried `Divert{PathFailed}` at the start. Vanilla sets that divert when the trip's pathfind returned an
+     empty path (TripNeededSystem.cs:1562, :683-686, decompile 1.6.4f1). Verified by code read.
+  2. NeverLeft: never departed, or departed with `MoveFrame` 0 (the walker never moved off).
+  3. Stuck: moved off, and the walker or the lead vehicle showed PathOwner Failed or Stuck. UNVERIFIED mapping. The marker is
+     transient, and it joins "lost its path" with "stuck in traffic". So the tip names both.
+  4. OutOfTime: moved off, no path marker, and the deadline passed (outcome Expired).
+  5. None: gone or retargeted after moving off with no marker (the guest changed plans). No cause is claimed.
+- `RecordCause` adds 1 to the cause. `RecordOutcome` fades the four counters with `Arrived` and `Failed` (x 0.975 per outcome). So the
+  causes use the same window as the trigger.
+- `DominantCause`: the largest counter wins. It must be at least 5 and at least half of the faded `Failed`. Else None, and the hub shows
+  the plain tip.
+- The counters are on `ClassTrack`, in memory only. Nothing is saved. A load starts them at 0, as it does the trigger.
+- The row's `Detail` carries the cause (hub contract 55). The `[reach]` log line prints the four counters and the cause.

@@ -1307,6 +1307,7 @@ namespace SkiResortMod.Systems
                     Limit = (SkiDayLimit)co.Limit,
                     Powder = (float)aj.Powder,
                     CannotReach = cannot,
+                    ReachCause = cannot ? SkiDayRules.DominantCause(car) : SkiDayRules.ReachCause.None,
                     ReachLodge = reachLodge,
                     LodgesNoParking = noParking,
                     FirstLodgeNoParking = firstNoParking,
@@ -3740,7 +3741,9 @@ namespace SkiResortMod.Systems
                   Invariant($"SkiDays [reach] ski area {Fmt(sign)}") + NameSuffix(sign) +
                   Invariant($": recent car ski days arrived {pct:F0} % (weighted over about the last {window}; {car.Resolved} resolved this load; ") +
                   Invariant($"confidence {conf:F2}, on below {SkiDayRules.CannotReachBelow:F2}, off from {SkiDayRules.CannotReachClearAt:F2}; most failures: lodge ") +
-                  (reachLodge == Entity.Null ? "-" : Fmt(reachLodge)) + ") — hub row \"" + ReachRowText() + "\" (SkiDaysCannotReach) " + (on ? "on" : "off"));
+                  (reachLodge == Entity.Null ? "-" : Fmt(reachLodge)) + ") — hub row \"" + ReachRowText() + "\" (SkiDaysCannotReach) " + (on ? "on" : "off") +
+                  Invariant($"; failed causes (faded) no route {car.CauseNoRoute:F1}, stuck {car.CauseStuck:F1}, never left {car.CauseNeverLeft:F1}, ") +
+                  Invariant($"out of time {car.CauseOutOfTime:F1} of {car.Failed:F1}: tip {SkiDayRules.DominantCause(car)}"));
         }
 
         /// <summary>The hub row's text as the active dictionary holds it (the SkiResortStatsSystem.Lookup precedent). "?" when no
@@ -4720,6 +4723,7 @@ namespace SkiResortMod.Systems
         public int SentThisMonth, SentCarThisMonth, SentNoCarThisMonth;     // Walk = Sent − Car − NoCar exactly
         public int ArrivedThisMonth, ArrivedLastMonth;                      // Last −1 unless MonthFlags.LastKnown
         public bool CannotReach;              // UpdateCannotReach(car track)
+        public SkiDayRules.ReachCause ReachCause;   // T249: DominantCause(car track) while CannotReach, else None
         public Entity ReachLodge;             // most car failures this load. Null allowed
         public int LodgesNoParking; // every pass
         public Entity FirstLodgeNoParking;
@@ -4737,7 +4741,7 @@ namespace SkiResortMod.Systems
                    SkiDayTiming.SameBits(Powder, o.Powder) && SentThisMonth == o.SentThisMonth &&
                    SentCarThisMonth == o.SentCarThisMonth && SentNoCarThisMonth == o.SentNoCarThisMonth &&
                    ArrivedThisMonth == o.ArrivedThisMonth && ArrivedLastMonth == o.ArrivedLastMonth &&
-                   CannotReach == o.CannotReach && ReachLodge == o.ReachLodge && LodgesNoParking == o.LodgesNoParking &&
+                   CannotReach == o.CannotReach && ReachCause == o.ReachCause && ReachLodge == o.ReachLodge && LodgesNoParking == o.LodgesNoParking &&
                    FirstLodgeNoParking == o.FirstLodgeNoParking && Depots == o.Depots && DepotsNoHillLodge == o.DepotsNoHillLodge &&
                    DepotsNoRoad == o.DepotsNoRoad && FirstDepotProblem == o.FirstDepotProblem &&
                    DepotArrivedThisMonth == o.DepotArrivedThisMonth;
