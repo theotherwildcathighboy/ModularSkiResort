@@ -385,7 +385,7 @@ namespace SkiResortMod.Systems
                 // The pass share (0 = passes off).
                 writer.PropertyName("passShare");
                 writer.Write(Fin(value.PassShare));
-                // Contract 56 (r3/sliders): the season pass price in lift tickets (2..10), the Money view's pass slider.
+                // Contract 56 (r3/sliders): the season pass price in money (Options SeasonPassPrice, 20..2,000), the Money view's pass slider.
                 writer.PropertyName("passPrice");
                 writer.Write(Fin(value.PassPrice));
                 // The calendar month 0..11 (the UI names it with vanilla Common.MONTH:<n>).
