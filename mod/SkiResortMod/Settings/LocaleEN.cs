@@ -197,9 +197,9 @@ namespace SkiResortMod.Settings
                 // ticket notes, not here.
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
-                    "What each guest pays on arrival, one price for every ski area. Above ¢40, fewer guests choose a ski day: about 30 % " +
-                    "fewer at ¢100, 80 % fewer at ¢200. To raise that limit, build better lodges. It is ¢60 with a Chalet Lodge and ¢80 with " +
-                    "a Swanky Summit or Grand Lodge. Season pass holders, and visitors the game sends on its own, come at any price. Income " +
+                    "What each guest pays on arrival, one price for every ski area. Above ¢40, the ticket tolerance, fewer guests choose a ski " +
+                    "day: about 30 % fewer at ¢100, 80 % fewer at ¢200. To raise ticket tolerance, build better lodges: ¢60 with a Chalet Lodge, " +
+                    "¢80 with a Swanky Summit or Grand Lodge. Season pass holders, and visitors the game sends on its own, come at any price. Income " +
                     "shows in the Economy panel under public transportation fees. 0 turns lift tickets off. Default 100."
                 },
                 // Lodge spend per guest: "price 0 = nothing charged" is documented in the slider tip. Multipliers: SkiCatalog.LodgeDef.SpendMultiplier.
