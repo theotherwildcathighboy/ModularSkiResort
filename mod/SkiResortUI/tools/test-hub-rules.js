@@ -885,6 +885,30 @@ function run(srcDir) {
   const hubTuples = read(path.join("hub", "hubText.ts")).split("\n")
     .map((l) => /\["(?:SkiResort|Assets)[^"]*", "([^"]*)"\]/.exec(l)).filter(Boolean).map((m) => m[1]);
   eq("T34 no over-instructive hub text", [hubTuples.length > 500, hubTuples.filter((s) => obvious.test(s))], [true, []]);
+  // T34b (DECISIONS 676 / 677) lever lines read "To <goal>, <action>.", never "X raises it" ("Better lodges raise it", "lodges raise that
+  // limit"). Over every en-US entry (locale/en-US.json: hub, tools, Options, assets) and every hubText tuple. "To raise it" passes.
+  // LEVER_ALLOW: a line that names a cause, not a lever (weather), with its reason.
+  const leverForm = /(?<!\bto )\b(raises?|lowers?|adds?)\s+(it|that|them)\b|\b(better|bigger|more|larger)\s+\w+\s+(raises?|adds?|lowers?)\b/i;
+  const LEVER_ALLOW = new Set([
+    "SkiResort.Hub.TOURISTS_TIP[Snow]",          // snowfall and storms: weather, not a lever
+  ]);
+  const enUs = JSON.parse(fs.readFileSync(path.resolve(__dirname, "..", "..", "..", "locale", "en-US.json"), "utf8"));
+  const leverPairs = [...Object.entries(enUs), ...read(path.join("hub", "hubText.ts")).split("\n")
+    .map((l) => /\["((?:SkiResort|Assets)[^"]*)", "([^"]*)"\]/.exec(l)).filter(Boolean).map((m) => [m[1], m[2]])];
+  eq("T34b lever lines: no \"X raises it\" form", [Object.keys(enUs).length > 1500, [...new Set(leverPairs.filter(([k, s]) => !LEVER_ALLOW.has(k) && leverForm.test(s)).map(([k]) => k))]], [true, []]);
+  // T43 (DECISIONS 677) the Guests view's lodge skier-room table equals C# SkiCatalog.Lodges Capacity per tier, and SKI_DAYS_TIP[Lodges]
+  // states the powder boost of SkiDayRules (PowderCapacityBoost 0.25 = "25 %").
+  {
+    const cap = {};
+    for (const m of catalogCs.matchAll(/new LodgeDef\(\d+, "\w+", [\w.]+, "(\w+)",[\s\S]*?capacity: (\d+)/g)) cap[m[1]] = Number(m[2]);
+    const rulesCs = fs.readFileSync(path.join(csDir, "Systems", "SkiDayRules.cs"), "utf8");
+    const boost = /PowderCapacityBoost = ([0-9.]+)/.exec(rulesCs);
+    const tipLodges = (hubTuples.find((s) => /^To raise the skier room, build more or bigger lodges/.test(s)) || "");
+    eq("T43 LODGE_SKIER_ROOM = SkiCatalog capacities; the tip's powder share = PowderCapacityBoost",
+      [ITEMS.LODGE_SKIER_ROOM.map(([id, n]) => [id, n, cap[id]]).filter(([, n, c]) => n !== c), ITEMS.LODGE_SKIER_ROOM.length === Object.keys(cap).length,
+        boost ? tipLodges.includes(Math.round(Number(boost[1]) * 100) + " %") : "no PowderCapacityBoost"],
+      [[], true, true]);
+  }
   // T35 (contract 28) the Runs view's prop rows: a slider on the spacing ladder (r3/sliders; was Fewer / More, DECISIONS 601). Range from RunPropPlacerRules
   // (tools/check-run-props.js compares the constants). The rows act on the focused run.
   {
@@ -1121,6 +1145,19 @@ function run(srcDir) {
     eq("T42.9 schoolMissingOf: none / off -> the active-school line, noGreen -> the green line, waiting -> no run counts, else none",
       ["none", "off", "noGreen", "waiting", "on", "unknown"].map((s) => R.schoolMissingOf(s)),
       ["receiptMissingSchoolNone", "receiptMissingSchoolNone", "receiptMissingSchoolGreen", "receiptMissingSchoolWaiting", null, null]);
+    // T42.10 (DECISIONS 676 / 677) receiptMaxed: a maxed receipt row says so instead of its lever line. Lodge base: a top tier (summit,
+    // grand) and the extras at the 24 cap, winter only. Variety: all three bits. Vertical: under half a meter short. School: its 12.
+    // Efficiency: 100 % as displayed (from 99.5). Unknown (-1) never.
+    eq("T42.10 receiptMaxed per row",
+      [R.receiptMaxed(L({ lodgeBest: "lodgeGrand", lodgeExtra: 24 }), "lodgeBase"), R.receiptMaxed(L({ lodgeBest: "lodgeSummit", lodgeExtra: 23.96 }), "lodgeBase"),
+        R.receiptMaxed(L({ lodgeBest: "lodgeMid", lodgeExtra: 24 }), "lodgeBase"), R.receiptMaxed(L({ lodgeBest: "lodgeGrand", lodgeExtra: 20 }), "lodgeBase"),
+        R.receiptMaxed(L({ lodgeBest: "lodgeGrand", lodgeExtra: 24, summer: true }), "lodgeBase"),
+        R.receiptMaxed(L({ varietyBands: 7 }), "variety"), R.receiptMaxed(L({ varietyBands: 3 }), "variety"), R.receiptMaxed(L({ varietyBands: -1 }), "variety"),
+        R.receiptMaxed(L({ verticalShortM: 0 }), "vertical"), R.receiptMaxed(L({ verticalShortM: 0.6 }), "vertical"), R.receiptMaxed(L({ verticalShortM: -1 }), "vertical"),
+        R.receiptMaxed(L({ schoolValue: 12 }), "school"), R.receiptMaxed(L({ schoolValue: 0 }), "school"), R.receiptMaxed(L({ schoolValue: -1 }), "school"),
+        R.receiptMaxed(L({ efficiencyPct: 100 }), "efficiency"), R.receiptMaxed(L({ efficiencyPct: 99.5 }), "efficiency"), R.receiptMaxed(L({ efficiencyPct: 94 }), "efficiency"),
+        R.receiptMaxed(L({ efficiencyPct: -1 }), "efficiency"), R.receiptMaxed(null, "variety")],
+      [true, true, false, false, false, true, false, false, true, false, false, true, false, false, true, true, false, false, false]);
 
     // T42.19 the tooltip key (legend at the point of use): icon names once, in legend order, 3 per row; marks never; "flex" counts only
     // one-line rows, "words" gives no key; a name without a legend row is dropped.

@@ -157,7 +157,7 @@ export const HUB_LOC = {
   problemTipSkiDaysCannotReachStuck: ["SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReachStuck]", "Most recent ski-day car trips lost their route or got stuck on the way. Fewer are sent until more arrive."],
   problemTipSkiDaysCannotReachNeverLeft: ["SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReachNeverLeft]", "Most recent ski-day guests with a car never left home. Fewer are sent until more arrive."],
   problemTipSkiDaysCannotReachOutOfTime: ["SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReachOutOfTime]", "Most recent ski-day car trips were still on the way when their ski day ran out. Fewer are sent until more arrive."],
-  problemTipSkiDaysNoGuestsNear: ["SkiResort.Hub.PROBLEM_TIP[SkiDaysNoGuestsNear]", "Ski-day guests come from homes and hotels, within the longest ski-day trip in Options. Beyond about 7 km few arrive in time."],
+  problemTipSkiDaysNoGuestsNear: ["SkiResort.Hub.PROBLEM_TIP[SkiDaysNoGuestsNear]", "Ski-day guests come from homes and hotels within the longest ski-day trip in Options. To reach a farther town, build a Ski Bus Depot there."],
   problemTipNoParkingNearLodge: ["SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 600 m. Tourists from outside the city drive here, so none arrive. Hotel guests within 900 m walk."],
   problemTipLodgeNotSlopeside: ["SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations."],
   problemTipMixedLiftTypes: ["SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and its stations must be one lift type. Until then, the lift adds no points."],
@@ -171,7 +171,7 @@ export const HUB_LOC = {
   problemTipLiftTrainLimit: ["SkiResort.Hub.PROBLEM_TIP[LiftTrainLimit]", "Wheels tilt 30° beyond the tower's lean (detachables, gondolas 40°, tram saddles 60°) and fold 40° (trams 60°). Past that the rope leaves them."],
   /* C# HubProblemCode LiftBend (over LiftAlignMath.BendWarnDeg, 5 deg). Shown only. The lift is unchanged */
   problemTipLiftBend: ["SkiResort.Hub.PROBLEM_TIP[LiftBend]", "Real lift lines turn 5° or less at a tower. Past that the rope runs off the outer wheels. The lift still runs and scores."],
-  problemTipSummitLodgeNotLiftServed: ["SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "With every run closed, a Hut or Summit lodge scores more near a working lift top (300 m) or a served run (100 m)."],
+  problemTipSummitLodgeNotLiftServed: ["SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "To raise their score while every run is closed, end a working lift within 300 m of them, or serve a run within 100 m."],
   problemTipSchoolNoGreenRun: ["SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while at least one <icon:green> run or cat track is <icon:openpatchy>."],
   pagePrev: ["SkiResort.Hub.PAGE_PREV", "Previous page"],
   pageNext: ["SkiResort.Hub.PAGE_NEXT", "Next page"],
@@ -203,13 +203,13 @@ export const HUB_LOC = {
   receiptLodgeBaseNone: ["SkiResort.Hub.RECEIPT[LodgeBaseNone]", "Lodge base, no lodge"],
   /* T237: every lodge is closed for the off-season (live.lodgesOffSeason > 0 and none active) */
   receiptLodgeBaseClosed: ["SkiResort.Hub.RECEIPT[LodgeBaseClosed]", "Lodge base, lodges closed"],
-  receiptTipLodgeBase: ["SkiResort.Hub.RECEIPT_TIP[LodgeBase]", "The best lodge's value, plus a little for each other lodge, up to 24 more. About half while every run is closed."],
+  receiptTipLodgeBase: ["SkiResort.Hub.RECEIPT_TIP[LodgeBase]", "To raise it, build a better lodge. Each other lodge adds a little, up to 24. About half while every run is closed."],
   receiptTerrain: ["SkiResort.Hub.RECEIPT[Terrain]", "Runs, lifts and school"],
-  receiptTipRuns: ["SkiResort.Hub.RECEIPT_TIP[Runs]", "The total of all runs. Harder and bigger runs score more, and a run needs snow and a lift to score in full."],
+  receiptTipRuns: ["SkiResort.Hub.RECEIPT_TIP[Runs]", "The total of all runs. To raise it, draw bigger or harder runs. A run scores in full only with snow and a lift."],
   receiptTipLifts: ["SkiResort.Hub.RECEIPT_TIP[Lifts]", "Points per complete, powered lift: fixed-grip 6, detachable 15, gondola 25, tram 30. While every run is closed, chairlifts and gondolas add a quarter."],
   /* the school's line of the RECEIPT_PARTS tooltip (shown while ResortLive.schoolValue > 0) */
-  receiptTipSchool: ["SkiResort.Hub.RECEIPT_TIP[School]", "An active ski school adds 12 while at least one <icon:green> run or cat track is <icon:openpatchy>."],
-  receiptTipVariety: ["SkiResort.Hub.RECEIPT_TIP[Variety]", "+15 % (1.15) while at least one <icon:green>, one <icon:blue> and one <icon:black> or <icon:dblack> run is <icon:openpatchy>. Otherwise no bonus."],
+  receiptTipSchool: ["SkiResort.Hub.RECEIPT_TIP[School]", "To add 12, build a ski school and have a <icon:green> run or cat track <icon:openpatchy>."],
+  receiptTipVariety: ["SkiResort.Hub.RECEIPT_TIP[Variety]", "To get +15 %, have a <icon:green>, a <icon:blue> and a <icon:black> or <icon:dblack> run <icon:openpatchy> at once."],
   /*
    * each term of the "Runs, lifts and school" section is its own labeled row. The full equation is the section header's tooltip
    * (RECEIPT_PARTS[_SCHOOL] + RECEIPT_ROOT)
@@ -234,7 +234,7 @@ export const HUB_LOC = {
   schoolClosed: ["SkiResort.Hub.SCHOOL_CLOSED", "Closed: off-season"],
   receiptOpenNone: ["SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –"],
   receiptEfficiency: ["SkiResort.Hub.RECEIPT[Efficiency]", "Efficiency"],
-  receiptTipEfficiency: ["SkiResort.Hub.RECEIPT_TIP[Efficiency]", "How well the Welcome Sign and its lodges work: staff, power, water, garbage, budget. The score uses a one-day average, held between 25 % and 100 %."],
+  receiptTipEfficiency: ["SkiResort.Hub.RECEIPT_TIP[Efficiency]", "To raise it, give the Welcome Sign and its lodges staff, power, water, garbage pickup and budget. A one-day average, from 25 % to 100 %."],
   receiptResult: ["SkiResort.Hub.RECEIPT[Result]", "Attraction"],
   receiptResultNoLodge: ["SkiResort.Hub.RECEIPT[ResultNoLodge]", "Attraction, no lodge"],
   receiptTipResult: ["SkiResort.Hub.RECEIPT_TIP[Result]", "Lodge base plus runs, lifts and school, times efficiency, up to 200. A lodge's own info panel shows 0: it does not show this score."],
@@ -271,6 +271,13 @@ export const HUB_LOC = {
   receiptMissingRuns: ["SkiResort.Hub.RECEIPT_MISSING[Runs]", "Not in full:"],
   receiptMissingLifts: ["SkiResort.Hub.RECEIPT_MISSING[Lifts]", "Not counted:"],
   receiptMissingEfficiency: ["SkiResort.Hub.RECEIPT_MISSING[Efficiency]", "Held at the 25 % floor"],
+  /* DECISIONS 676 / 677: the lever line of the Vertical row, and each receipt row's line at its maximum (hubRules.receiptMaxed) */
+  receiptTipVerticalLever: ["SkiResort.Hub.RECEIPT_TIP[VerticalLever]", "To raise it, draw runs lower or higher on the mountain."],
+  receiptMaxLodgeBase: ["SkiResort.Hub.RECEIPT_TIP_MAX[LodgeBase]", "The lodge base is at its maximum. About half while every run is closed."],
+  receiptMaxVariety: ["SkiResort.Hub.RECEIPT_TIP_MAX[Variety]", "Variety is at its maximum: +15 %."],
+  receiptMaxVertical: ["SkiResort.Hub.RECEIPT_TIP_MAX[Vertical]", "The vertical bonus is at its maximum."],
+  receiptMaxSchool: ["SkiResort.Hub.RECEIPT_TIP_MAX[School]", "The ski school adds its full 12."],
+  receiptMaxEfficiency: ["SkiResort.Hub.RECEIPT_TIP_MAX[Efficiency]", "Efficiency is at its maximum."],
   detailShare: ["SkiResort.Hub.DETAIL[Share]", "Share of city tourism"],
   shareTip: ["SkiResort.Hub.SHARE_TIP", "This ski area's part of what draws tourists to your city. The game squares each score, so 100 draws four times as much as 50."],
   sectionMountain: ["SkiResort.Hub.SECTION[Mountain]", "Mountain"],
@@ -331,7 +338,7 @@ export const HUB_LOC = {
   runOpenGating: ["SkiResort.Hub.RUN_OPEN_GATING", "Counts as open: Snow & season gating is off in Options."],
   runOpenNone: ["SkiResort.Hub.RUN_OPEN_NONE", "Not linked: belongs to no ski area, so it has no open or closed state."],
   runServedAnon: ["SkiResort.Hub.RUN_SERVED_ANON", "A running lift reaches its top."],
-  runTypeNote: ["SkiResort.Hub.RUN_TYPE_NOTE", "Natural green and blue runs count less. A groomed run counts in full."],
+  runTypeNote: ["SkiResort.Hub.RUN_TYPE_NOTE", "Natural green and blue runs count less. To count this run in full, groom it."],
   runCatTrackNote: ["SkiResort.Hub.RUN_CAT_TRACK_NOTE", "A cat track always rates green and counts a quarter of a run its size, in the score and the skier room."],
   runValue: ["SkiResort.Hub.RUN_VALUE", "Score value"],
   runCost: ["SkiResort.Hub.RUN_COST", "Upkeep"],
@@ -446,8 +453,8 @@ export const HUB_LOC = {
   skiDaysFull: ["SkiResort.Hub.SKI_DAYS[Full]", "Full right now"],
   skiDaysTipOff: ["SkiResort.Hub.SKI_DAYS_TIP[Off]", "Locals who ski and Tourists who ski are both 0 in Options."],
   skiDaysTipNoLodge: ["SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Needs an active lodge within 800 m of runs or stations, with a road or a cat track. The Hut and Summit need neither."],
-  skiDaysTipRuns: ["SkiResort.Hub.SKI_DAYS_TIP[Runs]", "The runs set the limit: bigger and easier runs hold more skiers at once."],
-  skiDaysTipLodges: ["SkiResort.Hub.SKI_DAYS_TIP[Lodges]", "The lodges set the limit: each lodge takes 360 skiers at once, more on a powder day."],
+  skiDaysTipRuns: ["SkiResort.Hub.SKI_DAYS_TIP[Runs]", "To raise the skier room, draw more or bigger runs. A green run holds 3 times a black one, a natural run half as much."],
+  skiDaysTipLodges: ["SkiResort.Hub.SKI_DAYS_TIP[Lodges]", "To raise the skier room, build more or bigger lodges. Powder adds up to 25 %."],
   // T226 / T225 (DECISIONS 666, 668): the Overview tourism group.
   spendRow: ["SkiResort.Hub.SPEND_ROW", "Tourist spending drawn"],
   spendTip: ["SkiResort.Hub.SPEND_TIP", "An estimate: this ski area's share of what tourists spend in the city in a month, at its hotels, shops and leisure places."],
@@ -739,7 +746,7 @@ export const HUB_FMT = {
   problemLiftLowSpanGround: ["SkiResort.Hub.PROBLEM[LiftLowSpanGround]", "{NAME}: {CARRIERS} touch the ground"],
   /* C# HubProblemCode LiftLowSpan (LiftClearanceSystem: the planner's floor, LiftTowerPlanConstants FloorM). Shown only. The lift is
      unchanged. {WHERE} = LOW_SPAN[Towers], [Station] or [Stations] */
-  problemTipLiftLowSpan: ["SkiResort.Hub.PROBLEM_TIP[LiftLowSpan]", "{WHERE}. Planned lines keep chairs and cabins 3 m clear, tram cabins 5 m. The lift tool replans a section you redraw."],
+  problemTipLiftLowSpan: ["SkiResort.Hub.PROBLEM_TIP[LiftLowSpan]", "{WHERE}. To raise it, redraw that section: the lift tool keeps chairs and cabins 3 m clear, tram cabins 5 m."],
   /* {A}, {B} = the tower numbers at the span's ends (count, more) */
   lowSpanTowers: ["SkiResort.Hub.LOW_SPAN[Towers]", "Between towers {A} and {B}"],
   /* {N} = the span's one tower (count or more: the other end is a station) */
@@ -759,15 +766,15 @@ export const HUB_FMT = {
   problemMoreOne: ["SkiResort.Hub.PROBLEM_MORE_ONE", "1 more problem"],
   problemTipNoLift: ["SkiResort.Hub.PROBLEM_TIP[NoLift]", "A run scores {PCT} until a running lift reaches its top: within 150 m of the line, at most 15 m above the top station."],
   problemTipRunsUnserved: ["SkiResort.Hub.PROBLEM_TIP[RunsUnserved]", "Each scores {PCT} until a running lift reaches its top: within 150 m of the line, at most 15 m above the top station."],
-  problemGainEfficiency: ["SkiResort.Hub.PROBLEM_GAIN[Efficiency]", "At full efficiency the attraction would be {FULL}."],
-  problemGainLodge: ["SkiResort.Hub.PROBLEM_GAIN[Lodge]", "With a lodge, the attraction would be {A}."],
-  problemGainLodgesOn: ["SkiResort.Hub.PROBLEM_GAIN[LodgesOn]", "With them active, the attraction would be {A}."],
+  problemGainEfficiency: ["SkiResort.Hub.PROBLEM_GAIN[Efficiency]", "To raise the attraction to {FULL}, raise efficiency to 100 %."],
+  problemGainLodge: ["SkiResort.Hub.PROBLEM_GAIN[Lodge]", "To raise the attraction to {A}, build a lodge."],
+  problemGainLodgesOn: ["SkiResort.Hub.PROBLEM_GAIN[LodgesOn]", "To raise the attraction to {A}, activate them."],
   // T226 / T225: the Overview tourism group.
   bonusValue: ["SkiResort.Hub.BONUS_VALUE", "+{PCT} (of {CAP})"],
   bonusTipArea: ["SkiResort.Hub.BONUS_TIP_AREA", "This ski area adds {PCT}:"],
   bonusTipLifts: ["SkiResort.Hub.BONUS_TIP_LIFTS", "Running lift lines: {N}"],
   bonusTipLodges: ["SkiResort.Hub.BONUS_TIP_LODGES", "Lodge points: {N} (hut 1 to grand 3, merged 2)"],
-  bonusTipCapped: ["SkiResort.Hub.BONUS_TIP_CAPPED", "All ski areas together reach {SUM}. The Options limit is {CAP}."],
+  bonusTipCapped: ["SkiResort.Hub.BONUS_TIP_CAPPED", "The tourism bonus is at its maximum: {CAP}, the Options limit. All ski areas together reach {SUM}."],
   hotelTip: ["SkiResort.Hub.HOTEL_TIP", "Tourists in this area's merged buildings: {RENTED} of {ROOMS} rooms rented, one per tourist group. They are not in the lodge guest counts."],
   spendMonth: ["SkiResort.Hub.SPEND_MONTH", "{MONEY} a month"],
   staffLine: ["SkiResort.Hub.STAFF_LINE", "Staff: {FILLED} of {JOBS}"],
@@ -791,8 +798,8 @@ export const HUB_FMT = {
    */
   receiptRoot: ["SkiResort.Hub.RECEIPT_ROOT", "{K} × the square root of the line above = {TERRAIN}"],
   /* the lodge-base tooltip's best tier ({NAME} = its LODGE_TIER word: an own lodge or a merged building) and the others' extras ({E}) */
-  receiptTipLodgeBest: ["SkiResort.Hub.RECEIPT_TIP_LODGE_BEST", "Best tier: {NAME}. The others add {E}."],
-  receiptTipVertical: ["SkiResort.Hub.RECEIPT_TIP[Vertical]", "Vertical bonus: +1 % per 6 m, so 600 m doubles runs, lifts and school. From the lowest to the highest <icon:openpatchy> run: {M}."],
+  receiptTipLodgeBest: ["SkiResort.Hub.RECEIPT_TIP_LODGE_BEST", "Best tier: {NAME}."],
+  receiptTipVertical: ["SkiResort.Hub.RECEIPT_TIP[Vertical]", "+1 % per 6 m between the lowest and highest <icon:openpatchy> run, up to double at 600 m. Now: {M}."],
   /* the missing lines' parts with a number (contract 40) */
   runsMissingClosed: ["SkiResort.Hub.RECEIPT_MISSING[Runs.Closed]", "{N} <icon:closed>"],
   runsMissingPatchy: ["SkiResort.Hub.RECEIPT_MISSING[Runs.Patchy]", "{N} <icon:patchy>"],
@@ -848,8 +855,6 @@ export const HUB_FMT = {
   /* {NAME} = a LODGE_BUILDING word, {N} = the lodge's number in its area (LodgeParkingRow.number > 0: two or more of that building there) */
   lodgeBuildingNumbered: ["SkiResort.Hub.LODGE_BUILDING_NUMBERED", "{NAME} {N}"],
   guestsMonthLast: ["SkiResort.Hub.GUESTS_MONTH[Last]", "{MONTH}"],
-  /* bar 2's label while last month was counted only since the load (hubRules.lastMonthMark) */
-  guestsMonthLastPartial: ["SkiResort.Hub.GUESTS_MONTH[LastPartial]", "{MONTH} (partial)"],
   guestsTipPaid: ["SkiResort.Hub.GUESTS_TIP[Paid]", "{MONTH}: {GUESTS} guests, {PAID} paid, {HOLDERS} on a pass, {UNPAID} could not pay, {FREE} free while tickets were off or closed."],
   ticketsNoteOpen: ["SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest without a season pass pays {PRICE} on arrival. The price is set in Options."],
   /* both guest bars' tooltip, {MAX} = hubRules.guestBarScale */
@@ -868,7 +873,6 @@ export const HUB_FMT = {
   tripPlannerNoteOff: ["SkiResort.Hub.TRIP_PLANNER_NOTE[KnownOff]", "Ski days off: {NAME} replaced the game's leisure systems."],
   moneyTicketsLast: ["SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets, {MONTH}: {N} paid"],
   moneyColMonth: ["SkiResort.Hub.MONEY_COL_MONTH", "{MONTH} so far"],
-  moneyColMonthPartial: ["SkiResort.Hub.MONEY_COL_MONTH_PARTIAL", "{MONTH} so far, partial"],
   moneyTipPassesMonth: ["SkiResort.Hub.MONEY_TIP[PassesMonth]", "Sold this month so far, in the net now. The pre-season sale is {PRE} of it."],
   moneyTipLiftsRate: ["SkiResort.Hub.MONEY_TIP[LiftsRate]", "Booked this month so far. At today's rate: {RATE} per month."],
   moneyTipSoFar: ["SkiResort.Hub.MONEY_TIP[SoFar]", "{RATE} per month at today's staff and budget. {SHARE} of the month so far. An estimate: it moves when staff or lodges change."],
@@ -1081,8 +1085,8 @@ export const BUILD_SHORT_RUN: Readonly<Record<RunKind, LocEntry>> = {
 export const NEXT_LINE1: Readonly<Record<NextVariant, LocEntry | null>> = {
   sign: HUB_LOC.buildHintSign,
   unlinked: ["SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within its radius, measured in a straight line."],
-  lodge: ["SkiResort.Hub.NEXT[Lodge]", "Ski-day guests need a lodge within 800 m of the runs."],
-  lift: ["SkiResort.Hub.NEXT[Lift]", "Runs a lift serves count in full."],
+  lodge: ["SkiResort.Hub.NEXT[Lodge]", "To get ski-day guests, build a lodge within 800 m of the runs or lift stations."],
+  lift: ["SkiResort.Hub.NEXT[Lift]", "To score runs in full, build a lift to their tops."],
   run: ["SkiResort.Hub.NEXT[Run]", "Natural runs have no upkeep. The others pay upkeep per hectare."],
   done: null,
 };
@@ -1468,7 +1472,7 @@ export const EU_TEXT_ENTRIES: readonly LocEntry[] = [
   ["SkiResort.Hub.ICON[green]@EU", "green or blue"],
   ["SkiResort.Hub.ICON[blue]@EU", "red"],
   ["SkiResort.Hub.ICON[dblack]@EU", "ski route"],
-  ["SkiResort.Hub.RUN_TYPE_NOTE@EU", "Natural green, blue and red runs count less. A groomed run counts in full."],
+  ["SkiResort.Hub.RUN_TYPE_NOTE@EU", "Natural green, blue and red runs count less. To count this run in full, groom it."],
   ["SkiResort.Hub.RUN_CAT_TRACK_NOTE@EU", "A cat track always rates green or blue and counts a quarter of a run its size, in the score and the skier room."],
   ["SkiResort.Hub.BUILD_SHORT[School]@EU", "Teaches on green and blue runs and cat tracks."],
   ["SkiResort.Hub.BUILD_SHORT[CatTrack]@EU", "Always green or blue. Counts as a quarter run."],

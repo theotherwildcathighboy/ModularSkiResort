@@ -111,8 +111,8 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiDayLocalsPct)),
                     "How often residents spend a day out skiing. More attraction, fresh snow and a shorter trip " +
-                    "bring more. A lift ticket price above ¢40 brings fewer. Bigger lodges raise that limit: up to ¢60 with a " +
-                    "Chalet Lodge, up to ¢80 with a Swanky Summit or Grand Lodge. 0 turns ski days off for residents. " +
+                    "bring more. A lift ticket price above ¢40 brings fewer. To raise that ticket tolerance, build a bigger lodge: ¢60 " +
+                    "with a Chalet Lodge, ¢80 with a Swanky Summit or Grand Lodge. 0 turns ski days off for residents. " +
                     "Default 25 %."
                 },
                 {

@@ -22,7 +22,7 @@ import type { BuildItem, CityStats, LiftRow, ProblemRow, ResortLive, ResortRow, 
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
-  bonusCapped, bonusParts, efficiencyAtFloor, factorRowsOf, hotelShown, touristSpendingDrawn, hectares, liftsMissing, liveOf, mountainFacts, lodgeBaseLabelKey, lodgeExtraShort, receiptPartsVariant, resultVariant, runsMissing, schoolBuiltOf,
+  bonusCapped, bonusParts, efficiencyAtFloor, factorRowsOf, receiptMaxed, hotelShown, touristSpendingDrawn, hectares, liftsMissing, liveOf, mountainFacts, lodgeBaseLabelKey, lodgeExtraShort, receiptPartsVariant, resultVariant, runsMissing, schoolBuiltOf,
   schoolFlagOf, schoolMissingOf, schoolState, scoreBarParts, varietyClosed, varietyMissing, verticalShort,
 } from "./hubRules";
 import type { VarietyNeed } from "./hubRules";
@@ -317,9 +317,9 @@ function Receipt({ row, l, city, problems, build, areaRuns, t }: {
         label={t(lodgeLabel)}
         value={numArg(l ? l.lodgePart : -1, Unit.FloatSingleFraction)}
         tip={<TipLines lines={[
-          t(HUB_LOC.receiptTipLodgeBase),
+          receiptMaxed(l, "lodgeBase") ? t(HUB_LOC.receiptMaxLodgeBase) : t(HUB_LOC.receiptTipLodgeBase),
           l && l.lodgesActive >= 0 && <LocText key="n" entry={HUB_FMT.receiptTipLodges} args={{ N: numArg(l.lodgesActive, Unit.Integer) }} />,
-          l && bestEntry && <LocText key="b" entry={HUB_FMT.receiptTipLodgeBest} args={{ NAME: t(bestEntry), E: numArg(l.lodgeExtra, Unit.FloatSingleFraction) }} />,
+          l && bestEntry && <LocText key="b" entry={HUB_FMT.receiptTipLodgeBest} args={{ NAME: t(bestEntry) }} />,
           lodgeShort >= 0 && <IconText key="m" entry={HUB_FMT.receiptMissingLodges} args={{ E: numArg(lodgeShort, Unit.FloatSingleFraction) }} line missing />,
         ]} />}
       />
@@ -369,18 +369,19 @@ function Receipt({ row, l, city, problems, build, areaRuns, t }: {
         flag={schoolFlag ? t(HUB_LOC[schoolFlag]) : undefined} flagDim={schoolNow === "waiting" || schoolNow === "closed"}
         value={l && l.schoolValue >= 0 ? numArg(l.schoolValue, Unit.FloatSingleFraction, false, false) : DASH}
         tip={<TipLines lines={[
-          <IconText key="r" entry={HUB_LOC.receiptTipSchool} />,
+          receiptMaxed(l, "school") ? t(HUB_LOC.receiptMaxSchool) : <IconText key="r" entry={HUB_LOC.receiptTipSchool} />,
           schoolMiss && <IconText key="m" entry={HUB_LOC[schoolMiss]} line missing />,
         ]} />} />
       {/* The Variety row's flag at a glance (like the School row's "No green run"): the Warning glyph and the missing ratings' shapes. */}
       <InfoLine sub op="×" label={t(HUB_LOC.receiptRowVariety)}
         flagShapes={needs.length > 0 ? needs.flatMap((n) => NEED_BANDS[n].map((b) => <BandMarker key={`${n}-${b}`} band={b} />)) : undefined}
         value={parts.VARIETY}
-        tip={<TipLines lines={[<IconText key="r" entry={HUB_LOC.receiptTipVariety} />, needs.length > 0 && varietyMissingLine(needs, l)]} />} />
+        tip={<TipLines lines={[receiptMaxed(l, "variety") ? t(HUB_LOC.receiptMaxVariety) : <IconText key="r" entry={HUB_LOC.receiptTipVariety} />, needs.length > 0 && varietyMissingLine(needs, l)]} />} />
       <InfoLine sub op="×" label={t(HUB_LOC.receiptRowVertical)}
         value={parts.VERTICAL}
         tip={<TipLines lines={[
           <IconText key="v" entry={HUB_FMT.receiptTipVertical} args={{ M: numArg(l ? l.scoreVerticalM : -1, Unit.Height) }} />,
+          receiptMaxed(l, "vertical") ? t(HUB_LOC.receiptMaxVertical) : t(HUB_LOC.receiptTipVerticalLever),
           vShort >= 0 && <IconText key="m" entry={HUB_FMT.receiptMissingVertical} args={{ M: numArg(vShort, Unit.Height) }} line missing />,
         ]} />} />
       </Fold>
@@ -388,7 +389,7 @@ function Receipt({ row, l, city, problems, build, areaRuns, t }: {
         label={t(HUB_LOC.receiptEfficiency)}
         value={l && l.efficiencyPct >= 0 ? <LocText entry={HUB_FMT.receiptTimes} args={{ PCT: numArg(l.efficiencyPct, Unit.Percentage) }} /> : DASH}
         tip={<TipLines lines={[
-          t(HUB_LOC.receiptTipEfficiency),
+          receiptMaxed(l, "efficiency") ? t(HUB_LOC.receiptMaxEfficiency) : t(HUB_LOC.receiptTipEfficiency),
           ...factors.map((f) => ({ label: t(factorEntry(f.factor)), value: numArg(f.pct, Unit.Percentage, true, false) })),
           l && l.jobs >= 0 && <LocText key="s" entry={HUB_FMT.staffLine} args={{ FILLED: numArg(l.jobsFilled, Unit.Integer), JOBS: numArg(l.jobs, Unit.Integer) }} />,
           efficiencyAtFloor(l) && <IconText key="m" entry={HUB_LOC.receiptMissingEfficiency} line missing />,
