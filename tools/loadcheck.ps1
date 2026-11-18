@@ -150,7 +150,7 @@ function Install-SaveCopy([string]$source, [string]$gameName) {
         # the game escapes "." as %2E in file names; the list shows the plain name
         $script:StagedNames = @($twins | ForEach-Object { [Uri]::UnescapeDataString([IO.Path]::GetFileNameWithoutExtension($_.Name)) })
         $script:StagedName = $script:StagedNames[0]
-        Write-Output "  save copy: not needed, the game already lists a byte-identical save: $((($script:StagedNames | ForEach-Object { "'$_'" }) -join ', ')) (loaded read-only by name, never saved over; the first name the list shows is used)"
+        Write-Host "  save copy: not needed, the game already lists a byte-identical save: $((($script:StagedNames | ForEach-Object { "'$_'" }) -join ', ')) (loaded read-only by name, never saved over; the first name the list shows is used)"
         return $twins[0].FullName
     }
     $script:StagedName = $gameName
