@@ -64,6 +64,26 @@ export interface FitPage {
   setPage: (p: number) => void;
 }
 
+/**
+ * The height the panel's content box could still grow into. The game's box is only as tall as its content: the footer sits at the
+ * bottom of the fixed panel, and on a short page the box shrinks to that page. A box read as the room then makes the room the page
+ * itself: the next pass pages at that size, and the page count climbs (field pass 2: History page 2 / 3 held the season header and one
+ * row, 1300 px of free panel below). The free height is the gap between the content box and the footer under it (the footer is
+ * pushed to the panel's bottom, so the gap is the height the box gave up). 0 when there is no gap (the box fills the panel, it is the
+ * limit) or no footer / panel (.panelFixed) to measure against.
+ */
+function freeHeight(body: HTMLElement): number {
+  try {
+    const panel = body.closest("[class*=\"sr-panelFixed_\"]") as HTMLElement | null;
+    if (!panel) return 0;
+    let content: HTMLElement | null = body;
+    while (content && content.parentElement !== panel) content = content.parentElement;
+    const next = content ? (content.nextElementSibling as HTMLElement | null) : null;
+    if (!content || !next) return 0;
+    return Math.max(0, next.getBoundingClientRect().top - content.getBoundingClientRect().bottom);
+  } catch { return 0; }
+}
+
 function innerHeight(el: HTMLElement): number {
   let pad = 0;
   try {
@@ -193,7 +213,8 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
       let room: number | null = roomRef.current;
       if (isFresh) {
         // The last drawn frame shows exactly the rows whose style is not "none"
-        const inner = innerHeight(box);
+        // What the body may fill: the box, plus the panel height it has shrunk away from (freeHeight)
+        const inner = innerHeight(box) + freeHeight(body);
         const bodyH = body.getBoundingClientRect().height;
         const slotRect = slot.getBoundingClientRect();
         const tops = rows.map((r) => r.getBoundingClientRect().top);
@@ -211,12 +232,13 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
           // Room for the view = the box minus everything in the body that is not the view (the pager row included once it is drawn)
           room = inner - (bodyH - slotRect.height) - (pagerOn ? 0 : (heightOf.current.get(rows[0]) ?? 20));
         } else {
-          // Paged: the box shrinks to the shown page, so its height is the room only while it still scrolls with the pager drawn
+          // Paged: the box may be shrunk to the shown page, so `inner` includes the free panel height. The room changes only while the body
+          // is over it, with the pager drawn
           const pagerRow = body.lastElementChild as HTMLElement | null;
           const pagerDrawn = pagerOn && pagerRow !== null && pagerRow !== slot && pagerRow.getBoundingClientRect().height > 0;
           // scrollHeight and clientHeight are whole pixels, so a body under 1 px too tall reads "fits": compare the body itself too
           const over = bodyH - inner;
-          if (pagerDrawn && (box.scrollHeight > box.clientHeight + 0.5 || over > 0.1)) {
+          if (pagerDrawn && (over > 0.1 || (inner === innerHeight(box) && box.scrollHeight > box.clientHeight + 0.5))) {
             room = inner - (bodyH - slotRect.height);
             // The cached row heights can sum a hair under the slot's real height (margins), so the room above would not drop a row: the
             // shown rows must lose what the body is over (a body 0.7 px too tall was a 1 px scrollbar in the harness, Field case 1.25)
@@ -263,6 +285,7 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
         acc += heights[i];
       }
       const n = p + 1;
+      { const w = window as unknown as { __pg?: unknown[] }; (w.__pg = w.__pg || []).push(JSON.stringify({ isFresh, room: Math.round(room * 10) / 10, inner: Math.round(innerHeight(box) * 10) / 10, free: Math.round(freeHeight(body)), boxH: box.clientHeight, n, st: state.current.page, pageOf: pageOf.join(""), shown: rows.map((r) => r.style.display === "none" ? "-" : "x").join("") })); if (w.__pg.length > 80) w.__pg.shift(); }
       let shown = Math.min(state.current.page, n - 1);
       // A fold was just toggled: show the page that holds its header (the open one, or after a close the header that was open)
       const openIdx = openRowClass ? rows.findIndex((r) => r.className.indexOf(openRowClass) >= 0) : -1;

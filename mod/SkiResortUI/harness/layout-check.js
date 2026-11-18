@@ -173,6 +173,84 @@
 
   function pagerText() { const p = q(cls("pagerText")); return p ? p.textContent.trim() : ""; }
 
+
+  /**
+   * r3/ui-history: the History view paged forward and back at several text scales. The game showed page 2 / 3 with the season block's header
+   * and its first row alone (the rest on page 3, a page count that went from 2 to 3 after paging): the pager read a box that had shrunk
+   * to the shown page as the room. Here every page must show the block whole or not at all (header and last row on the same page), and
+   * the page count must read the same on every page, forward and back, at every scale.
+   */
+  async function historyPaging(name, v, fs0, fail, note) {
+    const pageOfPager = () => { const m = /(\d+)\s*\/\s*(\d+)/.exec(pagerText()); return m ? [Number(m[1]), Number(m[2])] : [1, 1]; };
+    const shown = (el) => !!el && el.style.display !== "none";
+    const goTo = async (p) => {
+      for (let i = 0; i < 12; i++) {
+        const cur = pageOfPager()[0];
+        if (cur === p) return true;
+        const bs = qa("button", q(cls("pagerRow")));
+        if (bs.length < 2) return false;
+        (cur < p ? bs[bs.length - 1] : bs[0]).click();
+        await settle();
+      }
+      return pageOfPager()[0] === p;
+    };
+    // The game's panel content box does not grow into the free height (the footer sits at the bottom of the fixed panel, the box is only as
+    // tall as the shown page). The mock's content has flex: 1, so this check lets it shrink like the game's (field pass 2: the room read off the shrunken box).
+    const content = q(".h-panel-content", panel()), footer = q(".h-panel-footer", panel());
+    const keep = content ? [content.style.flex, footer ? footer.style.marginTop : ""] : null;
+    if (content) content.style.flex = "0 1 auto";
+    if (footer) footer.style.marginTop = "auto";
+    await settle();
+    // Two footer states: open (the build strip, about 280 rem tall) and closed by its chevron (76 rem: the game's photo had it closed).
+    // The season block (about 415 rem at text scale 1.35, 475 rem at 1.5) cannot fit a page beside the open strip above 1.25, nor beside the
+    // closed one at 1.5: it may split there, but the page count must still hold still. Where it fits, it must be whole on one page.
+    const chev = () => { const c = qa("button", q(cls("buildFooter"))).find((x) => String(x.className).includes("tabChevron_") || /tabChevron_/.test(String(x.className))); return c || q("button" + cls("tabChevron")); };
+    for (const closed of [false, true]) {
+      if (closed) {
+        const tb = buildTabs().find((x) => /tabButtonOn/.test(x.className)) || buildTabs()[0];
+        if (tb) await openTab(tb);   // the chevron is live once a tab is open
+        const c = chev();
+        if (!c || c.disabled || !footerOpen()) { note(`history paging, strip closed: NOT checked (chevron ${c ? (c.disabled ? "disabled" : "found") : "missing"}, strip ${footerOpen() ? "open" : "closed"})`); continue; }
+        c.click();
+        await settle();
+        if (footerOpen()) { fail("history paging: the build strip chevron did not close the strip"); continue; }
+        note("history paging, strip closed: checked");
+      }
+      for (const sc of [1, 1.1, 1.2, 1.25, 1.35, 1.5]) {
+        const mustFit = sc <= (closed ? 1.35 : 1.25);
+        const tag = `text scale ${sc}, strip ${closed ? "closed" : "open"}`;
+        setScale(sc);
+        await settle();
+        // A text scale change makes the pager re-measure the row heights it cached, page by page (each row is drawn once at the new size).
+        // Walk the pages until the count holds still; the count read after that must not move while paging.
+        await goTo(1);
+        for (let pass = 0; pass < 4; pass++) {
+          const before = pageOfPager()[1];
+          for (let p = 1; p <= before; p++) await goTo(p);
+          await goTo(1);
+          if (pageOfPager()[1] === before) break;
+        }
+        const n0 = pageOfPager()[1];
+        const seq = [];
+        for (let p = 1; p <= n0; p++) seq.push(p);
+        for (let p = n0 - 1; p >= 1; p--) seq.push(p);
+        for (const p of seq) {
+          if (!(await goTo(p))) { fail(`history paging: cannot reach page ${p} of ${n0} at ${tag}`); break; }
+          const [cur, n] = pageOfPager();
+          if (n !== n0) { fail(`history paging: the page count went ${n0} -> ${n} on page ${cur} at ${tag}`); break; }
+          const rows = Array.from(q(cls("viewSlot")).children);
+          const head = rows.find((r) => String(r.className).includes("pagerKeepTail")), last = rows[rows.length - 1];
+          if (mustFit && shown(head) !== shown(last)) { fail(`history paging: the season block is split on page ${cur} / ${n} at ${tag} (header ${shown(head)}, last row ${shown(last)})`); break; }
+        }
+      }
+      if (closed) { const c = chev(); if (c && !footerOpen()) { c.click(); await settle(); } }
+    }
+    if (content && keep) content.style.flex = keep[0];
+    if (footer && keep) footer.style.marginTop = keep[1];
+    setScale(fs0);
+    await settle();
+  }
+
   /** One scenario at one text scale: every view, every fold, the build tabs, the overlays. */
   async function checkOne(name, fs, out) {
     await applyScenario(name);
@@ -213,6 +291,8 @@
       await closeFolds();
       await settle();
       const pt = await allPages(v, "default");
+      // r3/ui-history (pass 2 of the Corwen playtest): the History season block must stay on one page, and paging must not change the count
+      if (fs === 1 && q(cls("pagerKeepTail"))) await historyPaging(name, v, fs, fail, (t) => out.pagers.push({ scenario: name, fs, view: v, pager: t }));
       out.pagers.push({ scenario: name, fs, view: v, pager: pt || "(one page)" });
       const n = folds().length;
       for (let i = 0; i < n; i++) {
