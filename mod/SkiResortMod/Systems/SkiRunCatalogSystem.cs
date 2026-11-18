@@ -1857,11 +1857,7 @@ namespace SkiResortMod.Systems
             string text = "";
             if (snow.TryGetRunLedger(row.Entity, out RunSnowRules.RunLedger ledger))
                 text += ", snow made " + ledger.MadeSeasonM3.ToString("F0", ci) + " m3 this season / " +
-                        ledger.MadeTotalM3.ToString("F0", ci) + " m3 total (" + ledger.HeldSeasonM3.ToString("F0", ci) + " / " +
-                        ledger.HeldTotalM3.ToString("F0", ci) + " m3 put back by protection)";
-            if (snow.TryGetRunProtection(row.Entity, out RunSnowRules.ProtectRun spell) &&
-                spell.State != RunSnowRules.ProtectState.Idle)
-                text += ", protection " + spell.State + " (" + spell.HoursUsed.ToString("F1", ci) + " game h used)";
+                        ledger.MadeTotalM3.ToString("F0", ci) + " m3 total";
             // The guns (SnowGunPlumeRules): state, last measured pack, and whether they ran in the last pass (= plume)
             if (snow.TryGetRunGunState(row.Entity, out SnowGunPlumeRules.GunState guns, out float packM))
             {

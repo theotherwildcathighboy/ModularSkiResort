@@ -544,7 +544,6 @@ type Game.Simulation.ParkAISystem class f31a5b3092
 type Game.Simulation.ParkingFacilityAISystem class 1989e710b8
 type Game.Simulation.PathfindSetupSystem class c7a5f6536a
 type Game.Simulation.PersonalCarAISystem class f41bcbdeee
-type Game.Simulation.PlanetarySystem class bf3239d9ac
 type Game.Simulation.RandomTrafficDispatchSystem class 07411b7e01
 type Game.Simulation.ResidentAISystem class 34d6eebf1d
 type Game.Simulation.ResourceBuyerSystem class 9f056677d3

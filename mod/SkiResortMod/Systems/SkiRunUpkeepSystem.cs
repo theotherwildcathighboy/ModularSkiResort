@@ -8,8 +8,8 @@
 //   * Each run is capped at its plan area (BilledHa).
 //   * First claim across runs, so overlapping runs do not double-bill.
 // A cat track is in no mask, so its plan area stands in (SkiRunUpkeepRates.TrackUpkeep): grooming while its guns can run and its gun value is
-// above Off (SkiRunPropSystem.CatTrackGunsOn, DECISIONS 563), snowmaking only while its guns build made snow (RunSnowRules.TrackGunsWorking,
-// as a piste's guns stop at depth), lights on a lit track in its season whatever its gun switch (DECISIONS 579). No other prop slider counts.
+// above Off (SkiRunPropSystem.CatTrackGunsOn, DECISIONS 563), snowmaking on the share of it the guns make snow on now (RunSnowRules.TrackMadeSnow.MakingShare,
+// T222: as a piste bills the texels its guns raise), lights on a lit track in its season whatever its gun switch (DECISIONS 579). No other prop slider counts.
 // Money goes to Game.City.PlayerMoney (no budget-panel line item without Harmony). Every debit is also booked per ski area into SkiResortLedger.
 // Charges accrue per elapsed frame between passes (wrap-safe uint math, fractional carry). The meter stops while paused.
 // Scheduling: GameSimulation, Game action mode only, anchored after SkiSnowInjectionSystem so its same-frame top-up publishes first.
@@ -399,7 +399,7 @@ namespace SkiResortMod.Systems
         {
             bool gunsCanRun = injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM);
             return SkiRunUpkeepRates.TrackUpkeep(row.Features, row.AreaM2, gunsCanRun, props.CatTrackGunsOn(row.Entity),
-                gunsCanRun && injection.CatTrackGunsWorking(row.Entity));
+                gunsCanRun ? injection.CatTrackGunsMakingShare(row.Entity) : 0f);
         }
 
         private RunUpkeep TrackUpkeepOf(in SkiRunCatalogSystem.RunRow row) => TrackUpkeepOf(m_SnowInjectionSystem, m_RunProps, row);

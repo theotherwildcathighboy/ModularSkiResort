@@ -23,7 +23,7 @@ otherwise.
    top. The guns could never open the run (it opens on 60 % of its texels). So they would bill and plume for nothing. Out of season
    the fold raises nothing and no plume shows. The state still steps.
 
-Warm-spell protection holds warm texels, which are never cold, so a protection-only pass is never "running".
+Warm texels are never cold, so a warm-only pass is never "running" (T222 dropped warm-spell protection).
 
 ## Pack measure (PackDepthM)
 

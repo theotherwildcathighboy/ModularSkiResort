@@ -60,6 +60,7 @@ namespace SkiTestBridge
             TickMergeProbeUi();
             TickLoadCheck();
             TickTourism();
+            TickMeltProbe();
         }
 
         protected override void OnDestroy()
@@ -115,6 +116,7 @@ namespace SkiTestBridge
                 case "heights": return Heights(args);
                 case "snow": return SnowCommand(args);
                 case "runSnow": return RunSnowCommand(args);
+                case "runTexels": return RunTexelsCommand(args);
                 case "perf": return PerfCommand(args);
                 case "tiles": return UnlockTiles();
                 case "pm": return PhotoMode(args);
@@ -139,6 +141,7 @@ namespace SkiTestBridge
                 case "prefabalias": return PrefabAliasCommand(args);
                 case "playset": return PlaysetCommand(args);
                 case "tourism": return TourismCommand(args);
+                case "meltprobe": return MeltProbeCommand(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }

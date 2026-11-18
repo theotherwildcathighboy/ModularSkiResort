@@ -7,7 +7,9 @@
 //     A cat track's switch is read through CatTrackGunsOn. Off bills nothing (DECISIONS 563) and makes no new snow (568).
 //     Made snow stays until it melts (572).
 //     A cat track bills through one rule, SkiRunUpkeepRates.TrackUpkeep (T187): its plan area only while its guns can run AND its
-//     switch is on (the TrackBilledHa rule), and every TrackUpkeep call passes CatTrackGunsOn.
+//     switch is on (the TrackBilledHa rule), and every TrackUpkeep call passes CatTrackGunsOn. Since T222 (DECISIONS 667 / 671) its
+//     snowmaking bills that area times the making share (TrackMadeSnow.MakingShare, read through CatTrackGunsMakingShare only while the
+//     guns can run), as a piste bills the texels its guns raise.
 //     The injection reads it twice, for a cat track only: in GetRunSnow, and where
 //     BuildMask records a track for measurement (its made-snow model).
 //  R3 the old Options sliders stay gone, also from the locale template.
@@ -19,13 +21,16 @@
 //     - They stay out of injection (the prefab is named only in the measure-only set).
 //     - The run rule estimates them: one RunSnowRules.EstimatedRunShare call for an unmeasured run and one for GetRunSnow,
 //       both with the pass's gun season once known (DECISIONS 571).
-//     A track's made snow uses only TrackGunShare and TrackColdShare, once each, in StepTrack. Its bill's gate (GunReach, T220 r1d)
-//     comes from that gun share or TrackGunReach at the same air, once, in StepTrack.
+//     T222 (DECISIONS 667 / 671): a track's made snow is one call of RunSnowRules.StepTrackPack in StepTrack, with the live pack
+//     parameters and the known season (its switch for the guns, switch on for the reach). StepTrackPack melts each cell with PackMeltM
+//     and builds it with PackStep at the mean rate, the same pack step a run texel takes (PackRaiseTexelM). It sets GunReach (the
+//     bill gate, T220 r1d) and MakingShare (the bill). The old TrackGunShare / TrackColdShare / StepTrackMadeSnow / TrackGunReach
+//     rules are gone. After a load (T223) the first refresh has dt 0 and the gun state starts Unknown, so it follows the saved depth.
 //  R8 house style: Game mode only, ARMED line, one-shot catch, [cost] line, and the tag is added in one place.
 //  R9 run types: the count of run kind names per mod file only goes down (systems move to RunFeatures in R2).
 //     One exception: the shim file EntityRef.cs rose in R2 for SnowKind.
 //     SnowKind is the features-to-kind bridge of the kind-keyed snow code
-//     (102 -> 95 names overall. R3 billed upkeep by feature: 89).
+//     (102 -> 95 names overall. R3 billed upkeep by feature: 89. T222, DECISIONS 671: 74).
 //  R10 cat track lights bill (DECISIONS 579): every place that bills a cat track (the charge, its per-area split, the hub's rows) adds
 //     SkiRunUpkeepRates.TrackLitHa at the lights rate: TrackUpkeep holds it, and all three read TrackUpkeep through TrackUpkeepOf.
 //     It has the same season gate its guns use (CatTrackGunsCanRun).
@@ -85,8 +90,12 @@ need(featuresBody.includes("SkiRunPropSettings") && featuresBody.split("RunFeatu
 // the switch on, and every TrackUpkeep call passes the cat track gun switch (CatTrackGunsOn). CatTrackGunsOn reads the gun value only.
 const rates = code(read(systems, "SkiRunBindingRules.cs"));
 const trackRule = body(rates, "public static RunUpkeep TrackUpkeep(") || "";
-need(trackRule.includes("gunsCanRun && gunsOn ?") && trackRule.includes("if (gunsWorking)"),
-     "R2 SkiRunBindingRules.cs: TrackUpkeep must bill the plan area only while the guns can run and are on, snowmaking only while they work");
+need(trackRule.includes("gunsCanRun && gunsOn ?") && /u\.SnowmakingHa\s*=\s*ha\s*\*\s*making;/.test(trackRule) &&
+     /float making = makingShare/.test(trackRule),
+     "R2 SkiRunBindingRules.cs: TrackUpkeep must bill the plan area only while the guns can run and are on, snowmaking on that area times the making share (T222, DECISIONS 671)");
+need((body(code(read(systems, "SkiRunUpkeepSystem.cs")), "internal static RunUpkeep TrackUpkeepOf(") || "")
+       .includes("gunsCanRun ? injection.CatTrackGunsMakingShare(row.Entity) : 0f"),
+     "R2 SkiRunUpkeepSystem.cs: TrackUpkeepOf must pass the injection's making share, only while the guns can run (T222)");
 for (const f of ["SkiRunUpkeepSystem.cs", "SkiResortStatsSystem.cs"]) {
   const c = code(read(systems, f));
   need(!c.includes("TrackBilledHa("), `R2 ${f}: bills a cat track past TrackUpkeep (SnowGunPlumeRules.TrackBilledHa called directly)`);
@@ -173,13 +182,28 @@ const estimates = injection.split("RunSnowRules.EstimatedRunShare(").slice(1).ma
 need(estimates.length === 2 && estimates.every((e) => e.includes("m_GunSeasonKnown && m_PassGunSeason")),
      `R7 SkiSnowInjectionSystem.cs: ${estimates.length} RunSnowRules.EstimatedRunShare call(s), expected 2, each with m_GunSeasonKnown && m_PassGunSeason (one estimate rule for runs and cat tracks; no guns credited before the season is known)`);
 const stepTrack = body(injection, "private float StepTrack(") || "";
-need(injection.split("RunSnowRules.TrackGunShare(").length === 2 && injection.split("RunSnowRules.TrackColdShare(").length === 2 &&
-     stepTrack.includes("RunSnowRules.TrackGunShare(m_GunSeasonKnown && m_PassGunSeason, input.GunsOn,") &&
-     stepTrack.includes("RunSnowRules.TrackColdShare(") && stepTrack.includes("RunSnowRules.StepTrackMadeSnow("),
-     "R7 SkiSnowInjectionSystem.cs: a cat track's made snow must come from TrackGunShare (with the known season and its switch) and TrackColdShare, once each, in StepTrack");
-need(injection.split("RunSnowRules.TrackGunReach(").length === 2 &&
-     stepTrack.includes("made.GunReach = input.GunsOn ? gun : RunSnowRules.TrackGunReach(m_GunSeasonKnown && m_PassGunSeason,"),
-     "R7 SkiSnowInjectionSystem.cs: a cat track's bill gate (GunReach) must come from its gun share or TrackGunReach with the known season, once, in StepTrack (T220 r1d: the bill and plumes follow the air at the track now)");
+// T222 (DECISIONS 667 / 671): one pack step for runs and tracks.
+need(injection.split("RunSnowRules.StepTrackPack(").length === 2 && stepTrack.includes("RunSnowRules.StepTrackPack(ref made, RunSnowRules.PackParams.For(freezing, margin),") &&
+     stepTrack.includes("bool inSeason = m_GunSeasonKnown && m_PassGunSeason;") &&
+     stepTrack.includes("RunSnowRules.GunsMakeSnow(RunKind.CatTrack, inSeason, input.GunsOn)") &&
+     stepTrack.includes("RunSnowRules.GunsMakeSnow(RunKind.CatTrack, inSeason, true)"),
+     "R7 SkiSnowInjectionSystem.cs: a cat track's made snow must come from one RunSnowRules.StepTrackPack call in StepTrack, with the live pack parameters, the known season, its switch for the guns and switch on for the reach (T222)");
+need(!/RunSnowRules\.(TrackGunShare|TrackColdShare|StepTrackMadeSnow|TrackGunReach)\(/.test(injection),
+     "R7 SkiSnowInjectionSystem.cs: calls a pre-T222 track rule (TrackGunShare / TrackColdShare / StepTrackMadeSnow / TrackGunReach)");
+{
+  const rules = code(read(systems, "RunSnowRules.cs"));
+  const pack = body(rules, "public static void StepTrackPack(") || "";
+  need(pack.includes("PackMeltM(p, d, air, dt)") && pack.includes("PackStep(p, track.Cell(i), air, true, track.Gun, dt, MeanRampRate, applyMelt: false)") &&
+       pack.includes("track.GunReach = reachAvailable ?") && pack.includes("track.MakingShare = making /"),
+       "R7 RunSnowRules.StepTrackPack: must melt with PackMeltM, build with PackStep at the mean rate (applyMelt false), and set GunReach (the bill gate) and MakingShare (the bill) (T222)");
+  need((body(rules, "public static float PackRaiseTexelM(") || "").includes("PackStep("),
+       "R7 RunSnowRules.PackRaiseTexelM: a run texel must take the same PackStep as a track cell (T222)");
+  need(/enum PackGun\s*:\s*byte\s*\{\s*Unknown\s*=\s*0/.test(rules) &&
+       /PackGunAfterLoad\([^)]*\)\s*=>\s*NextPackGun\(p, PackGun\.Unknown,/.test(rules),
+       "R7 RunSnowRules: after a load the track gun state starts Unknown and follows the saved depth (PackGunAfterLoad, T223)");
+  need(injection.includes("packDtHours = m_PackFrameValid ? RunSnowRules.FramesToHours(frame - m_PackLastFrame) : 0f"),
+       "R7 SkiSnowInjectionSystem.cs: the first track refresh of a load must step with dt 0 (T223: no melt, no build, the gun state from the saved depth)");
+}
 need(!/RunSnowRules\.(EstimatedShare|ThresholdC|EstimateThresholdC)\(/.test(injection),
      "R7 SkiSnowInjectionSystem.cs: an estimate bypasses RunSnowRules.EstimatedRunShare (runs and cat tracks must share one rule)");
 need((body(injection, "private void RefreshRunSnow(") || "").includes("RunSnowRules.EstimatedRunShare(") &&
@@ -207,7 +231,6 @@ const KIND_READS = {
   "Systems/QuickRunsToolSystem.cs": 5,
   "Systems/QuickRunsToolSystem.Scan.cs": 1,
   "Systems/RunPropPlacerRules.cs": 6,
-  "Systems/RunSnowRules.cs": 3,
   "Systems/SkiCatalog.cs": 5,
   "Systems/SkiResortAttractivenessSystem.cs": 3,
   "Systems/SkiResortScore.cs": 5,
@@ -217,7 +240,7 @@ const KIND_READS = {
   "Systems/SkiRunOwnershipSystem.cs": 2,
   "Systems/SkiRunPropSystem.Placer.cs": 4,
   "Systems/SkiRunUpkeepSystem.cs": 1,
-  "Systems/SkiSnowInjectionSystem.cs": 25,
+  "Systems/SkiSnowInjectionSystem.cs": 23,
 };
 const kindRe = /\bRunKind\.(Groomed|Snowmaking|Night|Natural|CatTrack)\b|\bKind(Groomed|Snowmaking|Night|Natural|CatTrack)\b/g;
 const modRoot = path.join(repo, "mod", "SkiResortMod");

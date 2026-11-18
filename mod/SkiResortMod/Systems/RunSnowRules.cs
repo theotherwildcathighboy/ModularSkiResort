@@ -3,9 +3,9 @@
 // Entities. IsSkiable and Mix64 are called from Burst jobs (SkiSnowInjectionSystem). Linked into tests/ResortBatch
 // (SnowRulesTests.cs).
 //
-// EVERY run opens at 3 ft (0.91 m), made or natural: one bar for all kinds and ratings. The guns of snowmaking and night runs (and the
-// groomer) keep making snow while the run is under 3 ft. They top it up to 3 ft + the restart band (0.96 m), so the run stays open between
-// restarts.
+// EVERY run opens at 3 ft (0.91 m), made or natural: one bar for all kinds and ratings. The guns of snowmaking and night runs and of cat
+// tracks build a base of GunStopDepthM (2.0 m, T222, DECISIONS 667) and restart below it minus the band (1.95 m). The groomer tops a groomed
+// run up to 3 ft + 0.05 m. Made snow melts at the game's rate like natural snow (one pack step, PackStep): no hold, no managed melt.
 using System;
 
 namespace SkiResortMod.Systems
@@ -22,7 +22,7 @@ namespace SkiResortMod.Systems
     /// <summary>What the decal dress and the props' snow follow.</summary>
     public enum RunDressSource : byte { None = 0, Managed = 1, NaturalMeasured = 2 }
 
-    /// <summary>Which skip a pass takes. Dry = bare footprint. Packed = the pack guard holds managed melt and no texel is cold.</summary>
+    /// <summary>Which skip a pass takes. Dry = bare footprint. Packed = the runs hold snow and no texel is cold.</summary>
     public enum TopupSkip : byte { None = 0, Dry = 1, Packed = 2 }
 
     /// <summary>One run's snow, as published. Runtime only. Never serialized.</summary>
@@ -54,9 +54,7 @@ namespace SkiResortMod.Systems
         public double RunDepthSum;        // merge's RunDepthSum (real passes only), normalized units
         public int ContainedTexels;       // texels with Scratch > 0, summed over bound injected runs
         public ulong FootprintHash;       // wrapping sum of Mix64(texel index) over the same texels
-        // The packed skip's inputs, real passes only.
-        public int Lowered;               // texels lowered by managed melt in this pass's merge
-        public bool PackGuardNext;        // PackGuard(map mean this pass read): the pack guard the NEXT merge applies
+        // The packed skip's input, real passes only.
         public float RunMeanDepthM;       // MeanRunSnowDepthM after this pass (the dress depth, m)
     }
 
@@ -93,13 +91,18 @@ namespace SkiResortMod.Systems
         public const float MaxSnowmakingMarginC = 6f;
         // Top-up cadence and skip limits
         public const int TopupIntervalFrames = 64;     // the injection's Tuning.TopupIntervalFrames points here
-        public const float MaxStepScale = 4f;          // covers 8× (3.75). A step never spans more than 4 windows
+        // The raise steps on sim time like a cat track (StepTrackPack): a pass credits every sim frame since the last pass. The wall-clock
+        // floor below postpones passes at high sim speeds (about 240 frames a pass at speed 8, more when the frame rate drops), so a cap
+        // of a few windows threw snow away there: before round 2 it was 4 windows, and at speed 8 a night run built slower than a cat track
+        // over the same vertical (snow REPORT section 6). The only cap left is the track's, MaxPackStepHours (a jump in the frame counter).
+        // No catch-up burst: the first pass after a load counts one window, a paused game adds no frames, and a city with no run keeps the
+        // last-pass frame current (the injection's OnUpdate).
+        public const float MaxStepScale = MaxPackStepHours * FramesPerGameHour / TopupIntervalFrames;   // 1024 windows = 6 game hours
         public const float MinPassIntervalS = 0.5f;    // at most two evaluated passes per wall-clock second
         public const uint ForcedRealPassFrames = 1024; // 16 windows
         public const uint MeasureIntervalFrames = 1024;
         public const uint MaxSnapshotAgeFrames = 4096; // older snapshots are stale. They get the estimate
         public const int MeasureFailLimit = 10;        // vanilla's retry cap (TerrainSystem.cs:3595)
-        public const float PackGuardMeanDepthM = 0.02f;
         // The dress guard. 2 x SkiRunSurfaceSystem.Tuning.FullWhiteDepthM (0.05 m, the saturate(depth / 0.05) prop snow). The dress is
         // saturated above 0.05 m (the decal's season thresholds, 0.02 / 0.005 m, sit below it too). The extra 0.05 m covers one forced
         // interval of melt (0.046 m per 1,264 frames at most, measured). DEPENDS ON FullWhiteDepthM: that file is not linked into
@@ -284,21 +287,42 @@ namespace SkiResortMod.Systems
             return ownTargetNorm >= 2f * HalfQuantum && ownTargetNorm < barNorm - HalfQuantum;
         }
 
+        /// <summary>An injected run's share and mean count its cold texels that the edge noise dropped (no target, never raised) only when
+        /// its other measured weight (full, warm and stopped texels; fringe is never counted) is under MinFootprintTexels. Else a narrow
+        /// run whose edge is mostly dropped texels could never open on made snow (round 2). The fallback keeps a spineless run (fringe and
+        /// dropped texels only) measured: without it, the run falls to the day-mean estimate and can open bare.</summary>
+        public static bool CountDroppedTexels(double measuredFootprintW)
+        {
+            return !(measuredFootprintW >= MinFootprintTexels);
+        }
+
+        /// <summary>The factor on an injected run's per-texel ramp rates that brings their mean to MeanRampRate (the cat track's rate), from
+        /// the sum of the merge's ramp noise (0..1) over the run's <paramref name="n"/> cold full-target texels. The noise keeps its texture
+        /// inside the run. Before round 2 a narrow run sat on one or two coarse 8 x 8 texel noise cells, and its mean rate ranged 0.56 to
+        /// 1.69: it opened from 0.67x to 2x the track's time over the same vertical. 1 with no full texel.</summary>
+        public static float RunRateScale(double noiseSum, int n)
+        {
+            if (n <= 0 || double.IsNaN(noiseSum))
+                return 1f;
+            double mean = noiseSum / n;
+            mean = mean < 0.0 ? 0.0 : mean > 1.0 ? 1.0 : mean;
+            return MeanRampRate / (RampRateMin + RampRateSpan * (float)mean);
+        }
+
         // Gun and groomed targets and the ramp (SkiSnowInjectionSystem.Tuning points at these).
-        // The base the guns guarantee is the open bar itself.
+        // The base the guns guarantee within a night is the open bar itself.
         public const float GunTargetDepthM = SkiableDepthM;
-        // The guns of a snowmaking or night run build the pack to GunStopDepthM and then STOP (the injection's gun ramp ceiling). They
-        // restart only when the run's pack falls below GunStopDepthM - GunRestartBandM = SkiableDepthM (SnowGunPlumeRules.RestartBelowM).
-        // They never run on a pack that is already that deep (natural snow included). So a pack the guns built never sags under the open
-        // bar before they run again. GunTargetDepthM stays the base the guns GUARANTEE within a night. The predicate is
-        // SnowGunPlumeRules.NextGunState. The band is the 0.05 m that the PackedSkipMinRunDepthM derivation gives one forced interval of
-        // the worst measured melt (0.046 m per 1,264 frames), so the guns cannot cycle faster than one forced interval even under that
-        // melt.
+        // T222 (DECISIONS 667): the guns of a snowmaking run, a night run and a cat track build the pack to GunStopDepthM, a 2.0 m base, and
+        // then STOP. They restart only when the pack falls below GunStopDepthM - GunRestartBandM (1.95 m, SnowGunPlumeRules.RestartBelowM).
+        // They never run on a pack that is already that deep (natural snow included). Made snow melts at the game's rate like natural snow
+        // (PackMeltM); it lasts longer only because the guns build more of it. 2.0 m is a design value from the round 2 season
+        // simulation (snowpack REPORT section 3): under the 2.5-4 m natural peak at the top of a cold map, and a deeper base adds under
+        // 3 open hours a season for 14-30 % more made snow. Before T222 it was 0.96 m with a two-month protection hold.
         public const float GunRestartBandM = 0.05f;
-        public const float GunStopDepthM = SkiableDepthM + GunRestartBandM;
-        // The groomer lays made snow too, so the groomed ceiling is the gun stop depth (a groomed run could never open on its own
-        // under the 3 ft bar otherwise). Its gate stays freezing + 0 (GroomedMarginC).
-        public const float GroomedTargetDepthM = GunStopDepthM;
+        public const float GunStopDepthM = 2.00f;
+        // The groomer lays snow too: a groomed run is topped up to the open bar + the band (0.96 m, the pre-T222 value), so it can open on
+        // its own under the 3 ft bar. Its gate stays freezing + 0 (GroomedMarginC). It has no guns and no hysteresis.
+        public const float GroomedTargetDepthM = SkiableDepthM + GunRestartBandM;
         public const float RampPerTopupM = 0.004f;     // meters per top-up window at rate 1 and gun output 1
         public const float RampRateMin = 0.25f;        // per-texel noise rate range: Min .. Min + Span
         public const float RampRateSpan = 1.75f;
@@ -328,270 +352,155 @@ namespace SkiResortMod.Systems
             return windows * TopupIntervalFrames / FramesPerGameHour;
         }
 
-        // We can only WRITE depth. The game's shader melts it (SnowSystem.AddSnow, _MeltMultiplier 2e-5, temperature, rain, sun direction).
-        // The melt form is compiled HLSL, unreadable: UNVERIFIED. So protection is a RE-INJECTION with a per-run budget. While a gun run
-        // has an open pack and some of its texels are too warm for the guns, those texels are raised back toward the depth they had when
-        // protection began. The rise is ProtectRaisePerTopupM per top-up window, for up to ProtectBudgetHours game hours. Natural runs get
-        // none. Every number below is a design choice or a derivation stated beside it.
-        public const float ProtectBudgetHours = 48f;  // survive a short dry/warm spell: 48 game hours
-        public const float ProtectMaxLocalC = 10f;  // above 10 C melts faster: no protection above it
-        public const float ProtectSpringFactor = 0.5f;  // springtime melts faster (sun angle): the budget halves
-        public const float ProtectNorthFactor = 1.5f;  // slope orientation affects melt: north faces keep 1.5x
-        public const float ProtectSouthFactor = 0.5f;  // south faces 0.5x (linear in between, east and west 1.0)
-        public const float AspectFullGradient = 0.10f;   // 10 % pitch: aspect counts in full at this slope (ski runs are steeper)
-        // 10 mm per window beats the worst melt this rule faces. The estimate is 2e-5 x T x 0.2 per snow tick, 16 ticks per window. At T =
-        // 10 C that is 6.4 mm (snow-injection.md 4, linear form UNVERIFIED), so 10 mm = 1.5x headroom. At step scale 4 (high game speed) it
-        // is 40 mm per pass against 4 windows of melt.
-        public const float ProtectRaisePerTopupM = 0.010f;
-        public const float ProtectRearmColdHours = 3f;   // all texels cold this long = the guns are back. The budget refills
-        public const float MaxProtectStepHours = 6f;     // a single pass never credits more than this (a jump in the frame counter)
+        // The game's melt (T222). We can only WRITE depth; the game's shader melts it (SnowSystem.AddSnow every 4 frames: _MeltMultiplier
+        // 2e-5, the temperature, rain, the sun direction; compiled HLSL, the form is unreadable). The round 2 bridge melt probe (tools/
+        // testbridge meltprobe; 9 runs, forced 2 / 5 / 10 / 20 C and rain, flat and both aspects, 0.3 to 2.0 m patches) measured it as
+        //   dd/dt = -max(MeltFloorPerHourM, MeltDepthCoef x air / d)   while the local air is above freezing, 0 at or below it:
+        // deep snow loses at least one R16 quantum (8 / 65535 m) per 4-frame snow update, 0.333 m per game hour, at ANY air above freezing;
+        // thin or warm snow melts faster, inversely with the depth (0.0425 m^2/h/C, RMS 3.1 cm over 54 patch series). Aspect, slope and
+        // rain made no difference. So a 2.0 m pack melts at 0.333 m/h up to ~16 C of air. A run texel is melted by the game itself; a cat
+        // track cell, which has no texel (DECISIONS 551), is melted by the mod with this rule (PackMeltM), so a track and a run beside it
+        // melt alike. The snowpack report's linear estimate (0.26 m/h/C) was 4x too fast for deep snow at 5 C.
+        public const int SnowUpdateIntervalFrames = 4;                                                       // = SnowSystem.GetUpdateInterval
+        public const float MeltFloorPerHourM = SnowHeightScaleM / 65535f * (FramesPerGameHour / SnowUpdateIntervalFrames);   // 0.33334
+        public const float MeltDepthCoef = 0.0425f;   // m^2 per game hour per C above freezing
+        public const float MaxPackStepHours = 6f;     // a single pass never credits more than this (a jump in the frame counter)
 
-        /// <summary>Degrees of aspect: 1 on flat ground or an east-west face, up to ProtectNorthFactor on a steep north face and down to
-        /// ProtectSouthFactor on a steep south face. <paramref name="dhdx"/> and <paramref name="dhdz"/> are the terrain slope components
-        /// (meters per meter, central differences). +Z is north (UNVERIFIED: the sun is computed in local coordinates from the latitude,
-        /// PlanetarySystem.cs:455-463). <paramref name="northSign"/> is -1 for a southern-hemisphere latitude, otherwise 1. A slope faces
-        /// the way it descends, so it faces north when the height falls toward +Z.</summary>
-        public static float AspectFactor(float dhdx, float dhdz, float northSign)
-        {
-            float g = (float)Math.Sqrt(dhdx * dhdx + dhdz * dhdz);
-            if (!(g > 1e-6f))
-                return 1f;
-            float weight = Math.Min(1f, g / AspectFullGradient);
-            float northness = -dhdz / g * northSign;   // +1 faces north, -1 faces south
-            float span = northness >= 0f ? ProtectNorthFactor - 1f : 1f - ProtectSouthFactor;
-            return 1f + span * weight * northness;
-        }
-
-        /// <summary>Spring (the budget halves). A vanilla-named season decides: "SeasonSpring" is spring, the other three are not. For any
-        /// other name (a map with its own seasons, or none), the calendar spring applies: March to May.</summary>
-        public static bool IsSpring(string seasonName, float normalizedDate)
-        {
-            if (seasonName == "SeasonSpring")
-                return true;
-            if (seasonName == "SeasonSummer" || seasonName == "SeasonAutumn" || seasonName == "SeasonWinter")
-                return false;
-            float d = normalizedDate - (float)Math.Floor(normalizedDate);
-            return d >= SpringCalendarStart && d < SpringCalendarEnd;
-        }
-        public const float SpringCalendarStart = 2f / 12f;   // the end of the calendar winter window (SnowLineRules): 1 March
-        public const float SpringCalendarEnd = 5f / 12f;     // 1 June
-
-        /// <summary>IsSpring for a map whose winter ends at <paramref name="winterEnd"/> (normalized year, may pass 1). The fallback is the
-        /// three months after the climate's winter instead of March to May, so a June winter gets its spring in September.</summary>
-        public static bool IsSpring(string seasonName, float normalizedDate, float winterEnd)
-        {
-            if (seasonName == "SeasonSpring")
-                return true;
-            if (seasonName == "SeasonSummer" || seasonName == "SeasonAutumn" || seasonName == "SeasonWinter")
-                return false;
-            float afterWinter = normalizedDate - winterEnd;
-            afterWinter -= (float)Math.Floor(afterWinter);
-            return afterWinter < SpringCalendarEnd - SpringCalendarStart;
-        }
-
-        /// <summary>Budget in game hours for a texel with this aspect factor.</summary>
-        public static float EffectiveBudgetHours(bool spring, float aspectFactor)
-        {
-            return ProtectBudgetHours * (spring ? ProtectSpringFactor : 1f) * aspectFactor;
-        }
-
-        /// <summary>The largest budget any texel can have (a steep north face).</summary>
-        public static float MaxBudgetHours(bool spring)
-        {
-            return EffectiveBudgetHours(spring, ProtectNorthFactor);
-        }
-
-        /// <summary>Is this warm texel still protected after <paramref name="hoursUsed"/> hours of the spell? Burst-called.</summary>
-        public static bool TexelProtected(float hoursUsed, float localC, bool spring, float aspectFactor)
-        {
-            return localC <= ProtectMaxLocalC && hoursUsed < EffectiveBudgetHours(spring, aspectFactor);
-        }
-
-        /// <summary>Sim frames to game hours, capped at MaxProtectStepHours.</summary>
+        /// <summary>Sim frames to game hours, capped at MaxPackStepHours.</summary>
         public static float FramesToHours(uint frames)
         {
-            return Math.Min(frames / FramesPerGameHour, MaxProtectStepHours);
+            return Math.Min(frames / FramesPerGameHour, MaxPackStepHours);
         }
 
-        public enum ProtectState : byte { Idle = 0, Active = 1, Spent = 2 }
+        // A cat track's made snow (T222, DECISIONS 667). The injection paints no snow on a track (DECISIONS 551: a 6-12 m ribbon on the 14 m
+        // grid, the decal is the look), so the snow map under it holds natural snow only. Its guns' snow lives in TrackCells cells down its
+        // vertical (cell 0 at the top), runtime only, each one a texel the mod owns. Every pass, each cell melts at the shared rate at its own
+        // air (the lapse), the track's gun state follows NextPackGun on the pack of its cold cells (the run rule), and PackStep builds each
+        // cold cell toward the 2.0 m base. So a track and a run over the same vertical give the same open hours, gun hours and made snow
+        // (snowpack REPORT section 3). The share is the cells holding made snow, the depth their mean. The open state counts cells at the
+        // run bars (the open bar while closed, the keep bar while open). The save is lossy and uses the existing layouts: the share in
+        // SkiTrackSnow v1, the mean depth in SkiTrackPack v2 (whole mm, now clamped to 8 m instead of 0.96 m). A load rebuilds the cells top
+        // down from (share, depth) and the gun state from the depth alone (PackGunAfterLoad), so plumes, the hub and the bill are right on
+        // the first pass (T223). Natural snow is not in the cells: it counts through the measured snow share (TrackShare), as before.
+        public const int TrackCells = 8;
+        // A 1.0.0 save (no SkiTrackPack) loads its made share as a full pack at the pre-T222 stop depth, what a 1.0.0 track had.
+        public const float LegacyTrackStopDepthM = 0.96f;
 
-        public enum ProtectEnd : byte { None = 0, GunsBack = 1, BudgetSpent = 2, TooWarm = 3, PackLost = 4 }
-
-        /// <summary>One gun run's protection record. Runtime only.</summary>
-        public struct ProtectRun
+        /// <summary>One cat track's made snow. Runtime, saved lossily to SkiTrackSnow (the share) and SkiTrackPack (the mean depth).</summary>
+        public struct TrackMadeSnow
         {
-            public ProtectState State;
-            public float HoursUsed;      // game hours of the current spell with some texel too warm
-            public float ColdHours;      // game hours with every texel cold (re-arms at ProtectRearmColdHours)
-            public double HeldAtStartM3; // the run's ledger HeldTotalM3 when the spell began (the end line's difference)
-        }
+            public float C0, C1, C2, C3, C4, C5, C6, C7;   // made pack per cell (m), cell 0 at the top of the vertical
+            public PackGun Gun;          // the gun state (NextPackGun). Runtime only: a load derives it from the saved depth
+            public float GunShare;       // the share of cells cold enough for the guns, while they make snow (season, switch): the hub's gun line
+            public float GunReach;       // the same with the switch on (CatTrackGunsCanRun: the grooming and lights bill)
+            public float MakingShare;    // the share of cells the guns make snow on now (Running and cold): plumes, the hub, the bill
 
-        /// <summary>One pass of the per-run protection machine. Idle starts when the run has an open pack, some texel is too warm for the
-        /// guns, and the run's own air is not above ProtectMaxLocalC. Active spends one game hour of budget per hour while some texel is
-        /// warm. It ends when the pack is lost (the run closed), the air passes ProtectMaxLocalC, the largest budget is spent, or every
-        /// texel has been cold for ProtectRearmColdHours (the guns are back). Spent waits for the guns to come back. Returns why it ended
-        /// (None otherwise). <paramref name="started"/> is true on the start pass.</summary>
-        public static ProtectEnd StepProtection(ref ProtectRun run, float dtHours, int containedTexels, int coldTexels,
-            bool packOpen, float runLocalC, bool spring, out bool started)
-        {
-            return StepProtection(ref run, dtHours, containedTexels > coldTexels, packOpen, runLocalC, spring, out started);
-        }
-
-        /// <summary>The same machine with the warm test given: a run passes "some texel too warm for the guns", a cat track's made snow
-        /// "some made snow above what the cold keeps" (StepTrackMadeSnow).</summary>
-        public static ProtectEnd StepProtection(ref ProtectRun run, float dtHours, bool warm, bool packOpen, float runLocalC, bool spring,
-            out bool started)
-        {
-            started = false;
-            switch (run.State)
+            public float Cell(int i)
             {
-                case ProtectState.Idle:
-                    if (warm && packOpen && runLocalC <= ProtectMaxLocalC)
+                switch (i)
+                {
+                    case 0: return C0;
+                    case 1: return C1;
+                    case 2: return C2;
+                    case 3: return C3;
+                    case 4: return C4;
+                    case 5: return C5;
+                    case 6: return C6;
+                    default: return C7;
+                }
+            }
+
+            public void SetCell(int i, float v)
+            {
+                switch (i)
+                {
+                    case 0: C0 = v; break;
+                    case 1: C1 = v; break;
+                    case 2: C2 = v; break;
+                    case 3: C3 = v; break;
+                    case 4: C4 = v; break;
+                    case 5: C5 = v; break;
+                    case 6: C6 = v; break;
+                    default: C7 = v; break;
+                }
+            }
+
+            /// <summary>0..1 of the vertical holding made snow (cells with a pack).</summary>
+            public float Share
+            {
+                get
+                {
+                    int n = 0;
+                    for (int i = 0; i < TrackCells; i++)
+                        if (Cell(i) > 0f)
+                            n++;
+                    return n / (float)TrackCells;
+                }
+            }
+
+            /// <summary>The mean made pack over the cells holding one (m), 0 without made snow.</summary>
+            public float DepthM
+            {
+                get
+                {
+                    int n = 0;
+                    float sum = 0f;
+                    for (int i = 0; i < TrackCells; i++)
                     {
-                        run.State = ProtectState.Active;
-                        run.HoursUsed = 0f;
-                        run.ColdHours = 0f;
-                        started = true;
-                    }
-                    return ProtectEnd.None;
-                case ProtectState.Active:
-                    if (!warm)
-                    {
-                        run.ColdHours += dtHours;
-                        if (run.ColdHours >= ProtectRearmColdHours)
+                        float c = Cell(i);
+                        if (c > 0f)
                         {
-                            run.State = ProtectState.Idle;
-                            run.ColdHours = 0f;
-                            return ProtectEnd.GunsBack;
+                            n++;
+                            sum += c;
                         }
-                        return ProtectEnd.None;
                     }
-                    run.ColdHours = 0f;
-                    run.HoursUsed += dtHours;
-                    if (!packOpen)
-                    {
-                        run.State = ProtectState.Spent;
-                        return ProtectEnd.PackLost;
-                    }
-                    if (runLocalC > ProtectMaxLocalC)
-                    {
-                        run.State = ProtectState.Spent;
-                        return ProtectEnd.TooWarm;
-                    }
-                    if (run.HoursUsed >= MaxBudgetHours(spring))
-                    {
-                        run.State = ProtectState.Spent;
-                        return ProtectEnd.BudgetSpent;
-                    }
-                    return ProtectEnd.None;
-                default: // Spent
-                    if (warm)
-                    {
-                        run.ColdHours = 0f;
-                        return ProtectEnd.None;
-                    }
-                    run.ColdHours += dtHours;
-                    if (run.ColdHours >= ProtectRearmColdHours)
-                    {
-                        run.State = ProtectState.Idle;
-                        run.ColdHours = 0f;
-                    }
-                    return ProtectEnd.None;
+                    return n > 0 ? sum / n : 0f;
+                }
+            }
+
+            /// <summary>The share of cells at or above <paramref name="barM"/> (the merge's tolerance).</summary>
+            public float ShareAtOrAbove(float barM)
+            {
+                int n = 0;
+                for (int i = 0; i < TrackCells; i++)
+                    if (Cell(i) >= barM - HalfQuantum * SnowHeightScaleM)
+                        n++;
+                return n / (float)TrackCells;
             }
         }
 
-        // A cat track's made snow (2026-11-02, run-types round). The injection paints no snow on a track (DECISIONS 551: a 6-12 m ribbon on
-        // the 14 m grid, the decal is the look), so the snow map under it holds natural snow only. Its guns' snow is this model: the share
-        // of its vertical the guns have covered. The SAME protection machine that a snowmaking run's pack has holds it (StepProtection,
-        // ProtectBudgetHours, spring and the 10 C cut), at the largest budget any texel of a run gets (a north face). So a track keeps its
-        // made snow at least as long as a run of the same heights. A cat track is groomed and gets made snow first: it closes last.
-        //
-        // After the budget, the made share melts at the speed a run's pack does at the track's air temperature: from the gun stop depth to
-        // the keep bar in RunMeltOutHours (the game's melt as the protection rule estimates it). The track reaches its close line (40 %)
-        // when that pack reaches the keep bar. So a track closes no earlier than a run beside it in any thaw (DECISIONS 574). This melt rule replaced
-        // the flat 2 h of DECISIONS 572, which a run on the 1 ft keep bar outlasted below about 3 C. Below freezing nothing melts.
-        //
-        // T220 (1.0.1): made snow also has a depth (TrackMadeSnow.DepthM), and the open state counts made snow at the run bars. Before, the
-        // share alone opened the track: at gun start 32 tracks read Open on 1-8 mm (bridge pass r1b). Now:
-        // - The guns follow the air at the track now, by elevation, as a run texel's guns do: the gun share and the cold share are the
-        //   estimate at the current air temperature (SnowLineSystem's local temperature), not at the day mean (bridge pass r1c).
-        // - The guns build the pack as a run's guns do: from bare ground to the gun stop depth in TrackBuildHours, while some of the
-        //   vertical is cold enough for them.
-        // - The share counts at the open bar (3 ft) while the track is closed or its state is not known, and at the keep bar (1 ft) while
-        //   it is open (TrackMadeCountedShare).
-        // - The pack melts at RunMeltPerHourM when the guns do not hold it and the spell does not.
-        // - The save keeps the depth and the open state (SkiTrackPack v2). A load restores the state as the track's previous state
-        //   (TrackStateFromSave): a track saved Open on 0.5 m reloads Open, one saved Closed on 0.35 m reloads Closed (bridge pass r1d
-        //   loadcheck d: Unknown counted at the keep bar, 44 tracks reopened at 24-37 cm and 39 groomers spawned). A save without
-        //   SkiTrackPack loads saved made snow as a full pack (TrackFromSave), so a 1.0.0 save reloads as before.
-        // - An estimate never opens a track (TrackEstimatedSnowShare): it has no measured snow under it.
-        public const float TrackWarmEpsilon = 1e-4f;   // a share difference below this is the same height
-        // The game's melt per top-up window per degree above freezing, as ProtectRaisePerTopupM's derivation estimates it (6.4 mm per
-        // window at 10 C, linear form UNVERIFIED, snow-injection.md 4): about 0.11 m per game hour at 1 C.
-        public const float MeltPerWindowPerCM = 0.00064f;
-
-        /// <summary>Game hours a run's pack takes to melt from the gun stop depth to the keep bar at <paramref name="airC"/>: about 6 h at
-        /// 1 C, 0.9 h at 7 C, 0.5 h at 12 C. Infinite at or below freezing (and for NaN).</summary>
-        public static float RunMeltOutHours(float airC)
+        /// <summary>The middle height of cell <paramref name="i"/> (0 = top) of a vertical from <paramref name="bottomY"/> to
+        /// <paramref name="topY"/>.</summary>
+        public static float TrackCellY(float bottomY, float topY, int i)
         {
-            if (!(airC > 0f))
-                return float.PositiveInfinity;
-            return (GunStopDepthM - KeepDepthM) / RunMeltPerHourM(airC);
+            if (topY < bottomY)
+            {
+                float swap = topY;
+                topY = bottomY;
+                bottomY = swap;
+            }
+            return topY - (i + 0.5f) * (topY - bottomY) / TrackCells;
         }
 
-        /// <summary>Meters of a run's pack the game melts per game hour at <paramref name="airC"/>: about 0.11 m at 1 C. 0 at or below
-        /// freezing and for NaN.</summary>
-        public static float RunMeltPerHourM(float airC)
-        {
-            if (!(airC > 0f))
-                return 0f;
-            return MeltPerWindowPerCM * airC * FramesPerGameHour / TopupIntervalFrames;
-        }
-
-        /// <summary>One cat track's made snow. Runtime, mirrored to the saved SkiTrackSnow (the share only) so a load keeps it.</summary>
-        public struct TrackMadeSnow
-        {
-            public float Share;       // 0..1 of the track's vertical holding made snow (top down, as the estimate)
-            public float DepthM;      // T220: the made pack's depth on that share, 0..GunStopDepthM. Saved in SkiTrackPack (TrackFromSave)
-            public ProtectRun Spell;  // the protection spell over it. Runtime only (a load refills the budget, as for a run)
-            public float GunWorkHours; // game hours its guns still work on snow they just raised (StepTrackGunWork). Runtime only
-            public float GunShare;    // the share its guns covered in the last step (StepTrackMadeSnow): the hub's gun line. Runtime only
-            public float GunReach;    // the share they would cover with the switch on, same step and air (CatTrackGunsCanRun). Runtime only
-        }
-
-        // A track's model raises its made snow at once, but a run's guns take time to build a pack and then stop at depth: they bill
-        // snowmaking only while they run. So each raise of the track's made share counts the hours a run's guns would need to build that
-        // share from bare ground to the gun stop depth: a mean texel (rate RampRateMin + RampRateSpan / 2) at half the chill span, about
-        // 1.06 game hours for the whole vertical. The snowmaking step bills while that work lasts (SkiRunUpkeepRates.TrackUpkeep).
-        public static readonly float TrackBuildHours = WindowsToGameHours(
-            GunWindowsToReach(GunStopDepthM, -0.5f * RampChillSpanC, 0f, RampRateMin + 0.5f * RampRateSpan));
-
-        // T220: the made pack's build speed, the same mean texel: bare ground to the gun stop depth in TrackBuildHours. So the track
-        // reaches the open bar in about 1 game hour, and its gun work (the bill) ends when the pack reaches the stop depth.
-        public static readonly float TrackBuildRateMPerHour = GunStopDepthM / TrackBuildHours;
-
-        /// <summary>A track's made snow on its first refresh of a load, from its saved share (SkiTrackSnow) and its saved pack depth
-        /// (SkiTrackPack, <paramref name="savedDepthM"/>). NaN depth: a save without SkiTrackPack (1.0.0, or a track never stepped by 1.0.1).
-        /// Then a saved share loads as a full pack (the gun stop depth), the 1.0.0 rule.</summary>
+        /// <summary>A track's made snow on its first refresh of a load, from its saved share (SkiTrackSnow) and its saved mean pack depth
+        /// (SkiTrackPack, <paramref name="savedDepthM"/>): the top round(share x TrackCells) cells (at least one for any share) get the
+        /// depth. NaN depth: a save without SkiTrackPack (1.0.0, or a track never stepped by 1.0.1), which loads a full pack at
+        /// LegacyTrackStopDepthM, the 1.0.0 rule. The gun state starts Unknown: the first step decides it from the depth (PackGunAfterLoad).</summary>
         public static TrackMadeSnow TrackFromSave(float savedShare, float savedDepthM = float.NaN)
         {
+            var t = new TrackMadeSnow();
             float share = Clamp01(savedShare);
             if (!(share > 0f))
-                return new TrackMadeSnow();
-            float depth = float.IsNaN(savedDepthM) ? GunStopDepthM : savedDepthM < 0f ? 0f : Math.Min(savedDepthM, GunStopDepthM);
-            return new TrackMadeSnow { Share = share, DepthM = depth };
+                return t;
+            float depth = float.IsNaN(savedDepthM) ? LegacyTrackStopDepthM
+                : savedDepthM < 0f ? 0f : Math.Min(savedDepthM, PackSaveMaxDepthM);
+            if (!(depth > 0f))
+                return t;
+            int n = Math.Max(1, Math.Min(TrackCells, (int)Math.Round(share * TrackCells)));
+            for (int i = 0; i < n; i++)
+                t.SetCell(i, depth);
+            return t;
         }
-
-        /// <summary>A pack depth as SkiTrackPack saves it: whole millimeters, 0..GunStopDepthM. NaN or less than 0 saves 0.</summary>
-        public static int TrackDepthToMm(float depthM)
-        {
-            if (!(depthM > 0f))
-                return 0;
-            return (int)Math.Round(Math.Min(depthM, GunStopDepthM) * 1000f);
-        }
-
-        /// <summary>The saved millimeters as meters, clamped to 0..GunStopDepthM (a hand-edited save).</summary>
-        public static float TrackDepthFromMm(int mm) => mm <= 0 ? 0f : Math.Min(mm / 1000f, GunStopDepthM);
 
         /// <summary>The snow share an ESTIMATE gives a cat track: an estimate keeps an Open track open (as a NaN share does) but never opens
         /// one. A track opens on measured snow or on its made pack only (bridge pass r1c: an estimated track opened on "0.0 texel(s), mean
@@ -601,15 +510,12 @@ namespace SkiResortMod.Systems
             return previous == RunSnowState.Open ? estimate : 0f;
         }
 
-        /// <summary>The made share that counts for the open state: at the keep bar (1 ft) while the track is Open, at the open bar (3 ft)
-        /// while it is Closed or Unknown. Under the bar it counts 0. Unknown differs from a run's MeasuredShare (keep bar): a track's state
-        /// comes back from the save (TrackStateFromSave), so Unknown means no saved state (a 1.0.0 save loads a full pack, which clears both
-        /// bars, or an unreleased v1 SkiTrackPack). At the keep bar, a v1 save made just after gun start (0.35 m, Closed) reloaded Open.
-        /// </summary>
+        /// <summary>The made share that counts for the open state: cells at the keep bar (1 ft) while the track is Open, at the open bar
+        /// (3 ft) while it is Closed or Unknown. Unknown differs from a run's MeasuredShare (keep bar): a track's state comes back from the
+        /// save (TrackStateFromSave), so Unknown means no saved state (a 1.0.0 save loads a full pack, which clears both bars).</summary>
         public static float TrackMadeCountedShare(RunSnowState previous, in TrackMadeSnow track)
         {
-            float share = Clamp01(track.Share);
-            return previous == RunSnowState.Open ? (track.DepthM >= KeepDepthM ? share : 0f) : (track.DepthM >= SkiableDepthM ? share : 0f);
+            return track.ShareAtOrAbove(previous == RunSnowState.Open ? KeepDepthM : SkiableDepthM);
         }
 
         /// <summary>A track's open state from its saved SkiTrackPack, the previous state of its first refresh (and of GetRunSnow before it).
@@ -633,120 +539,72 @@ namespace SkiResortMod.Systems
         /// On the rest, the natural mean (the snow map under it). A NaN natural mean (estimated) counts 0 there. NaN when there is neither.</summary>
         public static float TrackMeanDepthM(float naturalMeanM, in TrackMadeSnow track)
         {
-            float made = Clamp01(track.Share);
+            float made = track.Share;
             bool hasNatural = !float.IsNaN(naturalMeanM);
             if (!(made > 0f))
                 return hasNatural ? naturalMeanM : float.NaN;
             float natural = hasNatural ? Math.Max(0f, naturalMeanM) : 0f;
-            return made * Math.Max(Math.Max(0f, track.DepthM), natural) + (1f - made) * natural;
+            return made * Math.Max(track.DepthM, natural) + (1f - made) * natural;
         }
 
-        /// <summary>One pass of a track's gun work, after StepTrackMadeSnow. The work left drops by <paramref name="dtHours"/>. A raise of
-        /// the made share above what was there (<paramref name="madeBefore"/>) and above the natural snow under the track
-        /// (<paramref name="naturalShare"/>, NaN = none measured) adds raise x TrackBuildHours, capped at TrackBuildHours. Guns that make no
-        /// snow now (<paramref name="gunShare"/> 0: off season, switch Off, too warm) do no work.</summary>
-        public static void StepTrackGunWork(ref TrackMadeSnow track, float madeBefore, float gunShare, float naturalShare, float dtHours)
-        {
-            if (!(gunShare > 0f))
-            {
-                track.GunWorkHours = 0f;
-                return;
-            }
-            float left = track.GunWorkHours - Math.Max(0f, dtHours);
-            if (!(left > 0f))
-                left = 0f;
-            float covered = Math.Max(Clamp01(madeBefore), Clamp01(naturalShare));
-            float raised = Clamp01(track.Share) - covered;
-            if (raised > TrackWarmEpsilon)
-                left += raised * TrackBuildHours;
-            track.GunWorkHours = Math.Min(left, TrackBuildHours);
-        }
-
-        /// <summary>The track's guns are building snow now: the snowmaking step bills (SkiRunUpkeepRates.TrackUpkeep).</summary>
-        public static bool TrackGunsWorking(in TrackMadeSnow track) => track.GunWorkHours > 0f;
-
-        /// <summary>The hub's "making snow" for a track (HubRules.TrackGunWhyOf): its guns covered some of the vertical in the last step and
-        /// still build the pack (under the gun stop depth) or work on snow they just raised (the bill). After a load the work is not saved, so
-        /// a pack under the stop depth counts too.</summary>
-        public static bool TrackGunsBuilding(in TrackMadeSnow track) =>
-            track.GunShare > 0f && (track.GunWorkHours > 0f || track.DepthM < GunStopDepthM);
+        /// <summary>The track's guns make snow now: plumes (SkiSnowGunPlumeSystem), the hub's "Making" (HubRules.TrackGunWhyOf) and the
+        /// snowmaking bill (SkiRunUpkeepRates.TrackUpkeep on MakingShare) read this one flag. It follows from the gun state, the air and
+        /// the season and switch only, never from runtime history, so a load gets it right on its first pass (T223).</summary>
+        public static bool TrackGunsBuilding(in TrackMadeSnow track) => track.MakingShare > 0f;
 
         /// <summary>A track's guns can run by its model (SkiSnowInjectionSystem.CatTrackGunsCanRun while the injection runs): the gun season and
-        /// some of the vertical cold enough for them at the air now, the switch aside (GunReach). The grooming, snowmaking and lights bill and
-        /// the stats' cost row follow it. Held or too warm: no reach, no bill.</summary>
+        /// some of the vertical cold enough for them at the air now, the switch aside (GunReach). The grooming and lights bill and the stats'
+        /// cost row follow it. Too warm: no reach, no bill.</summary>
         public static bool TrackGunsCanRun(bool inSeason, in TrackMadeSnow track) => inSeason && track.GunReach > 0f;
 
-        /// <summary>The protection spell holds the track's made snow now (the hub's "held" gun line).</summary>
-        public static bool TrackHeld(in TrackMadeSnow track) => track.Spell.State == ProtectState.Active;
-
-        /// <summary>The share of a track's vertical its guns cover now: the part where the air is at most freezing + the margin, while they
-        /// make snow (the gun season and the switch, GunsMakeSnow), else 0. <paramref name="airC"/> is the air at
-        /// <paramref name="baseHeight"/>: the current air (StepTrack, T220: a run texel's gun gate), or a day mean for an estimate.</summary>
-        public static float TrackGunShare(bool inGunSeason, bool gunsOn, float bottomY, float topY, float airC, float freezingC,
-            float snowmakingMarginC, float baseHeight, float lapsePerM)
+        /// <summary>One pass of a track's made snow (T222). <paramref name="gunsAvailable"/>: the guns may make snow (the gun season and
+        /// the switch, GunsMakeSnow). <paramref name="reachAvailable"/>: the same with the switch on (GunReach). <paramref name="airAtBaseC"/>,
+        /// <paramref name="baseHeight"/>, <paramref name="lapsePerM"/>: the air now by elevation (SnowLineSystem's coefficients). The order is the
+        /// pack step's: every cell melts at its own air (PackMeltM), the gun state steps on the pack of the cold cells (NextPackGun:
+        /// min(cell, stop) averaged; no cold cell keeps the state), then PackStep builds every cold cell (never above the stop depth). dt 0 (the
+        /// first pass of a load) melts and builds nothing but still decides the state and MakingShare from the depth.
+        /// <paramref name="naturalDepthM"/>: the measured natural snow under the track (NaN when estimated). It only feeds the gun decision
+        /// (a cell's pack for NextPackGun is the larger of its made snow and this), so the guns never run on a track whose natural pack
+        /// is already at the base, as on a run. It never counts as made snow (the open share stays the cells' own).</summary>
+        public static void StepTrackPack(ref TrackMadeSnow track, in PackParams p, float bottomY, float topY, float airAtBaseC, float baseHeight,
+            float lapsePerM, bool gunsAvailable, bool reachAvailable, float dtHours, float naturalDepthM = float.NaN)
         {
-            if (!GunsMakeSnow(RunKind.CatTrack, inGunSeason, gunsOn))
-                return 0f;
-            return EstimatedShare(bottomY, topY, airC, ThresholdC(RunKind.CatTrack, freezingC, snowmakingMarginC), baseHeight, lapsePerM);
+            float natural = naturalDepthM > 0f ? naturalDepthM : 0f;
+            float dt = dtHours > 0f ? Math.Min(dtHours, MaxPackStepHours) : 0f;
+            float threshold = p.FreezingC + p.MarginC;
+            float packSum = 0f;
+            int cold = 0;
+            for (int i = 0; i < TrackCells; i++)
+            {
+                float air = CellAir(bottomY, topY, i, airAtBaseC, baseHeight, lapsePerM);
+                float d = track.Cell(i);
+                if (!(d >= 0f))
+                    d = 0f;   // NaN from a hand-edited save
+                d = Math.Max(0f, d - PackMeltM(p, d, air, dt));
+                track.SetCell(i, d);
+                if (air <= threshold)
+                {
+                    cold++;
+                    packSum += Math.Min(Math.Max(d, natural), p.StopDepthM);
+                }
+            }
+            track.Gun = NextPackGun(p, track.Gun, cold > 0 ? packSum / cold : float.NaN);
+            int making = 0;
+            for (int i = 0; i < TrackCells; i++)
+            {
+                float air = CellAir(bottomY, topY, i, airAtBaseC, baseHeight, lapsePerM);
+                if (!PackGunsMaking(p, track.Gun, air, gunsAvailable))
+                    continue;
+                making++;
+                track.SetCell(i, PackStep(p, track.Cell(i), air, true, track.Gun, dt, MeanRampRate, applyMelt: false).DepthM);
+            }
+            track.GunShare = gunsAvailable ? cold / (float)TrackCells : 0f;
+            track.GunReach = reachAvailable ? cold / (float)TrackCells : 0f;
+            track.MakingShare = making / (float)TrackCells;
         }
 
-        /// <summary>The share a track's guns would cover with the switch on (TrackGunShare with gunsOn true): TrackMadeSnow.GunReach, the gate
-        /// of its grooming and lights bill (CatTrackGunsCanRun), which bills lights whatever the switch (DECISIONS 579). Never made snow.</summary>
-        public static float TrackGunReach(bool inGunSeason, float bottomY, float topY, float airC, float freezingC, float snowmakingMarginC,
-            float baseHeight, float lapsePerM)
-        {
-            return TrackGunShare(inGunSeason, true, bottomY, topY, airC, freezingC, snowmakingMarginC, baseHeight, lapsePerM);
-        }
-
-        /// <summary>The share of a track's vertical the cold keeps without help: the part at or below freezing. <paramref name="airC"/> as
-        /// in TrackGunShare.</summary>
-        public static float TrackColdShare(float bottomY, float topY, float airC, float freezingC, float baseHeight, float lapsePerM)
-        {
-            return EstimatedShare(bottomY, topY, airC, ThresholdC(RunKind.Natural, freezingC, 0f), baseHeight, lapsePerM);
-        }
-
-        /// <summary>One pass of a track's made snow. The guns raise its share to <paramref name="gunShare"/> at once (the part of the
-        /// vertical cold enough for them now). <paramref name="coldShare"/> (the part at or below freezing) is what the cold keeps without
-        /// help. Made snow above max(gun, cold) is warm. The pack (T220): the guns build it at TrackBuildRateMPerHour while they cover some
-        /// of the vertical. When they cover none, a pack in air above freezing is warm too. The protection spell holds the warm snow while
-        /// Active. Otherwise the share melts toward that floor and reaches the close line (CloseBelowShare) from full in
-        /// RunMeltOutHours(trackLocalC), and the pack melts at RunMeltPerHourM(trackLocalC): from the gun stop depth to the keep bar in the
-        /// same hours. No made share: no pack. Returns the spell's end, as StepProtection.</summary>
-        public static ProtectEnd StepTrackMadeSnow(ref TrackMadeSnow track, float dtHours, float gunShare, float coldShare, float trackLocalC,
-            bool spring, out bool started)
-        {
-            gunShare = Clamp01(gunShare);
-            coldShare = Clamp01(coldShare);
-            track.GunShare = gunShare;
-            if (!(track.Share >= 0f))
-                track.Share = 0f;   // NaN from a hand-edited save
-            if (!(track.DepthM >= 0f))
-                track.DepthM = 0f;
-            if (gunShare > track.Share)
-                track.Share = gunShare;
-            float dt = Math.Max(0f, dtHours);
-            float floor = Math.Max(gunShare, coldShare);
-            bool shareWarm = track.Share > floor + TrackWarmEpsilon;
-            bool building = gunShare > 0f;
-            float meltHours = RunMeltOutHours(trackLocalC);
-            bool melts = !float.IsPositiveInfinity(meltHours);
-            // Warm: made snow above what the cold keeps, or a made pack its guns do not hold in air that melts it (a run's "some texel
-            // too warm for the guns").
-            bool warm = shareWarm || (track.DepthM > 0f && !building && melts);
-            ProtectEnd end = StepProtection(ref track.Spell, dt, warm, track.Share > 0f, trackLocalC, spring, out started);
-            bool held = track.Spell.State == ProtectState.Active;
-            if (shareWarm && !held && melts)
-                track.Share = Math.Max(floor, track.Share - dt * (1f - CloseBelowShare) / meltHours);
-            if (building)
-                track.DepthM = Math.Max(track.DepthM, Math.Min(GunStopDepthM, track.DepthM + dt * TrackBuildRateMPerHour));
-            else if (!held && melts)
-                track.DepthM = Math.Max(0f, track.DepthM - dt * RunMeltPerHourM(trackLocalC));
-            if (track.Share > 1f)
-                track.Share = 1f;
-            if (!(track.Share > 0f))
-                track.DepthM = 0f;
-            return end;
-        }
+        private static float CellAir(float bottomY, float topY, int i, float airAtBaseC, float baseHeight, float lapsePerM) =>
+            airAtBaseC - (TrackCellY(bottomY, topY, i) - baseHeight) * lapsePerM;
 
         /// <summary>A measured or estimated cat track's share: the larger of its snow (the measured snow map under it, which is natural
         /// snow, or the natural estimate when it could not be measured) and its made snow as it counts (TrackMadeCountedShare).</summary>
@@ -790,27 +648,23 @@ namespace SkiResortMod.Systems
             return texelAreaM2 > 0f ? volumeM3 / texelAreaM2 * 100.0 : 0.0;
         }
 
-        /// <summary>Snow a run's guns made (raised toward the gun target) and snow protection put back (held against melt),
-        /// this season and in total, in cubic meters.</summary>
+        /// <summary>Snow a run's guns (or the groomer) made, raised toward the target, this season and in total, in cubic meters.</summary>
         public struct RunLedger
         {
             public bool HasSeason;
             public int SeasonKey;
-            public double MadeSeasonM3, MadeTotalM3, HeldSeasonM3, HeldTotalM3;
+            public double MadeSeasonM3, MadeTotalM3;
 
-            public void Add(int seasonKey, double madeM3, double heldM3)
+            public void Add(int seasonKey, double madeM3)
             {
                 if (!HasSeason || seasonKey != SeasonKey)
                 {
                     HasSeason = true;
                     SeasonKey = seasonKey;
                     MadeSeasonM3 = 0.0;
-                    HeldSeasonM3 = 0.0;
                 }
                 MadeSeasonM3 += madeM3;
                 MadeTotalM3 += madeM3;
-                HeldSeasonM3 += heldM3;
-                HeldTotalM3 += heldM3;
             }
         }
 
@@ -824,8 +678,8 @@ namespace SkiResortMod.Systems
             return (float)(s <= 0.0 ? 0.0 : s >= 1.0 ? 1.0 : s);
         }
 
-        /// <summary>Ramp and decay steps scale with the frames since the last evaluated pass.
-        /// Exactly 1 at 64 frames (bit-identical to today at 1× and 2×), capped at 4.</summary>
+        /// <summary>The raise step in top-up windows: the sim frames since the last evaluated pass / 64. Exactly 1 at 64 frames (the
+        /// speed 1 cadence), at least 1, at most MaxStepScale (MaxPackStepHours, the track's cap).</summary>
         public static float StepScale(uint elapsedFrames)
         {
             float s = elapsedFrames / (float)TopupIntervalFrames;
@@ -858,17 +712,12 @@ namespace SkiResortMod.Systems
                 && CanSkipDry(lastReal, coldNow, containedNow, footprintHashNow, 0u);
         }
 
-        /// <summary>THE pack guard (the merge's PackGuard input and the packed skip both read it): managed melt stands down while the
-        /// map-wide mean depth is over 2 cm. NaN gives off.</summary>
-        public static bool PackGuard(float mapMeanDepthM) => mapMeanDepthM > PackGuardMeanDepthM;
-
         /// <summary>A measured share far enough from the 40-60 % band that one forced interval cannot carry it in at the measured thaw
         /// rate. NaN gives false.</summary>
         public static bool IsCalmShare(float share) => share >= CalmOpenShare || share < CalmClosedShare;
 
-        /// <summary>Packed skip: no texel is cold now (nothing can be raised). The last real pass was no gate change, raised and lowered
-        /// nothing, and left the pack guard on for the next merge (nothing can be lowered: a skipped pass does not write the map mean). The
-        /// runs held at least PackedSkipMinRunDepthM (the dress cannot move). Every measured share is calm (no label or multiplier can
+        /// <summary>Packed skip: no texel is cold now (nothing can be raised). The last real pass was no gate change and raised nothing
+        /// (the mod lowers nothing since T222: the game alone melts). The runs held at least PackedSkipMinRunDepthM (the dress cannot move). Every measured share is calm (no label or multiplier can
         /// move). The footprint is the same. The forced pass is not due.</summary>
         public static bool CanSkipPacked(in DryPass lastReal, int coldNow, int containedNow,
             ulong footprintHashNow, uint framesSinceLastReal, bool sharesCalmNow)
@@ -878,8 +727,6 @@ namespace SkiResortMod.Systems
                 && coldNow == 0
                 && lastReal.ColdTexels == 0
                 && lastReal.Injected == 0
-                && lastReal.Lowered == 0
-                && lastReal.PackGuardNext
                 && lastReal.RunMeanDepthM >= PackedSkipMinRunDepthM
                 && sharesCalmNow
                 && containedNow > 0
@@ -948,7 +795,7 @@ namespace SkiResortMod.Systems
         }
 
         // ---------------------------------------------------------------------------------------------------------------------------
-        // T222 PROTOTYPE (round 2, not wired): ONE snow pack step for a run texel and a cat track cell.
+        // T222 (round 2, DECISIONS 667): ONE snow pack step for a run texel and a cat track cell.
         //
         // The physics rule: made snow is not special for melting. It melts at the game's rate like natural snow and lasts longer only
         // because the guns build more of it. So the step has no hold, no budget, no aspect or spring factor and no 10 C cut. It has:
@@ -959,10 +806,10 @@ namespace SkiResortMod.Systems
         //   line Running. So the state after a load follows from the saved depth alone (T223);
         // - the build: the injection's ramp per hour (RampPerTopupM x rate x (floor + gain x chill) x windows per hour), never above the
         //   stop depth and never lowering deeper (natural) snow;
-        // - the melt: PackMeltPerHourPerC x (air - freezing) per game hour above freezing. A run texel lives in the game's snow map and
-        //   the game's shader melts it, so the run path passes applyMelt false and the step adds the build only. A cat track cell has no
-        //   texel (DECISIONS 551), so the mod melts it with the same number. That number is the one tuning point both paths share: it
-        //   must be calibrated against vanilla (a bridge probe), and today's RunMeltPerHourM is an estimate.
+        // - the melt: max(MeltFloorPerHourM, MeltDepthCoef x (air - freezing) / depth) per game hour above freezing (PackMeltM). A run
+        //   texel lives in the game's snow map and the game's shader melts it, so the run path passes applyMelt false and the step adds
+        //   the build only. A cat track cell has no texel (DECISIONS 551), so the mod melts it with the same rule. That rule is the one
+        //   tuning point both paths share, measured against vanilla by the round 2 bridge melt probe.
         //
         // The per-surface part is only where the depth lives: a snow map texel (read, raised by the merge, melted by the game) or a
         // track cell (SkiTrackPack, raised and melted here).
@@ -970,36 +817,40 @@ namespace SkiResortMod.Systems
         /// <summary>The pack's gun state. The same values as SnowGunPlumeRules.GunState, so the plume system can read either.</summary>
         public enum PackGun : byte { Unknown = 0, Stopped = 1, Running = 2 }
 
-        /// <summary>The tunable numbers of the pack step. <see cref="PackParams.Proposed"/> holds the proposal, <see cref="PackParams.Today"/>
-        /// today's stop depth.</summary>
+        /// <summary>The tunable numbers of the pack step. <see cref="PackParams.For"/> gives the live ones (the 2.0 m base, the measured
+        /// melt, this pass's freezing and gun margin).</summary>
         public struct PackParams
         {
-            public float StopDepthM;          // the guns build to this and stop (today GunStopDepthM, 0.96 m)
+            public float StopDepthM;          // the guns build to this and stop (GunStopDepthM, 2.0 m)
             public float RestartBandM;        // they restart below StopDepthM - this (0.05 m)
-            public float MeltPerHourPerC;     // the game's melt, m per game hour per degree above freezing (CALIBRATE)
+            public float MeltFloorPerHourM;   // the game's melt floor, m per game hour at any air above freezing (MeltFloorPerHourM)
+            public float MeltDepthCoef;       // the game's depth term, m^2 per game hour per degree above freezing (MeltDepthCoef)
             public float FreezingC;           // ClimateSystem.freezingTemperature (0 in every vanilla climate)
             public float MarginC;             // the gun margin above freezing (ClampMargin of the setting, default 3.3)
 
-            public static PackParams With(float stopDepthM, float meltPerHourPerC, float marginC = DefaultSnowmakingMarginC) =>
+            /// <summary>The measured melt with the stop depth <paramref name="stopDepthM"/>, freezing 0 C.</summary>
+            public static PackParams With(float stopDepthM, float marginC = DefaultSnowmakingMarginC) =>
                 new PackParams
                 {
                     StopDepthM = stopDepthM,
                     RestartBandM = GunRestartBandM,
-                    MeltPerHourPerC = meltPerHourPerC,
+                    MeltFloorPerHourM = RunSnowRules.MeltFloorPerHourM,
+                    MeltDepthCoef = RunSnowRules.MeltDepthCoef,
                     FreezingC = 0f,
                     MarginC = marginC,
                 };
 
-            /// <summary>Today's stop depth and today's melt estimate.</summary>
-            public static PackParams Today => With(GunStopDepthM, RunMeltPerHourM(1f));
+            /// <summary>The live parameters: the 2.0 m base, the measured melt, the climate's freezing and the gun margin of this pass.</summary>
+            public static PackParams For(float freezingC, float marginC)
+            {
+                PackParams p = With(GunStopDepthM, marginC);
+                p.FreezingC = float.IsNaN(freezingC) ? 0f : freezingC;
+                return p;
+            }
 
-            /// <summary>The proposal: a deeper base. The melt stays today's estimate until the probe measures it.</summary>
-            public static PackParams Proposed => With(ProposedStopDepthM, RunMeltPerHourM(1f));
+            /// <summary>The defaults: freezing 0 C (every vanilla climate) and the default gun margin.</summary>
+            public static PackParams Default => For(0f, DefaultSnowmakingMarginC);
         }
-
-        /// <summary>The proposed gun base (flagged to the owner: 2.0 m is the recommendation of the round 2 snowpack report, a design
-        /// value from the season simulation, not a measurement). Below the 2.5-4 m natural peak at the top of a cold map.</summary>
-        public const float ProposedStopDepthM = 2.00f;
 
         /// <summary>Top-up windows per game hour (170.7).</summary>
         public const float WindowsPerGameHour = FramesPerGameHour / TopupIntervalFrames;
@@ -1018,12 +869,41 @@ namespace SkiResortMod.Systems
             return RampPerTopupM * Math.Max(0f, rateFactor) * (RampChillFloor + RampChillGain * chill) * WindowsPerGameHour;
         }
 
-        /// <summary>Meters the game melts per game hour at <paramref name="airC"/>: (air - freezing) x the rate. 0 at or below freezing
-        /// and for NaN.</summary>
-        public static float PackMeltPerHourM(in PackParams p, float airC)
+        /// <summary>The game's melt rate now, m per game hour, for <paramref name="depthM"/> of snow at <paramref name="airC"/>:
+        /// max(floor, coef x (air - freezing) / depth). 0 at or below freezing, for NaN and for no snow.</summary>
+        public static float PackMeltPerHourM(in PackParams p, float airC, float depthM)
         {
             float above = airC - p.FreezingC;
-            return above > 0f ? above * p.MeltPerHourPerC : 0f;
+            if (!(above > 0f) || !(depthM > 0f))
+                return 0f;
+            return Math.Max(p.MeltFloorPerHourM, p.MeltDepthCoef * above / depthM);
+        }
+
+        /// <summary>Meters the game melts off <paramref name="depthM"/> of snow in <paramref name="dtHours"/> game hours at
+        /// <paramref name="airC"/>: dd/dt = -max(floor, coef x above / d), integrated exactly (the floor down to the crossover depth
+        /// coef x above / floor, then d^2 falls by 2 x coef x above per hour). At most the depth; 0 at or below freezing and for NaN.</summary>
+        public static float PackMeltM(in PackParams p, float depthM, float airC, float dtHours)
+        {
+            float above = airC - p.FreezingC;
+            float d = depthM > 0f ? depthM : 0f;
+            if (!(above > 0f) || d <= 0f || !(dtHours > 0f))
+                return 0f;
+            float k = Math.Max(0f, p.MeltDepthCoef) * above;
+            float floor = Math.Max(0f, p.MeltFloorPerHourM);
+            float t = dtHours;
+            float x = d;
+            float cross = floor > 0f ? k / floor : float.PositiveInfinity;   // below this depth the depth term is the faster
+            if (x > cross)
+            {
+                float toCross = (x - cross) / floor;
+                if (t <= toCross)
+                    return floor * t;
+                t -= toCross;
+                x = cross;
+            }
+            float r = x * x - 2f * k * t;
+            float left = r > 0f ? (float)Math.Sqrt(r) : 0f;
+            return Math.Min(d, d - left);
         }
 
         /// <summary>The hysteresis on the pack's own stop depth. NaN keeps the state. At or above the stop depth (less the merge's
@@ -1051,7 +931,7 @@ namespace SkiResortMod.Systems
         /// <summary>ONE pack step, for a run texel and a cat track cell. <paramref name="depthM"/>: the pack now (for a texel, the snow map
         /// depth, natural snow included). <paramref name="airC"/>: the air at the cell (the lapse applied). <paramref name="gunsAvailable"/>:
         /// the cell has snowmaking, the switch is on and it is the gun season (GunsMakeSnow). <paramref name="dtHours"/>: game hours since the
-        /// last step (clamped to 0..MaxProtectStepHours). <paramref name="gunNow"/>: the state NextPackGun decided this pass on the surface's
+        /// last step (clamped to 0..MaxPackStepHours). <paramref name="gunNow"/>: the state NextPackGun decided this pass on the surface's
         /// pack (a run: SnowGunPlumeRules.PackDepthM over its texels, one state for the run; a track: its own depth), before the step.
         /// <paramref name="rateFactor"/>: the texel's noise rate (MeanRampRate for a track). <paramref name="applyMelt"/>: false for a run
         /// texel (the game's shader melts it), true for a track cell. Order: the melt comes off, then the build goes on, never above the stop
@@ -1060,12 +940,12 @@ namespace SkiResortMod.Systems
             float rateFactor, bool applyMelt)
         {
             float depth = depthM >= 0f ? depthM : 0f;   // NaN and negatives: bare
-            float dt = dtHours > 0f ? Math.Min(dtHours, MaxProtectStepHours) : 0f;
+            float dt = dtHours > 0f ? Math.Min(dtHours, MaxPackStepHours) : 0f;
             PackGun next = gunNow;
             float melted = 0f;
             if (applyMelt)
             {
-                melted = Math.Min(depth, PackMeltPerHourM(p, airC) * dt);
+                melted = PackMeltM(p, depth, airC, dt);
                 depth -= melted;
             }
             float built = 0f;
@@ -1089,9 +969,20 @@ namespace SkiResortMod.Systems
         /// history (T223). A pack under the restart line resumes at once, one in the band waits, as a run does today.</summary>
         public static PackGun PackGunAfterLoad(in PackParams p, float savedDepthM) => NextPackGun(p, PackGun.Unknown, savedDepthM);
 
+        /// <summary>The run path of the pack step for one texel (Burst-callable: the merge job). <paramref name="depthM"/>: the texel's
+        /// depth, <paramref name="targetM"/>: its own target (2.0 m for a gun texel, 0.96 m groomed), <paramref name="chill"/>: 0..1 below the
+        /// gate (the ramp mask), <paramref name="rateFactor"/>: the texel's noise rate, <paramref name="stepScale"/>: windows since the last
+        /// pass. The run's gun state was already applied (a Stopped run marks no texel), so the step runs as Running with no melt: the game
+        /// melts the texel. Returns the new depth (m).</summary>
+        public static float PackRaiseTexelM(float depthM, float targetM, float chill, float rateFactor, float stepScale)
+        {
+            var p = new PackParams { StopDepthM = targetM, RestartBandM = GunRestartBandM, MeltFloorPerHourM = MeltFloorPerHourM, MeltDepthCoef = MeltDepthCoef, FreezingC = 0f, MarginC = 0f };
+            return PackStep(p, depthM, -chill * RampChillSpanC, true, PackGun.Running, stepScale / WindowsPerGameHour, rateFactor, applyMelt: false).DepthM;
+        }
+
         /// <summary>The largest pack a track cell saves: the snow map's own scale (8 m). SkiTrackPack.m_DepthMm is an i32, so a deeper base
         /// needs NO layout change: only the clamp moves from GunStopDepthM to this. A 1.0.1 build that loads a deeper value clamps it to its
-        /// own 0.96 m (TrackDepthFromMm), a graceful downgrade.</summary>
+        /// own 0.96 m (its TrackDepthFromMm), a graceful downgrade.</summary>
         public const float PackSaveMaxDepthM = SnowHeightScaleM;
 
         /// <summary>A pack depth as SkiTrackPack saves it: whole millimeters, 0..PackSaveMaxDepthM. NaN or less than 0 saves 0.</summary>
