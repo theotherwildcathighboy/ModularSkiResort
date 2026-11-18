@@ -1,0 +1,14 @@
+{
+  "name": "baseline-soak",
+  "description": "Load a staged baseline, check the census, soak two months at speed 8 and assert nothing was lost. Stage first: tools/loadcheck.ps1 -StageOnly (game closed).",
+  "vars": { "save": "loadcheck_1.0.1_pdx2_2026-11-16_ashflat", "days": 2 },
+  "steps": [
+    { "do": "load", "save": "${save}" },
+    { "do": "op", "op": { "op": "loadcheck", "action": "census" }, "as": "before",
+      "expect": { "census.persisted.SkiRunBinding": { "min": 1 }, "census.summary.chairsAndCabins": { "min": 1 } } },
+    { "do": "soak", "days": "${days}", "speed": 8, "every": 20, "sample": { "op": "loadcheck", "action": "census" }, "as": "series",
+      "expect": { "last.census.persisted.SkiRunBinding": { "eq": "${before.census.persisted.SkiRunBinding}" } } },
+    { "do": "op", "op": { "op": "errors" }, "expect": { "count": { "eq": 0 } } },
+    { "do": "saveas", "name": "SRM Test after-soak ${days}d" }
+  ]
+}

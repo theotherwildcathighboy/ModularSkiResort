@@ -9,7 +9,7 @@
 # and the Editor mesh-prefab folder c030ee3ff256df91). The mirror holds ONLY text-ish artifacts:
 # *.Prefab, *.cid, *.loc, *.png. The mirror excludes the big Editor-minted binaries (.Geometry, .Surface,
 # .Texture). A re-import of the FBX/PNGs mints them again (new CIDs, then re-point per docs\PIPELINE.md §6).
-# Versioning hundreds of MB of opaque binaries buys nothing. The mirror excludes TextureAssets\ too.
+# Versioning hundreds of MB of opaque binaries buys nothing. The mirror excludes the TextureAssets binaries too (only their .cid files are kept, see the end of this script).
 
 param([switch]$Restore)
 
@@ -38,6 +38,19 @@ foreach ($dir in $owned) {
     foreach ($f in $files) {
         $rel = $f.FullName.Substring($src.Length).TrimStart('\')
         $target = Join-Path $dst $rel
+        $targetDir = Split-Path $target -Parent
+        if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Force $targetDir | Out-Null }
+        Copy-Item $f.FullName $target -Force
+        $count++
+    }
+}
+# The run textures' .cid files (32 bytes each, no binaries) in TextureAssets\: the run prefabs reference them, so preflight RESOLVE needs
+# them when ImportedData is parked and it reads this mirror (T-ops 2026-11-16). Backup direction only: a restore never writes them
+# (a .cid without its .Texture binary would be an orphan in the game's ImportedData).
+$tex = Join-Path $src "TextureAssets"
+if (-not $Restore -and (Test-Path $tex)) {
+    foreach ($f in (Get-ChildItem $tex -File -Filter *.cid)) {
+        $target = Join-Path (Join-Path $dst "TextureAssets") $f.Name
         $targetDir = Split-Path $target -Parent
         if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Force $targetDir | Out-Null }
         Copy-Item $f.FullName $target -Force

@@ -137,6 +137,7 @@ namespace SkiTestBridge
                 case "package": return PackageCommand(args);
                 case "loadcheck": return LoadCheckCommand(args);
                 case "prefabalias": return PrefabAliasCommand(args);
+                case "playset": return PlaysetCommand(args);
                 case "tourism": return TourismCommand(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }

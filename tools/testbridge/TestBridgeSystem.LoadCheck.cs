@@ -101,6 +101,7 @@ namespace SkiTestBridge
             public uint frameMark;
             public int startMonth;
             public bool monthTurned;
+            public bool monthTurnedByFrames;
             public uint monthTurnedFrame;
             public uint monthStartFrame;
             public double monthStartedAt;
@@ -314,13 +315,22 @@ namespace SkiTestBridge
 
                     case "month":
                         int modMonth = LcModMonthKey();
-                        if (run.startMonth == int.MinValue)
+                        if (run.startMonth == int.MinValue && modMonth != int.MinValue)
                             run.startMonth = modMonth;   // SkiResortLedger.NoMonth at the start: the first real key is the start, not a turn
-                        else if (!run.monthTurned && modMonth != run.startMonth)
+                        else if (!run.monthTurned && run.startMonth != int.MinValue && modMonth != run.startMonth)
                         {
                             run.monthTurned = true;
                             run.monthTurnedFrame = frame;
                             Mod.Log.Info($"loadcheck: month turned at frame {frame} ({m_Time.GetCurrentDateTime():yyyy-MM-dd HH:mm})");
+                        }
+                        else if (!run.monthTurned && run.startMonth == int.MinValue && frame - run.monthStartFrame >= (uint)kTicksPerMonth)
+                        {
+                            // T196 fallback: a city with no Welcome Sign has no ledger month key (it stays NoMonth), so the ledger can
+                            // never show a turn. One in-game month = kTicksPerMonth sim frames: count them instead.
+                            run.monthTurned = true;
+                            run.monthTurnedFrame = frame;
+                            run.monthTurnedByFrames = true;
+                            Mod.Log.Info($"loadcheck: no ledger month key (no Welcome Sign); month counted by sim frames: {kTicksPerMonth} frames elapsed at frame {frame} ({m_Time.GetCurrentDateTime():yyyy-MM-dd HH:mm})");
                         }
                         bool settled = run.monthTurned && frame >= run.monthTurnedFrame + kLcSettleFramesAfterMonth;
                         bool frameCap = frame - run.monthStartFrame > (uint)(kTicksPerMonth * 3 / 2);
@@ -333,6 +343,7 @@ namespace SkiTestBridge
                             month["seconds"] = Math.Round(Now - run.monthStartedAt, 1);
                             month["simFramesPerSecond"] = Math.Round((frame - run.monthStartFrame) / Math.Max(1.0, Now - run.monthStartedAt), 1);
                             month["turned"] = run.monthTurned;
+                            month["turnedBy"] = !run.monthTurned ? "none" : run.monthTurnedByFrames ? "sim frames (no ledger month key: no Welcome Sign)" : "ledger month key";
                             if (!run.monthTurned)
                                 month["incomplete"] = timeUp ? $"wall-clock limit {run.monthTimeoutS / 60:F0} min" : "frame cap without a mod-month change";
                             m_Simulation.selectedSpeed = run.speedBefore;

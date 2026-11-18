@@ -101,6 +101,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `package` | `list` (absolute path of `tools/shipped-prefabs.json`), optional `dry` (default true), `main`, `show`; or `status` | the Editor's package step for the release `.cok`, without the hand selection. See "Packaging the release .cok". It never uploads |
 | `loadcheck` | `action`: `begin` (`save`, a label), `report` (`month`, default true; `speed`, default 8; `motionFrames`, default 300; `monthTimeoutMinutes`, default 45), `status`, `census` | the machine half of the old-save checklist. See "Old-save load check" |
 | `prefabalias` | `list` (absolute path of `tools/shipped-prefabs.json`), optional `dry` (default true); or `action: "status"` | T228: maps each dev-made id PrefabID(type, name, Hash128(cid)) onto the loaded pack prefab in PrefabSystem.m_PrefabIndices (reflection). Run at the main menu BEFORE the load, ImportedData parked; save the city under a NEW name and the new file needs no alias. Gone when the game exits. See `docs/research/round2-2026-11-16/tourism-lab/part1/README.md` (main checkout) |
+| `playset` | `action`: `list`, `active`, `activate` (`name` or `id`), `clone` (`from`, `name`), `create` (`name`), `enable` (`modId`, `enable`), `status` | T221: playsets through the game's own Paradox SDK (PlatformManager -> PdxSdkPlatform.m_SDKContext -> Mods, decompile 1.6.4f1-pdxsdk). Async: the op returns `running`, `action:status` returns the result; `tools/playset.ps1` wraps both. `create` / `clone` / `enable` only for a playset named "SRM Test ..." (an existing one is reused); no delete, no rename, never the owner's playsets. `activate` switches the active playset: restart the game after it |
 | `tourism` | `action`: `snapshot` (default), `start` (`every` frames, default 2048), `read` (`from`), `stop`, `bonus` (`pct`, prototype builds only) | read-only tourism numbers: city A, A0 (logistic), the Attractiveness modifier, our share of the attraction sum, vanilla target with and without us, tourist households / people / arrivals, hotel rooms (merged lodges listed), the ledger, whether Tourism Overhaul replaced the vanilla spawner. Read the spawner state after the sim has run: TO disables it about 30 s in. `tourism-ab.sh` / `tourism-alt.sh` drive an A/B |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
@@ -110,6 +111,16 @@ Component names may be short when they match one type (`SkiRun`), else full (`Ga
 candidates. `dump` leaves out `Deleted` entities unless `none` is given. Pass `none: []` to include them.
 
 ### Save and load
+
+**Unlock dialogs after a load (2026-11-16).** The first load of a vanilla or older save in a playset queues dozens of "New Signature Building
+Available" panels (45 in Royston). Each one pauses the simulation (TimeUISystem forced pause) until its OK is pressed, so a test sees speed 0 and
+no frames. DOM mouse events and real clicks do not dismiss them; the button's React `onClick` prop does. `__dclearPopups()` (helpers.js)
+presses OK until none is left and replies "popups cleared: N". `tools/loadcheck.ps1` and `sheet.mjs` (step `load`) call it after every load and log
+the count; call it yourself after a `__dload` of your own. Never use native input for this.
+
+**The Load Game list is virtualized (T205).** About 20 rows exist in the DOM; `__dfindSave(name)` scrolls the list until the row shows.
+`__dload` uses it. A staged copy lists only with its own `.cid`, and not at all while a byte-identical save is already listed
+(loadcheck then loads that save by its own name). The game escapes `.` in a save's file name as `%2E`.
 
 Use the pause menu with real clicks.
 
