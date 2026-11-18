@@ -17,8 +17,8 @@ namespace AutoGenBatch
     {
         private static readonly (string Id, ulong Hash)[] RfGolden =
         {
-            ("Alpine1 full", 0x59b2ee492f4ef4c5UL),
-            ("Benched1 full", 0xc387e94071ba4d1eUL),
+            ("Alpine1 full", 0x01b7743ce8a1361dUL),   // T251 (1.0.2): easier bands moved runs and connectors, not lifts
+            ("Benched1 full", 0xd7ef4e19f7244273UL),  // T251 (1.0.2)
             ("Steep1 full", 0xc7c185ede32aab3dUL),
         };
 
