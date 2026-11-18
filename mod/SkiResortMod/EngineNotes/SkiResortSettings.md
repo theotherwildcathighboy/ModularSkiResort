@@ -19,6 +19,21 @@ The Default / Min / Max constants alias those of `SkiDayRules` (one source). tes
 `SkiDayReachKm` uses unit "integer" with "(km)" in the label (Game.UI/Unit.cs:5) because "length" would read meters.
 `SkiDayRules.ClampKnobs` is a second, defensive clamp. Lodge spend constants alias `SkiCatalog.LodgeSpend`.
 
+## Season pass price (1.0.2)
+
+`SeasonPassPrice` is a money slider: 20..2,000, step 20, default 400 (`SkiMoneyRules.PassPrice*`). It replaced the
+`SeasonPassMultiplier` slider (2..10 times the lift ticket). The old property stays, hidden (`SettingsUIHidden`) and never renamed. So
+an old options file still reads.
+
+`Mod.MigrateSettings` moves the value once. While the hidden flag `SeasonPassPriceMigrated` is false, it sets `SeasonPassPrice =
+PassPriceFromMultiplier(multiplier, LiftTicketPrice)`. With tickets off it uses the default ticket 100. Then it sets the flag and saves.
+
+- `SetDefaults` sets the flag false. The constructor calls it before the file loads, so a file without the key migrates.
+- The Reset button sets the flag true after `SetDefaults`. A reset already holds the new default. With a false flag, the next start
+  would overwrite a pass price set after the reset with 4 x the ticket.
+- The save holds no multiplier and no pass price setting. `SkiSeasonPass` stores the season key, the price paid and the flags. So
+  saves are unaffected.
+
 ## Key bindings
 
 Key bindings are plain `ModSetting` members (no `UIInputActionCollection`, no reflection).

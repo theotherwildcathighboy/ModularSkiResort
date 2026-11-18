@@ -71,6 +71,7 @@ namespace SkiResortMod.Settings
         public const bool DefaultQuickRunsEnabled = true;   // T193: the Resort Planner is on by default (DECISIONS 659)
         public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;
         public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;
+        public const int DefaultSeasonPassPrice = SkiMoneyRules.PassPriceDefault;
         public const int DefaultLessonShare = SkiMoneyRules.LessonShareDefault;
         public const float DefaultLessonMultiplier = SkiMoneyRules.LessonMultiplierDefault;
         public const float DefaultSnowmakingBonusCelsius = RunSnowRules.DefaultSnowmakingMarginC;
@@ -187,11 +188,22 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupBalance)]
         public int SeasonPassShare { get; set; }
 
-        /// <summary>A pass costs this many lift tickets (the price at the moment of sale, locked). Read live by SkiLiftTicketSystem
-        /// through SkiMoneyRules.ClampPassMultiplier.</summary>
-        [SettingsUISlider(min = SkiMoneyRules.PassMultiplierMin, max = SkiMoneyRules.PassMultiplierMax, step = 1f, unit = "integer")]
+        /// <summary>1.0.2 (DECISIONS 677): what a season pass costs, in money (20-2,000, step 20, default 400), locked at the sale. Read live by
+        /// SkiLiftTicketSystem through SkiMoneyRules.ClampPassPrice. Sales soften above 4 x the lift ticket (SkiMoneyRules.PassFactor).
+        /// Its first value comes from the legacy SeasonPassMultiplier x the lift ticket (Mod.MigrateSettings, once).</summary>
+        [SettingsUISlider(min = SkiMoneyRules.PassPriceMin, max = SkiMoneyRules.PassPriceMax, step = SkiMoneyRules.PassPriceStep, unit = "money")]
         [SettingsUISection(SectionMain, GroupBalance)]
+        public int SeasonPassPrice { get; set; }
+
+        /// <summary>Legacy (1.0.0-1.0.1): the pass price in lift tickets (2-10). Hidden since 1.0.2. Mod.MigrateSettings turns it into
+        /// SeasonPassPrice once and nothing reads it after that. Kept so an old options file loads. Never rename.</summary>
+        [SettingsUIHidden]
         public int SeasonPassMultiplier { get; set; }
+
+        /// <summary>1.0.2: true once SeasonPassPrice took its first value from the legacy multiplier (Mod.MigrateSettings). False in the
+        /// defaults, so an options file written before 1.0.2 (no such key) migrates once. The Reset button sets it true (nothing to move). Never rename.</summary>
+        [SettingsUIHidden]
+        public bool SeasonPassPriceMigrated { get; set; }
 
         /// <summary>The percentage of the people counted at a ski area with an active ski school who take a lesson that day. 0 = lessons
         /// off. Read live by SkiLiftTicketSystem through SkiMoneyRules.ClampLessonShare.</summary>
@@ -495,6 +507,9 @@ namespace SkiResortMod.Settings
             set
             {
                 SetDefaults();
+                // A reset holds the money pass price already: nothing for Mod.MigrateSettings to move. Left false, the next start would
+                // overwrite a pass price set after the reset with 4 x the ticket price.
+                SeasonPassPriceMigrated = true;
                 // ResetKeyBindings regenerates the attribute defaults (SetDefaults must not) and saves. Without registered bindings, save
                 // here
                 if (keyBindingRegistered) ResetKeyBindings();
@@ -527,6 +542,8 @@ namespace SkiResortMod.Settings
             LodgeSpendPerGuest = DefaultLodgeSpendPerGuest;
             SeasonPassShare = DefaultSeasonPassShare;
             SeasonPassMultiplier = DefaultSeasonPassMultiplier;
+            SeasonPassPrice = DefaultSeasonPassPrice;
+            SeasonPassPriceMigrated = false;
             LessonShare = DefaultLessonShare;
             LessonMultiplier = DefaultLessonMultiplier;
             OffSeasonHalfStaff = OffSeasonRules.DefaultEnabled;

@@ -885,11 +885,16 @@ function run(srcDir) {
   const hubTuples = read(path.join("hub", "hubText.ts")).split("\n")
     .map((l) => /\["(?:SkiResort|Assets)[^"]*", "([^"]*)"\]/.exec(l)).filter(Boolean).map((m) => m[1]);
   eq("T34 no over-instructive hub text", [hubTuples.length > 500, hubTuples.filter((s) => obvious.test(s))], [true, []]);
-  // T35 (contract 28) the Runs view's prop rows: Fewer / More on a spacing ladder (DECISIONS 601). Range from RunPropPlacerRules (tools/check-run-props.js compares the constants). The rows act on the focused run.
-  const step = R.runPropSpacingStep;
-  // DECISIONS 601: Fewer / More walk the ladder one way. More from off lands on 50. Fewer past 200 is off. A between-rungs value steps to the next rung
-  eq("T35.1 runPropSpacingStep", [step(0, true), step(0, false), step(50, true), step(50, false), step(20, true), step(200, false), step(90, true), step(90, false), step(25, true), step(30, true)],
-    [50, 0, 40, 60, 20, 0, 80, 100, 20, 20]);
+  // T35 (contract 28) the Runs view's prop rows: a slider on the spacing ladder (r3/sliders; was Fewer / More, DECISIONS 601). Range from RunPropPlacerRules
+  // (tools/check-run-props.js compares the constants). The rows act on the focused run.
+  {
+    const S = R.RUN_PROP_SPACING_STOPS, pos = (v) => Math.round(R.sliderPos(S, v) * 1000) / 1000;
+    eq("T35.1 spacing stops: Off, then sparse to dense", S, [0, 200, 160, 130, 100, 80, 60, 50, 40, 30, 20]);
+    // 90 m (a kind's default) sits halfway between 100 and 80, not on the Off-to-200 segment (the tightest pair wins)
+    eq("T35.1b slider position: Off, 200, 90, 20, unknown", [pos(0), pos(200), pos(90), pos(20), R.sliderPos(S, NaN), R.sliderPos(S, 500)], [0, 0.1, 0.45, 1, -1, -1]);
+    eq("T35.1c stop at a track fraction: ends, middle, clamped, not finite", [R.sliderStopAt(S, 0), R.sliderStopAt(S, 1), R.sliderStopAt(S, 0.5), R.sliderStopAt(S, -3), R.sliderStopAt(S, 7), R.sliderStopAt(S, NaN)],
+      [0, 20, 80, 0, 20, 0]);
+  }
   const propRows = read(path.join("hub", "RunPropControls.tsx"));
   const runsView = read(path.join("hub", "RunsView.tsx"));
   eq("T35.2 the rows send the two triggers, read C#'s value and are the context area's last choice (Quick runs, draw, tree tool, then the picked run)",
@@ -1000,10 +1005,10 @@ function run(srcDir) {
     const TEXT = "calc(26rem * var(--fontScale))";
     const CONTROL_HEIGHT = {
       // text buttons: one height
-      actionButton: TEXT, segButton: TEXT, startButton: TEXT, stepButton: TEXT, treeToolButton: TEXT, areaName: TEXT,
+      actionButton: TEXT, segButton: TEXT, startButton: TEXT, treeToolButton: TEXT, areaName: TEXT,
       // icon buttons, tabs, chips, check rows
       headerButton: "calc(24rem * var(--fontScale))", tabButton: "calc(24rem * var(--fontScale))", tabChevron: "calc(24rem * var(--fontScale))", rowPen: "calc(22rem * var(--fontScale))",
-      pickerChip: "calc(22rem * var(--fontScale))", priceStep: "calc(22rem * var(--fontScale))", toggleAct: "calc(22rem * var(--fontScale))", pagerButton: "calc(20rem * var(--fontScale))",
+      pickerChip: "calc(22rem * var(--fontScale))", toggleAct: "calc(22rem * var(--fontScale))", pagerButton: "calc(20rem * var(--fontScale))",
       // tiles
       tile: "calc(33.1rem * var(--fontScale) + 36.315rem * var(--fontScaleChange) + 8.5rem)",
       buildTile: "calc(12rem + 44rem * var(--fontScale))",
@@ -1014,7 +1019,7 @@ function run(srcDir) {
     const NO_OWN_HEIGHT = new Set([
       "areaNameOpen", "buildTileActive", "buildTileLocked", "buttonOn", "fitText", "foldRow", "foldRowOpen", "hiddenKeepSpace", "histSeg",
       "histSegNext", "infoHeader", "lodgeRow", "mergeAction", "overlayItemOn", "pagerButtonOff", "pickerChipOn", "planRow", "planRowOff",
-      "problemClickable", "problemDim", "problemMoreButton", "problemMoreOn", "rowTrashArmed", "priceStepNext", "segButtonNext", "tabButtonOn", "tileOn",
+      "problemClickable", "problemDim", "problemMoreButton", "problemMoreOn", "rowTrashArmed", "segButtonNext", "tabButtonOn", "tileOn",
     ]);
     const hubDir = path.join(srcDir, "hub");
     const scssNoComments = fs.readFileSync(path.join(hubDir, "hub.module.scss"), "utf8").replace(/\/\/[^\n]*/g, "");
@@ -1044,7 +1049,9 @@ function run(srcDir) {
     }
     const stale = [...Object.keys(CONTROL_HEIGHT), ...NO_OWN_HEIGHT].filter((c) => !used.has(c));
     eq("T46.1 every hub Button class has a height from the control scale (text buttons 26 rem x fontScale)", [bad, stale, used.size > 30], [[], [], true]);
-    eq("T46.2 the text-button classes all share one height", [...["actionButton", "segButton", "startButton", "stepButton", "treeToolButton"].map(heightOf)], Array(5).fill(TEXT));
+    eq("T46.2 the text-button classes all share one height", [...["actionButton", "segButton", "startButton", "treeToolButton"].map(heightOf)], Array(4).fill(TEXT));
+    // r3/sliders: the slider row is a control of the scale too (the chip / check row height), so a slider row and a chip row line up.
+    eq("T46.3 the slider row is 22 rem x fontScale", heightOf("slider"), "calc(22rem * var(--fontScale))");
   }
 
   // T41 a count names what it counts (hub redesign 2026-11-07, DECISIONS 613): the band's "+3" read as an attraction delta and
@@ -1494,12 +1501,29 @@ function run(srcDir) {
     eq("T240.2 snap: 2 down, 3 up", [R.snapTicketPrice(2), R.snapTicketPrice(3)], [0, 5]);
     eq("T240.3 snap: on the step", R.snapTicketPrice(105), 105);
     eq("T240.4 snap: 198 and 999 to the max", [R.snapTicketPrice(198), R.snapTicketPrice(999)], [200, 200]);
-    eq("T240.5 step: 100 down and up", [R.steppedPrice(100, -1), R.steppedPrice(100, 1)], [95, 105]);
-    eq("T240.6 step: ends hold", [R.steppedPrice(0, -1), R.steppedPrice(200, 1)], [0, 200]);
-    eq("T240.7 step: an off-step price snaps first", R.steppedPrice(102, 1), 105);
-    eq("T240.8 buttons: unknown, 0, 100, 200", [-1, 0, 100, 200].map((p) => [R.priceStepEnabled(p, -1), R.priceStepEnabled(p, 1)]),
-      [[false, false], [false, true], [true, true], [true, false]]);
+    eq("T240.5 price slider stops: 0..200 step 5 (as the Options slider)", [R.PRICE_STOPS.length, R.PRICE_STOPS[0], R.PRICE_STOPS[40]], [41, 0, 200]);
     eq("T240.9 full demand by tolerance (A-frame / hut 0, chalet 20, summit / grand 40)", [0, 20, 40].map((x) => R.priceFullWith(x)), [40, 60, 80]);
+  }
+
+  // r3/sliders (DECISIONS 677): the one demand word, the "N % fewer" line and pass demand. The pass table is the same literal as MoneyBatch's
+  // PassFactor rows (C# SkiMoneyRules.PassFactor); the word edges sit on round factors.
+  {
+    eq("R3S.1 demand words at the band edges", [100, 99, 85, 84, 60, 59, 40, 39, 0, -1].map(R.demandWord),
+      ["unaffected", "high", "high", "fair", "fair", "low", "low", "veryLow", "veryLow", null]);
+    // the price words by lodge: no better lodge, a Chalet, a luxury lodge (DESIGN.md 0.2)
+    const word = (p, tol) => R.demandWord(R.priceFactorPct(p, tol));
+    eq("R3S.2 price words, no better lodge: 40, 45, 70, 75, 120, 125, 160, 165, 200", [40, 45, 70, 75, 120, 125, 160, 165, 200].map((p) => word(p, 0)),
+      ["unaffected", "high", "high", "fair", "fair", "low", "low", "veryLow", "veryLow"]);
+    eq("R3S.3 price words, luxury lodge: 80, 85, 110, 115, 160, 165, 200", [80, 85, 110, 115, 160, 165, 200].map((p) => word(p, 40)),
+      ["unaffected", "high", "high", "fair", "fair", "low", "low"]);
+    eq("R3S.4 fewer %: rounded to 5 (0.7 -> 30, 0.975 -> 5, 0.2 -> 80, 1 -> 0, unknown)", [0.7, 0.975, 0.2, 1, 0.3, -1].map(R.fewerPct), [30, 5, 80, 0, 70, -1]);
+    eq("R3S.5 the price example: 120 with a Chalet = 30 % fewer than at 60", R.fewerPct(R.priceFactor(120, 20)), 30);
+    eq("R3S.6 heat: green, amber at 60, red at 20, unknown green", [100, 60, 20, -1].map((p) => R.demandHeat(p)), [[0, 0], [1, 0], [1, 1], [0, 0]]);
+    eq("R3S.7 pass price stops: 20..2000 step 20", [R.PASS_PRICE_STOPS.length, R.PASS_PRICE_STOPS[0], R.PASS_PRICE_STOPS[99], R.PASS_PRICE_DEFAULT], [100, 20, 2000, 400]);
+    // ticket 100: full up to 400, 50 % at 800, 25 % at 1,000, 0 from 1,200; no ticket or no pass price = 0
+    eq("R3S.8 pass factor % at ticket 100", [100, 400, 500, 600, 800, 1000, 1200, 2000].map((p) => R.passFactorPct(p, 100)), [100, 100, 88, 75, 50, 25, 0, 0]);
+    eq("R3S.9 pass factor edges: no ticket, no price, unknown", [R.passFactor(400, 0), R.passFactor(0, 100), R.passFactor(NaN, 100)], [0, 0, -1]);
+    eq("R3S.10 pass limit = 4 x the ticket", [R.passFullPrice(65), R.passFullPrice(100), R.passFullPrice(-1)], [260, 400, 0]);
   }
 
   const hr = require("./test-history-rules").run(srcDir);

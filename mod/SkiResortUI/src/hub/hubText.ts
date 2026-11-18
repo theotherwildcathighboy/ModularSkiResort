@@ -9,7 +9,7 @@
 import type { LocEntry } from "../l10n";
 import { BAND, clampGladeLevel } from "../bindings";
 import type { BuildItemId, RunKind } from "../bindings";
-import type { NextVariant, StatusWord } from "./hubRules";
+import type { DemandWord, NextVariant, StatusWord } from "./hubRules";
 import { euClassOf, isEuropean } from "./units";
 
 /* Plain entries (no placeholder). */
@@ -301,8 +301,6 @@ export const HUB_LOC = {
 
   treeTool: ["SkiResort.Hub.TREE_TOOL", "Tree tool"],
   treeToolTip: ["SkiResort.Hub.TREE_TOOL_TIP", "Plans trees on and around runs."],
-  treesFewer: ["SkiResort.Hub.TREES_FEWER", "Fewer trees"],
-  treesMore: ["SkiResort.Hub.TREES_MORE", "More trees"],
   treesApplyTo: ["SkiResort.Hub.TREES_APPLY_TO", "Apply to"],
   treesUnavailable: ["SkiResort.Hub.TREES_UNAVAILABLE", "The tree tool is not available right now."],
   gladeLevel: ["SkiResort.GladeTooltip.LEVEL", "Tree density (1-8)"],
@@ -341,11 +339,7 @@ export const HUB_LOC = {
   runPropsGuns: ["SkiResort.Hub.RUN_PROPS_GUNS", "Snow guns"],
   runPropsLights: ["SkiResort.Hub.RUN_PROPS_LIGHTS", "Lights"],
   runPropsOff: ["SkiResort.Hub.RUN_PROPS_OFF", "Off"],
-  runPropsGunsTip: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP", "Distance between snow guns on this run's edge. Off: no guns, no made snow and no snowmaking upkeep."],
   /* a cat track: its guns at Off also stop its snowmaking bill and its made snow (see DECISIONS 563, 568 and SkiRunPropSystem.CatTrackGunsOn) */
-  runPropsGunsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP[CatTrack]", "Distance between snow guns on this cat track's edge. Their snow counts but is not drawn. Off: no guns, no snowmaking upkeep, and it melts."],
-  runPropsLightsTip: ["SkiResort.Hub.RUN_PROPS_LIGHTS_TIP", "Distance between floodlight masts on this run's edge. Lit runs stay open in the evening. Off: no lights and no lighting upkeep."],
-  runPropsLightsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_LIGHTS_TIP[CatTrack]", "Distance between floodlight masts on this cat track's edge. Lit tracks pay lighting upkeep in the snow season. Off: no lights and no lighting upkeep."],
   /* run types R3: the Groomed row (a re-emit, DECISIONS 577) and the paid-once note (RunRow.paidSteps) */
   runPropsGroomed: ["SkiResort.Hub.RUN_PROPS_GROOMED", "Groomed"],
   runPropsReshape: ["SkiResort.Hub.RUN_PROPS_RESHAPE", "Reshape"],
@@ -356,10 +350,31 @@ export const HUB_LOC = {
   runPropsNeedsGroomed: ["SkiResort.Hub.RUN_PROPS_NEEDS_GROOMED", "Snow guns and lights need a groomed run."],
   runPropsPaid: ["SkiResort.Hub.RUN_PROPS_PAID", "Its one-time fee is paid: turning it back on costs nothing."],
   runPropsUnpaid: ["SkiResort.Hub.RUN_PROPS_UNPAID", "Turning it on for the first time charges a one-time fee based on the run's area."],
-  runPropsFewer: ["SkiResort.Hub.RUN_PROPS_FEWER", "Fewer"],
-  runPropsMore: ["SkiResort.Hub.RUN_PROPS_MORE", "More"],
-  runPropsFewerTip: ["SkiResort.Hub.RUN_PROPS_FEWER_TIP", "Farther apart. Past 200 m: off."],
-  runPropsMoreTip: ["SkiResort.Hub.RUN_PROPS_MORE_TIP", "Puts them closer together, down to 20 m."],
+  /* r3/sliders: the slider tooltips, one idea per line */
+  runPropsSpacingTip: ["SkiResort.Hub.RUN_PROPS_TIP[Spacing]", "Spacing on the run's edge"],
+  runPropsSpacingTipCatTrack: ["SkiResort.Hub.RUN_PROPS_TIP[SpacingCatTrack]", "Spacing on the track's edge"],
+  runPropsGunsOff: ["SkiResort.Hub.RUN_PROPS_TIP[GunsOff]", "Off: no made snow, no upkeep"],
+  runPropsGunsCatTrack: ["SkiResort.Hub.RUN_PROPS_TIP[GunsCatTrack]", "Its snow counts but is not drawn"],
+  runPropsGunsOffCatTrack: ["SkiResort.Hub.RUN_PROPS_TIP[GunsOffCatTrack]", "Off: no upkeep, and the snow melts"],
+  runPropsLightsEvening: ["SkiResort.Hub.RUN_PROPS_TIP[LightsEvening]", "Lit runs stay open in the evening"],
+  runPropsLightsOff: ["SkiResort.Hub.RUN_PROPS_TIP[LightsOff]", "Off: no lighting upkeep"],
+  runPropsLightsCatTrack: ["SkiResort.Hub.RUN_PROPS_TIP[LightsCatTrack]", "Upkeep in the snow season only"],
+  runPropsFeeFirst: ["SkiResort.Hub.RUN_PROPS_TIP[FeeFirst]", "First time on: a one-time fee by run area"],
+  runPropsFeePaid: ["SkiResort.Hub.RUN_PROPS_TIP[FeePaid]", "Fee paid: on again costs nothing"],
+  moneyPassTipLocked: ["SkiResort.Hub.MONEY_PASS_TIP[Locked]", "Price locked at the sale."],
+  moneyPassTipResidents: ["SkiResort.Hub.MONEY_PASS_TIP[Residents]", "Residents buy it, tourists never."],
+  // r3/sliders: the one demand word (hubRules.demandWord) and the price tip lines without a placeholder
+  demandUnaffected: ["SkiResort.Hub.DEMAND_WORD[unaffected]", "unaffected"],
+  demandHigh: ["SkiResort.Hub.DEMAND_WORD[high]", "high"],
+  demandFair: ["SkiResort.Hub.DEMAND_WORD[fair]", "fair"],
+  demandLow: ["SkiResort.Hub.DEMAND_WORD[low]", "low"],
+  demandVeryLow: ["SkiResort.Hub.DEMAND_WORD[veryLow]", "very low"],
+  moneyPriceTipPasses: ["SkiResort.Hub.MONEY_PRICE_TIP[Passes]", "Season pass holders always come. Full table in the docs."],
+  // r3/sliders, lever lines (DECISIONS 676: "To <goal>, <action>.", no amounts; "at its maximum" when maxed)
+  moneyPriceTipLever: ["SkiResort.Hub.MONEY_PRICE_TIP[Lever]", "To raise ticket tolerance, build better lodges."],
+  moneyPriceTipMax: ["SkiResort.Hub.MONEY_PRICE_TIP[Max]", "Ticket tolerance is at its maximum."],
+  moneyPassTipLower: ["SkiResort.Hub.MONEY_PASS_TIP[Lower]", "To sell more passes, lower the pass price."],
+  moneyPassTipRaise: ["SkiResort.Hub.MONEY_PASS_TIP[Raise]", "To earn more from passes, raise the pass price."],
   cruxPitch: ["SkiResort.Tooltip.CRUX_PITCH", "Hardest unavoidable pitch"],
   steepestPatch: ["SkiResort.Tooltip.STEEPEST_PATCH", "Steepest patch (avoidable)"],
 
@@ -483,15 +498,6 @@ export const HUB_LOC = {
   moneyNoteRwh: ["SkiResort.Hub.MONEY_NOTE[Rwh]", "Detected: Realistic Workplaces. The real bill can differ."],
   moneyTipRwh: ["SkiResort.Hub.MONEY_TIP[Rwh]", "Realistic Workplaces And Households changes staff costs. The real bill can differ."],
   moneyNoteEst: ["SkiResort.Hub.MONEY_NOTE[Est]", "≈ Some income or costs are not counted yet. They show as 0 in the net."],
-  // the Money view's price line, tooltip lines without a placeholder
-  moneyPriceTitle: ["SkiResort.Hub.MONEY_PRICE_TIP[Title]", "Lift ticket price"],
-  moneyPriceTipWhere: ["SkiResort.Hub.MONEY_PRICE_TIP[Where]", "Options > Modular Ski Resort > Ski area balance. One price for every ski area."],
-  moneyPriceTipWho: ["SkiResort.Hub.MONEY_PRICE_TIP[Who]", "Only ski days react to it. Other visitors and the attraction score ignore it."],
-  // T240 (contract 54): the price line's stepper sets the price here too. The tip says the setting is global.
-  moneyPriceTipShared: ["SkiResort.Hub.MONEY_PRICE_TIP[Shared]", "One price for every ski area in the city. It is the same setting as Options > Modular Ski Resort > Ski area balance."],
-  // T240: the Full demand row's tooltip, lines without a placeholder (the lodge rows are the lodges' names, ASSET_NAME)
-  moneyFullDemandTitle: ["SkiResort.Hub.MONEY_FULL_DEMAND_TIP[Title]", "Full demand"],
-  moneyFullDemandTipWhat: ["SkiResort.Hub.MONEY_FULL_DEMAND_TIP[What]", "Ski days come in full numbers at any lift ticket price up to this limit. The best lodge in the ski area sets it:"],
   // the lodge-spend income row (drawn only while lodgeSpendMonth > 0, hubRules.lodgeSpendShown)
   moneyRowLodgeSpend: ["SkiResort.Hub.MONEY_ROW[LodgeSpend]", "Lodge spend"],
   moneyRowPassesMonth: ["SkiResort.Hub.MONEY_ROW[PassesMonth]", "Season passes sold"],
@@ -873,20 +879,20 @@ export const HUB_FMT = {
   moneyRowLessons: ["SkiResort.Hub.MONEY_ROW[Lessons]", "Lessons · {N}"],
   moneyFactBus: ["SkiResort.Hub.MONEY_FACT[Bus]", "Depots {N} · guests by bus {GUESTS} · bill {RATE}"],
   moneyTicketsPrice: ["SkiResort.Hub.MONEY_TICKETS_PRICE", "Lift ticket price now: {PRICE}"],
-  /* {PRICE} = hubRules.hubPrice (Money), {PCT} = hubRules.priceFactorPct (Percentage) */
-  moneyPriceLine: ["SkiResort.Hub.MONEY_PRICE_LINE", "Ticket {PRICE} · demand {PCT}"],
-  /* {FULL} = PRICE_NO_EFFECT_MAX, {P1..P3} = PRICE_EXAMPLES (Money), {F1..F3} = their priceFactorPct (Percentage) */
-  moneyPriceTipCurve: ["SkiResort.Hub.MONEY_PRICE_TIP[Curve]", "Ski days: as many at any price up to {FULL}, then fewer: {F1} as many at {P1}, {F2} at {P2}, {F3} at {P3}."],
-  /* {FULL} = 40 + priceTolerance (not "Luxury lodges": the Chalet has 20) */
+  /* r3/sliders (DECISIONS 677): {PRICE} = the slider price (Money), {WORD} = the demand word (DEMAND_WORD) */
+  moneyPriceLine: ["SkiResort.Hub.MONEY_PRICE_LINE", "Ticket {PRICE} · Demand: {WORD}"],
+  moneyPassLine: ["SkiResort.Hub.MONEY_PASS_LINE", "Season pass {PRICE} · Demand: {WORD}"],
+  /* r3/sliders (DECISIONS 677): {FULL} = priceFullWith(area tolerance) or passFullPrice(ticket) (Money), {PRICE} = the slider price (Money),
+   {PCT} = hubRules.fewerPct (Percentage, a multiple of 5), {N} = PASS_FULL_AT (Integer) */
+  moneyPriceTipAbove: ["SkiResort.Hub.MONEY_PRICE_TIP[Above]", "Above {FULL}, fewer guests choose a ski day."],
+  moneyPriceTipExample: ["SkiResort.Hub.MONEY_PRICE_TIP[Example]", "At {PRICE}, about {PCT} fewer guests ski than at {FULL}."],
+  moneyPassTipAbove: ["SkiResort.Hub.MONEY_PASS_TIP[Above]", "Above {FULL}, fewer households buy a pass."],
+  moneyPassTipExample: ["SkiResort.Hub.MONEY_PASS_TIP[Example]", "At {PRICE}, about {PCT} fewer households buy than at {FULL}."],
+  moneyPassTipLimit: ["SkiResort.Hub.MONEY_PASS_TIP[Limit]", "The limit is {N} times the lift ticket price."],
   /* {FULL} = priceFullWith(the luxury tolerance 40) = 80 */
   buildTipLuxury: ["SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days come in full numbers at any lift ticket price up to {FULL}."],
-  moneyPriceTipTolerance: ["SkiResort.Hub.MONEY_PRICE_TIP[Tolerance]", "This ski area's lodges raise that limit to {FULL}."],
   moneyRowNatural: ["SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA}"],
   moneyRowGrooming: ["SkiResort.Hub.MONEY_ROW[Grooming]", "Grooming · {HA} with snow"],
-  /* T240: {FULL} = hubRules.priceFullWith(ResortLive.priceTolerance) (Money): 40, 60 with a Chalet Lodge, 80 with a Swanky lodge */
-  moneyFullDemandLine: ["SkiResort.Hub.MONEY_FULL_DEMAND_LINE", "Full demand up to {FULL}"],
-  /* T240: {STEP} = 10 (Money), {PCT} = 5 (Percentage), {MIN} = priceFactorPct(PRICE_MAX, tolerance) (Percentage), {MAX} = PRICE_MAX (Money) */
-  moneyFullDemandTipSlope: ["SkiResort.Hub.MONEY_FULL_DEMAND_TIP[Slope]", "Above it, every {STEP} more takes {PCT} of full demand off, down to {MIN} at {MAX}."],
   moneyRowSnowmaking: ["SkiResort.Hub.MONEY_ROW[Snowmaking]", "Snowmaking · {HA} where the guns run"],
   moneyRowLights: ["SkiResort.Hub.MONEY_ROW[Lights]", "Lights · {HA} with snow"],
   moneyRowCatTracks: ["SkiResort.Hub.MONEY_ROW[CatTracks]", "Cat tracks · {HA} with guns on"],
@@ -1386,6 +1392,14 @@ export const DRAW_LABEL = {
 } as const;
 
 /* The game's text for a factor (unknown name: the raw enum name as the fallback). */
+/* r3/sliders: the entry of a demand word (hubRules.demandWord). */
+const DEMAND_WORD_ENTRY: Readonly<Record<DemandWord, LocEntry>> = {
+  unaffected: HUB_LOC.demandUnaffected, high: HUB_LOC.demandHigh, fair: HUB_LOC.demandFair, low: HUB_LOC.demandLow, veryLow: HUB_LOC.demandVeryLow,
+};
+export function demandWordEntry(w: DemandWord): LocEntry {
+  return DEMAND_WORD_ENTRY[w];
+}
+
 export function factorEntry(name: string): LocEntry {
   return [`SelectedInfoPanel.EFFICIENCY_FACTORS[${name}]`, EFFICIENCY_FACTOR_FALLBACK[name] ?? name];
 }

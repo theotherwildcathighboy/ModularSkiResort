@@ -32,7 +32,7 @@
 *            --height=1080|1440|2160   one size     --scenario=<regex>   only the scenarios it matches (case-insensitive; a partial run)
 *            --workers=<n>   browsers in parallel  --no-wait   fail (exit 3) when another run holds the lock, instead of waiting
 *            --fixed-settle   the old fixed waits in settle(), to cross-check a doubt about the quiet condition
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish | --list=r1f | --list=r2b | --list=plantext | --list=r2hub | --list=r2fix | --list=r2views]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish | --list=r1f | --list=r2b | --list=plantext | --list=r2hub | --list=r2fix | --list=r2views | --list=r3sliders | --list=r3price]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -477,6 +477,50 @@ for (const h of [1080, 2160]) {
 }
 // r2/hub-views (1.0.2): T240 the Money view's price stepper and Full demand row, T245 History's "This season so far", T246 the build
 // strip on each tab (Big resort: no mode engaged, so the chevron is live). At 1080 and 2160. `--list=r2views` picks this list.
+// r3/sliders: the hub's value controls (ticket price, season pass, a run's snow guns and lights, the tree density), before and after the
+// sliders. "clickRun" picks a run row by its name (the row is a button whose text starts with it). `--list=r3sliders` picks this list.
+const PICK = "Ash Flat, no tool on (runs, lifts, problems)";
+const DRAW = "Drawing a run, Ash Flat (runs, lifts, problems)";
+const R3SLIDERS_BEFORE = [
+  ["s01-money-price-1080", 1080, { scenario: ASH, view: 4, fold: 0 }],
+  ["s02-money-price-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hover: "Ticket" }],
+  ["s05-draw-run-1080", 1080, { scenario: DRAW, view: 1 }],
+  ["s05b-draw-guns-tip-1080", 1080, { scenario: DRAW, view: 1, hover: "60 m" }],
+  ["s06-tree-tool-1080", 1080, { scenario: ASH, view: 1 }],
+  ["s06b-tree-tip-1080", 1080, { scenario: ASH, view: 1, hover: "4 · Open glade" }],
+  ["s07-planner-trees-1080", 1080, { scenario: "Quick runs open, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+];
+const R3SLIDERS = R3SLIDERS_BEFORE.concat([
+  ["s03-run-picked-1080", 1080, { scenario: PICK, view: 1, clickRun: "Run 4" }],
+  ["s04-run-guns-tip-1080", 1080, { scenario: PICK, view: 1, clickRun: "Run 4", hover: "90 m" }],
+  ["s04b-cattrack-lights-tip-1080", 1080, { scenario: PICK, view: 1, clickRun: "Cat Track", hover: "Off" }],
+  ["s02b-money-price-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: '.h-panel [class*="sr-priceRowText_"]' }],
+  ["s08-money-pass-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: '.h-panel [class*="sr-priceRowText_"]', hoverIdx: 1 }],
+  ["s09-money-price-2160", 2160, { scenario: ASH, view: 4, fold: 0 }],
+  ["s10-run-picked-2160", 2160, { scenario: PICK, view: 1, clickRun: "Run 4" }],
+  ["s11-price-dragging-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.325, 0.6, false] }],
+  ["s12-price-released-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.325, 0.6, true] }],
+  ["s13-guns-released-1080", 1080, { scenario: PICK, view: 1, clickRun: "Run 4", drag: [0, 0.45, 0.9, true] }],
+  ["s14-tree-click-1080", 1080, { scenario: ASH, view: 1, drag: [0, 1, 1, true] }],
+]);
+// r3/sliders (DECISIONS 677): the price and pass rows as one word of demand on a green-to-red track, their tooltips, and the pass as a
+// money price (the harness ticket is 65, so the pass limit is 260). `--list=r3price`.
+const PRICE_TEXT = '.h-panel [class*="sr-priceRowText_"]';
+const PASS_AT = (p) => (p - 20) / 1980;
+const R3PRICE = [
+  ["p01-money-price-pass-1080", 1080, { scenario: ASH, view: 4, fold: 0 }],
+  ["p02-price-120-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 0.6, true], hoverSel: PRICE_TEXT }],
+  ["p03-price-65-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: PRICE_TEXT }],
+  ["p04-price-drag-held-40-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 0.2, false] }],
+  ["p05-price-drag-held-160-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 0.8, false] }],
+  ["p06-price-200-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 1, true], hoverSel: PRICE_TEXT }],
+  ["p07-pass-520-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [1, PASS_AT(260), PASS_AT(520), true], hoverSel: PRICE_TEXT, hoverIdx: 1 }],
+  ["p08-pass-160-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [1, PASS_AT(260), PASS_AT(160), true], hoverSel: PRICE_TEXT, hoverIdx: 1 }],
+  ["p09-pass-260-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: PRICE_TEXT, hoverIdx: 1 }],
+  ["p11-price-120-tip-maxed-1080", 1080, { scenario: "Ash Flat, luxury lodge (price tolerance at its maximum)", view: 4, fold: 0, drag: [0, 0.5, 0.6, true], hoverSel: PRICE_TEXT }],
+  ["p12-pass-drag-held-1200-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [1, PASS_AT(260), PASS_AT(1200), false] }],
+  ["p10-money-price-pass-2160", 2160, { scenario: ASH, view: 4, fold: 0 }],
+];
 const R2VIEWS = [];
 for (const h of [1080, 2160]) {
   R2VIEWS.push(
@@ -593,8 +637,8 @@ async function shots(b, base, dir, list) {
   for (const [file, h, p0] of list) {
     const w = Math.round(h * 16 / 9);
     const p = Object.assign({}, p0);
-    const { hover, hoverIn, hoverSel, click, clickRange, hoverPlot, whole, iconMode, scrollY, scrollIn, scrollInY } = p;
-    delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode; delete p.scrollY; delete p.scrollIn; delete p.scrollInY;
+    const { drag, hover, hoverIn, hoverSel, hoverIdx, click, clickRange, clickRun, hoverPlot, whole, iconMode, scrollY, scrollIn, scrollInY } = p;
+    delete p.clickRun; delete p.drag; delete p.hoverIdx; delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode; delete p.scrollY; delete p.scrollIn; delete p.scrollInY;
     await open(b, base, w, h);
     if (iconMode) await evalAsync(b, `(() => { window.skiResortIconMode = ${JSON.stringify(iconMode)}; return true; })()`, 10000);
     const m = await evalAsync(b, `(async () => { const p = new URLSearchParams(${JSON.stringify(new URLSearchParams(Object.assign({ clean: 1 }, p)).toString())});
@@ -605,6 +649,31 @@ async function shots(b, base, dir, list) {
         const el = Array.from(document.querySelectorAll('.h-panel button')).find((e) => (e.textContent || '').trim() === want);
         if (!el) return false; el.click(); await new Promise((r) => setTimeout(r, 300)); return true; })()`, 10000);
       if (!ok) console.log(`shot ${file}: button "${want}" not found`);
+    }
+    if (clickRun) {   // pick a run row: its button's text starts with the run's name
+      const ok = await evalAsync(b, `(async () => { const want = ${JSON.stringify(clickRun)};
+        const el = Array.from(document.querySelectorAll('.h-panel button[class*="runFly"]')).find((e) => (e.textContent || '').trim().startsWith(want));
+        if (!el) return false; el.click(); await new Promise((r) => setTimeout(r, 400)); return true; })()`, 10000);
+      if (!ok) console.log(`shot ${file}: run row "${clickRun}" not found`);
+    }
+    if (drag) {   // r3/sliders: [slider index, from 0..1, to 0..1, release]. Real mouse input on the slider track; prints the triggers it sent
+      const [k, from, to, release] = drag;
+      const r = await evalAsync(b, `(() => { window.__dragLog0 = window.SkiHarness.log.length;
+        const e = document.querySelectorAll('.h-panel [class*="sr-sliderTrack_"]')[${Number(k)}]; if (!e) return null;
+        const q = e.getBoundingClientRect(); return { l: q.left, w: q.width, y: q.top + q.height / 2 }; })()`, 10000);
+      if (r) {
+        const x = (f) => r.l + r.w * f;
+        await b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: x(from), y: r.y });
+        await b.send("Input.dispatchMouseEvent", { type: "mousePressed", x: x(from), y: r.y, button: "left", buttons: 1, clickCount: 1 });
+        for (let i = 1; i <= 8; i++) {
+          await b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: x(from + (to - from) * i / 8), y: r.y, button: "left", buttons: 1 });
+          await sleep(30);
+        }
+        if (release) await b.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: x(to), y: r.y, button: "left", buttons: 0, clickCount: 1 });
+        await sleep(300);
+        const sent = await evalAsync(b, `JSON.stringify(window.SkiHarness.log.slice(window.__dragLog0))`, 10000);
+        console.log(`shot ${file}: drag ${from} -> ${to}${release ? " (released)" : " (held)"} sent ${sent}`);
+      } else console.log(`shot ${file}: slider ${k} not found`);
     }
     if (scrollY) {   // scroll the panel's content (a long Runs view: the lower rows) by this many px
       const n = await evalAsync(b, `(() => { const e = document.querySelector('.h-panel [class*="panelContent"]'); if (!e) return 0; e.scrollTop = ${Number(scrollY)}; return 1; })()`, 10000);
@@ -628,7 +697,7 @@ async function shots(b, base, dir, list) {
       } else console.log(`shot ${file}: no chart plot to point at`);
     }
     if (hoverSel) {
-      const at = await evalAsync(b, `(() => { const e = document.querySelector(${JSON.stringify(hoverSel)}); if (!e) return null;
+      const at = await evalAsync(b, `(() => { const e = document.querySelectorAll(${JSON.stringify(hoverSel)})[${Number(hoverIdx || 0)}]; if (!e) return null;
         const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, 10000);
       if (at) {
         await b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: at.x, y: at.y });
@@ -754,7 +823,7 @@ async function main() {
     const b = browsers[0];
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg),
-        process.argv.includes("--list=r3ui") ? R3UI : process.argv.includes("--list=r2fix") ? R2FIX : process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2hub") ? R2HUB : process.argv.includes("--list=r2views") ? R2VIEWS : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=r3price") ? R3PRICE : process.argv.includes("--list=r3sliders-before") ? R3SLIDERS_BEFORE : process.argv.includes("--list=r3sliders") ? R3SLIDERS : process.argv.includes("--list=r3ui") ? R3UI : process.argv.includes("--list=r2fix") ? R2FIX : process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2hub") ? R2HUB : process.argv.includes("--list=r2views") ? R2VIEWS : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

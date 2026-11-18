@@ -212,6 +212,7 @@ namespace SkiResortMod.Systems
         public string TripPlanner;
         public bool TripPlannerBlocksSkiDays;   // LeisureSystem or CitizenBehaviorSystem off: ski days not armed
         public int PassShare; // SeasonPassShare, clamped 0..100 (0 = passes off)
+        public int PassPrice; // contract 56 (r3/sliders, DECISIONS 677): SeasonPassPrice, clamped 20..2,000 (money)
         // the calendar month 0..11 of the game date, the month the guest ledger counts as "this month" (SkiMoneyRules.MonthKey, as
         // SkiGuestCounterSystem rolls it). The UI names it through vanilla Common.MONTH:<0-11>.
         public int Month;
@@ -228,7 +229,7 @@ namespace SkiResortMod.Systems
                    SnowVisualsOff == o.SnowVisualsOff && TourismOverhaul == o.TourismOverhaul &&
                    RealisticWorkplaces == o.RealisticWorkplaces && TripPlanner == o.TripPlanner &&
                    TripPlannerBlocksSkiDays == o.TripPlannerBlocksSkiDays &&
-                   PassShare == o.PassShare && Month == o.Month &&
+                   PassShare == o.PassShare && PassPrice == o.PassPrice && Month == o.Month &&
                    TourismBonusPct.Equals(o.TourismBonusPct) && TourismBonusSumPct.Equals(o.TourismBonusSumPct) &&
                    TourismBonusCapPct == o.TourismBonusCapPct && TouristsDayMean == o.TouristsDayMean;
         }
@@ -255,6 +256,7 @@ namespace SkiResortMod.Systems
                 h = h * 31 + (TripPlanner ?? "").GetHashCode();
                 h = h * 31 + (TripPlannerBlocksSkiDays ? 1 : 0);
                 h = h * 31 + PassShare;
+                h = h * 31 + PassPrice;
                 h = h * 31 + TourismBonusPct.GetHashCode();
                 h = h * 31 + TourismBonusCapPct;
                 h = h * 31 + TouristsDayMean;
@@ -2787,6 +2789,7 @@ namespace SkiResortMod.Systems
                 TripPlannerBlocksSkiDays = m_SkiDays != null && m_SkiDays.TripPlannerBlocksSkiDays,
                 // the settings the ticket system reads
                 PassShare = SkiMoneyRules.ClampPassShare(settings != null ? settings.SeasonPassShare : SkiMoneyRules.PassShareDefault),
+                PassPrice = SkiMoneyRules.ClampPassPrice(settings != null ? settings.SeasonPassPrice : SkiMoneyRules.PassPriceDefault),
                 // the ledger month key's calendar month, 0..11 (MonthOfKey is 1..12)
                 Month = SkiMoneyRules.MonthOfKey(SkiMoneyRules.MonthKey(m_TimeSystem.year, m_TimeSystem.normalizedDate)) - 1,
                 // T226 / T225 (contract 50)

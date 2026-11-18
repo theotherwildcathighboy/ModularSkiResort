@@ -7,26 +7,26 @@
  * ticket price and the ski-day share (priceFactorPct mirrors C# SkiDayRules.PriceFactor). RUNNING COSTS and ALSO are Folds, one open at a time.
  * Panel file (rule R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$.
  */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
-import { Button } from "cs2/ui";
-import { FOCUS_DISABLED } from "cs2/input";
 import { RUN_KIND, build$, city$, hubTriggers, problems$, resortLive$, resorts$, runs$, selectedResort$ } from "../bindings";
 import type { BuildItem, BuildItemId, CityStats, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
-import { BUILD_ITEMS, findBuildItem } from "./buildItems";
+import { BUILD_ITEMS, LUXURY_PRICE_TOLERANCE, findBuildItem } from "./buildItems";
 import {
-  PRICE_EXAMPLES, PRICE_MAX, PRICE_NO_EFFECT_MAX, cityIncomeShown, hubPrice, liveOf, netRowShown, passesShown, presaleShown, priceFactorPct,
-  priceFullWith, priceStepEnabled, schoolBuiltOf, schoolState, steppedPrice, ticketsRow,
+  DEMAND_EXAMPLE_BELOW, PASS_FULL_AT, PASS_PRICE_STOPS, PRICE_STOPS, cityIncomeShown, demandHeat, demandWord, fewerPct, hubPrice, liveOf,
+  netRowShown, passFactor, passFactorPct, passFullPrice, passSliderShown, passesShown, presaleShown, priceFactor, priceFactorPct,
+  priceFullWith, schoolBuiltOf, schoolState, ticketsRow,
 } from "./hubRules";
 import type { SchoolState } from "./hubRules";
-import { ASSET_NAME, HUB_FMT, HUB_LOC, LIFT_TYPE, monthName } from "./hubText";
-import { Divider, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, Tip, TipLines, areaArg, cx, numArg, useNumberSamples, useUnits } from "./parts";
+import { HUB_FMT, HUB_LOC, LIFT_TYPE, demandWordEntry, monthName } from "./hubText";
+import { Divider, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, Tip, TipLines, areaArg, numArg, useNumberSamples, useUnits } from "./parts";
 import type { NumberSamples } from "./parts";
 import { currentResort, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
+import { Slider } from "./Slider";
 import styles from "./hub.module.scss";
 
 const DASH = "–";
@@ -331,85 +331,81 @@ function TicketsRow({ l, price, samples, t }: { l: ResortLive | null; price: num
   );
 }
 
-/* T240: how long the stepper shows the price it asked for before it falls back to the city binding's (C# refused, or no answer). */
-const PRICE_PENDING_MS = 3000;
+/** The demand word of a factor percent, or "–" (unknown). */
+function demandText(pct: number, t: Translate): string {
+  const w = demandWord(pct);
+  return w ? t(demandWordEntry(w)) : DASH;
+}
 
-/** Under the tickets row, the Options price and what it does to ski days (the factor as a whole percent,
- *  hubRules.priceFactorPct). T240 (contract 54): the – / + buttons at the row end set the price (trigger setTicketPrice, the Options
- *  setting, every ski area). The row shows the asked price at once and the city binding's once C# answers.
- *  `price` = hubRules.hubPrice(city): -1 ("–") until C# sends the city. The label is one text node (check-bundle rule R13). */
+/** Under the tickets row: the Options price and its demand in one word (hubRules.demandWord of priceFactorPct; the numbers live in the
+ *  docs), with the price slider under it (r3/sliders, was the T240 stepper). The slider writes the Options setting on release (trigger
+ *  setTicketPrice, every ski area). While dragging, the line shows the price under the pointer and its word, live, with no trigger. The
+ *  track is green up to this area's full-demand price (40 + the best lodge's tolerance), then amber to red (hubRules.demandHeat).
+ *  Tooltip (DECISIONS 677): the fact line with this area's limit, "about N % fewer than at the limit" at the shown price (hubRules.fewerPct,
+ *  above the limit and under DEMAND_EXAMPLE_BELOW), the lever line (676: maxed with a luxury-tier lodge counted), and the pass holders.
+ *  `price` = hubRules.hubPrice(city): -1 ("–", no thumb) until C# sends the city. The label is one text node (check-bundle rule R13). */
 function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; t: Translate }): JSX.Element {
-  const [pending, setPending] = useState<number | null>(null);
-  useEffect(() => { if (pending !== null && pending === price) setPending(null); }, [price, pending]);
-  useEffect(() => {
-    if (pending === null) return undefined;
-    const id = window.setTimeout(() => setPending(null), PRICE_PENDING_MS);
-    return () => window.clearTimeout(id);
-  }, [pending]);
-  const shown = pending !== null && price >= 0 ? pending : price;
-  const step = (dir: 1 | -1): void => {
-    const next = steppedPrice(shown, dir);
-    setPending(next);
-    hubTriggers.setTicketPrice(next);
-  };
+  const [shown, setShown] = useState(price);
   // The area's lodges' price tolerance (ResortLive.priceTolerance, -1 unknown reads as 0).
   const tol = tolerance > 0 ? tolerance : 0;
-  const pct = priceFactorPct(shown, tol);
-  const ex = (i: number): { P: JSX.Element | string; F: JSX.Element | string } => ({
-    P: numArg(PRICE_EXAMPLES[i], Unit.Money), F: numArg(priceFactorPct(PRICE_EXAMPLES[i]), Unit.Percentage),
-  });
-  const [a, b, c] = [ex(0), ex(1), ex(2)];
+  const now = price >= 0 ? shown : -1;
+  const pct = priceFactorPct(now, tol);
+  const full = priceFullWith(tol);
   const tip = <TipLines lines={[
-    t(HUB_LOC.moneyPriceTitle),
-    <LocText key="c" entry={HUB_FMT.moneyPriceTipCurve} args={{
-      FULL: numArg(PRICE_NO_EFFECT_MAX, Unit.Money), P1: a.P, F1: a.F, P2: b.P, F2: b.F, P3: c.P, F3: c.F,
+    <LocText key="a" entry={HUB_FMT.moneyPriceTipAbove} args={{ FULL: numArg(full, Unit.Money) }} />,
+    now > full && pct >= 0 && pct < DEMAND_EXAMPLE_BELOW && <LocText key="e" entry={HUB_FMT.moneyPriceTipExample} args={{
+      PRICE: numArg(now, Unit.Money), PCT: numArg(fewerPct(priceFactor(now, tol)), Unit.Percentage), FULL: numArg(full, Unit.Money),
     }} />,
-    tol > 0 && <LocText key="t" entry={HUB_FMT.moneyPriceTipTolerance} args={{ FULL: numArg(priceFullWith(tol), Unit.Money) }} />,
-    t(HUB_LOC.moneyPriceTipShared),
-    t(HUB_LOC.moneyPriceTipWho),
+    // The lever line (DECISIONS 676). Maxed: the area already counts a luxury-tier lodge (Summit, Grand or a merged building of that tier).
+    t(tol >= LUXURY_PRICE_TOLERANCE ? HUB_LOC.moneyPriceTipMax : HUB_LOC.moneyPriceTipLever),
+    t(HUB_LOC.moneyPriceTipPasses),
   ]} />;
+  const heat = (v: number): readonly [number, number] => demandHeat(priceFactorPct(v, tol));
   return (
-    <Tip tip={tip}>
-      <div className={styles.priceRow}>
+    <div className={styles.priceBlock}>
+      <Tip tip={tip}>
         <div className={styles.priceRowText}>
-          {pct < 0 ? DASH : <LocText entry={HUB_FMT.moneyPriceLine} args={{ PRICE: numArg(shown, Unit.Money), PCT: numArg(pct, Unit.Percentage) }} />}
+          {pct < 0 ? DASH : <LocText entry={HUB_FMT.moneyPriceLine} args={{ PRICE: numArg(now, Unit.Money), WORD: demandText(pct, t) }} />}
         </div>
-        <div className={styles.priceStepper}>
-          <Button focusKey={FOCUS_DISABLED} variant="flat" className={styles.priceStep} disabled={!priceStepEnabled(shown, -1)}
-            onSelect={() => step(-1)}>{"–"}</Button>
-          <Button focusKey={FOCUS_DISABLED} variant="flat" className={cx(styles.priceStep, styles.priceStepNext)} disabled={!priceStepEnabled(shown, 1)}
-            onSelect={() => step(1)}>{"+"}</Button>
-        </div>
-      </div>
-    </Tip>
+      </Tip>
+      <Slider wide stops={PRICE_STOPS} value={price} heat={heat} format={(v) => numArg(v, Unit.Money)} samples={[]}
+        onShown={setShown} onCommit={(v) => hubTriggers.setTicketPrice(v)} />
+    </div>
   );
 }
 
-/* T240: the lodges in the order of their tolerance (A-frame / hut 0, chalet 20, summit / grand 40: SkiCatalog.Lodges PriceTolerance). */
-const LODGE_TOLERANCE: ReadonlyArray<[BuildItemId, number]> = [
-  ["lodge", 0], ["lodgeHut", 0], ["lodgeMid", 20], ["lodgeSummit", 40], ["lodgeGrand", 40],
-];
-
-/** T240: the price up to which ski days come in full numbers in this area (40 + the best lodge's tolerance, hubRules.priceFullWith).
- *  The tooltip lists each lodge's limit and the slope above it. -1 tolerance (not known yet) shows "–". */
-function FullDemandLine({ tolerance, t }: { tolerance: number; t: Translate }): JSX.Element {
-  const tol = tolerance > 0 ? tolerance : 0;
+/** r3/sliders (DECISIONS 677): the season pass price in money (the Options setting SeasonPassPrice, every ski area), with its slider and
+ *  its demand word. The demand is judged against day tickets (hubRules.passFactor = C# SkiMoneyRules.PassFactor): every would-be buyer
+ *  buys up to PASS_FULL_AT × the ticket price, fewer above. The track colors follow it at today's ticket price. Drawn while passes are on
+ *  and a ticket has a price (hubRules.passSliderShown). C# locks a pass at the price of its sale, so a change touches only later sales. */
+function PassLine({ city, t }: { city: CityStats; t: Translate }): JSX.Element | null {
+  const [shown, setShown] = useState(city.passPrice);
+  if (!passSliderShown(city)) return null;
+  const ticket = city.ticketPrice;
+  const price = PASS_PRICE_STOPS.indexOf(shown) >= 0 ? shown : city.passPrice;
+  const pct = passFactorPct(price, ticket);
+  const full = passFullPrice(ticket);
   const tip = <TipLines lines={[
-    t(HUB_LOC.moneyFullDemandTitle),
-    t(HUB_LOC.moneyFullDemandTipWhat),
-    ...LODGE_TOLERANCE.map(([id, x]) => {
-      const name = ASSET_NAME[id];
-      return { label: name ? t(name) : id, value: numArg(priceFullWith(x), Unit.Money) };
-    }),
-    <LocText key="s" entry={HUB_FMT.moneyFullDemandTipSlope} args={{
-      STEP: numArg(10, Unit.Money), PCT: numArg(5, Unit.Percentage), MIN: numArg(priceFactorPct(PRICE_MAX, tol), Unit.Percentage),
-      MAX: numArg(PRICE_MAX, Unit.Money),
+    <LocText key="a" entry={HUB_FMT.moneyPassTipAbove} args={{ FULL: numArg(full, Unit.Money) }} />,
+    price > full && pct >= 0 && pct < DEMAND_EXAMPLE_BELOW && <LocText key="e" entry={HUB_FMT.moneyPassTipExample} args={{
+      PRICE: numArg(price, Unit.Money), PCT: numArg(fewerPct(passFactor(price, ticket)), Unit.Percentage), FULL: numArg(full, Unit.Money),
     }} />,
+    // The lever line (DECISIONS 676): above the limit fewer buy; below it as many buy at a lower price; at it, none (either way trades).
+    price > full ? t(HUB_LOC.moneyPassTipLower) : price < full ? t(HUB_LOC.moneyPassTipRaise) : null,
+    <LocText key="l" entry={HUB_FMT.moneyPassTipLimit} args={{ N: numArg(PASS_FULL_AT, Unit.Integer) }} />,
+    t(HUB_LOC.moneyPassTipLocked),
+    t(HUB_LOC.moneyPassTipResidents),
   ]} />;
   return (
-    <SubLine tip={tip}>
-      {tolerance < 0 ? DASH : <LocText entry={HUB_FMT.moneyFullDemandLine} args={{ FULL: numArg(priceFullWith(tol), Unit.Money) }} />}
-    </SubLine>
+    <div className={styles.priceBlock}>
+      <Tip tip={tip}>
+        <div className={styles.priceRowText}>
+          <LocText entry={HUB_FMT.moneyPassLine} args={{ PRICE: numArg(price, Unit.Money), WORD: demandText(pct, t) }} />
+        </div>
+      </Tip>
+      <Slider wide stops={PASS_PRICE_STOPS} value={city.passPrice} heat={(v) => demandHeat(passFactorPct(v, ticket))}
+        format={(v) => numArg(v, Unit.Money)} samples={[]} onShown={setShown} onCommit={(v) => hubTriggers.setPassPrice(v)} />
+    </div>
   );
 }
 
@@ -445,7 +441,7 @@ function SignMoney({ row, l, city, build, feats, problems, samples, t }: {
         value={<Cell samples={samples}>{incomeValue(l ? l.incomeMonth ?? -1 : -1)}</Cell>}>
       <TicketsRow l={l} price={city.ticketPrice} samples={samples} t={t} />
       <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} t={t} />
-      <FullDemandLine tolerance={l ? l.priceTolerance : -1} t={t} />
+      <PassLine city={city} t={t} />
       <LodgeSpendRow l={l} city={city} samples={samples} t={t} />
       <LessonRow l={l} city={city} school={schoolState(l, problems, row.sign, schoolBuiltOf(build))} samples={samples} t={t} />
       <PassesMonthRow l={l} city={city} samples={samples} t={t} />

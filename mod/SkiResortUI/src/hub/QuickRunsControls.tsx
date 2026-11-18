@@ -30,16 +30,17 @@ import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { GLADE_LEVEL_MAX, GLADE_LEVEL_MIN, clampGladeLevel, gradeScheme$, hubTriggers, quickRuns$ } from "../bindings";
+import { clampGladeLevel, gradeScheme$, hubTriggers, quickRuns$ } from "../bindings";
 import { BAND } from "../bindings";
 import type { QuickLiftsAction, QuickRunsKey, QuickRunsLift, QuickRunsPod, QuickRunsSheetRow, QuickRunsState } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
-import { PLANNER_STEPS, plannerStepIndex, rejectSummary } from "./hubRules";
+import { GLADE_STOPS, PLANNER_STEPS, plannerStepIndex, rejectSummary } from "./hubRules";
 import type { PlannerStep } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, QUICK_REJECT_TEXT, QUICK_SITE_TEXT, gladeLevelEntry, sentKeyEntry } from "./hubText";
 import { BandMarker, CheckBox, Divider, LocText, Tip, TipLines, cx, numArg, slopeArg, useUnits } from "./parts";
 import { EU_CLASS, euCounts, isEuropean } from "./units";
+import { Slider } from "./Slider";
 import styles from "./hub.module.scss";
 
 /* QuickRunsRules.TreeLineStepM, and the coarse step. */
@@ -384,9 +385,8 @@ function TreeRowsQuick({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: 
         <>
           <div className={styles.quickRow}>
             <Caption text={t(HUB_LOC.quickTreeDensity)} />
-            <Act label="–" disabled={wait || level <= GLADE_LEVEL_MIN} onSelect={() => set("level", level - 1)} />
-            <div className={styles.stepValue}>{`${level} · ${t(gladeLevelEntry(level))}`}</div>
-            <Act label="+" disabled={wait || level >= GLADE_LEVEL_MAX} onSelect={() => set("level", level + 1)} />
+            <Slider ticks stops={GLADE_STOPS} value={level} disabled={wait} format={(l) => `${l} · ${t(gladeLevelEntry(l))}`}
+              samples={GLADE_STOPS.map((l) => `${l} · ${t(gladeLevelEntry(l))}`)} onCommit={(l) => set("level", l)} />
           </div>
           <div className={styles.quickRow}>
             <Caption text={t(HUB_LOC.quickTreeLine)} />

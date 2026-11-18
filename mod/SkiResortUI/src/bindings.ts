@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 55;
+export const HUB_CONTRACT = 56;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -1134,6 +1134,8 @@ export interface CityStats {
   tripPlannerBlocksSkiDays: boolean;
   /** The Options setting Season pass share, 0-100 (0 = passes off). */
   passShare: number;
+  /** Contract 56 (r3/sliders, DECISIONS 677): the Options setting Season pass price, money (20-2,000 step 20, SkiMoneyRules.PassPriceMin..Max). */
+  passPrice: number;
   /** The calendar month of the game date, 0 = January .. 11 = December (C# SkiMoneyRules.MonthKey, the month the guest
    *  ledger counts). -1 = not known. The views name it through vanilla Common.MONTH:<n> (hubText.monthEntry). */
   month: number;
@@ -1283,6 +1285,7 @@ export const TRIGGER = {
   syncKeep: "syncKeep",  // contract 51: a row's Keep as is (entity)
   syncRun: "syncRun",  // contract 51: the card's Sync button (sign)
   setTicketPrice: "setTicketPrice",  // contract 54: the Money view's price stepper (T240)
+  setPassPrice: "setPassPrice",  // contract 56: the Money view's season pass slider
 } as const;
 
 /**
@@ -1338,7 +1341,7 @@ export const FALLBACK = {
   city: {
     known: false, daysPerYear: 0, scaleK: 4, backcountryPct: 40, ticketPrice: 0, snowGating: true,
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
-    tripPlanner: "", tripPlannerBlocksSkiDays: false, passShare: 50, month: -1,
+    tripPlanner: "", tripPlannerBlocksSkiDays: false, passShare: 50, passPrice: 400, month: -1,
     tourismBonusPct: 0, tourismBonusSumPct: 0, tourismBonusCapPct: 10, touristsDayMean: -1,
   } as CityStats,
   /** The piste map is on by default (C# owns the value). */
@@ -1525,4 +1528,7 @@ export const hubTriggers = {
   /** Set the lift ticket price (the Options setting, one price for every ski area). C# snaps it to 0-200 in steps of 5, saves the
    *  options file and sends it back in city$.ticketPrice. */
   setTicketPrice: (price: number): void => fire(TRIGGER.setTicketPrice, price),
+  /** Set the season pass price in money (the Options setting SeasonPassPrice, 20-2,000 step 20). C# snaps and clamps it, saves the
+   *  options file and sends it back in city$.passPrice. */
+  setPassPrice: (price: number): void => fire(TRIGGER.setPassPrice, price),
 } as const;

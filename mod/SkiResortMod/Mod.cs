@@ -50,7 +50,9 @@ namespace SkiResortMod
         internal static bool Disposed { get; private set; }
 
         /// <summary>One-shot moves of renamed options. T160 (post-release round 1): a 1.0.0 cat track max grade in percent that the player
-        /// changed becomes the new degrees option, and the hidden legacy value goes back to its default so this runs once.</summary>
+        /// changed becomes the new degrees option, and the hidden legacy value goes back to its default so this runs once.
+        /// 1.0.2 (DECISIONS 677): the season pass price becomes money. SeasonPassPrice takes the pass price the player had, the legacy
+        /// SeasonPassMultiplier x the lift ticket price (SkiMoneyRules.PassPriceFromMultiplier), once (SeasonPassPriceMigrated).</summary>
         private static void MigrateSettings()
         {
             try
@@ -62,6 +64,14 @@ namespace SkiResortMod
                     Settings.CatTrackGradeMaxPct = DisplayUnits.LegacyCatTrackPctDefault;
                     Settings.ApplyAndSave();
                     Log.Info($"Options: cat track max grade {pct} % moved to {Settings.CatTrackGradeMaxDeg:0.0} degrees (T160)");
+                }
+                if (!Settings.SeasonPassPriceMigrated)
+                {
+                    int multiplier = Settings.SeasonPassMultiplier, ticket = Settings.LiftTicketPrice;
+                    Settings.SeasonPassPrice = SkiMoneyRules.PassPriceFromMultiplier(multiplier, ticket);
+                    Settings.SeasonPassPriceMigrated = true;
+                    Settings.ApplyAndSave();
+                    Log.Info($"Options: season pass price {multiplier} x the lift ticket {ticket} moved to {Settings.SeasonPassPrice} (1.0.2)");
                 }
             }
             catch (Exception e)

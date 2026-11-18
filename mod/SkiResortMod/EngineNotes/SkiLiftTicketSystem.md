@@ -110,7 +110,8 @@ Price 0 = gate Off = nothing charged. Setting 0 = no change at all.
 
 The job decides ONCE per season for a RESIDENT household (request.Tourist == 0) at an OPEN gate with no standing for this season. It decides at the household's first such arrival. No standing means SkiSeasonPass is absent or of an older season (`SkiMoneyRules.PassStandingOf`). The exception: the job skips the decision
 when the pre-season sale decided it already. The decision is `SkiMoneyRules.PassSale(share, household index, season key,
-PassPrice(multiplier, the lift ticket now), household money)`. The outcomes are:
+pass price, household money, pass factor)`. The pass price is `SkiMoneyRules.SalePassPrice(SeasonPassPrice, the lift ticket now)` and
+the factor `PassFactor(pass price, the lift ticket now)` (1.0.2: fewer buy above 4 x the ticket). The outcomes are:
 
 - Bought -> the job takes the price from the household (never below 0). The arrival's people ski free (ledger PassHolders). The job books
   it like tickets (Book). FeeBookedThisLoad = tickets + passes + lessons + lodge spend.
