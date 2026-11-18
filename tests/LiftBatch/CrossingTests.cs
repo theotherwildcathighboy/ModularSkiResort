@@ -292,8 +292,8 @@ namespace LiftBatch
             LiftTowerPlanConstants dq = LiftTowerPlanConstants.For("detachable");
             var cases = new List<(string label, LiftPlanCrossing x, LiftCrossRefusal want, Func<float, float> ground, float pin)>
             {
-                ("19 deg", X("gondola", at, y, angleDeg: 19f), LiftCrossRefusal.Shallow, g, -1f),
-                ("21 deg (allowed, may be unreachable)", X("gondola", at, y, angleDeg: 21f), LiftCrossRefusal.None, g, -1f),
+                ("14 deg", X("gondola", at, y, angleDeg: 14f), LiftCrossRefusal.Shallow, g, -1f),
+                ("16 deg (allowed, may be unreachable)", X("gondola", at, y, angleDeg: 16f), LiftCrossRefusal.None, g, -1f),
                 ("15 m from the drawn station A", X("gondola", 15f, g(15f) + 3f), LiftCrossRefusal.Station, g, -1f),
                 ("15 m from the drawn station B", X("gondola", len - 15f, g(len - 15f) + 3f), LiftCrossRefusal.Station, g, -1f),
                 ("10 m from a crossed station", X("gondola", at, y, stationDist: 10f), LiftCrossRefusal.Station, g, -1f),

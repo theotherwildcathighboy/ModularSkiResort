@@ -922,6 +922,14 @@ namespace SkiResortMod.Systems
 
             if (cancelAction.WasPressedThisFrame())
             {
+                // T233: a right click on a hovered tower removes it. Esc and a gamepad back keep stepping back. The Cancel action carries
+                // the right button, Esc and the pad back together (the binding lives in the input asset, not the decompile), so the keys
+                // are read directly, as SkiMergeOverlaySystem does.
+                if (LiftLineInput.CancelRemovesTower(Step, Dragging, m_HoverTower, BackKeyPressed()))
+                {
+                    RemoveHoveredTower();
+                    return;
+                }
                 StepBack();
                 if (m_State == ToolState.Edit)
                     DrawPlan();
@@ -1024,6 +1032,36 @@ namespace SkiResortMod.Systems
                     Deactivate();
                     return;
             }
+        }
+
+        /// <summary>Esc or the gamepad back button went down this frame (the Cancel action cannot say which of its bindings fired).</summary>
+        private static bool BackKeyPressed()
+        {
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            var gamepad = UnityEngine.InputSystem.Gamepad.current;
+            return (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) || (gamepad != null && gamepad.buttonEast.wasPressedThisFrame);
+        }
+
+        /// <summary>T233: remove the hovered line tower (right click). Same edit as dragging it off the line: a pin is unpinned, a free
+        /// tower is removed (the others pinned, a forbidden radius around the spot), then the planner re-plans with the longer span.
+        /// A refused remove is said and leaves the line as it was.</summary>
+        private void RemoveHoveredTower()
+        {
+            if (m_Edit?.Plan == null || m_HoverTower <= 0 || m_HoverTower >= m_Edit.Plan.Nodes.Length - 1)
+                return;
+            float from = m_Edit.Plan.Nodes[m_HoverTower].AlongM;
+            bool pinned = m_Edit.IsPinned(from);
+            LiftLineEditResult rr = m_Edit.RemoveTower(from);
+            m_HoverTower = -1;
+            if (rr == LiftLineEditResult.Done)
+            {
+                Replan(pinned ? $"tower at {from:F0} m unpinned (right click)" :
+                    $"tower at {from:F0} m removed (right click; the others pinned; no new tower within " +
+                    $"{m_Edit.RemovedRadiusM:F0} m of it unless the line has no other way)");
+                DrawPlan();
+            }
+            else
+                Say($"LiftLine [edit]: remove at {from:F0} m refused: {Reason(rr)}", RefusedNotice(rr));
         }
 
         private void SetActions(bool apply, bool secondary, bool cancel)
@@ -1532,6 +1570,7 @@ namespace SkiResortMod.Systems
                 case nameof(ErrorType.ShortDistance):
                 case nameof(ErrorType.InWater):
                 case nameof(ErrorType.ExceedsCityLimits):
+                case nameof(ErrorType.NotEnoughMoney):   // T243a: ValidationSystem flags every costed Temp edge when the city cannot pay (:1437-1468, :1598-1621)
                     return T("REFUSED[" + type + "]");
                 default:
                     return T("REFUSED[Other]");
@@ -2189,6 +2228,7 @@ namespace SkiResortMod.Systems
                 case nameof(ErrorType.ShortDistance): return "a span too short";
                 case nameof(ErrorType.InWater): return "in water";
                 case nameof(ErrorType.ExceedsCityLimits): return "outside the city";
+                case nameof(ErrorType.NotEnoughMoney): return "the city cannot pay";
                 case nameof(ErrorType.LowElevation): return "too low";
                 case nameof(ErrorType.TightCurve): return "a curve too tight";
                 default: return type;

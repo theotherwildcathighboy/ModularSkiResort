@@ -263,7 +263,7 @@ docs/research/planner-direction-2026-11-04.md.
   - No tower in `CrossBandM` (both half widths + 2 m over sin). This is folded into `NearStation`, and NoClearance does not lift it.
 - `Plan`:
   - Refusals known before planning drop out (`CrossRefusalBeforePlan`):
-    - Under `CrossMinAngleDeg` 20 = Shallow.
+    - Under `CrossMinAngleDeg` 15 = Shallow.
     - Within StationClearM of a drawn station end or of a crossed station node = Station.
     - Closer to a crossed tower than eC + its head half width + 3 m = Tower.
   - All others go OVER. Then each, one at a time, goes UNDER where `UnderRoom` >= 0, and stays UNDER when `CrossBetter` (fewer refused,

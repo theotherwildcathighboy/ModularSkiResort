@@ -441,7 +441,7 @@ namespace LiftBatch
             foreach (string path in codePaths)
                 foreach (Match m in new Regex("\\bT\\(\"([A-Z_]+(?:\\[[A-Za-z]+\\])?)\"").Matches(File.ReadAllText(path)))
                     used.Add(m.Groups[1].Value);
-            foreach (string e in new[] { "SteepSlope", "OverlapExisting", "LongDistance", "ShortDistance", "InWater", "ExceedsCityLimits", "Other" })
+            foreach (string e in new[] { "SteepSlope", "OverlapExisting", "LongDistance", "ShortDistance", "InWater", "ExceedsCityLimits", "NotEnoughMoney", "Other" })
                 used.Add("REFUSED[" + e + "]");
             // DEG: the BEND notice's plan bend and TOWER_TRAIN's rope bend (LiftLineToolSystem.Deg). CAP: TOWER_TRAIN's cap. LIMIT: TOWER_CLEARANCE's
             // carrier-clearance limit (one decimal, LiftLineToolSystem.Deg).
