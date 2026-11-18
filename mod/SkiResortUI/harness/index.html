@@ -65,7 +65,10 @@
   .h-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 8rem 12rem; border-bottom: 1px solid var(--dividerColor); font-size: var(--fontSizeM); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
   .h-panel-title { flex: 1; min-width: 0; }
   .h-panel-close { background: none; border: 0; color: inherit; font-size: 22rem; cursor: pointer; line-height: 1; padding: 0 4rem; }
-  .h-panel-content { overflow: auto; padding: 10rem 16rem; flex: 1; min-height: 0; }
+  .h-panel-content { overflow: visible; padding: 10rem 16rem; flex: 1 1 auto; min-height: 0; }
+  /* The vanilla Scrollable and its content box (live game DOM): block, sized by the shown page, capped by the panel content */
+  .h-pscroll { display: block; flex: 0 0 auto; height: auto; max-height: 100%; overflow: hidden; }
+  .h-pscroll-content { display: block; flex: 0 0 auto; height: auto; max-height: 100%; }
   .h-panel-footer { border-top: 1px solid var(--dividerColor); padding: 8rem 12rem; }
   .h-foldout { border: 1px solid var(--dividerColor); border-radius: 4rem; margin: 6rem 0; }
   .h-foldout-header { display: flex; align-items: center; gap: 6rem; padding: 6rem 8rem; cursor: pointer; background: var(--sectionBackgroundColor); }
