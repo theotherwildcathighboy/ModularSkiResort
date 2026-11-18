@@ -155,6 +155,7 @@ namespace SkiResortMod.Systems
                     {
                         state = MergeRules.State.Inactive;
                         slot.Inactive.Add(c.Lodge);
+                        slot.InactiveLodges.Add(new SkiResortScore.LodgeInput { LodgeIndex = c.Def.Index });
                     }
                     else
                     {

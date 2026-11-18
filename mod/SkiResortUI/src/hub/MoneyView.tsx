@@ -230,7 +230,7 @@ function PassesMonthRow({ l, city, samples, t }: { l: ResortLive | null; city: C
       label={t(HUB_LOC.moneyRowPassesMonth)}
       value={<Cell samples={samples}>{incomeValue(l.passIncomeMonth)}</Cell>}
       tip={<TipLines lines={[
-        <LocText key="p" entry={HUB_FMT.moneyTipPassesMonth} args={{ PRE: numArg(l.passIncomePreMonth, Unit.Money) }} />]} />}
+        <LocText key="p" entry={HUB_FMT.moneyTipPassesMonth} args={{}} />]} />}
     />
   );
 }

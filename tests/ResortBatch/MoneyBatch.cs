@@ -413,6 +413,13 @@ namespace ResortBatch
                   SkiMoneyRules.SeasonKeyOfDate(2037, 0.60f, first) == SkiMoneyRules.SeasonKeyOfDate(2037, 0.72f, first), w,
                   "June, July and September of a June winter are one season (bought twice before: 535 passes in July, field test)");
             check(SkiMoneyRules.SeasonKeyOfDate(2038, 0.42f, first) == SkiMoneyRules.SeasonKeyOfDate(2037, 0.42f, first) + 1, w, "the next June is the next season");
+            // The pre-season sale: from the season's second month to its end, nothing open needed (August for a December winter).
+            check(!SkiMoneyRules.PresaleDue(7, 7) && SkiMoneyRules.PresaleDue(8, 7) && SkiMoneyRules.PresaleDue(12, 7) && SkiMoneyRules.PresaleDue(6, 7), w,
+                  "December winter: July no, August, December and June yes");
+            check(!SkiMoneyRules.PresaleDue(first, first) && SkiMoneyRules.PresaleDue(first % 12 + 1, first), w,
+                  "a June winter: its first month no, the next one yes");
+            check(!SkiMoneyRules.PresaleDue(9, 9) && SkiMoneyRules.PresaleDue(10, 9) && SkiMoneyRules.PresaleDue(8, 9), w,
+                  "a February winter (season from September): September no, October and August yes");
 
             // Price: multiplier × ticket, multiplier clamped 2..10, nothing without a ticket price.
             check(SkiMoneyRules.PassPrice(4, 40) == 160, w, "PassPrice(4, 40) " + SkiMoneyRules.PassPrice(4, 40));

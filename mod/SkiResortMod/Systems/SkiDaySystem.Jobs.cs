@@ -1511,6 +1511,7 @@ namespace SkiResortMod.Systems
             [ReadOnly] public NativeArray<SkiDayRules.ClassTrack> Tracks;
             [ReadOnly] public NativeArray<int> ActiveNow;
             public NativeArray<byte> LodgeReject;   // SkiDayRules.LodgeReject, aligned with Lodges
+            public NativeArray<byte> LodgePresale;  // 1 = passes, or would pass if it were active: the pre-season pass sale's lodges
             public NativeArray<ClaimOut> Out;       // areas
             public NativeList<SkiDayClaim> Claims;
             public NativeArray<int> PassStats;      // zeroed by the system before scheduling
@@ -1590,6 +1591,14 @@ namespace SkiResortMod.Systems
                     };
                     SkiDayRules.LodgeReject verdict = SkiDayRules.CheckLodge(facts);
                     LodgeReject[li] = (byte)verdict;
+                    if (li < LodgePresale.Length)
+                    {
+                        // The pre-season sale does not care whether the lodge is open today (closed off-season, or switched off).
+                        var asOpen = facts;
+                        asOpen.Active = true;
+                        LodgePresale[li] = (byte)(verdict == SkiDayRules.LodgeReject.None ||
+                                                  (verdict == SkiDayRules.LodgeReject.Inactive && SkiDayRules.CheckLodge(asOpen) == SkiDayRules.LodgeReject.None) ? 1 : 0);
+                    }
                     if (verdict == SkiDayRules.LodgeReject.NoLeisureTag)
                     {
                         facts.LeisureTagged = true;   // would every OTHER check pass? (NoRoad, NotSlopeside still reject)
@@ -1618,6 +1627,8 @@ namespace SkiResortMod.Systems
                     int hills = hillArea >= 0 && hillArea < areaCount ? hillLodges[hillArea] : 0;
                     SkiDayRules.LodgeReject verdict = SkiDayRules.CheckDepot(facts, hills);
                     LodgeReject[li] = (byte)verdict;
+                    if (li < LodgePresale.Length)
+                        LodgePresale[li] = 0;   // the pre-season sale pools households by the real lodges only
                     if (verdict == SkiDayRules.LodgeReject.NoLeisureTag)
                     {
                         facts.LeisureTagged = true;

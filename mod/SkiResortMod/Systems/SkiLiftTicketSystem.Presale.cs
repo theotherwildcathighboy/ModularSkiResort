@@ -108,9 +108,10 @@ namespace SkiResortMod.Systems
             m_SaleLastScheduleMs = m_SaleLastApplyMs = m_SaleLastWaitMs = 0.0;
         }
 
-        /// <summary>Step 2c (main thread, after step 1 applied last tick's ticket job). Starts the sale of the first ski area that meets two
-        /// conditions: its watched gate is Open and its sale has not run this season. Returns true when a sale was scheduled (the caller skips the
-        /// arrival drain this tick, engine notes Ordering). Nothing happens with passes off, no ticket price, or a job in flight.</summary>
+        /// <summary>Step 2c (main thread, after step 1 applied last tick's ticket job). Starts the sale of the first live ski area whose sale
+        /// has not run this season, from the season's second month on (SkiMoneyRules.PresaleDue: August for a December winter). Nothing needs
+        /// to be open: the sale rates the area as if fully open. Returns true when a sale was scheduled (the caller skips the arrival drain this
+        /// tick, engine notes Ordering). Nothing happens with passes off, no ticket price, or a job in flight.</summary>
         private bool TryStartSale(int price)
         {
             if (m_JobInFlight || m_SaleInFlight || PassShare <= 0 || price <= 0)
@@ -118,11 +119,13 @@ namespace SkiResortMod.Systems
             int passPrice = SkiMoneyRules.SalePassPrice(PassPriceSetting, price);
             if (passPrice <= 0)
                 return false;
-            int season = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate, SkiClimateCalendar.SeasonFirstMonth(m_ClimateSystem, m_PrefabSystem));
-            foreach (var pair in m_WatchGate)
+            int firstMonth = SkiClimateCalendar.SeasonFirstMonth(m_ClimateSystem, m_PrefabSystem);
+            int month = SkiMoneyRules.MonthOfKey(SkiMoneyRules.MonthKey(m_TimeSystem.year, m_TimeSystem.normalizedDate));
+            if (!SkiMoneyRules.PresaleDue(month, firstMonth))
+                return false;
+            int season = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate, firstMonth);
+            foreach (var pair in m_WatchGate)   // every live sign the gate watch knows, open or not
             {
-                if (pair.Value != SkiMoneyRules.TicketGate.Open)
-                    continue;
                 Entity sign = pair.Key;
                 if (m_SaleSeasonOf.TryGetValue(sign, out int done) && done == season)
                     continue;
@@ -135,12 +138,12 @@ namespace SkiResortMod.Systems
                 long t0 = Stopwatch.GetTimestamp();
                 PresaleCopy copy = m_SkiDay.TryCopyPresaleInputs(sign, m_SaleTargets, out SkiDayPresaleInputs inputs);
                 if (copy == PresaleCopy.NotReady)
-                    continue;   // the ski-day system has not taken this sign yet: retry next tick
+                    continue;   // the ski-day system or the score has not taken this sign yet: retry next tick
                 m_SaleSeasonOf[sign] = season;   // decided for this season either way
                 if (copy == PresaleCopy.NoTarget)
                 {
-                    Mod.Log.Info($"Passes [season sale] ski area {Fmt(sign)} season {season}: no sale — the area has no target lodge " +
-                                 "(a passing lodge with a road); first arrivals buy passes as before");
+                    Mod.Log.Info($"Passes [season sale] ski area {Fmt(sign)} season {season}: no sale — the area has no lodge with a road " +
+                                 "near the runs, open or closed; first arrivals buy passes as before");
                     continue;
                 }
                 ScheduleSale(sign, season, passPrice, price, inputs, t0);

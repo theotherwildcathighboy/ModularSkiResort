@@ -116,6 +116,11 @@ namespace SkiResortMod.Systems
             // score's AreaInput.Lodges built from it. ServeLifts = indices into m_ServeLifts of this area's lifts.
             public readonly List<LodgeInfo> ActiveInfo = new List<LodgeInfo>(4);
             public readonly List<SkiResortScore.LodgeInput> Lodges = new List<SkiResortScore.LodgeInput>(4);
+            // The inactive lodges by tier (SummitServed false), for PresaleResult only.
+            public readonly List<SkiResortScore.LodgeInput> InactiveLodges = new List<SkiResortScore.LodgeInput>(2);
+            // The pre-season pass sale's view of the area: the score as if fully open (every run open, every installed lodge and the school
+            // active, full efficiency). Never written to a lodge, never shown as the attraction.
+            public SkiResortScore.Result PresaleResult;
             public readonly List<Entity> PatrolEntities = new List<Entity>(2);
             public readonly List<Entity> DepotActive = new List<Entity>(1);   // bus depots: never in Active / ActiveInfo, no score, no capacity
             public readonly List<float2> PatrolXz = new List<float2>(2);
@@ -164,6 +169,8 @@ namespace SkiResortMod.Systems
                 Held = false;
                 ActiveInfo.Clear();
                 Lodges.Clear();
+                InactiveLodges.Clear();
+                PresaleResult = default;
                 PatrolEntities.Clear();
                 DepotActive.Clear();
                 PatrolXz.Clear();
@@ -580,6 +587,7 @@ namespace SkiResortMod.Systems
             public Entity Sign;
             public SkiResortScore.Result Result;
             public bool WriteHeld;  // the first write after a load still waits for run ratings
+            public SkiResortScore.Result PresaleResult;  // the score as if fully open (ComputePresale), for the pre-season pass sale
             public int HoldTicks;           // ticks held so far (0 once written)
             public int EfficiencyPct;       // the sign's live efficiency, round(100 × raw): the problem row reads this
             public int EfficiencyUsedPct;  // round(100 × Result.Efficiency), the smoothed factor the score used (the receipt and tile read this)
@@ -607,6 +615,7 @@ namespace SkiResortMod.Systems
                 Sign = slot.Sign,
                 Result = slot.Result,
                 WriteHeld = slot.Held,
+                PresaleResult = slot.PresaleResult,
                 HoldTicks = slot.Held && m_AreaStates.TryGetValue(slot.Sign, out AreaState state) ? state.HoldTicks : 0,
                 EfficiencyPct = slot.EfficiencyPct,
                 EfficiencyUsedPct = slot.StaffingUsedPct,
@@ -1620,15 +1629,16 @@ namespace SkiResortMod.Systems
                 }
                 else if (m_LiveLodges.Contains(building) && m_LodgeClaimed.Add(building))
                 {
-                    if (!active)
-                    {
-                        slot.Inactive.Add(building);
-                        continue;
-                    }
-                    slot.Active.Add(building);
                     Entity prefab = EntityManager.TryGetComponent(building, out PrefabRef prefabRef) ? prefabRef.m_Prefab : Entity.Null;
                     LodgeDef def = null;
                     bool known = prefab != Entity.Null && lodgeDefs.TryGetValue(prefab, out def);
+                    if (!active)
+                    {
+                        slot.Inactive.Add(building);
+                        slot.InactiveLodges.Add(new SkiResortScore.LodgeInput { LodgeIndex = known ? def.Index : 0 });
+                        continue;
+                    }
+                    slot.Active.Add(building);
                     slot.ActiveInfo.Add(new LodgeInfo
                     {
                         Lodge = building,
@@ -2229,6 +2239,7 @@ namespace SkiResortMod.Systems
                     SchoolActive = slot.SchoolActive,
                 };
                 slot.Result = SkiResortScore.Compute(input, slot.Runs, slot.Lifts, slot.Parts);
+                slot.PresaleResult = ComputePresale(slot, settings);
 
                 // The first write of this load waits for ratings and snow, at most 1,024 ticks.
                 bool firstWrite = false, expired = false;
@@ -2303,6 +2314,30 @@ namespace SkiResortMod.Systems
         ///   over the area's m_ServeLifts rows), or
         /// - within Ladder.SummitRunRadiusM of a served run of this area (LiftServedRule.OutlineWithin).
         /// Allocation-free once grown.</summary>
+        /// <summary>The area's score as if fully open, for the pre-season pass sale (a household buys a pass for the coming season, not for
+        /// today's snow): snow gating off (every run fully open), every installed lodge active (the inactive ones by tier, not summit-served),
+        /// the school active when one is listed, efficiency 1. Runs and lifts as counted now. Pure on the slot's lists.</summary>
+        private SkiResortScore.Result ComputePresale(AreaSlot slot, SkiResortScore.ScoreSettings settings)
+        {
+            m_PresaleLodges.Clear();
+            m_PresaleLodges.AddRange(slot.Lodges);
+            m_PresaleLodges.AddRange(slot.InactiveLodges);
+            var open = settings;
+            open.SnowGating = false;
+            var input = new SkiResortScore.AreaInput
+            {
+                ActiveLodges = m_PresaleLodges.Count,
+                InactiveLodges = 0,
+                Efficiency = 1.0,
+                Settings = open,
+                Lodges = m_PresaleLodges,
+                SchoolActive = slot.SchoolActive || slot.Schools > 0,
+            };
+            return SkiResortScore.Compute(input, slot.Runs, slot.Lifts, null);
+        }
+
+        private readonly List<SkiResortScore.LodgeInput> m_PresaleLodges = new List<SkiResortScore.LodgeInput>(6);
+
         private void BuildLodgeInputs(int slotIndex, AreaSlot slot)
         {
             slot.Lodges.Clear();

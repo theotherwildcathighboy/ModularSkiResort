@@ -183,6 +183,17 @@ namespace SkiResortMod.Systems
         public const int SeasonMonthsBeforeWinter = 5;
         /// <summary>SkiSeasonPass.Flags bit: the household was asked this season and did not buy (rolled out or could not pay).</summary>
         public const byte PassFlagDeclined = 1;
+        /// <summary>The pre-season pass sale runs from this month of the season on (0 = its first month): August for a December winter.</summary>
+        public const int PresaleMonthOfSeason = 1;
+
+        /// <summary>The pre-season pass sale is due in calendar <paramref name="month"/> (1..12) of a season that starts with
+        /// <paramref name="firstMonth"/>: from PresaleMonthOfSeason on, to the end of the season. It needs nothing open: the households buy
+        /// for the coming season.</summary>
+        public static bool PresaleDue(int month, int firstMonth)
+        {
+            int m = math.clamp(month, 1, MonthsPerYear), f = math.clamp(firstMonth, 1, MonthsPerYear);
+            return (m - f + MonthsPerYear) % MonthsPerYear >= PresaleMonthOfSeason;
+        }
 
         public enum PassSaleResult : byte { NotEligible = 0, Declined = 1, Bought = 2, CannotPay = 3 }
         public enum PassStanding : byte { None = 0, Holder = 1, Declined = 2 }

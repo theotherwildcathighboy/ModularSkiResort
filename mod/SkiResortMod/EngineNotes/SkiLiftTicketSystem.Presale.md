@@ -1,14 +1,18 @@
 # SkiLiftTicketSystem.Presale: how the pre-season pass sale pools households and why a sale tick drains no arrivals
 
-The pre-season pass sale is the ticket system's second job. It runs once per (ski area, season key), at the first ticket tick in which that
-area's gate is Open in a new season (`SkiMoneyRules.SeasonKeyOf`). One Burst job rates every resident household of the area's pool
-and sells passes in bulk. The first-arrival sale (SkiLiftTicketSystem.cs, see SkiLiftTicketSystem.md, "Season passes") then
-applies only to households that were not in the pool. These are new residents, or households out of reach when the sale ran.
+The pre-season pass sale is the ticket system's second job. It runs once per (ski area, season key). It starts at the first ticket
+tick from the season's second month on (`SkiMoneyRules.PresaleDue`: August for a December winter). The gate does not need to be open.
+A household buys for the coming season. So the sale rates the area as if fully open (`SkiResortAttractivenessSystem.ComputePresale`:
+snow gating off, every installed lodge and the school active, efficiency 1). It pools by every lodge that passes or would pass if it
+were active (`ClaimJob.LodgePresale`). The 1.0.2 release test showed the reason. At the first open-gate tick, the lodges closed for the
+off-season were still shut. The area had no target, and the season was marked done with no sale. One Burst job rates every resident
+household of the area's pool and sells passes in bulk. The first-arrival sale (SkiLiftTicketSystem.cs, see SkiLiftTicketSystem.md,
+"Season passes") then applies only to households that were not in the pool. These are new residents, or households out of reach when the sale ran.
 
 ## The pool
 
 SkiDaySystem keeps no household-level pool (an area snapshot plus a citizen walk). So this job reuses the snapshot through
-`SkiDaySystem.TryCopyPresaleInputs` and the same SkiDayRules functions (WithinReach, ClassOf, Chance). The inputs are attraction, school
+`SkiDaySystem.TryCopyPresaleInputs` and the same SkiDayRules functions (WithinReach, ClassOf, Chance). The inputs are the as-if-open attraction and school
 factor, price tolerance, class confidences, knobs and xz of the target lodges. It walks resident households itself (own query:
 Household + PropertyRenter + HouseholdCitizen, not tourist, commuter, homeless or moving away). Pool = such a household with no
 SkiSeasonPass standing this season (`SkiMoneyRules.PassStandingOf`) whose home is within ski-day reach of a target lodge of this

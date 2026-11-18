@@ -98,6 +98,7 @@ Open the Ski Resort hub (button at the top left). Its Start card lists the four 
 - Sliders in the Finances view for the lift ticket price and the season pass price.
 - The ticket price shows one demand word, from unaffected to very low. Its tooltip says how many fewer guests come.
 - Season pass price: 20 to 2,000, default 400. Up to 4 day tickets' worth, every household that wants a pass buys one. Above that, fewer do.
+- Season passes go on sale in August (the season's second month), whether or not anything is open yet. Households judge the resort as if it were fully open.
 - Ticket tolerance reads the same everywhere: 40, 60 with a Chalet Lodge, 80 with a Swanky Summit or Grand Lodge.
 - Tooltips name the lever: "To raise ticket tolerance, build better lodges."
 

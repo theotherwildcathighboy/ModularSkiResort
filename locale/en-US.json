@@ -1620,7 +1620,7 @@
   "SkiResort.Hub.SKI_DAYS_TIP[Now]": "On the hill or on the way now: {NOW} of {CAP}",
   "SkiResort.Hub.MONEY_TICKETS[Last]": "Lift tickets, {MONTH}: {N} paid",
   "SkiResort.Hub.MONEY_COL_MONTH": "{MONTH} so far",
-  "SkiResort.Hub.MONEY_TIP[PassesMonth]": "Sold this month so far, in the net now. The pre-season sale is {PRE} of it.",
+  "SkiResort.Hub.MONEY_TIP[PassesMonth]": "Sold this month.",
   "SkiResort.Hub.MONEY_TIP[LiftsRate]": "Booked this month so far. At today's rate: {RATE} per month.",
   "SkiResort.Hub.MONEY_TIP[SoFar]": "{RATE} per month at today's staff and budget. {SHARE} of the month so far. An estimate: it moves when staff or lodges change.",
   "SkiResort.Hub.MONEY_TICKETS_PRICE": "Lift ticket price now: {PRICE}",

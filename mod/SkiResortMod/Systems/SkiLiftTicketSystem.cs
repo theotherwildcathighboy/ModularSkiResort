@@ -325,9 +325,10 @@ namespace SkiResortMod.Systems
                   $"0 = off; read live), price {PassPriceSetting} at the sale, locked (setting SeasonPassPrice; read live), sales × the pass demand factor (full up to {SkiMoneyRules.PassFullAt} × the lift ticket, then fewer; SkiMoneyRules.PassFactor); " +
                   "taken from the household (never below 0), booked like a ticket; the pass holder pays 0 at the gate for the season " +
                   "(July to June) and gets the full price factor in the ski-day chance; tourists never buy; a household that does not buy " +
-                  "pays lift tickets all season; sold at an open gate only; BEFORE the season (once per ski area per season, at the first " +
-                  "open-gate tick) every resident household within reach with no standing rolls once against the share × its ski-day chance as a " +
-                  "pass holder and is Bought or Declined, so first arrivals only decide households that were not in that pool"
+                  "pays lift tickets all season; at the gate sold while it is open only; BEFORE the season (once per ski area per season, " +
+                  "from the season's second month, August for a December winter, with nothing open needed: the area rated as if fully open, " +
+                  "closed lodges count) every resident household within reach with no standing rolls once against the share × its ski-day " +
+                  "chance as a pass holder and is Bought or Declined, so first arrivals only decide households that were not in that pool"
                 : "season passes: off (setting SeasonPassShare 0; read live); holders keep what they bought";
         }
 
@@ -389,7 +390,7 @@ namespace SkiResortMod.Systems
                 if (passShare != PassShare || passPrice != PassPriceSetting)
                 {
                     Mod.Log.Info($"Passes [settings] share {PassShare} → {passShare} %, price {PassPriceSetting} → {passPrice}; " +
-                                 (passShare == 0 ? "passes off (holders keep what they bought)" : "households are decided at their first open-gate arrival of a season"));
+                                 (passShare == 0 ? "passes off (holders keep what they bought)" : "the pre-season sale (from the season's second month) and first arrivals use the new values"));
                     PassShare = passShare;
                     PassPriceSetting = passPrice;
                 }

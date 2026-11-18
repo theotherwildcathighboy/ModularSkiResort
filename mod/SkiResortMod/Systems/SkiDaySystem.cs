@@ -181,6 +181,7 @@ namespace SkiResortMod.Systems
         private readonly List<float2> m_HillXzScratch = new List<float2>(4);
         private readonly List<Entity> m_HillScratch = new List<Entity>(4);
         private NativeList<int> m_LodgeCarFails;
+        private NativeList<byte> m_LodgePresale;   // ClaimJob.LodgePresale, aligned with m_Lodges
         private NativeList<int> m_ActiveNow;
         private NativeArray<int> m_PassStats;                   // Stat.Count
         private NativeArray<int> m_Census;                      // Census.Count
@@ -321,23 +322,28 @@ namespace SkiResortMod.Systems
 
         /// <summary>The ski-day inputs of a resident household's chance at the sign's area, for the pre-season pass sale. They are copied
         /// from the area snapshot the decision job reads, so the sale job rates a household with the same numbers. The inputs are:
-        /// attraction, school factor, price tolerance, the three class confidences, the knobs, and the xz of every TARGET lodge (passing,
-        /// Base road, with a position: the decision job's NearestTarget set). The xz values go into <paramref name="targetXz"/> (cleared
-        /// first). Main thread. It COMPLETES the pass handle (the jobs write LodgeReject, the site list and the tracks). This is a sync
-        /// point, once per area per season. NotReady: unarmed or unknown sign. NoTarget: the area has no target lodge.</summary>
+        /// the attraction and school factor as if fully open (AreaScoreView.PresaleResult), price tolerance, the three class confidences,
+        /// the knobs, and the xz of every lodge that passes or would pass if it were active (Base road, with a position: NearestTarget's set
+        /// without the open-today test). The xz values go into <paramref name="targetXz"/> (cleared first). Main thread. It COMPLETES the
+        /// pass handle (the jobs write LodgePresale, the site list and the tracks). This is a sync point, once per area per season.
+        /// NotReady: unarmed or unknown sign, or no score yet (first-write hold). NoTarget: the area has no such lodge.</summary>
         internal PresaleCopy TryCopyPresaleInputs(Entity sign, NativeList<float2> targetXz, out SkiDayPresaleInputs inputs)
         {
             inputs = default;
             targetXz.Clear();
             if (!IsArmed || !m_AreaOfSign.TryGetValue(sign, out int a) || a < 0 || a >= m_Areas.Length)
                 return PresaleCopy.NotReady;
+            // The sale rates the area as if fully open (SkiResortAttractivenessSystem.ComputePresale): a household buys for the coming
+            // season, not for today's snow or open lodges.
+            if (!m_Attraction.TryGetAreaScore(sign, out SkiResortAttractivenessSystem.AreaScoreView view) || view.WriteHeld)
+                return PresaleCopy.NotReady;
             m_PassHandle.Complete();
             AreaJob aj = m_Areas[a];
-            int end = math.min(aj.LodgeStart + aj.LodgeCount, math.min(m_LodgeReject.Length, math.min(m_SiteOut.Length, m_Lodges.Length)));
+            int end = math.min(aj.LodgeStart + aj.LodgeCount, math.min(m_LodgePresale.Length, math.min(m_SiteOut.Length, m_Lodges.Length)));
             int tolerance = 0;
             for (int li = math.max(0, aj.LodgeStart); li < end; li++)
             {
-                if (m_LodgeReject[li] != (byte)SkiDayRules.LodgeReject.None)
+                if (m_LodgePresale[li] == 0)
                     continue;
                 LodgeJob lj = m_Lodges[li];
                 tolerance = math.max(tolerance, lj.PriceTolerance);   // StepA: every passing lodge counts for the tolerance
@@ -356,8 +362,8 @@ namespace SkiResortMod.Systems
             }
             inputs = new SkiDayPresaleInputs
             {
-                Attraction = aj.Attraction,
-                SchoolFactor = aj.SchoolFactor,
+                Attraction = view.PresaleResult.Attraction,
+                SchoolFactor = SchoolRule.DemandFactorOf(view.PresaleResult.SchoolActive, view.PresaleResult.SchoolRunCounted),
                 PriceTolerance = tolerance,
                 ConfidenceWalk = conf[(int)SkiDayRules.TravelClass.Walk],
                 ConfidenceCar = conf[(int)SkiDayRules.TravelClass.Car],
@@ -569,6 +575,7 @@ namespace SkiResortMod.Systems
             m_ResolveOut = new NativeList<ResolveOut>(5, Allocator.Persistent);
             m_LodgeReject = new NativeList<byte>(8, Allocator.Persistent);
             m_LodgeCarFails = new NativeList<int>(8, Allocator.Persistent);
+            m_LodgePresale = new NativeList<byte>(8, Allocator.Persistent);
             m_ActiveNow = new NativeList<int>(4, Allocator.Persistent);
             m_PassStats = new NativeArray<int>(Stat.Count, Allocator.Persistent);
             m_Census = new NativeArray<int>(Census.Count, Allocator.Persistent);
@@ -632,6 +639,7 @@ namespace SkiResortMod.Systems
             if (m_ResolveOut.IsCreated) m_ResolveOut.Dispose();
             if (m_LodgeReject.IsCreated) m_LodgeReject.Dispose();
             if (m_LodgeCarFails.IsCreated) m_LodgeCarFails.Dispose();
+            if (m_LodgePresale.IsCreated) m_LodgePresale.Dispose();
             if (m_ActiveNow.IsCreated) m_ActiveNow.Dispose();
             if (m_PassStats.IsCreated) m_PassStats.Dispose();
             if (m_Census.IsCreated) m_Census.Dispose();
@@ -773,6 +781,7 @@ namespace SkiResortMod.Systems
             m_ResidentNotes.Clear();
             m_LodgeReject.Clear();
             m_LodgeCarFails.Clear();
+            m_LodgePresale.Clear();
             m_ActiveNow.Clear();
             for (int i = 0; i < m_PassStats.Length; i++)
                 m_PassStats[i] = 0;
@@ -3075,6 +3084,7 @@ namespace SkiResortMod.Systems
             m_SiteOut.Resize(lodges, NativeArrayOptions.ClearMemory);
             m_LodgeReject.Resize(lodges, NativeArrayOptions.ClearMemory);
             m_LodgeCarFails.Resize(lodges, NativeArrayOptions.ClearMemory);
+            m_LodgePresale.Resize(lodges, NativeArrayOptions.ClearMemory);
             m_ClaimOut.Resize(areas, NativeArrayOptions.ClearMemory);
             m_ResolveOut.Resize(areas + 1, NativeArrayOptions.ClearMemory);
             m_ClaimMeasure.Resize(areas * CM.Count, NativeArrayOptions.ClearMemory); // measure rows follow the snapshot's area count, as
@@ -3378,6 +3388,7 @@ namespace SkiResortMod.Systems
                     Tracks = trackArray,
                     ActiveNow = activeArray,
                     LodgeReject = m_LodgeReject.AsArray(),
+                    LodgePresale = m_LodgePresale.AsArray(),
                     Out = m_ClaimOut.AsArray(),
                     Claims = m_Claims,
                     PassStats = m_PassStats,
