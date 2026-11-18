@@ -39,7 +39,8 @@ namespace SkiTestBridge
 
         private PackageJob m_PackageJob;
 
-        // args: list (absolute path of shipped-prefabs.json, required), dry (default true), main (the main asset; default the first entry of
+        // args: list (absolute path of shipped-prefabs.json, required), dry (default true), icons (the folder of the hub Card PNGs; default
+        // gamedata-mirror/ImportedData/SkiResortIcons next to the list's repo root), main (the main asset; default the first entry of
         // the list), name (the package and .cok name; default the main asset's name, as the Editor does), status (only the state of the last real run), show (rows per
         // detail list, default 40).
         private JObject PackageCommand(JObject args)
@@ -104,13 +105,46 @@ namespace SkiTestBridge
                     throw new ArgumentException($"main '{mainName}' is not one of the resolved shipped prefabs");
             }
 
+            // The hub's Card icons (T210, buildItems.ts) are loaded by asset id and referenced by NO prefab, and the collector only follows
+            // references (DependencyCollector.cs CollectPrefabReferences: AssetReference fields and UIIconField strings), so they would not be
+            // packed (1.0.1 shipped without them: check-cok ICON). Resolve each <Name>Card.png.cid of the mirror to its ImageAsset in the user
+            // database (ImageAsset = the asset type of .png: ImageAsset.kExtensions, Colossal.IO.AssetDatabase/ImageAsset.cs:32, and of the Editor's
+            // own image pickers, ImageAssetCollector.cs:38) and add them as extra roots.
+            string iconDir = (string)args["icons"] ?? Path.GetFullPath(Path.Combine(Path.GetDirectoryName(listPath), "..", "gamedata-mirror", "ImportedData", "SkiResortIcons"));
+            var iconRoots = new List<AssetData>();
+            var iconsMissing = new JArray();
+            int iconsWanted = 0;
+            if (!Directory.Exists(iconDir))
+            {
+                iconsMissing.Add("icon folder not found: " + iconDir);
+            }
+            else
+            {
+                var images = new Dictionary<Colossal.Hash128, ImageAsset>();
+                foreach (ImageAsset image in AssetDatabase.user.GetAssets(default(SearchFilter<ImageAsset>)))
+                    images[image.id.guid] = image;
+                foreach (string cidFile in Directory.GetFiles(iconDir, "*Card.png.cid").OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+                {
+                    iconsWanted++;
+                    string iconName = Path.GetFileName(cidFile).Replace(".cid", "");
+                    if (Colossal.Hash128.TryParse(File.ReadAllText(cidFile).Trim(), out Colossal.Hash128 iconGuid) && images.TryGetValue(iconGuid, out ImageAsset iconAsset))
+                        iconRoots.Add(iconAsset);
+                    else
+                        iconsMissing.Add(iconName);
+                }
+            }
+
             // The collector's first asset becomes the main asset (DependencyCollector.cs:146-149).
             var collector = new DependencyCollector();
             if (main != null)
             {
-                collector.AddAssets(new[] { main }.Concat(roots.Where(r => r != main)));
+                collector.AddAssets(new[] { main }.Concat(roots.Where(r => r != main)).Concat(iconRoots));
             }
             AssetData[] closure = collector.CompileAllAssets();
+            // An icon that resolved but did not land in the closure is as missing as one that did not resolve.
+            var closureSet = new HashSet<AssetData>(closure);
+            foreach (AssetData icon in iconRoots.Where(i => !closureSet.Contains(i)))
+                iconsMissing.Add(icon.name + " (resolved, not in the closure)");
 
             var shippedIds = new HashSet<AssetData>(roots);
             var extraPrefabs = closure.OfType<PrefabAsset>().Where(a => !shippedIds.Contains(a)).Select(a => a.name).OrderBy(n => n).ToList();
@@ -153,6 +187,9 @@ namespace SkiTestBridge
                 },
                 ["extraPrefabsInClosure"] = new JArray(extraPrefabs.Take(show)),
                 ["extraPrefabsInClosureCount"] = extraPrefabs.Count,
+                ["iconsWanted"] = iconsWanted,
+                ["iconsFound"] = iconRoots.Count(closureSet.Contains),
+                ["iconsMissing"] = iconsMissing,
                 ["modDependencies"] = new JArray(collector.modDependencies),
                 ["dlcDependencies"] = new JArray(collector.dlcDependencies.Select(d => d.ToString())),
                 ["userPrefabs"] = userPrefabs.Count,
@@ -164,6 +201,8 @@ namespace SkiTestBridge
 
             if (missing.Count > 0 || nameOnly.Count > 0)
                 throw new InvalidOperationException($"refusing a real run: {missing.Count} missing, {nameOnly.Count} content-id mismatches (run dry first)");
+            if (iconsMissing.Count > 0 || iconsWanted == 0)
+                throw new InvalidOperationException($"refusing a real run: hub icons iconsWanted {iconsWanted}, {iconsMissing.Count} missing (see the dry run; the Card PNGs are in ImportedData/SkiResortIcons)");
             if (collector.modDependencies.Count > 0 || collector.dlcDependencies.Count > 0)
                 throw new InvalidOperationException("refusing a real run: the closure has mod or DLC dependencies (see the dry run)");
             if (GameManager.instance.gameMode != global::Game.GameMode.Editor)
