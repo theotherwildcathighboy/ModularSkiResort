@@ -315,7 +315,11 @@
       props.header != null || props.onClose ? h("div", { className: cx("h-panel-header", theme.header) },
         h("div", { className: "h-panel-title" }, props.header),
         props.onClose ? h("button", { className: "h-panel-close", onClick: props.onClose, title: "Close" }, "×") : null) : null,
-      h("div", { className: cx("h-panel-content", theme.content, props.contentClassName) }, props.children),
+      // The game's chain (live DOM, 2026-11-18): the panel content (flex 1 1 auto) holds the vanilla Scrollable (block, flex 0 0 auto,
+      // height auto, max-height 100%), which holds a block content box (same) around the children. So the box under the body is only as
+      // tall as the shown page, and the free height sits inside the panel content, below the Scrollable.
+      h("div", { className: cx("h-panel-content", theme.content, props.contentClassName) },
+        h("div", { className: "h-pscroll" }, h("div", { className: "h-pscroll-content" }, props.children))),
       props.footer != null ? h("div", { className: cx("h-panel-footer", theme.footer) }, props.footer) : null);
   }
   function PanelFoldout(props) {

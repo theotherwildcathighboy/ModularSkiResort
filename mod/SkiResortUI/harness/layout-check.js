@@ -106,13 +106,19 @@
     const c = content();
     if (!c) return null;
     const u = rem();
-    const body = c.firstElementChild;
-    const padTop = parseFloat(getComputedStyle(c).paddingTop) || 0, padBottom = parseFloat(getComputedStyle(c).paddingBottom) || 0;
+    // The game's chain (cs2-mock Panel): content > Scrollable (clips at the content) > content box > body. The body is over when it
+    // reaches past the panel content's inner bottom (the Scrollable clips it there, as the game does).
+    const scr = q(".h-pscroll", c);
+    const body = scr && scr.firstElementChild ? scr.firstElementChild.firstElementChild : c.firstElementChild;
+    const padBottom = parseFloat(getComputedStyle(c).paddingBottom) || 0;
+    const limit = c.getBoundingClientRect().bottom - padBottom;
+    const bodyBottom = body ? body.getBoundingClientRect().bottom : limit;
+    const over = scr ? Math.max(scr.scrollHeight - scr.clientHeight, Math.round(bodyBottom - limit)) : c.scrollHeight - c.clientHeight;
     const header = q(".h-panel-header", panel());
     return {
-      overRem: Math.round((c.scrollHeight - c.clientHeight) / u * 10) / 10,
-      overPx: c.scrollHeight - c.clientHeight,
-      slackRem: body ? Math.round((c.clientHeight - padTop - padBottom - body.getBoundingClientRect().height) / u) : null,
+      overRem: Math.round(over / u * 10) / 10,
+      overPx: over,
+      slackRem: body ? Math.round((limit - bodyBottom) / u) : null,
       panelRem: Math.round(panel().getBoundingClientRect().height / u),
       headerRem: header ? Math.round(header.getBoundingClientRect().height / u) : null,
       headerFits: header ? header.scrollWidth <= header.clientWidth + 1 : true,
@@ -194,13 +200,7 @@
       }
       return pageOfPager()[0] === p;
     };
-    // The game's panel content box does not grow into the free height (the footer sits at the bottom of the fixed panel, the box is only as
-    // tall as the shown page). The mock's content has flex: 1, so this check lets it shrink like the game's (field pass 2: the room read off the shrunken box).
-    const content = q(".h-panel-content", panel()), footer = q(".h-panel-footer", panel());
-    const keep = content ? [content.style.flex, footer ? footer.style.marginTop : ""] : null;
-    if (content) content.style.flex = "0 1 auto";
-    if (footer) footer.style.marginTop = "auto";
-    await settle();
+
     // Two footer states: open (the build strip, about 280 rem tall) and closed by its chevron (76 rem: the game's photo had it closed).
     // The season block (about 415 rem at text scale 1.35, 475 rem at 1.5) cannot fit a page beside the open strip above 1.25, nor beside the
     // closed one at 1.5: it may split there, but the page count must still hold still. Where it fits, it must be whole on one page.
@@ -245,8 +245,7 @@
       }
       if (closed) { const c = chev(); if (c && !footerOpen()) { c.click(); await settle(); } }
     }
-    if (content && keep) content.style.flex = keep[0];
-    if (footer && keep) footer.style.marginTop = keep[1];
+
     setScale(fs0);
     await settle();
   }
