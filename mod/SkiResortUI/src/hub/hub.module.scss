@@ -3788,3 +3788,35 @@
 .syncGap {
   margin-left: 8rem;
 }
+
+// Pager marker (fit.tsx useViewPager keepTailClass): this row and every row after it stay on one page while they fit together. A
+// no-op declaration, so the class is exported. The History view's "This season so far" header carries it.
+.pagerKeepTail {
+  order: 0;
+}
+
+// The expanded "+N more problems" list (T-r3): IN the flow under the band, so the view tiles and the view slide down and the pager
+// shortens the view page (the old absolute card lay over the tiles). Same card look as .overlayCard. z-index keeps it above the
+// click-away backdrop.
+.problemList {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin: 2rem 10rem 2rem 6rem;
+  padding: 4rem 0rem 4rem 0rem;
+  background-color: var(--panelColorNormal);
+  border-style: solid;
+  border-top-width: 1rem;
+  border-right-width: 1rem;
+  border-bottom-width: 1rem;
+  border-left-width: 1rem;
+  border-top-color: var(--hubEdge);
+  border-right-color: var(--hubEdge);
+  border-bottom-color: var(--hubEdge);
+  border-left-color: var(--hubEdge);
+  border-radius: 4rem;
+  box-shadow: 0rem 6rem 18rem var(--hubShadow);
+  pointer-events: auto;
+}

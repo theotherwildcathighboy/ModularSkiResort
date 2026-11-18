@@ -396,7 +396,7 @@ export function MarkSlot({ mark }: { mark: "≈" | "…" | null }): JSX.Element 
 }
 
 /** One label / value row with the vanilla InfoRow metrics (28.2 / 39.7 / 47.3 rem at 100 / 130 / 150 %) */
-export function InfoLine({ label, value, tip, mark, header, sub, info, flag, flagDim, flagShapes, op }: {
+export function InfoLine({ label, value, tip, mark, header, sub, info, flag, flagDim, flagShapes, op, className }: {
   label: string | JSX.Element;
   value?: ReactNode;
   tip?: ReactNode;
@@ -419,10 +419,12 @@ export function InfoLine({ label, value, tip, mark, header, sub, info, flag, fla
   /** The receipt term's operator ("+", "×") in a fixed-width cell before the label, so the terms read as the equation they
    *  are. Symbols only (nothing to translate). */
   op?: string;
+  /** An extra class on the row (a pager marker, fit.tsx keepTailClass). */
+  className?: string;
 }): JSX.Element {
   return (
     <Tip tip={tip}>
-      <div className={cx(styles.infoLine, header && styles.infoHeader, sub && styles.infoSub)}>
+      <div className={cx(styles.infoLine, header && styles.infoHeader, sub && styles.infoSub, className)}>
         {op !== undefined && <div className={styles.infoOp}>{op}</div>}
         {flag || flagShapes ? (
           <div className={styles.infoLabelBox}>

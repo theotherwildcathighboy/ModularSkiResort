@@ -137,13 +137,15 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
   // at once (its layout effect), not on its next poll (a 400 ms scrollbar flash). The pager also drops the room it measured for
   // the other footer.
   const footerShape = useValue(footerShape$);
+  // The expanded "+N more problems" list is in the flow (StatusBlock .problemList): opening or closing it changes the view's room
+  const problemsListOpen = useValue(problemsOpen$);
   // A fold toggle within the view (not a view switch) bumps foldSeq: the pager then shows the page holding that fold's header
   const fold = openFold(folds, view);
   const foldSeen = useRef({ view, fold, seq: 0 });
   if (foldSeen.current.view !== view) foldSeen.current = { view, fold, seq: foldSeen.current.seq };
   else if (foldSeen.current.fold !== fold) foldSeen.current = { view, fold, seq: foldSeen.current.seq + 1 };
   const viewPager = useViewPager(viewRef, contentRef, hasSign && view !== "runs" && view !== "lifts",
-    `${view}|${fold}|${areaKey}`, styles.foldRow, footerShape, styles.foldRowOpen, foldSeen.current.seq);
+    `${view}|${fold}|${areaKey}`, styles.foldRow, `${footerShape}|${problemsListOpen ? "p" : ""}`, styles.foldRowOpen, foldSeen.current.seq, styles.pagerKeepTail);
 
   // Plain markup only: an error-boundary fallback must not be able to throw
   const title = t(LOC.title);

@@ -214,6 +214,7 @@ function SeasonBlock({ s, samples, t }: { s: SeasonSoFar; samples: NumberSamples
     <>
       <InfoLine
         header
+        className={styles.pagerKeepTail}
         label={t(HUB_LOC.historySeasonHead)}
         value={<div className={styles.histVs}><LocText entry={HUB_FMT.historySeasonVs} args={{ SEASON: seasonShort(s.season - 1) }} /></div>}
         tip={headTip}

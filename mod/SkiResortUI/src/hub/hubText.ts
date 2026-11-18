@@ -712,6 +712,7 @@ export const HUB_FMT = {
   problemEfficiency: ["SkiResort.Hub.PROBLEM[Efficiency]", "Efficiency {PCT}: {REASON}"],
   problemEfficiencyBare: ["SkiResort.Hub.PROBLEM[EfficiencyBare]", "Efficiency {PCT}"],
   problemNotRunning: ["SkiResort.Hub.PROBLEM[NotRunning]", "Welcome Sign stopped: {REASON}"],
+  problemNotRunningBare: ["SkiResort.Hub.PROBLEM[NotRunningBare]", "Welcome Sign stopped"],
   problemLiftNoPower: ["SkiResort.Hub.PROBLEM[LiftNoPower]", "{NAME}: no power"],
   problemLiftSectionMissing: ["SkiResort.Hub.PROBLEM[LiftSectionMissing]", "{NAME}: section missing"],
   problemLiftUnfinished: ["SkiResort.Hub.PROBLEM[LiftUnfinished]", "{NAME}: unfinished"],
