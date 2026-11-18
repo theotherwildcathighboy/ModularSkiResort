@@ -26,17 +26,83 @@ Notes...
 ```
 
 ## 1.0.2 (PDX version 3, unreleased)
+
 - Save compatible with previous: yes
 - Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1, TrackPack 2, RulesStamp 1
 - Do not load in older versions: yes
+
+**What you may notice on load:**
+- Some runs may change difficulty band, mostly from black to blue, under the new rating rule (Runs, below).
+- The season pass is now set as a price. Your Options value carries over as that price. Above 4 day tickets' worth, fewer households buy a pass.
 
 **Saves:**
 - Lifts, runs, cat tracks and resort buildings built from now on remember the version that built them, so a later update can bring older ones up to date.
 - A city saved with 1.0.2 still loads in 1.0.1, but that version forgets which version built what.
 
 **Sync resort:**
-- When an update changes how resort objects should look, the hub's Overview shows "Sync resort" with the objects of that ski area that are out of date. The first one: Patrol Huts placed before 1.0.1 get their firewood pile.
+- When an update changes how resort objects should look, the hub's Attraction view shows "Sync resort" with the objects of that ski area that are out of date. The first one: Patrol Huts placed before 1.0.1 get their firewood pile.
 - Each object can be skipped or kept as it is. Sync is free and has no undo.
+
+**Prices:**
+- Sliders in the Finances view for the lift ticket price and the season pass price.
+- The ticket price shows one demand word, from unaffected to very low. Its tooltip says how many fewer guests come.
+- Season pass price: 20 to 2,000, default 400. Up to 4 day tickets' worth, every household that wants a pass buys one. Above that, fewer do.
+- Ticket tolerance reads the same everywhere: full demand up to 40, 60 with a Chalet Lodge, 80 with a Swanky Summit or Grand Lodge.
+- Tooltips name the lever: "To raise ticket tolerance, build better lodges."
+
+**Hub:**
+- Sliders for snow gun and light spacing on runs, and for tree density.
+- History: a "This season so far" block with totals, the best month, the average ticket and the income and cost mix, against last season.
+- Snow report on the Welcome Sign card and in the status tooltip: summit and base, snow depth, temperature, new snow and season snowfall.
+- "Closed for the summer" in the off-season, instead of "Too warm for snow".
+- Lodges and the ski school closed for the off-season are no longer a problem. The school row says "Closed: off-season".
+- "Ski-day cars not arriving" names the main cause: no route, stuck on the way, never left home, or out of time.
+- The merge card shows only with the hub open. Tiers the city cannot pay for are blocked.
+- The build strip keeps its size: a tab click never closes it, the chevron does.
+- One height for all text buttons. The Resort Planner's features are check boxes.
+- The Start card says a lift needs low-voltage power.
+- The full problem list moves the view down instead of covering it.
+- "Welcome Sign stopped" without an empty colon, "1 acre" in the singular, and merged buildings under readable names.
+
+**Tourism:**
+- Resort tourism bonus: ski areas raise the whole city's attractiveness, as an airport does. Up to 10 % by default (Options, 0 to 20 %, 0 turns it off). It brings tourists to the city, not skiers to the runs.
+- New Attraction view rows: tourists in the city, guests at resort hotels (merged buildings), and the tourist spending the ski area draws.
+- "City tourist income" is now "Tourist spending" and shows under Tourism Overhaul too. It is spending at city businesses, so it stays out of the resort's net.
+
+**Runs:**
+- Blue runs are easier to get. A short steep pitch keeps a run black only when its own steep stretch is 40 m or longer. A narrow steep spot, such as a cat track bank, no longer forces black.
+- While you draw, the rating reads "(so far)" until the outline is closed.
+- Black and double black shading is easier to see in evening light.
+- A run that costs more than the city has shows the game's no-money icon.
+- Run labels change color when you switch the run grading.
+- Runs that cannot be rated are pale orange, apart from the orange ski route.
+
+**Snow:**
+- Snow guns build a 2 m base, then stop, and start again below 1.95 m. Runs stay open longer through a thaw.
+- Made snow melts at the game's own rate, on runs and cat tracks alike. A run and a cat track over the same height open together, at any game speed.
+- Some narrow runs that never opened on made snow now do.
+- A cat track pays snowmaking for the part of it the guns work on.
+- After a load the snow guns continue as they were: no plume flash, no missed bill.
+
+**Groomers and lights:**
+- Groomers work from dusk to dawn. They arrive one after another, nearest first, and leave at dawn.
+- A groomer leaves a cat track below 80 % snow cover and returns at 87.5 %, so it no longer drives on grass.
+- On short cat tracks, groomers rest at each end.
+- Run floodlights, snow gun beacons and groomer lamps turn on at dusk, like street lights, instead of at 18:00.
+
+**Lift tool:**
+- Lifts can cross at 15°, down from 20°.
+- Right click a tower to remove it. Right click elsewhere or Esc still steps back.
+- A line the city cannot pay for says so.
+
+**Buildings:**
+- Placing a lodge, the ski school or a patrol building no longer opens the Happiness view.
+- A merged building's goods trade no longer makes the ski area's efficiency jump off-season.
+- The Ski Bus roof carries one roundel that reads right from every side.
+- Menu and Find It icons show the building alone, like vanilla.
+
+**Options:**
+- The ski area radius is measured from the Welcome Sign in a straight line, not along roads.
 
 ## 1.0.1 (PDX version 2, 2026-11-16)
 - Save compatible with previous: yes

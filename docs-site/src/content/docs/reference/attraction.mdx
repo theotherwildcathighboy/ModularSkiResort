@@ -115,6 +115,15 @@ The score is the ski area's attraction score in the game's tourist formula.
 - **Lodge info panels:** show **0** (the ski area carries the score).
 - **Share of the city's tourist draw:** the game counts each building's score squared. The hub shows this ski area's share. It sets how many tourists come to the city, not where they go.
 
+## Resort Tourism Bonus
+
+Ski areas also raise the whole city's attractiveness, as an airport does. That brings more tourists to the city, not more skiers to the runs.
+
+- **Per ski area:** **2 %** for a ski area with a running lift and a lodge. Each running lift line adds **0.25 %**. Each lodge point adds **0.25 %**: Mountain Hut and A-Frame **1**, Chalet **2**, Summit and Grand **3**, a merged building **2**. A ski area without a running lift or a lodge adds **0**.
+- **Open share:** each ski area's part is multiplied by the open share of its run and lift value. So the bonus is highest in the ski season.
+- **Limit:** the ski areas together add at most the option *Resort tourism bonus*: **0** to **20 %**, default **10 %**. **0** turns it off.
+- **Hub:** the Attraction view's *Resort tourism bonus* fold. Nothing is saved: an uninstall leaves no trace of it.
+
 <Aside type="note" title="Ski Days">
 Ski days are a separate stream: the mod's own visitors, who react to the score, fresh snow, distance and the lift ticket
 price. The score itself draws only the tourists the game sends. See [Passes and Lessons](/guides/passes-and-lessons/).
