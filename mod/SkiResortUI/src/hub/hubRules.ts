@@ -651,9 +651,31 @@ export function footerOpen(stored: boolean, engaged: boolean, collapsible: boole
   return !collapsible || engaged || stored;
 }
 
-/** A tab click: a closed strip opens on that tab. A click on the open tab closes the strip. A click on another tab switches to it (and the strip stays open). */
-export function tabClick(open: boolean, current: string, clicked: BuildTab): { open: boolean; tab: BuildTab } {
-  return { open: !open || current !== clicked, tab: clicked };
+/** A tab click (T246 Design A, 2026-11-17): it shows that tab and never closes the strip. A closed strip opens on that tab.
+ *  Only the chevron at the end of the tab row closes it (chevronClick). Before T246 a click on the open tab closed the strip, and
+ *  the view above re-fitted: the "tabs jump" of the Corwen playtest. */
+export function tabClick(clicked: BuildTab): { open: boolean; tab: BuildTab } {
+  return { open: true, tab: clicked };
+}
+
+/** The chevron at the end of the tab row: it opens or closes the strip. While a mode the strip started is engaged, the strip stays
+ *  open (footerOpen), so the chevron does nothing then (BuildStrip draws it disabled). */
+export function chevronClick(open: boolean, engaged: boolean): boolean {
+  return engaged ? true : !open;
+}
+
+/** One tab's (or Buildings family's) tile row: its tile count and its tile group count. */
+export interface StripRowShape { tiles: number; groups: number }
+
+/** T246: the strip's fixed shape across every tab and family. slots = the most tiles any row draws, gaps = the most group gaps.
+ *  Every row pads to `slots` cells and `gaps` gaps, so a tile has the same width on every tab and a tab change moves nothing. */
+export function stripSlots(rows: readonly StripRowShape[]): { slots: number; gaps: number } {
+  let slots = 1, gaps = 0;
+  for (const r of rows) {
+    if (r.tiles > slots) slots = r.tiles;
+    if (r.groups - 1 > gaps) gaps = r.groups - 1;
+  }
+  return { slots, gaps };
 }
 
 export type BuildingFamily = "lodges" | "services";

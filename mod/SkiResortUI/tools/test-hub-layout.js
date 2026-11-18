@@ -622,7 +622,7 @@ async function shots(b, base, dir, list) {
 /** One unit's result appended to the size's merged result. Units arrive in report order (scenario, then text scale), as one run() makes them. */
 function mergeInto(r, u) {
   r.remPx = u.remPx;
-  for (const k of ["cases", "fails", "pagers", "buildings", "liftsTile", "band", "liftTool"]) r[k].push(...u[k]);
+  for (const k of ["cases", "fails", "pagers", "buildings", "liftsTile", "band", "liftTool", "tabShape"]) r[k].push(...u[k]);
   for (const [k, v] of Object.entries(u.clipped)) if (!r.clipped[k]) r.clipped[k] = v;   // first sighting wins, as in one page
   for (const [fs, x] of Object.entries(u.fullest)) if (!r.fullest[fs] || x.full > r.fullest[fs].full) r.fullest[fs] = x;
   r.maxOverRem = r.cases.reduce((m, c) => Math.max(m, c.overRem || 0), 0);
@@ -632,7 +632,7 @@ function mergeInto(r, u) {
   r.tips.n += u.tips.n; r.tips.keys += u.tips.keys; r.tips.keyRows = Math.max(r.tips.keyRows, u.tips.keyRows);
   for (const n of u.tips.scenarios) if (!r.tips.scenarios.includes(n)) r.tips.scenarios.push(n);
 }
-const emptyResult = () => ({ remPx: 0, cases: [], fails: [], pagers: [], buildings: [], liftsTile: [], band: [], liftTool: [], clipped: {}, fullest: {},
+const emptyResult = () => ({ remPx: 0, cases: [], fails: [], pagers: [], buildings: [], liftsTile: [], band: [], liftTool: [], tabShape: [], clipped: {}, fullest: {},
   maxOverRem: 0, minSlackRem: 1e9, timing: { ms: 0, settles: 0, frames: 0, capped: 0, cappedWhere: [] }, tips: { n: 0, keys: 0, keyRows: 0, scenarios: [] } });
 
 /**
@@ -751,6 +751,7 @@ async function main() {
       for (const x of r.buildings.filter((x) => x.fs === 1)) console.log(`  buildings tab [${x.scenario}]: ${x.tiles} tiles in ${x.rows} row(s), chips "${x.caption.trim()}", cut labels: ${x.cut || "none"}`);
       for (const lt of r.liftsTile.filter((x) => x.fs === 1)) console.log(`  lifts tile [${lt.scenario}]: ${lt.text}`);
       for (const x of r.liftTool) console.log(`  lift generator [${x.scenario.split(" ")[0]} fs ${x.fs}]: ${x.present ? "present" : "MISSING"}, family row ${x.rowRem} rem`);
+      for (const x of r.tabShape) console.log(`  strip shape [${x.scenario.split(" ")[0]} fs ${x.fs}]: ${x.tabs.map((t) => `${t.tab} ${t.tiles}/${t.slots} tiles ${t.tileWs.join("|")} px, strip ${t.stripH} px`).join("; ")}`);
       for (const bd of r.band.filter((x) => x.fs === 1)) console.log(`  band [${bd.scenario}]: ${bd.text.join(" | ")}`);
       const sc = r.cases.filter((c) => c.scrolls && c.fs === 1 && c.overPx > 1).map((c) => `${c.scenario.split(" ")[0]} view ${c.view} +${c.overRem} rem`);
       console.log(`  full lists that scroll (text scale 1, allowed: T131): ${sc.length ? Array.from(new Set(sc)).join("; ") : "none"}`);

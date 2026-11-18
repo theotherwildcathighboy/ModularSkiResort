@@ -1,10 +1,12 @@
 /*
  * src/hub/BuildStrip.tsx - the Build strip, the panel's footer, opened like the game's toolbar (DECISIONS 613).
- * Closed, it is the tab row (Lifts | Runs | Buildings) and the one dot. A tab click opens it on that tab. A click on the open tab
- * closes it. It stays open while anything it started is engaged (a build tool, the tree tool, the planner, the lift generator,
- * cat track delete, the merge overlay). It closes when that ends (hubRules.footerOpen / tabClick).
+ * Closed, it is the tab row (Lifts | Runs | Buildings), the chevron and the one dot. A tab click opens it on that tab and never
+ * closes it. Only the chevron closes it (T246 Design A, 2026-11-17). It stays open while anything it started is engaged (a build
+ * tool, the tree tool, the planner, the lift generator, cat track delete, the merge overlay). It closes when that ends
+ * (hubRules.footerOpen / tabClick / chevronClick).
  * Open, every tab is the same three rows: a family row of chips, ONE tile row, ONE status line. So the tab row and the tiles never
- * move when the tab changes (DECISIONS 612). The Buildings tab shows one family at a time (Lodges: the sign and the lodge tiers.
+ * move when the tab changes (DECISIONS 612). T246: every tab's tile row has the same slot count and gap count (hubRules.stripSlots,
+ * empty slots padded at the end), so a tile has one width on every tab. The layout check asserts it (tile width, slots, strip height). The Buildings tab shows one family at a time (Lodges: the sign and the lodge tiers.
  * Services: bus depot, school, patrol huts) with the Mergeable buildings chip beside them.
  * The status line says what the tooltip cannot: the follow notice, the active tool and its price, a locked tile's reason, the merge
  * legend, the idle fact. A hovered tile changes nothing (its tooltip has the name, price and hint).
@@ -29,9 +31,9 @@ import {
 import type { OrderedBuildItem, TerrainFit } from "./buildItems";
 import {
   NO_PICK, buildingFamily, dotItem, dotTarget, drawnTabs, effectiveSelection, effectiveTab, footerOpen, footerState, line1Variant, liveOf,
-  nextVariant, optionOf, pickerSets, tabClick, tabOfDot, tabOfItem, tabOfNext, visibleIds,
+  chevronClick, nextVariant, optionOf, pickerSets, stripSlots, tabClick, tabOfDot, tabOfItem, tabOfNext, visibleIds,
 } from "./hubRules";
-import type { BuildTab, BuildingFamily, DotTarget, NextVariant, PickerSelection, PickerSet } from "./hubRules";
+import type { BuildTab, BuildingFamily, DotTarget, NextVariant, PickerSelection, PickerSet, StripRowShape } from "./hubRules";
 import { buildFamily$, buildOpen$, buildTab$, footerShape$ } from "./hubState";
 import {
   ASSET_NAME, BUILD_FAMILY, BUILD_LABEL, BUILD_SHORT_RUN, BUILD_TAB, DRAW_LABEL, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_BUILDING, NEXT_LINE1,
@@ -73,6 +75,10 @@ export interface FooterInfo {
 export const MISMATCH_FOOTER: FooterInfo = { dot: null, next: "done", followName: null };
 
 export const FOLLOW_NOTICE_MS = 6000;
+
+/* The chevron glyphs: the folds' own (fit.tsx), so open / closed reads as a fold does. */
+const GLYPH_STRIP_OPEN = "Media/Glyphs/ThickStrokeArrowDown.svg";
+const GLYPH_STRIP_CLOSED = "Media/Glyphs/ThickStrokeArrowRight.svg";
 
 /* The Buildings-tab kinds that each draw as their own tile group. */
 const SPLIT_KINDS: readonly string[] = ["sign", "lodge", "depot", "school", "patrol"];
@@ -267,8 +273,10 @@ function labelEntry(id: BuildItemId): LocEntry {
  * The tab row. Buttons are cs2/ui Buttons with FOCUS_DISABLED (R15). The ONE dot shows on the tab holding it when that tab is
  * not the one shown.
  */
-function TabBarView({ tabs, tab, dotTab, t, onTab }: {
+function TabBarView({ tabs, tab, dotTab, t, onTab, chevron }: {
   tabs: readonly BuildTab[]; tab: string; dotTab: BuildTab | null; t: Translate; onTab: (id: BuildTab) => void;
+  /* T246: the strip's own open / close control at the end of the row (collapsible footers only). */
+  chevron?: { open: boolean; engaged: boolean; onClick: () => void };
 }): JSX.Element {
   return (
     <div className={styles.tabRow}>
@@ -289,6 +297,18 @@ function TabBarView({ tabs, tab, dotTab, t, onTab }: {
           </div>
         );
       })}
+      {chevron && (
+        <div className={styles.tabChevronCell}>
+          <Button
+            focusKey={FOCUS_DISABLED}
+            disabled={chevron.engaged}
+            theme={{ button: styles.tabChevron }}
+            onSelect={chevron.onClick}
+          >
+            <Glyph src={chevron.open ? GLYPH_STRIP_OPEN : GLYPH_STRIP_CLOSED} className={styles.tabChevronGlyph} />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -438,19 +458,36 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   const bothFamilies = famHas("lodges") && famHas("services");
   const family: BuildingFamily = bothFamilies ? (storedFamily === "services" ? "services" : "lodges") : famHas("services") ? "services" : "lodges";
 
-  // The shown tab's tile groups (BUILD_GROUPS keeps its shape. The split is drawing only: the sign and each building kind on its own)
-  const groups: OrderedBuildItem[][] = [];
+  // A tab's tile groups (BUILD_GROUPS keeps its shape. The split is drawing only: the sign and each building kind on its own)
   const splitKey = (id: BuildItemId): string => { const k = kindOf(id); return SPLIT_KINDS.indexOf(k) >= 0 ? k : "rest"; };
-  for (const g of all) {
-    let cur: OrderedBuildItem[] = [];
-    for (const e of g) {
-      if (!visible.has(e.id) || tabOfItem(e.id, BUILD_ITEMS) !== tab) continue;
-      if (tab === "buildings" && buildingFamily(kindOf(e.id)) !== family) continue;
-      if (cur.length > 0 && splitKey(cur[0].id) !== splitKey(e.id)) { groups.push(cur); cur = []; }
-      cur.push(e);
+  const groupsOf = (tb: string, fam: BuildingFamily): OrderedBuildItem[][] => {
+    const out: OrderedBuildItem[][] = [];
+    for (const g of all) {
+      let cur: OrderedBuildItem[] = [];
+      for (const e of g) {
+        if (!visible.has(e.id) || tabOfItem(e.id, BUILD_ITEMS) !== tb) continue;
+        if (tb === "buildings" && buildingFamily(kindOf(e.id)) !== fam) continue;
+        if (cur.length > 0 && splitKey(cur[0].id) !== splitKey(e.id)) { out.push(cur); cur = []; }
+        cur.push(e);
+      }
+      if (cur.length > 0) out.push(cur);
     }
-    if (cur.length > 0) groups.push(cur);
+    return out;
+  };
+  const groups = groupsOf(tab, family);
+  // T246: one slot count and one gap count for every tab and family, so the tiles keep their width when the tab changes
+  const rowShapes: StripRowShape[] = [];
+  for (const tb of tabs) {
+    const fams: readonly BuildingFamily[] = tb === "buildings" ? ["lodges", "services"] : ["lodges"];
+    for (const fam of fams) {
+      const gs = groupsOf(tb, fam);
+      if (gs.length > 0) rowShapes.push({ tiles: gs.reduce((n, g) => n + g.length, 0), groups: gs.length });
+    }
   }
+  const strip = stripSlots(rowShapes);
+  const shownTiles = groups.reduce((n, g) => n + g.length, 0);
+  const padSlots = Math.max(0, strip.slots - shownTiles);
+  const padGaps = Math.max(0, strip.gaps - Math.max(0, groups.length - 1));
 
   // When an item becomes the active tool, the effect chooses its option (an item of another tier or type) and its family.
   useEffect(() => {
@@ -487,8 +524,9 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     wasEngaged.current = engaged;
   }, [engaged]);
 
-  // The view pager re-fits on a new footer shape (HubPanel)
-  const shape = `${open ? 1 : 0}|${tab}|${tab === "buildings" ? family : ""}`;
+  // The view pager re-fits on a new footer shape (HubPanel). T246: open / closed only. Every tab has one shape, so a tab change
+  // no longer re-fits the view above.
+  const shape = open ? "1" : "0";
   useEffect(() => { if (footerShape$.value !== shape) footerShape$.update(shape); }, [shape]);
 
   const state = footerState(tabs.length > 0, info.followName !== null, !!activeEntry, !!lockedEntry);
@@ -522,9 +560,13 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   };
   const onTab = (id: BuildTab): void => {
     setLockedClick(null);
-    const next = tabClick(open, tab, id);
+    const next = tabClick(id);
     buildTab$.update(next.tab);
     buildOpen$.update(next.open);
+  };
+  const onChevron = (): void => {
+    setLockedClick(null);
+    buildOpen$.update(chevronClick(open, engaged));
   };
   const onFamily = (f: BuildingFamily): void => {
     setLockedClick(null);
@@ -533,7 +575,10 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
 
   return (
     <div className={styles.buildFooter}>
-      {tabs.length > 0 && <TabBarView tabs={tabs} tab={open ? tab : ""} dotTab={dotTab} t={t} onTab={onTab} />}
+      {tabs.length > 0 && (
+        <TabBarView tabs={tabs} tab={open ? tab : ""} dotTab={dotTab} t={t} onTab={onTab}
+          chevron={info.collapsible ? { open, engaged, onClick: onChevron } : undefined} />
+      )}
       {open && (
         <div className={styles.pickerRow}>
           {tab === "lifts" && sets.lift.length > 0 && <PickerSetView set="lift" options={sets.lift} chosen={eff.lift} dot={dot} t={t} onPick={onPick} />}
@@ -546,7 +591,8 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
       {open && (
         <div className={styles.buildRow}>
           {groups.map((g, gi) => (
-            <div key={gi} className={cx(styles.buildGroup, gi > 0 && styles.buildGroupNext)} style={{ flexGrow: g.length }}>
+            <div key={gi} className={cx(styles.buildGroup, gi > 0 && styles.buildGroupNext)}
+              style={{ flexGrow: g.length + (gi === groups.length - 1 ? padSlots : 0) }}>
               {g.map((e) => {
                 const kind = BUILD_RUN_KIND[e.id];
                 const step = BUILD_STEP[e.id];
@@ -576,8 +622,11 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
                   </div>
                 );
               })}
+              {gi === groups.length - 1 && Array.from({ length: padSlots }, (_, k) => <div key={`pad${k}`} className={styles.buildCell} />)}
             </div>
           ))}
+          {groups.length === 0 && <div className={styles.buildGroup} style={{ flexGrow: strip.slots }} />}
+          {Array.from({ length: padGaps }, (_, k) => <div key={`gap${k}`} className={styles.buildGap} />)}
         </div>
       )}
       {(open || tabs.length === 0) && <div className={cx(styles.buildStatusLine, lineCls)}>{line}</div>}

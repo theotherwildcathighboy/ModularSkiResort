@@ -1120,6 +1120,14 @@
   margin-left: 8rem;
 }
 
+// T246: a gap the shown tab lacks (its row has fewer tile groups than the widest tab). Same width as .buildGroupNext's margin, so
+// every tab spends the same rem on gaps and a tile keeps one width on every tab (hubRules.stripSlots).
+.buildGap {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 8rem;
+}
+
 // Equal padding on every cell (not margins between cells), so a 2-tile and a 4-tile group still
 // give every tile the same width.
 .buildCell {
@@ -1342,6 +1350,47 @@
 
 .tabButton:hover {
   background-color: var(--hoverColorNormal);
+}
+
+// T246: the strip's open / close chevron at the end of the tab row. A square of the tab height; the fold glyphs (fit.tsx).
+.tabChevronCell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: calc(24rem * var(--fontScale));
+  margin-left: 2rem;
+}
+
+.tabChevron {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: calc(24rem * var(--fontScale));
+  padding: 0rem;
+  background-color: var(--sectionBackgroundColor);
+  border-radius: 3rem;
+}
+
+.tabChevron:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.tabChevron:active {
+  background-color: var(--activeColorNormal);
+}
+
+.tabChevron[disabled] {
+  opacity: 0.4;
+}
+
+.tabChevronGlyph {
+  width: calc(10rem * var(--fontScale));
+  height: calc(10rem * var(--fontScale));
+  background-color: var(--hubTextDim);
 }
 
 .tabButton:active {
@@ -2856,8 +2905,10 @@
 }
 
 // -- build strip footer (design 5.2): two one-string lines -------------------------------------------
+// T246: the 5 rem top margin sits on the line itself (it was on each tone but the locked one, so a locked tile's reason moved the strip).
 .buildStatusLine {
   flex-shrink: 0;
+  margin-top: 5rem;
   height: 1.3em;
   line-height: 130%;
   font-size: var(--fontSizeXS);
@@ -2867,17 +2918,14 @@
 }
 
 .buildLineName {
-  margin-top: 5rem;
   color: var(--accentColorNormal);
 }
 
 .buildLineNormal {
-  margin-top: 5rem;
   color: var(--normalTextColor);
 }
 
 .buildLineWarn {
-  margin-top: 5rem;
   color: var(--hubCaution);
 }
 

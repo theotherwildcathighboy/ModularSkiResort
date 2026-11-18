@@ -1001,7 +1001,7 @@ function run(srcDir) {
       // text buttons: one height
       actionButton: TEXT, segButton: TEXT, startButton: TEXT, stepButton: TEXT, treeToolButton: TEXT, areaName: TEXT,
       // icon buttons, tabs, chips, check rows
-      headerButton: "calc(24rem * var(--fontScale))", tabButton: "calc(24rem * var(--fontScale))", rowPen: "calc(22rem * var(--fontScale))",
+      headerButton: "calc(24rem * var(--fontScale))", tabButton: "calc(24rem * var(--fontScale))", tabChevron: "calc(24rem * var(--fontScale))", rowPen: "calc(22rem * var(--fontScale))",
       pickerChip: "calc(22rem * var(--fontScale))", toggleAct: "calc(22rem * var(--fontScale))", pagerButton: "calc(20rem * var(--fontScale))",
       // tiles
       tile: "calc(33.1rem * var(--fontScale) + 36.315rem * var(--fontScaleChange) + 8.5rem)",
@@ -1473,6 +1473,18 @@ function run(srcDir) {
     eq("T44.15 back from the lift build (region kept, Undo ended, a lift started): lifts", st({ corners: 5, liftsStarted: true, liftsToBuild: 2 }), 4);
     eq("T44.16 back from the lift build, every lift done: done", st({ corners: 5, liftsStarted: true }), 5);
     eq("T44.17 a lift started but no region: region", st({ corners: 0, liftsStarted: true, liftsToBuild: 2 }), 0);
+  }
+
+  // T246 (Design A, 2026-11-17): a tab click never closes the strip; the chevron does, unless a mode the strip started is engaged.
+  // Every tab pads to the widest row's slots and gaps.
+  {
+    eq("T246.1 tab click on the open tab keeps it open", R.tabClick("lifts"), { open: true, tab: "lifts" });
+    eq("T246.2 tab click opens a closed strip on that tab", R.tabClick("runs"), { open: true, tab: "runs" });
+    eq("T246.3 chevron closes an open strip", R.chevronClick(true, false), false);
+    eq("T246.4 chevron opens a closed strip", R.chevronClick(false, false), true);
+    eq("T246.5 chevron while engaged keeps it open", R.chevronClick(true, true), true);
+    eq("T246.6 strip slots: the most tiles and gaps", R.stripSlots([{ tiles: 3, groups: 1 }, { tiles: 3, groups: 2 }, { tiles: 6, groups: 2 }, { tiles: 4, groups: 3 }]), { slots: 6, gaps: 2 });
+    eq("T246.7 strip slots: no rows", R.stripSlots([]), { slots: 1, gaps: 0 });
   }
 
   const hr = require("./test-history-rules").run(srcDir);
