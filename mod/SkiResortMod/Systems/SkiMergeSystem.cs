@@ -267,6 +267,7 @@ namespace SkiResortMod.Systems
             }
             EntityManager.AddComponentData(building, new SkiMergedLodge((byte)tier, flags, fee, m_HighestSerial));
             EntityManager.AddComponentData(building, new SkiMergedVanillaAttraction());
+            SkiRulesStampSystem.StampMerged(EntityManager, building);   // the rules level of the merge (T229)
             detail = $" as {kind}, charged {fee}, serial {m_HighestSerial}{((flags & SkiMergedLodge.FlagAddedProvider) != 0 ? ", provider added" : string.Empty)}";
             return Outcome.Merged;
         }
@@ -313,6 +314,7 @@ namespace SkiResortMod.Systems
                 EntityManager.RemoveComponent<AttractivenessProvider>(building);
             EntityManager.RemoveComponent<SkiMergedVanillaAttraction>(building);
             EntityManager.RemoveComponent<SkiMergedLodge>(building);
+            SkiRulesStampSystem.UnstampMerged(EntityManager, building);
         }
 
         private bool TryPay(int amount)

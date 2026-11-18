@@ -22,6 +22,7 @@ const REVIEWED = {
     'SkiResortAttractivenessSystem.cs': [5, 'the catalog walk; merged buildings join through MergedDefOf'],
     'SkiResortAttractivenessSystem.Merged.cs': [1, 'skips our own prefabs'],
     'SkiResortStatsSystem.cs': [3, 'the ladder goes through LodgeIdentity; merged rows are appended from the merged views'],
+    'SkiRulesStampSystem.cs': [1, 'stamp census by kind: merged buildings are counted from SkiMergedLodge, apart from the catalog sets'],
 };
 
 function walk(dir) {

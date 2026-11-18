@@ -26,6 +26,21 @@ export const HUB_LOC = {
   busCardNoHillLodge: ["SkiResort.Hub.BUS_CARD[NoHillLodge]", "No hill lodge"],
   busCardOff: ["SkiResort.Hub.BUS_CARD[Off]", "Not running"],
 
+  /* Sync Resort (contract 51): the Overview's Sync card. SYNC_STEP below holds one sentence per SkiSyncCatalog step */
+  syncTitle: ["SkiResort.Hub.SYNC_CARD[Title]", "Sync resort"],
+  syncTip: ["SkiResort.Hub.SYNC_CARD[Tip]", "Objects built before an update changed them. Sync brings them up to date. It is free and cannot be undone."],
+  syncRings: ["SkiResort.Hub.SYNC_CARD[Rings]", "Rings on the map mark each object while this card is open."],
+  syncKeep: ["SkiResort.Hub.SYNC_CARD[Keep]", "Keep as is"],
+  syncKeepTip: ["SkiResort.Hub.SYNC_CARD[KeepTip]", "The object stays as it is and is not offered again for this update."],
+  syncIncludeTip: ["SkiResort.Hub.SYNC_CARD[IncludeTip]", "Unchecked objects stay as they are in the next sync."],
+  syncClose: ["SkiResort.Hub.SYNC_CARD[Close]", "Close"],
+  syncEmpty: ["SkiResort.Hub.SYNC_CARD[Empty]", "Everything in this area is up to date."],
+  syncStateQueued: ["SkiResort.Hub.SYNC_STATE[Queued]", "Waiting"],
+  syncStateWorking: ["SkiResort.Hub.SYNC_STATE[Working]", "Working"],
+  syncStateFailed: ["SkiResort.Hub.SYNC_STATE[Failed]", "Not synced"],
+  syncStateHandEdited: ["SkiResort.Hub.SYNC_STATE[HandEdited]", "Edited by hand, skipped"],
+  syncStepPatrolParts: ["SkiResort.Hub.SYNC_STEP[PatrolParts]", "Gets the parts its building has now, such as the firewood pile."],
+
   /* the merge card (contract 35) and the Overview's merged buildings fold */
   mergeCardTitle: ["SkiResort.Hub.MERGE_CARD[Title]", "Merge into a ski area"],
   mergeCardTip: ["SkiResort.Hub.MERGE_CARD[Tip]", "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, billed only near the runs and lifts."],
@@ -642,6 +657,11 @@ export const HUB_FMT = {
   contractMismatchCore: ["SkiResort.Hub.CONTRACT_MISMATCH_CORE", "This panel (version {UI}) and the mod's DLL (version {DLL}) come from different builds. Building still works. The resort statistics stay hidden until the mod is reinstalled."],
   /* contract 39: the one warning of the merge card and the Mergeable buildings status line while no ski area has a run or a lift station ({M} = SlopesideMaxM) */
   mergeWarnNoGeometry: ["SkiResort.Hub.MERGE_WARN[NoGeometry]", "No runs or lifts yet. Merges need one within {M}."],
+  /* contract 51: Sync Resort. {N} = objects of the area Sync can bring up to date (Button) or checked rows (Run) */
+  syncButton: ["SkiResort.Hub.SYNC_FMT[Button]", "Sync resort ({N})"],
+  syncRun: ["SkiResort.Hub.SYNC_FMT[Run]", "Sync {N}"],
+  syncProgress: ["SkiResort.Hub.SYNC_FMT[Progress]", "Synced {DONE} of {TOTAL}"],
+  syncFailed: ["SkiResort.Hub.SYNC_FMT[Failed]", "Not synced: {N}"],
   statusLine: ["SkiResort.Hub.STATUS_LINE", "{STATE}"],
   statusLineOne: ["SkiResort.Hub.STATUS_LINE_ONE", "{STATE}"],
   statusLineEst: ["SkiResort.Hub.STATUS_LINE_EST", "{STATE} ≈"],

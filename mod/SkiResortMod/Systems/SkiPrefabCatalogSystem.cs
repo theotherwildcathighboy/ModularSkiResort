@@ -322,6 +322,12 @@ namespace SkiResortMod.Systems
             return m_Signs.Contains(prefab);
         }
 
+        /// <summary>LIVE VIEW: every FOUND Welcome Sign prefab entity (both variants).</summary>
+        internal HashSet<Entity> SignPrefabSet
+        {
+            get { EnsureFresh(); return m_Signs; }
+        }
+
         /// <summary>Any NAMES entry. Entity.Null when MISSING or not a catalog name.</summary>
         internal Entity EntityOf(string catalogName)
         {

@@ -462,6 +462,8 @@ Appended fields and bindings by contract:
   area's bonus part (`bonusPct`, `bonusSizePct`, `bonusLiftLines`, `bonusTierPoints`, `bonusOpenSharePct`, -1 without a score) and its
   merged hotels (`hotelGuests`, `hotelRented`, `hotelRooms`, -1 without one). Source: `ResortTourismBonusSystem`, `HotelRentersOf`.
   The Guests view's "Tourists drawn" estimate row is gone (the `estKnown` / `estTourists` fields stay on the wire, unused by the UI).
+- 51 (1.0.2, T229, r2/sync): the `sync` binding (`SyncState`: ready, areas, open, sign, rows, running, done, failed, total) and the
+  triggers `syncCard`, `syncInclude`, `syncKeep` and `syncRun`. Number 50 is r2/tourism's. See EngineNotes/SkiSyncSystem.md.
 - 42: the runs-first plans (Resort Planner round, task R2-b). `QuickRunsState` loses `mix`, `liftsKnob` and `home`. `QuickRunsLift` loses
   `wantedKey` and gains `flagged`, `waits`, `overLimitTowers`. `QuickRunsPlan` loses `pods` and gains `trackKm`. `QuickRunsState` gains `tracks`
   and `QuickRunsPod` gains `tracks`. `runs`, `enabled`, `count` and `variety` count pistes only. `QuickRunsSheetRow` gains `flagged`, `waits`,

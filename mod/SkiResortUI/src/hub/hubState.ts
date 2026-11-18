@@ -68,6 +68,8 @@ export const folds$ = bindLocalValue<Readonly<Record<string, string>>>({});
 export const FOLD_DEFAULT: Readonly<Record<string, string>> = {};
 export const areaListOpen$ = bindLocalValue<boolean>(false);
 export const problemsOpen$ = bindLocalValue<boolean>(false);
+/** Contract 51: the Overview shows the Sync card instead of its sections (SyncCard.tsx). An area switch or a view switch closes it. */
+export const syncCardOpen$ = bindLocalValue<boolean>(false);
 
 export function openFold(folds: Readonly<Record<string, string>> | null | undefined, view: string): string {
   const v = folds ? folds[view] : undefined;
