@@ -1946,6 +1946,7 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.REFUSED[ShortDistance]", "The game cannot build this line: two towers stand too close together. Move one and build again." },
                 { "SkiResort.LiftTool.REFUSED[InWater]", "The game cannot build this line: a tower stands in water. Move it to dry ground." },
                 { "SkiResort.LiftTool.REFUSED[ExceedsCityLimits]", "The game cannot build this line: part of it is outside the city's land." },
+                { "SkiResort.LiftTool.REFUSED[NotEnoughMoney]", "The game cannot build this line: the city does not have the money for it. Wait for more money or draw a shorter line." },
                 { "SkiResort.LiftTool.REFUSED[Other]", "The game cannot build this line here. Move the towers away from whatever blocks them and build again." },
                 // --- Cat track tool text -------------------------------------------------------------------
                 // CatTrackGradeTooltipSystem / CatTrackGradeToolSystem through LocalizedString.Id(key, args) (GradeMsg); the log keeps the full

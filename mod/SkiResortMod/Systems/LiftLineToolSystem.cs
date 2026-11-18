@@ -1570,6 +1570,7 @@ namespace SkiResortMod.Systems
                 case nameof(ErrorType.ShortDistance):
                 case nameof(ErrorType.InWater):
                 case nameof(ErrorType.ExceedsCityLimits):
+                case nameof(ErrorType.NotEnoughMoney):   // T243a: ValidationSystem flags every costed Temp edge when the city cannot pay (:1437-1468, :1598-1621)
                     return T("REFUSED[" + type + "]");
                 default:
                     return T("REFUSED[Other]");
@@ -2227,6 +2228,7 @@ namespace SkiResortMod.Systems
                 case nameof(ErrorType.ShortDistance): return "a span too short";
                 case nameof(ErrorType.InWater): return "in water";
                 case nameof(ErrorType.ExceedsCityLimits): return "outside the city";
+                case nameof(ErrorType.NotEnoughMoney): return "the city cannot pay";
                 case nameof(ErrorType.LowElevation): return "too low";
                 case nameof(ErrorType.TightCurve): return "a curve too tight";
                 default: return type;
