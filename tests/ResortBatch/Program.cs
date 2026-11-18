@@ -64,6 +64,7 @@ namespace ResortBatch
             DeleteAllTests.Run(Check);
             SkiBusTests.Run(Check);
             GroomerTests.Run(Check);
+            DarkSignalTests.Run(Check);
             SkiAreaRadiusTests.Run(Check);
             TourismBonusTests.Run(Check);
             ResortPresenceTests.Run(Check);

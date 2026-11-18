@@ -9,6 +9,7 @@
 // - J-O: back-off, learning, powder, capacity, slices, DayKey / Advance against SkiMoneyRules.MonthKey / SkiResortLedger.Advance,
 //   slope-side geometry.
 // - P: PowerOf.
+// - Z: reach causes (T249).
 // - Q-Y: score additions, worked scenarios, legs partition, on-arrival bookkeeping, measure-core, learning bounds, SkiTripSystems,
 //   per-tier capacity and price tolerance.
 
@@ -61,6 +62,7 @@ namespace ResortBatch
             Learning();
             TripSystems();
             CatalogPhaseB();
+            ReachCauses();
         }
 
         private static bool Check(bool cond, string where, string msg)
@@ -2063,6 +2065,69 @@ namespace ResortBatch
         private static void Eq(string got, string want, string where, string what)
         {
             Check(string.Equals(got, want, StringComparison.Ordinal), where, got == want ? what : $"{what}: got \"{got}\", expected \"{want}\"");
+        }
+
+        // ---- Z: reach causes (T249) ---------------------------------------------------------------------------------------------------
+
+        private static void ReachCauses()
+        {
+            const string w = "skiday Z reach causes";
+            // ReachCauseOf(outcome 0 gone / 1 retargeted / 2 expired, departed, movedOff, pathFailedAtStart, walkerPathFailed, vehiclePathFailed)
+            Check(Rules.ReachCauseOf(0, true, false, true, false, false) == Rules.ReachCause.NoRoute, w, "PathFailed at the start: no route");
+            Check(Rules.ReachCauseOf(2, false, false, true, true, true) == Rules.ReachCause.NoRoute, w, "no route wins over every other marker");
+            Check(Rules.ReachCauseOf(2, false, false, false, false, false) == Rules.ReachCause.NeverLeft, w, "never departed: never left");
+            Check(Rules.ReachCauseOf(0, true, false, false, false, false) == Rules.ReachCause.NeverLeft, w, "departed, never moved off: never left");
+            Check(Rules.ReachCauseOf(0, true, true, false, false, true) == Rules.ReachCause.Stuck, w, "vehicle path failed on the way: stuck");
+            Check(Rules.ReachCauseOf(2, true, true, false, true, false) == Rules.ReachCause.Stuck, w, "walker path failed, expired: stuck first");
+            Check(Rules.ReachCauseOf(2, true, true, false, false, false) == Rules.ReachCause.OutOfTime, w, "expired on the way: out of time");
+            Check(Rules.ReachCauseOf(0, true, true, false, false, false) == Rules.ReachCause.None &&
+                  Rules.ReachCauseOf(1, true, true, false, false, false) == Rules.ReachCause.None, w, "changed plans on the way: no claim");
+
+            // The counters fade with the outcomes: 1 cause, then 1 arrival, reads 0.975
+            Rules.ClassTrack t = Rules.NewTrack(TC.Car);
+            Rules.RecordOutcome(ref t, false);
+            Rules.RecordCause(ref t, Rules.ReachCause.NeverLeft);
+            Rules.RecordOutcome(ref t, true);
+            Check(Near(t.CauseNeverLeft, 0.975, 1e-12) && t.CauseNoRoute == 0 && t.CauseStuck == 0 && t.CauseOutOfTime == 0, w,
+                  $"fade: never left {R(t.CauseNeverLeft)}, expected 0.975");
+            Rules.RecordCause(ref t, Rules.ReachCause.None);
+            Check(t.CauseNoRoute + t.CauseStuck + t.CauseOutOfTime == 0 && Near(t.CauseNeverLeft, 0.975, 1e-12), w, "None adds nothing");
+
+            // Dominance: 20 failures, 12 never left, 5 no route, 3 none. Never left holds 12 / 20 ≥ half: named
+            t = Rules.NewTrack(TC.Car);
+            for (int i = 0; i < 20; i++)
+            {
+                Rules.RecordOutcome(ref t, false);
+                Rules.RecordCause(ref t, i < 12 ? Rules.ReachCause.NeverLeft : i < 17 ? Rules.ReachCause.NoRoute : Rules.ReachCause.None);
+            }
+            Check(Rules.DominantCause(t) == Rules.ReachCause.NeverLeft, w, $"12 of 20 never left: {Rules.DominantCause(t)}");
+            // 8 never left, 7 stuck, 5 out of time: the largest holds under half, so no cause is named
+            t = Rules.NewTrack(TC.Car);
+            for (int i = 0; i < 20; i++)
+            {
+                Rules.RecordOutcome(ref t, false);
+                Rules.RecordCause(ref t, i < 8 ? Rules.ReachCause.NeverLeft : i < 15 ? Rules.ReachCause.Stuck : Rules.ReachCause.OutOfTime);
+            }
+            Check(Rules.DominantCause(t) == Rules.ReachCause.None, w, $"no majority: {Rules.DominantCause(t)}");
+            // Recent failures outweigh old ones: 20 never left, then 30 out of time. The old cause has faded under the new one
+            t = Rules.NewTrack(TC.Car);
+            for (int i = 0; i < 50; i++)
+            {
+                Rules.RecordOutcome(ref t, false);
+                Rules.RecordCause(ref t, i < 20 ? Rules.ReachCause.NeverLeft : Rules.ReachCause.OutOfTime);
+            }
+            Check(Rules.DominantCause(t) == Rules.ReachCause.OutOfTime, w, $"the window follows the recent cause: {Rules.DominantCause(t)}");
+            // Under 5 faded failures of the cause: none, even at 100 %
+            t = Rules.NewTrack(TC.Car);
+            for (int i = 0; i < 4; i++)
+            {
+                Rules.RecordOutcome(ref t, false);
+                Rules.RecordCause(ref t, Rules.ReachCause.NoRoute);
+            }
+            Check(Rules.DominantCause(t) == Rules.ReachCause.None, w, "4 failures: too few to name a cause");
+            Check(Rules.DominantCause(Rules.NewTrack(TC.Car)) == Rules.ReachCause.None, w, "a new track names nothing");
+            Check((int)Rules.ReachCause.NoRoute == 1 && (int)Rules.ReachCause.Stuck == 2 && (int)Rules.ReachCause.NeverLeft == 3 &&
+                  (int)Rules.ReachCause.OutOfTime == 4, w, "the values bindings.ts REACH_CAUSE mirrors");
         }
     }
 }

@@ -126,7 +126,12 @@ namespace SkiResortMod.Systems
             /// <summary>The all-outcomes speed (arrivals, late arrivals, upper bounds from failures and expired claims). The fit check
             /// reads it only when TripKnobs.FitUsesAllOutcomes (FitSpeed).</summary>
             public double SpeedAllKmPerHour;
+            /// <summary>T249: failures by cause (ReachCause 1-4), faded with Arrived and Failed (TrackKeep per outcome). Memory only.</summary>
+            public double CauseNoRoute, CauseStuck, CauseNeverLeft, CauseOutOfTime;
         }
+
+        /// <summary>T249: why a ski-day trip failed, as far as the claim's markers tell (ReachCauseOf). None = no claim made.</summary>
+        public enum ReachCause : byte { None = 0, NoRoute = 1, Stuck = 2, NeverLeft = 3, OutOfTime = 4 }
 
         /// <summary>The trip-model numbers that were constants. One struct serves both jobs. The defaults equal today's constants
         /// (DefaultTripKnobs): stay 2 h, floors walk 0.1 / car 0.5 / no car 0.2 km per game hour. FitUsesAllOutcomes picks the speed the
@@ -680,8 +685,73 @@ namespace SkiResortMod.Systems
         {
             t.Arrived = t.Arrived * TrackKeep + (arrived ? 1.0 : 0.0);
             t.Failed = t.Failed * TrackKeep + (arrived ? 0.0 : 1.0);
+            t.CauseNoRoute *= TrackKeep;
+            t.CauseStuck *= TrackKeep;
+            t.CauseNeverLeft *= TrackKeep;
+            t.CauseOutOfTime *= TrackKeep;
             if (t.Resolved < int.MaxValue)
                 t.Resolved++;
+        }
+
+        /// <summary>T249: adds 1 to a failure's cause. Call right after RecordOutcome(false), so it fades in the same window. None adds nothing.</summary>
+        public static void RecordCause(ref ClassTrack t, ReachCause cause)
+        {
+            switch (cause)
+            {
+                case ReachCause.NoRoute: t.CauseNoRoute += 1.0; break;
+                case ReachCause.Stuck: t.CauseStuck += 1.0; break;
+                case ReachCause.NeverLeft: t.CauseNeverLeft += 1.0; break;
+                case ReachCause.OutOfTime: t.CauseOutOfTime += 1.0; break;
+            }
+        }
+
+        /// <summary>T249: the cause of one failed claim, first match.
+        /// 1. NoRoute: the walker carried Divert{PathFailed} at the start. Vanilla sets that divert when the trip's pathfind returned an empty
+        ///    path (TripNeededSystem.cs:1562, :683-686 in 1.6.4f1). So the pathfinder found no route from home to the lodge.
+        /// 2. NeverLeft: never departed, or departed but the walker never moved off (MoveFrame 0).
+        /// 3. Stuck: moved off, and the walker or the lead vehicle showed PathOwner Failed or Stuck on the way. UNVERIFIED mapping: the marker
+        ///    is transient and joins "lost its path" with "stuck in traffic", so the tip names both.
+        /// 4. OutOfTime: moved off with no path marker and the deadline passed (outcome 2, Expired).
+        /// Else None: gone or retargeted after moving off with no marker (the guest changed plans). No claim is made for those.</summary>
+        public static ReachCause ReachCauseOf(int outcome, bool departed, bool movedOff, bool pathFailedAtStart, bool walkerPathFailed,
+                                              bool vehiclePathFailed)
+        {
+            if (pathFailedAtStart)
+                return ReachCause.NoRoute;
+            if (!departed || !movedOff)
+                return ReachCause.NeverLeft;
+            if (walkerPathFailed || vehiclePathFailed)
+                return ReachCause.Stuck;
+            return outcome == 2 ? ReachCause.OutOfTime : ReachCause.None;
+        }
+
+        /// <summary>T249: a cause is named only when it holds at least this share of the faded failures, and at least ReachCauseMin of them.</summary>
+        public const double ReachCauseShare = 0.5;
+        public const double ReachCauseMin = 5.0;
+
+        /// <summary>T249: the dominant failure cause of a track, or None. The largest cause wins (ties: the lower number). It must hold at
+        /// least half of the faded failures (Failed also counts the failures with no cause), so the tip claims only what most failures show.</summary>
+        public static ReachCause DominantCause(in ClassTrack t)
+        {
+            double f = t.Failed > 0.0 ? t.Failed : 0.0;
+            ReachCause best = ReachCause.None;
+            double top = 0.0;
+            Pick(ref best, ref top, t.CauseNoRoute, ReachCause.NoRoute);
+            Pick(ref best, ref top, t.CauseStuck, ReachCause.Stuck);
+            Pick(ref best, ref top, t.CauseNeverLeft, ReachCause.NeverLeft);
+            Pick(ref best, ref top, t.CauseOutOfTime, ReachCause.OutOfTime);
+            if (best == ReachCause.None || !(top >= ReachCauseMin) || !(top >= ReachCauseShare * f))
+                return ReachCause.None;
+            return best;
+        }
+
+        private static void Pick(ref ReachCause best, ref double top, double count, ReachCause cause)
+        {
+            if (count > top)
+            {
+                top = count;
+                best = cause;
+            }
         }
 
         /// <summary>Speed learning from claim to arrival. It is skipped for arrival ≤ claim, under 300 m (or NaN) or under 0.05 game hours.

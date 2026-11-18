@@ -1,4 +1,6 @@
-// One snow groomer per bound cat track, driving back and forth along the track's centerline while the track is open. A prop, not a vehicle:
+// One snow groomer per bound cat track, driving back and forth along the track's centerline while the track is open, dusk to dawn (T248:
+// SkiDarkSignalSystem's dark signal; machines come in at most SpawnGapS apart, nearest to the camera first, and leave at dawn the same
+// way, after the drive they are on when it is short). A prop, not a vehicle:
 // no pathfinding, no lanes, no traffic, no effect on snow, rating or upkeep. Never more than one per track.
 // The trip is a pure function of the render clock (GroomerRules). The path comes from the run's outline (GroomerCenterline).
 // The ground comes from the terrain's CPU heights. This system computes poses on the main thread.
@@ -11,7 +13,8 @@
 // - one [prefab] line (or one WARN and off)
 // - one [no path] line per track per outline
 // - one [state] line per pass that changed anything
-// - one [lights] line per day/night flip
+// - one [lights] line per dusk and dawn
+// - one [work] line per dusk and dawn
 // - one [cost] line per load
 // - a one-shot "!!!" catch.
 // The Editor never arms it.
@@ -124,6 +127,7 @@ namespace SkiResortMod.Systems
         private SkiRunCatalogSystem m_Catalog;
         private SkiSnowInjectionSystem m_Injection;
         private EffectFlagSystem m_EffectFlags;
+        private SkiDarkSignalSystem m_Dark;
         private EntityQuery m_PrefabQuery;
 
         private ComponentLookup<Transform> m_TransformLookup;
@@ -157,6 +161,12 @@ namespace SkiResortMod.Systems
         private bool m_LastNight;
         private int m_LightPasses;
         private double m_NextLightS;
+        private double m_NextSpawnRealS;
+        private double m_NextDawnRealS;
+        private bool m_HaveWork;
+        private bool m_LastWork;
+        private int m_WaveSpawned, m_WaveRemoved;   // staggered changes since the wave began, logged once when it ends
+        private double m_WaveStartRealS;
 
         // [cost] window and path counters, per load
         private readonly float[] m_CostRing = new float[CostPasses];
@@ -178,6 +188,7 @@ namespace SkiResortMod.Systems
             m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
             m_Injection = World.GetOrCreateSystemManaged<SkiSnowInjectionSystem>();
             m_EffectFlags = World.GetOrCreateSystemManaged<EffectFlagSystem>();
+            m_Dark = World.GetOrCreateSystemManaged<SkiDarkSignalSystem>();
             m_PrefabQuery = GetEntityQuery(ComponentType.ReadOnly<PrefabData>(), ComponentType.ReadOnly<ObjectData>());
             m_TransformLookup = GetComponentLookup<Transform>(isReadOnly: false);
             m_CullingLookup = GetComponentLookup<CullingInfo>(isReadOnly: false);
@@ -245,6 +256,11 @@ namespace SkiResortMod.Systems
             m_CapLogged = false;
             m_HaveNight = false;
             m_LightPasses = 0;
+            m_NextSpawnRealS = 0.0;
+            m_NextDawnRealS = 0.0;
+            m_HaveWork = false;
+            m_WaveSpawned = 0;
+            m_WaveRemoved = 0;
             m_CostCount = 0;
             m_CostLogged = false;
             m_PosesWritten = 0L;
@@ -253,7 +269,9 @@ namespace SkiResortMod.Systems
             m_BurstProbe = 0;
             if (m_Armed)
             {
-                Mod.Log.Info("Groomers: ARMED, one snow groomer per bound cat track while its snow share is open " +
+                Mod.Log.Info("Groomers: ARMED, one snow groomer per bound cat track, dusk to dawn, while its snow share is open " +
+                             $"(leaves below {GroomerRules.CloseBelowShare:0.##}, returns at {GroomerRules.OpenAtShare:0.###}; spawns and dawn removals " +
+                             $"{GroomerRules.SpawnGapS:0.##} s apart, nearest first; short tracks rest to {GroomerRules.MinOneWayS:0} s one way) " +
                              $"(option {(m_OptionOn ? "on" : "off")}; {GroomerRules.SpeedMps:0.##} m/s on the render clock, stop {GroomerRules.StopS:0.#} s, " +
                              $"half turn {GroomerRules.PivotS:0.#} s, footprint {GroomerRules.FootprintLengthM:0.#} x {GroomerRules.FootprintWidthM:0.#} m, " +
                              $"cap {GroomerRules.MaxGroomers}; the saver skips the props, they respawn from the catalog after a load)");
@@ -338,10 +356,10 @@ namespace SkiResortMod.Systems
 
         /// <summary>A machine's Night-gated effects are evaluated at spawn and on EffectsUpdated, nothing else (EffectControlSystem.cs:1087-1097).
         /// Without this, one spawned by day stays dark all night. The tag is structural, so it runs here before the job, and only for the passes
-        /// after a flip.</summary>
+        /// after a flip. The flip is SkiDarkSignalSystem.LightsOn, which moves our light effects' conditions to the dark signal (T250).</summary>
         private void RefreshLights(double timeS)
         {
-            bool night = m_EffectFlags.GetData().m_IsNightTime;
+            bool night = m_Dark.Known ? m_Dark.LightsOn : m_EffectFlags.GetData().m_IsNightTime;
             if (!m_HaveNight || night != m_LastNight)
             {
                 if (m_HaveNight)
@@ -551,25 +569,61 @@ namespace SkiResortMod.Systems
 
         // ---- spawn and remove (the only structural changes, all before the job) -------------------------------------------------------
 
+        /// <summary>The work window (T248). Removals that are not the window's (option, season, path) happen at once. A spawn and a dawn
+        /// removal each wait SpawnGapS of real time since the last one, so the structural changes spread over frames. The spawn goes to the
+        /// waiting track nearest the camera, the dawn removal to the farthest machine that may leave (DawnLeaveNow).</summary>
         private void Reconcile(double timeS)
         {
-            int spawned = 0, removed = 0;
+            bool ready = m_Dark.Ready;
+            bool work = ready && m_Dark.DarkNow;
+            if (ready && (!m_HaveWork || work != m_LastWork))
+            {
+                if (m_HaveWork)
+                    Mod.Log.Info($"Groomers [work]: {(work ? "dusk, machines come out" : "dawn, machines go home")} " +
+                                 $"({m_Groomers} on the tracks; signal {(m_Dark.Known ? m_Dark.Source.ToString() : "failed, clock")})");
+                m_HaveWork = true;
+                m_LastWork = work;
+            }
+            double realS = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
+            bool haveCamera = m_Camera != null && m_Camera.TryGetViewer(out _);
+            float2 camera = haveCamera ? m_Camera.position.xz : float2.zero;
+            int removed = 0;
+            Track nearest = null, farthest = null;
+            float nearestD = float.MaxValue, farthestD = -1f;
             for (int i = 0; i < m_Tracks.Count; i++)
             {
                 Track track = m_Tracks[i];
-                bool wanted = GroomerRules.Wanted(m_OptionOn, true, track.SeasonOpen, track.Path != null);
-                switch (GroomerRules.Decide(wanted, track.Prop != Entity.Null, m_Groomers))
+                bool baseWanted = GroomerRules.Wanted(m_OptionOn, true, track.SeasonOpen, track.Path != null);
+                switch (GroomerRules.DecideWork(baseWanted, track.Prop != Entity.Null, ready, work, m_Groomers))
                 {
-                    case GroomerAction.Spawn:
-                        if (Spawn(track, timeS))
-                            spawned++;
-                        break;
-                    case GroomerAction.Remove:
+                    case GroomerWork.Remove:
                         RemoveProp(track);
                         removed++;
                         break;
+                    case GroomerWork.Spawn:
+                    {
+                        float d = haveCamera ? math.distance(camera, track.Path.At(0.5 * track.Path.LengthM)) : 0f;
+                        if (d < nearestD)
+                        {
+                            nearestD = d;
+                            nearest = track;
+                        }
+                        break;
+                    }
+                    case GroomerWork.Dawn:
+                    {
+                        if (!GroomerRules.DawnLeaveNow(timeS + track.PhaseS, track.Path.LengthM))
+                            break;
+                        float d = haveCamera ? math.distance(camera, track.LastPosition.xz) : 0f;
+                        if (d > farthestD)
+                        {
+                            farthestD = d;
+                            farthest = track;
+                        }
+                        break;
+                    }
                     default:
-                        if (wanted && track.Prop == Entity.Null && !m_CapLogged)
+                        if (baseWanted && work && track.Prop == Entity.Null && m_Groomers >= GroomerRules.MaxGroomers && !m_CapLogged)
                         {
                             m_CapLogged = true;
                             Mod.Log.Info($"Groomers: the cap of {GroomerRules.MaxGroomers} is reached; further cat tracks stay without one");
@@ -577,8 +631,29 @@ namespace SkiResortMod.Systems
                         break;
                 }
             }
-            if (spawned > 0 || removed > 0)
-                LogState($"spawned {spawned}, removed {removed}");
+            if (removed > 0)
+                LogState($"removed {removed} at once");
+            // The staggered wave: one [state] line when it ends, not one per machine
+            if ((nearest != null || farthest != null) && m_WaveSpawned == 0 && m_WaveRemoved == 0)
+                m_WaveStartRealS = realS;
+            if (nearest != null && realS >= m_NextSpawnRealS && Spawn(nearest, timeS))
+            {
+                m_WaveSpawned++;
+                m_NextSpawnRealS = realS + GroomerRules.SpawnGapS;
+            }
+            if (farthest != null && realS >= m_NextDawnRealS)
+            {
+                RemoveProp(farthest);
+                m_WaveRemoved++;
+                m_NextDawnRealS = realS + GroomerRules.SpawnGapS;
+            }
+            if (nearest == null && farthest == null && (m_WaveSpawned > 0 || m_WaveRemoved > 0))
+            {
+                LogState(string.Format(CultureInfo.InvariantCulture, "{0} spawned, {1} sent home, staggered over {2:0.0} s",
+                                       m_WaveSpawned, m_WaveRemoved, realS - m_WaveStartRealS));
+                m_WaveSpawned = 0;
+                m_WaveRemoved = 0;
+            }
         }
 
         private bool Spawn(Track track, double timeS)

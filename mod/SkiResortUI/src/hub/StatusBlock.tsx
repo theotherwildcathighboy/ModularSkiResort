@@ -12,10 +12,10 @@ import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { PROBLEM, city$, hubTriggers, lodgeParking$, problems$, resortLive$, resorts$, sameEntity, selectedResort$ } from "../bindings";
+import { PROBLEM, REACH_CAUSE, city$, hubTriggers, lodgeParking$, problems$, resortLive$, resorts$, sameEntity, selectedResort$ } from "../bindings";
 import type { BuildItemId, CityStats, ProblemRow, ResortLive, ResortRow } from "../bindings";
 import { useT } from "../l10n";
-import type { Translate } from "../l10n";
+import type { LocEntry, Translate } from "../l10n";
 import {
   BAND_SLOTS, bandRowsOf, bandSlots, closedRuns, factorRowsOf, foldBandRows, liftNameList, liveOf, problemClick, problemIcon, problemVariant,
   statusHint, statusVariant, statusWord,
@@ -231,6 +231,17 @@ function bandTip(b: BandRow, factors: readonly ProblemRow[], live: ResortLive | 
 }
 
 /** The tooltip body of a band row. */
+/** T249 (contract 55): the cannot-reach tip names the dominant failure cause, the row's `detail` (C# SkiDayRules.ReachCause). 0 or unknown: the plain tip. */
+function reachTip(cause: number): LocEntry {
+  switch (cause) {
+    case REACH_CAUSE.NoRoute: return HUB_LOC.problemTipSkiDaysCannotReachNoRoute;
+    case REACH_CAUSE.Stuck: return HUB_LOC.problemTipSkiDaysCannotReachStuck;
+    case REACH_CAUSE.NeverLeft: return HUB_LOC.problemTipSkiDaysCannotReachNeverLeft;
+    case REACH_CAUSE.OutOfTime: return HUB_LOC.problemTipSkiDaysCannotReachOutOfTime;
+    default: return HUB_LOC.problemTipSkiDaysCannotReach;
+  }
+}
+
 function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element {
   const PCT = numArg(p.pct, Unit.Percentage);
   const v = problemVariant(p);
@@ -250,7 +261,7 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "runsUnrateable": body = t(HUB_LOC.problemTipRunsUnrateable); break;
     case "runsRating": body = t(HUB_LOC.problemTipRunsRating); break;
     case "freeLodges": body = t(HUB_LOC.problemTipFreeLodges); break;
-    case "skiDaysCannotReach": body = t(HUB_LOC.problemTipSkiDaysCannotReach); break;
+    case "skiDaysCannotReach": body = t(reachTip(p.detail)); break;
     case "skiDaysNoGuestsNear": body = t(HUB_LOC.problemTipSkiDaysNoGuestsNear); break;
     case "noParkingNearLodge": body = t(HUB_LOC.problemTipNoParkingNearLodge); break;
     case "lodgeNotSlopeside": body = t(HUB_LOC.problemTipLodgeNotSlopeside); break;

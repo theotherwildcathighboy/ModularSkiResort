@@ -751,6 +751,11 @@ namespace SkiResortMod.Systems
                         {
                             SkiDayRules.ClassTrack t = Tracks[ti];
                             SkiDayRules.RecordOutcome(ref t, false);
+                            // T249: the failure's cause, faded in the same window (the hub tip names the dominant one)
+                            SkiDayRules.RecordCause(ref t, SkiDayRules.ReachCauseOf(failO, (c.Flags & ClaimFlag.Departed) != 0, c.MoveFrame != 0u,
+                                                                                    (c.Flags & ClaimFlag.PathFailedAtStart) != 0,
+                                                                                    (c.Flags2 & ClaimFlag2.WalkerPathFailed) != 0,
+                                                                                    (c.Flags2 & ClaimFlag2.VehiclePathFailed) != 0));
                             if (failO == 0 || failO == 1)
                             {
                                 int k = SpeedKind.NoInformation;

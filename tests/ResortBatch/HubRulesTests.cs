@@ -891,6 +891,10 @@ namespace ResortBatch
             x.Lifts = Ls(L(0, true, true, true));
             x.SkiDaysCannotReach = true;
             Expect("P32 cannot reach", x, o, P(HubProblemCode.SkiDaysCannotReach, 2));
+            // T249: the dominant cause rides in Detail (contract 55)
+            x.SkiDaysReachCause = 3;
+            Expect("P32b cannot reach, cause in Detail", x, o, P(HubProblemCode.SkiDaysCannotReach, 2, detail: 3));
+            x.SkiDaysReachCause = 0;
 
             // P33 the sort. First severity 2 by code (Efficiency 4, LiftNoPower 5, SkiDaysCannotReach 20, NoParkingNearLodge 21).
             // Then severity 1 by code (RunsFlat 17, LodgeNotSlopeside 22). Then the Factor row.

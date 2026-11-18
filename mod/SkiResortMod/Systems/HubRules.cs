@@ -47,7 +47,7 @@ namespace SkiResortMod.Systems
         LiftChairsStopped = 11, RunsUnserved = 12, RunsUnrateable = 13, RunsRating = 14, FreeLodges = 15, Factor = 16,
         RunsFlat = 17,
         SignNoRoad = 18, LodgeNoRoad = 19,
-        SkiDaysCannotReach = 20, NoParkingNearLodge = 21, LodgeNotSlopeside = 22,
+        SkiDaysCannotReach = 20 /* Detail = the dominant cause, SkiDayRules.ReachCause (T249) */, NoParkingNearLodge = 21, LodgeNotSlopeside = 22,
         MixedLiftTypes = 23, SummitLodgeNotLiftServed = 24, SchoolNoGreenRun = 25,
         SchoolsNotLinked = 26,  // top-level ski schools on no sign, Not linked entry only
         SkiDaysNoGuestsNear = 27,  // an open hill with almost no homes or hotels within a ski day's drive. Detail = the nearest, tenths of a km
@@ -107,6 +107,7 @@ namespace SkiResortMod.Systems
         public int LodgesClosedByResort;
         // Set by the stats system only while ski days are on (not Off) and the area has a view.
         public bool SkiDaysCannotReach;  // car confidence < 0.5 after ≥ 20 car claims
+        public int SkiDaysReachCause;    // T249: SkiDayRules.ReachCause of the row (0 none, 1 no route, 2 stuck, 3 never left, 4 out of time)
         public int NoGuestsNearTenthsKm;  // SkiDayRules.NoGuestsNear on an open hill: the nearest home or hotel in tenths of a km. 0 = no row
         public int LodgesNoParking;  // ski-day lodges with 0 car spaces within 600 m
         public int LodgesNotSlopeside;  // active lodges more than 800 m from the area's runs and stations
@@ -956,7 +957,7 @@ namespace SkiResortMod.Systems
             // 0 tourist parties in 2 months, 202 and 175 with a lot, and 0 again without (DECISIONS 489). The far-lodge row is dim (1).
             // Both lodge rows count up to the area's lodges, so a stray count never outnumbers them.
             if (input.SkiDaysCannotReach)
-                output.Add(Row(HubProblemCode.SkiDaysCannotReach, 2));
+                output.Add(Row(HubProblemCode.SkiDaysCannotReach, 2, detail: input.SkiDaysReachCause));
             if (input.NoGuestsNearTenthsKm > 0)
                 output.Add(Row(HubProblemCode.SkiDaysNoGuestsNear, 2, detail: input.NoGuestsNearTenthsKm));
             int lodgesNoParking = Math.Min(input.LodgesNoParking, input.Lodges);

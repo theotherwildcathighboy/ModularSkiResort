@@ -2883,6 +2883,7 @@ namespace SkiResortMod.Systems
                     LodgesClosedByResort = notLinked ? 0 : work.LodgesClosedByResort,
                     // From SkiDaySystem's view (else false / 0 / 0).
                     SkiDaysCannotReach = skiDayRows && d.CannotReach,
+                    SkiDaysReachCause = skiDayRows && d.CannotReach ? (int)d.ReachCause : 0,
                     NoGuestsNearTenthsKm = skiDayRows && hasResult && r.RunsCounted > 0 && m_ReachCensus.TryGetReading(sign, out SkiReachCensusSystem.Reading near) &&
                                            SkiDayRules.NoGuestsNear(near.Households, near.Near) ? SkiDayRules.TenthsKm(near.NearestM) : 0,
                     LodgesNoParking = skiDayRows ? d.LodgesNoParking : 0,

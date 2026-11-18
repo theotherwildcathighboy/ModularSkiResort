@@ -445,7 +445,7 @@ Appended fields and bindings by contract:
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan). `quickRunsSet` gains `lifts`,
   `home`, `pod`, `lift`. The integration branch carries this bump from the A7 merge, so its gates stay green. Re-bump if main takes
   22 first.
-- 53 (r2/hub-fixes. The orchestrator renumbers it at merge.) Corwen playtest fixes T230, T231, T236 to T239, T241. All changes append.
+- 53 (1.0.2, r2/hub-fixes). Corwen playtest fixes T230, T231, T236 to T239, T241. All changes append.
   `MergeCardState` gains `affordMask` (bit t = the city can pay `charge[t]` now, `SkiMergeSystem.CityMoney`). The tier fee shows in the
   warning color and the Merge button is off while the chosen tier is not payable.
   The merge card now shows beside the game's panel only while the hub is open, the merge overlay is armed, or the building is merged
@@ -494,6 +494,10 @@ Appended fields and bindings by contract:
   The Guests view's "Tourists drawn" estimate row is gone (the `estKnown` / `estTourists` fields stay on the wire, unused by the UI).
 - 51 (1.0.2, T229, r2/sync): the `sync` binding (`SyncState`: ready, areas, open, sign, rows, running, done, failed, total) and the
   triggers `syncCard`, `syncInclude`, `syncKeep` and `syncRun`. Number 50 is r2/tourism's. See EngineNotes/SkiSyncSystem.md.
+- 55 (1.0.2, T249, r2/sim). PROBLEM 20 (SkiDaysCannotReach) `detail` is the dominant
+  failure cause, `REACH_CAUSE` (C# `SkiDayRules.ReachCause`). Values: 1 no route, 2 stuck on the way, 3 never left home, 4 out of time,
+  0 no clear cause.
+  The tip names that cause (StatusBlock `reachTip`). No field was added. The meaning of `detail` on row 20 is new. See EngineNotes/SkiDayRules.md, "Reach causes".
 - 42: the runs-first plans (Resort Planner round, task R2-b). `QuickRunsState` loses `mix`, `liftsKnob` and `home`. `QuickRunsLift` loses
   `wantedKey` and gains `flagged`, `waits`, `overLimitTowers`. `QuickRunsPlan` loses `pods` and gains `trackKm`. `QuickRunsState` gains `tracks`
   and `QuickRunsPod` gains `tracks`. `runs`, `enabled`, `count` and `variety` count pistes only. `QuickRunsSheetRow` gains `flagged`, `waits`,

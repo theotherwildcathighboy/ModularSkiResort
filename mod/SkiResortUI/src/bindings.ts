@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 54;
+export const HUB_CONTRACT = 55;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -123,7 +123,7 @@ export const PROBLEM = {
   RunsFlat: 17,
   SignNoRoad: 18,  // the Welcome Sign's Building.m_RoadEdge is null (C# HubProblemCode.SignNoRoad)
   LodgeNoRoad: 19,  // a lodge of the area has Building.m_RoadEdge null. `subject` = the first such lodge
-  SkiDaysCannotReach: 20,  // most car ski-day guests never arrived (sev 2). `subject` = that lodge, else the sign
+  SkiDaysCannotReach: 20,  // most car ski-day guests never arrived (sev 2). `subject` = that lodge, else the sign. `detail` = the dominant failure cause, REACH_CAUSE (contract 55, T249)
   NoParkingNearLodge: 21,  // ski-day lodges with 0 car spaces within 600 m (sev 1). Uses `count`
   LodgeNotSlopeside: 22,  // active lodges more than 800 m from the runs and stations (sev 1). Uses `count`
   MixedLiftTypes: 23,  // a lift's line and stations span two of our lift types (sev 2). Counts are 0
@@ -136,6 +136,16 @@ export const PROBLEM = {
   LiftBend: 30,  // a complete or open lift's sharpest tower bend in plan is over 5 deg (sev 1). `count` = the tower number. `detail` = tenths of a degree. `subject` = the tower's net node, `subjectTop` null
   LiftTrainLimit: 31,  // a complete or open lift has a tower whose rope goes past what its sheave train follows (sev 1). `count` = the tower number. `subject` = the tower's net node, `subjectTop` null
   LiftLowSpan: 32,  // a complete or open lift has a span whose carriers pass under the floor (sev 1). `count` / `more` = the tower numbers at its ends (0 = a station). `detail` = their height above the ground in tenths (0 = at or below it). `pct` = 1 cabins / 0 chairs. `subject` = the span's net edge, `subjectTop` null
+} as const;
+
+/** ProblemRow.detail of PROBLEM.SkiDaysCannotReach (contract 55, T249): C# SkiDayRules.ReachCause, the cause that holds at least half of
+ *  the recent failed car ski days. None = no clear cause (the plain tip). */
+export const REACH_CAUSE = {
+  None: 0,
+  NoRoute: 1,    // the pathfinder found no route from home to the lodge
+  Stuck: 2,      // the guest or the car lost its path or got stuck on the way
+  NeverLeft: 3,  // the guest never left home
+  OutOfTime: 4,  // still on the way when the ski day ran out
 } as const;
 
 /** ResortLive.skiDaysState. C# HubRules HubSkiDayState. */

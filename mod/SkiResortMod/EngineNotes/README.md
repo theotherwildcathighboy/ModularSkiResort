@@ -62,6 +62,7 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`Settings.LocaleEN.md`](Settings.LocaleEN.md) -> Settings/LocaleEN: which locale keys the options UI and key bindings read
 - [`ShuttleProfile.md`](ShuttleProfile.md) -> ShuttleProfile: the jig-back tram's speed profile, cycle, clock and length quantum
 - [`SkiCatalog.md`](SkiCatalog.md) -> SkiCatalog: the prefab catalog's contract (save-identity names, pending flags, text-parsed blocks, readers) and the tram frames
+- [`SkiDarkSignalSystem.md`](SkiDarkSignalSystem.md) -> SkiDarkSignalSystem: the shared dark signal from the sun, and how our Night-gated lights follow it without Harmony
 - [`SkiDayRules.md`](SkiDayRules.md) -> SkiDayRules: Burst-callable pure rules, overload families and the trip model
 - [`SkiDaySystem.Jobs.md`](SkiDaySystem.Jobs.md) -> SkiDaySystem.Jobs: what each Burst job reads and writes, the measure-only parts, and the deadline pull
 - [`SkiDaySystem.md`](SkiDaySystem.md) -> SkiDaySystem: scheduling anchor, the pass, claim writes into vanilla state, tracking and the cost measurement
