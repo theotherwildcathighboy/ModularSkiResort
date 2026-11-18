@@ -445,7 +445,7 @@ Appended fields and bindings by contract:
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan). `quickRunsSet` gains `lifts`,
   `home`, `pod`, `lift`. The integration branch carries this bump from the A7 merge, so its gates stay green. Re-bump if main takes
   22 first.
-- 52 (was 50 on r2/hub-ui; renumbered at the r2 merge, after r2/tourism 50 and r2/sync 51): the snow report (T200, SkiSnowReportSystem). The design is in docs/research/post-release-round2/T200-snow-report.md.
+- 52 (r2/hub-ui had 50. The r2 merge renumbered it after r2/tourism 50 and r2/sync 51.) The snow report (T200, SkiSnowReportSystem). The design is in docs/research/post-release-round2/T200-snow-report.md.
   `ResortLive` gains `snowReport` (`SnowReport`). `known` is false without a run outline. `baseM` and `summitM` are the lowest and highest
   outline node of the bound runs, cat tracks excluded. `tempKnown`, `baseTempC` and `summitTempC` are the temperatures now.
   `baseDepthCm` and `summitDepthCm` come from the newest snow-map snapshot (-1 means none). `baseNew24Cm`, `summitNew24Cm`,
