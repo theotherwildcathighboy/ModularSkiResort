@@ -403,6 +403,7 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.SLOPE_AVG_MAX_SHARE", "Avg {AD} · steepest {SD} · only {SS} of the run is steeper than {ST}" },
                 { "SkiResort.Tooltip.SLOPE_AVG_MAX_GENTLE", "Avg {AD} · steepest {SD} · gentle run, short steep pitch" },
                 { "SkiResort.Tooltip.RUN_FEE", "Run fee (one-time)" },
+                { "SkiResort.Tooltip.RATING_SO_FAR", "{BAND} (so far)" },
                 {
                     "SkiResort.Tooltip.NO_GATE_IN_RANGE",
                     "No Ski Area Welcome Sign within {RADIUS}: this run will not count until " +

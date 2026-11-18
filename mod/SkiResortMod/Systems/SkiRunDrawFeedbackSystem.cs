@@ -45,6 +45,11 @@ namespace SkiResortMod.Systems
             public float SteepestGrade;
             public bool Connected;
             public bool IsNewRun;
+            /// <summary>T252: a new run whose outline is still open (the area tool's Create state, the Temp not Complete). The Temp is rated
+            /// as if closed through the cursor node (SkiSlopeClassifier.Plan treats >= 3 nodes with area as a ring, so FinishBand runs), but the
+            /// next click changes the shape, so the band can still change. A 2-node Temp is a line (polyline mode, no difficulty layer).
+            /// The tooltip then says "so far".</summary>
+            public bool Open;
             public bool GateInRange;
             public float Length;
             // The fee inputs. The system sets them at every recompute whether or not the rating succeeds, and to -1 / 0 after Invalidate.
@@ -970,6 +975,7 @@ namespace SkiResortMod.Systems
 
             bool isNew = tempData.m_Original == Entity.Null;
             m_Readout.IsNewRun = isNew;
+            m_Readout.Open = isNew && !complete;
             // The fee inputs, set here so they exist even when the heights are not ready and the rating returns early. ShoelaceArea is the
             // rater's public pure helper (plan area). For a simple outline it equals Geometry.m_SurfaceArea (sum of triangle areas), which
             // the bind charges. At the closing click the cursor node sits on the first node (a zero-area edge).

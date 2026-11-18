@@ -34,6 +34,7 @@ namespace SkiResortMod.Systems
         public const string KeySlopeGentle = "SkiResort.Tooltip.SLOPE_AVG_MAX_GENTLE"; // + "· gentle run, short steep pitch"
         public const string KeyNoGate ="SkiResort.Tooltip.NO_GATE_IN_RANGE";
         public const string KeyFee = "SkiResort.Tooltip.RUN_FEE"; // "Run fee (one-time)"
+        public const string KeySoFar = "SkiResort.Tooltip.RATING_SO_FAR"; // "{BAND} (so far)": a new outline still open (T252)
 
         /// <summary>Built once, North American by (int)SlopeBand (Flat 0 .. DoubleBlack 4).</summary>
         private static readonly LocalizedString[] BandText =
@@ -215,10 +216,13 @@ namespace SkiResortMod.Systems
                     bool eu = DisplayState.Scheme == GradeScheme.European;
                     if (eu)
                         m_ShownEu = DisplayUnits.EuClassShown(band, r.RatingGrade * 100f, m_ShownEu, 100f * SkiSlopeClassifier.DisplayHysteresis);
-                    int shown = eu ? 8 + (int)m_ShownEu : band;   // a scheme change re-sets the text too
+                    // T252: while a new outline is still open, the next click changes the shape, so the band reads "so far". At the closing click
+                    // (and for an edited run) the readout is the rating the built run gets, so the plain band shows.
+                    int shown = (eu ? 8 + (int)m_ShownEu : band) + (r.Open ? 100 : 0);   // a scheme change re-sets the text too
                     if (shown != m_ShownBand)
                     {
-                        m_Grade.value = eu ? EuClassText[(int)m_ShownEu] : BandText[band];
+                        LocalizedString text = eu ? EuClassText[(int)m_ShownEu] : BandText[band];
+                        m_Grade.value = r.Open ? LocalizedString.Id(KeySoFar, ("BAND", text)) : text;
                         m_ShownBand = shown;
                     }
                     m_Grade.color = band == (int)SlopeBand.Flat ? TooltipColor.Warning : TooltipColor.Info;
