@@ -136,17 +136,25 @@ function Install-SaveCopy([string]$source, [string]$gameName) {
     # T205 (observed in game 2026-11-16, not a controlled test): the game lists a copy when it has its own .cid and no byte-identical save is listed already
     # (a copy of lightvale1.cok stayed hidden while the original sat in Saves; a copy of a baseline whose original is gone lists fine).
     # So an identical save that is already in Saves is used by its own name: nothing is staged, nothing is written.
+    # Twins: of two byte-identical saves the game lists only ONE, and which one changes between game starts (2026-11-17: the staged
+    # loadcheck_* copy was listed and the original hidden; for another save it was the other way round). So every identical save is a
+    # candidate name ($script:StagedNames, originals first) and Load-City tries them in turn.
     $srcLen = (Get-Item -LiteralPath $source).Length
     $srcHash = $null
-    foreach ($c in Get-ChildItem $savesDir.FullName -Filter *.cok -File | Where-Object { $_.Length -eq $srcLen -and $_.Name -notlike 'loadcheck_*' }) {
+    $twins = @()
+    foreach ($c in Get-ChildItem $savesDir.FullName -Filter *.cok -File | Where-Object { $_.Length -eq $srcLen } | Sort-Object { $_.Name -like 'loadcheck_*' }, Name) {
         if (-not $srcHash) { $srcHash = (Get-FileHash -LiteralPath $source).Hash }
-        if ((Get-FileHash -LiteralPath $c.FullName).Hash -eq $srcHash) {
-            $script:StagedName = [Uri]::UnescapeDataString([IO.Path]::GetFileNameWithoutExtension($c.Name))   # the game escapes "." as %2E in file names; the list shows the plain name
-            Write-Output "  save copy: not needed, the game already lists a byte-identical save as '$($script:StagedName)' (loaded read-only by name, never saved over)"
-            return $c.FullName
-        }
+        if ((Get-FileHash -LiteralPath $c.FullName).Hash -eq $srcHash) { $twins += $c }
+    }
+    if ($twins.Count -gt 0) {
+        # the game escapes "." as %2E in file names; the list shows the plain name
+        $script:StagedNames = @($twins | ForEach-Object { [Uri]::UnescapeDataString([IO.Path]::GetFileNameWithoutExtension($_.Name)) })
+        $script:StagedName = $script:StagedNames[0]
+        Write-Output "  save copy: not needed, the game already lists a byte-identical save: $((($script:StagedNames | ForEach-Object { "'$_'" }) -join ', ')) (loaded read-only by name, never saved over; the first name the list shows is used)"
+        return $twins[0].FullName
     }
     $script:StagedName = $gameName
+    $script:StagedNames = @($gameName)
     $target = Join-Path $savesDir.FullName "$gameName.cok"
     $cid = "$target.cid"
     $copied = $false
@@ -193,12 +201,29 @@ function Wait-Report([int]$timeoutSec) {
     }
 }
 
-function Load-City([string]$name, [string]$label) {
+# A report that is already running (a manual `begin` + `report` before this script, or a second call racing the first) makes the bridge answer
+# "a report is running" and refuse. Wait for that run instead of breaking off: its result is the one this call wanted.
+function Start-Report($request) {
+    try { Invoke-Bridge $request | Out-Null }
+    catch {
+        if ("$($_.Exception.Message)" -notmatch 'a report is running') { throw }
+        Write-Output '  report: one is already running on the bridge, waiting for it instead of starting another'
+    }
+}
+
+# $names: one or more game names of the same save (twins: byte-identical files, only one of them is listed). Tries each until the list shows one.
+function Load-City([string[]]$names, [string]$label) {
     $t = Get-Date
     Invoke-Bridge @{ op = 'loadcheck'; action = 'begin'; save = $label } | Out-Null
     Show-Game
-    $r = Invoke-Page "__dload($(ConvertTo-Json $name))" 60
-    Write-Output "  __dload: $r"
+    $r = $null
+    foreach ($name in $names) {
+        $r = Invoke-Page "__dload($(ConvertTo-Json $name))" 180
+        Write-Output "  __dload '$name': $r"
+        if ("$r" -match '^loading ') { $script:StagedName = $name; break }
+        if ("$r" -notmatch 'no save ') { break }   # anything but "the list does not show this name": no point in trying the twin
+        if ($names.Count -gt 1) { Write-Output "  '$name' is not listed, trying the next twin" }
+    }
     if ("$r" -notmatch '^loading ') {
         Stop-Check 2 "the load did not start ($r). 'no save <name>' means the game does not list the copy: stage it with the game closed (loadcheck.ps1 -StageOnly), then start the game (T205)."
     }
@@ -311,14 +336,14 @@ try {
     # ---- load --------------------------------------------------------------------------------------------------------
     if (-not $NoLoad) {
         $null = Install-SaveCopy $Save "loadcheck_$Stem"
-        $gameName = $script:StagedName
-        $result.gameSave = $gameName
-        Load-City $gameName $Stem
+        $gameNames = $script:StagedNames
+        Load-City $gameNames $Stem
+        $result.gameSave = $script:StagedName   # the name the list showed
     }
 
     # ---- report (a, b, c) ----------------------------------------------------------------------------------------------
     Write-Output "  report: logs, census$(if (-not $NoMonth) { ', one month at speed 8' })"
-    Invoke-Bridge @{ op = 'loadcheck'; action = 'report'; month = (-not $NoMonth); speed = 8; monthTimeoutMinutes = $MonthTimeoutMinutes } | Out-Null
+    Start-Report @{ op = 'loadcheck'; action = 'report'; month = (-not $NoMonth); speed = 8; monthTimeoutMinutes = $MonthTimeoutMinutes }
     $done = Wait-Report (60 * ($MonthTimeoutMinutes + 10))
     if ($done.state -eq 'failed') { $result.report = $done.report; throw "report failed: $($done.error)" }
     $report = $done.report
@@ -414,7 +439,7 @@ try {
         Write-Output "  __dsave: $s"
         if ("$s" -notmatch '^saved ') { throw "the save failed: $s" }
         Load-City $saveName "$Stem resaved as $saveName"
-        Invoke-Bridge @{ op = 'loadcheck'; action = 'report'; month = $false } | Out-Null
+        Start-Report @{ op = 'loadcheck'; action = 'report'; month = $false }
         $done2 = Wait-Report 600
         if ($done2.state -eq 'failed') { throw "resave report failed: $($done2.error)" }
         $result.resave = $done2.report
