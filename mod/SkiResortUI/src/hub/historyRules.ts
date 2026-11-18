@@ -343,6 +343,65 @@ export function yearOnYear(area: HistoryArea | null): YearOnYear {
   return { now: now.none ? null : now, before: before && !before.none ? before : null };
 }
 
+/** T245: "This season so far", the running totals of the season in progress and last season at the same point. */
+export interface SeasonSoFar {
+  /** The season key (the year of its first month). */
+  season: number;
+  /** This season from its first month to the newest month, the month in progress included (sums). */
+  now: HistoryBucket;
+  /** This season's whole months (the month in progress left out). null = none yet. */
+  nowWhole: HistoryBucket | null;
+  /** Last season over the same calendar months as nowWhole. null = no data for all of them (a partial season does not compare). */
+  before: HistoryBucket | null;
+  /** The month of this season with the most guests (the month in progress counts). null = none. */
+  best: HistoryBucket | null;
+  /** This season's buildings and wages apart (the bucket has only their sum). -1 = unknown in every month. */
+  buildings: number;
+  wages: number;
+}
+
+export function seasonSoFar(area: HistoryArea | null): SeasonSoFar | null {
+  const n = lengthOf(area);
+  if (!area || n === 0) return null;
+  const last = lastKeyOf(area);
+  const season = seasonOf(last);
+  const first = seasonFirstKey(season);
+  const now = sumRange(area, "season", season, first, last);
+  if (now.none) return null;
+  const wholeLast = ((area.flags[n - 1] | 0) & HISTORY_FLAG.Current) ? last - 1 : last;
+  const whole = wholeLast >= first ? sumRange(area, "season", season, first, wholeLast) : null;
+  const nowWhole = whole && !whole.none ? whole : null;
+  const prev = nowWhole ? sumRange(area, "season", season - 1, first - 12, wholeLast - 12) : null;
+  const before = prev && nowWhole && !prev.none && prev.months >= nowWhole.months ? prev : null;
+  let best: HistoryBucket | null = null;
+  for (let k = Math.max(first, area.firstMonthKey); k <= last; k++) {
+    const m = sumRange(area, "month", k, k, k);
+    if (!m.none && (best === null || m.guests > best.guests)) best = m;
+  }
+  let buildings = 0, wages = 0, bKnown = 0, wKnown = 0;
+  for (let k = Math.max(first, area.firstMonthKey); k <= last; k++) {
+    const i = k - area.firstMonthKey;
+    if ((area.flags[i] | 0) & HISTORY_FLAG.Gap) continue;
+    if (area.buildingsCost[i] >= 0) { buildings += area.buildingsCost[i]; bKnown++; }
+    if (area.wagesCost[i] >= 0) { wages += area.wagesCost[i]; wKnown++; }
+  }
+  return { season, now, nowWhole, before, best, buildings: bKnown > 0 ? buildings : -1, wages: wKnown > 0 ? wages : -1 };
+}
+
+/** T245: whole percents of each part (largest remainder, so they add up to 100; ties go to the earlier part). Parts below 0 read 0.
+ *  All 0: all 0. */
+export function sharesPct(values: readonly number[]): number[] {
+  const v = values.map((x) => (Number.isFinite(x) && x > 0 ? x : 0));
+  const total = v.reduce((a, b) => a + b, 0);
+  if (!(total > 0)) return v.map(() => 0);
+  const raw = v.map((x) => (x * 100) / total);
+  const out = raw.map((x) => Math.floor(x));
+  let left = 100 - out.reduce((a, b) => a + b, 0);
+  const order = raw.map((x, i) => ({ i, r: x - Math.floor(x) })).sort((a, b) => b.r - a.r || a.i - b.i);
+  for (let j = 0; left > 0 && j < order.length; j++, left--) out[order[j].i]++;
+  return out;
+}
+
 export function pctChange(now: number | null | undefined, before: number | null | undefined): number | null {
   if (typeof now !== "number" || typeof before !== "number" || !Number.isFinite(now) || !Number.isFinite(before) || before <= 0) return null;
   return Math.round(((now - before) / before) * 100);

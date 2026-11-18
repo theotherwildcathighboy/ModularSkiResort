@@ -3246,6 +3246,54 @@
 
 // The History view's segment buttons: tighter than the Trees tool's (two segments share a 380 rem row).
 // Two classes, so they win over a single-class button theme (the game's and the harness's .h-btn) whatever the stylesheet order.
+// T245: "This season so far". The change cell (a StableWidth inside) and the mix rows: label, a bar of share parts, the largest part.
+.histSeasonChange {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  margin-left: 10rem;
+  font-size: var(--fontSizeXS);
+  color: var(--hubTextDim);
+}
+
+.histMixLabel {
+  flex-grow: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.histMixTrack {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  height: 0.45em;
+  margin-left: 8rem;
+  margin-right: 8rem;
+  background-color: var(--sectionBackgroundColor);
+  border-radius: 2rem;
+  overflow: hidden;
+}
+
+.histMixPart {
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
+.histMixTop {
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-size: var(--fontSizeXS);
+  color: var(--hubTextDim);
+  white-space: nowrap;
+}
+
 .histControls .histSeg {
   padding-left: 5rem;
   padding-right: 5rem;

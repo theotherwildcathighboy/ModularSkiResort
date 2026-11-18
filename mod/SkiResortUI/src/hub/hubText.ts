@@ -559,6 +559,14 @@ export const HUB_LOC = {
   historyNet: ["SkiResort.Hub.HISTORY[Net]", "Net"],
   historyIncome: ["SkiResort.Hub.HISTORY[Income]", "Income"],
   historyCosts: ["SkiResort.Hub.HISTORY[Costs]", "Costs"],
+  // T245 (1.0.2): the History view's "This season so far" block, lines without a placeholder
+  historySeasonHead: ["SkiResort.Hub.HISTORY_SEASON[Head]", "This season so far"],
+  historySeasonTip: ["SkiResort.Hub.HISTORY_SEASON[Tip]", "Running totals from the first month of this ski season to today, the month in progress included."],
+  historySeasonNoCompare: ["SkiResort.Hub.HISTORY_SEASON[NoCompare]", "No change yet: last season has no data for the same months, or this season has no whole month."],
+  historyBestMonth: ["SkiResort.Hub.HISTORY_SEASON[BestMonth]", "Best month"],
+  historyAvgTicket: ["SkiResort.Hub.HISTORY_SEASON[AvgTicket]", "Average ticket"],
+  historyIncomeMix: ["SkiResort.Hub.HISTORY_SEASON[IncomeMix]", "Income mix"],
+  historyCostMix: ["SkiResort.Hub.HISTORY_SEASON[CostMix]", "Cost mix"],
   historyLastSeason: ["SkiResort.Hub.HISTORY[LastSeason]", "Last season"],
   historySeasonTotal: ["SkiResort.Hub.HISTORY[SeasonTotal]", "Season total"],
   historyEmpty: ["SkiResort.Hub.HISTORY[Empty]", "No month recorded yet. The first one closes at the end of this month."],
@@ -900,6 +908,22 @@ export const HUB_FMT = {
   historyTipBefore: ["SkiResort.Hub.HISTORY_TIP[Before]", "{MONTH} {YEAR}: {N}"],
   historySeasonMonths: ["SkiResort.Hub.HISTORY_SEASON_MONTHS", "{N} of 12 months · the average month"],
   historyVs: ["SkiResort.Hub.HISTORY_VS", "vs {MONTH} {YEAR}"],
+  /* T245: {SEASON} = last season, "2025/26" (or "2025" where the season starts in January) */
+  historySeasonVs: ["SkiResort.Hub.HISTORY_SEASON[Vs]", "vs {SEASON}"],
+  /* T245: {FROM} / {TO} = month names */
+  historySeasonCompared: ["SkiResort.Hub.HISTORY_SEASON[Compared]", "The change compares the whole months so far, {FROM} to {TO}, with the same months of last season."],
+  /* T245: {N} = the figure, Integer or Money */
+  historySeasonBefore: ["SkiResort.Hub.HISTORY_SEASON[Before]", "Last season over the same months: {N}"],
+  /* T245: {MONTH} = month name, {N} = its guests (Integer) */
+  historyBestValue: ["SkiResort.Hub.HISTORY_SEASON[BestValue]", "{MONTH} · {N}"],
+  /* T245: {N} Integer, {NET} signed Money */
+  historyBestTip: ["SkiResort.Hub.HISTORY_SEASON[BestTip]", "{MONTH} {YEAR} had the most guests of this season: {N}. Its net: {NET}."],
+  /* T245: {N} = tickets sold (Integer) */
+  historyAvgTicketTip: ["SkiResort.Hub.HISTORY_SEASON[AvgTicketTip]", "Lift ticket money this season divided by the tickets sold: {N}. Season pass holders buy no ticket."],
+  /* T245: {NAME} = the largest part's label, {PCT} = its share (Percentage) */
+  historyMixTop: ["SkiResort.Hub.HISTORY_SEASON[MixTop]", "{NAME} {PCT}"],
+  /* T245: {AMOUNT} = Money, {PCT} = Percentage */
+  historyMixPart: ["SkiResort.Hub.HISTORY_SEASON[MixPart]", "{AMOUNT} · {PCT}"],
   // the Quick runs tool (QuickRunsControls.tsx). The MIX / CLUSTER / POD templates are also the tool tooltip's
   quickRegion: ["SkiResort.Hub.QUICK_REGION_LINE", "{N} corners · {AREA} of {MAX} · {V} vertical"],
   quickScanning: ["SkiResort.Hub.QUICK_SCANNING_LINE", "Scanning the region: {P}"],

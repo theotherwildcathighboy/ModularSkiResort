@@ -3,6 +3,9 @@
  * Top level shows the chart and the number that matters (headline = last whole month against the same month a year earlier). Tooltips
  * hold the detail. Controls are local values (hubState.ts, nothing sent): scope area / whole city, and range. Both charts and (area scope)
  * the Attraction strip always draw.
+ * T245 (1.0.2): under the charts, "This season so far" (historyRules.seasonSoFar): guests, ski days, income, costs and net as running
+ * totals with the change against last season over the same whole months, the best month, the average ticket and the income and cost mix.
+ * All from the history rows (no C# change). Season snowfall is not repeated here: the Welcome Sign's snow report card holds it.
  * Snow is not drawn as a line. The Attraction strip's hover names each month's snow at the roll as its two numbers, depth and run
  * coverage. T142 B7b, contract 15: snow is never one number. Hover: one index shared by
  * every chart of the view. Panel file (gate R11): subscribes history$ (only this view, so C# builds `history` only while it is shown),
@@ -22,9 +25,9 @@ import { BarChart, HISTORY_COLOR, Legend, LineStrip } from "./HistoryChart";
 import type { ChartBehind, ChartSeries, ChartSlot } from "./HistoryChart";
 import {
   HISTORY_RANGES, compareOf, effectiveRange, labelStep, linePoints, monthOfKey, netChange, niceMax, pctChange,
-  rangeEnabled, seasonIsOneYear, setSeasonFirstMonth0, sumAreas, windowOf, yearOfKey, yearOnYear,
+  rangeEnabled, seasonIsOneYear, seasonSoFar, setSeasonFirstMonth0, sharesPct, sumAreas, windowOf, yearOfKey, yearOnYear,
 } from "./historyRules";
-import type { HistoryBucket, HistoryRange } from "./historyRules";
+import type { HistoryBucket, HistoryRange, SeasonSoFar } from "./historyRules";
 import { historyRange$, historyScope$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, monthName, monthShortName } from "./hubText";
 import { InfoLine, LocText, Num, SignedNum, StableWidth, Tip, TipLines, cx, depthValue, numArg, useNumberSamples, useUnits } from "./parts";
@@ -45,8 +48,10 @@ const RANGE_TIP: Readonly<Record<HistoryRange, LocEntry>> = {
 };
 
 /** Plot heights in rem: each chart, the attraction strip. Both charts are always drawn (hub redesign 2026-11-07: the Guests /
-*  Finances / Both segment and the strip's check box were removed). The pager (fit.tsx) puts the money chart on a second page if needed. */
-const H_TWO = 64, H_STRIP = 26;
+*  Finances / Both segment and the strip's check box were removed). The pager (fit.tsx) puts the money chart on a second page if needed.
+*  T245: the season block (about 290 rem) never fits beside the charts, so the pager gives it page 2 and the charts own page 1.
+*  H_TWO grew from 64 to 110 into that room: page 1 keeps 28 rem slack at text scale 1 (the rem rule: any screen height). */
+const H_TWO = 110, H_STRIP = 26;
 
 function asRange(v: string): HistoryRange {
   return (HISTORY_RANGES as readonly string[]).includes(v) ? (v as HistoryRange) : "months12";
@@ -133,6 +138,125 @@ function slotsOf(buckets: readonly HistoryBucket[]): ChartSlot[] {
 const pos = (v: number): number => (v > 0 ? v : 0);
 const round = (v: number): number => Math.round(v);
 
+/** T245: a season's short name, "25/26", or "2025" where the season starts in January. */
+function seasonShort(season: number): string {
+  return seasonIsOneYear() ? String(season) : `${pad2(season)}/${pad2(season + 1)}`;
+}
+
+/** T245: one running-total row: label, the value, the change against last season (a StableWidth cell each, so nothing jitters). */
+function SeasonRow({ label, value, change, tip, wide }: {
+  label: string; value: JSX.Element | string; change: JSX.Element | string; tip: ReactNode; wide: readonly string[];
+}): JSX.Element {
+  return (
+    <Tip tip={tip}>
+      <div className={styles.infoLine}>
+        <div className={styles.infoLabel}>{label}</div>
+        <StableWidth samples={wide} align="end" className={styles.valueCell}>{value}</StableWidth>
+        <div className={styles.histSeasonChange}>{change}</div>
+      </div>
+    </Tip>
+  );
+}
+
+/* T245: the mix bars' parts get one hue, the first (largest by design) part strongest. */
+const MIX_ALPHA = [1, 0.7, 0.45, 0.25] as const;
+
+/** T245: a share bar (income or costs): label, one bar of parts in a fixed order, the largest part named at the end. */
+function MixRow({ label, parts, color, head, t }: {
+  label: string; parts: ReadonlyArray<{ name: string; value: number }>; color: string; head: string; t: Translate;
+}): JSX.Element {
+  const pct = sharesPct(parts.map((p) => p.value));
+  let top = -1;
+  for (let i = 0; i < parts.length; i++) if (pct[i] > 0 && (top < 0 || pct[i] > pct[top])) top = i;
+  const tip = <TipLines lines={[head, ...parts.map((p, i) => ({
+    label: p.name,
+    value: <LocText entry={HUB_FMT.historyMixPart} args={{ AMOUNT: numArg(round(Math.max(0, p.value)), Unit.Money), PCT: numArg(pct[i], Unit.Percentage) }} />,
+  }))]} />;
+  return (
+    <Tip tip={tip}>
+      <div className={styles.infoLine}>
+        <div className={styles.histMixLabel}>{label}</div>
+        <div className={styles.histMixTrack}>
+          {top < 0 ? <div className={styles.barRest} style={{ flexGrow: 1 }} /> : parts.map((p, i) => (pct[i] > 0
+            ? <div key={p.name} className={styles.histMixPart} style={{ flexGrow: pct[i], backgroundColor: color, opacity: MIX_ALPHA[i] ?? 0.25 }} />
+            : null))}
+        </div>
+        <div className={styles.histMixTop}>
+          {top < 0 ? "–" : <LocText entry={HUB_FMT.historyMixTop} args={{ NAME: parts[top].name, PCT: numArg(pct[top], Unit.Percentage) }} />}
+        </div>
+      </div>
+    </Tip>
+  );
+}
+
+/** T245: "This season so far". Flat rows (no wrapper), so the view pager can move them to a second page at a large text scale. */
+function SeasonBlock({ s, samples, t }: { s: SeasonSoFar; samples: NumberSamples; t: Translate }): JSX.Element {
+  const now = s.now, whole = s.nowWhole, before = s.before;
+  const cmp = !!whole && !!before;
+  const pctCellOf = (a: number, b: number): JSX.Element | string => {
+    if (!cmp) return "–";
+    const p = pctChange(a, b);
+    return <StableWidth samples={samples.percent} align="end">{p === null ? "–" : <SignedNum value={p} unit={Unit.Percentage} />}</StableWidth>;
+  };
+  const beforeOf = (v: number | null, unit: Unit): ReactNode => cmp && v !== null
+    ? <LocText key="b" entry={HUB_FMT.historySeasonBefore} args={{ N: numArg(round(v), unit, unit === Unit.Money) }} /> : null;
+  const headTip = <TipLines lines={[
+    t(HUB_LOC.historySeasonTip),
+    cmp && whole ? <LocText key="c" entry={HUB_FMT.historySeasonCompared} args={{ FROM: monthName(monthOfKey(whole.firstKey), t), TO: monthName(monthOfKey(whole.firstKey + whole.months - 1), t) }} />
+      : t(HUB_LOC.historySeasonNoCompare),
+  ]} />;
+  const tipOf = (label: LocEntry, line: ReactNode): ReactNode => <TipLines lines={[t(label), line as TipLine]} />;
+  const money = (v: number, signed = false): JSX.Element => (signed ? <SignedNum value={round(v)} unit={Unit.Money} /> : <Num value={round(v)} unit={Unit.Money} />);
+  const netDiff = cmp && whole && before ? whole.net - before.net : null;
+  const avgTicket = now.ticketsPaid > 0 ? now.ticketIncome / now.ticketsPaid : -1;
+  const best = s.best;
+  return (
+    <>
+      <InfoLine
+        header
+        label={t(HUB_LOC.historySeasonHead)}
+        value={<div className={styles.histVs}><LocText entry={HUB_FMT.historySeasonVs} args={{ SEASON: seasonShort(s.season - 1) }} /></div>}
+        tip={headTip}
+      />
+      <SeasonRow label={t(HUB_LOC.historyGuests)} wide={samples.count} value={<Num value={round(now.guests)} unit={Unit.Integer} />}
+        change={pctCellOf(whole ? whole.guests : 0, before ? before.guests : 0)} tip={tipOf(HUB_LOC.historyGuests, beforeOf(before ? before.guests : null, Unit.Integer))} />
+      <SeasonRow label={t(HUB_LOC.historySkiDays)} wide={samples.count} value={now.skiDays >= 0 ? <Num value={round(now.skiDays)} unit={Unit.Integer} /> : "–"}
+        change={whole && before && whole.skiDays >= 0 && before.skiDays >= 0 ? pctCellOf(whole.skiDays, before.skiDays) : "–"}
+        tip={tipOf(HUB_LOC.historySkiDays, beforeOf(before && before.skiDays >= 0 ? before.skiDays : null, Unit.Integer))} />
+      <SeasonRow label={t(HUB_LOC.historyIncome)} wide={samples.money} value={money(now.income)}
+        change={pctCellOf(whole ? whole.income : 0, before ? before.income : 0)} tip={tipOf(HUB_LOC.historyIncome, beforeOf(before ? before.income : null, Unit.Money))} />
+      <SeasonRow label={t(HUB_LOC.historyCosts)} wide={samples.money} value={money(-now.costs, true)}
+        change={pctCellOf(whole ? whole.costs : 0, before ? before.costs : 0)} tip={tipOf(HUB_LOC.historyCosts, beforeOf(before ? -before.costs : null, Unit.Money))} />
+      <SeasonRow label={t(HUB_LOC.historyNet)} wide={samples.money} value={money(now.net, true)}
+        change={netDiff === null ? "–" : <StableWidth samples={samples.money} align="end"><SignedNum value={round(netDiff)} unit={Unit.Money} /></StableWidth>}
+        tip={tipOf(HUB_LOC.historyNet, beforeOf(before ? before.net : null, Unit.Money))} />
+      <InfoLine
+        label={t(HUB_LOC.historyBestMonth)}
+        value={best ? <LocText entry={HUB_FMT.historyBestValue} args={{ MONTH: monthName(monthOfKey(best.key), t), N: numArg(round(best.guests), Unit.Integer) }} /> : "–"}
+        tip={best ? <LocText entry={HUB_FMT.historyBestTip} args={{ MONTH: monthName(monthOfKey(best.key), t), YEAR: String(yearOfKey(best.key)),
+          N: numArg(round(best.guests), Unit.Integer), NET: numArg(round(best.net), Unit.Money, true) }} /> : undefined}
+      />
+      <InfoLine
+        label={t(HUB_LOC.historyAvgTicket)}
+        value={avgTicket >= 0 ? <Num value={round(avgTicket)} unit={Unit.Money} /> : "–"}
+        tip={<LocText entry={HUB_FMT.historyAvgTicketTip} args={{ N: numArg(round(now.ticketsPaid), Unit.Integer) }} />}
+      />
+      <MixRow label={t(HUB_LOC.historyIncomeMix)} color={HISTORY_COLOR.income} head={t(HUB_LOC.historyIncomeMix)} t={t} parts={[
+        { name: t(HUB_LOC.historyTickets), value: now.ticketIncome },
+        { name: t(HUB_LOC.historyPasses), value: now.passIncome },
+        { name: t(HUB_LOC.historyLodge), value: now.lodgeIncome },
+        { name: t(HUB_LOC.historyLessons), value: now.lessonIncome },
+      ]} />
+      <MixRow label={t(HUB_LOC.historyCostMix)} color={HISTORY_COLOR.costs} head={t(HUB_LOC.historyCostMix)} t={t} parts={[
+        { name: t(HUB_LOC.historyLifts), value: now.liftCost },
+        { name: t(HUB_LOC.historyRuns), value: now.runCost },
+        { name: t(HUB_LOC.moneyRowBuildings), value: Math.max(0, s.buildings) },
+        { name: t(HUB_LOC.moneyRowWages), value: Math.max(0, s.wages) },
+      ]} />
+    </>
+  );
+}
+
 export function HistoryView(): JSX.Element {
   const t = useT();
   const samples = useNumberSamples();
@@ -155,6 +279,7 @@ export function HistoryView(): JSX.Element {
   const buckets = useMemo(() => windowOf(area, range), [area, range]);
   const compare = useMemo(() => compareOf(area, range), [area, range]);
   const yoy = useMemo(() => yearOnYear(area), [area]);
+  const soFar = useMemo(() => seasonSoFar(area), [area]);
   // The attraction is per ski area. Whole city has no strip.
   const attraction = scope === "area";
 
@@ -378,6 +503,7 @@ export function HistoryView(): JSX.Element {
       {guestsBlock}
       {moneyBlock}
       {attractionBlock}
+      {soFar && <SeasonBlock s={soFar} samples={samples} t={t} />}
     </>
   );
 }

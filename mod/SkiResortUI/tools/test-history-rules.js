@@ -176,6 +176,24 @@ function run(srcDir) {
     [3, -1, 3, 3, 100, -1]);
   const cityF = R.sumAreas([F, F2]);
   eq("TH10.3 Whole city: depth is the mean of the areas that know it, like the coverage", [cityF.snowDepthCm, cityF.snowPct], [[150, 50, 40], [70, 70, 70]]);
+  // TH11 (T245): This season so far. Fixture S: Jul 2024 (24294) .. Oct 2025 (24309, the month in progress), 16 months. Season 2025
+  // starts at i12 (Jul 2025). Tourists 10 + i, residents 5. Buildings 100 (unknown at i13), wages 50.
+  const S = area(24294, 16, (i) => ({ flags: i === 15 ? 128 : 0, tourists: 10 + i, residents: 5, ticketsPaid: i + 1, ticketIncome: 100 * (i + 1),
+    buildingsCost: i === 13 ? -1 : 100, wagesCost: 50 }));
+  const sS = R.seasonSoFar(S);
+  eq("TH11.1 season so far: season, months, guests (now incl. the month in progress, whole months, last season same months)",
+    [sS.season, sS.now.months, sS.now.guests, sS.nowWhole.months, sS.nowWhole.guests, sS.before.months, sS.before.guests],
+    [2025, 4, 114, 3, 84, 3, 48]);
+  eq("TH11.2 change vs last season at the same point", R.pctChange(sS.nowWhole.guests, sS.before.guests), 75);
+  eq("TH11.3 best month (most guests, the month in progress counts), buildings and wages apart",
+    [sS.best.key, sS.best.guests, sS.buildings, sS.wages], [24309, 30, 300, 200]);
+  eq("TH11.4 ticket money and tickets sold so far", [sS.now.ticketIncome, sS.now.ticketsPaid], [5800, 58]);
+  // A last season the area entered partway does not compare; the first month of a season has no whole month yet; no area: null
+  eq("TH11.5 partial last season: no before (Fixture A); first month in progress: no whole month (Fixture E); null area",
+    [R.seasonSoFar(A).before, R.seasonSoFar(A).nowWhole.months, R.seasonSoFar(E).nowWhole, R.seasonSoFar(E).now.guests, R.seasonSoFar(null)],
+    [null, 11, null, 5, null]);
+  eq("TH11.6 sharesPct: largest remainder, ties to the earlier part, negatives read 0, all 0",
+    [R.sharesPct([3, 1, 0, 0]), R.sharesPct([1, 1, 1]), R.sharesPct([2, -5, 2]), R.sharesPct([0, 0])], [[75, 25, 0, 0], [34, 33, 33], [50, 0, 50], [0, 0]]);
   return { checks, failures };
 }
 

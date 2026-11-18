@@ -29,3 +29,16 @@ The Finances chart is income (blue) above zero, costs (red) below, the net as a 
 against the panel surface #2a3753 (dark): income / costs and the guests set blue / aqua / yellow pass every check. The net line #f0fbff
 and the last-season gray #646c7e are neutrals, not categorical hues (band / chroma "FAIL" by design). Gray vs red CVD dE 8.3, contrast
 2.25:1 (WARN: relief = the "Last season" legend label and its number in the tooltip).
+
+## This season so far (T245, 1.0.2)
+
+- `historyRules.seasonSoFar` sums the season in progress from its first month. The month in progress counts for the totals and the best
+  month. The change vs last season compares whole months only, with the same calendar months of last season. A last season the area
+  entered partway does not compare (no change cell, a "no comparison" line).
+- Net shows its change as money, not a percent: a percent of a net that can cross zero misleads.
+- Income mix and cost mix are one bar each. `sharesPct` rounds by largest remainder, so the parts add up to 100. The label names the
+  biggest part. The tooltip lists every part with its money and percent.
+- Snow figures stay on the Snow report card. The block repeats no number another view owns.
+- Layout: the block is about 290 rem tall, so it never fits beside the two charts. The pager puts it on page 2 at every height. The charts
+  grew into page 1 (H_TWO 110 rem, 28 rem slack at text scale 1).
+- Gates: test-history-rules TH11.1-6, test-hub-rules T20.2 (HISTORY key count 63).
