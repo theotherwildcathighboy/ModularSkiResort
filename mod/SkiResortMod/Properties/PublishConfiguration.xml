@@ -15,14 +15,14 @@ Draw lifts up your mountain and runs down it. Natural or machine-made snow opens
 
 ## Highlights
 - **Four lifts, one tool.** Fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. The tool plans numbered towers over your terrain, and you can move them. Chairs and cabins ride the rope.
-- **Runs on real snow.** Groomed or natural, with snow guns and floodlights. Each run is rated from its hardest pitch, in North American or European grading. It opens at 3 ft (91 cm) of snow on 60 % of the run.
+- **Runs on real snow.** Groomed or natural, with floodlights. Snow guns build a 2 m base that keeps a run open through a thaw. Each run is rated from its hardest pitch, in North American or European grading. It opens at 3 ft (91 cm) of snow on 60 % of the run.
 - **Night on the mountain.** Floodlights come on at dusk, like the street lights. Groomers work the cat tracks from dusk to dawn.
 - **Resort Planner.** Outline a mountainside and get a plan of linked runs, cat tracks and lifts.
 - **Seasons.** Snow melts in spring, runs close, and chairlifts and gondolas stop. Lodges and the school close off-season. The aerial tram keeps running for summer sightseeing. Northern and Southern Hemisphere maps both work.
 - **Lodges, Ski School, Ski Patrol and a Ski Bus Depot.** Five lodges, a school, two patrol buildings, and a coach stop in town for a hill too far away.
 - **Merge your own buildings.** A landmark, signature or recreation building near the runs can join the resort as a lodge.
 - **One hub.** Attraction, runs, lifts, guests, finances and history, with every problem and its cause.
-- **A resort economy.** Tickets, season passes, lessons and lodge spend against running costs. Set the ticket and season pass prices with sliders in the hub. To raise ticket tolerance, build better lodges. Ski areas also raise the whole city's attractiveness, as an airport does.
+- **A resort economy.** Tickets, season passes, lessons and lodge spend against running costs. Set the ticket and season pass prices with sliders in the hub. To raise ticket tolerance, build better lodges. The resort tourism bonus raises the whole city's attractiveness, as an airport does.
 
 ## Requirements
 Cities: Skylines II 1.6 (tested on 1.6.4f1). No DLC or other mod required.
@@ -32,7 +32,7 @@ Open the Ski Resort hub (button at the top left). Its Start card lists the four 
 
 ## Good to know
 - Skiers are counted, not visually simulated. Chairs and cabins move but carry no riders. (Post Park Adventures, I will try my best to at least get Cims on the chairlifts)
-- Lifts are power-line networks. Each needs low-voltage power at its base station, and the game refuses a high-voltage line at a lift.
+- Lifts are built on the game's power-line network, so the game shows some power-line details for them, such as a Transformer section in station panels. Like a real lift, each base station needs low-voltage power. The game refuses a high-voltage line at a lift.
 - The Mountain Hut, Chalet and Summit lodges, both patrol buildings, the Ski School and the fixed-grip and tram top stations keep the slope they stand on. Build them into the hillside with the terrain tools or Move It.
 - Bulldozing a Welcome Sign deletes every run linked to it and refunds no run fee. A warning comes first.
 - Two lifts of the same type cannot cross. A cat track cannot pass under a lift that is already built, so build cat tracks first.
