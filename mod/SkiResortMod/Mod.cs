@@ -153,6 +153,11 @@ namespace SkiResortMod
             // them.
             updateSystem.UpdateAt<SkiGroomerSystem>(SystemUpdatePhase.Modification4B);
 
+            // The shared dark signal (T250). Before the groomers in the same phase, so their work window and lights read this frame's
+            // value. Modification4B runs every frame, paused too. Its prefab write (EffectData) lands before PreCulling, where
+            // EffectControlSystem reads it. Not load-bearing beyond that order.
+            updateSystem.UpdateBefore<SkiDarkSignalSystem, SkiGroomerSystem>(SystemUpdatePhase.Modification4B);
+
             // Power bridging must run BEFORE ElectricityBuildingGraphSystem in the same phase. Then the valve we add to the station stub is
             // visible the frame a station is created/updated (ElectricityBuildingGraphSystem's orphan gate otherwise deletes the connection).
             updateSystem.UpdateBefore<PowerBridgeSystem, Game.Simulation.ElectricityBuildingGraphSystem>(
@@ -185,8 +190,9 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<SkiRunPropSystem, Game.Objects.SecondaryObjectSystem>(
                 SystemUpdatePhase.Modification4B);
 
-            // Night-light refresh: stamps EffectsUpdated on run-owned props at every day/night flip. Anchor AND interval (2048) are
-            // load-bearing: we read the flag EffectFlagSystem just wrote. Offset inheritance requires equal intervals.
+            // Night-light refresh: stamps EffectsUpdated on run-owned props at every flip of SkiDarkSignalSystem.LightsOn (the dark signal,
+            // or the game's Night flag where it falls back). Anchor AND interval (2048) are load-bearing for the fallback: we read the flag
+            // EffectFlagSystem just wrote. Offset inheritance requires equal intervals.
             updateSystem.UpdateAfter<SkiNightLightSystem, Game.Effects.EffectFlagSystem>(
                 SystemUpdatePhase.GameSimulation);
 

@@ -100,6 +100,8 @@
   <!-- Snow groomer: trip, season gate, restraint, ground plane, smoothing, pose, centerline of hand-drawn rings. GradeBatch GR-30 runs generated ribbons. -->
   <ItemGroup>
     <Compile Include="GroomerTests.cs" />
+    <Compile Include="DarkSignalTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\DarkSignalRules.cs" Link="DarkSignalRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\GroomerRules.cs" Link="GroomerRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\GroomerCenterline.cs" Link="GroomerCenterline.cs" />
   </ItemGroup>

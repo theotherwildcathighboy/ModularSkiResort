@@ -2,6 +2,7 @@
 //   * The path source per run kind.
 //   * The restraint rule.
 //   * The season gate.
+//   * The work window: dusk to dawn, staggered spawns and dawn removals (T248).
 //   * The trip along the path as a function of the clock (drive, stop, pivot, stop, drive back).
 //   * The ground plane under the footprint, its smoothing and the pose.
 // SkiGroomerSystem is the only caller. Linked into tests/ResortBatch (GroomerTests, with EntityRef.cs and RunSnowRules.cs). `System` +
@@ -63,6 +64,10 @@ namespace SkiResortMod.Systems
 
     public enum GroomerAction : byte { None = 0, Spawn = 1, Remove = 2 }
 
+    /// <summary>What the work window asks for one track. Remove is at once (option off, closed, no path). Spawn and Dawn are rate limited
+    /// by the system (SpawnGapS), nearest to the camera first for a spawn, farthest first for a dawn removal.</summary>
+    public enum GroomerWork : byte { None = 0, Spawn = 1, Remove = 2, Dawn = 3 }
+
     public static class GroomerRules
     {
         // ---- the asset ------------------------------------------------------------------------------------------------------------
@@ -114,6 +119,23 @@ namespace SkiResortMod.Systems
         public const int MaxGroomers = 64;
         /// <summary>Clock seconds between two looks at one track's snow share.</summary>
         public const float SeasonPollS = 5f;
+        /// <summary>The groomer's own season gate (T247): it leaves below 80 % skiable share and returns at 87.5 %. The hub calls a cat track
+        /// closed only below 50 %, so a half-melted open track kept a machine driving over grass. A track's made snow counts in eighths
+        /// (RunSnowRules.TrackCells 8): 87.5 % is 7 of 8, so a made-snow track returns its machine before it is fully covered. 90 % would
+        /// have needed all 8.</summary>
+        public const float CloseBelowShare = 0.80f;
+        public const float OpenAtShare = 0.875f;
+
+        // ---- the work window (T248) -----------------------------------------------------------------------------------------------
+        /// <summary>Real seconds between two spawns, and between two dawn removals: four per second, so a load or a dusk never brings 64
+        /// machines in one frame.</summary>
+        public const float SpawnGapS = 0.25f;
+        /// <summary>At dawn a machine finishes its drive to the next end stop if that takes at most this many clock seconds. Else it leaves
+        /// at once (a long track would keep it out for a game hour).</summary>
+        public const float FinishPassMaxS = 45f;
+        /// <summary>A short track rests the machine at each end so one way (drive, stop, pivot, stop, rest) lasts at least this many clock
+        /// seconds. A 30 m track was a 29 s shuttle; it now works a quarter of its time. From about 240 m nothing changes.</summary>
+        public const float MinOneWayS = 90f;
 
         // ---- the path source and the restraint rule -------------------------------------------------------------------------------
 
@@ -140,14 +162,47 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The season gate on the run's snow share (GetRunSnow, whose Share stays real with snow gating off, so the machine still
-        /// leaves in summer). The hub calls a cat track closed below the midpoint (RunSnowRules.InitialOpenShare), so that closes it here
-        /// too and a groomer is never on a closed track. The groomer returns only at OpenAtShare, so a share hovering at the midpoint does
-        /// not make it pop in and out. The first look after a load uses the midpoint. NaN = closed. Returns true when open.</summary>
+        /// leaves in summer). The machine leaves below CloseBelowShare (80 %), above the hub's 50 % closing line, so a groomer is never on a
+        /// closed track and rarely on bare patches (T247). It returns only at OpenAtShare (87.5 %), so a share hovering at 80 % does not make
+        /// it pop in and out. The first look after a load uses the closing line. NaN = closed. Returns true when open.</summary>
         public static bool SeasonStep(ref RunSnowState state, float share)
         {
-            float line = state == RunSnowState.Closed ? RunSnowRules.OpenAtShare : RunSnowRules.InitialOpenShare;
+            float line = state == RunSnowState.Closed ? OpenAtShare : CloseBelowShare;
             state = share >= line ? RunSnowState.Open : RunSnowState.Closed;
             return state == RunSnowState.Open;
+        }
+
+        /// <summary>The work window for one track. baseWanted = Wanted(...) without the window. ready = the dark signal can be read (a load
+        /// waits for it, so nothing spawns on a stale value). work = dusk to dawn. A machine outside the window leaves at Dawn pace; one that
+        /// is not wanted at all leaves at once. Never two per track, never over the cap.</summary>
+        public static GroomerWork DecideWork(bool baseWanted, bool hasProp, bool ready, bool work, int groomersNow)
+        {
+            if (hasProp)
+            {
+                if (!baseWanted)
+                    return GroomerWork.Remove;
+                return ready && !work ? GroomerWork.Dawn : GroomerWork.None;
+            }
+            return baseWanted && ready && work && groomersNow < MaxGroomers ? GroomerWork.Spawn : GroomerWork.None;
+        }
+
+        /// <summary>Clock seconds left in the drive the machine is on at t (any t), 0 when it stands (stop, pivot or rest).</summary>
+        public static double DriveLeftS(double t, double lengthM)
+        {
+            double drive = DriveSeconds(lengthM);
+            double period = PeriodSeconds(lengthM);
+            t %= period;
+            if (t < 0.0)
+                t += period;
+            double u = t >= 0.5 * period ? t - 0.5 * period : t;
+            return u < drive ? drive - u : 0.0;
+        }
+
+        /// <summary>A machine may leave at dawn: it stands at an end, or its drive to the end would take longer than FinishPassMaxS.</summary>
+        public static bool DawnLeaveNow(double t, double lengthM)
+        {
+            double left = DriveLeftS(t, lengthM);
+            return left <= 0.0 || left > FinishPassMaxS;
         }
 
         // ---- the trip -------------------------------------------------------------------------------------------------------------
@@ -159,10 +214,16 @@ namespace SkiResortMod.Systems
             return lengthM >= SpeedMps * RampS ? lengthM / SpeedMps + RampS : 2.0 * Math.Sqrt(lengthM / accel);
         }
 
-        /// <summary>Seconds of a full cycle: out, turn, back, turn.</summary>
+        /// <summary>The rest at each end, after the second stop: what lifts one way to MinOneWayS. 0 on a long track.</summary>
+        public static double RestSeconds(double lengthM)
+        {
+            return Math.Max(0.0, MinOneWayS - (DriveSeconds(lengthM) + StopS + PivotS + StopS));
+        }
+
+        /// <summary>Seconds of a full cycle: out, turn, rest, back, turn, rest.</summary>
         public static double PeriodSeconds(double lengthM)
         {
-            return 2.0 * (DriveSeconds(lengthM) + StopS + PivotS + StopS);
+            return 2.0 * (DriveSeconds(lengthM) + StopS + PivotS + StopS + RestSeconds(lengthM));
         }
 
         /// <summary>Meters covered after t seconds of a drive that takes driveS: constant acceleration, cruise, constant braking. Monotonic.</summary>
@@ -191,13 +252,14 @@ namespace SkiResortMod.Systems
             return u * u * (3f - 2f * u);
         }
 
-        /// <summary>The trip at t clock seconds into the cycle (any t: wrapped to the period). A pure function of the clock, like the
+        /// <summary>The trip at t clock seconds into the cycle (any t: wrapped to the period). The Wait legs hold the second stop and the
+        /// short-track rest. A pure function of the clock, like the
         /// chairs. It never drifts. It stands still when the clock is paused. It loses nothing at 3x. It returns to the same place after a
         /// save and reload. pivotSign (+1 or -1) is the turning sense. S and TurnRad are continuous over every leg change.</summary>
         public static GroomerTrip TripAt(double t, double lengthM, int pivotSign)
         {
             double drive = DriveSeconds(lengthM);
-            double period = 2.0 * (drive + StopS + PivotS + StopS);
+            double period = PeriodSeconds(lengthM);
             t %= period;
             if (t < 0.0)
                 t += period;

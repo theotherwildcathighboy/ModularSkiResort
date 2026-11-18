@@ -1,6 +1,8 @@
-// Makes Night-gated lights on our run props follow the day/night cycle.
+// Makes Night-gated lights on our run props follow the day/night cycle: SkiDarkSignalSystem.LightsOn (real dusk and dawn since T250; the
+// game's fixed 18:00-06:00 Night flag where the signal falls back).
 // Why: nothing in the engine re-evaluates EffectConditionFlags.Night on a static prop. A light loaded at night therefore stays ON next day
-// until a tool hover. This system stamps the re-evaluation tags at each flip (our StreetLightSystem).
+// until a tool hover. This system stamps the re-evaluation tags at each flip (our StreetLightSystem). SkiDarkSignalSystem moves the
+// effects' conditions; this system makes the props re-read them. A flip is seen up to 2048 sim frames late (about 11 game minutes).
 // Registration is load-bearing: UpdateAfter<EffectFlagSystem>(GameSimulation). GetUpdateInterval must equal EffectFlagSystem's
 // 2048 (UpdateSystem inherits an anchor's runtime offset only for EQUAL intervals, UpdateSystem.cs:406/:431).
 // Scope: only the props the placer tagged with SkiRunPropMember. A city with no resort or no such prop returns before the system reads any query result.
@@ -34,6 +36,7 @@ namespace SkiResortMod.Systems
         private const int FlagInterval = 2048;
 
         private EffectFlagSystem m_EffectFlagSystem;
+        private SkiDarkSignalSystem m_Dark;
         private EntityQuery m_MemberQuery;
 
         private bool m_Armed;
@@ -47,6 +50,7 @@ namespace SkiResortMod.Systems
         {
             base.OnCreate();
             m_EffectFlagSystem = World.GetOrCreateSystemManaged<EffectFlagSystem>();
+            m_Dark = World.GetOrCreateSystemManaged<SkiDarkSignalSystem>();
 
             m_MemberQuery = GetEntityQuery(new EntityQueryDesc
             {
@@ -91,7 +95,7 @@ namespace SkiResortMod.Systems
                              "game's own dots)");
                 m_Armed = true;
                 Mod.Log.Info("NightLight: ARMED — stamping EffectsUpdated on placed run props " +
-                             "at every day/night flip (+ settle x" +
+                             "at every dusk and dawn of the dark signal (+ settle x" +
                              $"{Tuning.SettlePasses}), anchored after EffectFlagSystem @ " +
                              $"{FlagInterval} frames; nothing else re-evaluates Night-gated " +
                              "lights on static props (light-refresh-mechanism.md)");
@@ -120,7 +124,8 @@ namespace SkiResortMod.Systems
                 if (!ResortPresence.Present || m_MemberQuery.IsEmptyIgnoreFilter)
                     return;
 
-                bool night = m_EffectFlagSystem.GetData().m_IsNightTime;
+                // The dark signal once known; until then the game's Night flag (the effects still carry their own conditions)
+                bool night = m_Dark.Known ? m_Dark.LightsOn : m_EffectFlagSystem.GetData().m_IsNightTime;
 
                 bool flip = m_HaveFlag && night != m_LastNight;
                 bool firstPass = !m_HaveFlag;

@@ -9,6 +9,7 @@
 //   GM-7 path lookup
 //   GM-8 hand-drawn shapes: rectangle, bend, neck, branch, bulge
 //   GM-9 degenerate rings: never a wild path
+//   GM-10 work window (T248): dusk to dawn, dawn removal after a short drive, short-track rest
 // Oracles are literal hand values (the comments show the arithmetic) and geometric facts of the shape under test.
 
 using System;
@@ -35,6 +36,7 @@ namespace ResortBatch
             PathLookup();
             HandDrawn();
             Degenerate();
+            WorkWindow();
         }
 
         private static void C(bool ok, string where, string msg) => s_Check(ok, where, msg);
@@ -70,21 +72,24 @@ namespace ResortBatch
 
         private static void Season()
         {
-            // The first look uses the midpoint, the hub's own line (GetRunSnow's NextState(Unknown, share))
+            // T247: the groomer's own gate, stricter than the hub's 50 % closing line. The first look uses the closing line (80 %)
             RunSnowState s = RunSnowState.Unknown;
-            C(G.SeasonStep(ref s, 0.50f) && s == RunSnowState.Open, "GM-2 first look open", $"{s}");
+            C(G.SeasonStep(ref s, 0.80f) && s == RunSnowState.Open, "GM-2 first look open", $"{s}");
             s = RunSnowState.Unknown;
-            C(!G.SeasonStep(ref s, 0.49f) && s == RunSnowState.Closed, "GM-2 first look closed", $"{s}");
-            C(RunSnowRules.NextState(RunSnowState.Unknown, 0.50f) == RunSnowState.Open && RunSnowRules.NextState(RunSnowState.Unknown, 0.49f) == RunSnowState.Closed,
-                "GM-2 same line as the hub", "the hub's first label moved");
+            C(!G.SeasonStep(ref s, 0.79f) && s == RunSnowState.Closed, "GM-2 first look closed", $"{s}");
+            C(G.CloseBelowShare > RunSnowRules.InitialOpenShare && G.OpenAtShare > G.CloseBelowShare,
+                "GM-2 stricter than the hub, with a band", $"{G.CloseBelowShare} / {G.OpenAtShare}");
 
-            // Open: closes where the hub calls it closed, below the midpoint
+            // Open: leaves below 80 % (a half-melted track that the hub still calls open has no machine)
             s = RunSnowState.Open;
-            C(G.SeasonStep(ref s, 0.50f), "GM-2 open holds at the midpoint", $"{s}");
-            C(!G.SeasonStep(ref s, 0.49f), "GM-2 closes below the midpoint", $"{s}");
-            // Closed: reopens only at 0.60, so a share hovering at the midpoint does not pop the machine in and out
-            C(!G.SeasonStep(ref s, 0.59f), "GM-2 stays closed below 0.60", $"{s}");
-            C(G.SeasonStep(ref s, 0.60f), "GM-2 reopens at 0.60", $"{s}");
+            C(G.SeasonStep(ref s, 0.80f), "GM-2 open holds at 0.80", $"{s}");
+            C(!G.SeasonStep(ref s, 0.60f), "GM-2 a 60 % track has no machine", $"{s}");
+            s = RunSnowState.Open;
+            C(!G.SeasonStep(ref s, 0.79f), "GM-2 closes below 0.80", $"{s}");
+            // Closed: returns only at 0.875 (7 of 8 made-snow cells), so a share hovering at 0.80 does not pop the machine in and out
+            C(!G.SeasonStep(ref s, 0.85f), "GM-2 stays closed below 0.875", $"{s}");
+            C(!G.SeasonStep(ref s, 0.75f), "GM-2 6 of 8 cells stay closed", $"{s}");
+            C(G.SeasonStep(ref s, 0.875f), "GM-2 reopens at 7 of 8 cells", $"{s}");
             // Summer and winter ends, and NaN
             s = RunSnowState.Open;
             C(!G.SeasonStep(ref s, 0f), "GM-2 summer", $"{s}");
@@ -594,6 +599,46 @@ namespace ResortBatch
         {
             GroomerPath p = GroomerCenterline.Build(ring, out GroomerPathFail fail);
             C(p == null && fail == expected, "GM-9 " + name, $"path {(p == null ? "null" : "built")}, reason {fail}, expected {expected}");
+        }
+
+        // ---- GM-10 --------------------------------------------------------------------------------------------------------------------
+
+        private static void WorkWindow()
+        {
+            // The decision table: (baseWanted, hasProp, ready, work, groomers)
+            C(G.DecideWork(true, false, true, true, 0) == GroomerWork.Spawn, "GM-10 dusk spawns", "wanted, dark, none yet");
+            C(G.DecideWork(true, false, true, false, 0) == GroomerWork.None, "GM-10 no spawn by day", "light");
+            C(G.DecideWork(true, false, false, true, 0) == GroomerWork.None, "GM-10 no spawn before the signal", "not ready");
+            C(G.DecideWork(true, true, true, false, 1) == GroomerWork.Dawn, "GM-10 dawn sends it home", "staggered");
+            C(G.DecideWork(true, true, false, false, 1) == GroomerWork.None, "GM-10 unknown keeps it", "not ready");
+            C(G.DecideWork(true, true, true, true, 1) == GroomerWork.None, "GM-10 night keeps it", "working");
+            C(G.DecideWork(false, true, true, true, 1) == GroomerWork.Remove, "GM-10 closed leaves at once", "not wanted");
+            C(G.DecideWork(false, true, false, false, 1) == GroomerWork.Remove, "GM-10 closed leaves at once, signal or not", "not wanted");
+            C(G.DecideWork(true, false, true, true, G.MaxGroomers) == GroomerWork.None, "GM-10 cap", "64");
+            C(G.DecideWork(true, false, true, true, G.MaxGroomers - 1) == GroomerWork.Spawn, "GM-10 last slot", "63");
+            C(G.MaxGroomers == 64, "GM-10 the cap stays 64", $"{G.MaxGroomers}");
+            C(G.SpawnGapS > 0f && 1f / G.SpawnGapS <= 5f, "GM-10 a few per second", $"{1f / G.SpawnGapS:F1} per s");
+
+            // Short-track rest. 30 m: drive 30 / 3.33 + 3 = 12.009 s; one way 12.009 + 17 = 29.009; rest 90 - 29.009 = 60.991
+            double d30 = 30.0 / 3.33 + 3.0;
+            C(Near(G.RestSeconds(30.0), 90.0 - (d30 + 17.0), 1e-3), "GM-10 rest of a 30 m track", $"{G.RestSeconds(30.0):F3}");
+            C(Near(G.PeriodSeconds(30.0), 180.0, 1e-3), "GM-10 a 30 m cycle lasts 180 s", $"{G.PeriodSeconds(30.0):F3}");
+            C(G.RestSeconds(400.0) == 0.0 && G.RestSeconds(240.0) == 0.0, "GM-10 long tracks never rest", $"{G.RestSeconds(240.0):F3}");
+            // The rest is the Wait leg: a 30 m track stands at its end for most of the half cycle, then drives back
+            C(G.TripAt(d30 + 2.5 + 12.0 + 30.0, 30.0, 1).Leg == GroomerLeg.WaitAtEnd, "GM-10 resting at the end", $"{G.TripAt(d30 + 46.5, 30.0, 1).Leg}");
+            C(G.TripAt(90.0 + 1.0, 30.0, 1).Leg == GroomerLeg.DriveBack, "GM-10 then drives back", $"{G.TripAt(91.0, 30.0, 1).Leg}");
+            C(Near(G.TripAt(d30 + 46.5, 30.0, 1).S, 30.0, 1e-9), "GM-10 rests on the spot", "S");
+
+            // Dawn: a machine finishes its drive when that takes at most 45 s, else leaves at once; standing, it leaves at once
+            double d400 = G.DriveSeconds(400.0);
+            C(Near(G.DriveLeftS(1.0, 400.0), d400 - 1.0, 1e-9), "GM-10 drive left at the start", $"{G.DriveLeftS(1.0, 400.0):F3}");
+            C(G.DriveLeftS(d400 + 1.0, 400.0) == 0.0, "GM-10 standing at the end", "0");
+            C(G.DawnLeaveNow(d400 + 1.0, 400.0), "GM-10 standing leaves", "stop");
+            C(!G.DawnLeaveNow(d400 - 10.0, 400.0), "GM-10 10 s from the end finishes the pass", $"{G.DriveLeftS(d400 - 10.0, 400.0):F1} s left");
+            C(G.DawnLeaveNow(1.0, 400.0), "GM-10 2 minutes from the end leaves at once", $"{G.DriveLeftS(1.0, 400.0):F1} s left");
+            double half = 0.5 * G.PeriodSeconds(400.0);
+            C(Near(G.DriveLeftS(half + 1.0, 400.0), d400 - 1.0, 1e-9), "GM-10 drive left on the way back", $"{G.DriveLeftS(half + 1.0, 400.0):F3}");
+            C(!G.DawnLeaveNow(half + d400 - 5.0, 400.0) && G.DawnLeaveNow(half + d400 + 0.5, 400.0), "GM-10 the way back too", "finish, then leave");
         }
     }
 }

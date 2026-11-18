@@ -1079,8 +1079,11 @@ namespace ResortBatch
                   "CT220-7d no saved state (v1) at 0.352 m: Closed, no groomer");
             Check(LoadCase("v1 at 0.5 m", none7, open50, out bool _) == RunSnowState.Closed, W,
                   "CT220-7e no saved state (v1) at 0.5 m: Closed until the guns refill it (the cost)");
-            Check(LoadCase("1.0.0 share 80 %", none7, RunSnowRules.TrackFromSave(0.8f), out bool g7f) == RunSnowState.Open && g7f, W,
-                  "CT220-7f a 1.0.0 save with made snow reloads Open, as in 1.0.0");
+            // T247: the run reloads Open as in 1.0.0. Its groomer follows the groomer's own stricter line (80 %, counted in eighths: 6/8 is under it)
+            var made7f = RunSnowRules.TrackFromSave(0.8f);
+            float before7f = RunSnowRules.TrackShareBeforeRefresh(none7, 1f, made7f);
+            Check(LoadCase("1.0.0 share 80 %", none7, made7f, out bool g7f) == RunSnowState.Open && g7f == (before7f >= GroomerRules.CloseBelowShare), W,
+                  "CT220-7f a 1.0.0 save with made snow reloads Open, as in 1.0.0; groomer " + g7f + " at share " + before7f);
             Check(LoadCase("1.0.0 no made snow", none7, RunSnowRules.TrackFromSave(0f), out bool g7g) == RunSnowState.Closed && !g7g, W,
                   "CT220-7g a 1.0.0 save without made snow reloads Closed");
             foreach (RunSnowState s7 in new[] { RunSnowState.Open, RunSnowState.Closed })

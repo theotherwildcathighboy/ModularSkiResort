@@ -19,6 +19,10 @@ Stamping also closes the fly-by hazard: `Game.Effects.SearchSystem`'s distance p
 WITHOUT re-testing its conditions (`ActionFlags.SkipEnabled`, `checkEnabled: false`, EffectControlSystem.cs:700). So a wrongly-on
 light survives at most one flag pass here.
 
+## Which flip (T250)
+
+Since T250 the flip is `SkiDarkSignalSystem.LightsOn`, not the Night flag. The dark signal rewrites the required flags of our light effects at dusk and dawn (EngineNotes/SkiDarkSignalSystem.md). This system then stamps the props, so they re-read the new conditions. With the clock fallback, `LightsOn` is the Night flag again, and the anchor below still matters. A flip is seen up to 2048 sim frames late (about 11 game minutes).
+
 ## Registration is load-bearing
 
 - Anchor: `UpdateAfter<EffectFlagSystem>(GameSimulation)`. We read the flag vanilla just wrote (`EffectFlagSystem.OnUpdate`:155
