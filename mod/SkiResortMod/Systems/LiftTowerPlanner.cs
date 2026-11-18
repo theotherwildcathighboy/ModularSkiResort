@@ -1678,8 +1678,8 @@ namespace SkiResortMod.Systems
         /// <summary>Safety margin on top of the box clearance (meters).</summary>
         public const float CrossMarginM = 0.5f;
         /// <summary>A crossing flatter than this (plan angle, degrees) is refused. The overlap of the two strips grows with 1 / sin(angle)
-        /// (at 20 deg two 6 m chair strips overlap over 34 m of each line). The height the slope terms ask grows in the same way.</summary>
-        public const float CrossMinAngleDeg = 20f;
+        /// (at 15 deg two 6 m chair strips overlap over 46 m of each line, at 20 deg over 34 m). The height the slope terms ask grows in the same way.</summary>
+        public const float CrossMinAngleDeg = 15f;
         /// <summary>Clearance (meters) beyond the crossed tower's head half width and the drawn strip's reach along the crossed line:
         /// a crossing nearer a crossed tower than that is refused (refusal (c)).</summary>
         public const float CrossTowerClearM = 3f;

@@ -570,8 +570,8 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleLiftLineToolBinding)),
                     "Opens or closes the lift tool. Click a lift station, then the other station of the same lift. " +
                     "The planned towers appear (fewest towers, tall ones where they save a tower). Click on the line to " +
-                    "add a tower. Drag a tower to move it, or release it off the line to remove it. Right click or Esc " +
-                    "steps back. Then press the Build key. Default Ctrl+Shift+L."
+                    "add a tower. Drag a tower to move it, or release it off the line to remove it. Right click a tower to remove it. " +
+                    "Right click elsewhere or Esc steps back. Then press the Build key. Default Ctrl+Shift+L."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleLiftLine), "Toggle lift tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleLiftLine), "Lift tool" },

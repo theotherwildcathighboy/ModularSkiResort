@@ -1772,7 +1772,7 @@
   "SkiResort.LiftTool.CROSS_CLEARANCE": "This line cannot pass over or under the other lift here: the game needs {M} between the two, and no tower arrangement gives it.",
   "SkiResort.LiftTool.CROSS_STATION": "This line crosses another lift too close to a station, where the rope height is fixed, so it cannot be built here.",
   "SkiResort.LiftTool.CROSS_TOWER": "This line crosses another lift right beside one of its towers, so it cannot be built here.",
-  "SkiResort.LiftTool.CROSS_SHALLOW": "This line meets another lift at too flat an angle, under 20°, so it cannot be built here.",
+  "SkiResort.LiftTool.CROSS_SHALLOW": "This line meets another lift at too flat an angle, under 15°, so it cannot be built here.",
   "SkiResort.LiftTool.CROSS_OWN_TOWER": "A tower of this line stands under another lift's rope, so it cannot be built here.",
   "SkiResort.LiftTool.CROSS_SAME_TYPE": "This line crosses a lift of its own type. The game cannot keep the two apart there, so it cannot be built here.",
   "SkiResort.LiftTool.ALONG": "This line runs along another lift. The game would merge the two lines, so it cannot be built here.",

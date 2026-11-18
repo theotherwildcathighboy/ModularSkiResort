@@ -515,6 +515,13 @@ namespace LiftBatch
                     Check(LiftLineInput.RightClick(s, false, d) != LiftLineBack.DropTop &&
                           LiftLineInput.RightClick(s, false, d) != LiftLineBack.DropBase || s == LiftLineStep.PickTop,
                           W, $"step {s} depth {d}: a right click dropped an end while edits remain");
+            // T233: a right click over a line tower removes it. Esc / pad back, a drag, no hover (-1) and the end index 0 do not.
+            Check(LiftLineInput.CancelRemovesTower(LiftLineStep.Edit, false, 2, false), W, "right click on a hovered tower must remove it");
+            Check(!LiftLineInput.CancelRemovesTower(LiftLineStep.Edit, false, 2, true), W, "Esc over a hovered tower must step back, not remove");
+            Check(!LiftLineInput.CancelRemovesTower(LiftLineStep.Edit, true, 2, false), W, "a drag in progress must cancel the drag, not remove");
+            Check(!LiftLineInput.CancelRemovesTower(LiftLineStep.Edit, false, -1, false), W, "no hovered tower must step back");
+            Check(!LiftLineInput.CancelRemovesTower(LiftLineStep.Edit, false, 0, false), W, "node 0 is the station end, never removed");
+            Check(!LiftLineInput.CancelRemovesTower(LiftLineStep.PickTop, false, 2, false), W, "outside Edit a right click never removes a tower");
             Check(LiftLineInput.After(LiftLineStep.Edit, LiftLineBack.DropTop) == LiftLineStep.PickTop, W, "DropTop -> PickTop");
             Check(LiftLineInput.After(LiftLineStep.PickTop, LiftLineBack.DropBase) == LiftLineStep.PickBase, W, "DropBase -> PickBase");
             Check(LiftLineInput.After(LiftLineStep.Edit, LiftLineBack.UndoEdit) == LiftLineStep.Edit, W, "undo stays in Edit");

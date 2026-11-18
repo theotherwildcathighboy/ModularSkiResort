@@ -582,6 +582,11 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>T233: a right click (not Esc, not a gamepad back) over a line tower, with no drag in progress, removes that tower
+        /// instead of stepping back. The planner then re-plans the span without it (LiftLineEdit.RemoveTower).</summary>
+        public static bool CancelRemovesTower(LiftLineStep step, bool dragging, int hoverTower, bool backKey) =>
+            step == LiftLineStep.Edit && !dragging && hoverTower > 0 && !backKey;
+
         /// <summary>The step after a right click (CloseTool / None leave it as it is: the tool closes or ignores the click).</summary>
         public static LiftLineStep After(LiftLineStep step, LiftLineBack back)
         {
