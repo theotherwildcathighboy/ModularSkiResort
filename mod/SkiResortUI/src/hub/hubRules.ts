@@ -1521,6 +1521,29 @@ export function efficiencyAtFloor(l: ResortLive | null | undefined): boolean {
   return !!l && l.efficiencyPct >= 0 && l.efficiencyPct <= EFFICIENCY_FLOOR_PCT;
 }
 
+/** DECISIONS 676 / 677: an Attraction receipt row whose lever the player has maxed. Its tooltip then says so (RECEIPT_TIP_MAX[...]) instead
+ *  of the "To <goal>, <action>." line. Unknown fields (-1) are never maxed.
+ *  - lodgeBase: the best lodge is a top tier (summit or grand, B 40 in C# SkiCatalog.Lodges) AND the other lodges' extras are at the
+ *    cap (LODGE_EXTRA_CAP). Winter only: the summer extras are scaled per lodge (SkiResortScore LodgeLadder), so they cannot show the cap.
+ *  - variety: all three VARIETY_BAND bits (green, blue, black or harder).
+ *  - vertical: under half a meter to the full bonus (the line verticalShort draws nothing there).
+ *  - school: the school's term at its score value (C# SchoolRule.ScoreValueOf: 0 or SkiCatalog.School.ScoreValue 12, one per area).
+ *  - efficiency: 100 % (the display rounds, so from 99.5). */
+export type ReceiptLever = "lodgeBase" | "variety" | "vertical" | "school" | "efficiency";
+export const TOP_LODGE_TIERS: readonly string[] = ["lodgeSummit", "lodgeGrand"];
+export const SCHOOL_SCORE = 12;
+export function receiptMaxed(l: ResortLive | null | undefined, row: ReceiptLever): boolean {
+  if (!l) return false;
+  switch (row) {
+    case "lodgeBase": return !l.summer && TOP_LODGE_TIERS.indexOf(l.lodgeBest) >= 0 && l.lodgeExtra >= LODGE_EXTRA_CAP - 0.05;
+    case "variety": return l.varietyBands >= 0 && ((l.varietyBands | 0) & VARIETY_BAND.All) === VARIETY_BAND.All;
+    case "vertical": return l.verticalShortM >= 0 && l.verticalShortM < 0.5;
+    case "school": return l.schoolValue >= SCHOOL_SCORE - 0.05;
+    case "efficiency": return l.efficiencyPct >= 99.5;
+    default: return false;
+  }
+}
+
 /** The School row's missing line (HUB_LOC key name) by state. null = no line. */
 export function schoolMissingOf(s: SchoolState): "receiptMissingSchoolNone" | "receiptMissingSchoolGreen" | "receiptMissingSchoolWaiting" | null {
   switch (s) {

@@ -22,6 +22,7 @@ import {
 } from "./hubRules";
 import type { LastMonthMark, TicketNote, TripPlannerNote } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LODGE_BUILDING, allMonthNames, monthName } from "./hubText";
+import { LODGE_SKIER_ROOM } from "./buildItems";
 import {
   Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, cx, numArg, useNumberSamples,
 } from "./parts";
@@ -99,14 +100,17 @@ function SkiDayLineText({ l, t, trip, tripName }: { l: ResortLive | null; t: Tra
   }
 }
 
-/* The state line's tooltip. undefined = none. Blocked: TRIP_PLANNER_TIP. */
-function skiDayLineTip(l: ResortLive | null, t: Translate, trip: TripPlannerNote): string | undefined {
+/* The state line's tooltip. undefined = none. Blocked: TRIP_PLANNER_TIP. Lodges: the lever line, then each tier's skier room. */
+function skiDayLineTip(l: ResortLive | null, t: Translate, trip: TripPlannerNote): string | JSX.Element | undefined {
   if (skiDaysBlocked(l, trip)) return t(HUB_LOC.tripPlannerTip);
   switch (skiDayTip(l)) {
     case "off": return t(HUB_LOC.skiDaysTipOff);
     case "noLodge": return t(HUB_LOC.skiDaysTipNoLodge);
     case "runs": return t(HUB_LOC.skiDaysTipRuns);
-    case "lodges": return t(HUB_LOC.skiDaysTipLodges);
+    case "lodges": return <TipLines lines={[t(HUB_LOC.skiDaysTipLodges), ...LODGE_SKIER_ROOM.map(([id, n]) => {
+      const name = LODGE_BUILDING[id];
+      return { label: name ? t(name) : id, value: numArg(n, Unit.Integer) };
+    })]} />;
     default: return undefined;
   }
 }
@@ -214,14 +218,12 @@ function SignGuests({ l, city, parking, samples, t }: {
   const thisName = monthName(city.month, t);
   const lastName = monthName(city.month, t, 1);
   const thisLabel = <LocText entry={HUB_FMT.guestsMonthThis} args={{ MONTH: thisName }} />;
-  const lastLabel = mark === "partial"
-    ? <LocText entry={HUB_FMT.guestsMonthLastPartial} args={{ MONTH: lastName }} />
-    : <LocText entry={HUB_FMT.guestsMonthLast} args={{ MONTH: lastName }} />;
+  // DECISIONS 677: the bar label is the plain month name. A partial month says so in its rows' tooltips (lastNote: GUESTS_LAST_PARTIAL).
+  const lastLabel = <LocText entry={HUB_FMT.guestsMonthLast} args={{ MONTH: lastName }} />;
   /*
-   * Bar label samples: the partial form of every month (always the longest), so the track keeps its width whatever the month
-   * or the mark.
+   * Bar label samples: every month name, so the track keeps its width whatever the month.
    */
-  const barLabels = allMonthNames(t).map((n, i) => <LocText key={i} entry={HUB_FMT.guestsMonthLastPartial} args={{ MONTH: n }} />);
+  const barLabels = allMonthNames(t).map((n, i) => <LocText key={i} entry={HUB_FMT.guestsMonthLast} args={{ MONTH: n }} />);
   const lastNote = lastMonthNote(mark, t);
   const scaleLine = <LocText key="s" entry={HUB_FMT.guestsBarScale} args={{ MAX: numArg(scale, Unit.Integer) }} />;
   /* A last-month value: the number when C# sent one (a whole or a partial month), else "–". */

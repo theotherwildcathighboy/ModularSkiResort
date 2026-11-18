@@ -77,7 +77,8 @@ function featuresOf(runs: readonly RunRow[]): RunFeatureSet {
   return f;
 }
 
-/** The FINANCES header with its Info glyph: the column is "<name> so far", "(partial)" while counted since a load. */
+/** The FINANCES header with its Info glyph: the column is "<name> so far" (DECISIONS 677: no "partial" mark). A month counted since
+ *  the load says so in the header's tooltip (TILE_TIP_SINCE_LOAD, as the Finances tile does). */
 function MoneyHeader({ l, month, samples, t }: { l: ResortLive | null; month: string; samples: NumberSamples; t: Translate }): JSX.Element {
   return (
     <InfoLine
@@ -85,11 +86,9 @@ function MoneyHeader({ l, month, samples, t }: { l: ResortLive | null; month: st
       info
       label={t(HUB_LOC.sectionMoney)}
       value={<Cell samples={samples}>
-        {l && l.thisMonthSinceLoad
-          ? <LocText entry={HUB_FMT.moneyColMonthPartial} args={{ MONTH: month }} />
-          : <LocText entry={HUB_FMT.moneyColMonth} args={{ MONTH: month }} />}
+        <LocText entry={HUB_FMT.moneyColMonth} args={{ MONTH: month }} />
       </Cell>}
-      tip={<TipLines lines={[t(HUB_LOC.moneyNotePanel), l && l.netEstimated && t(HUB_LOC.moneyNoteEst)]} />}
+      tip={<TipLines lines={[t(HUB_LOC.moneyNotePanel), l && l.thisMonthSinceLoad && t(HUB_LOC.tileTipSinceLoad), l && l.netEstimated && t(HUB_LOC.moneyNoteEst)]} />}
     />
   );
 }

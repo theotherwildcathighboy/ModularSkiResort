@@ -133,6 +133,13 @@ export const LUXURY_LODGES: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["lo
  *  (T239). Keep in step with SkiCatalog.cs by hand (CatalogGuardTests T6 holds it). */
 export const LUXURY_PRICE_TOLERANCE = 40;
 
+/** Skier room per lodge tier: C# SkiCatalog.Lodges Capacity (the lodge side of the ski-day room is their sum over the passing lodges,
+ *  SkiDaySystem.Jobs.cs, SkiDayRules.Capacity), smallest first. The Guests view's "Lodges limit it" tooltip lists them (SKI_DAYS_TIP[Lodges],
+ *  DECISIONS 677). test-hub-rules T43 holds it against SkiCatalog.cs. */
+export const LODGE_SKIER_ROOM: ReadonlyArray<readonly [BuildItemId, number]> = [
+  ["lodgeHut", 200], ["lodge", 360], ["lodgeSummit", 480], ["lodgeMid", 720], ["lodgeGrand", 1080],
+];
+
 /** The road-optional lodge tiers: C# SkiCatalog.Lodges rows with LodgeRoadRule.RoadOptional (A-frame, Chalet, Grand). Display only (the
  *  tile tooltip's BUILD_TIP_ROAD_OPTIONAL line). Keep in step with SkiCatalog.cs by hand. */
 export const ROAD_OPTIONAL_LODGES: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["lodge", "lodgeMid", "lodgeGrand"]);
