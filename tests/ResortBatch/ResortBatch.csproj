@@ -32,6 +32,8 @@
     <!-- The ski area radius option, its ring and the site survey. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiAreaRadiusRules.cs" Link="SkiAreaRadiusRules.cs" />
     <Compile Include="SkiAreaRadiusTests.cs" />
+    <Compile Include="TourismBonusTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\TourismBonusRules.cs" Link="TourismBonusRules.cs" />
     <Compile Include="ResortPresenceTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\ResortPresence.cs" Link="ResortPresence.cs" />
   </ItemGroup>

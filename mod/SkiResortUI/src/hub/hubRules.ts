@@ -781,10 +781,45 @@ export function presaleShown(l: ResortLive | null): boolean {
   return !!l && l.passesPreSeason > 0;
 }
 
-/** The city-income estimate row is drawn when C# sent a figure (>= 0) and Tourism Overhaul is not detected. The views show
- *  the TO note in its place, as for the tourist estimate. */
-export function cityIncomeShown(l: ResortLive | null, city: CityStats): boolean {
-  return !!l && !city.tourismOverhaul && l.cityIncomeEst >= 0;
+/** The city-income estimate row is drawn when C# sent a figure (>= 0). Also under Tourism Overhaul: the game's TouristIncome
+ *  statistic keeps counting there (its tourists still start and leave through the vanilla household systems, measured 2026-11-16).
+ *  `city` stays in the signature for the callers. */
+export function cityIncomeShown(l: ResortLive | null, _city: CityStats): boolean {
+  return !!l && l.cityIncomeEst >= 0;
+}
+
+/** T226 / T225 / the value line (contract 50, DECISIONS 666, 668). */
+
+/** "Tourist spending drawn" (Overview): the area's share of the game's TouristIncome statistic, the Money view's estimate row. That
+ *  statistic is money tourists bring minus money they take home (HouseholdInitializeSystem :242, HouseholdMoveAwaySystem :173), so it
+ *  is their spending at city businesses, not city money: it is never added to the resort's net (round 2 r2-tourism REPORT, D4).
+ *  null when the Money row is not drawn (no figure). */
+export function touristSpendingDrawn(l: ResortLive | null, city: CityStats): number | null {
+  if (!l || !cityIncomeShown(l, city)) return null;
+  return l.cityIncomeEst;
+}
+
+/** The "Staying at resort hotels" row: drawn when the area has a merged hotel (C# sends -1 without one). */
+export function hotelShown(l: ResortLive | null): boolean {
+  return !!l && typeof l.hotelGuests === "number" && l.hotelGuests >= 0;
+}
+
+/** The areas' sum is over the Options cap (the tip says so). False while the bonus is off. */
+export function bonusCapped(city: CityStats): boolean {
+  return city.tourismBonusCapPct > 0 && city.tourismBonusSumPct > city.tourismBonusCapPct + 0.005;
+}
+
+/** The area's bonus parts for the tip, in percent: base (2 when the area qualifies, else 0), lift lines x 0.25, lodge points x 0.25, and
+ *  the open share 0..100. null without a score (-1). The numbers are TourismBonusRules' (ResortBatch TB-1). */
+export function bonusParts(l: ResortLive | null): { base: number; lifts: number; lodges: number; openPct: number } | null {
+  if (!l || !(l.bonusPct >= 0) || !(l.bonusSizePct >= 0)) return null;
+  const qualifies = l.bonusSizePct > 0;
+  return {
+    base: qualifies ? 2 : 0,
+    lifts: qualifies ? 0.25 * l.bonusLiftLines : 0,
+    lodges: qualifies ? 0.25 * l.bonusTierPoints : 0,
+    openPct: l.bonusOpenSharePct,
+  };
 }
 
 /** The Net's eight rows of the month so far, in the

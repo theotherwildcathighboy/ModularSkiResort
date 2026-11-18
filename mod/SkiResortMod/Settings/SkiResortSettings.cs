@@ -148,6 +148,17 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupBalance)]
         public int AttractivenessScaleK { get; set; }
 
+        /// <summary>T226 (DECISIONS 666): the city-wide cap of the resort tourism bonus in percent, 0-20, default 10, 0 = off. The bonus
+        /// itself grows with the ski areas (TourismBonusRules). Read live by ResortTourismBonusSystem through CapPctOf. New in 1.0.2: an
+        /// options file without it loads the default.</summary>
+        [SettingsUISlider(min = TourismBonusRules.CapMinPct, max = TourismBonusRules.CapMaxPct, step = 1f, unit = "percentage")]
+        [SettingsUISection(SectionMain, GroupBalance)]
+        public int ResortTourismBonusPct { get; set; }
+
+        /// <summary>The cap, clamped. Null settings give the default. Main thread only.</summary>
+        public static int CapPctOf(SkiResortSettings s)
+            => s == null ? TourismBonusRules.CapDefaultPct : TourismBonusRules.ClampCapPct(s.ResortTourismBonusPct);
+
         /// <summary>Backcountry run value: what a run no complete, powered lift serves is worth, in percent of a lift-served run
         /// (default 40). Read by SkiResortAttractivenessSystem with the DefaultBackcountryValuePercent fallback.</summary>
         [SettingsUISlider(min = 0f, max = 100f, step = 5f, unit = "percentage")]
@@ -510,6 +521,7 @@ namespace SkiResortMod.Settings
         {
             SkiAreaRadiusKm = SkiAreaRadiusRules.DefaultKm;
             AttractivenessScaleK = DefaultAttractivenessScaleK;
+            ResortTourismBonusPct = TourismBonusRules.CapDefaultPct;
             BackcountryValuePercent = DefaultBackcountryValuePercent;
             LiftTicketPrice = SkiMoneyRules.TicketPriceDefault;
             LodgeSpendPerGuest = DefaultLodgeSpendPerGuest;

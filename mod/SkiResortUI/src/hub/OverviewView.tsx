@@ -20,7 +20,7 @@ import type { BuildItem, CityStats, LiftRow, ProblemRow, ResortLive, ResortRow, 
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
-  efficiencyAtFloor, factorRowsOf, hectares, liftsMissing, liveOf, mountainFacts, lodgeExtraShort, receiptPartsVariant, resultVariant, runsMissing, schoolBuiltOf,
+  bonusCapped, bonusParts, efficiencyAtFloor, factorRowsOf, hotelShown, touristSpendingDrawn, hectares, liftsMissing, liveOf, mountainFacts, lodgeExtraShort, receiptPartsVariant, resultVariant, runsMissing, schoolBuiltOf,
   schoolFlagOf, schoolMissingOf, schoolState, scoreBarParts, varietyClosed, varietyMissing, verticalShort,
 } from "./hubRules";
 import type { VarietyNeed } from "./hubRules";
@@ -409,6 +409,56 @@ function Receipt({ row, l, city, problems, build, areaRuns, t }: {
   );
 }
 
+/** T226 / T225 (DECISIONS 666, 668): the Overview tourism group. "Tourist spending drawn" (the area's share of what tourists spend in
+ *  the city, when the Money view's estimate row exists; never added to the resort's net, it is not city money), then the resort tourism bonus as a fold whose rows are the city's tourists (day mean)
+ *  and the area's resort hotels (merged buildings, their own row). */
+function TourismGroup({ l, city, t }: { l: ResortLive | null; city: CityStats; t: Translate }): JSX.Element {
+  const value = touristSpendingDrawn(l, city);
+  const parts = bonusParts(l);
+  const off = city.tourismBonusCapPct <= 0;
+  const pct = (v: number) => numArg(v, Unit.PercentageSingleFraction, false, false);
+  return (
+    <>
+      {value !== null && l && (
+        <InfoLine
+          label={t(HUB_LOC.spendRow)}
+          mark="≈"
+          value={<LocText entry={HUB_FMT.spendMonth} args={{ MONEY: numArg(value, Unit.Money, false, false) }} />}
+          tip={<TipLines lines={[t(HUB_LOC.spendTip), t(HUB_LOC.spendTipBusiness), city.tourismOverhaul && t(HUB_LOC.spendTipTo)]} />}
+        />
+      )}
+      <Fold view="overview" id="tourism" header label={t(HUB_LOC.bonusRow)}
+        value={off ? t(HUB_LOC.bonusOff)
+          : <LocText entry={HUB_FMT.bonusValue} args={{ PCT: pct(city.tourismBonusPct), CAP: numArg(city.tourismBonusCapPct, Unit.Percentage) }} />}
+        tip={<TipLines lines={[
+          t(HUB_LOC.bonusTip),
+          off && t(HUB_LOC.bonusTipOff),
+          !off && parts && <LocText key="a" entry={HUB_FMT.bonusTipArea} args={{ PCT: pct(l ? l.bonusPct : 0) }} />,
+          !off && parts && { label: t(HUB_LOC.bonusTipBase), value: pct(parts.base) },
+          !off && parts && { label: <LocText entry={HUB_FMT.bonusTipLifts} args={{ N: numArg(l ? l.bonusLiftLines : 0, Unit.Integer) }} />, value: <>+{pct(parts.lifts)}</> },
+          !off && parts && { label: <LocText entry={HUB_FMT.bonusTipLodges} args={{ N: numArg(l ? l.bonusTierPoints : 0, Unit.Integer) }} />, value: <>+{pct(parts.lodges)}</> },
+          !off && parts && { label: t(HUB_LOC.bonusTipOpen), value: <>× {numArg(parts.openPct, Unit.Percentage)}</> },
+          !off && bonusCapped(city) && <LocText key="c" entry={HUB_FMT.bonusTipCapped} args={{ SUM: pct(city.tourismBonusSumPct), CAP: numArg(city.tourismBonusCapPct, Unit.Percentage) }} />,
+          !off && t(HUB_LOC.bonusTipSeason),
+        ]} />}>
+        <InfoLine sub
+          label={t(HUB_LOC.touristsRow)}
+          value={numArg(city.touristsDayMean, Unit.Integer)}
+          tip={<TipLines lines={[t(HUB_LOC.touristsTip), t(HUB_LOC.touristsTipWeather), t(HUB_LOC.touristsTipSnow), city.tourismOverhaul && t(HUB_LOC.touristsTipTo)]} />}
+        />
+        {hotelShown(l) && l && (
+          <InfoLine sub
+            label={t(HUB_LOC.hotelRow)}
+            value={numArg(l.hotelGuests, Unit.Integer)}
+            tip={<LocText entry={HUB_FMT.hotelTip} args={{ RENTED: numArg(l.hotelRented, Unit.Integer), ROOMS: numArg(l.hotelRooms, Unit.Integer) }} />}
+          />
+        )}
+      </Fold>
+      <Divider />
+    </>
+  );
+}
+
 export function OverviewView(): JSX.Element {
   const t = useT();
   const resorts = useValue(resorts$);
@@ -446,6 +496,7 @@ export function OverviewView(): JSX.Element {
     <>
       <Receipt row={row} l={l} city={city} problems={problems} build={build} areaRuns={areaRuns} t={t} />
       <Divider />
+      <TourismGroup l={l} city={city} t={t} />
       <MountainSection row={row} live={l} city={city} unrateable={unrateable} areaRuns={areaRuns} areaLifts={areaLifts} t={t} folded />
       <MergedFold sign={row.sign} />
     </>

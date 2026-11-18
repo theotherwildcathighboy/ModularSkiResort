@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 49;
+export const HUB_CONTRACT = 50;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -815,11 +815,12 @@ export interface ResortLive {
   passesPreSeason: number;
   /** What those pre-season passes paid. -1 unknown. */
   passIncomePreSeason: number;
-  /** The resort's share of the city's tourist draw (sharePct) x the game's TouristIncome statistic, in money. -1 unknown, no share, or
-   *  Tourism Overhaul detected. C# SkiResortStatsSystem reads CityStatisticsSystem.GetStatisticValue(StatisticType.TouristIncome)
-   *  (decompile 1.6.0f1 Game.Simulation/CityStatisticsSystem.cs:574). The value is an int in money, the last statistics entry's total.
-   *  The game samples it kUpdatesPerDay = 32 times a game day (:363). BudgetSystem.cs:172-174, 280 reads it the same way. An ESTIMATE:
-   *  whether that entry is a cumulative or a daily window is prefab data, not in the decompile. */
+  /** The resort's share of the city's tourist draw (sharePct) x the game's TouristIncome statistic, in money. -1 unknown or no share.
+   *  C# SkiResortStatsSystem reads CityStatisticsSystem.GetStatisticValue(StatisticType.TouristIncome). Measured in game (2026-11-16):
+   *  collection Daily = the rolling sum of the last 32 samples (CityStatisticsSystem.cs:324-335, 1.6.4f1), one game day = one month.
+   *  It books a tourist household's starting money at arrival (HouseholdInitializeSystem.cs:242) minus its money at departure
+   *  (HouseholdMoveAwaySystem.cs:173): tourists' SPENDING at city businesses (lodging, leisure, shops), not city money. The name stays
+   *  for the contract. */
   cityIncomeEst: number;
   // The one Net's money rows: appended in this order, as in C# WriteResortLive.
   // The Net's rows of the month in progress not sent above (ticketsThisMonth and lessonIncomeMonth are the other two). -1 unknown.
@@ -858,6 +859,19 @@ export interface ResortLive {
   /** Contract 48 (T212): varietyBands' bits plus VARIETY_BAND.CatTrack over the member runs that count while open (open or not; C#
    *  Result.BandsWhenOpen). A bit here that varietyBands lacks = such runs exist and none is open ("open green run"). -1 without a score. */
   bandsWhenOpen: number;
+  /** Contract 50 (T226, DECISIONS 666): this area's part of the resort tourism bonus in percent, size x open share, before the
+   *  city-wide cap (C# ResortTourismBonusSystem.AreaView). -1 without a score. bonusSizePct = the size term (2 % + 0.25 % per lift line
+   *  and lodge point), bonusLiftLines / bonusTierPoints = its inputs, bonusOpenSharePct = the open share 0..100. */
+  bonusPct: number;
+  bonusSizePct: number;
+  bonusLiftLines: number;
+  bonusTierPoints: number;
+  bonusOpenSharePct: number;
+  /** Contract 50 (T225, DECISIONS 668): the merged buildings counted in this area: the people of the tourist households renting their
+   *  rooms, the rooms rented, and all their rooms. Their own row, never added into the lodge guests. -1 = no merged hotel here. */
+  hotelGuests: number;
+  hotelRented: number;
+  hotelRooms: number;
 }
 
 /** One run of ours: identity, rating, service, value parts. */
@@ -1032,6 +1046,13 @@ export interface CityStats {
   /** The calendar month of the game date, 0 = January .. 11 = December (C# SkiMoneyRules.MonthKey, the month the guest
    *  ledger counts). -1 = not known. The views name it through vanilla Common.MONTH:<n> (hubText.monthEntry). */
   month: number;
+  /** Contract 50 (T226): the resort tourism bonus in the city's attractiveness modifier now, percent (0 = none), the Options cap
+   *  "Resort tourism bonus" (0 = off) and the areas' sum before the cap. */
+  tourismBonusPct: number;
+  tourismBonusSumPct: number;
+  tourismBonusCapPct: number;
+  /** Contract 50 (T225): the city's tourist count averaged over the last game day (-1 until 3 game hours are sampled after a load). */
+  touristsDayMean: number;
 }
 
 /**
@@ -1220,6 +1241,7 @@ export const FALLBACK = {
     known: false, daysPerYear: 0, scaleK: 4, backcountryPct: 40, ticketPrice: 0, snowGating: true,
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
     tripPlanner: "", tripPlannerBlocksSkiDays: false, passShare: 50, month: -1,
+    tourismBonusPct: 0, tourismBonusSumPct: 0, tourismBonusCapPct: 10, touristsDayMean: -1,
   } as CityStats,
   /** The piste map is on by default (C# owns the value). */
   pisteMap: true,

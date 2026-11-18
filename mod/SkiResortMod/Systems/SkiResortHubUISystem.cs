@@ -43,7 +43,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 49;
+        public const int HubContract = 50;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -388,11 +388,20 @@ namespace SkiResortMod.Systems
                 // The calendar month 0..11 (the UI names it with vanilla Common.MONTH:<n>).
                 writer.PropertyName("month");
                 writer.Write(Fin(value.Month));
+                // Contract 50 (T226 / T225): the city's resort tourism bonus and the tourist day mean.
+                writer.PropertyName("tourismBonusPct");
+                writer.Write(Fin(value.TourismBonusPct));
+                writer.PropertyName("tourismBonusSumPct");
+                writer.Write(Fin(value.TourismBonusSumPct));
+                writer.PropertyName("tourismBonusCapPct");
+                writer.Write(Fin(value.TourismBonusCapPct));
+                writer.PropertyName("touristsDayMean");
+                writer.Write(Fin(value.TouristsDayMean));
                 writer.TypeEnd();
             }
         }
 
-        /// <summary>`city` dedup: all fourteen fields (typed Equals per field with no boxing. Floats use .Equals. The
+        /// <summary>`city` dedup: all eighteen fields (typed Equals per field with no boxing. Floats use .Equals. The
         /// string uses ==).</summary>
         private sealed class CityStatsComparer : EqualityComparer<CityStats>
         {
@@ -404,7 +413,9 @@ namespace SkiResortMod.Systems
                        a.TourismOverhaul == b.TourismOverhaul && a.RealisticWorkplaces == b.RealisticWorkplaces &&
                        a.TripPlanner == b.TripPlanner && a.TripPlannerBlocksSkiDays == b.TripPlannerBlocksSkiDays &&
                        a.PassShare == b.PassShare &&
-                       a.Month == b.Month;
+                       a.Month == b.Month &&
+                       a.TourismBonusPct.Equals(b.TourismBonusPct) && a.TourismBonusSumPct.Equals(b.TourismBonusSumPct) &&
+                       a.TourismBonusCapPct == b.TourismBonusCapPct && a.TouristsDayMean == b.TouristsDayMean;
             }
 
             public override int GetHashCode(CityStats c)
@@ -424,6 +435,9 @@ namespace SkiResortMod.Systems
                     h = h * 31 + (c.TripPlanner ?? "").GetHashCode();
                     h = h * 31 + (c.TripPlannerBlocksSkiDays ? 1 : 0);
                     h = h * 31 + c.PassShare;
+                    h = h * 31 + c.TourismBonusPct.GetHashCode();
+                    h = h * 31 + c.TourismBonusCapPct;
+                    h = h * 31 + c.TouristsDayMean;
                     return h * 31 + c.Month;
                 }
             }
@@ -3777,6 +3791,23 @@ namespace SkiResortMod.Systems
                 // Contract 48 (T212): which needs have runs that are all closed. Same rule: every path writes it.
                 writer.PropertyName("bandsWhenOpen");
                 writer.Write(Fin(r.BandsWhenOpen));
+                // Contract 50 (T226 / T225): the area's bonus part and its resort hotels. Same rule: every path writes them.
+                writer.PropertyName("bonusPct");
+                writer.Write(Fin(r.BonusPct));
+                writer.PropertyName("bonusSizePct");
+                writer.Write(Fin(r.BonusSizePct));
+                writer.PropertyName("bonusLiftLines");
+                writer.Write(Fin(r.BonusLiftLines));
+                writer.PropertyName("bonusTierPoints");
+                writer.Write(Fin(r.BonusTierPoints));
+                writer.PropertyName("bonusOpenSharePct");
+                writer.Write(Fin(r.BonusOpenSharePct));
+                writer.PropertyName("hotelGuests");
+                writer.Write(Fin(r.HotelGuests));
+                writer.PropertyName("hotelRented");
+                writer.Write(Fin(r.HotelRented));
+                writer.PropertyName("hotelRooms");
+                writer.Write(Fin(r.HotelRooms));
                 writer.TypeEnd();
             }
             writer.ArrayEnd();

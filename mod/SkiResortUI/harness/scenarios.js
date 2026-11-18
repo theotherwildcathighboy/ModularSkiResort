@@ -44,7 +44,9 @@
 
   const city = { known: true, daysPerYear: 365, scaleK: 4, backcountryPct: 40, ticketPrice: 65, snowGating: true,
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
-    tripPlanner: "", tripPlannerBlocksSkiDays: false, passShare: 50, month: 1 };
+    tripPlanner: "", tripPlannerBlocksSkiDays: false, passShare: 50, month: 1,
+    // Contract 50 (T226 / T225): Ash Flat's 2.9 % of a 10 % cap, a day mean of 2,430 tourists.
+    tourismBonusPct: 2.93, tourismBonusSumPct: 2.93, tourismBonusCapPct: 10, touristsDayMean: 2430 };
 
   const SIGN = E(101), SIGN2 = E(102);
   const runs = [
@@ -96,8 +98,11 @@
     varietyBands: 7, verticalShortM: 0,
     // Contract 48 (T212): every band and a cat track count while open.
     bandsWhenOpen: 15,
+    // Contract 50 (T226 / T225): 2 lift lines and 3 lodge points (size 2 + 0.5 + 0.75 = 3.25 %) x 90 % open = 2.93 %; one merged hotel.
+    bonusPct: 2.93, bonusSizePct: 3.25, bonusLiftLines: 2, bonusTierPoints: 3, bonusOpenSharePct: 90,
+    hotelGuests: 1240, hotelRented: 482, hotelRooms: 1029,
   };
-  const live2 = Object.assign({}, live, { sign: SIGN2, status: 0, runsOpen: 0, runsPartly: 0, snowPct: 0, attraction: 0, attractionFull: 0, lodgesActive: 0, estKnown: false, estTourists: 0, nextStep: 1, netMonth: 0, skiDaysState: 3, guestsThisMonth: 0, ticketIncomeMonth: 0 });
+  const live2 = Object.assign({}, live, { bonusPct: 0, bonusSizePct: 0, bonusLiftLines: 0, bonusTierPoints: 0, bonusOpenSharePct: 0, hotelGuests: -1, hotelRented: -1, hotelRooms: -1, sign: SIGN2, status: 0, runsOpen: 0, runsPartly: 0, snowPct: 0, attraction: 0, attractionFull: 0, lodgesActive: 0, estKnown: false, estTourists: 0, nextStep: 1, netMonth: 0, skiDaysState: 3, guestsThisMonth: 0, ticketIncomeMonth: 0 });
   const problems = [
     { sign: SIGN, code: 5, severity: 2, subject: E(302), subjectTop: E(312), name: "Lift 2", count: 1, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 6, buildItem: "" },
     { sign: SIGN, code: 6, severity: 2, subject: E(303), subjectTop: E(313), name: "Lift 3", count: 1, pct: 0, factor: "", more: 0, detail: 1, ifFixed: 4, buildItem: "liftGondola" },
@@ -297,7 +302,7 @@
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800 };
-  const base = { hubOpen: false, contract: 49, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 50, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
@@ -490,6 +495,10 @@
       { sign: SIGN, code: 8, severity: 1, subject: NULL, subjectTop: NULL, name: "", count: 1, pct: 50, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "lift" },
       { sign: SIGN, code: 24, severity: 1, subject: E(405), subjectTop: NULL, name: "", count: 2, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "" },
     ], history, build: buildItems({ built: ["school"] }) });
+  // T226: the resort tourism bonus turned off in Options (cap 0): the fold row reads "Off".
+  window.SkiScenarios["Ash Flat, resort tourism bonus off"] = Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2],
+    selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }),
+    city: Object.assign({}, city, { tourismBonusPct: 0, tourismBonusCapPct: 0 }) });
   // Code 30 LiftBend (geometry limits warn, never refuse: DECISIONS 600): Meadow Quad's tower 12 turns the rope 12.4 deg in plan. A dim
   // row appears in the band's second slot, under a severity-2 lift row. subject = the tower's net node, no top (focusLift flies to the tower).
   window.SkiScenarios["Ash Flat (runs, lifts, problems), a lift bend"] = Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2],

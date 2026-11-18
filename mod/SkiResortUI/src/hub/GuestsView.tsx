@@ -336,19 +336,7 @@ function SignGuests({ l, city, parking, samples, t }: {
           <LodgeParkingLines rows={parking} samples={samples} t={t} />
         </Fold>
       )}
-      {city.tourismOverhaul ? (
-        <Tip tip={t(HUB_LOC.estToTip)}>
-          <div className={styles.noteArea}>
-            <div className={styles.note1}>{t(HUB_LOC.estToNote)}</div>
-          </div>
-        </Tip>
-      ) : (
-        <InfoLine
-          label={t(HUB_LOC.estRowTourists)}
-          value={l && l.estKnown ? <Num value={l.estTourists} unit={Unit.Integer} /> : DASH}
-          tip={t(HUB_LOC.estTouristsTip)}
-        />
-      )}
+      {/* T225 (DECISIONS 668): the formula estimate "Tourists drawn" gave way to the measured "Tourists in the city" (Overview tourism group). */}
       {tripNote !== "none" && (
         <Tip tip={<TipLines lines={[<TripPlannerNoteText key="n" note={tripNote} name={tripName} t={t} />, t(HUB_LOC.tripPlannerTip)]} />}>
           <div className={styles.noteArea}>

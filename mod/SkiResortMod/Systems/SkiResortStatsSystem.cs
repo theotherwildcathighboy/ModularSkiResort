@@ -92,8 +92,9 @@ namespace SkiResortMod.Systems
         // pre-season sale (-1 unknown).
         // CityIncomeEst = the resort's SharePct of the game's TouristIncome statistic
         // (CityStatisticsSystem.GetStatisticValue(StatisticType.TouristIncome), sampled 32 times a game day, CityStatisticsSystem.cs:363).
-        // -1 unknown, no share, or Tourism Overhaul detected (the UI hides the row then). An estimate:
-        // the statistic's window (cumulative / daily) is prefab data, not in the decompile. More: EngineNotes/SkiResortStatsSystem.md
+        // Collection Daily (measured): the last game day = one month. It is money tourists bring (HouseholdInitializeSystem :242) minus
+        // money they take home (HouseholdMoveAwaySystem :173), i.e. their spending at city businesses, NOT city money (the hub calls it
+        // "Tourist spending"). -1 unknown or no share. More: EngineNotes/SkiResortStatsSystem.md
         public int LessonsThisMonth, LessonsLastMonth, LessonIncomeMonth, PassesPreSeason, PassIncomePreSeason, CityIncomeEst;
         // The Net's rows (EngineNotes/HubRules.md ONE NET), appended in this order: the rows of NetMonth for the month in progress that are not
         // already sent (TicketsThisMonth and LessonIncomeMonth are the ticket and lesson rows).
@@ -119,6 +120,15 @@ namespace SkiResortMod.Systems
         // Contract 48 (T212): Result.BandsWhenOpen (VarietyBands' bits plus BandCatTrack 8 over the runs that count while open). -1 without a
         // Result.
         public int BandsWhenOpen;
+        // Contract 50 (T226 / T225, DECISIONS 666, 668): the area's part of the resort tourism bonus (ResortTourismBonusSystem.AreaView):
+        // BonusPct = size x open share in percent (before the city-wide cap), BonusSizePct = the size term, BonusLiftLines / BonusTierPoints
+        // its inputs, BonusOpenSharePct = the open share 0..100. -1 (and -1f) without a score.
+        // HotelGuests / HotelRented / HotelRooms = the merged buildings counted in this area: the people of the tourist households renting
+        // their rooms, the rooms rented, the rooms (LodgingProvider). Their own row, never added into lodge guests. -1 without a merged
+        // hotel in the area.
+        public float BonusPct, BonusSizePct;
+        public int BonusLiftLines, BonusTierPoints, BonusOpenSharePct;
+        public int HotelGuests, HotelRented, HotelRooms;
 
         /// <summary>The terms NetMonth was computed from (-1 unknown).</summary>
         public HubMonthMoney NetTerms => new HubMonthMoney
@@ -200,6 +210,11 @@ namespace SkiResortMod.Systems
         // the calendar month 0..11 of the game date, the month the guest ledger counts as "this month" (SkiMoneyRules.MonthKey, as
         // SkiGuestCounterSystem rolls it). The UI names it through vanilla Common.MONTH:<0-11>.
         public int Month;
+        // Contract 50 (T226 / T225): TourismBonusPct = the bonus in the city's modifier now (percent, 0 = none), TourismBonusCapPct = the
+        // option (0 = off), TourismBonusSumPct = the areas' sum before the cap. TouristsDayMean = the city's tourist count averaged over
+        // the last game day (-1 until 3 game hours are sampled after a load).
+        public float TourismBonusPct, TourismBonusSumPct;
+        public int TourismBonusCapPct, TouristsDayMean;
 
         public bool Equals(CityStats o)
         {
@@ -208,7 +223,9 @@ namespace SkiResortMod.Systems
                    SnowVisualsOff == o.SnowVisualsOff && TourismOverhaul == o.TourismOverhaul &&
                    RealisticWorkplaces == o.RealisticWorkplaces && TripPlanner == o.TripPlanner &&
                    TripPlannerBlocksSkiDays == o.TripPlannerBlocksSkiDays &&
-                   PassShare == o.PassShare && Month == o.Month;
+                   PassShare == o.PassShare && Month == o.Month &&
+                   TourismBonusPct.Equals(o.TourismBonusPct) && TourismBonusSumPct.Equals(o.TourismBonusSumPct) &&
+                   TourismBonusCapPct == o.TourismBonusCapPct && TouristsDayMean == o.TouristsDayMean;
         }
 
         public override bool Equals(object obj)
@@ -233,6 +250,9 @@ namespace SkiResortMod.Systems
                 h = h * 31 + (TripPlanner ?? "").GetHashCode();
                 h = h * 31 + (TripPlannerBlocksSkiDays ? 1 : 0);
                 h = h * 31 + PassShare;
+                h = h * 31 + TourismBonusPct.GetHashCode();
+                h = h * 31 + TourismBonusCapPct;
+                h = h * 31 + TouristsDayMean;
                 return h * 31 + Month;
             }
         }
@@ -331,7 +351,8 @@ namespace SkiResortMod.Systems
         private SkiGuestCounterSystem m_GuestCounter;
         private SkiLiftChargeSystem m_LiftCharge;
         private SkiBusChargeSystem m_BusCharge;
-        private SkiMergeSystem m_Merge;   // the merged buildings' monthly fee (BuildingsCost)
+        private SkiMergeSystem m_Merge;
+        private ResortTourismBonusSystem m_Bonus;   // T226 bonus parts and the tourist day mean (contract 50)   // the merged buildings' monthly fee (BuildingsCost)
         private SkiLiftTicketSystem m_LiftTicket;            // DUMP only
         private CityServiceBudgetSystem m_CityServiceBudget;
         private SimulationSystem m_Simulation;
@@ -594,6 +615,7 @@ namespace SkiResortMod.Systems
             m_LiftCharge = World.GetOrCreateSystemManaged<SkiLiftChargeSystem>();
             m_BusCharge = World.GetOrCreateSystemManaged<SkiBusChargeSystem>();
             m_Merge = World.GetOrCreateSystemManaged<SkiMergeSystem>();
+            m_Bonus = World.GetOrCreateSystemManaged<ResortTourismBonusSystem>();
             m_LiftTicket = World.GetOrCreateSystemManaged<SkiLiftTicketSystem>();
             m_CityServiceBudget = World.GetOrCreateSystemManaged<CityServiceBudgetSystem>();
             m_Simulation = World.GetOrCreateSystemManaged<SimulationSystem>();
@@ -1378,6 +1400,46 @@ namespace SkiResortMod.Systems
             return fees;
         }
 
+        /// <summary>T225 (DECISIONS 668): the tourist households renting rooms in the merged buildings counted in <paramref name="sign"/>'s
+        /// area (MergeRules.InArea, this rebuild's views). people = their citizens, rented = rooms rented (one per household), rooms = rented +
+        /// free (LodgingProvider of each lodging company renting the building). All -1 when the area has no merged building with a lodging
+        /// company. Main thread, a handful of entities: the building's Renter buffer, each company's Renter buffer and each household's
+        /// HouseholdCitizen buffer. Never throws.</summary>
+        private void HotelRentersOf(Entity sign, out int people, out int rented, out int rooms)
+        {
+            people = rented = rooms = -1;
+            try
+            {
+                for (int i = 0; i < m_MergedViews.Count; i++)
+                {
+                    SkiResortAttractivenessSystem.MergedView view = m_MergedViews[i];
+                    if (view.Sign != sign || !MergeRules.InArea(view.State) || !EntityManager.Exists(view.Building) ||
+                        !EntityManager.TryGetBuffer(view.Building, isReadOnly: true, out DynamicBuffer<Renter> tenants))
+                        continue;
+                    for (int t = 0; t < tenants.Length; t++)
+                    {
+                        Entity company = tenants[t].m_Renter;
+                        if (!EntityManager.TryGetComponent(company, out LodgingProvider lodging) ||
+                            !EntityManager.TryGetBuffer(company, isReadOnly: true, out DynamicBuffer<Renter> guests))
+                            continue;
+                        if (rented < 0)
+                            people = rented = rooms = 0;
+                        rented += guests.Length;
+                        rooms += guests.Length + Math.Max(0, lodging.m_FreeRooms);
+                        for (int g = 0; g < guests.Length; g++)
+                        {
+                            if (EntityManager.TryGetBuffer(guests[g].m_Renter, isReadOnly: true, out DynamicBuffer<Game.Citizens.HouseholdCitizen> members))
+                                people += members.Length;
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                people = rented = rooms = -1;   // a hub number only: never take the hub down for it
+            }
+        }
+
         /// <summary>The top-level ski schools linked to <paramref name="sign"/> (Entity.Null = linked to none) in the last
         /// CopyTopLevelLinks (m_TopLevel, this rebuild, school prefabs only): live ones (exists, not Deleted / Temp), those whose
         /// Building.m_RoadEdge is Null, and the lowest (Index, Version) of each (stable subjects). Main thread, a handful of
@@ -2033,10 +2095,12 @@ namespace SkiResortMod.Systems
             // Upkeep inputs (CityServiceBudgetSystem.cs:392-421), fetched once per rebuild.
             bool upkeepReady = PrepareUpkeep(out EconomyParameterData economy, out ResourcePrefabs resourcePrefabs);
 
-            // The game's TouristIncome statistic, once per rebuild (GetStatisticValue completes the statistics writers, a short sync). Not
-            // read under Tourism Overhaul (the UI hides the row). -1 when unavailable.
+            // The game's TouristIncome statistic, once per rebuild (GetStatisticValue completes the statistics writers, a short sync). Read
+            // under Tourism Overhaul too: TO replaces the spawn and the target, but its tourists still start in HouseholdInitializeSystem
+            // (+money, :242) and leave through HouseholdMoveAwaySystem (-money, :173), so the statistic keeps counting (measured
+            // 2026-11-16, round 2 r2-tourism REPORT). -1 when unavailable.
             int touristIncome = -1;
-            if (!city.TourismOverhaul && m_CityStatistics != null)
+            if (m_CityStatistics != null)
             {
                 try
                 {
@@ -2259,6 +2323,21 @@ namespace SkiResortMod.Systems
                         live.EstTourists = tNow - tWithout;
                     }
                 }
+                // T226: the area's part of the resort tourism bonus. T225: the merged hotels' renters (their own row).
+                if (m_Bonus != null && m_Bonus.TryGetArea(sign, out ResortTourismBonusSystem.AreaView bonus))
+                {
+                    live.BonusPct = bonus.BonusPct;
+                    live.BonusSizePct = bonus.SizePct;
+                    live.BonusLiftLines = bonus.LiftLines;
+                    live.BonusTierPoints = bonus.TierPoints;
+                    live.BonusOpenSharePct = bonus.OpenSharePct;
+                }
+                else
+                {
+                    live.BonusPct = live.BonusSizePct = -1f;
+                    live.BonusLiftLines = live.BonusTierPoints = live.BonusOpenSharePct = -1;
+                }
+                HotelRentersOf(sign, out live.HotelGuests, out live.HotelRented, out live.HotelRooms);
                 int jobs = 0, filled = 0;
                 AddJobs(sign, ref jobs, ref filled);
                 // A linked top-level building's jobs are on its own WorkProvider (lodges, the school). The jobs of the patrol huts and mountain
@@ -2480,6 +2559,9 @@ namespace SkiResortMod.Systems
                 PassesSoldSeason = -1, PassIncomeSeason = -1, PassHoldersThisMonth = -1, PassHoldersLastMonth = -1,
                 // no ski area: the lesson, pre-season and city-income numbers unknown.
                 LessonsThisMonth = -1, LessonsLastMonth = -1, LessonIncomeMonth = -1, PassesPreSeason = -1, PassIncomePreSeason = -1, CityIncomeEst = -1,
+                // no ski area: no tourism bonus part, no resort hotel (contract 50).
+                BonusPct = -1f, BonusSizePct = -1f, BonusLiftLines = -1, BonusTierPoints = -1, BonusOpenSharePct = -1,
+                HotelGuests = -1, HotelRented = -1, HotelRooms = -1,
             };
             if (m_LiftCharge.TryGetResort(Entity.Null, out SkiLiftChargeSystem.ResortLiftCharge charge))
             {
@@ -2675,6 +2757,11 @@ namespace SkiResortMod.Systems
                 PassShare = SkiMoneyRules.ClampPassShare(settings != null ? settings.SeasonPassShare : SkiMoneyRules.PassShareDefault),
                 // the ledger month key's calendar month, 0..11 (MonthOfKey is 1..12)
                 Month = SkiMoneyRules.MonthOfKey(SkiMoneyRules.MonthKey(m_TimeSystem.year, m_TimeSystem.normalizedDate)) - 1,
+                // T226 / T225 (contract 50)
+                TourismBonusPct = m_Bonus != null ? m_Bonus.AppliedPct : 0f,
+                TourismBonusSumPct = m_Bonus != null ? m_Bonus.SumPct : 0f,
+                TourismBonusCapPct = m_Bonus != null ? m_Bonus.CapPct : SkiResortSettings.CapPctOf(settings),
+                TouristsDayMean = m_Bonus != null ? m_Bonus.TouristsDayMean : -1,
             };
         }
 
@@ -3172,6 +3259,14 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.VarietyBands);
                 h = MixF(h, r.VerticalShortM);
                 h = Mix(h, (uint)r.BandsWhenOpen);
+                h = MixF(h, r.BonusPct);
+                h = MixF(h, r.BonusSizePct);
+                h = Mix(h, (uint)r.BonusLiftLines);
+                h = Mix(h, (uint)r.BonusTierPoints);
+                h = Mix(h, (uint)r.BonusOpenSharePct);
+                h = Mix(h, (uint)r.HotelGuests);
+                h = Mix(h, (uint)r.HotelRented);
+                h = Mix(h, (uint)r.HotelRooms);
             }
             return Mix(h, (uint)rows.Count);
         }

@@ -283,18 +283,18 @@ function LessonRow({ l, city, school, samples, t }: {
   );
 }
 
-/** The resort's share of the city's tourist draw x the game's TouristIncome statistic. It is an estimate in the "Also" block (not
- *  resort income, not in the net). Under Tourism Overhaul the same Detected note as the tourist estimate replaces the row.
+/** The resort's share of the city's tourist draw x the game's TouristIncome statistic: tourists' spending at city businesses (money
+ *  brought minus money taken home), not city money. An estimate in the "Also" block (not resort income, not in the net). Shown under
+ *  Tourism Overhaul too (the statistic counts there, measured 2026-11-16; TO's tourist budgets make it much larger).
  *  The label carries no "≈": the mark slot shows it next to the value, as on the net row (DECISIONS 568). */
 function CityIncomeRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
-  if (city.tourismOverhaul) return <SubLine tip={t(HUB_LOC.estToTip)}>{t(HUB_LOC.estToNote)}</SubLine>;
   if (!l || !cityIncomeShown(l, city)) return null;
   return (
     <InfoLine
       label={t(HUB_LOC.moneyRowCityIncome)}
       mark="≈"
-      value={<Cell samples={samples}><SignedNum value={l.cityIncomeEst} unit={Unit.Money} /></Cell>}
-      tip={t(HUB_LOC.moneyTipCityIncome)}
+      value={<Cell samples={samples}><Num value={l.cityIncomeEst} unit={Unit.Money} /></Cell>}
+      tip={<TipLines lines={[t(HUB_LOC.moneyTipCityIncome), t(HUB_LOC.spendTipBusiness), city.tourismOverhaul && t(HUB_LOC.spendTipTo)]} />}
     />
   );
 }
@@ -357,7 +357,7 @@ function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; 
 function AlsoBlock({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
   const last = !!l && ticketsRow(l, city.ticketPrice) === "last";
   const passes = passesShown(l, city);
-  const cityRow = city.tourismOverhaul || cityIncomeShown(l, city);
+  const cityRow = cityIncomeShown(l, city);
   if (!last && !passes && !cityRow) return null;
   return (
     <Fold view="money" id="also" header label={t(HUB_LOC.sectionAlso)}>
