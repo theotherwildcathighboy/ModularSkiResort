@@ -550,4 +550,16 @@
       noPower(1), noPower(2), noPower(3), noPower(4),
       { sign: SIGN, code: 32, severity: 1, subject: E(952), subjectTop: NULL, name: "Lift 8", count: 0, pct: 1, factor: "", more: 1, detail: 14, ifFixed: -1, buildItem: "" },
     ] });
+
+  // r3/ui (1.0.2): the sign is stopped (efficiency 0 %) and C# names no factor (a merged lodge's closed-for-goods flap, Corwen pass
+  // 2026-11-17). The band reads "Welcome Sign stopped", never "Welcome Sign stopped:" with nothing after. More rows give the
+  // "+N more problems" list something to open over the view tiles.
+  window.SkiScenarios["Ash Flat, sign stopped with no named factor"] = Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2],
+    selectedResort: SIGN, runs, runLive, lifts, history, build: buildItems({ built: ["school"] }),
+    problems: [
+      { sign: SIGN, code: 4, severity: 2, subject: NULL, subjectTop: NULL, name: "", count: 1, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 100, buildItem: "" },
+      problems[2],
+      noPower(1),
+      { sign: SIGN, code: 32, severity: 1, subject: E(952), subjectTop: NULL, name: "Lift 8", count: 0, pct: 1, factor: "", more: 1, detail: 14, ifFixed: -1, buildItem: "" },
+    ] });
 })();

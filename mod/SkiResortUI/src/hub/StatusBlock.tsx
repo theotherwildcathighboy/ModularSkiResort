@@ -115,7 +115,11 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "efficiency": case "efficiencyMore": return p.factor
       ? <LocText entry={HUB_FMT.problemEfficiency} args={{ PCT, REASON }} />
       : <LocText entry={HUB_FMT.problemEfficiencyBare} args={{ PCT }} />;
-    case "notRunning": case "notRunningMore": return <LocText entry={HUB_FMT.problemNotRunning} args={{ REASON }} />;
+    // Same rule as the efficiency row: no factor from C# (a closed lodge's lack of goods, off season) means the bare line, never
+    // "Welcome Sign stopped:" with nothing after the colon (Corwen pass 2026-11-17).
+    case "notRunning": case "notRunningMore": return p.factor
+      ? <LocText entry={HUB_FMT.problemNotRunning} args={{ REASON }} />
+      : <LocText entry={HUB_FMT.problemNotRunningBare} args={{}} />;
     case "liftNoPower": return <LocText entry={HUB_FMT.problemLiftNoPower} args={{ NAME }} />;
     case "liftSectionMissing": return <LocText entry={HUB_FMT.problemLiftSectionMissing} args={{ NAME }} />;
     case "liftUnfinished": return <LocText entry={HUB_FMT.problemLiftUnfinished} args={{ NAME }} />;
@@ -407,7 +411,7 @@ export function StatusBlock({ statusRef, problemsRef }: {
             noneLine={i === 0 && band.length === 0 && !(l && (statusVariant(row, l) === "unknown" || statusVariant(row, l) === "settling"))} popOpen={popOpen} />
         ))}
         {popOpen && (
-          <div className={cx(styles.overlayCard, styles.overlayBelow)}>
+          <div className={styles.problemList}>
             {band.slice(BAND_SLOTS).map((b, i) => {
               const click = bandClick(b);
               const row = (

@@ -491,6 +491,21 @@ for (const h of [1080, 2160]) {
     [`v09-tab-buildings-${h}`, h, { scenario: BIG, view: 0, tab: "buildings" }],
   );
 }
+// r3/ui (1.0.2): the stop reason without a dangling colon, History's season block on one page, the expanded problem list in the flow (the
+// view tiles move down, never covered). Before = main, after = this branch (the file names stay the same). `--list=r3ui` picks this list.
+const R3_STOPPED = "Ash Flat, sign stopped with no named factor";
+const R3UI = [];
+for (const [scale, tag] of [[1, ""], [1.25, "-fs125"]]) {
+  R3UI.push(
+    [`r3-01-stopped-band-1080${tag}`, 1080, { scenario: R3_STOPPED, view: 4, fold: 0, fs: scale }],
+    [`r3-02-problem-list-money-1080${tag}`, 1080, { scenario: R3_STOPPED, view: 4, fold: 0, problems: 1, fs: scale }],
+    [`r3-03-problem-list-overview-1080${tag}`, 1080, { scenario: BIG, view: 0, problems: 1, fs: scale }],
+    ...(scale > 1 ? [[`r3-07-problem-list-field-case-1080${tag}`, 1080, { scenario: "Field case: 1 complete lift, 4 unfinished", view: 0, problems: 1, fs: scale }]] : []),
+    [`r3-04-history-p1-1080${tag}`, 1080, { scenario: ASH, view: 5, fs: scale }],
+    [`r3-05-history-p2-1080${tag}`, 1080, { scenario: ASH, view: 5, page: 2, fs: scale }],
+    ...(scale > 1 ? [[`r3-06-history-p3-1080${tag}`, 1080, { scenario: ASH, view: 5, page: 3, fs: scale }]] : []),
+  );
+}
 const POLISH = [];
 for (const [scale, tag] of [[1, "-fs100"], [1.25, "-fs125"], [1.5, "-fs150"]]) {
   POLISH.push(
@@ -739,7 +754,7 @@ async function main() {
     const b = browsers[0];
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg),
-        process.argv.includes("--list=r2fix") ? R2FIX : process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2hub") ? R2HUB : process.argv.includes("--list=r2views") ? R2VIEWS : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=r3ui") ? R3UI : process.argv.includes("--list=r2fix") ? R2FIX : process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2hub") ? R2HUB : process.argv.includes("--list=r2views") ? R2VIEWS : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

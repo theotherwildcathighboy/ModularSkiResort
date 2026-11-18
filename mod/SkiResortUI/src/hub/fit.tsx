@@ -133,7 +133,7 @@ const FOLD_FOCUS_MS = 1000;
  * and the pager flickered. Also, a fold opened onto a page that was not shown, and the fold vanished until a view switch.
  */
 export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject<HTMLElement>, enabled: boolean, resetKey: string,
-  foldRowClass: string, geometryKey = "", openRowClass = "", foldSeq = 0): FitPage {
+  foldRowClass: string, geometryKey = "", openRowClass = "", foldSeq = 0, keepTailClass = ""): FitPage {
   const [pages, setPages] = useState(1);
   const [page, setPage] = useState(0);
   const keyRef = useRef(resetKey);
@@ -214,7 +214,18 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
           // Paged: the box shrinks to the shown page, so its height is the room only while it still scrolls with the pager drawn
           const pagerRow = body.lastElementChild as HTMLElement | null;
           const pagerDrawn = pagerOn && pagerRow !== null && pagerRow !== slot && pagerRow.getBoundingClientRect().height > 0;
-          if (pagerDrawn && box.scrollHeight > box.clientHeight + 0.5) room = inner - (bodyH - slotRect.height);
+          // scrollHeight and clientHeight are whole pixels, so a body under 1 px too tall reads "fits": compare the body itself too
+          const over = bodyH - inner;
+          if (pagerDrawn && (box.scrollHeight > box.clientHeight + 0.5 || over > 0.1)) {
+            room = inner - (bodyH - slotRect.height);
+            // The cached row heights can sum a hair under the slot's real height (margins), so the room above would not drop a row: the
+            // shown rows must lose what the body is over (a body 0.7 px too tall was a 1 px scrollbar in the harness, Field case 1.25)
+            if (over > 0.1) {
+              let shownSum = 0;
+              for (const r of rows) if (r.style.display !== "none") shownSum += heightOf.current.get(r) ?? 0;
+              if (shownSum > 0) room = Math.min(room, shownSum - over);
+            }
+          }
         }
         roomRef.current = room;
       }
@@ -227,13 +238,26 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
       }
       // Rows never drawn on a fresh frame (just added) count 0 until one is. The fresh pass two frames on corrects the split
       const heights = rows.map((r) => heightOf.current.get(r) ?? 0);
+      // A row with keepTailClass starts a block that runs to the last row. The block stays on one page while it fits a page alone
+      // (History's "This season so far": page 2 must not start at Net without its header). Too tall for a page: it splits like any rows.
+      const keepAt = keepTailClass ? rows.findIndex((r) => r.className.indexOf(keepTailClass) >= 0) : -1;
+      let keepFrom = -1;
+      if (keepAt >= 0) {
+        let tail = 0;
+        for (let i = keepAt; i < rows.length; i++) tail += heights[i];
+        if (tail <= room) keepFrom = keepAt;
+      }
       const pageOf: number[] = [];
       let p = 0, acc = 0, start = 0;
       for (let i = 0; i < rows.length; i++) {
         if (acc + heights[i] > room && i > start) {
-          // keep a fold header with its first row
-          if (i - 1 > start && rows[i - 1].className.indexOf(foldRowClass) >= 0) { pageOf[i - 1] = p + 1; acc = heights[i - 1]; } else acc = 0;
-          p++; start = acc > 0 ? i - 1 : i;
+          // Rows moved to the next page with row i: the whole keep block when i is inside it, else a fold header (kept with its first row)
+          let from = i;
+          if (keepFrom >= 0 && i > keepFrom && keepFrom > start) from = keepFrom;
+          else if (i - 1 > start && rows[i - 1].className.indexOf(foldRowClass) >= 0) from = i - 1;
+          acc = 0;
+          for (let j = from; j < i; j++) { pageOf[j] = p + 1; acc += heights[j]; }
+          p++; start = from;
         }
         pageOf[i] = p;
         acc += heights[i];

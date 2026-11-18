@@ -1631,6 +1631,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[Efficiency]", "Efficiency {PCT}: {REASON}" },
                 { "SkiResort.Hub.PROBLEM[EfficiencyBare]", "Efficiency {PCT}" },  // no factor to name (folded lodge staffing)
                 { "SkiResort.Hub.PROBLEM[NotRunning]", "Welcome Sign stopped: {REASON}" },
+                { "SkiResort.Hub.PROBLEM[NotRunningBare]", "Welcome Sign stopped" },  // no factor to name: never a colon with nothing after it
                 { "SkiResort.Hub.PROBLEM[LiftNoPower]", "{NAME}: no power" },
                 { "SkiResort.Hub.PROBLEM[LiftSectionMissing]", "{NAME}: section missing" },
                 { "SkiResort.Hub.PROBLEM[LiftUnfinished]", "{NAME}: unfinished" },

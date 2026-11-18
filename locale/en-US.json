@@ -1521,6 +1521,7 @@
   "SkiResort.Hub.PROBLEM[Efficiency]": "Efficiency {PCT}: {REASON}",
   "SkiResort.Hub.PROBLEM[EfficiencyBare]": "Efficiency {PCT}",
   "SkiResort.Hub.PROBLEM[NotRunning]": "Welcome Sign stopped: {REASON}",
+  "SkiResort.Hub.PROBLEM[NotRunningBare]": "Welcome Sign stopped",
   "SkiResort.Hub.PROBLEM[LiftNoPower]": "{NAME}: no power",
   "SkiResort.Hub.PROBLEM[LiftSectionMissing]": "{NAME}: section missing",
   "SkiResort.Hub.PROBLEM[LiftUnfinished]": "{NAME}: unfinished",
