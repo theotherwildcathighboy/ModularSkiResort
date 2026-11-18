@@ -494,9 +494,14 @@ const R3SLIDERS = R3SLIDERS_BEFORE.concat([
   ["s03-run-picked-1080", 1080, { scenario: PICK, view: 1, clickRun: "Run 4" }],
   ["s04-run-guns-tip-1080", 1080, { scenario: PICK, view: 1, clickRun: "Run 4", hover: "90 m" }],
   ["s04b-cattrack-lights-tip-1080", 1080, { scenario: PICK, view: 1, clickRun: "Cat Track", hover: "Off" }],
-  ["s08-money-pass-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hover: "Season pass" }],
+  ["s02b-money-price-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: '.h-panel [class*="sr-priceRowText_"]' }],
+  ["s08-money-pass-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: '.h-panel [class*="sr-priceRowText_"]', hoverIdx: 1 }],
   ["s09-money-price-2160", 2160, { scenario: ASH, view: 4, fold: 0 }],
   ["s10-run-picked-2160", 2160, { scenario: PICK, view: 1, clickRun: "Run 4" }],
+  ["s11-price-dragging-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.325, 0.6, false] }],
+  ["s12-price-released-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.325, 0.6, true] }],
+  ["s13-guns-released-1080", 1080, { scenario: PICK, view: 1, clickRun: "Run 4", drag: [0, 0.45, 0.9, true] }],
+  ["s14-tree-click-1080", 1080, { scenario: ASH, view: 1, drag: [0, 1, 1, true] }],
 ]);
 const R2VIEWS = [];
 for (const h of [1080, 2160]) {
@@ -614,8 +619,8 @@ async function shots(b, base, dir, list) {
   for (const [file, h, p0] of list) {
     const w = Math.round(h * 16 / 9);
     const p = Object.assign({}, p0);
-    const { hover, hoverIn, hoverSel, click, clickRange, clickRun, hoverPlot, whole, iconMode, scrollY, scrollIn, scrollInY } = p;
-    delete p.clickRun; delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode; delete p.scrollY; delete p.scrollIn; delete p.scrollInY;
+    const { drag, hover, hoverIn, hoverSel, hoverIdx, click, clickRange, clickRun, hoverPlot, whole, iconMode, scrollY, scrollIn, scrollInY } = p;
+    delete p.clickRun; delete p.drag; delete p.hoverIdx; delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode; delete p.scrollY; delete p.scrollIn; delete p.scrollInY;
     await open(b, base, w, h);
     if (iconMode) await evalAsync(b, `(() => { window.skiResortIconMode = ${JSON.stringify(iconMode)}; return true; })()`, 10000);
     const m = await evalAsync(b, `(async () => { const p = new URLSearchParams(${JSON.stringify(new URLSearchParams(Object.assign({ clean: 1 }, p)).toString())});
@@ -632,6 +637,25 @@ async function shots(b, base, dir, list) {
         const el = Array.from(document.querySelectorAll('.h-panel button[class*="runFly"]')).find((e) => (e.textContent || '').trim().startsWith(want));
         if (!el) return false; el.click(); await new Promise((r) => setTimeout(r, 400)); return true; })()`, 10000);
       if (!ok) console.log(`shot ${file}: run row "${clickRun}" not found`);
+    }
+    if (drag) {   // r3/sliders: [slider index, from 0..1, to 0..1, release]. Real mouse input on the slider track; prints the triggers it sent
+      const [k, from, to, release] = drag;
+      const r = await evalAsync(b, `(() => { window.__dragLog0 = window.SkiHarness.log.length;
+        const e = document.querySelectorAll('.h-panel [class*="sr-sliderTrack_"]')[${Number(k)}]; if (!e) return null;
+        const q = e.getBoundingClientRect(); return { l: q.left, w: q.width, y: q.top + q.height / 2 }; })()`, 10000);
+      if (r) {
+        const x = (f) => r.l + r.w * f;
+        await b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: x(from), y: r.y });
+        await b.send("Input.dispatchMouseEvent", { type: "mousePressed", x: x(from), y: r.y, button: "left", buttons: 1, clickCount: 1 });
+        for (let i = 1; i <= 8; i++) {
+          await b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: x(from + (to - from) * i / 8), y: r.y, button: "left", buttons: 1 });
+          await sleep(30);
+        }
+        if (release) await b.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: x(to), y: r.y, button: "left", buttons: 0, clickCount: 1 });
+        await sleep(300);
+        const sent = await evalAsync(b, `JSON.stringify(window.SkiHarness.log.slice(window.__dragLog0))`, 10000);
+        console.log(`shot ${file}: drag ${from} -> ${to}${release ? " (released)" : " (held)"} sent ${sent}`);
+      } else console.log(`shot ${file}: slider ${k} not found`);
     }
     if (scrollY) {   // scroll the panel's content (a long Runs view: the lower rows) by this many px
       const n = await evalAsync(b, `(() => { const e = document.querySelector('.h-panel [class*="panelContent"]'); if (!e) return 0; e.scrollTop = ${Number(scrollY)}; return 1; })()`, 10000);
@@ -655,7 +679,7 @@ async function shots(b, base, dir, list) {
       } else console.log(`shot ${file}: no chart plot to point at`);
     }
     if (hoverSel) {
-      const at = await evalAsync(b, `(() => { const e = document.querySelector(${JSON.stringify(hoverSel)}); if (!e) return null;
+      const at = await evalAsync(b, `(() => { const e = document.querySelectorAll(${JSON.stringify(hoverSel)})[${Number(hoverIdx || 0)}]; if (!e) return null;
         const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, 10000);
       if (at) {
         await b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: at.x, y: at.y });

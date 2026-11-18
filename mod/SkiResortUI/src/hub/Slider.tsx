@@ -19,16 +19,18 @@ import styles from "./hub.module.scss";
 const PENDING_MS = 3000;
 
 /** Where a value sits on the track, 0..1. A value on a stop sits on it. A value between two neighbor stops (a kind's default such as
- *  90 m between 100 and 80) sits in between, by its value. -1 = not on the track (unknown). */
+ *  90 m between 100 and 80) sits in between, by its value: the tightest pair that holds it. -1 = not on the track (unknown). */
 export function sliderPos(stops: readonly number[], value: number): number {
   const n = stops.length;
   if (n < 2 || !Number.isFinite(value)) return -1;
   for (let i = 0; i < n; i++) if (stops[i] === value) return i / (n - 1);
+  // The tightest pair of neighbors around it: on the spacing list, 90 m lies between Off (0) and 200 m too, but belongs between 100 and 80.
+  let best = -1, span = Infinity;
   for (let i = 0; i + 1 < n; i++) {
     const a = stops[i], b = stops[i + 1];
-    if ((value - a) * (value - b) < 0) return (i + (value - a) / (b - a)) / (n - 1);
+    if ((value - a) * (value - b) < 0 && Math.abs(b - a) < span) { best = i; span = Math.abs(b - a); }
   }
-  return -1;
+  return best < 0 ? -1 : (best + (value - stops[best]) / (stops[best + 1] - stops[best])) / (n - 1);
 }
 
 /** The stop nearest to a track fraction 0..1 (clamped). */

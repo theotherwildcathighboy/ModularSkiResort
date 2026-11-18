@@ -2238,7 +2238,7 @@
 // r3/sliders (Slider.tsx): a track, its fill, a round thumb, ticks at the stops of a short list, and the readout in a fixed slot.
 // The row is 22 rem x fontScale (the chip / check row height, T46.3) and all of it is the hit area; the drawn track is 4 rem. A value
 // change moves only the absolutely placed fill and thumb, never the layout. Fill and thumb ring: the vanilla accent; hover and drag:
-// its hover color. Off: the disabled color, no pointer.
+// --accentColorNormal-hover (vanilla; --hoverColorNormal is not defined in the game index.css). Off: the disabled color, no pointer.
 .slider {
   display: flex;
   flex-direction: row;
@@ -2329,15 +2329,15 @@
 
 .sliderHit:hover .sliderThumb,
 .sliderDrag .sliderThumb {
-  border-top-color: var(--hoverColorNormal);
-  border-right-color: var(--hoverColorNormal);
-  border-bottom-color: var(--hoverColorNormal);
-  border-left-color: var(--hoverColorNormal);
+  border-top-color: var(--accentColorNormal-hover);
+  border-right-color: var(--accentColorNormal-hover);
+  border-bottom-color: var(--accentColorNormal-hover);
+  border-left-color: var(--accentColorNormal-hover);
 }
 
 .sliderHit:hover .sliderFill,
 .sliderDrag .sliderFill {
-  background-color: var(--hoverColorNormal);
+  background-color: var(--accentColorNormal-hover);
 }
 
 .sliderOff .sliderHit {

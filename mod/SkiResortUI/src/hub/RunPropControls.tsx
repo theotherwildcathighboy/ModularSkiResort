@@ -38,7 +38,7 @@ function SpacingRow({ caption, tip, value, onSet }: { caption: string; tip: Reac
   return (
     <div className={styles.quickRow}>
       <Caption text={caption} />
-      <Slider stops={RUN_PROP_SPACING_STOPS} value={value} format={fmt} samples={SPACING_SAMPLES.map(fmt)} tip={tip}
+      <Slider ticks stops={RUN_PROP_SPACING_STOPS} value={value} format={fmt} samples={SPACING_SAMPLES.map(fmt)} tip={tip}
         onCommit={onSet} />
     </div>
   );
