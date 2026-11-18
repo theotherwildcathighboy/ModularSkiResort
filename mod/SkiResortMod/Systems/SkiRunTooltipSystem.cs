@@ -312,10 +312,7 @@ namespace SkiResortMod.Systems
                 // (TempCostTooltipSystem.cs:79-82). value / color assignments allocate nothing.
                 if (fee)
                 {
-                    RunFeatures drawn = RunFeatures.FromKind(kind);
-                    if (drawn.IsPiste && drawn.Groomed && m_Hub.TryGetDrawSeed(out int gunM, out int lightM))
-                        drawn = RunFeatures.FromSpacings(kind, gunM, lightM);
-                    int value = SkiRunFees.Fee(drawn, areaM2);
+                    int value = FeeOf(kind, areaM2);
                     if (value >= 0)
                     {
                         m_Fee.value = value;
@@ -349,6 +346,25 @@ namespace SkiResortMod.Systems
                                   $"tooltip disabled until the next game load:\n{e}");
                 }
             }
+        }
+
+        /// <summary>The one-time fee of the new run being drawn, as the fee row shows it. False when there is no live new-run readout.
+        /// SkiRunToolAssistSystem reads it for the money icon (T243b).</summary>
+        public bool TryGetNewRunFee(out int fee)
+        {
+            fee = -1;
+            if (!m_Feedback.TryGetFeeInputs(out int kind, out float areaM2, out bool isNew) || !isNew)
+                return false;
+            fee = FeeOf(kind, areaM2);
+            return fee >= 0;
+        }
+
+        private int FeeOf(int kind, float areaM2)
+        {
+            RunFeatures drawn = RunFeatures.FromKind(kind);
+            if (drawn.IsPiste && drawn.Groomed && m_Hub.TryGetDrawSeed(out int gunM, out int lightM))
+                drawn = RunFeatures.FromSpacings(kind, gunM, lightM);
+            return SkiRunFees.Fee(drawn, areaM2);
         }
     }
 }

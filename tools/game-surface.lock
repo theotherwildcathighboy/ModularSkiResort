@@ -747,6 +747,7 @@ anchor SkiRunDrawFeedbackSystem before Game.Rendering.OverlayRenderSystem Render
 anchor SkiRunOutlineSystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiRunPropSystem before Game.Objects.SecondaryObjectSystem Modification4B
 anchor SkiRunSurfaceSystem after Game.Simulation.WetnessSystem GameSimulation interval{return 256;}
+anchor SkiRunToolAssistSystem before Game.Notifications.IconCommandSystem ModificationEnd
 anchor SkiRunTooltipSystem after Game.UI.Tooltip.AreaToolTooltipSystem UITooltip
 anchor SkiSnowInjectionSystem after Game.Simulation.SnowSystem GameSimulation interval{return 4;}
 anchor SkiSnowLineOverlaySystem before Game.Rendering.OverlayRenderSystem Rendering

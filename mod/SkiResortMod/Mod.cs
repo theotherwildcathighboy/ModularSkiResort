@@ -346,6 +346,10 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<SkiRunTooltipSystem, Game.UI.Tooltip.AreaToolTooltipSystem>(
                 SystemUpdatePhase.UITooltip);
 
+            // Run tool helpers (T244 Esc restarts the outline, T243b money icon on the run Temp). Anchor is load-bearing: the icon command
+            // must play back in this frame's IconCommandSystem, before the area tool rebuilds the Temp (a dead owner is skipped).
+            updateSystem.UpdateBefore<SkiRunToolAssistSystem, Game.Notifications.IconCommandSystem>(SystemUpdatePhase.ModificationEnd);
+
             // Glade-tool tooltip. Anchor is load-bearing: it runs after TempCostTooltipSystem (SystemOrder.cs:911), so our lines sit
             // directly below its cost line. The reason is the same as for the grade tooltip above.
             updateSystem.UpdateAfter<SkiGladeTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(
