@@ -103,10 +103,10 @@ A Burst IJob (`StripDrawJob`) writes the strips and the crux ring into the `Over
   - the outline width being in meters,
   - whether the mod's Burst AOT compiles StripDrawJob (best-effort as in `SkiSnowInjectionSystem`, otherwise it runs as managed code on a
     worker thread).
-- Band colors (T234, 1.0.2). Flat, green and blue fill at `FillAlpha` 0.35. Black was hard to see in evening light, so black is a lighter
-  black (`BlackGray` 0.15) at `BlackFillAlpha` 0.6, and double black (red, or the European orange route) is at `DoubleBlackFillAlpha` 0.55.
-  In ring mode a thin white edge (`BlackEdgeWidthM` 0.5 m, `BlackEdgeAlpha` 0.8) outlines the black-band cells: the two ends of each black
-  row strip, and the group boundaries where the neighbor group's representative row is not black. Each boundary is drawn once, from
+- Band colors (T234, 1.0.2). Flat, green and blue fill at `FillAlpha` 0.35. Black was hard to see in evening light. So black is a lighter
+  black (`BlackGray` 0.15) at `BlackFillAlpha` 0.6. Double black (red, or the European orange route) is at `DoubleBlackFillAlpha` 0.55.
+  In ring mode a thin white edge (`BlackEdgeWidthM` 0.5 m, `BlackEdgeAlpha` 0.8) outlines the black-band cells. It runs at the two ends
+  of each black row strip. It also runs along a group boundary where the representative row of the neighbor group is not black. Each boundary is drawn once, from
   the black side. The edges are appended after the fills, so they draw on top if the overlay keeps the order (unverified). They use
   the strip budget left after the fills, and they stop at `MaxStrips`. Polyline mode has no edge. `BlackEdgeStrips` (dev tab) counts them.
 

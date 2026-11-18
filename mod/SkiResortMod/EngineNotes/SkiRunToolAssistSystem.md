@@ -15,18 +15,19 @@ Vanilla facts (1.6.4f1):
 
 The mod has no Harmony, so it cannot take the key first. It undoes the switch instead:
 
-1. Each frame, it records the Esc press (`Keyboard.current.escapeKey.wasPressedThisFrame`) and the last frame where the area tool was
-   active with one of our run prefabs and a new run Temp with at least one placed point (2+ nodes: the placed points and the cursor).
-2. When the active tool changes to `DefaultToolSystem`, and both events are at most `EscWindowFrames` (10) frames old, it calls
+1. Each frame, it records the Esc press (`Keyboard.current.escapeKey.wasPressedThisFrame`). It also records the last frame of a started
+   outline. Then the area tool is active with one of our run prefabs. A new run Temp also has at least one placed point (2+ nodes: the
+   placed points and the cursor).
+2. When the active tool becomes `DefaultToolSystem`, and both events are at most `EscWindowFrames` (10) frames old, it calls
    `ActivatePrefabTool` with the same prefab. The outline starts over with the tool still in hand.
 3. A second Esc finds no placed point, so the tool leaves as in vanilla. A click on another tool is not the default tool, so it is left
    alone.
 
-Each reset logs `RunToolAssist [esc]` (at most 20 lines per load). Not checked in game yet: the hub and the asset menu may also react to
-the key (for example, the asset menu may stay closed while the tool is active again).
+Each reset logs `RunToolAssist [esc]` (at most 20 lines per load). Not checked in game yet. The hub and the asset menu may also react to
+the key. For example, the asset menu may stay closed while the tool is active again.
 
-Fallback if the game check fails: drop the reset and add the tooltip line "Right click removes the last point" (vanilla right click
-removes the last control point).
+Fallback if the game check fails: drop the reset. Add the tooltip line "Right click removes the last point" instead. (Vanilla right
+click removes the last control point.)
 
 ## T243b: money icon on the run Temp
 
@@ -35,12 +36,15 @@ removes the last control point).
 * The system adds the vanilla icon (the `NotificationIconData` prefab whose `ToolErrorData.m_Error` is `NotEnoughMoney`) on the new run's
   Temp when `SkiRunTooltipSystem.TryGetNewRunFee` is above `CitySystem.moneyAmount`. Location: `Geometry.m_CenterPosition` (an area owner
   has no location of its own in `IconCommandSystem`).
-* `isTemp: true`: the icon dies with the Temp (`ToolClearSystem` deletes every Temp). A rebuilt Temp is a new entity, so the icon is added
+* `isTemp: true`: the icon dies with the Temp (`ToolClearSystem` removes every Temp). A rebuilt Temp is a new entity, so the icon is added
   again. It is removed when the fee becomes affordable.
 * ModificationEnd, not Rendering: in Rendering the command would play back one frame later, after the tool rebuilt the Temp, and
   `IconCommandSystem` skips a dead owner.
 * The fee comes from the overlay readout, so the icon follows the `ShowRunGradeWhileDrawing` setting like the fee row.
 
 It does not block the creation. An icon adds no `Game.Tools.Error` component, so the area still applies. Blocking options (owner
-ruling pending): add `Game.Tools.Error` to the Temp (vanilla then refuses the click with the red outline), or set `Temp.m_Cost` (vanilla
-validation then shows the icon and blocks, but it also charges the cost at apply, so the bind fee would be charged twice).
+ruling pending):
+
+* Add `Game.Tools.Error` to the Temp. Vanilla then refuses the click and draws the outline red.
+* Set `Temp.m_Cost`. Vanilla validation then shows the icon and blocks. But vanilla also charges the cost at apply, so the bind fee
+  would be charged twice.
