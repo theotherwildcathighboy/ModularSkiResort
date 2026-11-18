@@ -34,6 +34,7 @@ namespace SkiResortMod.Systems
         public const string KeySlopeGentle = "SkiResort.Tooltip.SLOPE_AVG_MAX_GENTLE"; // + "· gentle run, short steep pitch"
         public const string KeyNoGate ="SkiResort.Tooltip.NO_GATE_IN_RANGE";
         public const string KeyFee = "SkiResort.Tooltip.RUN_FEE"; // "Run fee (one-time)"
+        public const string KeySoFar = "SkiResort.Tooltip.RATING_SO_FAR"; // "{BAND} (so far)": a new outline still open (T252)
 
         /// <summary>Built once, North American by (int)SlopeBand (Flat 0 .. DoubleBlack 4).</summary>
         private static readonly LocalizedString[] BandText =
@@ -215,10 +216,13 @@ namespace SkiResortMod.Systems
                     bool eu = DisplayState.Scheme == GradeScheme.European;
                     if (eu)
                         m_ShownEu = DisplayUnits.EuClassShown(band, r.RatingGrade * 100f, m_ShownEu, 100f * SkiSlopeClassifier.DisplayHysteresis);
-                    int shown = eu ? 8 + (int)m_ShownEu : band;   // a scheme change re-sets the text too
+                    // T252: while a new outline is still open, the next click changes the shape, so the band reads "so far". At the closing click
+                    // (and for an edited run) the readout is the rating the built run gets, so the plain band shows.
+                    int shown = (eu ? 8 + (int)m_ShownEu : band) + (r.Open ? 100 : 0);   // a scheme change re-sets the text too
                     if (shown != m_ShownBand)
                     {
-                        m_Grade.value = eu ? EuClassText[(int)m_ShownEu] : BandText[band];
+                        LocalizedString text = eu ? EuClassText[(int)m_ShownEu] : BandText[band];
+                        m_Grade.value = r.Open ? LocalizedString.Id(KeySoFar, ("BAND", text)) : text;
                         m_ShownBand = shown;
                     }
                     m_Grade.color = band == (int)SlopeBand.Flat ? TooltipColor.Warning : TooltipColor.Info;
@@ -308,10 +312,7 @@ namespace SkiResortMod.Systems
                 // (TempCostTooltipSystem.cs:79-82). value / color assignments allocate nothing.
                 if (fee)
                 {
-                    RunFeatures drawn = RunFeatures.FromKind(kind);
-                    if (drawn.IsPiste && drawn.Groomed && m_Hub.TryGetDrawSeed(out int gunM, out int lightM))
-                        drawn = RunFeatures.FromSpacings(kind, gunM, lightM);
-                    int value = SkiRunFees.Fee(drawn, areaM2);
+                    int value = FeeOf(kind, areaM2);
                     if (value >= 0)
                     {
                         m_Fee.value = value;
@@ -345,6 +346,25 @@ namespace SkiResortMod.Systems
                                   $"tooltip disabled until the next game load:\n{e}");
                 }
             }
+        }
+
+        /// <summary>The one-time fee of the new run being drawn, as the fee row shows it. False when there is no live new-run readout.
+        /// SkiRunToolAssistSystem reads it for the money icon (T243b).</summary>
+        public bool TryGetNewRunFee(out int fee)
+        {
+            fee = -1;
+            if (!m_Feedback.TryGetFeeInputs(out int kind, out float areaM2, out bool isNew) || !isNew)
+                return false;
+            fee = FeeOf(kind, areaM2);
+            return fee >= 0;
+        }
+
+        private int FeeOf(int kind, float areaM2)
+        {
+            RunFeatures drawn = RunFeatures.FromKind(kind);
+            if (drawn.IsPiste && drawn.Groomed && m_Hub.TryGetDrawSeed(out int gunM, out int lightM))
+                drawn = RunFeatures.FromSpacings(kind, gunM, lightM);
+            return SkiRunFees.Fee(drawn, areaM2);
         }
     }
 }

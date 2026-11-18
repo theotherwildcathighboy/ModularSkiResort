@@ -24,8 +24,8 @@ namespace SkiResortMod.Systems
 
     /// <summary>Difficulty layer: why SlopeResult.Band differs from (or nearly differs from) BandOf(RatingGrade). None = the crux
     /// band stands. Capped = a black (double black) crux capped one band down by the steep-cell share. WideEase = a crux just above
-    /// the green/blue boundary on a wide gentle run rounded down to green. NarrowKept = the cap WOULD have applied but
-    /// the steep section is narrower than NarrowWidthM (the width decides). LongKept = the cap WOULD have applied but the crux pitch is at least
+    /// the green/blue boundary on a wide gentle run rounded down to green. NarrowKept = retired in T251 (width alone no longer keeps
+    /// a band; FinishBand never sets it, the value stays for the enum and the tooltip mapping). LongKept = the cap WOULD have applied but the crux pitch is at least
     /// CruxLengthForBlack long (the length decides). GreenMean = a black or double black crux on a run whose MEAN grade is green, rated blue.</summary>
     public enum SlopeNote : byte
     {
@@ -138,8 +138,7 @@ namespace SkiResortMod.Systems
         public float BandGrade;                 // the grade Band reads: RatingGrade, or when the layer moved the band the crux limited to just below the band's ceiling (a DisplayBand input)
         public SlopeNote Note;                  // why Band moved / nearly moved (SlopeNote)
         public float SteepShare;                // black/double-black crux: share of inside cells at/above the band floor (40 / 60 %), unweighted, else 0
-        public float SteepShareWeighted;        // the same with cells in a section narrower than NarrowWidthM counted twice
-        public float CruxPitchM;                // black/double-black crux: estimated length of the crux pitch along the easiest line, m (CruxStretchM + PitchBlurM), else 0
+        public float CruxPitchM;                // black/double-black crux: length of the crux pitch along the easiest line, m: the stretch at/above the band floor (+ EndZoneDepthM per end it touches), no blur allowance (T251), else 0
         public float CruxWidthM;                // mean perpendicular extent over the crux stretch, m. -1 = not evaluated / no usable fall line
 
         // Classifier-private: the easiest line (cell indices, bottom zone -> top zone) the crux pass walked,
@@ -171,7 +170,6 @@ namespace SkiResortMod.Systems
             BandGrade = 0f;
             Note = SlopeNote.None;
             SteepShare = 0f;
-            SteepShareWeighted = 0f;
             CruxPitchM = 0f;
             CruxWidthM = -1f;
             PathLen = 0;
@@ -225,12 +223,11 @@ namespace SkiResortMod.Systems
         // per-cell values: bucket = min(2047, (int)(o·1024)), i.e. 1/1024 = 0.098 % grade wide up to 200 %.
         // Difficulty layer, applied AFTER the crux (see FinishBand). The reason for each constant is in the same note:
         //  SteepShareForBlack, DoubleBlackShare  steep-cell share below which a black / double black crux is capped one band
-        //  CruxLengthForBlack, PitchBlurM        a pitch this long (measured as stretch + blur) is never capped
+        //  CruxLengthForBlack                    a pitch whose own steep stretch is this long is never capped (no blur allowance, T251)
         //  CapMaxOverFloor                       only a BORDERLINE band is capped (crux < floor + 10 pp)
-        //  NarrowWidthM                          a steep section narrower than this counts double and is never capped
         //  WideRunM, WideEase                    a wide run with a crux just above the green/blue boundary rounds down to green
-        public const float SteepShareForBlack = 0.15f, DoubleBlackShare = 0.10f, CruxLengthForBlack = 40f, PitchBlurM = 20f;
-        public const float CapMaxOverFloor = 0.10f, NarrowWidthM = 20f, WideRunM = 60f, WideEase = 0.02f;
+        public const float SteepShareForBlack = 0.15f, DoubleBlackShare = 0.10f, CruxLengthForBlack = 40f;
+        public const float CapMaxOverFloor = 0.10f, WideRunM = 60f, WideEase = 0.02f;
         //  GreenMeanKeepsBlueMax 25 %  a run whose MEAN grade is below this (the green band, the classifier's own green/blue
         //                           boundary) rates at most BLUE however short and steep its crux, unless the unavoidable pitch
         //                           is CruxLengthForBlack or longer: a cat track is narrow and has a short kick. It is not a
@@ -1606,7 +1603,6 @@ namespace SkiResortMod.Systems
             result.BandGrade = rating;
             result.Note = SlopeNote.None;
             result.SteepShare = 0f;
-            result.SteepShareWeighted = 0f;
             result.CruxPitchM = 0f;
             result.CruxWidthM = -1f;
             if (!result.Connected || !result.CruxValid || result.PathLen < 1 || result.PathCrux < 0 || result.PathCrux >= result.PathLen ||
@@ -1668,7 +1664,7 @@ namespace SkiResortMod.Systems
             // unavoidable pitch is long. Narrowness does NOT keep the band here (cat tracks are narrow by nature).
             if (result.MeanGrade < GreenMeanKeepsBlueMax)
             {
-                float pitchG = (float)stretchM + PitchBlurM;
+                float pitchG = (float)stretchM;            // the own steep stretch, no blur allowance (T251)
                 result.CruxPitchM = pitchG;
                 if (haveAxis)
                     result.CruxWidthM = StretchWidth(grid.Mask, nx, nz, path, lo, hi, px, pz, s, wideSide);
@@ -1692,8 +1688,7 @@ namespace SkiResortMod.Systems
 
             int[] mRuns = grid.MaskRuns, mStart = grid.MaskRowStart;
             byte[] mask = grid.Mask;
-            int narrowSide = (int)math.ceil(NarrowWidthM / s) + 1;
-            long steep = 0, steepNarrow = 0, cells = 0;
+            long steep = 0, cells = 0;
             for (int j = Dilation; j < nz - Dilation; j++)
             {
                 int row = j * nx;
@@ -1707,21 +1702,16 @@ namespace SkiResortMod.Systems
                         if (mask[q] == 0)
                             continue;
                         cells++;
-                        if (cg[q] < floor)
-                            continue;
-                        steep++;
-                        if (haveAxis && Extent(mask, nx, nz, i, j, px, pz, s, narrowSide) < NarrowWidthM)
-                            steepNarrow++;
+                        if (cg[q] >= floor)
+                            steep++;
                     }
                 }
             }
             if (cells == 0)
                 return;
             float share = (float)((double)steep / cells);
-            float weighted = (float)((double)(steep + steepNarrow) / cells);
             result.SteepShare = share;
-            result.SteepShareWeighted = weighted;
-            float pitchM = (float)stretchM + PitchBlurM;
+            float pitchM = (float)stretchM;                 // the own steep stretch, no blur allowance (T251)
             result.CruxPitchM = pitchM;
             if (haveAxis)
                 result.CruxWidthM = StretchWidth(mask, nx, nz, path, lo, hi, px, pz, s, wideSide);
@@ -1733,15 +1723,29 @@ namespace SkiResortMod.Systems
                 result.Note = SlopeNote.LongKept;           // a long unavoidable wall is black whatever the share
                 return;
             }
-            if (weighted >= shareLimit || (haveAxis && result.CruxWidthM >= 0f && result.CruxWidthM < NarrowWidthM))
-            {
-                result.Note = SlopeNote.NarrowKept;         // narrow + steep = harder: the width kept the band
-                return;
-            }
+            // A short pitch is capped whatever the width (T251): a narrow spot alone (a cat track bank, a gully kink) never keeps the band.
+            // SlopeNote.NarrowKept stays in the enum for the tooltip mapping but FinishBand no longer sets it.
             result.Band = black ? SlopeBand.Blue : SlopeBand.Black;
             float ceilingBelow = floor - 2f * DisplayHysteresis;
             result.BandGrade = rating < ceilingBelow ? rating : ceilingBelow;
             result.Note = SlopeNote.Capped;
+        }
+
+        /// <summary>The band the 1.0.1 difficulty layer gave this result (before T251), re-derived from the evidence fields, for the
+        /// catalog's per-load band-change count only. 1.0.1 added 20 m of blur to the crux pitch and kept a capped band when the crux stretch
+        /// was narrower than 20 m. It also kept one when the width-weighted steep share reached the limit; that share is no longer computed, so
+        /// this is a LOWER bound on the changes (SlopeBatch counts the gap). Pure.</summary>
+        public static SlopeBand LegacyBand101(SlopeResult r)
+        {
+            const float oldBlurM = 20f, oldNarrowM = 20f;
+            if (r == null)
+                return SlopeBand.Flat;
+            bool longOld = r.CruxPitchM + oldBlurM >= CruxLengthForBlack;
+            if (r.Note == SlopeNote.GreenMean && longOld)
+                return r.CruxBand;
+            if (r.Note == SlopeNote.Capped && (longOld || (r.CruxWidthM >= 0f && r.CruxWidthM < oldNarrowM)))
+                return r.CruxBand;
+            return r.Band;
         }
 
         /// <summary>Mean perpendicular extent (m) over the easiest-line cells path[lo..hi].</summary>

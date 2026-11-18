@@ -45,6 +45,11 @@ namespace SkiResortMod.Systems
             public float SteepestGrade;
             public bool Connected;
             public bool IsNewRun;
+            /// <summary>T252: a new run whose outline is still open (the area tool's Create state, the Temp not Complete). The Temp is rated
+            /// as if closed through the cursor node (SkiSlopeClassifier.Plan treats >= 3 nodes with area as a ring, so FinishBand runs), but the
+            /// next click changes the shape, so the band can still change. A 2-node Temp is a line (polyline mode, no difficulty layer).
+            /// The tooltip then says "so far".</summary>
+            public bool Open;
             public bool GateInRange;
             public float Length;
             // The fee inputs. The system sets them at every recompute whether or not the rating succeeds, and to -1 / 0 after Invalidate.
@@ -69,8 +74,17 @@ namespace SkiResortMod.Systems
             public const float ThrottleFactor = 8f;
             /// <summary>The cap of the throttle delay above, in ms.</summary>
             public const float MaxThrottleMs = 250f;
-            /// <summary>Overlay fill alpha (inside the polygon only).</summary>
+            /// <summary>Overlay fill alpha (inside the polygon only): flat, green and blue cells.</summary>
             public const float FillAlpha = 0.35f;
+            /// <summary>Black cells: a lighter black (BlackGray) at a higher alpha, so the band reads in low evening light (T234). The European
+            /// black uses the same.</summary>
+            public const float BlackFillAlpha = 0.6f;
+            public const float BlackGray = 0.15f;
+            /// <summary>Double black cells (North American red, European orange ski route) (T234).</summary>
+            public const float DoubleBlackFillAlpha = 0.55f;
+            /// <summary>Thin white edge around the black-band region (ring mode), m wide, drawn after the fills while under MaxStrips (T234).</summary>
+            public const float BlackEdgeWidthM = 0.5f;
+            public const float BlackEdgeAlpha = 0.8f;
             /// <summary>Hard cap on Projected strips per frame (GPU overdraw, see OVERLAY).</summary>
             public const int MaxStrips = 3000;
             /// <summary>Width (m) of a polyline-mode segment strip.</summary>
@@ -94,14 +108,15 @@ namespace SkiResortMod.Systems
             public const float ValidationLogWindowS = 10f;
         }
 
-        /// <summary>Band colors, index = (int)SlopeBand, alpha = FillAlpha.</summary>
+        /// <summary>Band colors, index = (int)SlopeBand. Alpha FillAlpha, except black (BlackFillAlpha, lighter BlackGray) and double black
+        /// (DoubleBlackFillAlpha), T234.</summary>
         private static readonly UnityEngine.Color[] BandColors =
         {
             new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.FillAlpha),
             new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.FillAlpha),
             new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.08f, 0.08f, 0.08f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.85f, 0.20f, 0.10f, Tuning.FillAlpha),
+            new UnityEngine.Color(Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackFillAlpha),
+            new UnityEngine.Color(0.85f, 0.20f, 0.10f, Tuning.DoubleBlackFillAlpha),
         };
 
         /// <summary>The same in European grading (T162 rev. 2, display only), index = the cell key (CellKey): green band under 15 % = green
@@ -112,10 +127,13 @@ namespace SkiResortMod.Systems
             new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.FillAlpha),
             new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.FillAlpha),
             new UnityEngine.Color(0.85f, 0.15f, 0.12f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.08f, 0.08f, 0.08f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.95f, 0.55f, 0.05f, Tuning.FillAlpha),
+            new UnityEngine.Color(Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackFillAlpha),
+            new UnityEngine.Color(0.95f, 0.55f, 0.05f, Tuning.DoubleBlackFillAlpha),
             new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.FillAlpha),
         };
+
+        /// <summary>The black-region edge (T234).</summary>
+        private static readonly UnityEngine.Color BlackEdgeColor = new UnityEngine.Color(1f, 1f, 1f, Tuning.BlackEdgeAlpha);
 
         private const byte KeyEuBlue = 5;
 
@@ -187,6 +205,8 @@ namespace SkiResortMod.Systems
         public int InsideCells, NeedCells, LatticeNx, LatticeNz;
         public int StripsBuilt, StripsDrawn;
         public bool StripCapHit;
+        /// <summary>T234 edge strips of the current build (part of StripsBuilt).</summary>
+        public int BlackEdgeStrips;
         /// <summary>Ring-mode row stride of the current strips (1 = full row resolution).</summary>
         public int RowStride = 1;
         /// <summary>Per-frame draw cost, ms (GetBuffer + job schedule + AddBufferWriter). PeakDrawMs (reset per load) excludes the first
@@ -521,6 +541,8 @@ namespace SkiResortMod.Systems
                     $"VerifyNodesPerFrame={Tuning.VerifyNodesPerFrame} " +
                     $"NodeMoveEpsilonM={Tuning.NodeMoveEpsilonM} ThrottleFactor={Tuning.ThrottleFactor} " +
                     $"MaxThrottleMs={Tuning.MaxThrottleMs} FillAlpha={Tuning.FillAlpha} " +
+                    $"BlackFillAlpha={Tuning.BlackFillAlpha} BlackGray={Tuning.BlackGray} DoubleBlackFillAlpha={Tuning.DoubleBlackFillAlpha} " +
+                    $"BlackEdgeWidthM={Tuning.BlackEdgeWidthM} BlackEdgeAlpha={Tuning.BlackEdgeAlpha} " +
                     $"MaxStrips={Tuning.MaxStrips} MaxRowStride={Tuning.MaxRowStride} " +
                     $"PolylineWidthM={Tuning.PolylineWidthM} " +
                     $"MinHeightmapResolution={Tuning.MinHeightmapResolution} " +
@@ -953,6 +975,7 @@ namespace SkiResortMod.Systems
 
             bool isNew = tempData.m_Original == Entity.Null;
             m_Readout.IsNewRun = isNew;
+            m_Readout.Open = isNew && !complete;
             // The fee inputs, set here so they exist even when the heights are not ready and the rating returns early. ShoelaceArea is the
             // rater's public pure helper (plan area). For a simple outline it equals Geometry.m_SurfaceArea (sum of triangle areas), which
             // the bind charges. At the closing click the cursor node sits on the first node (a zero-area edge).
@@ -1709,6 +1732,9 @@ namespace SkiResortMod.Systems
                     stride++;
                 }
                 RowStride = stride;
+                BlackEdgeStrips = 0;
+                if (!capped)
+                    BuildBlackEdges(grid, r, stride);
             }
 
             StripsBuilt = m_StripCount;
@@ -1819,6 +1845,100 @@ namespace SkiResortMod.Systems
                     }
                 }
             }
+            return true;
+        }
+
+        /// <summary>T234: a thin white edge around the black-band cells (ring mode), appended after the fills so it draws on top. One strip per
+        /// boundary run: the two ends of each black row strip, and along the group boundary where the neighbor group's representative row is not
+        /// black. Each boundary is drawn once, from the black side. Optional: it stops at MaxStrips (the fills always win the budget).</summary>
+        private void BuildBlackEdges(SlopeGrid grid, SlopeResult r, int s)
+        {
+            byte[] cellBand = r.CellBand;
+            int nx = r.Nx, nz = r.Nz;
+            if (cellBand == null || cellBand.Length < nx * nz || nx <= 0 || nz <= 0)
+                return;
+            double step = r.Step, half = step * 0.5;
+            float[] heights = grid.Heights;
+            bool heightsMatch = heights != null && grid.Nx == nx && grid.Nz == nz && grid.I0 == r.I0 && grid.J0 == r.J0 &&
+                                heights.Length >= nx * nz;
+            const byte black = (byte)SlopeBand.Black;
+            float w = Tuning.BlackEdgeWidthM;
+            int groups = (nz + s - 1) / s;
+            for (int g = 0; g < groups; g++)
+            {
+                RowGroup(g, s, nz, out int lo, out int hi, out int j);
+                int row = j * nx;
+                float zLo = (float)(r.Origin.y + (r.J0 + lo - 0.5) * step);
+                float zHi = (float)(r.Origin.y + (r.J0 + hi + 0.5) * step);
+                int rowBelow = -1, rowAbove = -1;
+                if (g > 0)
+                {
+                    RowGroup(g - 1, s, nz, out int _, out int _, out int jb);
+                    rowBelow = jb * nx;
+                }
+                if (g + 1 < groups)
+                {
+                    RowGroup(g + 1, s, nz, out int _, out int _, out int ja);
+                    rowAbove = ja * nx;
+                }
+                int i = 0;
+                while (i < nx)
+                {
+                    if (cellBand[row + i] != black)
+                    {
+                        i++;
+                        continue;
+                    }
+                    int start = i;
+                    while (i + 1 < nx && cellBand[row + i + 1] == black)
+                        i++;
+                    int end = i;
+                    i++;
+                    float y = heightsMatch ? 0.5f * (heights[row + start] + heights[row + end]) : 0f;
+                    float xa = (float)(r.Origin.x + (r.I0 + start) * step - half);
+                    float xb = (float)(r.Origin.x + (r.I0 + end) * step + half);
+                    if (!AddEdge(new float3(xa, y, zLo), new float3(xa, y, zHi), w) || !AddEdge(new float3(xb, y, zLo), new float3(xb, y, zHi), w))
+                        return;
+                    if (!EdgesAlong(cellBand, row, rowBelow, start, end, zLo, y, step, half, r, w) ||
+                        !EdgesAlong(cellBand, row, rowAbove, start, end, zHi, y, step, half, r, w))
+                        return;
+                }
+            }
+        }
+
+        /// <summary>Edge pieces along one group boundary (z) for the black run start..end: the stretches where the neighbor row (-1 = none,
+        /// outside the lattice) is not black. False when MaxStrips is reached.</summary>
+        private bool EdgesAlong(byte[] cellBand, int row, int neighborRow, int start, int end, float z, float y, double step, double half,
+            SlopeResult r, float w)
+        {
+            const byte black = (byte)SlopeBand.Black;
+            int k = start;
+            while (k <= end)
+            {
+                if (neighborRow >= 0 && cellBand[neighborRow + k] == black)
+                {
+                    k++;
+                    continue;
+                }
+                int a = k;
+                while (k + 1 <= end && !(neighborRow >= 0 && cellBand[neighborRow + k + 1] == black))
+                    k++;
+                float xa = (float)(r.Origin.x + (r.I0 + a) * step - half);
+                float xb = (float)(r.Origin.x + (r.I0 + k) * step + half);
+                k++;
+                if (!AddEdge(new float3(xa, y, z), new float3(xb, y, z), w))
+                    return false;
+            }
+            return true;
+        }
+
+        private bool AddEdge(float3 a, float3 b, float w)
+        {
+            if (m_StripCount >= Tuning.MaxStrips)
+                return false;
+            m_StripStage[m_StripCount] = new Strip { A = a, B = b, Width = w, Color = BlackEdgeColor };
+            m_StripCount++;
+            BlackEdgeStrips++;
             return true;
         }
 

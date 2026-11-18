@@ -72,19 +72,22 @@ easiest line only. The rules are:
 
 1. Green-mean runs (`MeanGrade` < `GreenMeanKeepsBlueMax`) rate at most blue, unless the crux pitch is >= `CruxLengthForBlack`.
 2. Otherwise, a borderline black (double black) crux rates one band lower when both conditions hold: its steep-cell share is below
-   `SteepShareForBlack` (`DoubleBlackShare`) and the mean is below its floor. The exception: the pitch is long, or the steep section is narrower
-   than `NarrowWidthM` (narrow cells count double in the share).
+   `SteepShareForBlack` (`DoubleBlackShare`) and the mean is below its floor. The exception: the pitch is long. Width does not keep the band
+   (T251, 1.0.2).
 3. A blue crux < `WideEase` above the green/blue boundary on a run wider than `WideRunM` with a green mean rates green.
 
 Pitch length = (meters of the recorded easiest line (`SlopeResult.Path`, written by the crux pass) at or above the crux band's floor) +
-`PitchBlurM` + `EndZoneDepthM` per end it touches. Widths = Mask extent across the mean fall line over the lattice already built (no
+`EndZoneDepthM` per end it touches. No blur allowance (T251, 1.0.2). Widths = Mask extent across the mean fall line over the lattice already built (no
 terrain sampling). The code publishes `CruxBand` / `BandGrade` / `Note` and the evidence fields for the tooltip and the tests.
 
 Limits:
 
 * Widths need a usable fall line (`ZoneByFallLine`).
 * The easiest line is the BFS-shortest traversable path, so its stretch follows the pitch the line crosses.
-* The pitch estimate wobbles about +-5 m on a 3.5 m lattice (a 15 m / 50 % pitch reads 34-43 m), so "40 m" is a soft edge.
+* The pitch estimate wobbles about +-5 m on a 3.5 m lattice, so "40 m" is a soft edge.
+* The 20 m window shortens a wall: a wall of L m reads about L - 15 .. L - 5 m at/above its floor. Since T251 the estimate does not add the
+  window back, so the edge sits at a REAL wall of about 45-55 m (SlopeBatch: a 30 m 45 % rollover reads 18-29 m, a 60 m 45 % pitch 53-66 m,
+  a 50 m 55 % wall 43-46 m). This is deliberate (DECISIONS 672): a blue run may have a short steep pitch.
 
 ## Known and deliberate
 
@@ -228,8 +231,8 @@ game's Mono ran an earlier version at ~5-8x CoreCLR. This version is unmeasured.
 * `None` = the crux band stands.
 * `Capped` = a black (double black) crux capped one band down by the steep-cell share.
 * `WideEase` = a crux within `WideEase` of the green/blue boundary on a wide gentle run rounded down to green.
-* `NarrowKept` = the cap WOULD apply (few steep cells, short pitch), but the steep section is narrower than `NarrowWidthM`, so the crux band
-  stands. The deciding factor is the width.
+* `NarrowKept` = retired in T251 (1.0.2). Before, the width kept a capped band when the crux stretch was narrower than 20 m. `FinishBand` no
+  longer sets it. The value stays in the enum and in the tooltip mapping.
 * `LongKept` = the cap would apply, but the crux pitch is at least `CruxLengthForBlack` long. The length decides.
 * `GreenMean` = a black or double black crux on a run whose MEAN grade is in the green band, rated blue (no cat track becomes
   a black diamond).
@@ -259,14 +262,15 @@ The difficulty layer applies AFTER the crux (see `FinishBand`). Each constant fo
   A few steep cells are a pitch, not a black run.
 * `DoubleBlackShare` 0.10: the same test against the 60 % band, one step tighter. A 60 % face is rarer, and the cap only drops a double
   black to black, never to blue.
-* `CruxLengthForBlack` 40 m: never cap a crux pitch this long along the easiest line. A 40 m wall is black whatever its share of a
-  long run. Measured as `CruxStretchM` + `PitchBlurM`.
-* `PitchBlurM` 20 m: the 20 m window smears a wall of length L into about L - 15 .. L - 5 m of line at/above its floor (50 m @ 55 %
-  reads 42 m, 40 m @ 45 % reads 25 m). The estimate adds the window length, so a 40 m wall clears 40 m.
+* `CruxLengthForBlack` 40 m: never cap a crux pitch whose own steep stretch is this long along the easiest line. Measured as the stretch
+  at/above the floor (+ `EndZoneDepthM` per touched end), with no blur allowance (T251, 1.0.2). The 20 m window shortens a wall of length L
+  to about L - 15 .. L - 5 m, so a real wall needs about 45-55 m.
+* `PitchBlurM` 20 m: RETIRED in T251 (1.0.2). The estimate used to add it back. Then about 25-35 m of real steepness made black, and the
+  owner's blue runs with a short rollover rated black (DECISIONS 672).
 * `CapMaxOverFloor` 0.10: only a BORDERLINE band is capped (crux < floor + 10 pp, "a borderline black"). A 20 m wall at 62 % is black
   however few the cells.
-* `NarrowWidthM` 20 m: a steep section narrower than this counts double in the steep share and can never be capped (narrow + steep =
-  harder). A 20 m chute leaves no room to turn.
+* `NarrowWidthM` 20 m: RETIRED in T251 (1.0.2). A narrow steep spot (a cat track bank, a gully kink) no longer keeps black by itself.
+  A real chute is mostly steep, so the share rule keeps it black anyway.
 * `WideRunM` 60 m, `WideEase` 0.02: a crux within 2 pp above the green/blue boundary on a run wider than 60 m with a blue-or-gentler
   mean rounds down to green. Room to turn makes the same slope easier.
 
@@ -373,8 +377,7 @@ allocation. Each rule is a pure function of those numbers (for constants and rea
    * The share of inside cells with `CellGrade` >= the floor is below `SteepShareForBlack` (`DoubleBlackShare`).
 
    Then the run rates one band lower (black -> blue, double black -> black, never two). The rule does not apply when the crux pitch is
-   `CruxLengthForBlack` or longer (`LongKept`). It also does not apply when the crux stretch is narrower than `NarrowWidthM`, or when
-   the width-weighted share (cells in a section narrower than `NarrowWidthM` counted twice) reaches the limit (`NarrowKept`: the width decided).
+   `CruxLengthForBlack` or longer (`LongKept`). Width plays no part (T251, 1.0.2: the old `NarrowKept` exception is retired).
 2. Wide ease. A blue crux less than `WideEase` above the green/blue boundary, with `MeanGrade` below the boundary and a crux stretch wider than
    `WideRunM`, rates Green.
 3. Green mean. `MeanGrade` below `GreenMeanKeepsBlueMax` (the green band): the run rates at most blue however short and steep the crux (double
@@ -385,3 +388,14 @@ Widths are perpendicular extents of the Mask across the mean fall line (cells x 
 need a usable fall line (`ZoneByFallLine`). Without one (cones, craters, flat ground), width is unknown (`CruxWidthM` -1) and no width
 rule fires. Polyline mode, a broken Mask (the rating is the P90 fallback, no easiest line) and `ShortRun` results with no valid crux
 keep `Band` = `BandOf(RatingGrade)`.
+
+## T251 (1.0.2): blue runs easier, and the old-save count
+
+The rule changed in two places (DECISIONS 672). The pitch length test uses the own steep stretch (no `PitchBlurM`). Width never keeps
+the band (no `NarrowKept`). The crux outputs did not change: the SlopeBatch rating fingerprint is the same before and after
+(0xF8EF9FD4CDD3AD80). Only `Band`, `Note`, `BandGrade` and `CruxPitchM` move.
+
+Old saves re-rate on load (the catalog rating cache is not saved), so a run may change band on load. `LegacyBand101` re-derives the 1.0.1 band
+from the evidence fields. The catalog counts the warm-up runs whose band changed, and the one `Catalog [rate-warmup]` line per load names
+them ("T251: N run(s) rated a band easier than the 1.0.1 rule"). It is a lower bound: the 1.0.1 width-weighted share is no longer computed.
+SlopeBatch asserts the estimate against an exact 1.0.1 oracle on every ring classification (0 misses on the 2026-11-17 corpus).

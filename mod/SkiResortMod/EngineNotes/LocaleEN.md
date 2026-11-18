@@ -49,6 +49,7 @@ no key: pieces, sections, effects, meshes.
   apart (`Readout.Connected` false). The number is then the P90 fallback, not an unavoidable pitch.
 - Band thresholds are 6 / 25 / 40 / 60 % (`SkiSlopeClassifier`). Flat does not say "unrated". Band -1 in the hub is "Being rated"
   (`SkiResort.Hub.PENDING`), so no two states share the word.
+- `RATING_SO_FAR` ("{BAND} (so far)") wraps the band name while a new outline is open (T252). BAND is a nested LocalizedString.
 - `RUN_FEE` labels the one-time run fee row (a money IntTooltip value). `SLOPE_AVG_MAX*` are the live grade lines. The variants add the
   deciding factor of the difficulty layer (`SkiRunRater.NoteLine`). W is a "length" unit value that the UI converts.
 

@@ -429,9 +429,9 @@ namespace SlopeBatch
                 "INFO  rating fingerprint (every PostCheck'd classification outside the R3 length sections): {0} classification(s), FNV-1a 64 0x{1:X16}",
                 s_FingerprintCount, s_Fingerprint));
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                "INFO  T44 difficulty layer: {0} ring classifications re-derived by the oracle ({1} moved the band: capped {2}, green-mean {3}, wide-ease {4}; kept by width {5}, kept by pitch length {6}); " +
+                "INFO  T44 difficulty layer: {0} ring classifications re-derived by the oracle ({1} moved the band: capped {2}, green-mean {3}, wide-ease {4}; kept by pitch length {6}{5}); " +
                 "{7} of {8} fingerprinted classifications FLIP (rated band != crux band); layer fingerprint FNV-1a 64 0x{9:X16}",
-                s_DiffChecks, s_DiffMoved, s_DiffCapped, s_DiffGreenMean, s_DiffWide, s_DiffNarrowKept, s_DiffLongKept, s_FlipCount, s_FingerprintCount, s_DiffFingerprint));
+                s_DiffChecks, s_DiffMoved, s_DiffCapped, s_DiffGreenMean, s_DiffWide, "", s_DiffLongKept, s_FlipCount, s_FingerprintCount, s_DiffFingerprint));
             {
                 string[] nm = { "Flat", "Green", "Blue", "Black", "DblBlk" };
                 System.Text.StringBuilder fm = new System.Text.StringBuilder("INFO  T44 flips by crux band -> rated band:");
@@ -443,15 +443,27 @@ namespace SlopeBatch
                 for (int i = 0; i < s_FlipFirst.Count; i++)
                     Console.WriteLine("INFO  T44 flip " + (i + 1) + ": " + s_FlipFirst[i]);
             }
+            {
+                System.Text.StringBuilder t = new System.Text.StringBuilder();
+                foreach (KeyValuePair<string, long[]> kv in s_T251BySection)
+                    if (kv.Value[1] > 0)
+                        t.Append(' ').Append(kv.Key).Append('=').Append(kv.Value[1]).Append('/').Append(kv.Value[0]);
+                Console.WriteLine("INFO  T251 band changes, 1.0.1 rule -> T251 rule: " + s_T251Changed + " of " + s_DiffChecks +
+                                  " ring classifications (" + s_T251Rated + " with a layer verdict either way); changed/with-verdict by section:" + t);
+                Console.WriteLine("INFO  T251 LegacyBand101 (the catalog's per-load estimate) misses " + s_T251EstimateMissed + " of the " + s_T251Changed +
+                                  " changes (1.0.1 weighted-share keeps; it is a lower bound)");
+                for (int i = 0; i < s_T251First.Count; i++)
+                    Console.WriteLine("INFO  T251 change " + (i + 1) + ": " + s_T251First[i]);
+            }
             total.Stop();
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                "SUMMARY  SlopeBatch R2b+T44 bands 6/25/40/60 SteepShareForBlack={13} DoubleBlackShare={14} CruxLengthForBlack={15} PitchBlurM={16} CapMaxOverFloor={17} NarrowWidthM={18} WideRunM={19} WideEase={20} GreenMeanKeepsBlueMax={21} EndZoneShare={0} EndZoneDepthM={10} EndZoneMinMeanGrade={11} EndZoneMinCoherence={12} EndZoneMaxM2={1} " +
+                "SUMMARY  SlopeBatch R2b+T44 bands 6/25/40/60 SteepShareForBlack={13} DoubleBlackShare={14} CruxLengthForBlack={15}{16} CapMaxOverFloor={17}{18} WideRunM={19} WideEase={20} GreenMeanKeepsBlueMax={21} EndZoneShare={0} EndZoneDepthM={10} EndZoneMinMeanGrade={11} EndZoneMinCoherence={12} EndZoneMaxM2={1} " +
                 "RatingBuckets={2} MinRatingCells={3} RatingAreaM2={4} classifies={5} checks={6} failures={7} specGaps={8} elapsed={9:F1}s",
                 SkiSlopeClassifier.EndZoneShare, SkiSlopeClassifier.EndZoneMaxM2, SkiSlopeClassifier.RatingBuckets,
                 SkiSlopeClassifier.MinRatingCells, SkiSlopeClassifier.RatingAreaM2, s_Classifies, s_Checks, s_Failures, s_SpecGaps,
                 total.Elapsed.TotalSeconds, SkiSlopeClassifier.EndZoneDepthM, SkiSlopeClassifier.EndZoneMinMeanGrade, SkiSlopeClassifier.EndZoneMinCoherence,
-                SkiSlopeClassifier.SteepShareForBlack, SkiSlopeClassifier.DoubleBlackShare, SkiSlopeClassifier.CruxLengthForBlack, SkiSlopeClassifier.PitchBlurM,
-                SkiSlopeClassifier.CapMaxOverFloor, SkiSlopeClassifier.NarrowWidthM, SkiSlopeClassifier.WideRunM, SkiSlopeClassifier.WideEase, SkiSlopeClassifier.GreenMeanKeepsBlueMax));
+                SkiSlopeClassifier.SteepShareForBlack, SkiSlopeClassifier.DoubleBlackShare, SkiSlopeClassifier.CruxLengthForBlack, " (own stretch, T251)",
+                SkiSlopeClassifier.CapMaxOverFloor, "", SkiSlopeClassifier.WideRunM, SkiSlopeClassifier.WideEase, SkiSlopeClassifier.GreenMeanKeepsBlueMax));
             Environment.ExitCode = s_Failures;
             return s_Failures;
         }
@@ -646,7 +658,7 @@ namespace SlopeBatch
         private static void FoldDiff(SlopeGrid g, SlopeResult r)
         {
             uint[] vals = { (uint)r.Band, (uint)r.Note, (uint)BitConverter.SingleToInt32Bits(r.BandGrade), (uint)BitConverter.SingleToInt32Bits(r.SteepShare),
-                            (uint)BitConverter.SingleToInt32Bits(r.SteepShareWeighted), (uint)BitConverter.SingleToInt32Bits(r.CruxPitchM),
+                            (uint)BitConverter.SingleToInt32Bits(r.CruxPitchM),
                             (uint)BitConverter.SingleToInt32Bits(r.CruxWidthM) };
             foreach (uint v in vals)
                 for (int b = 0; b < 4; b++)
@@ -660,7 +672,7 @@ namespace SlopeBatch
                 s_FlipMatrix[(int)r.CruxBand, (int)r.Band]++;
                 if (s_FlipFirst.Count < 10)
                     s_FlipFirst.Add(s_FoldWhere + ": crux " + P(r.RatingGrade) + " " + Ab(r.CruxBand) + " -> " + Ab(r.Band) + " (" + r.Note + "), mean " + P(r.MeanGrade) +
-                                    ", steep share " + P(r.SteepShare) + " (weighted " + P(r.SteepShareWeighted) + "), pitch " + F(Math.Round(r.CruxPitchM, 1)) +
+                                    ", steep share " + P(r.SteepShare) + ", pitch " + F(Math.Round(r.CruxPitchM, 1)) +
                                     " m, width " + F(Math.Round(r.CruxWidthM, 1)) + " m, cells " + g.InsideCells + ", step " + F(Math.Round(g.Step, 2)) + " m");
             }
         }
@@ -1353,7 +1365,31 @@ namespace SlopeBatch
         }
 
 
-        private static long s_DiffChecks, s_DiffMoved, s_DiffCapped, s_DiffGreenMean, s_DiffWide, s_DiffNarrowKept, s_DiffLongKept;
+        private static long s_DiffChecks, s_DiffMoved, s_DiffCapped, s_DiffGreenMean, s_DiffWide, s_DiffLongKept;
+
+        // The 1.0.1 difficulty layer (T251 retired both): only for the band-change count below.
+        private const float OldPitchBlurM = 20f, OldNarrowWidthM = 20f;
+        // T251 old-vs-new: classifications whose rated band differs between the 1.0.1 rule and the T251 rule, by section (the label up to the
+        // first "/" or space), and the first lines.
+        private static long s_T251Rated, s_T251Changed, s_T251EstimateMissed;
+        private static readonly SortedDictionary<string, long[]> s_T251BySection = new SortedDictionary<string, long[]>();
+        private static readonly List<string> s_T251First = new List<string>();
+
+        private static void CountT251(string w, SlopeBand crux, SlopeBand oldBand, SlopeBand newBand)
+        {
+            s_T251Rated++;
+            int cut = w.IndexOfAny(new[] { '/', ' ' });
+            string sec = cut > 0 ? w.Substring(0, cut) : w;
+            if (!s_T251BySection.TryGetValue(sec, out long[] c))
+                s_T251BySection[sec] = c = new long[2];
+            c[0]++;
+            if (oldBand == newBand)
+                return;
+            s_T251Changed++;
+            c[1]++;
+            if (s_T251First.Count < 12)
+                s_T251First.Add(w + ": crux " + Ab(crux) + ", 1.0.1 " + Ab(oldBand) + " -> T251 " + Ab(newBand));
+        }
 
         private static float DFloor(SlopeBand b)
         {
@@ -1386,7 +1422,8 @@ namespace SlopeBatch
 
         /// <summary>The difficulty layer re-derived from the published numbers (CellGrade, the Mask, the recorded easiest
         /// line, FallLine, MeanGrade, RatingGrade) with its own loops, asserted EXACTLY equal on every ring classification:
-        /// Band, CruxBand, Note, BandGrade's band, SteepShare, SteepShareWeighted, CruxPitchM, CruxWidthM.</summary>
+        /// Band, CruxBand, Note, BandGrade's band, SteepShare, CruxPitchM, CruxWidthM. It also re-derives the 1.0.1 layer (PitchBlurM 20 m added
+        /// to the pitch, NarrowKept at NarrowWidthM 20 m) and counts the classifications whose band T251 changed (CountT251).</summary>
         private static void DifficultyOracle(string w, SlopeGrid g, SlopeResult r)
         {
             s_DiffChecks++;
@@ -1402,7 +1439,8 @@ namespace SlopeBatch
                 Check(!moved && r.Note == SlopeNote.None && r.CruxWidthM == -1f, w, "no easiest line, but Band " + r.Band + " note " + r.Note);
                 return;
             }
-            SlopeBand exp = cb;
+            bool weightedOnly = false;        // 1.0.1 kept the band by the width-weighted share alone (LegacyBand101 cannot see it)
+            SlopeBand exp = cb, expOld = cb;   // expOld = the band the 1.0.1 layer gave (blur allowance + NarrowKept): the T251 change count
             SlopeNote expNote = SlopeNote.None;
             float mean = r.MeanGrade, rating = r.RatingGrade, s = g.Step, floor = DFloor(cb);
             bool axis = r.ZoneByFallLine && (r.FallLine.x != 0f || r.FallLine.y != 0f);
@@ -1436,7 +1474,7 @@ namespace SlopeBatch
                 if (lo == 0) stretch += SkiSlopeClassifier.EndZoneDepthM;
                 if (hi == pl - 1) stretch += SkiSlopeClassifier.EndZoneDepthM;
                 int wideSide = (int)Math.Ceiling(SkiSlopeClassifier.WideRunM / s) + 1;
-                int narrowSide = (int)Math.Ceiling(SkiSlopeClassifier.NarrowWidthM / s) + 1;
+                int narrowSide = (int)Math.Ceiling(OldNarrowWidthM / s) + 1;   // the 1.0.1 rule, for the T251 band-change count only
                 Func<float> stretchWidth = () =>
                 {
                     double sum = 0;
@@ -1447,7 +1485,8 @@ namespace SlopeBatch
                     }
                     return (float)(sum / (hi - lo + 1));
                 };
-                float pitch = (float)stretch + SkiSlopeClassifier.PitchBlurM;
+                float pitch = (float)stretch;                         // T251: the own steep stretch, no blur allowance
+                float oldPitch = (float)stretch + OldPitchBlurM;        // the 1.0.1 rule
                 bool evidence = false;
                 if (cb == SlopeBand.Blue)
                 {
@@ -1455,7 +1494,7 @@ namespace SlopeBatch
                     {
                         float wd = stretchWidth();
                         Check(r.CruxWidthM == wd, w, "wide-ease width " + F(r.CruxWidthM) + " vs oracle " + F(wd));
-                        if (wd > SkiSlopeClassifier.WideRunM) { exp = SlopeBand.Green; expNote = SlopeNote.WideEase; }
+                        if (wd > SkiSlopeClassifier.WideRunM) { exp = expOld = SlopeBand.Green; expNote = SlopeNote.WideEase; }   // T251 left wide ease alone
                     }
                     else
                         Check(r.CruxWidthM == -1f, w, "width evaluated outside the wide-ease condition: " + F(r.CruxWidthM));
@@ -1467,6 +1506,7 @@ namespace SlopeBatch
                         Check(r.CruxWidthM == stretchWidth(), w, "green-mean width " + F(r.CruxWidthM));
                     if (pitch >= SkiSlopeClassifier.CruxLengthForBlack) expNote = SlopeNote.LongKept;
                     else { exp = SlopeBand.Blue; expNote = SlopeNote.GreenMean; }
+                    expOld = oldPitch >= SkiSlopeClassifier.CruxLengthForBlack ? cb : SlopeBand.Blue;
                 }
                 else if (rating - floor < SkiSlopeClassifier.CapMaxOverFloor && mean < floor)
                 {
@@ -1482,19 +1522,21 @@ namespace SlopeBatch
                             cells++;
                             if (v[q] < floor) continue;
                             steep++;
-                            if (axis && DExtent(g, i, j, px, pz, narrowSide) < SkiSlopeClassifier.NarrowWidthM) steepNarrow++;
+                            if (axis && DExtent(g, i, j, px, pz, narrowSide) < OldNarrowWidthM) steepNarrow++;
                         }
                     float share = (float)((double)steep / cells), weighted = (float)((double)(steep + steepNarrow) / cells);
-                    Check(r.SteepShare == share && r.SteepShareWeighted == weighted, w,
-                          "steep share " + F(r.SteepShare) + "/" + F(r.SteepShareWeighted) + " vs oracle " + F(share) + "/" + F(weighted));
+                    Check(r.SteepShare == share, w, "steep share " + F(r.SteepShare) + " vs oracle " + F(share));
                     Check(Math.Abs(r.CruxPitchM - pitch) <= 1e-3, w, "pitch " + F(r.CruxPitchM) + " vs oracle " + F(pitch));
                     float wd = axis ? stretchWidth() : -1f;
                     Check(r.CruxWidthM == wd, w, "width " + F(r.CruxWidthM) + " vs oracle " + F(wd));
                     if (share < limit)
                     {
+                        // T251: a short pitch is capped whatever the width (NarrowKept retired).
                         if (pitch >= SkiSlopeClassifier.CruxLengthForBlack) expNote = SlopeNote.LongKept;
-                        else if (weighted >= limit || (axis && wd < SkiSlopeClassifier.NarrowWidthM)) expNote = SlopeNote.NarrowKept;
                         else { exp = black ? SlopeBand.Blue : SlopeBand.Black; expNote = SlopeNote.Capped; }
+                        bool oldKept = oldPitch >= SkiSlopeClassifier.CruxLengthForBlack || weighted >= limit || (axis && wd < OldNarrowWidthM);
+                        weightedOnly = oldKept && !(oldPitch >= SkiSlopeClassifier.CruxLengthForBlack) && !(axis && wd < OldNarrowWidthM);
+                        expOld = oldKept ? cb : (black ? SlopeBand.Blue : SlopeBand.Black);
                     }
                 }
                 if (!evidence && cb != SlopeBand.Blue && mean >= SkiSlopeClassifier.GreenMeanKeepsBlueMax)
@@ -1504,6 +1546,16 @@ namespace SlopeBatch
             {
                 Check(r.Note == SlopeNote.None && r.SteepShare == 0f && r.CruxPitchM == 0f && r.CruxWidthM == -1f, w, "layer touched a " + cb + " crux");
             }
+            if (exp != cb || expOld != cb)
+                CountT251(w, cb, expOld, exp);
+            if (r.Band == exp && r.Note == expNote)
+            {
+                // The catalog's per-load estimate (LegacyBand101) equals the exact 1.0.1 band, except a weighted-share keep, where it gives the new band.
+                SlopeBand est = SkiSlopeClassifier.LegacyBand101(r);
+                Check(weightedOnly ? est == exp : est == expOld, w, "LegacyBand101 " + est + ", 1.0.1 oracle " + expOld + ", new " + exp + (weightedOnly ? " (weighted-share keep)" : ""));
+                if (weightedOnly && expOld != exp)
+                    s_T251EstimateMissed++;
+            }
             Check(r.Band == exp && r.Note == expNote, w, "Band " + r.Band + " note " + r.Note + ", oracle " + exp + " note " + expNote +
                   " (crux " + P(rating) + ", mean " + P(mean) + ")");
             switch (r.Note)
@@ -1511,7 +1563,6 @@ namespace SlopeBatch
                 case SlopeNote.Capped: s_DiffCapped++; break;
                 case SlopeNote.GreenMean: s_DiffGreenMean++; break;
                 case SlopeNote.WideEase: s_DiffWide++; break;
-                case SlopeNote.NarrowKept: s_DiffNarrowKept++; break;
                 case SlopeNote.LongKept: s_DiffLongKept++; break;
             }
         }
@@ -4034,7 +4085,7 @@ namespace SlopeBatch
                         SlopeStatus st = RunScn(sc, fr, op, s_Grid, s_Result, w);
                         SlopeResult r = s_Result;
                         float rating = r.RatingGrade;
-                        SlopeBand band = r.Band;
+                        SlopeBand band = r.CruxBand;   // the zones decide the crux (T251: the layer may move a short pitch; DifficultyOracle asserts it)
                         bool byFall = r.ZoneByFallLine;
                         lo = Math.Min(lo, rating);
                         hi = Math.Max(hi, rating);
@@ -4332,12 +4383,12 @@ namespace SlopeBatch
                         hi = Math.Max(hi, r.RatingGrade);
                         dLo = Math.Min(dLo, depth);
                         dHi = Math.Max(dHi, depth);
-                        if (r.Band < bLo) bLo = r.Band;
-                        if (r.Band > bHi) bHi = r.Band;
+                        if (r.CruxBand < bLo) bLo = r.CruxBand;
+                        if (r.CruxBand > bHi) bHi = r.CruxBand;
                         Check(st == SlopeStatus.Ok && r.Connected && r.ZoneByFallLine, w, "status " + st + ", connected " + r.Connected + ", fall-line key " + r.ZoneByFallLine);
                         if (kind == 0)
-                            Check(Math.Abs(r.RatingGrade - 0.45) <= 0.015 && r.Band == SlopeBand.Black && depth <= env, w,
-                                "control: rating " + P(r.RatingGrade) + " " + r.Band + " (want Black 45 ± 1.5 %), zone depth " + F(Math.Round(depth, 1)) +
+                            Check(Math.Abs(r.RatingGrade - 0.45) <= 0.015 && r.CruxBand == SlopeBand.Black /* crux band: T251 rates a 40 m wall on a 15 % run blue, DifficultyOracle asserts it */ && depth <= env, w,
+                                "control: rating " + P(r.RatingGrade) + " " + r.CruxBand + " (want crux Black 45 ± 1.5 %), zone depth " + F(Math.Round(depth, 1)) +
                                 " m (want <= " + F(env) + " m)");
                         else
                             Check(depth <= env, w, "zone depth " + F(Math.Round(depth, 1)) + " m above the regression envelope " + F(env) + " m");
@@ -4533,7 +4584,7 @@ namespace SlopeBatch
                 Check(r.Connected && r.CruxValid, w, "no easiest line");
                 Check(r.CruxBand == wantCrux, w, "crux band " + r.CruxBand + " (crux " + P(r.RatingGrade) + "), want " + wantCrux);
                 Check(r.Band == want && r.Note == wantNote, w, "rated " + r.Band + " note " + r.Note + " (crux " + P(r.RatingGrade) + ", mean " + P(r.MeanGrade) +
-                      ", share " + P(r.SteepShare) + "/" + P(r.SteepShareWeighted) + ", pitch " + F(Math.Round(r.CruxPitchM, 1)) + " m, width " +
+                      ", share " + P(r.SteepShare) + ", pitch " + F(Math.Round(r.CruxPitchM, 1)) + " m, width " +
                       F(Math.Round(r.CruxWidthM, 1)) + " m), want " + want + " note " + wantNote);
                 frames++;
                 drop = r.Drop;
@@ -4569,12 +4620,33 @@ namespace SlopeBatch
             // Blue-band mean (29 %) with a 15 m 48 % pitch: the steep-share cap proper.
             DiffCase("29% mean, one 15 m 48% pitch", 300, 60, new[] { 142.5, 15.0, 142.5 }, new[] { 0.28, 0.48, 0.28 },
                      SlopeBand.Black, SlopeBand.Blue, SlopeNote.Capped);
-            // A 12 m wide gully: the same kind of short 50 % pitch (31 % mean) stays black when narrow ...
+            // A 12 m wide gully with the same kind of short 50 % pitch (31 % mean): hard blue. Before T251 the width kept it black (NarrowKept);
+            // since T251 a narrow spot alone never keeps the band.
             DiffCase("12 m gully, 12 m 50% pitch, 31% mean", 300, 12, new[] { 144.0, 12.0, 144.0 }, new[] { 0.30, 0.50, 0.30 },
-                     SlopeBand.Black, SlopeBand.Black, SlopeNote.NarrowKept);
-            // ... and the classifier caps it to hard blue at 60 m wide.
+                     SlopeBand.Black, SlopeBand.Blue, SlopeNote.Capped);
+            // The same at 60 m wide: hard blue, as before.
             DiffCase("60 m wide, 12 m 50% pitch, 31% mean", 300, 60, new[] { 144.0, 12.0, 144.0 }, new[] { 0.30, 0.50, 0.30 },
                      SlopeBand.Black, SlopeBand.Blue, SlopeNote.Capped);
+            // T251 (DECISIONS 672): a blue run may have a short steep pitch. The own steep stretch must reach CruxLengthForBlack (no blur
+            // allowance), and width alone never keeps black. A 20 m and a 30 m 45 % rollover on a 28 % run, 40 m wide: blue. The 30 m one
+            // read 1.0.1 black (stretch ~20 m + 20 m blur = 40 m: LongKept).
+            DiffCase("T251 blue, 20 m 45% rollover", 400, 40, new[] { 190.0, 20.0, 190.0 }, new[] { 0.28, 0.45, 0.28 },
+                     SlopeBand.Black, SlopeBand.Blue, SlopeNote.Capped);
+            DiffCase("T251 blue, 30 m 45% rollover", 400, 40, new[] { 185.0, 30.0, 185.0 }, new[] { 0.28, 0.45, 0.28 },
+                     SlopeBand.Black, SlopeBand.Blue, SlopeNote.Capped);
+            // The same 25 m rollover on a 15 m wide blue run: blue (1.0.1: black, NarrowKept).
+            DiffCase("T251 blue 15 m wide, 25 m 45% rollover", 400, 15, new[] { 187.5, 25.0, 187.5 }, new[] { 0.28, 0.45, 0.28 },
+                     SlopeBand.Black, SlopeBand.Blue, SlopeNote.Capped);
+            // A cat track crossing a 36 % blue run: a level 6 m bench between two 7 m 62 % banks (the grade tool's cut and fill keep the drop).
+            // The 20 m window reads the pair as one short black pitch. Blue at 40 m wide and at 15 m wide.
+            DiffCase("T251 cat track bench across a blue run", 400, 40, new[] { 190.0, 7.0, 6.0, 7.0, 190.0 }, new[] { 0.36, 0.62, 0.02, 0.62, 0.36 },
+                     SlopeBand.Black, SlopeBand.Blue, SlopeNote.Capped);
+            DiffCase("T251 cat track bench across a 15 m blue run", 400, 15, new[] { 190.0, 7.0, 6.0, 7.0, 190.0 }, new[] { 0.36, 0.62, 0.02, 0.62, 0.36 },
+                     SlopeBand.Black, SlopeBand.Blue, SlopeNote.Capped);
+            // A genuinely long pitch stays black: a 60 m 45 % pitch on an 800 m 30 % run (7.5 % of the cells, under the share limit). The own
+            // stretch reads ~45 m: LongKept.
+            DiffCase("T251 black, 60 m 45% pitch", 800, 40, new[] { 370.0, 60.0, 370.0 }, new[] { 0.30, 0.45, 0.30 },
+                     SlopeBand.Black, SlopeBand.Black, SlopeNote.LongKept);
             // Double black: a 15 m 70 % pitch over a 35 % run: black, not double black (one band only, never to blue).
             DiffCase("35% mean, 15 m 70% pitch", 300, 60, new[] { 142.5, 15.0, 142.5 }, new[] { 0.35, 0.70, 0.35 },
                      SlopeBand.DoubleBlack, SlopeBand.Black, SlopeNote.Capped);

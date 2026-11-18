@@ -8,7 +8,10 @@ decompile baseline, unchanged in 1.6.2f1.
 Up to eight lines, on screen in the order 1-6, 8, 7:
 
 1. Band name ("Blue square", ...): `StringTooltip`, Info (Warning for Flat). It shows the rated band
-   (`SkiRunDrawFeedbackSystem.TryGetDifficulty`).
+   (`SkiRunDrawFeedbackSystem.TryGetDifficulty`). While a new outline is still open (`Readout.Open`: new run, Temp not Complete), it
+   reads "Blue square (so far)" (`RATING_SO_FAR`, T252, 1.0.2). The open Temp is already rated as a ring through the cursor node. Plan
+   closes any outline of 3+ nodes with area. So the rule is the rule of the built run. Only the shape can still change with the next click.
+   At the closing click and for an edited run, the plain band shows: that is the rating the catalog gives the built run.
 2. "Hardest unavoidable pitch: 32 %": `IntTooltip`, unit "percentage". The value is `RatingGrade`, the crux of the easiest line. With a
    broken Mask (`Readout.Connected` false, P90 fallback), the line reads "Typical steep pitch (run outline broken, rating
    approximate): 32 %" in Warning color, with its own path.
