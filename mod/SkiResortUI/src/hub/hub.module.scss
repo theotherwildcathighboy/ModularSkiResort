@@ -2286,6 +2286,45 @@
   background-color: var(--accentColorNormal);
 }
 
+// The demand track (the price and the pass, Slider heat): one segment per pair of stops, the good green with an amber and a red layer
+// over it at the opacity of that stop's demand (hubRules.demandHeat). No gradient: plain colors and opacity only. The track left of the
+// thumb is at full strength, the rest dimmed, so the thumb still reads as "how far".
+.sliderHeat {
+  position: absolute;
+  left: 0rem;
+  top: 0rem;
+  width: 100%;
+  height: 100%;
+}
+
+.sliderSeg {
+  position: absolute;
+  top: 0rem;
+  height: 100%;
+  background-color: var(--hubGood);
+}
+
+.sliderSegAhead {
+  opacity: 0.35;
+}
+
+.sliderSegAmber,
+.sliderSegRed {
+  position: absolute;
+  left: 0rem;
+  top: 0rem;
+  width: 100%;
+  height: 100%;
+}
+
+.sliderSegAmber {
+  background-color: var(--hubCaution);
+}
+
+.sliderSegRed {
+  background-color: var(--hubBad);
+}
+
 .sliderTick {
   position: absolute;
   top: -3rem;

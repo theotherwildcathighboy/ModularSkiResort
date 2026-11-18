@@ -9,7 +9,7 @@
 import type { LocEntry } from "../l10n";
 import { BAND, clampGladeLevel } from "../bindings";
 import type { BuildItemId, RunKind } from "../bindings";
-import type { NextVariant, StatusWord } from "./hubRules";
+import type { DemandWord, NextVariant, StatusWord } from "./hubRules";
 import { euClassOf, isEuropean } from "./units";
 
 /* Plain entries (no placeholder). */
@@ -376,6 +376,13 @@ export const HUB_LOC = {
   moneyPriceTipOnly: ["SkiResort.Hub.MONEY_PRICE_TIP[Only]", "Only ski days react to it"],
   moneyPassTipLocked: ["SkiResort.Hub.MONEY_PASS_TIP[Locked]", "Price locked at the sale"],
   moneyPassTipResidents: ["SkiResort.Hub.MONEY_PASS_TIP[Residents]", "Residents buy it, tourists never"],
+  // r3/sliders: the one demand word (hubRules.demandWord) and the price tip lines without a placeholder
+  demandFull: ["SkiResort.Hub.DEMAND_WORD[full]", "full"],
+  demandHigh: ["SkiResort.Hub.DEMAND_WORD[high]", "high"],
+  demandFair: ["SkiResort.Hub.DEMAND_WORD[fair]", "fair"],
+  demandLow: ["SkiResort.Hub.DEMAND_WORD[low]", "low"],
+  demandVeryLow: ["SkiResort.Hub.DEMAND_WORD[veryLow]", "very low"],
+  moneyPriceTipPasses: ["SkiResort.Hub.MONEY_PRICE_TIP[Passes]", "Season pass holders always come. Full table in the docs."],
   cruxPitch: ["SkiResort.Tooltip.CRUX_PITCH", "Hardest unavoidable pitch"],
   steepestPatch: ["SkiResort.Tooltip.STEEPEST_PATCH", "Steepest patch (avoidable)"],
 
@@ -890,12 +897,18 @@ export const HUB_FMT = {
   moneyFactBus: ["SkiResort.Hub.MONEY_FACT[Bus]", "Depots {N} · guests by bus {GUESTS} · bill {RATE}"],
   moneyTicketsPrice: ["SkiResort.Hub.MONEY_TICKETS_PRICE", "Lift ticket price now: {PRICE}"],
   /* {PRICE} = hubRules.hubPrice (Money), {PCT} = hubRules.priceFactorPct (Percentage) */
-  moneyPriceLine: ["SkiResort.Hub.MONEY_PRICE_LINE", "Ticket {PRICE} · demand {PCT}"],
+  moneyPriceLine: ["SkiResort.Hub.MONEY_PRICE_LINE", "Ticket {PRICE} · Demand: {WORD}"],
   /* r3/sliders: {P} / {FULL} / {PRICE} Money, {N} Integer */
   moneyPriceTipUpTo: ["SkiResort.Hub.MONEY_PRICE_TIP[UpTo]", "Up to {P}"],
   moneyPriceTipLodges: ["SkiResort.Hub.MONEY_PRICE_TIP[Lodges]", "Lodges here: full up to {FULL}"],
-  moneyPassLine: ["SkiResort.Hub.MONEY_PASS_LINE", "Season pass {PRICE} · {N} tickets"],
+  moneyPassLine: ["SkiResort.Hub.MONEY_PASS_LINE", "Season pass {PRICE} ({N} tickets) · Demand: {WORD}"],
   moneyPassTipBreakeven: ["SkiResort.Hub.MONEY_PASS_TIP[Breakeven]", "Cheaper than day tickets from ski day {N}"],
+  /* r3/sliders: {FULL} = priceFullWith(area tolerance) or PASS_FULL_AT, {PRICE} = the slider price, {N}/{K} = inTen(factor %), {MID}/{LUX} = priceFullWith(20 / 40) */
+  moneyPriceTipAbove: ["SkiResort.Hub.MONEY_PRICE_TIP[Above]", "Above {FULL}, fewer guests choose a ski day."],
+  moneyPriceTipExample: ["SkiResort.Hub.MONEY_PRICE_TIP[Example]", "At {PRICE}, about {N} in 10 still come."],
+  moneyPriceTipBetter: ["SkiResort.Hub.MONEY_PRICE_TIP[Better]", "Better lodges raise it: Chalet {MID}, Summit and Grand {LUX}. Merged buildings count by tier."],
+  moneyPassTipAbove: ["SkiResort.Hub.MONEY_PASS_TIP[Above]", "Up to {FULL} tickets, everyone who wants a pass buys one. Above that, fewer do."],
+  moneyPassTipExample: ["SkiResort.Hub.MONEY_PASS_TIP[Example]", "At {N} tickets, about {K} in 10 still buy."],
   /* {FULL} = PRICE_NO_EFFECT_MAX, {P1..P3} = PRICE_EXAMPLES (Money), {F1..F3} = their priceFactorPct (Percentage) */
   moneyPriceTipCurve: ["SkiResort.Hub.MONEY_PRICE_TIP[Curve]", "Ski days: as many at any price up to {FULL}, then fewer: {F1} as many at {P1}, {F2} at {P2}, {F3} at {P3}."],
   /* {FULL} = 40 + priceTolerance (not "Luxury lodges": the Chalet has 20) */
@@ -1407,6 +1420,14 @@ export const DRAW_LABEL = {
 } as const;
 
 /* The game's text for a factor (unknown name: the raw enum name as the fallback). */
+/* r3/sliders: the entry of a demand word (hubRules.demandWord). */
+const DEMAND_WORD_ENTRY: Readonly<Record<DemandWord, LocEntry>> = {
+  full: HUB_LOC.demandFull, high: HUB_LOC.demandHigh, fair: HUB_LOC.demandFair, low: HUB_LOC.demandLow, veryLow: HUB_LOC.demandVeryLow,
+};
+export function demandWordEntry(w: DemandWord): LocEntry {
+  return DEMAND_WORD_ENTRY[w];
+}
+
 export function factorEntry(name: string): LocEntry {
   return [`SelectedInfoPanel.EFFICIENCY_FACTORS[${name}]`, EFFICIENCY_FACTOR_FALLBACK[name] ?? name];
 }

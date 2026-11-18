@@ -818,6 +818,39 @@ export function passSliderShown(city: CityStats): boolean {
   return city.passShare > 0 && city.ticketPrice > 0;
 }
 
+/** r3/sliders: the hub's one word for a demand factor (a whole percent: priceFactorPct, passFactorPct). The exact numbers live in the
+ *  docs. Bands, lowest percent of each: full 100, high 85, fair 60, low 40, very low below. null = unknown (negative). */
+export type DemandWord = "full" | "high" | "fair" | "low" | "veryLow";
+export const DEMAND_BANDS: ReadonlyArray<readonly [number, DemandWord]> = [[100, "full"], [85, "high"], [60, "fair"], [40, "low"], [0, "veryLow"]];
+export function demandWord(pct: number): DemandWord | null {
+  if (!(pct >= 0)) return null;
+  for (const [min, w] of DEMAND_BANDS) if (pct >= min) return w;
+  return "veryLow";
+}
+
+/** r3/sliders: the demand track's color at a factor percent, as [amber, red] opacities over the good green: green at 100, amber at 60
+ *  (the top of "fair"), red at 20 (the ticket curve's floor at 200 without a better lodge). Unknown = green. */
+export function demandHeat(pct: number): readonly [number, number] {
+  const drop = pct >= 0 ? Math.min(100, 100 - Math.min(100, pct)) : 0;
+  return [Math.min(1, drop / 40), Math.max(0, Math.min(1, (drop - 40) / 40))];
+}
+
+/** r3/sliders: a factor percent as "about N in 10" (rounded, 1..9). The tooltip shows it only below 95 % ("about 10 in 10" says nothing). */
+export function inTen(pct: number): number {
+  return Math.max(1, Math.min(9, Math.round(pct / 10)));
+}
+
+/** r3/sliders PROPOSAL (not in C# yet, owner verdict): pass demand. Every household that would buy at the share keeps buying up to
+ *  PASS_FULL_AT tickets (the default, so a default city sells as today). Above it, each ticket more takes 1/PASS_SPAN of the share off:
+ *  (12 − m) / 8, so 5 = 87.5 %, 6 = 75 %, 8 = 50 %, 10 = 25 %. Mirror of the proposed C# SkiMoneyRules.PassFactor. */
+export const PASS_FULL_AT = 4;
+export const PASS_SPAN = 8;
+export function passFactorPct(multiplier: number): number {
+  if (!Number.isFinite(multiplier)) return -1;
+  const m = Math.min(PASS_MULT_MAX, Math.max(PASS_MULT_MIN, Math.round(multiplier)));
+  return Math.round(Math.min(100, Math.max(0, (PASS_FULL_AT + PASS_SPAN - m) * 100 / PASS_SPAN)));
+}
+
 /** T240: the stepper's buttons. Off while the price is unknown (-1) and at the ends of the range. */
 export function priceStepEnabled(price: number, dir: 1 | -1): boolean {
   if (!(price >= 0)) return false;

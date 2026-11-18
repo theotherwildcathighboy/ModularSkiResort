@@ -503,6 +503,23 @@ const R3SLIDERS = R3SLIDERS_BEFORE.concat([
   ["s13-guns-released-1080", 1080, { scenario: PICK, view: 1, clickRun: "Run 4", drag: [0, 0.45, 0.9, true] }],
   ["s14-tree-click-1080", 1080, { scenario: ASH, view: 1, drag: [0, 1, 1, true] }],
 ]);
+// r3/sliders, round 2 of phase 1: the price and pass rows as one word of demand on a green-to-red track, and the price tooltip in its
+// two variants (A with the "about N in 10" line, B without: "js" sets the harness-only switch before the pointer moves). `--list=r3price`.
+const TIP_B = "window.__r3TipB = true";
+const PRICE_TEXT = '.h-panel [class*="sr-priceRowText_"]';
+const R3PRICE = [
+  ["p01-money-price-pass-1080", 1080, { scenario: ASH, view: 4, fold: 0 }],
+  ["p02-price-120-tip-a-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 0.6, true], hoverSel: PRICE_TEXT }],
+  ["p03-price-120-tip-b-1080", 1080, { scenario: ASH, view: 4, fold: 0, js: TIP_B, drag: [0, 0.5, 0.6, true], hoverSel: PRICE_TEXT }],
+  ["p03b-price-65-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: PRICE_TEXT }],
+  ["p04-price-drag-held-40-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 0.2, false] }],
+  ["p05-price-drag-held-160-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 0.8, false] }],
+  ["p06-price-200-tip-a-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 1, true], hoverSel: PRICE_TEXT }],
+  ["p07-pass-8-tip-a-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [1, 0.25, 0.75, true], hoverSel: PRICE_TEXT, hoverIdx: 1 }],
+  ["p08-pass-8-tip-b-1080", 1080, { scenario: ASH, view: 4, fold: 0, js: TIP_B, drag: [1, 0.25, 0.75, true], hoverSel: PRICE_TEXT, hoverIdx: 1 }],
+  ["p09-pass-4-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: PRICE_TEXT, hoverIdx: 1 }],
+  ["p10-money-price-pass-2160", 2160, { scenario: ASH, view: 4, fold: 0 }],
+];
 const R2VIEWS = [];
 for (const h of [1080, 2160]) {
   R2VIEWS.push(
@@ -619,12 +636,13 @@ async function shots(b, base, dir, list) {
   for (const [file, h, p0] of list) {
     const w = Math.round(h * 16 / 9);
     const p = Object.assign({}, p0);
-    const { drag, hover, hoverIn, hoverSel, hoverIdx, click, clickRange, clickRun, hoverPlot, whole, iconMode, scrollY, scrollIn, scrollInY } = p;
-    delete p.clickRun; delete p.drag; delete p.hoverIdx; delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode; delete p.scrollY; delete p.scrollIn; delete p.scrollInY;
+    const { js, drag, hover, hoverIn, hoverSel, hoverIdx, click, clickRange, clickRun, hoverPlot, whole, iconMode, scrollY, scrollIn, scrollInY } = p;
+    delete p.js; delete p.clickRun; delete p.drag; delete p.hoverIdx; delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode; delete p.scrollY; delete p.scrollIn; delete p.scrollInY;
     await open(b, base, w, h);
     if (iconMode) await evalAsync(b, `(() => { window.skiResortIconMode = ${JSON.stringify(iconMode)}; return true; })()`, 10000);
     const m = await evalAsync(b, `(async () => { const p = new URLSearchParams(${JSON.stringify(new URLSearchParams(Object.assign({ clean: 1 }, p)).toString())});
       await window.SkiLayout.shot(p); return document.body.getAttribute("data-shot-ready"); })()`, 60000);
+    if (js) await evalAsync(b, `(() => { ${js}; return true; })()`, 10000);   // a harness-only switch (r3price: the tooltip variant)
     for (const want of [clickRange, click]) {
       if (!want) continue;
       const ok = await evalAsync(b, `(async () => { const want = ${JSON.stringify(want)};
@@ -805,7 +823,7 @@ async function main() {
     const b = browsers[0];
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg),
-        process.argv.includes("--list=r3sliders-before") ? R3SLIDERS_BEFORE : process.argv.includes("--list=r3sliders") ? R3SLIDERS : process.argv.includes("--list=r3ui") ? R3UI : process.argv.includes("--list=r2fix") ? R2FIX : process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2hub") ? R2HUB : process.argv.includes("--list=r2views") ? R2VIEWS : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=r3price") ? R3PRICE : process.argv.includes("--list=r3sliders-before") ? R3SLIDERS_BEFORE : process.argv.includes("--list=r3sliders") ? R3SLIDERS : process.argv.includes("--list=r3ui") ? R3UI : process.argv.includes("--list=r2fix") ? R2FIX : process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2hub") ? R2HUB : process.argv.includes("--list=r2views") ? R2VIEWS : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

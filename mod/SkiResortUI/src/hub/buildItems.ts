@@ -132,6 +132,8 @@ export const LUXURY_LODGES: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["lo
 /** The luxury tiers' PriceTolerance (C# SkiCatalog.Lodges summit and grand: 40). The tile tooltip says full ski days up to priceFullWith(this) = 80
  *  (T239). Keep in step with SkiCatalog.cs by hand (CatalogGuardTests T6 holds it). */
 export const LUXURY_PRICE_TOLERANCE = 40;
+/** The Chalet (SkiCatalog lodgeMid) price tolerance (r3/sliders: the price tooltip names its full-demand price). */
+export const MID_PRICE_TOLERANCE = 20;
 
 /** The road-optional lodge tiers: C# SkiCatalog.Lodges rows with LodgeRoadRule.RoadOptional (A-frame, Chalet, Grand). Display only (the
  *  tile tooltip's BUILD_TIP_ROAD_OPTIONAL line). Keep in step with SkiCatalog.cs by hand. */

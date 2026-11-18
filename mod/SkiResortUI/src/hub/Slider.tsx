@@ -55,6 +55,9 @@ export interface SliderProps {
   disabled?: boolean;
   /** Extra marks on the track, by value (the full-demand price). */
   marks?: readonly number[];
+  /** A colored track in place of the accent fill (the price and the pass): for the segment that ends at a stop, the [amber, red]
+   *  opacities over the good green (0..1 each, hubRules.demandHeat). Left of the thumb at full strength, right of it dimmed. */
+  heat?: (v: number) => readonly [number, number];
   /** A tick at every stop (a short list: the tree levels, the pass multiplier). */
   ticks?: boolean;
   tip?: ReactNode;
@@ -62,7 +65,7 @@ export interface SliderProps {
   wide?: boolean;
 }
 
-export function Slider({ stops, value, format, samples, onCommit, onShown, disabled, marks, ticks, tip, wide }: SliderProps): JSX.Element {
+export function Slider({ stops, value, format, samples, onCommit, onShown, disabled, marks, heat, ticks, tip, wide }: SliderProps): JSX.Element {
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<number | null>(null);
   const [pending, setPending] = useState<number | null>(null);
@@ -118,7 +121,21 @@ export function Slider({ stops, value, format, samples, onCommit, onShown, disab
     <div className={cx(styles.slider, wide && styles.sliderWide, off && styles.sliderOff, drag !== null && styles.sliderDrag)}>
       <div className={styles.sliderHit} onMouseDown={onDown}>
         <div ref={track} className={styles.sliderTrack}>
-          {pos >= 0 && <div className={styles.sliderFill} style={{ width: pct(pos) }} />}
+          {heat && (
+            <div className={styles.sliderHeat}>
+              {stops.slice(1).map((v, i) => {
+                const [amber, red] = heat(v);
+                return (
+                  <div key={i} className={cx(styles.sliderSeg, (pos < 0 || (i + 1) / (n - 1) > pos + 1e-9) && styles.sliderSegAhead)}
+                    style={{ left: pct(i / (n - 1)), width: pct(1 / (n - 1)) }}>
+                    {amber > 0 && <div className={styles.sliderSegAmber} style={{ opacity: amber }} />}
+                    {red > 0 && <div className={styles.sliderSegRed} style={{ opacity: red }} />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {!heat && pos >= 0 && <div className={styles.sliderFill} style={{ width: pct(pos) }} />}
           {ticks && stops.map((_, i) => <div key={i} className={styles.sliderTick} style={{ left: pct(i / (n - 1)) }} />)}
           {marks && marks.map((m) => {
             const p = sliderPos(stops, m);
