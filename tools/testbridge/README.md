@@ -486,6 +486,10 @@ It fills the game's own `DependencyCollector` with the prefabs of `tools/shipped
   package takes the main asset's name as in the Editor (`main`, default the first list entry, `PackageHelper.cs:38`). The output is
   `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\.packages\<name>.cok`, next to the game's `.<name>_Backup` folder
   (a copy of the source files, `PackageHelper.cs:83-85`).
+- **Hub Card icons (1.0.2).** No prefab references the `<Name>Card.png` assets, so the closure would drop them. The op resolves every
+  `gamedata-mirror/ImportedData/SkiResortIcons/*Card.png.cid` to its `ImageAsset` in the user database (optional `icons`: another folder)
+  and adds it as an extra root. The reply has `iconsWanted`, `iconsFound` (in the closure) and `iconsMissing`; a real run is refused when
+  one is missing or none was found. `tools/check-cok.js` (ICON lines) checks the finished .cok.
 - Each call blocks the game for minutes: a dry run took about 3 to 4 minutes in the Editor (2026-11-12). The CDP call of `game_eval` then times
   out after 15 s, so keep the promise on `window` (`engine.call(...).then(r => window.__pk = r)`) and read `window.__pk` when the game
   responds again.

@@ -131,22 +131,43 @@ window.__dfindSave = async (name) => {
   for (let pos = 0; pos <= sc.scrollHeight; pos += step) { sc.scrollTop = pos; await __sleep(350); el = rows(); if (el) return el; }
   return null;
 };
-// Opens Load Game, clicks the save, answers the load dialog and the discard dialog. Replies "loading <name> yes <0|1>", or why not:
-// "no save <name>" = the game does not list that file (T205: stage it with the game closed, see tools/loadcheck.ps1 -StageOnly).
+// A visible leaf element whose text contains `sub` (lower case). Dialog wording from the game's Locale.cok (1.6.x, en-US):
+// the missing-content warning is GameListScreen.SAVEGAME_MISSING_REQUIRED_CONTENT "The Savegame you are trying to load references the
+// following missing content:", the discard dialog is Common.DIALOG_MESSAGE[ProgressLoss] "All unsaved progress will be lost. Are you sure ...".
+window.__dhas = (sub) => [...document.querySelectorAll("*")].some(e => e.children.length === 0 && e.getBoundingClientRect().width > 0 && e.textContent.toLowerCase().includes(sub));
+// Answers the missing-content warning with Yes when it shows. Replies 1 when it clicked, else 0.
+window.__dmissing = () => (__dhas("missing content") && __dtext("Yes")) ? 1 : 0;
+// Opens Load Game, clicks the save, answers the missing-content warning (it comes on the row click or after Load Game, any number of times),
+// the load dialog and the "unsaved progress" discard dialog. Replies "loading <name> yes <0|1> missing <n> | ...", or why not:
+// "no save <name>" = the game does not list that file (T205: stage it with the game closed, see tools/loadcheck.ps1 -StageOnly),
+// "stuck ..." = after 30 s the warning or dialog was still there (nothing was loaded).
+// Polls every 300 ms. It ends when the discard dialog was answered (the load starts), or when no dialog has shown for 3 s after the
+// Load Game click (a load from the main menu has no discard dialog). The game stops answering the page once the load runs, so it returns at once then.
 window.__dload = async (name) => {
   const log = [];
+  let missing = 0;
   log.push(await __dpause());
   log.push(__dtext("Load Game")); await __sleep(1500);
   const el = await __dfindSave(name);
   if (!el) return log.concat("no save " + name).join(" | ");
   await __scrollTo(el); await __sleep(300);
   __dclkEl(el); await __sleep(800);
+  missing += __dmissing(); if (missing) await __sleep(800);
   const b = __dfind("Load Game", 2000);
-  if (!b.length) return log.concat("no Load Game button in the panel").join(" | ");
+  if (!b.length) return log.concat("no Load Game button in the panel" + (missing ? " (after the missing-content warning)" : "")).join(" | ");
   try { await __cmd({ op: "loadcheck", action: "loadMark" }); } catch (e) { }
-  __dclkEl(b[0]); await __sleep(1800);
-  const y = __dtext("Yes");
-  return "loading " + name + " yes " + (y ? 1 : 0) + " | " + log.join(" | ");
+  __dclkEl(b[0]);
+  const t0 = Date.now();
+  let quiet = Date.now(), discard = 0;
+  while (Date.now() - t0 < 30000) {
+    await __sleep(300);
+    if (__dhas("unsaved progress") && __dtext("Yes")) { discard = 1; break; }
+    if (__dmissing()) { missing++; log.push("missing-content warning answered Yes (" + missing + ")"); quiet = Date.now(); continue; }
+    if (__dfind("Yes").length) { __dtext("Yes"); quiet = Date.now(); continue; }   // another Yes dialog: answer it like the single click did
+    if (Date.now() - quiet > 3000) break;
+  }
+  if (!discard && Date.now() - t0 >= 30000) return "stuck after 30 s (missing-content answered " + missing + "x) | " + log.join(" | ");
+  return "loading " + name + " yes " + discard + " missing " + missing + " | " + log.join(" | ");
 };
 // A vanilla save from before some unlocks queues dozens of "New Signature Building Available" panels after the load (45 in Royston, 2026-11-16).
 // Each one pauses the simulation (TimeUISystem forced pause) until its OK is pressed, and only the React onClick prop dismisses it (DOM mouse

@@ -6,8 +6,11 @@
  *   MISSING   a shipped prefab with no "<name>.Prefab" entry in the .cok. This is the exact failure the checklist fears: the Editor package
  *             step left a hand-made prefab out, so players would see "Unknown prefab ID".
  *   CID       the entry is there, but its .cid content id differs from the frozen "cid"
+ *   ICON      a hub icon id that no ".cid" entry of the .cok carries: every gamedata-mirror/ImportedData/SkiResortIcons/*Card.png.cid and every
+ *             assetdb://global/<id> of mod/SkiResortUI/src/hub/buildItems.ts. No prefab references the Card PNGs, so the package step may leave
+ *             them out (blank hub tiles; 1.0.1 shipped without them).
  *   EXTRA     a .Prefab entry in the .cok that is not in the frozen list (information only). The list does not track generated prefabs.
- * Exit 0 when nothing is MISSING and no CID differs. Exit 1 otherwise. Exit 2 on a usage or read error.
+ * Exit 0 when nothing is MISSING, no CID differs and no ICON is missing. Exit 1 otherwise. Exit 2 on a usage or read error.
  * Usage: node tools/check-cok.js "<path to the .cok>"
  *   The unlisted upload's file after you subscribe in game: %CSII_PDXMODSPATH%\pdx_mods\<ModId>_<version>\*.cok
  * Reader: minimal ZIP central-directory parser with zlib. It reads stored and deflate entries only. It has no dependencies.
@@ -78,9 +81,47 @@ function main() {
   const extra = prefabEntries.filter((n) => !frozen.has(n.toLowerCase()));
   for (const n of extra.slice(0, 20)) console.log("EXTRA   " + n);
   if (extra.length > 20) console.log("EXTRA   ... " + (extra.length - 20) + " more");
+
+  // Assets that no prefab references are not packed: the package step walks references from the prefabs (DependencyCollector.cs
+  // CollectPrefabReferences: AssetReference fields + UIIconField strings). The hub's Card icons (T210) are loaded by id from buildItems.ts only,
+  // so they must be checked here. Every id below must be the content of some "<asset>.cid" entry of the .cok.
+  const cokIds = new Set();
+  for (const n of zip.names) {
+    if (!/\.cid$/i.test(n)) continue;
+    const b = zip.read(n);
+    if (b) cokIds.add(b.toString("utf8").trim().toLowerCase());
+  }
+  const root = path.join(__dirname, "..");
+  const wanted = new Map(); // id -> label
+  const iconDir = path.join(root, "gamedata-mirror", "ImportedData", "SkiResortIcons");
+  if (fs.existsSync(iconDir)) {
+    for (const f of fs.readdirSync(iconDir).filter((x) => /Card\.png\.cid$/i.test(x)).sort()) {
+      wanted.set(fs.readFileSync(path.join(iconDir, f), "utf8").trim().toLowerCase(), f.replace(/\.cid$/i, ""));
+    }
+  }
+  const cardCount = wanted.size;
+  const buildItems = path.join(root, "mod", "SkiResortUI", "src", "hub", "buildItems.ts");
+  let hubIds = 0;
+  if (fs.existsSync(buildItems)) {
+    for (const line of fs.readFileSync(buildItems, "utf8").split(/\r?\n/)) {
+      for (const m of line.matchAll(/assetdb:\/\/global\/([0-9a-f]{32})/gi)) {
+        const id = m[1].toLowerCase();
+        if (!wanted.has(id)) { wanted.set(id, (line.match(/\/\/\s*(\S+\.png)/) || [])[1] || id); }
+        hubIds++;
+      }
+    }
+  }
+  let iconMissing = 0;
+  for (const [id, label] of wanted) {
+    if (!cokIds.has(id)) { console.log("ICON    missing " + label + " (" + id + ")"); iconMissing++; }
+  }
+  console.log("hub icon ids " + wanted.size + " (" + cardCount + " Card files in the mirror, " + hubIds + " assetdb ids in buildItems.ts), missing " + iconMissing);
+  if (cardCount === 0 && fs.existsSync(iconDir) === false) console.log("WARN    no SkiResortIcons folder: icon check skipped");
+
   console.log("shipped " + shipped.length + ", .Prefab entries in the .cok " + prefabEntries.length + ", missing " + missing + ", cid differs " + cidDiff + ", extra " + extra.length);
-  console.log(missing === 0 && cidDiff === 0 ? "PASS" : "FAIL");
-  process.exit(missing === 0 && cidDiff === 0 ? 0 : 1);
+  const ok = missing === 0 && cidDiff === 0 && iconMissing === 0;
+  console.log(ok ? "PASS" : "FAIL");
+  process.exit(ok ? 0 : 1);
 }
 
 main();
