@@ -213,6 +213,11 @@ namespace SkiResortMod.Systems
         private bool m_HeightsLogged;
         private int m_WarmupQueued, m_WarmupDone, m_WarmupStartFrame;
         private float m_WarmupTotalMs, m_WarmupMaxMs;
+        // T251 (1.0.2 rating relaxation): warm-up runs whose band the 1.0.1 rule rated differently (SkiSlopeClassifier.LegacyBand101, a lower
+        // bound), and the first names, for the one "[rate-warmup]" line. The old-save check of the 1.0.2 test pass reads it.
+        private int m_WarmupT251Changed;
+        private readonly System.Text.StringBuilder m_WarmupT251Names = new System.Text.StringBuilder();
+        private const int WarmupT251NamesMax = 8;
         private float m_NextBackgroundStart;
         private float m_NextBackstop;
         private float m_RateLineWindowStart;
@@ -622,6 +627,8 @@ namespace SkiResortMod.Systems
             m_WarmupStartFrame = 0;
             m_WarmupTotalMs = 0f;
             m_WarmupMaxMs = 0f;
+            m_WarmupT251Changed = 0;
+            m_WarmupT251Names.Clear();
             m_NextBackgroundStart = 0f;
             m_NextBackstop = 0f;
             m_RateLineWindowStart = 0f;
@@ -1475,6 +1482,8 @@ namespace SkiResortMod.Systems
                 case RateStatus.Rated:
                     rating.State = RateRated;
                     rating.Band = (sbyte)res.Band;
+                    if (entry.Reason == ReasonWarmup)
+                        CountT251(row.Name, res);
                     rating.RatingGrade = res.RatingGrade;
                     rating.SteepestGrade = res.SteepestGrade;   // = RatingGrade in polyline mode (Classify)
                     rating.MeanGrade = res.MeanGrade;
@@ -1560,6 +1569,21 @@ namespace SkiResortMod.Systems
                 WarmupProgress(ms);
         }
 
+        /// <summary>Warm-up only: counts a run whose rated band differs from the band the 1.0.1 rule gave (SkiSlopeClassifier.LegacyBand101,
+        /// a lower bound) and keeps the first names with both bands. Allocates only for the first WarmupT251NamesMax changes.</summary>
+        private void CountT251(string name, SlopeResult res)
+        {
+            SlopeBand old = SkiSlopeClassifier.LegacyBand101(res);
+            if (old == res.Band)
+                return;
+            m_WarmupT251Changed++;
+            if (m_WarmupT251Changed > WarmupT251NamesMax)
+                return;
+            if (m_WarmupT251Names.Length > 0)
+                m_WarmupT251Names.Append(", ");
+            m_WarmupT251Names.Append('\'').Append(name).Append("' ").Append(BandNames[(int)old]).Append(" -> ").Append(BandNames[(int)res.Band]);
+        }
+
         private static string RateText(string name, Entity run, RunRating r, RateDetail detail, string reason)
         {
             string head = $"run '{name}' {run.Index}:{run.Version}: ";
@@ -1612,7 +1636,8 @@ namespace SkiResortMod.Systems
             float factor = m_WasDemanded ? SkiRunRatingRules.DutyFactorOpen : SkiRunRatingRules.DutyFactorClosed;
             Mod.Log.Info($"Catalog [rate-warmup] {m_WarmupQueued} run(s) in {m_Frame - m_WarmupStartFrame} frames, total " +
                          $"{m_WarmupTotalMs:F1} ms, max {m_WarmupMaxMs:F1} ms (background duty cycle ×{factor:0.##}; " +
-                         $"{RatedCount} of {m_Rows.Count} row(s) rated)" +
+                         $"{RatedCount} of {m_Rows.Count} row(s) rated; T251: {m_WarmupT251Changed} run(s) rated a band easier than the 1.0.1 rule " +
+                         $"(lower bound{(m_WarmupT251Changed > 0 ? ": " + m_WarmupT251Names + (m_WarmupT251Changed > WarmupT251NamesMax ? ", ..." : "") : "")}))" +
                          (m_WarmupDeadlineHit ? " — warm-up finished after the deadline" : " — rating service ready"));
         }
 
