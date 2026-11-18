@@ -67,7 +67,10 @@ function Get-WorldState {
         $problems += "ImportedData $(if ($importedLoaded) { 'loaded' } else { 'parked' })"
         $problems += "pack $(if ($packOn) { 'enabled' } else { "not enabled ($($d.enabled))" }) in playset '$($d.playset)'"
     }
-    $want = if ($name -eq 'ASSET') { if ($d.playset -eq $AssetPlaysetOld) { $AssetPlaysetOld } else { $AssetPlayset } } elseif ($Playset) { $Playset } else { $PlayerPlayset }
+    # The files decide the world. Until the game runs once with the new playset, the pack still reads enabled and the world reads
+    # MIXED: then the requested -World names the playset to pick.
+    $target = if ($name -eq 'MIXED' -and $World -ne 'Status') { $World.ToUpper() } else { $name }
+    $want = if ($target -eq 'ASSET') { if ($d.playset -eq $AssetPlaysetOld) { $AssetPlaysetOld } else { $AssetPlayset } } elseif ($Playset) { $Playset } else { $PlayerPlayset }
     $playsetOk = ($d.playset -eq $want)
     $bridgeText = if ($bridgeOn) { 'bridge on' } else { 'bridge off' }
     $overlayText = ''
@@ -156,6 +159,6 @@ try {
 if ($WhatIf) { Write-Host 'dry run done. Nothing changed.'; exit 0 }
 $after = Get-WorldState
 Write-Host "now:  $($after.line)"
-if (-not $after.playsetOk) { Write-Host "TODO: pick the playset '$($after.wantPlayset)' in the game's Paradox Mods screen, or with the game running at the main menu: toolsplayset.ps1 -Action Ensure -Name '$($after.wantPlayset)' (the game's own SDK, T221), then restart the game. This script never edits playsets." }
-if ($after.launch -notmatch 'uiDeveloperMode') { Write-Host 'TODO: launch with --developerMode --uiDeveloperMode (Steam launch options, or the direct start in tools/testbridge/README.md).' }
+if (-not $after.playsetOk) { Write-Host "TODO: pick the playset '$($after.wantPlayset)' in the game's Paradox Mods screen, or with the game running at the main menu: tools\playset.ps1 -Action Ensure -Name '$($after.wantPlayset)' (the game's own SDK, T221), then restart the game. This script never edits playsets." }
+if (-not $NoBridge -and $World -ne 'Status' -and $after.bridge -and $after.launch -notmatch 'uiDeveloperMode') { Write-Host 'TODO: launch with --developerMode --uiDeveloperMode (Steam launch options, or the direct start in tools/testbridge/README.md).' }
 exit ([int](-not $after.clean))
