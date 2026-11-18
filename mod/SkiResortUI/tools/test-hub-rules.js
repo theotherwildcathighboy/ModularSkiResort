@@ -970,7 +970,7 @@ function run(srcDir) {
         status.includes("HUB_FMT.problemLiftLowSpan} args={{ NAME, CARRIERS, M: numArg(p.detail / 10, Unit.Height) }}"),
         status.includes("HUB_FMT.problemLiftLowSpanGround} args={{ NAME, CARRIERS }}"),
         status.includes("p.pct === 1 ? HUB_LOC.carriersCabins : HUB_LOC.carriersChairs"),
-        status.includes('case "liftLowSpan": body = <LowSpanTip p={p} t={t} />;') && status.includes("HUB_FMT.problemTipLiftLowSpan} args={{ WHERE }}")],
+        status.includes('case "liftLowSpan": body = <LowSpanTip p={p} t={t} />;') && status.includes("HUB_FMT.problemTipLiftLowSpan} args={{ WHERE, CHAIR: numArg(3, Unit.Height), TRAM: numArg(5, Unit.Height) }}")],
       [true, true, true, true, true, true, true, true]);
   }
   {

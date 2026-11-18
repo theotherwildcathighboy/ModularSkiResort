@@ -746,7 +746,7 @@ export const HUB_FMT = {
   problemLiftLowSpanGround: ["SkiResort.Hub.PROBLEM[LiftLowSpanGround]", "{NAME}: {CARRIERS} touch the ground"],
   /* C# HubProblemCode LiftLowSpan (LiftClearanceSystem: the planner's floor, LiftTowerPlanConstants FloorM). Shown only. The lift is
      unchanged. {WHERE} = LOW_SPAN[Towers], [Station] or [Stations] */
-  problemTipLiftLowSpan: ["SkiResort.Hub.PROBLEM_TIP[LiftLowSpan]", "{WHERE}. To raise it, redraw that section: the lift tool keeps chairs and cabins 3 m clear, tram cabins 5 m."],
+  problemTipLiftLowSpan: ["SkiResort.Hub.PROBLEM_TIP[LiftLowSpan]", "{WHERE}. To raise it, redraw that section: the lift tool keeps chairs and cabins {CHAIR} clear, tram cabins {TRAM}."],
   /* {A}, {B} = the tower numbers at the span's ends (count, more) */
   lowSpanTowers: ["SkiResort.Hub.LOW_SPAN[Towers]", "Between towers {A} and {B}"],
   /* {N} = the span's one tower (count or more: the other end is a station) */
@@ -799,7 +799,7 @@ export const HUB_FMT = {
   receiptRoot: ["SkiResort.Hub.RECEIPT_ROOT", "{K} × the square root of the line above = {TERRAIN}"],
   /* the lodge-base tooltip's best tier ({NAME} = its LODGE_TIER word: an own lodge or a merged building) and the others' extras ({E}) */
   receiptTipLodgeBest: ["SkiResort.Hub.RECEIPT_TIP_LODGE_BEST", "Best tier: {NAME}."],
-  receiptTipVertical: ["SkiResort.Hub.RECEIPT_TIP[Vertical]", "+1 % per 6 m between the lowest and highest <icon:openpatchy> run, up to double at 600 m. Now: {M}."],
+  receiptTipVertical: ["SkiResort.Hub.RECEIPT_TIP[Vertical]", "+1 % per {STEP} between the lowest and highest <icon:openpatchy> run, up to double at {TOP}. Now: {M}."],
   /* the missing lines' parts with a number (contract 40) */
   runsMissingClosed: ["SkiResort.Hub.RECEIPT_MISSING[Runs.Closed]", "{N} <icon:closed>"],
   runsMissingPatchy: ["SkiResort.Hub.RECEIPT_MISSING[Runs.Patchy]", "{N} <icon:patchy>"],
@@ -856,7 +856,7 @@ export const HUB_FMT = {
   lodgeBuildingNumbered: ["SkiResort.Hub.LODGE_BUILDING_NUMBERED", "{NAME} {N}"],
   guestsMonthLast: ["SkiResort.Hub.GUESTS_MONTH[Last]", "{MONTH}"],
   guestsTipPaid: ["SkiResort.Hub.GUESTS_TIP[Paid]", "{MONTH}: {GUESTS} guests, {PAID} paid, {HOLDERS} on a pass, {UNPAID} could not pay, {FREE} free while tickets were off or closed."],
-  ticketsNoteOpen: ["SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest without a season pass pays {PRICE} on arrival. The price is set in Options."],
+  ticketsNoteOpen: ["SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest without a season pass pays {PRICE} on arrival. To change it, use the ticket slider in the Money view."],
   /* both guest bars' tooltip, {MAX} = hubRules.guestBarScale */
   guestsBarScale: ["SkiResort.Hub.GUESTS_BAR_SCALE", "Full bar: {MAX} guests"],
   /* {N} = skiDaysCap, the capacity at once */

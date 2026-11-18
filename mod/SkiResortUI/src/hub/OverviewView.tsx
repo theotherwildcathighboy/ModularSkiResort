@@ -380,7 +380,7 @@ function Receipt({ row, l, city, problems, build, areaRuns, t }: {
       <InfoLine sub op="×" label={t(HUB_LOC.receiptRowVertical)}
         value={parts.VERTICAL}
         tip={<TipLines lines={[
-          <IconText key="v" entry={HUB_FMT.receiptTipVertical} args={{ M: numArg(l ? l.scoreVerticalM : -1, Unit.Height) }} />,
+          <IconText key="v" entry={HUB_FMT.receiptTipVertical} args={{ STEP: numArg(6, Unit.Height), TOP: numArg(600, Unit.Height), M: numArg(l ? l.scoreVerticalM : -1, Unit.Height) }} />,
           receiptMaxed(l, "vertical") ? t(HUB_LOC.receiptMaxVertical) : t(HUB_LOC.receiptTipVerticalLever),
           vShort >= 0 && <IconText key="m" entry={HUB_FMT.receiptMissingVertical} args={{ M: numArg(vShort, Unit.Height) }} line missing />,
         ]} />} />

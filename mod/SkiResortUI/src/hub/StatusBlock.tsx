@@ -170,7 +170,8 @@ function LowSpanTip({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     : p.count > 0 || p.more > 0
       ? <LocText entry={HUB_FMT.lowSpanStation} args={{ N: numArg(Math.max(p.count, p.more), Unit.Integer) }} />
       : t(HUB_LOC.lowSpanStations);
-  return <LocText entry={HUB_FMT.problemTipLiftLowSpan} args={{ WHERE }} />;
+  /* the planner floors (C# LiftTowerPlanConstants): 3 m chairs and cabins, 5 m tram cabins */
+  return <LocText entry={HUB_FMT.problemTipLiftLowSpan} args={{ WHERE, CHAIR: numArg(3, Unit.Height), TRAM: numArg(5, Unit.Height) }} />;
 }
 
 /** The parking row names its lodge (C#'s subject, found in the lodgeParking rows). It reads "No parking: Chalet 2", and "and {N} more"
