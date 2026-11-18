@@ -59,7 +59,8 @@ namespace SkiResortMod.Systems
         /// <summary>The clamped SeasonPassShare read on the last tick (0 = passes off).</summary>
         internal int PassShare { get; private set; } = SkiMoneyRules.PassShareDefault;
 
-        internal int PassMultiplier { get; private set; } = SkiMoneyRules.PassMultiplierDefault;
+        /// <summary>The clamped SeasonPassPrice read on the last tick (1.0.2: money, 20-2,000).</summary>
+        internal int PassPriceSetting { get; private set; } = SkiMoneyRules.PassPriceDefault;
 
         /// <summary>The clamped LessonShare read on the last tick (0 = lessons off).</summary>
         internal int LessonShare { get; private set; } = SkiMoneyRules.LessonShareDefault;
@@ -286,7 +287,7 @@ namespace SkiResortMod.Systems
             Price = ReadPrice();
             LodgeSpend = ReadLodgeSpend();
             PassShare = ReadPassShare();
-            PassMultiplier = ReadPassMultiplier();
+            PassPriceSetting = ReadPassPrice();
             LessonShare = ReadLessonShare();
             LessonMultiplier = ReadLessonMultiplier();
 
@@ -321,7 +322,7 @@ namespace SkiResortMod.Systems
         {
             return PassShare > 0
                 ? $"season passes: {PassShare} % of a resident household's first arrivals of the season buy one (setting SeasonPassShare, " +
-                  $"0 = off; read live), price {PassMultiplier} × the lift ticket at the sale, locked (setting SeasonPassMultiplier; read live); " +
+                  $"0 = off; read live), price {PassPriceSetting} at the sale, locked (setting SeasonPassPrice; read live), sales × the pass demand factor (full up to {SkiMoneyRules.PassFullAt} × the lift ticket, then fewer; SkiMoneyRules.PassFactor); " +
                   "taken from the household (never below 0), booked like a ticket; the pass holder pays 0 at the gate for the season " +
                   "(July to June) and gets the full price factor in the ski-day chance; tourists never buy; a household that does not buy " +
                   "pays lift tickets all season; sold at an open gate only; BEFORE the season (once per ski area per season, at the first " +
@@ -384,13 +385,13 @@ namespace SkiResortMod.Systems
                 }
                 // 2a''. The two pass settings, live (take effect with the next job scheduled).
                 int passShare = ReadPassShare();
-                int passMult = ReadPassMultiplier();
-                if (passShare != PassShare || passMult != PassMultiplier)
+                int passPrice = ReadPassPrice();
+                if (passShare != PassShare || passPrice != PassPriceSetting)
                 {
-                    Mod.Log.Info($"Passes [settings] share {PassShare} → {passShare} %, price {PassMultiplier} → {passMult} × the lift ticket; " +
+                    Mod.Log.Info($"Passes [settings] share {PassShare} → {passShare} %, price {PassPriceSetting} → {passPrice}; " +
                                  (passShare == 0 ? "passes off (holders keep what they bought)" : "households are decided at their first open-gate arrival of a season"));
                     PassShare = passShare;
-                    PassMultiplier = passMult;
+                    PassPriceSetting = passPrice;
                 }
                 // 2a'''. The two lesson settings, live (take effect with the next job scheduled).
                 int lessonShare = ReadLessonShare();
@@ -484,9 +485,9 @@ namespace SkiResortMod.Systems
             return SkiMoneyRules.ClampPassShare(Mod.Settings?.SeasonPassShare ?? SkiMoneyRules.PassShareDefault);
         }
 
-        private static int ReadPassMultiplier()
+        private static int ReadPassPrice()
         {
-            return SkiMoneyRules.ClampPassMultiplier(Mod.Settings?.SeasonPassMultiplier ?? SkiMoneyRules.PassMultiplierDefault);
+            return SkiMoneyRules.ClampPassPrice(Mod.Settings?.SeasonPassPrice ?? SkiMoneyRules.PassPriceDefault);
         }
 
         private static int ReadLessonShare()
@@ -568,7 +569,7 @@ namespace SkiResortMod.Systems
                 PassWrites = m_PassWrites,
                 SeasonKey = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate, SkiClimateCalendar.SeasonFirstMonth(m_ClimateSystem, m_PrefabSystem)),
                 PassShare = PassShare,
-                PassMultiplier = PassMultiplier,
+                PassPriceSetting = PassPriceSetting,
                 LessonShare = LessonShare,
                 LessonPrice = SkiMoneyRules.LessonPrice(LessonMultiplier, price),
                 LessonDay = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear),
@@ -719,10 +720,10 @@ namespace SkiResortMod.Systems
                     ? EntityManager.GetComponentData<PlayerMoney>(city).money.ToString()
                     : "n/a";
                 Mod.Log.Info($"Passes [first] resident household {Fmt(firstBuyer)} bought the season-{season} pass for {firstPrice} " +
-                             $"({PassMultiplier} × the lift ticket {Price}; share {PassShare} %): it pays 0 at the gate until July and skis " +
+                             $"(price {PassPriceSetting}, demand x{SkiMoneyRules.PassFactor(SkiMoneyRules.SalePassPrice(PassPriceSetting, Price), Price):0.###} at the lift ticket {Price}; share {PassShare} %): it pays 0 at the gate until July and skis " +
                              $"with the full price factor; booked as a public transportation fee (balance {balance})");
             }
-            string body = $"{sold} pass(es) sold +{income} ({PassMultiplier} × the lift ticket {Price}), {declined} household(s) rolled out, " +
+            string body = $"{sold} pass(es) sold +{income} (price {PassPriceSetting}, lift ticket {Price}), {declined} household(s) rolled out, " +
                           $"{cannotPay} could not afford the pass; season {season}";
             float now = UnityEngine.Time.realtimeSinceStartup;
             switch (m_PassLog.Offer(now, false, body, sold, income, declined + cannotPay))
@@ -990,7 +991,7 @@ namespace SkiResortMod.Systems
                   .Append(", lodge spend ").Append(LodgeSpend).Append(" per guest (× tier): ").Append(m_SpendsTotal)
                   .Append(" spent +").Append(m_SpendIncomeTotal)
                   // Passes: sold / income as booked, holder guests, households decided not to buy.
-                  .Append(", season passes share ").Append(PassShare).Append(" % × ").Append(PassMultiplier).Append(" tickets: ")
+                  .Append(", season passes share ").Append(PassShare).Append(" %, price ").Append(PassPriceSetting).Append(": ")
                   .Append(m_PassesSold).Append(" sold +").Append(m_PassIncomeTotal).Append(", ").Append(m_PassHolderGuests)
                   .Append(" pass-holder guest(s), ").Append(m_PassesDeclined).Append(" rolled out, ").Append(m_PassesCannotPay)
                   .Append(" could not afford it (last season key ").Append(m_PassSeasonKey == int.MinValue ? "n/a" : m_PassSeasonKey.ToString()).Append(')')
@@ -1042,7 +1043,7 @@ namespace SkiResortMod.Systems
             public NativeList<PassWrite> PassWrites;                   // appended here, applied on the main thread
             public int SeasonKey;                                      // SkiMoneyRules.SeasonKeyOfDate at the schedule
             public int PassShare;                                      // clamped setting (0 = no sales)
-            public int PassMultiplier;                                 // clamped setting
+            public int PassPriceSetting;                               // clamped setting (SeasonPassPrice)
             public int LessonShare;                                    // clamped setting (0 = no lessons)
             public int LessonPrice;                                    // SkiMoneyRules.LessonPrice at the schedule (0 = no lessons)
             public int LessonDay;                                      // SkiDayRules.DayKey at the schedule (the roll's day)
@@ -1065,7 +1066,8 @@ namespace SkiResortMod.Systems
                 // Households decided earlier in THIS batch (1 = holds a pass, 2 = declined). So a second arrival
                 // record of the same household in one drain does not wait for the component to exist.
                 var decided = new NativeHashMap<Entity, byte>(8, Allocator.Temp);
-                int passPrice = SkiMoneyRules.PassPrice(PassMultiplier, Price);
+                int passPrice = SkiMoneyRules.SalePassPrice(PassPriceSetting, Price);
+                double passFactor = SkiMoneyRules.PassFactor(passPrice, Price);   // pass demand (1.0.2)
                 for (int i = 0; i < Requests.Length; i++)
                 {
                     TicketRequest q = Requests[i];
@@ -1096,7 +1098,7 @@ namespace SkiResortMod.Systems
                             if (standing == SkiMoneyRules.PassStanding.None && PassShare > 0)
                             {
                                 SkiMoneyRules.PassSaleResult sale =
-                                    SkiMoneyRules.PassSale(true, PassShare, q.Household.Index, SeasonKey, passPrice, money);
+                                    SkiMoneyRules.PassSale(true, PassShare, q.Household.Index, SeasonKey, passPrice, money, passFactor);
                                 if (sale == SkiMoneyRules.PassSaleResult.Bought)
                                 {
                                     // Taken from the household (price ≤ money: never below 0) and booked exactly like tickets.

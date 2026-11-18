@@ -60,5 +60,18 @@ is `SkiDayRules.DayKey`. The day sets live in the counter.
 - Season passes: `SeasonKeyOf` / `SeasonKeyOfDate` (July on = the year, else year - 1), `PassPrice`, `PassRoll` (the household's one
   deterministic roll), `PassStandingOf` (what its `SkiSeasonPass` says this season), `PassSale` (NotEligible / Declined / Bought /
   CannotPay). The ticket job (Burst) calls them.
+- Pass price and pass demand (1.0.2, r3/sliders, DECISIONS 677). The pass is a money price, the Options `SeasonPassPrice`.
+  - Range: `PassPriceMin..Max` 20..2,000, step 20, default 400. `ClampPassPrice` snaps half up, then clamps.
+  - `SalePassPrice(setting, ticket)` is what a pass sells at. It is 0 while the ticket price is not > 0 (no pass with tickets off, as in 1.0.1).
+  - Demand is judged against the day ticket: `PassFactor(price, ticket)` = clamp01((12 t - p) / (8 t)), with `PassFullAt` 4 and
+    `PassSpan` 8. So it is 1 up to 4 x the ticket, 0.5 at 8 x, 0.25 at 10 x and 0 from 12 x. It is exact in long before the one division.
+  - `PassRoll(..., factor)` buys with probability share/100 x factor. At factor 1 it is the 3-argument roll bit for bit. So the
+    undecided households of an old save roll as before at a price up to 4 tickets.
+  - Below 1 the hash also gives a fraction inside its percent: `u = (H % 100 + (H / 100 % 1000) / 1000) / 100`. So the buyers are
+    nested. A buyer at a price also buys at every lower one.
+  - `PresaleProbability(share, chance, factor)` multiplies p by the factor. Factor >= 1 gives the old p.
+  - `PassPriceFromMultiplier(multiplier, ticket)` is only for the one-time Options migration (Mod.MigrateSettings). `PassPrice(multiplier,
+    ticket)` and the `PassMultiplier*` constants stay for it and for the old tests.
+  - hubRules.ts mirrors `PassFactor` as `passFactor`. test-hub-rules R3S.8 and MoneyBatch T15b use the same table.
 - Lessons: `LessonShare` / `LessonMultiplier` consts and clamps, `LessonPrice`, `LessonRoll`, `LessonsTaken`, `LessonsPaid`.
   Pre-season pass sale: `PresaleUniform`, `PresaleProbability`, `PresaleDecision`.

@@ -32,7 +32,7 @@
 *            --height=1080|1440|2160   one size     --scenario=<regex>   only the scenarios it matches (case-insensitive; a partial run)
 *            --workers=<n>   browsers in parallel  --no-wait   fail (exit 3) when another run holds the lock, instead of waiting
 *            --fixed-settle   the old fixed waits in settle(), to cross-check a doubt about the quiet condition
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish | --list=r1f | --list=r2b | --list=plantext | --list=r2hub | --list=r2fix | --list=r2views]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish | --list=r1f | --list=r2b | --list=plantext | --list=r2hub | --list=r2fix | --list=r2views | --list=r3sliders | --list=r3price]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -503,23 +503,22 @@ const R3SLIDERS = R3SLIDERS_BEFORE.concat([
   ["s13-guns-released-1080", 1080, { scenario: PICK, view: 1, clickRun: "Run 4", drag: [0, 0.45, 0.9, true] }],
   ["s14-tree-click-1080", 1080, { scenario: ASH, view: 1, drag: [0, 1, 1, true] }],
 ]);
-// r3/sliders, round 2 of phase 1: the price and pass rows as one word of demand on a green-to-red track, and the price tooltip in its
-// two variants (A with the "about N in 10" line, B without: "js" sets the harness-only switch before the pointer moves). `--list=r3price`.
-const TIP_B = "window.__r3TipB = true";
+// r3/sliders (DECISIONS 677): the price and pass rows as one word of demand on a green-to-red track, their tooltips, and the pass as a
+// money price (the harness ticket is 65, so the pass limit is 260). `--list=r3price`.
 const PRICE_TEXT = '.h-panel [class*="sr-priceRowText_"]';
+const PASS_AT = (p) => (p - 20) / 1980;
 const R3PRICE = [
   ["p01-money-price-pass-1080", 1080, { scenario: ASH, view: 4, fold: 0 }],
-  ["p02-price-120-tip-a-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 0.6, true], hoverSel: PRICE_TEXT }],
-  ["p03-price-120-tip-b-1080", 1080, { scenario: ASH, view: 4, fold: 0, js: TIP_B, drag: [0, 0.5, 0.6, true], hoverSel: PRICE_TEXT }],
-  ["p03b-price-65-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: PRICE_TEXT }],
+  ["p02-price-120-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 0.6, true], hoverSel: PRICE_TEXT }],
+  ["p03-price-65-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: PRICE_TEXT }],
   ["p04-price-drag-held-40-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 0.2, false] }],
   ["p05-price-drag-held-160-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 0.8, false] }],
-  ["p06-price-200-tip-a-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 1, true], hoverSel: PRICE_TEXT }],
-  ["p07-pass-8-tip-a-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [1, 0.25, 0.75, true], hoverSel: PRICE_TEXT, hoverIdx: 1 }],
-  ["p08-pass-8-tip-b-1080", 1080, { scenario: ASH, view: 4, fold: 0, js: TIP_B, drag: [1, 0.25, 0.75, true], hoverSel: PRICE_TEXT, hoverIdx: 1 }],
-  ["p09-pass-4-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: PRICE_TEXT, hoverIdx: 1 }],
-  ["p11-price-120-tip-a-maxed-1080", 1080, { scenario: "Ash Flat, luxury lodge (price tolerance at its maximum)", view: 4, fold: 0, drag: [0, 0.5, 0.6, true], hoverSel: PRICE_TEXT }],
-  ["p12-pass-3-tip-a-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [1, 0.25, 0.125, true], hoverSel: PRICE_TEXT, hoverIdx: 1 }],
+  ["p06-price-200-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [0, 0.5, 1, true], hoverSel: PRICE_TEXT }],
+  ["p07-pass-520-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [1, PASS_AT(260), PASS_AT(520), true], hoverSel: PRICE_TEXT, hoverIdx: 1 }],
+  ["p08-pass-160-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [1, PASS_AT(260), PASS_AT(160), true], hoverSel: PRICE_TEXT, hoverIdx: 1 }],
+  ["p09-pass-260-tip-1080", 1080, { scenario: ASH, view: 4, fold: 0, hoverSel: PRICE_TEXT, hoverIdx: 1 }],
+  ["p11-price-120-tip-maxed-1080", 1080, { scenario: "Ash Flat, luxury lodge (price tolerance at its maximum)", view: 4, fold: 0, drag: [0, 0.5, 0.6, true], hoverSel: PRICE_TEXT }],
+  ["p12-pass-drag-held-1200-1080", 1080, { scenario: ASH, view: 4, fold: 0, drag: [1, PASS_AT(260), PASS_AT(1200), false] }],
   ["p10-money-price-pass-2160", 2160, { scenario: ASH, view: 4, fold: 0 }],
 ];
 const R2VIEWS = [];
@@ -638,13 +637,12 @@ async function shots(b, base, dir, list) {
   for (const [file, h, p0] of list) {
     const w = Math.round(h * 16 / 9);
     const p = Object.assign({}, p0);
-    const { js, drag, hover, hoverIn, hoverSel, hoverIdx, click, clickRange, clickRun, hoverPlot, whole, iconMode, scrollY, scrollIn, scrollInY } = p;
-    delete p.js; delete p.clickRun; delete p.drag; delete p.hoverIdx; delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode; delete p.scrollY; delete p.scrollIn; delete p.scrollInY;
+    const { drag, hover, hoverIn, hoverSel, hoverIdx, click, clickRange, clickRun, hoverPlot, whole, iconMode, scrollY, scrollIn, scrollInY } = p;
+    delete p.clickRun; delete p.drag; delete p.hoverIdx; delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode; delete p.scrollY; delete p.scrollIn; delete p.scrollInY;
     await open(b, base, w, h);
     if (iconMode) await evalAsync(b, `(() => { window.skiResortIconMode = ${JSON.stringify(iconMode)}; return true; })()`, 10000);
     const m = await evalAsync(b, `(async () => { const p = new URLSearchParams(${JSON.stringify(new URLSearchParams(Object.assign({ clean: 1 }, p)).toString())});
       await window.SkiLayout.shot(p); return document.body.getAttribute("data-shot-ready"); })()`, 60000);
-    if (js) await evalAsync(b, `(() => { ${js}; return true; })()`, 10000);   // a harness-only switch (r3price: the tooltip variant)
     for (const want of [clickRange, click]) {
       if (!want) continue;
       const ok = await evalAsync(b, `(async () => { const want = ${JSON.stringify(want)};

@@ -73,7 +73,7 @@ trigger setCatTrackDeleteMode (boolean)
 trigger setCatTrackSkiWay (boolean)
 trigger setDrawRun ("groomed" | "guns" | "lights", number)
 trigger setHubOpen (boolean)
-trigger setPassMultiplier (number)
+trigger setPassPrice (number)
 trigger setPisteMap (boolean)
 trigger setRunGroomed (Entity, boolean)
 trigger setRunGunSpacing (Entity, number)
@@ -118,7 +118,7 @@ shape CityStats.backcountryPct : number
 shape CityStats.daysPerYear : number
 shape CityStats.known : boolean
 shape CityStats.month : number
-shape CityStats.passMultiplier : number
+shape CityStats.passPrice : number
 shape CityStats.passShare : number
 shape CityStats.realisticWorkplaces : boolean
 shape CityStats.scaleK : number

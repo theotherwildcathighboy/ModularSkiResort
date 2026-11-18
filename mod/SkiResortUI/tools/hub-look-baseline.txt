@@ -416,8 +416,7 @@ a07-runs-1080 | control | tile "2 / 3Lifts" | h=41.6; pad=0 3 0 3; font=14; radi
 a07-runs-1080 | control | tile "3,860Guests" | h=41.6; pad=0 3 0 3; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(240, 251, 255); border=-
 a07-runs-1080 | control | tile "+¢173,238Finances" | h=41.6; pad=0 3 0 3; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(240, 251, 255); border=-
 a07-runs-1080 | control | tile "History" | h=41.6; pad=0 3 0 3; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(240, 251, 255); border=-
-a07-runs-1080 | control | h-btn.stepButton "–" | h=26; pad=6 12 6 12; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
-a07-runs-1080 | control | h-btn.stepButton "+" | h=26; pad=6 12 6 12; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
+a07-runs-1080 | control | sliderHit | h=22; pad=0 8 0 8; font=14; radius=0; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
 a07-runs-1080 | control | h-btn.h-selected.segButton.buttonOn "Run interior" | h=26; pad=6 12 6 12; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a07-runs-1080 | control | h-btn.segButton.segButtonNext "Tree line" | h=26; pad=6 12 6 12; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a07-runs-1080 | control | pisteToggle.h-selected "Piste map" | h=19.2; pad=1 0 1 0; font=12; radius=3; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
@@ -448,13 +447,13 @@ a07-runs-1080 | control | pickerChip.pickerChipOn.h-selected "Mountain restauran
 a07-runs-1080 | control | h-btn.actionButton.mergeAction.fitText "Merge" | h=26; pad=6 12 6 12; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a07-runs-1080 | control | h-floating.h-selected | h=48; pad=1 6 1 6; font=16; radius=8; bg=rgba(42, 55, 83, 0.55); color=rgb(0, 0, 0); border=1 rgba(255, 255, 255, 0.2)
 a07-runs-1080 | control | h-btn.h-selected | h=14; pad=6 12 6 12; font=16; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
-a07-runs-1080 | font | 12 | buildStatusLine.buildLineName buildTileLabel colLabel liftMarkSlot mergeTierFee pickerLabel pisteToggle.h-selected statusHint.statusHintOn tileCaption
-a07-runs-1080 | font | 14 | h-btn.h-selected.segButton.buttonOn h-btn.segButton.segButtonNext h-btn.stepButton infoLabel infoValue problemMoreButton problemText rowName stableValue statusText tabLabel
+a07-runs-1080 | font | 12 | buildStatusLine.buildLineName buildTileLabel colLabel liftMarkSlot mergeTierFee pickerLabel pisteToggle.h-selected quickCaption statusHint.statusHintOn tileCaption
+a07-runs-1080 | font | 14 | h-btn.h-selected.segButton.buttonOn h-btn.segButton.segButtonNext infoLabel infoValue problemMoreButton problemText rowName stableValue statusText tabLabel
 a07-runs-1080 | font | 16 | areaNameText busCardTitle h-btn.actionButton.mergeAction.fitText span tileValue
 a07-runs-1080 | font | 22 | h-panel-close
-a07-runs-1080 | color | rgb(240, 251, 255) | areaNameText buildTileLabel h-btn.actionButton.mergeAction.fitText h-btn.h-selected.segButton.buttonOn h-btn.segButton.segButtonNext h-btn.stepButton h-panel-close infoValue mergeTierFee pickerLabel pisteToggle.h-selected problemText rowName span stableValue statusHint.statusHintOn statusText tabLabel tileValue
+a07-runs-1080 | color | rgb(240, 251, 255) | areaNameText buildTileLabel h-btn.actionButton.mergeAction.fitText h-btn.h-selected.segButton.buttonOn h-btn.segButton.segButtonNext h-panel-close infoValue mergeTierFee pickerLabel pisteToggle.h-selected problemText rowName span stableValue statusHint.statusHintOn statusText tabLabel tileValue
 a07-runs-1080 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle problemMoreButton
-a07-runs-1080 | color | rgba(240, 251, 255, 0.7) | colLabel infoLabel liftMarkSlot mergeTierFee pickerLabel tabLabel tileCaption
+a07-runs-1080 | color | rgba(240, 251, 255, 0.7) | colLabel infoLabel liftMarkSlot mergeTierFee pickerLabel quickCaption tabLabel tileCaption
 a07-runs-2160 | control | h-btn.h-iconbtn.headerButton | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a07-runs-2160 | control | areaName "Ash Flat" | h=26; pad=0 6 0 6; font=16; radius=4; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
 a07-runs-2160 | control | h-btn.h-iconbtn.headerButton #2 | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
@@ -469,8 +468,7 @@ a07-runs-2160 | control | tile "2 / 3Lifts" | h=41.6; pad=0 3 0 3; font=14; radi
 a07-runs-2160 | control | tile "3,860Guests" | h=41.6; pad=0 3 0 3; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(240, 251, 255); border=-
 a07-runs-2160 | control | tile "+¢173,238Finances" | h=41.6; pad=0 3 0 3; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(240, 251, 255); border=-
 a07-runs-2160 | control | tile "History" | h=41.6; pad=0 3 0 3; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(240, 251, 255); border=-
-a07-runs-2160 | control | h-btn.stepButton "–" | h=26; pad=6 12 6 12; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
-a07-runs-2160 | control | h-btn.stepButton "+" | h=26; pad=6 12 6 12; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
+a07-runs-2160 | control | sliderHit | h=22; pad=0 8 0 8; font=14; radius=0; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
 a07-runs-2160 | control | h-btn.h-selected.segButton.buttonOn "Run interior" | h=26; pad=6 12 6 12; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a07-runs-2160 | control | h-btn.segButton.segButtonNext "Tree line" | h=26; pad=6 12 6 12; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a07-runs-2160 | control | pisteToggle.h-selected "Piste map" | h=19.2; pad=0.5 0 0.5 0; font=12; radius=3; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
@@ -501,13 +499,13 @@ a07-runs-2160 | control | pickerChip.pickerChipOn.h-selected "Mountain restauran
 a07-runs-2160 | control | h-btn.actionButton.mergeAction.fitText "Merge" | h=26; pad=6 12 6 12; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a07-runs-2160 | control | h-floating.h-selected | h=48; pad=0.5 3 0.5 3; font=16; radius=8; bg=rgba(42, 55, 83, 0.55); color=rgb(0, 0, 0); border=0.5 rgba(255, 255, 255, 0.2)
 a07-runs-2160 | control | h-btn.h-selected | h=13; pad=6 12 6 12; font=16; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
-a07-runs-2160 | font | 12 | buildStatusLine.buildLineName buildTileLabel colLabel liftMarkSlot mergeTierFee pickerLabel pisteToggle.h-selected statusHint.statusHintOn tileCaption
-a07-runs-2160 | font | 14 | h-btn.h-selected.segButton.buttonOn h-btn.segButton.segButtonNext h-btn.stepButton infoLabel infoValue problemMoreButton problemText rowName stableValue statusText tabLabel
+a07-runs-2160 | font | 12 | buildStatusLine.buildLineName buildTileLabel colLabel liftMarkSlot mergeTierFee pickerLabel pisteToggle.h-selected quickCaption statusHint.statusHintOn tileCaption
+a07-runs-2160 | font | 14 | h-btn.h-selected.segButton.buttonOn h-btn.segButton.segButtonNext infoLabel infoValue problemMoreButton problemText rowName stableValue statusText tabLabel
 a07-runs-2160 | font | 16 | areaNameText busCardTitle h-btn.actionButton.mergeAction.fitText span tileValue
 a07-runs-2160 | font | 22 | h-panel-close
-a07-runs-2160 | color | rgb(240, 251, 255) | areaNameText buildTileLabel h-btn.actionButton.mergeAction.fitText h-btn.h-selected.segButton.buttonOn h-btn.segButton.segButtonNext h-btn.stepButton h-panel-close infoValue mergeTierFee pickerLabel pisteToggle.h-selected problemText rowName span stableValue statusHint.statusHintOn statusText tabLabel tileValue
+a07-runs-2160 | color | rgb(240, 251, 255) | areaNameText buildTileLabel h-btn.actionButton.mergeAction.fitText h-btn.h-selected.segButton.buttonOn h-btn.segButton.segButtonNext h-panel-close infoValue mergeTierFee pickerLabel pisteToggle.h-selected problemText rowName span stableValue statusHint.statusHintOn statusText tabLabel tileValue
 a07-runs-2160 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle problemMoreButton
-a07-runs-2160 | color | rgba(240, 251, 255, 0.7) | colLabel infoLabel liftMarkSlot mergeTierFee pickerLabel tabLabel tileCaption
+a07-runs-2160 | color | rgba(240, 251, 255, 0.7) | colLabel infoLabel liftMarkSlot mergeTierFee pickerLabel quickCaption tabLabel tileCaption
 a08-lifts-1080 | control | h-btn.h-iconbtn.headerButton | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a08-lifts-1080 | control | areaName "Ash Flat" | h=26; pad=0 6 0 6; font=16; radius=4; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
 a08-lifts-1080 | control | h-btn.h-iconbtn.headerButton #2 | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)

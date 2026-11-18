@@ -115,7 +115,7 @@ namespace SkiResortMod.Systems
         {
             if (m_JobInFlight || m_SaleInFlight || PassShare <= 0 || price <= 0)
                 return false;
-            int passPrice = SkiMoneyRules.PassPrice(PassMultiplier, price);
+            int passPrice = SkiMoneyRules.SalePassPrice(PassPriceSetting, price);
             if (passPrice <= 0)
                 return false;
             int season = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate, SkiClimateCalendar.SeasonFirstMonth(m_ClimateSystem, m_PrefabSystem));
@@ -181,6 +181,7 @@ namespace SkiResortMod.Systems
                 Price = price,
                 PassPrice = passPrice,
                 PassShare = PassShare,
+                PassFactor = SkiMoneyRules.PassFactor(passPrice, price),
             };
             JobHandle handle = job.Schedule(JobHandle.CombineDependencies(Dependency, chunksHandle, feeDeps));
             m_ServiceFeeSystem.AddQueueWriter(handle);
@@ -253,7 +254,7 @@ namespace SkiResortMod.Systems
             string meanP = r.Pool > 0 ? (r.ChanceSum / r.Pool).ToString("P1", System.Globalization.CultureInfo.InvariantCulture) : "n/a";
             Mod.Log.Info($"Passes [season sale] ski area {Fmt(m_SaleSign)} season {m_SaleSeasonKey}: pool {r.Pool} resident household(s) within reach " +
                          $"with no standing, offered {r.Offered} (rolled in at {PassShare} % × their ski-day chance as pass holders, mean p {meanP}), " +
-                         $"bought {r.Bought} +{r.Income} ({PassMultiplier} × the lift ticket {Price} = {m_SalePassPrice} each, " +
+                         $"bought {r.Bought} +{r.Income} ({m_SalePassPrice} each at the lift ticket {Price}, demand x{SkiMoneyRules.PassFactor(m_SalePassPrice, Price):0.###}, " +
                          "booked as public transportation fees), could not pay {r.CannotPay}, rolled out {declined}; " +
                          $"cost: scheduled in {m_SaleScheduleMs:F2} ms, applied in {applyMs:F2} ms, waited {waitMs:F2} ms for the job " +
                          "(once per ski area per season)");
@@ -282,6 +283,7 @@ namespace SkiResortMod.Systems
             public NativeArray<SaleResult> Result;
             public SkiDayPresaleInputs Inputs;
             public int SeasonKey, Price, PassPrice, PassShare;
+            public double PassFactor;   // SkiMoneyRules.PassFactor(PassPrice, Price), pass demand (1.0.2)
 
             public void Execute()
             {
@@ -316,7 +318,7 @@ namespace SkiResortMod.Systems
                                     : cls == SkiDayRules.TravelClass.Car ? Inputs.ConfidenceCar : Inputs.ConfidenceNoCar;
                         double chance = SkiDayRules.Chance(SkiDayRules.GuestKind.Resident, Inputs.Attraction, d / 1000.0, 1.0, 0.0, Price,
                                                            Inputs.PriceTolerance, Inputs.SchoolFactor, conf, Inputs.Knobs, true);
-                        double p = SkiMoneyRules.PresaleProbability(PassShare, chance);
+                        double p = SkiMoneyRules.PresaleProbability(PassShare, chance, PassFactor);
                         res.ChanceSum += p;
                         int money = 0;
                         DynamicBuffer<GameResources> buffer = default;

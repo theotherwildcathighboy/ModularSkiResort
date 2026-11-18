@@ -18,10 +18,11 @@ Per pool household, the job computes:
 - d = straight line home to nearest target lodge.
 - class = ClassOf(d, adult, owns a vehicle).
 - Chance(resident, attraction, d, openShare 1, powder 0, ticket price now, tolerance, school factor, confidence, knobs, pass holder).
-- p = `SkiMoneyRules.PresaleProbability(PassShare, chance)`.
+- p = `SkiMoneyRules.PresaleProbability(PassShare, chance, PassFactor)` (1.0.2: the pass demand factor, set once per schedule from
+  `PassFactor(pass price, ticket now)`).
 - One deterministic roll (`SkiMoneyRules.PresaleUniform`: household index + season key. It differs from the first-arrival roll).
 
-A buyer pays PassPrice(multiplier, ticket now) if its money covers it (never below 0, else CannotPay). The job books the payment exactly
+A buyer pays `SalePassPrice(SeasonPassPrice, ticket now)` if its money covers it (never below 0, else CannotPay). The job books the payment exactly
 like tickets (a FeeEvent per pass). Every pool household gets a standing: Bought, or Declined (rolled out and could not pay both store
 Declined).
 

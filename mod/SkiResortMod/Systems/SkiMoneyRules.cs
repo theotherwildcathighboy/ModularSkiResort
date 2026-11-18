@@ -157,9 +157,21 @@ namespace SkiResortMod.Systems
             return math.min(people, householdMoney / price);
         }
 
+        // Legacy (1.0.0-1.0.1): the pass was priced in lift tickets (Options SeasonPassMultiplier). Kept for the one-shot Options migration
+        // to SeasonPassPrice (PassPriceFromMultiplier, Mod.MigrateSettings) only.
         public const int PassMultiplierMin = 2;
         public const int PassMultiplierMax = 10;
-        public const int PassMultiplierDefault = 4; // a holder skis well under once a season on average, so the pass is income, not a discount
+        public const int PassMultiplierDefault = 4;
+        // Season pass price (1.0.2, DECISIONS 677): the player sets money (Options SeasonPassPrice, the hub's pass slider). 20-2,000, step
+        // 20, default 400 (= the old 4 x the default 100 ticket). The cap is the old 10 x 200. Passes off stays SeasonPassShare 0.
+        public const int PassPriceMin = 20;
+        public const int PassPriceMax = 2000;
+        public const int PassPriceStep = 20;
+        public const int PassPriceDefault = 400;
+        // Pass demand (1.0.2, DECISIONS 677): judged against day tickets. Every household that would buy at the share buys up to
+        // PassFullAt x the ticket price. Above it, each further ticket's worth takes 1/PassSpan of the share off: (12 t - p) / 8 t.
+        public const int PassFullAt = 4;   // = the old default multiplier: a default city sells exactly as 1.0.1 did
+        public const int PassSpan = 8;     // 8 x the ticket = 50 %, 10 x = 25 %
         public const int PassShareMax = 100;
         public const int PassShareStep = 5;
         public const int PassShareDefault = 50;   // 0 = passes off
@@ -203,6 +215,37 @@ namespace SkiResortMod.Systems
             => SeasonKeyOf(year, MonthOfKey(MonthKey(year, normalizedDate)), firstMonth);
 
         public static int ClampPassMultiplier(int v) => math.clamp(v, PassMultiplierMin, PassMultiplierMax);
+
+        /// <summary>A pass price as the setting stores it: snapped to the nearest PassPriceStep (half up) and clamped to PassPriceMin..Max.</summary>
+        public static int ClampPassPrice(int v)
+        {
+            long snapped = v < 0 ? 0 : ((long)v + PassPriceStep / 2) / PassPriceStep * PassPriceStep;
+            return (int)math.clamp(snapped, (long)PassPriceMin, (long)PassPriceMax);
+        }
+
+        /// <summary>The Options migration (1.0.2): the old SeasonPassMultiplier x the lift ticket price, as a SeasonPassPrice. A ticket price of 0
+        /// (tickets off) uses the default ticket, so no 0 price comes out of it.</summary>
+        public static int PassPriceFromMultiplier(int multiplier, int ticketPrice)
+        {
+            int ticket = ticketPrice > 0 ? ClampTicketPrice(ticketPrice) : TicketPriceDefault;
+            return ClampPassPrice(ClampPassMultiplier(multiplier) * ticket);
+        }
+
+        /// <summary>What a pass sells at now: the clamped setting, locked at the sale. 0 when the ticket price is not &gt; 0: a pass is judged
+        /// against day tickets, so with tickets off no pass is sold (as in 1.0.1).</summary>
+        public static int SalePassPrice(int passPriceSetting, int ticketPrice)
+            => ticketPrice <= 0 ? 0 : ClampPassPrice(passPriceSetting);
+
+        /// <summary>Pass demand: clamp01(((PassFullAt + PassSpan) x ticket - price) / (PassSpan x ticket)). 1 up to 4 x the ticket price, 0.5 at
+        /// 8 x, 0.25 at 10 x. 0 with no ticket price or no pass price (nothing is sold). Exact in long before the one division.</summary>
+        public static double PassFactor(int passPrice, int ticketPrice)
+        {
+            if (ticketPrice <= 0 || passPrice <= 0)
+                return 0.0;
+            long num = (long)(PassFullAt + PassSpan) * ticketPrice - passPrice;
+            long den = (long)PassSpan * ticketPrice;
+            return num >= den ? 1.0 : num <= 0 ? 0.0 : num / (double)den;
+        }
         public static int ClampPassShare(int v) => math.clamp(v, 0, PassShareMax);
 
         /// <summary>The pass price: multiplier × the day-ticket price at the moment of sale (multiplier clamped to
@@ -234,12 +277,32 @@ namespace SkiResortMod.Systems
                 return false;
             if (sharePct >= PassShareMax)
                 return true;
+            return PassHash(householdIndex, seasonKey) % 100u < (uint)sharePct;
+        }
+
+        private static uint PassHash(int householdIndex, int seasonKey)
+        {
             uint h;
             unchecked
             {
                 h = (uint)householdIndex * 0x9E3779B1u + (uint)seasonKey * 0x85EBCA6Bu + 0x27D4EB2Fu;
             }
-            return Mix(h) % 100u < (uint)sharePct;
+            return Mix(h);
+        }
+
+        /// <summary>The roll with pass demand (1.0.2): true with probability share/100 x factor. At factor 1 it is the 3-argument PassRoll bit
+        /// for bit (an old save's undecided households roll as before at a price up to 4 tickets). Below 1 the hash also gives a fraction
+        /// inside its percent, u = (H % 100 + (H / 100 % 1000) / 1000) / 100, and the household buys if u &lt; share/100 x factor. So the
+        /// buyers are nested: a household that buys at a price also buys at every lower price.</summary>
+        public static bool PassRoll(int householdIndex, int seasonKey, int sharePct, double factor)
+        {
+            if (sharePct <= 0 || !(factor > 0.0))
+                return false;
+            if (factor >= 1.0)
+                return PassRoll(householdIndex, seasonKey, sharePct);
+            uint m = PassHash(householdIndex, seasonKey);
+            double u = (m % 100u + (m / 100u % 1000u) / 1000.0) / 100.0;
+            return u < math.min(sharePct, PassShareMax) / 100.0 * factor;
         }
 
         /// <summary>What the household's SkiSeasonPass says for <paramref name="seasonKey"/>. None: it has no component, or the
@@ -255,10 +318,15 @@ namespace SkiResortMod.Systems
         /// - Else CannotPay.
         /// Callers store Declined for both Declined and CannotPay (not asked again this season).</summary>
         public static PassSaleResult PassSale(bool resident, int sharePct, int householdIndex, int seasonKey, int passPrice, int householdMoney)
+            => PassSale(resident, sharePct, householdIndex, seasonKey, passPrice, householdMoney, 1.0);
+
+        /// <summary>As PassSale, with pass demand (1.0.2): the roll is PassRoll(..., factor), factor = PassFactor(pass price, ticket price).</summary>
+        public static PassSaleResult PassSale(bool resident, int sharePct, int householdIndex, int seasonKey, int passPrice, int householdMoney,
+                                              double factor)
         {
             if (!resident || sharePct <= 0 || passPrice <= 0)
                 return PassSaleResult.NotEligible;
-            if (!PassRoll(householdIndex, seasonKey, sharePct))
+            if (!PassRoll(householdIndex, seasonKey, sharePct, factor))
                 return PassSaleResult.Declined;
             return householdMoney >= passPrice ? PassSaleResult.Bought : PassSaleResult.CannotPay;
         }
@@ -336,6 +404,15 @@ namespace SkiResortMod.Systems
                 h = (uint)householdIndex * 0x9E3779B1u + (uint)seasonKey * 0x85EBCA6Bu + 0x27D4EB2Fu + 1u;
             }
             return (Mix(h) >> 8) * (1.0 / 16777216.0);
+        }
+
+        /// <summary>As PresaleProbability, times the pass demand factor (1.0.2). Factor 1 = the 2-argument value bit for bit.</summary>
+        public static double PresaleProbability(int sharePct, double chance, double passFactor)
+        {
+            if (!(passFactor > 0.0))
+                return 0.0;
+            double p = PresaleProbability(sharePct, chance);
+            return passFactor >= 1.0 ? p : p * passFactor;
         }
 
         /// <summary>p = (PassShare clamped 0..100) / 100 × chance, in [0, 1]. It is 0 when the share is not &gt; 0 or the chance not &gt; 0 (NaN included).</summary>

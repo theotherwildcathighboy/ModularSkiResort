@@ -34,8 +34,98 @@ namespace ResortBatch
             LiftAreaRuns(check);
             TypeRatesAndSpend(check);
             SeasonPasses(check);
+            PassPricing(check);
             Lessons(check);
             Presale(check);
+        }
+
+        // ── T15b Season pass price and pass demand (r3/sliders, DECISIONS 677, 1.0.2) ──
+        // The pass is a money price (SeasonPassPrice 20..2,000 step 20). Demand is judged against the day ticket: full up to 4 x, 0 at 12 x.
+        // The factor table is the same literal as test-hub-rules R3S.8 (hubRules.passFactor).
+        private static void PassPricing(Func<bool, string, string, bool> check)
+        {
+            const string w = "money T15b";
+            check(SkiMoneyRules.PassPriceMin == 20 && SkiMoneyRules.PassPriceMax == 2000 && SkiMoneyRules.PassPriceStep == 20 &&
+                  SkiMoneyRules.PassPriceDefault == 400 && SkiMoneyRules.PassFullAt == 4 && SkiMoneyRules.PassSpan == 8, w, "pass price constants");
+
+            // Clamp: snap half up to 20, then 20..2,000.
+            int[] cin = { 400, 409, 410, 0, -50, 5, 1999, 2010, 99999, int.MaxValue };
+            int[] cout = { 400, 400, 420, 20, 20, 20, 2000, 2000, 2000, 2000 };
+            for (int i = 0; i < cin.Length; i++)
+                check(SkiMoneyRules.ClampPassPrice(cin[i]) == cout[i], w, "ClampPassPrice(" + cin[i] + ") " + SkiMoneyRules.ClampPassPrice(cin[i]) + ", expected " + cout[i]);
+
+            // The Options migration: the old multiplier x the ticket, once. Tickets off uses the default ticket (100), so 0 never comes out.
+            check(SkiMoneyRules.PassPriceFromMultiplier(4, 100) == 400, w, "4 x 100 = 400");
+            check(SkiMoneyRules.PassPriceFromMultiplier(4, 0) == 400 && SkiMoneyRules.PassPriceFromMultiplier(4, -5) == 400, w, "tickets off reads the default ticket 100");
+            check(SkiMoneyRules.PassPriceFromMultiplier(10, 200) == 2000, w, "10 x 200 = 2,000 (the top of both ranges)");
+            check(SkiMoneyRules.PassPriceFromMultiplier(2, 5) == 20, w, "2 x 5 = 10 snaps up to the minimum 20: " + SkiMoneyRules.PassPriceFromMultiplier(2, 5));
+            check(SkiMoneyRules.PassPriceFromMultiplier(4, 65) == 260 && SkiMoneyRules.PassPriceFromMultiplier(3, 65) == 200, w,
+                  "4 x 65 = 260, 3 x 65 = 195 snaps to 200: " + SkiMoneyRules.PassPriceFromMultiplier(3, 65));
+            check(SkiMoneyRules.PassPriceFromMultiplier(99, 100) == 1000 && SkiMoneyRules.PassPriceFromMultiplier(1, 100) == 200, w,
+                  "the old multiplier is clamped 2..10 first");
+            // The migration keeps the default game's price: default multiplier x default ticket = the new default.
+            check(SkiMoneyRules.PassPriceFromMultiplier(SkiMoneyRules.PassMultiplierDefault, SkiMoneyRules.TicketPriceDefault) == SkiMoneyRules.PassPriceDefault, w,
+                  "default multiplier x default ticket = PassPriceDefault");
+
+            // The sale price: the setting, clamped, and 0 with tickets off (no pass without a ticket, as in 1.0.1).
+            check(SkiMoneyRules.SalePassPrice(400, 100) == 400 && SkiMoneyRules.SalePassPrice(405, 100) == 400, w, "SalePassPrice is the clamped setting");
+            check(SkiMoneyRules.SalePassPrice(400, 0) == 0 && SkiMoneyRules.SalePassPrice(400, -1) == 0, w, "SalePassPrice is 0 with tickets off");
+
+            // Demand at ticket 100: full up to 400, 0.875 at 500, 0.5 at 800, 0.25 at 1,000, 0 from 1,200.
+            int[] pin = { 20, 100, 400, 500, 600, 800, 1000, 1200, 2000 };
+            double[] pout = { 1, 1, 1, 0.875, 0.75, 0.5, 0.25, 0, 0 };
+            for (int i = 0; i < pin.Length; i++)
+                check(SkiMoneyRules.PassFactor(pin[i], 100) == pout[i], w, "PassFactor(" + pin[i] + ", 100) " + SkiMoneyRules.PassFactor(pin[i], 100).ToString("R"));
+            check(SkiMoneyRules.PassFactor(400, 0) == 0 && SkiMoneyRules.PassFactor(400, -10) == 0 && SkiMoneyRules.PassFactor(0, 100) == 0 &&
+                  SkiMoneyRules.PassFactor(-20, 100) == 0, w, "no ticket or no pass price = factor 0");
+            check(SkiMoneyRules.PassFactor(260, 65) == 1 && SkiMoneyRules.PassFactor(520, 65) == 0.5 && SkiMoneyRules.PassFactor(800, 200) == 1 &&
+                  SkiMoneyRules.PassFactor(2000, 200) == 0.25, w,
+                  "the harness ticket 65 (limit 260, half at 520); ticket 200: full to 800, the top 2,000 = 10 x = 0.25");
+
+            // The roll with demand: factor 1 = the 3-argument roll bit for bit (old saves roll as before), nested in the factor, and the rate.
+            int[] shares = { 5, 25, 50, 75, 95, 100 };
+            bool same = true, nested = true, zero = true;
+            const int n = 100000;
+            int half = 0, quarter = 0;
+            for (int i = 0; i < n; i++)
+            {
+                for (int k = 0; k < shares.Length; k++)
+                    same &= SkiMoneyRules.PassRoll(i, 2030, shares[k], 1.0) == SkiMoneyRules.PassRoll(i, 2030, shares[k]);
+                bool r25 = SkiMoneyRules.PassRoll(i, 2030, 50, 0.25), r50 = SkiMoneyRules.PassRoll(i, 2030, 50, 0.5),
+                     r90 = SkiMoneyRules.PassRoll(i, 2030, 50, 0.9), r1 = SkiMoneyRules.PassRoll(i, 2030, 50);
+                nested &= (!r25 || r50) && (!r50 || r90) && (!r90 || r1);
+                zero &= !SkiMoneyRules.PassRoll(i, 2030, 100, 0.0) && !SkiMoneyRules.PassRoll(i, 2030, 100, double.NaN) && !SkiMoneyRules.PassRoll(i, 2030, 50, -1);
+                if (r50) half++;
+                if (r25) quarter++;
+            }
+            check(same, w, "PassRoll at factor 1 differs from the 1.0.1 roll");
+            check(nested, w, "PassRoll is not nested in the factor (a buyer at a higher price must also buy at a lower one)");
+            check(zero, w, "factor 0, NaN or negative should never roll");
+            check(Math.Abs(half - n / 4) <= n / 100, w, "share 50 at factor 0.5 hit " + half + " of " + n + ", expected about " + n / 4);
+            check(Math.Abs(quarter - n / 8) <= n / 100, w, "share 50 at factor 0.25 hit " + quarter + " of " + n + ", expected about " + n / 8);
+            int all = 0;
+            for (int i = 0; i < n; i++)
+                if (SkiMoneyRules.PassRoll(i, 2030, 100, 0.5)) all++;
+            check(Math.Abs(all - n / 2) <= n / 100, w, "share 100 at factor 0.5 hit " + all + " of " + n + ", expected about " + n / 2);
+
+            // The sale and the presale carry the factor; factor 1 = the old overloads.
+            int buyer = -1, priced = -1;
+            for (int i = 0; i < 10000 && (priced < 0 || buyer < 0); i++)
+            {
+                if (priced < 0 && SkiMoneyRules.PassRoll(i, 2030, 50) && !SkiMoneyRules.PassRoll(i, 2030, 50, 0.5)) priced = i;
+                if (buyer < 0 && SkiMoneyRules.PassRoll(i, 2030, 50, 0.5)) buyer = i;
+            }
+            check(priced >= 0 && buyer >= 0, w, "found a household priced out at factor 0.5 and one that still buys");
+            check(SkiMoneyRules.PassSale(true, 50, priced, 2030, 400, 9999, 1.0) == SkiMoneyRules.PassSaleResult.Bought &&
+                  SkiMoneyRules.PassSale(true, 50, priced, 2030, 400, 9999) == SkiMoneyRules.PassSaleResult.Bought, w, "at factor 1 the priced-out household buys");
+            check(SkiMoneyRules.PassSale(true, 50, priced, 2030, 800, 9999, 0.5) == SkiMoneyRules.PassSaleResult.Declined, w, "at factor 0.5 it declines");
+            check(SkiMoneyRules.PassSale(true, 50, buyer, 2030, 800, 9999, 0.5) == SkiMoneyRules.PassSaleResult.Bought &&
+                  SkiMoneyRules.PassSale(true, 50, buyer, 2030, 800, 799, 0.5) == SkiMoneyRules.PassSaleResult.CannotPay, w, "a buyer at factor 0.5 still needs the money");
+            check(SkiMoneyRules.PassSale(true, 50, buyer, 2030, 800, 9999, 0.0) == SkiMoneyRules.PassSaleResult.Declined, w, "factor 0 declines");
+            check(SkiMoneyRules.PresaleProbability(50, 0.4, 1.0) == SkiMoneyRules.PresaleProbability(50, 0.4) &&
+                  SkiMoneyRules.PresaleProbability(50, 0.4, 7.0) == SkiMoneyRules.PresaleProbability(50, 0.4), w, "presale at factor >= 1 = the old p");
+            check(Math.Abs(SkiMoneyRules.PresaleProbability(50, 0.4, 0.5) - 0.1) < 1e-12, w, "presale p = share x chance x factor: " + SkiMoneyRules.PresaleProbability(50, 0.4, 0.5).ToString("R"));
+            check(SkiMoneyRules.PresaleProbability(50, 0.4, 0.0) == 0.0 && SkiMoneyRules.PresaleProbability(50, 0.4, double.NaN) == 0.0, w, "presale at factor 0 or NaN = 0");
         }
 
         // ── T17 Pre-season pass sale: roll, probability, decision, ledger ──

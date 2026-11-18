@@ -7,7 +7,7 @@
  */
 import type { Entity } from "cs2/utils";
 import {
-  BUILD_ITEM_IDS, GLADE_LEVEL_MAX, GLADE_LEVEL_MIN, LIFT_STATE, QUICK_REJECT_BUCKETS, VARIETY_BAND, RUN_PROP_SPACING_MAX, RUN_PROP_SPACING_MIN, RUN_PROP_SPACING_OFF, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SEASON_HINT, SKI_DAY_LIMIT, SKI_DAY_STATE,
+  BUILD_ITEM_IDS, GLADE_LEVEL_MAX, GLADE_LEVEL_MIN, LIFT_STATE, QUICK_REJECT_BUCKETS, VARIETY_BAND, RUN_PROP_SPACING_OFF, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SEASON_HINT, SKI_DAY_LIMIT, SKI_DAY_STATE,
   TICKET_GATE, TRIP_PLANNER_UNKNOWN, entityId, sameEntity,
 } from "../bindings";
 import type {
@@ -798,30 +798,28 @@ export function snapTicketPrice(price: number): number {
   return Math.min(PRICE_MAX, Math.floor((p + PRICE_STEP / 2) / PRICE_STEP) * PRICE_STEP);
 }
 
-/** T240: the price one stepper click asks for (dir -1 = the minus button, +1 = the plus button), from the price shown. */
-export function steppedPrice(price: number, dir: 1 | -1): number {
-  return snapTicketPrice(snapTicketPrice(price) + dir * PRICE_STEP);
-}
-
 /** r3/sliders: the price slider's stops, 0 to PRICE_MAX in PRICE_STEP (41 stops, as the Options slider). */
 export const PRICE_STOPS: readonly number[] = Array.from({ length: PRICE_MAX / PRICE_STEP + 1 }, (_, i) => i * PRICE_STEP);
 
-/** r3/sliders: the season pass price in lift tickets (C# SkiMoneyRules.PassMultiplierMin / Max / Default). */
-export const PASS_MULT_MIN = 2;
-export const PASS_MULT_MAX = 10;
-export const PASS_MULT_DEFAULT = 4;
-export const PASS_MULT_STOPS: readonly number[] = Array.from({ length: PASS_MULT_MAX - PASS_MULT_MIN + 1 }, (_, i) => PASS_MULT_MIN + i);
+/** r3/sliders (DECISIONS 677): the season pass price in money (C# SkiMoneyRules.PassPriceMin / Max / Step / Default), 100 stops. */
+export const PASS_PRICE_MIN = 20;
+export const PASS_PRICE_MAX = 2000;
+export const PASS_PRICE_STEP = 20;
+export const PASS_PRICE_DEFAULT = 400;
+export const PASS_PRICE_STOPS: readonly number[] =
+  Array.from({ length: (PASS_PRICE_MAX - PASS_PRICE_MIN) / PASS_PRICE_STEP + 1 }, (_, i) => PASS_PRICE_MIN + i * PASS_PRICE_STEP);
 
-/** r3/sliders: the Money view's season pass row is drawn while passes are on (share above 0) and a ticket has a price (a pass costs
- *  tickets: C# SkiMoneyRules.PassPrice is 0 without one). A control with nothing to act on is not drawn. */
+/** r3/sliders: the Money view's season pass row is drawn while passes are on (share above 0) and a ticket has a price (a pass is judged
+ *  against day tickets: C# SkiMoneyRules.SalePassPrice is 0 without one). A control with nothing to act on is not drawn. */
 export function passSliderShown(city: CityStats): boolean {
   return city.passShare > 0 && city.ticketPrice > 0;
 }
 
-/** r3/sliders: the hub's one word for a demand factor (a whole percent: priceFactorPct, passFactorPct). The exact numbers live in the
- *  docs. Bands, lowest percent of each: full 100, high 85, fair 60, low 40, very low below. null = unknown (negative). */
-export type DemandWord = "full" | "high" | "fair" | "low" | "veryLow";
-export const DEMAND_BANDS: ReadonlyArray<readonly [number, DemandWord]> = [[100, "full"], [85, "high"], [60, "fair"], [40, "low"], [0, "veryLow"]];
+/** r3/sliders (DECISIONS 677): the hub's one word for a demand factor (a whole percent: priceFactorPct, passFactorPct). The exact numbers
+ *  live in the docs. Bands, lowest percent of each: unaffected 100, high 85, fair 60, low 40, very low below. ("unaffected", not "full":
+ *  "Demand: full" read as "the resort is full".) null = unknown (negative). */
+export type DemandWord = "unaffected" | "high" | "fair" | "low" | "veryLow";
+export const DEMAND_BANDS: ReadonlyArray<readonly [number, DemandWord]> = [[100, "unaffected"], [85, "high"], [60, "fair"], [40, "low"], [0, "veryLow"]];
 export function demandWord(pct: number): DemandWord | null {
   if (!(pct >= 0)) return null;
   for (const [min, w] of DEMAND_BANDS) if (pct >= min) return w;
@@ -835,26 +833,54 @@ export function demandHeat(pct: number): readonly [number, number] {
   return [Math.min(1, drop / 40), Math.max(0, Math.min(1, (drop - 40) / 40))];
 }
 
-/** r3/sliders: a factor percent as "about N in 10" (rounded, 1..9). The tooltip shows it only below 95 % ("about 10 in 10" says nothing). */
-export function inTen(pct: number): number {
-  return Math.max(1, Math.min(9, Math.round(pct / 10)));
+/** r3/sliders: the tooltip's example line shows only while the factor percent is under this: at 95-99 % "about 5 % fewer" adds nothing. */
+export const DEMAND_EXAMPLE_BELOW = 95;
+
+/** r3/sliders (DECISIONS 677): "about N % fewer" for a factor 0..1: round((1 − factor) × 100) to the nearest 5 (half up). −1 unknown. */
+export function fewerPct(factor: number): number {
+  if (!(factor >= 0)) return -1;
+  return Math.round((100 - Math.min(1, factor) * 100) / 5) * 5;
 }
 
-/** r3/sliders PROPOSAL (not in C# yet, owner verdict): pass demand. Every household that would buy at the share keeps buying up to
- *  PASS_FULL_AT tickets (the default, so a default city sells as today). Above it, each ticket more takes 1/PASS_SPAN of the share off:
- *  (12 − m) / 8, so 5 = 87.5 %, 6 = 75 %, 8 = 50 %, 10 = 25 %. Mirror of the proposed C# SkiMoneyRules.PassFactor. */
+/** r3/sliders (DECISIONS 677): pass demand, mirror of C# SkiMoneyRules.PassFactor. A pass is judged against day tickets: every
+ *  household that would buy at the share buys up to PASS_FULL_AT × the ticket price; above it each further ticket's worth takes 1/PASS_SPAN
+ *  off: clamp01((12 t − p) / 8 t). 0 with no ticket price or no pass price. −1 for an unknown (not finite) input. */
 export const PASS_FULL_AT = 4;
 export const PASS_SPAN = 8;
-export function passFactorPct(multiplier: number): number {
-  if (!Number.isFinite(multiplier)) return -1;
-  const m = Math.min(PASS_MULT_MAX, Math.max(PASS_MULT_MIN, Math.round(multiplier)));
-  return Math.round(Math.min(100, Math.max(0, (PASS_FULL_AT + PASS_SPAN - m) * 100 / PASS_SPAN)));
+export function passFactor(passPrice: number, ticketPrice: number): number {
+  if (!Number.isFinite(passPrice) || !Number.isFinite(ticketPrice)) return -1;
+  if (ticketPrice <= 0 || passPrice <= 0) return 0;
+  return Math.min(1, Math.max(0, ((PASS_FULL_AT + PASS_SPAN) * ticketPrice - passPrice) / (PASS_SPAN * ticketPrice)));
+}
+export function passFactorPct(passPrice: number, ticketPrice: number): number {
+  const f = passFactor(passPrice, ticketPrice);
+  return f < 0 ? -1 : Math.round(f * 100);
+}
+/** The pass price up to which every would-be buyer buys (PASS_FULL_AT × the ticket price). */
+export function passFullPrice(ticketPrice: number): number {
+  return PASS_FULL_AT * Math.max(0, ticketPrice);
 }
 
-/** T240: the stepper's buttons. Off while the price is unknown (-1) and at the ends of the range. */
-export function priceStepEnabled(price: number, dir: 1 | -1): boolean {
-  if (!(price >= 0)) return false;
-  return dir < 0 ? price > 0 : price < PRICE_MAX;
+/** r3/sliders: where a value sits on a slider track, 0..1, for stops in screen order (evenly spaced). A value on a stop sits on it. A
+ *  value between two neighbor stops (a kind's default such as 90 m between 100 and 80) sits in between, by its value: the tightest pair
+ *  that holds it (on the spacing list 90 also lies between Off and 200 m). −1 = not on the track (unknown). */
+export function sliderPos(stops: readonly number[], value: number): number {
+  const n = stops.length;
+  if (n < 2 || !Number.isFinite(value)) return -1;
+  for (let i = 0; i < n; i++) if (stops[i] === value) return i / (n - 1);
+  let best = -1, span = Infinity;
+  for (let i = 0; i + 1 < n; i++) {
+    const a = stops[i], b = stops[i + 1];
+    if ((value - a) * (value - b) < 0 && Math.abs(b - a) < span) { best = i; span = Math.abs(b - a); }
+  }
+  return best < 0 ? -1 : (best + (value - stops[best]) / (stops[best + 1] - stops[best])) / (n - 1);
+}
+
+/** r3/sliders: the stop nearest to a track fraction 0..1 (clamped; not finite = 0). */
+export function sliderStopAt(stops: readonly number[], frac: number): number {
+  const n = stops.length;
+  const f = Math.min(1, Math.max(0, Number.isFinite(frac) ? frac : 0));
+  return stops[Math.round(f * (n - 1))];
 }
 
 /** The Overview's RECEIPT_PARTS line - "school" (RECEIPT_PARTS_SCHOOL, the school term shown) while the
@@ -1229,30 +1255,17 @@ export function schoolFlagOf(s: SchoolState): "noSchool" | "schoolNoGreen" | "sc
 }
 
 /**
- * The spacing ladder of a prop row (DECISIONS 601): Fewer and More walk it so each click changes the count one way only. Off sits past the
- * sparse end: More from Off lands on RUN_PROP_SPACING_FIRST, Fewer past the last rung turns the feature off. A value between rungs (a kind's
- * default such as 90 m) steps to the next rung in the asked direction. Range = RunPropPlacerRules.ClampSpacing (20-200 m).
+ * The spacing ladder of a prop row (DECISIONS 601): the snow gun and light sliders' rungs (r3/sliders: RUN_PROP_SPACING_STOPS, Off at the left,
+ * then sparse to dense). A value between rungs (a kind's default such as 90 m) sits between them on the track until the player moves it.
+ * Range = RunPropPlacerRules.ClampSpacing (20-200 m).
  */
 export const RUN_PROP_SPACING_LADDER = [20, 30, 40, 50, 60, 80, 100, 130, 160, 200];
-export const RUN_PROP_SPACING_FIRST = 50;
 
 /** r3/sliders: the tree density slider's stops, level 1..8 (bindings GLADE_LEVEL_MIN..MAX). */
 export const GLADE_STOPS: readonly number[] = Array.from({ length: GLADE_LEVEL_MAX - GLADE_LEVEL_MIN + 1 }, (_, i) => GLADE_LEVEL_MIN + i);
 
 /** r3/sliders: a spacing slider's stops, left to right: Off, then the ladder from sparse to dense, so right is always "more". */
 export const RUN_PROP_SPACING_STOPS: readonly number[] = [RUN_PROP_SPACING_OFF, ...RUN_PROP_SPACING_LADDER.slice().reverse()];
-
-/** The value a Fewer (more = false) or More (more = true) click sends. The row shows C#'s value. This only picks what to send. */
-export function runPropSpacingStep(value: number, more: boolean): number {
-  const L = RUN_PROP_SPACING_LADDER;
-  if (value <= RUN_PROP_SPACING_OFF) return more ? RUN_PROP_SPACING_FIRST : RUN_PROP_SPACING_OFF;
-  if (more) {
-    for (let i = L.length - 1; i >= 0; i--) if (L[i] < value) return L[i];
-    return RUN_PROP_SPACING_MIN;
-  }
-  for (let i = 0; i < L.length; i++) if (L[i] > value) return Math.min(RUN_PROP_SPACING_MAX, L[i]);
-  return RUN_PROP_SPACING_OFF;
-}
 
 /* ---- icon tags in hub text (icon scheme, hub contract 40) ----------------------------------------------------------------------
  * `<icon:NAME>` stands for a word: its word form is SkiResort.Hub.ICON[NAME] ("green", "open or patchy").

@@ -8,37 +8,18 @@
  * C# writes: onCommit once, on release, and only when the stop changed. onShown gets the value the slider shows (each stop while
  * dragging, then the asked value, then C#'s), so a text line can show it and its effect live (the demand next to the price) with no trigger. After a commit the slider shows the asked value until C# sends it
  * back or PENDING_MS passes (C# refused or did not answer), as the old price stepper did (T240).
+ * The track position math is hubRules.sliderPos / sliderStopAt (test-hub-rules oracles). heat: a demand-colored track (the price and the
+ * pass) in place of the accent fill.
  * Gameface: no <input type=range> (not drawn there). The thumb and fill sit by percent inside a fixed box, so a value change never moves
  * the layout. The track box is read once at mouse down (a size read lags one drawn frame, but the row does not move during a drag).
  */
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { StableWidth, Tip, cx } from "./parts";
+import { sliderPos, sliderStopAt } from "./hubRules";
 import styles from "./hub.module.scss";
 
 const PENDING_MS = 3000;
-
-/** Where a value sits on the track, 0..1. A value on a stop sits on it. A value between two neighbor stops (a kind's default such as
- *  90 m between 100 and 80) sits in between, by its value: the tightest pair that holds it. -1 = not on the track (unknown). */
-export function sliderPos(stops: readonly number[], value: number): number {
-  const n = stops.length;
-  if (n < 2 || !Number.isFinite(value)) return -1;
-  for (let i = 0; i < n; i++) if (stops[i] === value) return i / (n - 1);
-  // The tightest pair of neighbors around it: on the spacing list, 90 m lies between Off (0) and 200 m too, but belongs between 100 and 80.
-  let best = -1, span = Infinity;
-  for (let i = 0; i + 1 < n; i++) {
-    const a = stops[i], b = stops[i + 1];
-    if ((value - a) * (value - b) < 0 && Math.abs(b - a) < span) { best = i; span = Math.abs(b - a); }
-  }
-  return best < 0 ? -1 : (best + (value - stops[best]) / (stops[best + 1] - stops[best])) / (n - 1);
-}
-
-/** The stop nearest to a track fraction 0..1 (clamped). */
-export function sliderStopAt(stops: readonly number[], frac: number): number {
-  const n = stops.length;
-  const f = Math.min(1, Math.max(0, Number.isFinite(frac) ? frac : 0));
-  return stops[Math.round(f * (n - 1))];
-}
 
 export interface SliderProps {
   /** The values in screen order, left to right (at least 2). */
@@ -58,7 +39,7 @@ export interface SliderProps {
   /** A colored track in place of the accent fill (the price and the pass): for the segment that ends at a stop, the [amber, red]
    *  opacities over the good green (0..1 each, hubRules.demandHeat). Left of the thumb at full strength, right of it dimmed. */
   heat?: (v: number) => readonly [number, number];
-  /** A tick at every stop (a short list: the tree levels, the pass multiplier). */
+  /** A tick at every stop (a short list: the tree levels). */
   ticks?: boolean;
   tip?: ReactNode;
   /** The track takes the whole row width under a text line (the Money view), else it sits between a caption and the readout. */

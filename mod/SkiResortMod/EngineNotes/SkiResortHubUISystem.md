@@ -498,9 +498,9 @@ Appended fields and bindings by contract:
   failure cause, `REACH_CAUSE` (C# `SkiDayRules.ReachCause`). Values: 1 no route, 2 stuck on the way, 3 never left home, 4 out of time,
   0 no clear cause.
   The tip names that cause (StatusBlock `reachTip`). No field was added. The meaning of `detail` on row 20 is new. See EngineNotes/SkiDayRules.md, "Reach causes".
-- 56 (1.0.2, r3/sliders): `CityStats` appends `passMultiplier` (the Options Season pass price in lift tickets, 2..10) and the
-  `setPassMultiplier(int)` trigger (the Money view's season pass slider; C# clamps it, saves the options file). The ticket price and the
-  pass slider commit on release only.
+- 56 (1.0.2, r3/sliders, DECISIONS 677): `CityStats` appends `passPrice`, the Options `SeasonPassPrice` in money (20..2,000, step
+  20). The contract adds the `setPassPrice(int)` trigger for the Money view's season pass slider. C# `ApplyPassPrice` clamps it with
+  `ClampPassPrice` and saves the options file. The ticket price and the pass slider commit on release only.
 - 42: the runs-first plans (Resort Planner round, task R2-b). `QuickRunsState` loses `mix`, `liftsKnob` and `home`. `QuickRunsLift` loses
   `wantedKey` and gains `flagged`, `waits`, `overLimitTowers`. `QuickRunsPlan` loses `pods` and gains `trackKm`. `QuickRunsState` gains `tracks`
   and `QuickRunsPod` gains `tracks`. `runs`, `enabled`, `count` and `variety` count pistes only. `QuickRunsSheetRow` gains `flagged`, `waits`,

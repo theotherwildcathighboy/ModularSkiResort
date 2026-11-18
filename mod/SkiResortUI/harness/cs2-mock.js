@@ -119,8 +119,8 @@
     gladeToggle: () => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { active: !g.active })); },
     gladeSetLevel: (level) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { level })); },
     gladeSetTreeLine: (treeLine) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { treeLine: !!treeLine })); },
-    // contract 56 (r3/sliders): the season pass slider (C# clamps 2..10)
-    setPassMultiplier: (n) => { const c = get("city"); if (c) set("city", Object.assign({}, c, { passMultiplier: Math.min(10, Math.max(2, Math.round(n))) })); },
+    // contract 56 (r3/sliders, DECISIONS 677): the season pass slider (C# SkiMoneyRules.ClampPassPrice: 20..2,000 step 20)
+    setPassPrice: (n) => { const c = get("city"); if (c) set("city", Object.assign({}, c, { passPrice: Math.min(2000, Math.max(20, Math.round(n / 20) * 20)) })); },
     setTicketPrice: (price) => { const c = get("city"); if (c) set("city", Object.assign({}, c, { ticketPrice: Math.min(200, Math.max(0, Math.round(price / 5) * 5)) })); },
     launch: (id) => {
       const items = get("build") || [];

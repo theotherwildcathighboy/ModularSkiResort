@@ -17,7 +17,7 @@ Ski days are the mod's own visitors: residents and hotel tourists on a day out s
 | Powder pull | 100 % | Fresh-snow bonus. At **100 %** a full powder day doubles the residents who go. |
 
 - **Increases trips:** attraction, fresh snow (a powder day is heavy snowfall in the last 24 hours), shorter distance.
-- **Decreases trips:** lift ticket price above **40**.
+- **Decreases trips:** lift ticket price above **40**, or above **60** / **80** with a better lodge (see Lift Ticket).
 
 ## Lift Ticket
 
@@ -25,17 +25,28 @@ Paid on arrival, from household to city balance. One price for all ski areas.
 
 - **Option:** Options > Modular Ski Resort > Ski area balance > Lift ticket price.
 - **Default:** **100**. **Maximum:** **200**. **0:** tickets off.
-- **Ski-day curve:** ski days thin out above a price of **40**:
+- **Ski-day demand:** ski days thin out above a price that depends on the ski area's best lodge. A Chalet Lodge raises it from **40** to **60**, a Swanky Summit or Grand Lodge to **80**. A merged lodge counts as its tier. Share of the ski-day guests who still come:
 
-  | Ticket price | Ski-day guests |
-  |---|---|
-  | 40 or less | 100 % |
-  | 60 | about 90 % |
-  | 80 | about 80 % |
-  | 100 | about 70 % |
-  | 200 | about 20 % |
+  | Ticket price | Hut or A-frame only | Chalet Lodge | Swanky Summit or Grand Lodge |
+  |---|---|---|---|
+  | 40 | 100 % | 100 % | 100 % |
+  | 60 | 90 % | 100 % | 100 % |
+  | 80 | 80 % | 90 % | 100 % |
+  | 100 | 70 % | 80 % | 90 % |
+  | 120 | 60 % | 70 % | 80 % |
+  | 140 | 50 % | 60 % | 70 % |
+  | 160 | 40 % | 50 % | 60 % |
+  | 180 | 30 % | 40 % | 50 % |
+  | 200 | 20 % | 30 % | 40 % |
 
-- **Lodge tolerance:** chalet, summit and grand lodges raise the price where thinning starts.
+- **Hub:** the Money view has a slider for this price. It is the same Option, for every ski area. One word names the demand at the area shown:
+  - *unaffected:* 100 %.
+  - *high:* 85 % or more.
+  - *fair:* 60 % or more.
+  - *low:* 40 % or more.
+  - *very low:* below 40 %.
+
+  The slider track turns from green to red with the demand.
 - **Game-sent visitors:** arrive at any price and pay it.
 
 ## Lodge Spend
@@ -51,8 +62,19 @@ Paid by each paying ski guest at the arrival lodge. Scales with lodge tier.
 
 Pre-paid ski season, starting 5 months before the map's winter (July for a December winter). Holders skip the gate fee and ski more often.
 
-- **Purchase decision:** once per season per resident household, when a ski area first opens to it. Chance = *Season pass share* (default **50 %**) × the household's chance of skiing there.
-- **Price:** *Season pass price*, default **4** lift tickets, at the ticket price on the sale date, locked for the season. Breakeven: more than **4** ski days.
+- **Purchase decision:** once per season per resident household, when a ski area first opens to it. Chance = *Season pass share* (default **50 %**) × the household's chance of skiing there × pass demand.
+- **Price:** *Season pass price*, from **20** to **2,000** in steps of **20**, default **400**. Locked for the season at the sale. Needs a lift ticket price above 0.
+- **Pass demand:** judged against the lift ticket price. Every would-be buyer buys up to **4** times the ticket price, fewer above:
+
+  | Pass price | Households that still buy |
+  |---|---|
+  | up to 4 × the ticket | 100 % |
+  | 6 × the ticket | 75 % |
+  | 8 × the ticket | 50 % |
+  | 10 × the ticket | 25 % |
+  | 12 × the ticket or more | none |
+
+- **Hub:** the Money view has a slider for the pass price (the same Option). The pass demand uses the same words as the ticket.
 - **Affordability:** no purchase into debt. A household that declines pays day tickets all season and is asked once only.
 - **Tourists:** never buy a pass.
 - **Pre-season sale:** first month of the season, as a lump. Hub row: *Pre-season passes*.
