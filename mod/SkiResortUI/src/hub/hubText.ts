@@ -25,6 +25,16 @@ export const HUB_LOC = {
   busCardNoRoad: ["SkiResort.Hub.BUS_CARD[NoRoad]", "No road to the hill"],
   busCardNoHillLodge: ["SkiResort.Hub.BUS_CARD[NoHillLodge]", "No hill lodge"],
   busCardOff: ["SkiResort.Hub.BUS_CARD[Off]", "Not running"],
+  /* contract 48 (T200): the snow report (the Welcome Sign card, the status tooltip) */
+  snowReportTitle: ["SkiResort.Hub.SNOW_REPORT[Title]", "Snow report"],
+  snowReportDepth: ["SkiResort.Hub.SNOW_REPORT[Depth]", "Snow depth"],
+  snowReportNew24: ["SkiResort.Hub.SNOW_REPORT[New24]", "New snow, 24 hours"],
+  snowReportSummit: ["SkiResort.Hub.SNOW_REPORT[Summit]", "Summit"],
+  snowReportBase: ["SkiResort.Hub.SNOW_REPORT[Base]", "Base"],
+  snowReportTemp: ["SkiResort.Hub.SNOW_REPORT[Temp]", "Temperature"],
+  snowReportSeason: ["SkiResort.Hub.SNOW_REPORT[Season]", "Season snowfall"],
+  snowReportNotMeasured: ["SkiResort.Hub.SNOW_REPORT[NotMeasured]", "Snow depth is not measured yet."],
+  snowReportNoRuns: ["SkiResort.Hub.SNOW_REPORT[NoRuns]", "No runs yet. Base and summit are the lowest and highest point of the runs."],
 
   /* Sync Resort (contract 51): the Overview's Sync card. SYNC_STEP below holds one sentence per SkiSyncCatalog step */
   syncTitle: ["SkiResort.Hub.SYNC_CARD[Title]", "Sync resort"],
@@ -91,7 +101,7 @@ export const HUB_LOC = {
 
   startTitle: ["SkiResort.Hub.START_TITLE", "Start a ski area"],
   startStep1: ["SkiResort.Hub.START_STEP[1]", "Welcome Sign"],
-  startStep2: ["SkiResort.Hub.START_STEP[2]", "A lift: two stations, then the line"],
+  startStep2: ["SkiResort.Hub.START_STEP[2]", "A lift: two stations, the line, and low-voltage power"],
   startStep3: ["SkiResort.Hub.START_STEP[3]", "Runs from the top of the lift"],
   startStep4: ["SkiResort.Hub.START_STEP[4]", "A lodge within 800 m of the runs"],
   placeSign: ["SkiResort.Hub.PLACE_SIGN", "Place Welcome Sign"],
@@ -776,6 +786,13 @@ export const HUB_FMT = {
   snowDepth: ["SkiResort.Hub.SNOW_DEPTH", "{DEPTH} cm"],
   // the depth under vanilla's US customary units (Options > Weather, parts.tsx useUnits().depthImperial / depthValue: whole inches)
   snowDepthIn: ["SkiResort.Hub.SNOW_DEPTH_IN", "{DEPTH} in"],
+  /* contract 48 (T200): the snow report. {ELEV} = an elevation (Unit.Height), {DEPTH} / {SUMMIT} / {BASE} = SNOW_DEPTH or SNOW_DEPTH_IN, {TEMP} = Unit.Temperature, {MONTH} = the ski season's first month */
+  snowReportSummit: ["SkiResort.Hub.SNOW_REPORT_SUMMIT", "Summit, {ELEV}"],
+  snowReportBase: ["SkiResort.Hub.SNOW_REPORT_BASE", "Base, {ELEV}"],
+  snowReportAt: ["SkiResort.Hub.SNOW_REPORT_AT", "{DEPTH} of snow, {TEMP}"],
+  snowReportAtNoDepth: ["SkiResort.Hub.SNOW_REPORT_AT_NO_DEPTH", "{TEMP}"],
+  snowReportPair: ["SkiResort.Hub.SNOW_REPORT_PAIR", "{SUMMIT} summit, {BASE} base"],
+  snowReportSince: ["SkiResort.Hub.SNOW_REPORT_SINCE", "Season snowfall counts from {MONTH} 1, the start of the ski season."],
   runOpenOpen: ["SkiResort.Hub.RUN_OPEN[Open]", "Open: {PCT} of it has at least {KEEP} of snow"],
   runOpenPartly: ["SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: {PCT} of it has enough snow to ski"],
   runOpenClosed: ["SkiResort.Hub.RUN_OPEN[Closed]", "Closed: {PCT} of it has {OPEN} of snow. It opens at 60 %"],

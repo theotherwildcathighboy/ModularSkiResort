@@ -51,6 +51,7 @@ namespace SkiResortMod.Systems
         public int Status, RunsOpen, RunsPartly;
         public bool SnowEstimated; public float SnowPct, SnowDepthCm;
         public int SeasonHint; public bool TopTempKnown; public float TopTempC;
+        public SnowReport Snow;   // contract 48 (T200): the snow report (SkiSnowReportSystem). Unknown on the Not linked row
         public int Attraction, AttractionFull; public bool AttractionHeld; public int LodgesActive; public bool Summer;
         public float LodgePart, Terrain, RunsValue, RunsValueFull; public int OpenSharePct;
         public float LiftsValue; public int LiftsComplete, LiftsCounted;
@@ -342,6 +343,7 @@ namespace SkiResortMod.Systems
         private NameSystem m_NameSystem;
         private CitySystem m_CitySystem;
         private SnowLineSystem m_SnowLine;
+        private SkiSnowReportSystem m_SnowReport;
         private TimeSystem m_TimeSystem;
         private CityStatisticsSystem m_CityStatistics; // the TouristIncome statistic, read once per rebuild
         private ResourceSystem m_ResourceSystem;
@@ -605,6 +607,7 @@ namespace SkiResortMod.Systems
             m_NameSystem = World.GetOrCreateSystemManaged<NameSystem>();
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
             m_SnowLine = World.GetOrCreateSystemManaged<SnowLineSystem>();
+            m_SnowReport = World.GetOrCreateSystemManaged<SkiSnowReportSystem>();
             m_TimeSystem = World.GetOrCreateSystemManaged<TimeSystem>();
             m_ClimateSystem = World.GetOrCreateSystemManaged<ClimateSystem>();
             m_ReachCensus = World.GetOrCreateSystemManaged<SkiReachCensusSystem>();
@@ -2273,6 +2276,7 @@ namespace SkiResortMod.Systems
                 float topTemp = IsFinite(work.TopM) ? HubRules.TopTempC(dayMean, work.TopM, baseHeight, lapse) : float.NaN;
                 live.TopTempKnown = !float.IsNaN(topTemp);
                 live.TopTempC = live.TopTempKnown ? topTemp : 0f;
+                live.Snow = m_SnowReport.GetReport(sign);
                 live.SeasonHint = (int)HubRules.Season(gating, row.Runs, live.RunsOpen + live.RunsPartly, work.AnyGunRun,
                     gunsLive, injectionOn && work.AnyGunOn, live.TopTempKnown, topTemp, freezing, margin);
 
@@ -2537,7 +2541,7 @@ namespace SkiResortMod.Systems
                 Sign = Entity.Null,
                 RunsOpen = -1, RunsPartly = -1, Attraction = -1, AttractionFull = -1, LodgesActive = -1,
                 LiftsComplete = -1, LiftsCounted = -1, EfficiencyPct = -1, OpenSharePct = -1,
-                SnowPct = -1f, SnowDepthCm = -1f, SharePct = -1f,
+                SnowPct = -1f, SnowDepthCm = -1f, SharePct = -1f, Snow = SnowReport.Unknown,
                 GuestsThisMonth = -1, TouristsThisMonth = -1, TouristGroupsThisMonth = -1, ResidentsThisMonth = -1,
                 PaidThisMonth = -1, UnpaidThisMonth = -1, FreeThisMonth = -1, TicketsThisMonth = -1,
                 GuestsLastMonth = -1, TouristsLastMonth = -1, TouristGroupsLastMonth = -1, ResidentsLastMonth = -1,
@@ -3155,6 +3159,11 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.SeasonHint);
                 h = MixB(h, r.TopTempKnown);
                 h = MixF(h, r.TopTempC);
+                h = Mix(h, (uint)r.Snow.GetHashCode());
+                h = MixF(h, r.Snow.BaseTempC);
+                h = MixF(h, r.Snow.SummitTempC);
+                h = Mix(h, (uint)r.Snow.BaseSeasonCm);
+                h = Mix(h, (uint)r.Snow.BaseNew24Cm);
                 h = Mix(h, (uint)r.Attraction);
                 h = Mix(h, (uint)r.AttractionFull);
                 h = MixB(h, r.AttractionHeld);

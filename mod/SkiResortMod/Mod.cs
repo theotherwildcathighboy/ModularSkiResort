@@ -135,6 +135,10 @@ namespace SkiResortMod
             // snowmaking margin, the ambient and the cached 24-hour day mean. It logs the climate constants once per load.
             updateSystem.UpdateAt<SnowLineSystem>(SystemUpdatePhase.GameSimulation);
 
+            // Snow report (T200): pull-based like SnowLineSystem (Enabled = false, no per-tick work). The stats rebuild and the Welcome
+            // Sign card pull a sign's report. Phase not load-bearing: it only needs the load hook to drop its caches.
+            updateSystem.UpdateAt<SkiSnowReportSystem>(SystemUpdatePhase.GameSimulation);
+
             // Prefab catalog: resolves the SkiCatalog.cs prefab names lazily on the first query after each Game / Editor load. It is
             // disabled and does no per-frame work. Phase and registration order are not load-bearing (load hooks fire for a disabled
             // system, GameSystemBase.cs:27-29).

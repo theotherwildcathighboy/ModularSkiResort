@@ -83,6 +83,8 @@
     <Compile Include="RunLabelTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunLabelRules.cs" Link="RunLabelRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\DisplayUnits.cs" Link="DisplayUnits.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SnowReportRules.cs" Link="SnowReportRules.cs" />
+    <Compile Include="SnowReportTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunOutlineRules.cs" Link="RunOutlineRules.cs" />
   </ItemGroup>
   <!-- Ski days -->

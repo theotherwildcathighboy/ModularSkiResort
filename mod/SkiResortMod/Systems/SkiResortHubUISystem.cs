@@ -43,7 +43,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 51;
+        public const int HubContract = 52;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -845,6 +845,7 @@ namespace SkiResortMod.Systems
             AddBinding(m_MergeCard = new ValueBinding<HubMergeCardState>(Group, "mergeCard", default));   // contract 35: always observed, like busCard
             AddBinding(m_MergeOverlayBinding = new ValueBinding<HubMergeOverlay>(Group, "mergeOverlay", default));   // contract 36: panel binding, no Demand
             AddBinding(m_SyncBinding = new RawValueBinding(Group, "sync", WriteSync));   // contract 51: Sync Resort, panel binding, no Demand
+            AddBinding(m_SnowCard = new ValueBinding<HubSnowCardState>(Group, "snowCard", SnowCardHidden));   // contract 48: always observed, like busCard
 
             // Triggers (UI → C#): bindings.ts TRIGGER.
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -918,6 +919,7 @@ namespace SkiResortMod.Systems
                 m_LodgeParkingPush.Reset();
                 m_MergedPush.Reset();
                 ResetMergeCard();
+                ResetSnowCard();
                 m_LodgeParkingRows.Clear();
                 m_LodgeParkingSigAttract = m_LodgeParkingSigCensus = m_LodgeParkingSigNumbers = int.MinValue;
                 m_NextLockRefresh = 0f;
@@ -2988,6 +2990,7 @@ namespace SkiResortMod.Systems
             bool cityActive = m_City.active;
             PushBusCard();
             PushMergeCard();
+            PushSnowCard();
             bool demand = buildActive || resortsActive || resortLiveActive || runsActive || runLiveActive ||
                           liftsActive || problemsActive || cityActive ||     // pisteMap and follow do NOT demand
                           m_BusCardDepot != Entity.Null ||                    // the card's ski area name comes from the stats rows
@@ -3590,6 +3593,9 @@ namespace SkiResortMod.Systems
                 writer.Write(r.TopTempKnown);
                 writer.PropertyName("topTempC");
                 writer.Write(Fin(r.TopTempC));
+                // Contract 48 (T200): the snow report, every field on every path (Not linked: SnowReport.Unknown).
+                writer.PropertyName("snowReport");
+                r.Snow.Write(writer);
                 writer.PropertyName("attraction");
                 writer.Write(Fin(r.Attraction));
                 writer.PropertyName("attractionFull");

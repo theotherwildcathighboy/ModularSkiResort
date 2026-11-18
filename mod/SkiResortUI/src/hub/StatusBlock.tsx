@@ -25,6 +25,7 @@ import { problemsOpen$, view$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, LODGE_BUILDING, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
 import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, depthValue, numArg, useUnits } from "./parts";
 import { IconText } from "./iconText";
+import { snowReportTipLines } from "./SnowReport";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
 
@@ -89,6 +90,8 @@ function statusTip(row: ResortRow | null, live: ResortLive | null, city: CitySta
         // The powder now (0-100, -1 unknown, 0 none: no line)
         live.skiDaysPowderPct > 0 && <LocText key="p" entry={HUB_FMT.statusTipPowder} args={{ PCT: numArg(live.skiDaysPowderPct, Unit.Percentage) }} />,
         city.snowVisualsOff && t(HUB_LOC.statusTipVisuals),
+        // Contract 48 (T200): the snow report, last (the Welcome Sign card shows the same).
+        ...snowReportTipLines(live.snowReport, t, inches),
       ]}
     />
   );

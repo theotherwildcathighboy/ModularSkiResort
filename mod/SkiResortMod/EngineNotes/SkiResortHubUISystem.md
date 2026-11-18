@@ -445,6 +445,15 @@ Appended fields and bindings by contract:
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan). `quickRunsSet` gains `lifts`,
   `home`, `pod`, `lift`. The integration branch carries this bump from the A7 merge, so its gates stay green. Re-bump if main takes
   22 first.
+- 52 (was 50 on r2/hub-ui; renumbered at the r2 merge, after r2/tourism 50 and r2/sync 51): the snow report (T200, SkiSnowReportSystem). The design is in docs/research/post-release-round2/T200-snow-report.md.
+  `ResortLive` gains `snowReport` (`SnowReport`). `known` is false without a run outline. `baseM` and `summitM` are the lowest and highest
+  outline node of the bound runs, cat tracks excluded. `tempKnown`, `baseTempC` and `summitTempC` are the temperatures now.
+  `baseDepthCm` and `summitDepthCm` come from the newest snow-map snapshot (-1 means none). `baseNew24Cm`, `summitNew24Cm`,
+  `baseSeasonCm` and `summitSeasonCm` come from the climate (-1 means unknown). `seasonFirstMonth` is 1 to 12.
+  The Not linked row writes `SnowReport.Unknown`. The new value binding `snowCard` (`SnowCardState` {shown, report}) is always observed,
+  like `busCard`. It draws the card beside the game's panel for a selected Welcome Sign (`SkiCatalog.IsSign`). It needs no stats Demand.
+  The card is a Summit and Base board (layout A, DECISIONS 668). The status tooltip lists the same report last. Nothing is saved:
+  the date gives the snowfall again after a load.
 - 48 (1.0.1, T211 / T212): `ResortLive` appends `bandsWhenOpen` (int, `SkiResortScore.Result.BandsWhenOpen`, -1 without a score).
   It holds the `varietyBands` bits plus 8 for a cat track, over the member runs that count while open. `VARIETY_BAND.CatTrack` = 8.
   A bit in `bandsWhenOpen` that `varietyBands` lacks means: such runs exist, and none is open. The receipt then says "open green run".

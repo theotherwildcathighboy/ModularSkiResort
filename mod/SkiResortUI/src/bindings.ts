@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 51;
+export const HUB_CONTRACT = 52;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -265,6 +265,40 @@ export interface BusCardState {
   distanceM: number;
   state: BusCardStateName;
 }
+
+/** Contract 48 (T200): one ski area's snow report (C# SnowReport, SkiSnowReportSystem). Elevations in m (the lowest and highest
+ *  node of its runs, cat tracks excluded), temperatures now in °C, depths and snowfall in whole cm, -1 = unknown. Snowfall comes from the
+ *  climate (rebuilt from the date, nothing saved). known false: no run outline (every other field unknown). */
+export interface SnowReport {
+  known: boolean;
+  baseM: number;
+  summitM: number;
+  tempKnown: boolean;
+  baseTempC: number;
+  summitTempC: number;
+  /** The snow map at the node (3 x 3 texels), -1 without a usable snapshot. */
+  baseDepthCm: number;
+  summitDepthCm: number;
+  /** Snowfall over the last 24 game hours. */
+  baseNew24Cm: number;
+  summitNew24Cm: number;
+  /** Snowfall since the first hour of the ski season's first month. */
+  baseSeasonCm: number;
+  summitSeasonCm: number;
+  /** The ski season's first calendar month, 1..12, 0 unknown. */
+  seasonFirstMonth: number;
+}
+
+/** Contract 48: the snow report card beside the game's selected-info panel. Sent while a Welcome Sign is selected. */
+export interface SnowCardState {
+  shown: boolean;
+  report: SnowReport;
+}
+
+export const UNKNOWN_SNOW_REPORT: SnowReport = {
+  known: false, baseM: 0, summitM: 0, tempKnown: false, baseTempC: 0, summitTempC: 0, baseDepthCm: -1, summitDepthCm: -1,
+  baseNew24Cm: -1, summitNew24Cm: -1, baseSeasonCm: -1, summitSeasonCm: -1, seasonFirstMonth: 0,
+};
 
 /** Contract 32: a run re-emitted under a new entity (Groomed toggled, DECISIONS 577). seq counts replacements this load. 0 = none. */
 export interface RunReplaced {
@@ -725,6 +759,8 @@ export interface ResortLive {
   seasonHint: number;
   topTempKnown: boolean;
   topTempC: number;
+  /** Contract 48 (T200): the snow report. */
+  snowReport: SnowReport;
   attraction: number;
   attractionFull: number;
   /** The first provider write after a load is held: the game keeps the saved score (show "..."). */
@@ -1190,6 +1226,7 @@ export const BINDING = {
   gradeScheme: "gradeScheme",  // contract 44: the run grading the player sees (GRADE_SCHEME), always observed
   displayUnits: "displayUnits",  // contract 46: the resolved unit and slope choices (UNITS bits), always observed
   sync: "sync",  // contract 51: Sync Resort (the Overview's button and card)
+  snowCard: "snowCard",  // contract 48: the snow report card, always observed
 } as const;
 
 /** Trigger names (UI -> C#). */
@@ -1307,6 +1344,7 @@ export const FALLBACK = {
   mergedLodges: EMPTY_MERGED,
   mergeOverlay: { armed: false, allowed: 0, tooSmall: 0, geometry: true, reachM: 0 } as MergeOverlayState,
   sync: { ready: false, areas: [], open: false, sign: { index: 0, version: 0 }, rows: [], running: false, done: 0, failed: 0, total: 0 } as SyncState,
+  snowCard: { shown: false, report: UNKNOWN_SNOW_REPORT } as SnowCardState,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -1338,6 +1376,8 @@ export const catTrackSkiWay$: ValueBinding<boolean> = bindValue<boolean>(GROUP, 
 export const busCard$: ValueBinding<BusCardState> = bindValue<BusCardState>(GROUP, BINDING.busCard, FALLBACK.busCard);
 /** The merge card. Always mounted: C# sends it only while a building it applies to is selected. */
 export const mergeCard$: ValueBinding<MergeCardState> = bindValue<MergeCardState>(GROUP, BINDING.mergeCard, FALLBACK.mergeCard);
+/** The snow report card (contract 48). Always mounted: C# sends it only while a Welcome Sign is selected. */
+export const snowCard$: ValueBinding<SnowCardState> = bindValue<SnowCardState>(GROUP, BINDING.snowCard, FALLBACK.snowCard);
 /** Every merged building, any state. Panel only, and only the Overview subscribes it (no Demand). */
 export const mergedLodges$: ValueBinding<readonly MergedLodgeRow[]> = bindValue<readonly MergedLodgeRow[]>(GROUP, BINDING.mergedLodges, FALLBACK.mergedLodges);
 /** The merge overlay's armed state. Panel only, the Overview's Merged buildings fold (no Demand). */

@@ -32,7 +32,7 @@
 *            --height=1080|1440|2160   one size     --scenario=<regex>   only the scenarios it matches (case-insensitive; a partial run)
 *            --workers=<n>   browsers in parallel  --no-wait   fail (exit 3) when another run holds the lock, instead of waiting
 *            --fixed-settle   the old fixed waits in settle(), to cross-check a doubt about the quiet condition
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish | --list=r1f | --list=r2b | --list=plantext]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish | --list=r1f | --list=r2b | --list=plantext | --list=r2hub]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -460,6 +460,21 @@ for (const h of [1080, 2160]) {
     [`a20-tip-status-${h}`, h, { scenario: ASH, view: 0, hover: "Open" }],
   );
 }
+// Round 2 hub UI (r2/hub-ui, 2026-11-16): T200 snow report board, T201 Start card, T202 planner features and control heights. At 1080 and 2160.
+// `--list=r2hub` picks this list. Before = main, after = this branch (the file names stay the same).
+const R2HUB = [];
+for (const h of [1080, 2160]) {
+  R2HUB.push(
+    [`h01-snow-card-${h}`, h, { scenario: "Ash Flat, snow report card", whole: 1 }],
+    [`h02-snow-card-imperial-${h}`, h, { scenario: "Ash Flat, snow report card, imperial, °F", whole: 1 }],
+    [`h03-snow-card-fs150-${h}`, h, { scenario: "Ash Flat, snow report card", whole: 1, fs: 1.5 }],
+    [`h04-tip-status-${h}`, h, { scenario: ASH, view: 0, hover: "Open" }],
+    [`h05-start-card-${h}`, h, { scenario: "connected, empty city" }],
+    [`h06-planner-${h}`, h, { scenario: "Resort Planner plan, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+    [`h07-tab-lifts-${h}`, h, { scenario: ASH, view: 0, tab: "lifts" }],
+    [`h08-merge-card-${h}`, h, { scenario: "Ash Flat, merge card every tier", view: 0, tab: "buildings", whole: 1 }],
+  );
+}
 const POLISH = [];
 for (const [scale, tag] of [[1, "-fs100"], [1.25, "-fs125"], [1.5, "-fs150"]]) {
   POLISH.push(
@@ -696,7 +711,7 @@ async function main() {
     const b = browsers[0];
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg),
-        process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2hub") ? R2HUB : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

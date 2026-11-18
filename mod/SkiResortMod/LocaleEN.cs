@@ -1050,6 +1050,16 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SYNC_FMT[Run]", "Sync {N}" },
                 { "SkiResort.Hub.SYNC_FMT[Progress]", "Synced {DONE} of {TOTAL}" },
                 { "SkiResort.Hub.SYNC_FMT[Failed]", "Not synced: {N}" },
+                // Contract 48 (T200): the snow report.
+                { "SkiResort.Hub.SNOW_REPORT[Title]", "Snow report" },
+                { "SkiResort.Hub.SNOW_REPORT[Depth]", "Snow depth" },
+                { "SkiResort.Hub.SNOW_REPORT[New24]", "New snow, 24 hours" },
+                { "SkiResort.Hub.SNOW_REPORT[Summit]", "Summit" },
+                { "SkiResort.Hub.SNOW_REPORT[Base]", "Base" },
+                { "SkiResort.Hub.SNOW_REPORT[Temp]", "Temperature" },
+                { "SkiResort.Hub.SNOW_REPORT[Season]", "Season snowfall" },
+                { "SkiResort.Hub.SNOW_REPORT[NotMeasured]", "Snow depth is not measured yet." },
+                { "SkiResort.Hub.SNOW_REPORT[NoRuns]", "No runs yet. Base and summit are the lowest and highest point of the runs." },
                 // The merge card (contract 35) and the Overview's merged buildings fold.
                 { "SkiResort.Hub.MERGE_CARD[Title]", "Merge into a ski area" },
                 { "SkiResort.Hub.MERGE_CARD[Tip]", "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, billed only near the runs and lifts." },
@@ -1129,7 +1139,7 @@ namespace SkiResortMod
                 // STATUS_WORD, SEASON_HINT, SEASON_TIP, LIFT_STATUS, RUN_TYPE, BUILD_SHORT[run kinds], NEXT, NEXT2.
                 { "SkiResort.Hub.START_TITLE", "Start a ski area" },
                 { "SkiResort.Hub.START_STEP[1]", "Welcome Sign" },
-                { "SkiResort.Hub.START_STEP[2]", "A lift: two stations, then the line" },
+                { "SkiResort.Hub.START_STEP[2]", "A lift: two stations, the line, and low-voltage power" },
                 { "SkiResort.Hub.START_STEP[3]", "Runs from the top of the lift" },
                 { "SkiResort.Hub.START_STEP[4]", "A lodge within 800 m of the runs" },
                 { "SkiResort.Hub.STATUS_NO_RUNS", "Closed" },
@@ -1673,6 +1683,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SPEED_FPM", "{N} ft/min" },
                 { "SkiResort.Hub.SNOW_DEPTH", "{DEPTH} cm" },
                 { "SkiResort.Hub.SNOW_DEPTH_IN", "{DEPTH} in" },  // US customary units
+                { "SkiResort.Hub.SNOW_REPORT_SUMMIT", "Summit, {ELEV}" },
+                { "SkiResort.Hub.SNOW_REPORT_BASE", "Base, {ELEV}" },
+                { "SkiResort.Hub.SNOW_REPORT_AT", "{DEPTH} of snow, {TEMP}" },
+                { "SkiResort.Hub.SNOW_REPORT_AT_NO_DEPTH", "{TEMP}" },
+                { "SkiResort.Hub.SNOW_REPORT_PAIR", "{SUMMIT} summit, {BASE} base" },
+                { "SkiResort.Hub.SNOW_REPORT_SINCE", "Season snowfall counts from {MONTH} 1, the start of the ski season." },
                 { "SkiResort.Hub.RUN_OPEN[Open]", "Open: {PCT} of it has at least {KEEP} of snow" },
                 { "SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: {PCT} of it has enough snow to ski" },
                 { "SkiResort.Hub.RUN_OPEN[Closed]", "Closed: {PCT} of it has {OPEN} of snow. It opens at 60 %" },

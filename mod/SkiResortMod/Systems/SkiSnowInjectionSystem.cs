@@ -2049,6 +2049,49 @@ namespace SkiResortMod.Systems
             m_TopupLog.Wrote(now);
         }
 
+        /// <summary>The snow depth in m at a world point: the mean of the 3 x 3 texels around it (about 42 m square) in the newest usable
+        /// snapshot (ChooseSnapshot: a real pass's readback or the measure-only one, at most MaxSnapshotAgeFrames old). No readback of its
+        /// own. False with no usable snapshot or a point outside the playable area. Main thread only: every job that reads or writes the
+        /// snapshots completes inside OnUpdate, and the measure-only buffer is never read while its request is pending (ChooseSnapshot).
+        /// The snow report reads it (SkiSnowReportSystem, T200).</summary>
+        public bool TrySampleDepthM(float2 xz, out float depthM)
+        {
+            depthM = 0f;
+            if (m_TerrainSystem == null || m_SimulationSystem == null)
+                return false;
+            SnapshotChoice snap = ChooseSnapshot(m_SimulationSystem.frameIndex);
+            if (!snap.Usable)
+                return false;
+            NativeArray<Ushort2> data = snap.FromMeasure ? m_MeasureReadback : m_Readback;
+            if (!data.IsCreated || data.Length < TexSize * TexSize)
+                return false;
+            float2 offset = m_TerrainSystem.playableOffset, size = m_TerrainSystem.playableArea;
+            if (!(size.x > 0f) || !(size.y > 0f))
+                return false;
+            float2 uv = (xz - offset) / size;
+            int cx = (int)math.floor(uv.x * TexSize), cy = (int)math.floor(uv.y * TexSize);
+            if (cx < 0 || cy < 0 || cx >= TexSize || cy >= TexSize)
+                return false;
+            double sum = 0.0;
+            int n = 0;
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                int y = cy + dy;
+                if (y < 0 || y >= TexSize)
+                    continue;
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int x = cx + dx;
+                    if (x < 0 || x >= TexSize)
+                        continue;
+                    sum += data[y * TexSize + x].x;
+                    n++;
+                }
+            }
+            depthM = (float)(sum / n / 65535.0 * RunSnowRules.SnowHeightScaleM);
+            return true;
+        }
+
         // Bookkeeping: snapshots, the measure-only readback, the per-run table, the skip (dry / packed) and measure-only episodes, settings
         // changes, the disable path, the cost record and the Snow [day] count. Main thread only.
 
