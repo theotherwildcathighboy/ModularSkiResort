@@ -249,7 +249,9 @@
       const cells = qa(cls("buildCell"), foot);
       tabShape.push({ tab: tabName, tiles: realTiles.length, slots: cells.length,
         tileW: realTiles.length ? Math.round(realTiles[0].getBoundingClientRect().width * 10) / 10 : -1,
-        tileWs: Array.from(new Set(realTiles.map((t) => Math.round(t.getBoundingClientRect().width)))),
+        // spread of the tab's own tile widths (px): flex shares round to whole device pixels, so 169.5 px tiles measure 169 and 170
+        tileSpread: realTiles.length ? Math.round((Math.max(...realTiles.map((t) => t.getBoundingClientRect().width))
+          - Math.min(...realTiles.map((t) => t.getBoundingClientRect().width))) * 10) / 10 : 0,
         stripH: foot ? Math.round(foot.getBoundingClientRect().height * 10) / 10 : -1,
         status: qa(cls("buildStatusLine"), foot).length });
       // The check hovers every tile in turn. Its tooltip and the one status line must not cut.
@@ -278,7 +280,7 @@
     if (tabShape.length > 1) {
       const span = (k) => Math.max(...tabShape.map((x) => x[k])) - Math.min(...tabShape.map((x) => x[k]));
       // T246 Design A: every tab draws the same tile width, the same slot count and the same strip height (a tab change moves nothing).
-      if (span("tileW") > 1 || span("stripH") > 1 || span("slots") > 0 || tabShape.some((x) => x.tileWs.length > 1)) {
+      if (span("tileW") > 1 || span("stripH") > 1 || span("slots") > 0 || tabShape.some((x) => x.tileSpread > 1)) {
         fail(`Build strip changes shape across tabs (${tabShape.map((x) => `${x.tab}: tile ${x.tileW} px x ${x.slots} slots, strip ${x.stripH} px`).join("; ")})`, { tabShape });
       }
     }
