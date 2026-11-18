@@ -118,6 +118,8 @@ namespace SkiResortMod.Systems
             public readonly List<SkiResortScore.LodgeInput> Lodges = new List<SkiResortScore.LodgeInput>(4);
             // The inactive lodges by tier (SummitServed false), for PresaleResult only.
             public readonly List<SkiResortScore.LodgeInput> InactiveLodges = new List<SkiResortScore.LodgeInput>(2);
+            // The inactive lodges (not merged) as LodgeInfo, for the pre-season pass sale's targets only (CopyInactiveLodgeInfo).
+            public readonly List<LodgeInfo> InactiveInfo = new List<LodgeInfo>(2);
             // The pre-season pass sale's view of the area: the score as if fully open (every run open, every installed lodge and the school
             // active, full efficiency). Never written to a lodge, never shown as the attraction.
             public SkiResortScore.Result PresaleResult;
@@ -170,6 +172,7 @@ namespace SkiResortMod.Systems
                 ActiveInfo.Clear();
                 Lodges.Clear();
                 InactiveLodges.Clear();
+                InactiveInfo.Clear();
                 PresaleResult = default;
                 PatrolEntities.Clear();
                 DepotActive.Clear();
@@ -751,6 +754,19 @@ namespace SkiResortMod.Systems
             {
                 for (int i = 0; i < slot.ActiveInfo.Count; i++)
                     into.Add(slot.ActiveInfo[i]);
+            }
+            return into.Count;
+        }
+
+        /// <summary>The LodgeInfo of every inactive lodge of <paramref name="sign"/> (closed off-season or switched off; merged buildings not
+        /// included), for the pre-season pass sale only: the ski days never see them. Clears <paramref name="into"/>. Returns the count.</summary>
+        internal int CopyInactiveLodgeInfo(Entity sign, List<LodgeInfo> into)
+        {
+            into.Clear();
+            if (m_Cur.TryGetSlot(sign, out AreaSlot slot))
+            {
+                for (int i = 0; i < slot.InactiveInfo.Count; i++)
+                    into.Add(slot.InactiveInfo[i]);
             }
             return into.Count;
         }
@@ -1636,6 +1652,13 @@ namespace SkiResortMod.Systems
                     {
                         slot.Inactive.Add(building);
                         slot.InactiveLodges.Add(new SkiResortScore.LodgeInput { LodgeIndex = known ? def.Index : 0 });
+                        slot.InactiveInfo.Add(new LodgeInfo
+                        {
+                            Lodge = building,
+                            LodgeIndex = (short)(known ? def.Index : 0),
+                            HasRoad = hasRoad,
+                            Supplied = supplied,
+                        });
                         continue;
                     }
                     slot.Active.Add(building);

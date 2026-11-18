@@ -182,6 +182,8 @@ namespace SkiResortMod.Systems
         private readonly List<Entity> m_HillScratch = new List<Entity>(4);
         private NativeList<int> m_LodgeCarFails;
         private NativeList<byte> m_LodgePresale;   // ClaimJob.LodgePresale, aligned with m_Lodges
+        private readonly System.Collections.Generic.List<SkiResortAttractivenessSystem.LodgeInfo> m_PresaleInactive =
+            new System.Collections.Generic.List<SkiResortAttractivenessSystem.LodgeInfo>(4);
         private NativeList<int> m_ActiveNow;
         private NativeArray<int> m_PassStats;                   // Stat.Count
         private NativeArray<int> m_Census;                      // Census.Count
@@ -350,6 +352,24 @@ namespace SkiResortMod.Systems
                 SiteOut so = m_SiteOut[li];
                 if (lj.NoRoadNeeded == 0 && so.HasPosition != 0)
                     targetXz.Add(so.Xz);                               // NearestTarget's set
+            }
+            // The area's inactive lodges (closed for the off-season, or switched off) are not in the ski days' lodge list at all. The sale
+            // counts them as if open: a road lodge that is not destroyed is a target, every one counts for the tolerance. The slope-side
+            // test is not run for them (no SiteJob row): a closed lodge is taken where it stands.
+            m_Attraction.CopyInactiveLodgeInfo(sign, m_PresaleInactive);
+            for (int i = 0; i < m_PresaleInactive.Count; i++)
+            {
+                SkiResortAttractivenessSystem.LodgeInfo info = m_PresaleInactive[i];
+                Entity lodge = info.Lodge;
+                if (lodge == Entity.Null || lodge == sign || !EntityManager.Exists(lodge) ||
+                    EntityManager.HasComponent<Game.Common.Destroyed>(lodge) || EntityManager.HasComponent<Game.Common.Deleted>(lodge))
+                    continue;
+                LodgeJob lj = LodgeJobOf(lodge, a, info);
+                if (lj.NoRoadNeeded == 0 && !info.HasRoad)
+                    continue;   // CheckLodge's NoRoad
+                tolerance = math.max(tolerance, lj.PriceTolerance);
+                if (lj.NoRoadNeeded == 0 && EntityManager.HasComponent<Game.Objects.Transform>(lodge))
+                    targetXz.Add(EntityManager.GetComponentData<Game.Objects.Transform>(lodge).m_Position.xz);
             }
             if (targetXz.Length == 0)
                 return PresaleCopy.NoTarget;

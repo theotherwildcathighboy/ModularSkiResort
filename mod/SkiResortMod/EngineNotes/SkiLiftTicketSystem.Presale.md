@@ -3,9 +3,12 @@
 The pre-season pass sale is the ticket system's second job. It runs once per (ski area, season key). It starts at the first ticket
 tick from the season's second month on (`SkiMoneyRules.PresaleDue`: August for a December winter). The gate does not need to be open.
 A household buys for the coming season. So the sale rates the area as if fully open (`SkiResortAttractivenessSystem.ComputePresale`:
-snow gating off, every installed lodge and the school active, efficiency 1). It pools by every lodge that passes or would pass if it
-were active (`ClaimJob.LodgePresale`). The 1.0.2 release test showed the reason. At the first open-gate tick, the lodges closed for the
-off-season were still shut. The area had no target, and the season was marked done with no sale. One Burst job rates every resident
+snow gating off, every installed lodge and the school active, efficiency 1). It pools by every lodge that passes, or that would
+pass if it were active. A lodge closed when the snapshot was taken is not in the ski days lodge list. It comes from
+`SkiResortAttractivenessSystem.CopyInactiveLodgeInfo` (road, not destroyed, no slope-side test). A lodge closed later comes from
+`ClaimJob.LodgePresale`. The 1.0.2 release test showed why. At the first open-gate tick, the lodges closed for the off-season were
+still shut. The area had no target, and the season was marked done with no sale. The bridge check of d9eae884 then found that the
+closed lodges were missing from the lodge list. One Burst job rates every resident
 household of the area's pool and sells passes in bulk. The first-arrival sale (SkiLiftTicketSystem.cs, see SkiLiftTicketSystem.md,
 "Season passes") then applies only to households that were not in the pool. These are new residents, or households out of reach when the sale ran.
 
