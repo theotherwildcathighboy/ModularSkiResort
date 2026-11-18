@@ -666,9 +666,31 @@ export function footerOpen(stored: boolean, engaged: boolean, collapsible: boole
   return !collapsible || engaged || stored;
 }
 
-/** A tab click: a closed strip opens on that tab. A click on the open tab closes the strip. A click on another tab switches to it (and the strip stays open). */
-export function tabClick(open: boolean, current: string, clicked: BuildTab): { open: boolean; tab: BuildTab } {
-  return { open: !open || current !== clicked, tab: clicked };
+/** A tab click (T246 Design A, 2026-11-17): it shows that tab and never closes the strip. A closed strip opens on that tab.
+ *  Only the chevron at the end of the tab row closes it (chevronClick). Before T246 a click on the open tab closed the strip, and
+ *  the view above re-fitted: the "tabs jump" of the Corwen playtest. */
+export function tabClick(clicked: BuildTab): { open: boolean; tab: BuildTab } {
+  return { open: true, tab: clicked };
+}
+
+/** The chevron at the end of the tab row: it opens or closes the strip. While a mode the strip started is engaged, the strip stays
+ *  open (footerOpen), so the chevron does nothing then (BuildStrip draws it disabled). */
+export function chevronClick(open: boolean, engaged: boolean): boolean {
+  return engaged ? true : !open;
+}
+
+/** One tab's (or Buildings family's) tile row: its tile count and its tile group count. */
+export interface StripRowShape { tiles: number; groups: number }
+
+/** T246: the strip's fixed shape across every tab and family. slots = the most tiles any row draws, gaps = the most group gaps.
+ *  Every row pads to `slots` cells and `gaps` gaps, so a tile has the same width on every tab and a tab change moves nothing. */
+export function stripSlots(rows: readonly StripRowShape[]): { slots: number; gaps: number } {
+  let slots = 1, gaps = 0;
+  for (const r of rows) {
+    if (r.tiles > slots) slots = r.tiles;
+    if (r.groups - 1 > gaps) gaps = r.groups - 1;
+  }
+  return { slots, gaps };
 }
 
 export type BuildingFamily = "lodges" | "services";
@@ -764,6 +786,27 @@ export function priceFactorPct(price: number, tolerance = 0): number {
 
 export function priceFullWith(tolerance: number): number {
   return PRICE_NO_EFFECT_MAX + toleranceOf(tolerance);
+}
+
+/** The Options slider's step for the lift ticket price (C# SkiMoneyRules.TicketPriceStep). */
+export const PRICE_STEP = 5;
+
+/** T240: a price as the Options slider stores it: clamped to 0-PRICE_MAX and snapped to the nearest PRICE_STEP (half up). Mirrors
+ *  C# SkiMoneyRules.SnapTicketPrice, which C# applies to the setTicketPrice trigger. */
+export function snapTicketPrice(price: number): number {
+  const p = Math.min(PRICE_MAX, Math.max(0, Math.round(Number.isFinite(price) ? price : 0)));
+  return Math.min(PRICE_MAX, Math.floor((p + PRICE_STEP / 2) / PRICE_STEP) * PRICE_STEP);
+}
+
+/** T240: the price one stepper click asks for (dir -1 = the minus button, +1 = the plus button), from the price shown. */
+export function steppedPrice(price: number, dir: 1 | -1): number {
+  return snapTicketPrice(snapTicketPrice(price) + dir * PRICE_STEP);
+}
+
+/** T240: the stepper's buttons. Off while the price is unknown (-1) and at the ends of the range. */
+export function priceStepEnabled(price: number, dir: 1 | -1): boolean {
+  if (!(price >= 0)) return false;
+  return dir < 0 ? price > 0 : price < PRICE_MAX;
 }
 
 /** The Overview's RECEIPT_PARTS line - "school" (RECEIPT_PARTS_SCHOOL, the school term shown) while the

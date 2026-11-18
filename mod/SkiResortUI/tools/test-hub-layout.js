@@ -32,7 +32,7 @@
 *            --height=1080|1440|2160   one size     --scenario=<regex>   only the scenarios it matches (case-insensitive; a partial run)
 *            --workers=<n>   browsers in parallel  --no-wait   fail (exit 3) when another run holds the lock, instead of waiting
 *            --fixed-settle   the old fixed waits in settle(), to cross-check a doubt about the quiet condition
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish | --list=r1f | --list=r2b | --list=plantext | --list=r2hub | --list=r2fix]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish | --list=r1f | --list=r2b | --list=plantext | --list=r2hub | --list=r2fix | --list=r2views]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -475,6 +475,22 @@ for (const h of [1080, 2160]) {
     [`h08-merge-card-${h}`, h, { scenario: "Ash Flat, merge card every tier", view: 0, tab: "buildings", whole: 1 }],
   );
 }
+// r2/hub-views (1.0.2): T240 the Money view's price stepper and Full demand row, T245 History's "This season so far", T246 the build
+// strip on each tab (Big resort: no mode engaged, so the chevron is live). At 1080 and 2160. `--list=r2views` picks this list.
+const R2VIEWS = [];
+for (const h of [1080, 2160]) {
+  R2VIEWS.push(
+    [`v01-money-income-${h}`, h, { scenario: ASH, view: 4, fold: 0 }],
+    [`v02-money-price-tip-${h}`, h, { scenario: ASH, view: 4, fold: 0, hover: "Ticket" }],
+    [`v03-money-full-demand-tip-${h}`, h, { scenario: ASH, view: 4, fold: 0, hover: "Full demand" }],
+    [`v04-history-${h}`, h, { scenario: ASH, view: 5 }],
+    [`v05-history-page2-${h}`, h, { scenario: ASH, view: 5, page: 2 }],
+    [`v06-history-season-tip-${h}`, h, { scenario: ASH, view: 5, page: 2, hover: "Income mix" }],
+    [`v07-tab-lifts-${h}`, h, { scenario: BIG, view: 0, tab: "lifts" }],
+    [`v08-tab-runs-${h}`, h, { scenario: BIG, view: 0, tab: "runs" }],
+    [`v09-tab-buildings-${h}`, h, { scenario: BIG, view: 0, tab: "buildings" }],
+  );
+}
 const POLISH = [];
 for (const [scale, tag] of [[1, "-fs100"], [1.25, "-fs125"], [1.5, "-fs150"]]) {
   POLISH.push(
@@ -634,7 +650,7 @@ async function shots(b, base, dir, list) {
 /** One unit's result appended to the size's merged result. Units arrive in report order (scenario, then text scale), as one run() makes them. */
 function mergeInto(r, u) {
   r.remPx = u.remPx;
-  for (const k of ["cases", "fails", "pagers", "buildings", "liftsTile", "band", "liftTool"]) r[k].push(...u[k]);
+  for (const k of ["cases", "fails", "pagers", "buildings", "liftsTile", "band", "liftTool", "tabShape"]) r[k].push(...u[k]);
   for (const [k, v] of Object.entries(u.clipped)) if (!r.clipped[k]) r.clipped[k] = v;   // first sighting wins, as in one page
   for (const [fs, x] of Object.entries(u.fullest)) if (!r.fullest[fs] || x.full > r.fullest[fs].full) r.fullest[fs] = x;
   r.maxOverRem = r.cases.reduce((m, c) => Math.max(m, c.overRem || 0), 0);
@@ -644,7 +660,7 @@ function mergeInto(r, u) {
   r.tips.n += u.tips.n; r.tips.keys += u.tips.keys; r.tips.keyRows = Math.max(r.tips.keyRows, u.tips.keyRows);
   for (const n of u.tips.scenarios) if (!r.tips.scenarios.includes(n)) r.tips.scenarios.push(n);
 }
-const emptyResult = () => ({ remPx: 0, cases: [], fails: [], pagers: [], buildings: [], liftsTile: [], band: [], liftTool: [], clipped: {}, fullest: {},
+const emptyResult = () => ({ remPx: 0, cases: [], fails: [], pagers: [], buildings: [], liftsTile: [], band: [], liftTool: [], tabShape: [], clipped: {}, fullest: {},
   maxOverRem: 0, minSlackRem: 1e9, timing: { ms: 0, settles: 0, frames: 0, capped: 0, cappedWhere: [] }, tips: { n: 0, keys: 0, keyRows: 0, scenarios: [] } });
 
 /**
@@ -723,7 +739,7 @@ async function main() {
     const b = browsers[0];
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg),
-        process.argv.includes("--list=r2fix") ? R2FIX : process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2hub") ? R2HUB : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=r2fix") ? R2FIX : process.argv.includes("--list=r2tourism") ? R2TOURISM : process.argv.includes("--list=r2hub") ? R2HUB : process.argv.includes("--list=r2views") ? R2VIEWS : process.argv.includes("--list=r2sf") ? R2SF : process.argv.includes("--list=uiaudit") ? UIAUDIT : process.argv.includes("--list=plantext") ? PLANTEXT : process.argv.includes("--list=r2b") ? R2B : process.argv.includes("--list=r1f") ? R1F : process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();
@@ -763,6 +779,7 @@ async function main() {
       for (const x of r.buildings.filter((x) => x.fs === 1)) console.log(`  buildings tab [${x.scenario}]: ${x.tiles} tiles in ${x.rows} row(s), chips "${x.caption.trim()}", cut labels: ${x.cut || "none"}`);
       for (const lt of r.liftsTile.filter((x) => x.fs === 1)) console.log(`  lifts tile [${lt.scenario}]: ${lt.text}`);
       for (const x of r.liftTool) console.log(`  lift generator [${x.scenario.split(" ")[0]} fs ${x.fs}]: ${x.present ? "present" : "MISSING"}, family row ${x.rowRem} rem`);
+      for (const x of r.tabShape) console.log(`  strip shape [${x.scenario.split(" ")[0]} fs ${x.fs}]: ${x.tabs.map((t) => `${t.tab} ${t.tiles}/${t.slots} tiles ${t.tileW} px (spread ${t.tileSpread}), strip ${t.stripH} px`).join("; ")}`);
       for (const bd of r.band.filter((x) => x.fs === 1)) console.log(`  band [${bd.scenario}]: ${bd.text.join(" | ")}`);
       const sc = r.cases.filter((c) => c.scrolls && c.fs === 1 && c.overPx > 1).map((c) => `${c.scenario.split(" ")[0]} view ${c.view} +${c.overRem} rem`);
       console.log(`  full lists that scroll (text scale 1, allowed: T131): ${sc.length ? Array.from(new Set(sc)).join("; ") : "none"}`);

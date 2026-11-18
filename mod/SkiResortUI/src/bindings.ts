@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 53;
+export const HUB_CONTRACT = 54;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -1272,6 +1272,7 @@ export const TRIGGER = {
   syncInclude: "syncInclude",  // contract 51: a row's check box (entity, on)
   syncKeep: "syncKeep",  // contract 51: a row's Keep as is (entity)
   syncRun: "syncRun",  // contract 51: the card's Sync button (sign)
+  setTicketPrice: "setTicketPrice",  // contract 54: the Money view's price stepper (T240)
 } as const;
 
 /**
@@ -1511,4 +1512,7 @@ export const hubTriggers = {
   syncKeep: (entity: Entity): void => fire(TRIGGER.syncKeep, wire(entity)),
   /** Sync the checked rows of the area. Free, no undo. */
   syncRun: (sign: Entity): void => fire(TRIGGER.syncRun, wire(sign)),
+  /** Set the lift ticket price (the Options setting, one price for every ski area). C# snaps it to 0-200 in steps of 5, saves the
+   *  options file and sends it back in city$.ticketPrice. */
+  setTicketPrice: (price: number): void => fire(TRIGGER.setTicketPrice, price),
 } as const;

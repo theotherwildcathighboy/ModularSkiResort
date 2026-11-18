@@ -461,6 +461,11 @@ Appended fields and bindings by contract:
   Ticket price text, one truth: full demand up to 40, plus the best lodge's tolerance (chalet 20, summit and grand 40). The price applies to
   residents and tourists alike. Only a season pass holder skips it. The reach of the Welcome Sign is a straight line from the sign. The
   merge reach (`SlopesideMaxM`) is measured from the runs and lifts, not the sign.
+- 54 (r2/hub-views, T240, 1.0.2): the new trigger `setTicketPrice` (int). The Money view has a price stepper (– / +) on its price line.
+  C# snaps the price to the Options slider (0 to 200, step 5, `SkiMoneyRules.SnapTicketPrice`). It writes `LiftTicketPrice` and calls
+  `ApplyAndSave`, so the Options page and the options file show the same value. One price applies to every ski area. The stats read the
+  setting at each pass, so `city.ticketPrice` follows. The UI shows the asked price at once. It falls back to the binding after 3 s if C#
+  does not answer. A "Full demand up to" row under it shows `priceFullWith(priceTolerance)`. No field changed.
 - 52 (r2/hub-ui had 50. The r2 merge renumbered it after r2/tourism 50 and r2/sync 51.) The snow report (T200, SkiSnowReportSystem). The design is in docs/research/post-release-round2/T200-snow-report.md.
   `ResortLive` gains `snowReport` (`SnowReport`). `known` is false without a run outline. `baseM` and `summitM` are the lowest and highest
   outline node of the bound runs, cat tracks excluded. `tempKnown`, `baseTempC` and `summitTempC` are the temperatures now.

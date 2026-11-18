@@ -140,12 +140,12 @@
     }
   }
   function tiles() { const r = q(cls("tileRow")); return r ? qa("button", r) : []; }
-  function buildTabs() { const r = q(cls("tabRow")); return r ? qa("button", r) : []; }
-  // The footer opens like the game's toolbar (2026-11-07). A click on a closed footer opens that tab. A click on the open tab closes it.
+  function buildTabs() { const r = q(cls("tabRow")); return r ? qa(cls("tabButton"), r) : []; }   // T246: not the chevron
+  // The footer opens like the game's toolbar (2026-11-07). A tab click opens it on that tab. T246 (2026-11-17): a tab click never closes
+  // it (only the chevron does), so one click is enough and a second click on the open tab must leave it open.
   function footerOpen() { return !!q(cls("buildRow"), q(cls("buildFooter"))); }
   async function openTab(b) {
     if (!footerOpen() || !/tabButtonOn/.test(b.className)) { b.click(); await settle(); }
-    if (!footerOpen()) { b.click(); await settle(); }
   }
   function folds() { const p = panel(); return p ? qa(cls("foldRow"), p) : []; }
   function openFolds() { const p = panel(); return p ? qa(cls("foldRowOpen"), p) : []; }
@@ -235,6 +235,7 @@
     // Build tabs: the footer must not change the content's fit, and the Buildings tab draws every building tile.
     // 2026-11-07: the tab row and the first tile row stay in place across tabs (the Buildings tab's two rows moved them 118 rem at 1080).
     const tabTops = [];
+    const tabShape = [];
     for (const b of buildTabs()) {
       await openTab(b);
       const tabName = b.textContent.trim();
@@ -242,6 +243,17 @@
       const tr = q(cls("tabRow"));
       const firstRow = q(cls("buildRow"), q(cls("buildFooter")));
       if (tr) tabTops.push({ tab: tabName, y: tr.getBoundingClientRect().top, row: firstRow ? firstRow.getBoundingClientRect().top : -1 });
+      // T246 (2026-11-17): the strip's shape per tab (tile width, slot count, strip height), measured for the report and the assertion below.
+      const foot = q(cls("buildFooter"));
+      const realTiles = qa(cls("buildTile"), foot);
+      const cells = qa(cls("buildCell"), foot);
+      tabShape.push({ tab: tabName, tiles: realTiles.length, slots: cells.length,
+        tileW: realTiles.length ? Math.round(realTiles[0].getBoundingClientRect().width * 10) / 10 : -1,
+        // spread of the tab's own tile widths (px): flex shares round to whole device pixels, so 169.5 px tiles measure 169 and 170
+        tileSpread: realTiles.length ? Math.round((Math.max(...realTiles.map((t) => t.getBoundingClientRect().width))
+          - Math.min(...realTiles.map((t) => t.getBoundingClientRect().width))) * 10) / 10 : 0,
+        stripH: foot ? Math.round(foot.getBoundingClientRect().height * 10) / 10 : -1,
+        status: qa(cls("buildStatusLine"), foot).length });
       // The check hovers every tile in turn. Its tooltip and the one status line must not cut.
       for (const cell of qa(cls("buildCell"))) {
         cell.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
@@ -262,6 +274,28 @@
       const drow = Math.max(...tabTops.map((x) => x.row)) - Math.min(...tabTops.map((x) => x.row));
       if (dy > 1 || drow > 1) {
         fail(`Build tab row or first tile row moves when the tab changes (${tabTops.map((x) => `${x.tab} ${Math.round(x.y)} / ${Math.round(x.row)}`).join(", ")} px)`, { tabTops });
+      }
+    }
+    out.tabShape.push({ scenario: name, fs, tabs: tabShape });
+    if (tabShape.length > 1) {
+      const span = (k) => Math.max(...tabShape.map((x) => x[k])) - Math.min(...tabShape.map((x) => x[k]));
+      // T246 Design A: every tab draws the same tile width, the same slot count and the same strip height (a tab change moves nothing).
+      if (span("tileW") > 1 || span("stripH") > 1 || span("slots") > 0 || tabShape.some((x) => x.tileSpread > 1)) {
+        fail(`Build strip changes shape across tabs (${tabShape.map((x) => `${x.tab}: tile ${x.tileW} px x ${x.slots} slots, strip ${x.stripH} px`).join("; ")})`, { tabShape });
+      }
+    }
+    // T246: a click on the open tab leaves the strip open. The chevron closes it and opens it again.
+    const onTabBtn = buildTabs().find((b) => /tabButtonOn/.test(b.className));
+    if (onTabBtn) {
+      onTabBtn.click(); await settle();
+      if (!footerOpen()) fail("A click on the open build tab closed the strip (T246: only the chevron closes it)");
+      const chev = q(cls("tabChevron"));
+      if (!chev) fail("The build strip has no chevron (T246)");
+      else if (!chev.disabled) {   // disabled while a mode the strip started is engaged (the strip stays open then)
+        chev.click(); await settle();
+        if (footerOpen()) fail("The build strip chevron did not close the strip");
+        chev.click(); await settle();
+        if (!footerOpen()) fail("The build strip chevron did not open the strip again");
       }
     }
     const bTab = buildTabs().find((b) => /Buildings/.test(b.textContent));
@@ -384,7 +418,7 @@
     fixedSettle = !!o.fixedSettle;
     gameRem();
     const t0 = performance.now(), s0 = Object.assign({}, stats);
-    const out = { viewport: `${window.innerWidth}x${window.innerHeight}`, remPx: 0, cases: [], fails: [], pagers: [], buildings: [], liftsTile: [], band: [], liftTool: [], clipped: {}, fullest: {} };
+    const out = { viewport: `${window.innerWidth}x${window.innerHeight}`, remPx: 0, cases: [], fails: [], pagers: [], buildings: [], liftsTile: [], band: [], liftTool: [], tabShape: [], clipped: {}, fullest: {} };
     out.remPx = Math.round(rem() * 1000) / 1000;
     const names = o.scenarios || checkScenarios();
     for (const name of names) for (const fs of o.scales || SCALES) {

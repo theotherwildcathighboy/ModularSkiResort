@@ -43,7 +43,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 53;
+        public const int HubContract = 54;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -518,6 +518,7 @@ namespace SkiResortMod.Systems
             MergeBuilding, UnmergeBuilding,  // contract 35: the merge card (Int = tier) in SkiResortHubUISystem.Merge.cs
             ArmMergeOverlay,                 // contract 36: the merge overlay chip (Bool = arm)
             SyncCard, SyncInclude, SyncKeep, SyncRun,   // contract 51: Sync Resort (SkiResortHubUISystem.Sync.cs)
+            SetTicketPrice,                  // contract 54: the Money view's price stepper (Int = price), T240
         }
 
         private struct Request
@@ -883,10 +884,11 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunLightSpacing", OnSetRunLightSpacing));
             AddBinding(new TriggerBinding<Entity, bool>(Group, "setRunGroomed", OnSetRunGroomed));
             AddBinding(new TriggerBinding<string, int>(Group, "setDrawRun", OnSetDrawRun));
+            AddBinding(new TriggerBinding<int>(Group, "setTicketPrice", OnSetTicketPrice));   // contract 54: T240
 
             Mod.Log.Info($"{nameof(SkiResortHubUISystem)} created — group '{Group}', contract {HubContract}, " +
                          $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 20 value bindings, " +
-                         "25 triggers");
+                         "26 triggers");
         }
 
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
@@ -1195,6 +1197,9 @@ namespace SkiResortMod.Systems
         private void OnSetDrawRun(string key, int value) =>
             Trigger("setDrawRun", new Request { Kind = RequestKind.SetDrawRun, Text = key, Int = value });
 
+        private void OnSetTicketPrice(int price) =>
+            Trigger("setTicketPrice", new Request { Kind = RequestKind.SetTicketPrice, Int = price });
+
         private void OnFocusLift(Entity entity, Entity top) =>
             Trigger("focusLift", new Request { Kind = RequestKind.FocusLift, Entity = entity, Entity2 = top });
 
@@ -1449,7 +1454,32 @@ namespace SkiResortMod.Systems
                 case RequestKind.SyncRun:
                     ApplySync(r);
                     break;
+                case RequestKind.SetTicketPrice:
+                    ApplyTicketPrice(r.Int, r.Source);
+                    break;
             }
+        }
+
+        /// <summary>T240 (contract 54): the Money view's price stepper writes the Options setting LiftTicketPrice (one price for every ski
+        /// area) and saves the options file, as the Options page does. Snapped to the slider's step (SkiMoneyRules.SnapTicketPrice).
+        /// SkiLiftTicketSystem and the stats read the setting live, so the city binding shows the new price at the next stats pass.</summary>
+        private void ApplyTicketPrice(int price, string source)
+        {
+            var settings = Mod.Settings;
+            if (settings == null)
+            {
+                LastTriggerText = $"setTicketPrice({price}) refused: no settings";
+                Mod.Log.Warn($"Hub: setTicketPrice({price}) refused, the mod settings are not loaded{SourceSuffix(source)}");
+                return;
+            }
+            int was = settings.LiftTicketPrice;
+            int now = SkiMoneyRules.SnapTicketPrice(price);
+            LastTriggerText = $"setTicketPrice({price}) -> {now}";
+            if (now == was)
+                return;
+            settings.LiftTicketPrice = now;
+            settings.ApplyAndSave();
+            Mod.Log.Info($"Hub: lift ticket price {was} -> {now} (Options LiftTicketPrice saved, every ski area){SourceSuffix(source)}");
         }
 
         /// <summary>A run was re-emitted under a new entity (SkiRunReemitSystem, Modification1, main thread). The sign map, the world

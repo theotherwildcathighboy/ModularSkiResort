@@ -671,6 +671,13 @@ namespace ResortBatch
             check(SkiMoneyRules.ClampTicketPrice(40) == 40, w, "ClampTicketPrice(40)");
             check(SkiMoneyRules.ClampTicketPrice(200) == 200, w, "ClampTicketPrice(200)");
             check(SkiMoneyRules.ClampTicketPrice(999) == 200, w, "ClampTicketPrice(999)");
+            // T240: the hub stepper's price snaps to the slider's step of 5 and clamps to 0-200
+            check(SkiMoneyRules.SnapTicketPrice(-5) == 0, w, "SnapTicketPrice(-5)");
+            check(SkiMoneyRules.SnapTicketPrice(2) == 0, w, "SnapTicketPrice(2)");
+            check(SkiMoneyRules.SnapTicketPrice(3) == 5, w, "SnapTicketPrice(3)");
+            check(SkiMoneyRules.SnapTicketPrice(105) == 105, w, "SnapTicketPrice(105)");
+            check(SkiMoneyRules.SnapTicketPrice(198) == 200, w, "SnapTicketPrice(198)");
+            check(SkiMoneyRules.SnapTicketPrice(999) == 200, w, "SnapTicketPrice(999)");
 
             // Four arguments. Here known = score present and not held (a running lift alone does not open the gate).
             GateCase(check, w, 0, 1f, true, 3, Gate.Off);

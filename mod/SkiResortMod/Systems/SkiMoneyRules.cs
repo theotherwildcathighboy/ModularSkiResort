@@ -136,6 +136,11 @@ namespace SkiResortMod.Systems
 
         public static int ClampTicketPrice(int price) => math.clamp(price, 0, TicketPriceMax);
 
+        /// <summary>T240: a price the hub's price stepper sends (trigger setTicketPrice), as the Options slider stores it: clamped to
+        /// 0-TicketPriceMax and snapped to the nearest TicketPriceStep (half up). Mirrors hubRules.ts snapTicketPrice.</summary>
+        public static int SnapTicketPrice(int price)
+            => math.min(TicketPriceMax, (ClampTicketPrice(price) + TicketPriceStep / 2) / TicketPriceStep * TicketPriceStep);
+
         /// <summary>Tickets need a counted open run. runStateKnown = a score is present AND not in the first-write hold. Callers: the ticket
         /// job, the gate watch, the hub. Free entry during a load hold is accepted (at most RatingHoldMaxTicks = 1,024 ticks = 16,384 frames).</summary>
         public static TicketGate TicketGateOf(int price, float efficiency, bool runStateKnown, int openRuns)

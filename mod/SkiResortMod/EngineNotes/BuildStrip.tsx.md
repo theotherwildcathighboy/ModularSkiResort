@@ -69,3 +69,22 @@ has a Welcome Sign (`FooterInfo.mergeTile`). It is not a C# build item and not a
 legend with the outlined counts (`MergedFold.MergeLegend`). Its icon is the game's `Media/Game/Icons/BuildingUpgrade.svg` (rule R10).
 Hovered, the status lines name it and say what can be merged. On the Lifts and Runs tabs the status lines carry the legend while armed and
 nothing else is hovered or active.
+
+## One strip shape on every tab (T246, 1.0.2)
+
+The Corwen playtest found that the tabs "jump around". There were three causes. A click on the open tab closed the strip, and the view above
+re-fitted. The tile width followed the tile count (Lifts 3 tiles of 129 px, Runs 2 of 196 px, Buildings 6 of 61 px at 1080). A locked
+tile's reason line had no top margin, so the strip lost 5 rem.
+
+The fix (Design A):
+
+- A tab click shows that tab and never closes the strip (`hubRules.tabClick`). A chevron at the end of the tab row opens and closes it
+  (`chevronClick`). It uses the fold glyphs. It is disabled while a strip mode is engaged, because the strip stays open then.
+- Every tab pads its tile row to one slot count and one gap count (`hubRules.stripSlots`). The counts are the most tiles and the most
+  group gaps of any tab or Buildings family. Empty slots go at the end of the last group. Missing gaps go at the row end as `.buildGap` (8 rem, the
+  `.buildGroupNext` margin). So every tab spends the same rem on gaps, and a tile has one width (60 px at 1080, text scale 1).
+- The status line carries the 5 rem top margin itself, so every tone has the same height.
+- `footerShape$` is only open or closed. A tab change no longer re-fits the view above.
+
+`harness/layout-check.js` measures the tile width, the slot count and the strip height on each tab. It fails when they differ. It also
+fails when a click on the open tab closes the strip, or when the chevron does not close and reopen it.
