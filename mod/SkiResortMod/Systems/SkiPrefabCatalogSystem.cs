@@ -188,6 +188,14 @@ namespace SkiResortMod.Systems
             return def != null ? PrefabOf(def.Prefab) : null;
         }
 
+        /// <summary>A catalog row's building PrefabBase by its prefab name (lodge, school, patrol rows). Null when MISSING (the infoview's
+        /// reference compare).</summary>
+        internal PrefabBase BuildingPrefabBase(string prefabName)
+        {
+            EnsureFresh();
+            return string.IsNullOrEmpty(prefabName) ? null : PrefabOf(prefabName);
+        }
+
         /// <summary>LIVE VIEW: carrier prefab entity → bounds.max.y (pivot to grip top), &gt; 0 only. Use TryGetValue.</summary>
         internal IReadOnlyDictionary<Entity, float> CarrierGripTops
         {

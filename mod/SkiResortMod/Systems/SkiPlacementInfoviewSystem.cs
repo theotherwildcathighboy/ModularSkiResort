@@ -1,7 +1,9 @@
-// This system closes the Electricity infoview that the vanilla tools open in two cases:
+// This system closes the infoview that the vanilla tools open in three cases (the Electricity view for lifts, Happiness for buildings):
 // - The player starts drawing one of our lift LINES (every found SkiCatalog.Lifts row with CloseElectricityView).
 // - The player starts placing one of our STATIONS (every found SkiCatalog.Stations row: base and top of every lift type, the tram
 //   terminals included).
+// - The player starts placing one of our LODGES, the ski SCHOOL or a PATROL building (T242): those prefabs carry Park, so the tool
+//   opens the vanilla Happiness / parks view (InfoviewInitializeSystem.cs:303).
 // There is no mid station yet. A new row is covered by being in that list.
 // It closes the view once per tool activation, and leaves it open when the player had it open before.
 // The view shows lifts as power lines, which they are not to a player. The base station's missing low-voltage feed keeps its own
@@ -149,6 +151,14 @@ namespace SkiResortMod.Systems
                         m_Targets.Add(target);
                     found.Add(def.Prefab + " (BuildingPrefab)");
                 }
+                // T242: the lodge, school and patrol rows. Their prefabs carry Park (the ski areas are parks to the game), so the tool opens
+                // the Happiness / parks view (InfoviewInitializeSystem.cs:303 scores BuildingType.Park). Same close-once rule as a station.
+                for (int b = 0; b < SkiCatalog.Lodges.Count; b++)
+                    AddBuilding(SkiCatalog.Lodges[b].Prefab, SkiCatalog.Lodges[b].Expected, wanted, found, missing, pending);
+                for (int b = 0; b < SkiCatalog.Schools.Count; b++)
+                    AddBuilding(SkiCatalog.Schools[b].Prefab, SkiCatalog.Schools[b].Expected, wanted, found, missing, pending);
+                for (int b = 0; b < SkiCatalog.Patrols.Count; b++)
+                    AddBuilding(SkiCatalog.Patrols[b].Prefab, SkiCatalog.Patrols[b].Expected, wanted, found, missing, pending);
                 if (m_Targets.Count == 0)
                 {
                     m_Disabled = true;
@@ -177,6 +187,31 @@ namespace SkiResortMod.Systems
             {
                 HandleException(e, "OnGameLoadingComplete");
             }
+        }
+
+        /// <summary>Adds one building row's prefab to the targets (missing: listed in <paramref name="missing"/> when expected, else in
+        /// <paramref name="pending"/>).</summary>
+        private void AddBuilding(string prefabName, bool expected, List<string> wanted, List<string> found, List<string> missing,
+                                 List<string> pending)
+        {
+            PrefabBase target = m_PrefabCatalog.BuildingPrefabBase(prefabName);
+            if (target == null)
+            {
+                if (expected)
+                {
+                    wanted.Add(prefabName);
+                    missing.Add(prefabName);
+                }
+                else
+                {
+                    pending.Add(prefabName);
+                }
+                return;
+            }
+            wanted.Add(prefabName);
+            if (!m_Targets.Contains(target))
+                m_Targets.Add(target);
+            found.Add(prefabName + " (BuildingPrefab)");
         }
 
         protected override void OnUpdate()

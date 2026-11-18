@@ -9,6 +9,11 @@ targets are:
 - Our lift LINES: every found `SkiCatalog.Lifts` row with `CloseElectricityView`.
 - Our STATIONS: every found `SkiCatalog.Stations` row (base and top of every lift type, the tram terminals included). There is no mid
   station yet. A new station row is a target by being in that list.
+- Our LODGES, the ski SCHOOL and the PATROL buildings (T242, 2026-11-17): every found `SkiCatalog.Lodges`, `Schools` and `Patrols` row. Their
+  building prefabs carry `Park`, so `InfoviewInitializeSystem` scores the vanilla Happiness (parks) view for them
+  (InfoviewInitializeSystem.cs:303, `CheckBuildingType(... BuildingType.Park ...)`) and the object tool opens it on placement
+  (ToolBaseSystem.UpdateInfoview, :477-504). Same rule as a station: close it once per activation, keep it when the player had it open.
+  `SkiPrefabCatalogSystem.BuildingPrefabBase(name)` gives the PrefabBase.
 
 Targets come from `SkiCatalog` and their `PrefabBase` from `SkiPrefabCatalogSystem` (`LinePrefabBase`, `StationPrefabBase`: PrefabID
 fast path, then its one name scan). The system writes `!!! Infoview: ... not found` only for an expected row
