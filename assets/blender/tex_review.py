@@ -90,6 +90,8 @@ def _args():
     ap.add_argument("--shots", default=None)
     ap.add_argument("--samples", type=int, default=SAMPLES)
     ap.add_argument("--sun-rot", type=float, default=None, help="one sun rotation (deg) for every shot")
+    ap.add_argument("--raw-tint", action="store_true",
+                    help="multiply the slot colors undecoded (the pilot's renders; the game decodes sRGB first)")
     ap.add_argument("--fixed-sun", action="store_true", help="the rig's 135 deg for every shot (the pilot's renders)")
     ap.add_argument("--a", default=None)
     ap.add_argument("--b", default=None)
@@ -261,11 +263,21 @@ def shipped_slots(asset_dir, name):
     return {"RGB"[i]: tuple(d[f"slot{i + 1}"]) for i in range(3) if f"slot{i + 1}" in d}
 
 
-def recipe_tint(key, asset_dir=None, name=None):
+def game_tint(tint):
+    """Slot colors as the game multiplies them. A VariationSet color is stored sRGB-encoded and the game multiplies its
+    LINEAR value (Game.Rendering/BatchDataSystem.cs:716-718, 1.6.0f1: meshColor.m_ColorSet.m_Channel0.linear;
+    cs2_tilesheet.slot_default_for is the inverse). cs2_preview._tinted_base_image multiplies the tuple as given, so the
+    decode happens here: without it every recolor part renders too light (L5 glulam: a light tan where the game shows mid
+    walnut; fascias 6 x too bright)."""
+    return {ch: tuple(float(x) for x in P._srgb_to_linear(np.asarray(rgb, np.float64))) for ch, rgb in tint.items()}
+
+
+def recipe_tint(key, asset_dir=None, name=None, raw=False):
     import bldg_recipes as R
     rec = R.get_recipe(key)
     tint = shipped_slots(asset_dir, name) if asset_dir and name else None
-    return tint or {"RGB"[k - 1]: tuple(v) for k, v in rec.slots.items()}, rec
+    tint = tint or {"RGB"[k - 1]: tuple(v) for k, v in rec.slots.items()}
+    return (tint if raw else game_tint(tint)), rec
 
 
 # Sun rotation per shot (sky node degrees; the rig's default 135 puts the sun toward +X / -Y, behind the arrival
@@ -374,7 +386,7 @@ def render(a):
         mdir, mname = (parts[2], parts[3]) if len(parts) >= 4 else (adir, name)
         o, subs = load_ours(adir, name, a.tag)
         if a.recipe:
-            tint, rec = recipe_tint(a.recipe, adir, name)
+            tint, rec = recipe_tint(a.recipe, adir, name, raw=a.raw_tint)
     elif a.vanilla:
         o, mdir, mname, tint = load_vanilla(a.vanilla, a.bench, a.vanilla_scripts)
     else:
