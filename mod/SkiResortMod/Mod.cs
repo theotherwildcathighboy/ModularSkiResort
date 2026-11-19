@@ -413,6 +413,12 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<TrainPitchSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
             updateSystem.UpdateAfter<TrainBoneSystem, Game.Rendering.InitializeBonesSystem>(SystemUpdatePhase.Rendering);
 
+            // Turning bullwheels (T256). AFTER ChairPinSystem at 4B: it reads the loop cache of this frame (the wheels of each loop, the
+            // rope speed, the hold state) and advances the wheel angles on the mover's clock. The phase must stay Modification4B or the
+            // anchor is skipped. The bone writer runs at Rendering right AFTER InitializeBonesSystem, like the train bones.
+            updateSystem.UpdateAfter<BullwheelSpinSystem, ChairPinSystem>(SystemUpdatePhase.Modification4B);
+            updateSystem.UpdateAfter<BullwheelBoneSystem, Game.Rendering.InitializeBonesSystem>(SystemUpdatePhase.Rendering);
+
             // Low spans (hub row LiftLowSpan). AFTER the census at 4B for the same reason as the trains: the rope lanes LaneSystem built at
             // Modification4 are this frame's. The phase must stay Modification4B or the anchor is skipped.
             updateSystem.UpdateAfter<LiftClearanceSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
