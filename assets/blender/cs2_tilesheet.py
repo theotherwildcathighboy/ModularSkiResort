@@ -375,7 +375,11 @@ TEXPASS = {
 TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.12, 0.26)}
 # Swatch controls a pass key may carry (texpass_apply runs them in this order on the sheet swatch and on the far source);
 # the color ones move the swatch mean, which the target_srgb tint then restores
-TEXPASS_CONTROLS = ("chroma", "flatten_m", "contrast", "normal_gain")
+# normal_lean (u, v deg, after normal_gain): a lapped / shingled scan's normal map does not average to the face
+# normal (each face leans one way, its butt step is a few texels wide), so the sun shades the whole surface as if it
+# faced elsewhere; the control turns the swatch's mean normal to the stated lean (the pre-pass key's, measured on the
+# rollout sheet, keeps the slope shading of today, as target_srgb keeps its color; (0, 0) is the face normal)
+TEXPASS_CONTROLS = ("chroma", "flatten_m", "contrast", "normal_gain", "normal_lean")
 TEXPASS_COLOR_CONTROLS = ("chroma", "flatten_m", "contrast")
 # Low-frequency gate (test_texpass P10): a tile repeats every tile_m, so blotches above the board / course scale read as
 # a grid. Luminance CoV after a periodic Gaussian of TEXPASS_LF_SIGMA_M may not exceed max(TEXPASS_LF_RATIO x the
@@ -483,13 +487,41 @@ def texpass_swatch(key):
     source alike, so the far set draws what LOD0 draws."""
     v = _TEXPASS_STATE["version"]
     s = texpass_specs(v).get(key) if v else None
-    return {f: float(s[f]) for f in TEXPASS_CONTROLS if f in s} if s else {}
+    return {f: (tuple(float(x) for x in s[f]) if f == "normal_lean" else float(s[f]))
+            for f in TEXPASS_CONTROLS if f in s} if s else {}
 
 
 def _normal_gain(nrm, g):
     """0..1-encoded tangent normals with the slope (x, y) scaled by g, renormalized."""
     n = nrm * 2.0 - 1.0
     n[..., :2] *= g
+    n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-9)
+    return n * 0.5 + 0.5
+
+
+def normal_lean_deg(nrm):
+    """(u, v) degrees of the mean of 0..1-encoded tangent normals (atan2(x, z), atan2(y, z) of the mean vector)."""
+    n = np.asarray(nrm, np.float64)[..., :3].reshape(-1, 3) * 2.0 - 1.0
+    m = (n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-9)).mean(0)
+    return float(np.degrees(np.arctan2(m[0], m[2]))), float(np.degrees(np.arctan2(m[1], m[2])))
+
+
+def _normal_lean(nrm, lean):
+    """0..1-encoded tangent normals rotated as one (Rodrigues) so that their mean points at `lean` (u, v degrees):
+    the relief is kept, only its mean turns."""
+    n = np.asarray(nrm, np.float64)[..., :3] * 2.0 - 1.0
+    n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-9)
+    a = n.reshape(-1, 3).mean(0)
+    a /= np.linalg.norm(a)
+    tu, tv = (np.tan(np.radians(float(x))) for x in lean)
+    b = np.array([tu, tv, 1.0]) / np.sqrt(tu * tu + tv * tv + 1.0)
+    v = np.cross(a, b)
+    sn, cs = float(np.linalg.norm(v)), float(np.dot(a, b))
+    if sn > 1e-12:
+        k = v / sn
+        Kx = np.array([[0.0, -k[2], k[1]], [k[2], 0.0, -k[0]], [-k[1], k[0], 0.0]])
+        n = n @ (np.eye(3) + sn * Kx + (1.0 - cs) * (Kx @ Kx)).T
+    n[..., 2] = np.maximum(n[..., 2], 0.05)
     n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-9)
     return n * 0.5 + 0.5
 
@@ -530,6 +562,8 @@ def texpass_apply(tps, lin, nrm, rough, ppm):
         lin = keep_mean(lin * ((m + (lum - m) * tps["contrast"]) / np.maximum(lum, 1e-6))[..., None], lin)
     if "normal_gain" in tps:
         nrm = _normal_gain(nrm, tps["normal_gain"])
+    if "normal_lean" in tps:
+        nrm = _normal_lean(nrm, tps["normal_lean"])
     return lin, nrm, rough
 
 

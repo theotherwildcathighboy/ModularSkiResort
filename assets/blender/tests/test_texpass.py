@@ -25,6 +25,10 @@ Gates (the pilot's lessons, made mechanical):
   P7  swatch controls: deck chroma + flatten_m + contrast keep the swatch mean within 0.01 sRGB (the palette) and cut
       the mean chroma and the luminance CoV, normal_gain raises the tilt rms; texpass_swatch is {} with the pass off
       (alias followers too);
+  P12 normal lean: every pass key with normal_lean draws a sheet swatch whose mean normal points at the stated
+      (u, v) lean within 0.5 deg (a lapped scan's mean normal leans: PHGrayRoofTiles02 at gain 1.3 leaned (-9.0,
+      -7.2) deg against the shipped slate's (-0.3, +10.6): the sun shaded every slate roof as if it faced 20 deg
+      elsewhere); the lean is the last control, so normal_gain cannot scale it again;
   P8  weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
       a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise;
   P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate: 2} (off: {}); a plinth + lap
@@ -356,12 +360,13 @@ def check_swatch_controls():
     TS.register_texpass("v1")
     try:
         spec = TS.TEXPASS["v1"]["deck"]
-        assert all(f in spec for f in TS.TEXPASS_CONTROLS), spec
+        DECK_CONTROLS = ("chroma", "flatten_m", "contrast", "normal_gain")
+        assert all(f in spec for f in DECK_CONTROLS), spec
         tuned = TS._swatch_maps("deck", 480, repeat=2)
         saved = dict(spec)
         try:
-            for f in TS.TEXPASS_CONTROLS:
-                spec.pop(f)
+            for f in DECK_CONTROLS:
+                spec.pop(f, None)
             raw = TS._swatch_maps("deck", 480, repeat=2)
         finally:
             spec.clear()
@@ -388,7 +393,7 @@ def check_swatch_controls():
     assert chroma(tuned[0]) < 0.75 * chroma(raw[0]), (chroma(tuned[0]), chroma(raw[0]))
     assert lum_cov(tuned[0]) < 0.75 * lum_cov(raw[0]), (lum_cov(tuned[0]), lum_cov(raw[0]))
     assert tilt(tuned[1]) > 1.15 * tilt(raw[1]), (tilt(tuned[1]), tilt(raw[1]))
-    assert tuned[5].get("texpass") == {f: float(saved[f]) for f in TS.TEXPASS_CONTROLS}, tuned[5]
+    assert tuned[5].get("texpass") == {f: float(saved[f]) for f in DECK_CONTROLS if f in saved}, tuned[5]
     assert "texpass" not in raw[5], raw[5]
     assert TS.texpass_swatch("lux_slate") == {}, "pass off: no alias control"
     ok(f"P7 swatch controls: deck mean held ({d:.4f} sRGB), chroma {chroma(raw[0]):.4f} -> {chroma(tuned[0]):.4f}, "
@@ -474,6 +479,25 @@ def check_far_sources():
         TS.unregister_texpass()
     ok(f"P11 far sources: deck LF {lf_src:.3f} -> {lf_dst:.3f} at {ppm:.1f} px/m, mean x tint on the palette "
        f"({d:.4f} sRGB); slate / lux_slate / timber_lap normals gained, colors untouched; off = unchanged")
+
+
+def check_normal_lean():
+    assert TS.TEXPASS_CONTROLS[-1] == "normal_lean", TS.TEXPASS_CONTROLS
+    rows = []
+    TS.register_texpass("v1")
+    try:
+        for k, spec in sorted(TS.TEXPASS["v1"].items()):
+            if "normal_lean" not in spec:
+                continue
+            r = int(spec.get("repeat", 1))
+            maps = TS._swatch_maps(k, 480, repeat=r)
+            got = TS.normal_lean_deg(maps[1])
+            want = tuple(float(x) for x in spec["normal_lean"])
+            assert max(abs(g - w) for g, w in zip(got, want)) < 0.5, f"{k}: lean {got} != {want}"
+            rows.append(f"{k} ({got[0]:+.1f}, {got[1]:+.1f})")
+    finally:
+        TS.unregister_texpass()
+    ok("P12 normal lean: " + (", ".join(rows) or "no key states one"))
 
 
 def check_level_gate():
@@ -570,6 +594,7 @@ def main():
     check_texpass_weather()
     check_scale()
     check_swatch_controls()
+    check_normal_lean()
     check_level_gate()
     check_far_units()
     check_low_frequency()

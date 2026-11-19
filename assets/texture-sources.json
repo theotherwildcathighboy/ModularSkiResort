@@ -127,6 +127,15 @@
         "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/corrugated_iron/corrugated_iron_rough_2k.png", "md5": "8a2258f4651f6050a227bae3095f0cbf"},
         "Metalness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/corrugated_iron/corrugated_iron_metal_2k.png", "md5": "bd71a637d562c44c95556b757fdab24a"}
       }
+    },
+    "PHRoofSlates02": {
+      "source": "Poly Haven", "id": "roof_slates_02", "page": "https://polyhaven.com/a/roof_slates_02",
+      "license": "CC0", "authors": {"Rob Tuytel": "All"}, "size_m": 3.0,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/roof_slates_02/roof_slates_02_diff_2k.png", "md5": "9dfce62ccfd1ef34cf5a4f3593c1af8b"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/roof_slates_02/roof_slates_02_nor_gl_2k.png", "md5": "dd7a5ad674b3590c26abd25c6f8927ea"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/roof_slates_02/roof_slates_02_rough_2k.png", "md5": "35898a535ffd197016f4602d6ccd679c"}
+      }
     }
   }
 }
