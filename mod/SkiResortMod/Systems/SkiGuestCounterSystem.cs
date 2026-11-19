@@ -779,7 +779,8 @@ namespace SkiResortMod.Systems
             int passesSold = 0, passHolders = 0;   // passes and lessons
             long passIncome = 0;
             int lessons = 0, passesPre = 0;
-            long lessonIncome = 0, passIncomePre = 0;
+            long lessonIncome = 0, passIncomePre = 0, spendIncome = 0;
+            int spends = 0;
             double lift = 0.0, notLinked = 0.0, bus = 0.0;
             for (int i = 0; i < m_Ledger.Count; i++)
             {
@@ -797,6 +798,8 @@ namespace SkiResortMod.Systems
                 passHolders += m.PassHolderGuests;
                 lessons += m.Lessons;
                 lessonIncome += m.LessonIncome;
+                spends += m.LodgeSpends;
+                spendIncome += m.LodgeSpendIncome;
                 passesPre += m.PassesPre;
                 passIncomePre += m.PassIncomePre;
                 lift += m.LiftCharged;
@@ -824,7 +827,7 @@ namespace SkiResortMod.Systems
             {
             Mod.Log.Info($"Guests [month] {month} all ski areas: guests {guests}, tickets +{income}, passes {passesSold} sold +{passIncome} " +
                          $"({passesPre} +{passIncomePre} before the season) " +
-                         $"with {passHolders} pass-holder guest(s), lessons {lessons} +{lessonIncome} ({feeText} of tickets, passes, lessons and " +
+                         $"with {passHolders} pass-holder guest(s), lessons {lessons} +{lessonIncome}, lodge spend {spends} +{spendIncome} ({feeText} of tickets, passes, lessons and " +
                          $"lodge spend booked as public transportation fees), lift charges -{lift:F0}, " +
                          $"ski bus -{bus:F0}, run upkeep {upkeepText} (whole city), " +
                          $"not linked lift charges -{notLinked:F0}; now picked by {parties} tourist part(ies) on the way, " +
@@ -853,6 +856,7 @@ namespace SkiResortMod.Systems
                    $"passes {m.PassesSold} sold +{m.PassIncome} ({m.PassesPre} +{m.PassIncomePre} before the season), " +
                    $"{m.PassHolderGuests} pass-holder guest(s); " +   // passes with their pre-season part, then lessons
                    $"lessons {m.Lessons} +{m.LessonIncome}; " +
+                   $"lodge spend {m.LodgeSpends} +{m.LodgeSpendIncome}; " +
                    $"lift charges -{m.LiftCharged:F0}; ski bus -{m.BusCharged:F0}";
         }
 

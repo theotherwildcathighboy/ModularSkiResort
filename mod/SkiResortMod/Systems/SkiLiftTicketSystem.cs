@@ -302,7 +302,7 @@ namespace SkiResortMod.Systems
                          "(open or patchy; a running lift alone does not open it), not known while the ski area's first score " +
                          "after a load is held; one job per 16-frame tick with arrivals; " +
                          $"lodge spend {LodgeSpend} per paying guest at a lodge (setting LodgeSpendPerGuest, 0 = off; read live; " +
-                         "× the lodge tier's multiplier, A-frame / hut 1, mid 1.5, luxury 3; after the ticket and the lesson, open gate only, " +
+                         "× the lodge tier's multiplier, A-frame / hut 1, mid 1.5, luxury 3, × sqrt(the day ticket price / "+SkiMoneyRules.TicketPriceDefault+") (the setting is the spend at the default ticket); after the ticket and the lesson, open gate only, " +
                          "never below 0; booked like the ticket: a fee each); " + PassArmedText() + "; " +
                          LessonArmedText());
             WarnRwhOnce();
@@ -381,7 +381,7 @@ namespace SkiResortMod.Systems
                 if (spend != LodgeSpend)
                 {
                     Mod.Log.Info($"Tickets [lodge spend] per paying guest at a lodge {LodgeSpend} → {spend}{(spend == 0 ? " (off)" : "")} " +
-                                 "(× the lodge tier's multiplier; charged after the ticket while the gate is open, never below 0)");
+                                 "(at the default ticket, × the lodge tier's multiplier, × sqrt(the day ticket price / "+SkiMoneyRules.TicketPriceDefault+"); charged after the ticket while the gate is open, never below 0)");
                     LodgeSpend = spend;
                 }
                 // 2a''. The two pass settings, live (take effect with the next job scheduled).
@@ -535,7 +535,7 @@ namespace SkiResortMod.Systems
                 if (lodgeDefs != null && a.Building != Entity.Null && a.Building != a.Sign &&
                     EntityManager.Exists(a.Building) && EntityManager.HasComponent<Game.Prefabs.PrefabRef>(a.Building) &&
                     lodgeDefs.TryGetValue(EntityManager.GetComponentData<Game.Prefabs.PrefabRef>(a.Building).m_Prefab, out LodgeDef lodge))
-                    spendPerPerson = SkiMoneyRules.LodgeSpendOf(spendSetting, lodge.SpendMultiplier);
+                    spendPerPerson = SkiMoneyRules.LodgeSpendOf(spendSetting, lodge.SpendMultiplier, price);
                 m_Requests.Add(new TicketRequest
                 {
                     Slot = slot,

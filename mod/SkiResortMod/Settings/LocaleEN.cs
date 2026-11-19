@@ -209,10 +209,11 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LodgeSpendPerGuest)),
-                    "What each paying ski guest also spends at the lodge they arrive at. Bigger lodges get more: at the " +
-                    "default, 15 at a hut or A-frame, 23 at a chalet and 45 at a summit or grand lodge. It comes out of " +
-                    "what the household has left after the lift ticket, so nothing is spent while lift tickets are off. " +
-                    "0 turns it off. Default 15."
+                    "What each paying ski guest also spends at the lodge they arrive at, at a ¢100 ticket. The spend follows " +
+                    "the ticket price, but slower: about 30 % less at ¢50, about 40 % more at ¢200. Bigger lodges get more: at the default, 15 at a hut or " +
+                    "A-frame, 23 at a chalet and 45 at a summit or grand lodge. It comes out of " +
+                    "what the household has left after the lift ticket and any lesson, so nothing is spent while lift tickets " +
+                    "are off. 0 turns it off. Default 15."
                 },
                 // Lessons and season passes.
                 {
