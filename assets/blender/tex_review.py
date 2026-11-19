@@ -36,6 +36,7 @@ Read-only on the game, the mod and every asset folder; writes only under --out.
 import json
 import math
 import os
+import re
 import sys
 
 import bpy
@@ -88,6 +89,8 @@ def _args():
     ap.add_argument("--ground", default="recipe", choices=("flat", "recipe"))
     ap.add_argument("--shots", default=None)
     ap.add_argument("--samples", type=int, default=SAMPLES)
+    ap.add_argument("--sun-rot", type=float, default=None, help="one sun rotation (deg) for every shot")
+    ap.add_argument("--fixed-sun", action="store_true", help="the rig's 135 deg for every shot (the pilot's renders)")
     ap.add_argument("--a", default=None)
     ap.add_argument("--b", default=None)
     ap.add_argument("--cols", default=None)
@@ -241,10 +244,43 @@ def load_vanilla(rp, bench, scripts=VANILLA_SCRIPTS):
     return o, mdir, mname, tint
 
 
-def recipe_tint(key):
+def shipped_slots(asset_dir, name):
+    """The slot colors the game multiplies in: the manifest's `tiled.slots_v2.defaults` (= the mesh prefab's VariationSet
+    after --slots v2), or None. recipe.slots is the pre-slots-v2 table: with it the slot-2 trim boards and the slot-3
+    casings render in colors the game never shows (P1: orange fascias, pale casings)."""
+    base = re.sub(r"_LODd$", "", name)
+    path = os.path.join(asset_dir, f"{base}.manifest.json")
+    if not os.path.exists(path):
+        return None
+    try:
+        d = json.load(open(path)).get("tiled", {}).get("slots_v2", {}).get("defaults")
+    except (OSError, ValueError):
+        return None
+    if not d:
+        return None
+    return {"RGB"[i]: tuple(d[f"slot{i + 1}"]) for i in range(3) if f"slot{i + 1}" in d}
+
+
+def recipe_tint(key, asset_dir=None, name=None):
     import bldg_recipes as R
     rec = R.get_recipe(key)
-    return {"RGB"[k - 1]: tuple(v) for k, v in rec.slots.items()}, rec
+    tint = shipped_slots(asset_dir, name) if asset_dir and name else None
+    return tint or {"RGB"[k - 1]: tuple(v) for k, v in rec.slots.items()}, rec
+
+
+# Sun rotation per shot (sky node degrees; the rig's default 135 puts the sun toward +X / -Y, behind the arrival
+# cameras). The back and west-side shots get the sun behind THEIR camera, or the facade they look at stands in full
+# shade and its weathering bands cannot be judged. --sun-rot overrides every shot; --fixed-sun keeps 135 everywhere
+# (the L2 pilot's renders).
+SHOT_SUN = {"back_d20": 315.0, "back_d45": 315.0, "deck_d8": 315.0, "side_d12": 45.0}
+
+
+def set_sun(world, sun, rot_deg, elevation_deg):
+    sky = next(n for n in world.node_tree.nodes if n.bl_idname == "ShaderNodeTexSky")
+    sky.sun_rotation = math.radians(rot_deg)
+    r, e = math.radians(rot_deg), math.radians(elevation_deg)
+    d = mathutils.Vector((-math.cos(r) * math.cos(e), -math.sin(r) * math.cos(e), math.sin(e)))
+    sun.rotation_euler = (-d).to_track_quat("-Z", "Y").to_euler()
 
 
 def ground(rig, rec, mode):
@@ -338,14 +374,14 @@ def render(a):
         mdir, mname = (parts[2], parts[3]) if len(parts) >= 4 else (adir, name)
         o, subs = load_ours(adir, name, a.tag)
         if a.recipe:
-            tint, rec = recipe_tint(a.recipe)
+            tint, rec = recipe_tint(a.recipe, adir, name)
     elif a.vanilla:
         o, mdir, mname, tint = load_vanilla(a.vanilla, a.bench, a.vanilla_scripts)
     else:
         raise SystemExit("render needs --ours or --vanilla")
     rig = P._Rig(o, a.samples)
     cam = P._make_camera(rig)
-    P._make_world(rig, **P.NOON)
+    world, sun = P._make_world(rig, **P.NOON)
     gnd = ground(rig, rec, a.ground if a.ours else "flat")
     sc = rig.scene
     sc.render.resolution_x, sc.render.resolution_y = RES
@@ -365,9 +401,13 @@ def render(a):
         store[key] = cams
         json.dump(store, open(cams_path, "w"), indent=1)
         print(f"[tex_review] cameras resolved for {[s[0] for s in missing]} -> {cams_path}")
-    written = {}
+    written, suns = {}, {}
     for name, *_rest in shots:
         cdef = cams[name]
+        rot = P.SKY_ROTATION_DEG if a.fixed_sun else SHOT_SUN.get(name, P.SKY_ROTATION_DEG)
+        rot = float(a.sun_rot) if a.sun_rot is not None else rot
+        set_sun(world, sun, rot, P.NOON["elevation_deg"])
+        suns[name] = rot
         cam.location = mathutils.Vector(cdef["loc"])
         cam.rotation_euler = mathutils.Euler(cdef["rot"])
         path = os.path.join(out, f"{name}.png")
@@ -375,7 +415,7 @@ def render(a):
         written[name] = os.path.basename(path)
         print(f"[tex_review] {a.tag} {name} -> {path}")
     json.dump({"tag": a.tag, "ours": a.ours, "vanilla": a.vanilla, "recipe": a.recipe, "cams": cams_path,
-               "samples": a.samples, "renders": written}, open(os.path.join(out, "renders.json"), "w"), indent=1)
+               "samples": a.samples, "renders": written, "sun_rot": suns, "tint": tint}, open(os.path.join(out, "renders.json"), "w"), indent=1)
 
 
 # ---------------------------------------------------------------- images
