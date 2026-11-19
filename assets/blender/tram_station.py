@@ -442,6 +442,10 @@ TRACK_ROPE_SEGS = {"base": 8, "top": 6}
 # build_checked), like FINE_DETAIL. With the flag off, the code reads TRACK_ROPE_SEGS as before.
 TILED = False
 TILED_TRACK_ROPE_SEGS = 6
+# Texture pass (--tiled --texpass v1, r4/tex 2026-11-19, docs/PIPELINE.md 1b): tram_tilesheet.TEXPASS swaps swatch
+# SOURCES on the station sheet and material_table gives the far bake the same scans. apply_texpass() sets TEXPASS from the
+# run's args (main / build_checked), like TILED. Off (None) = byte-identical: no geometry, part or contract reads it.
+TEXPASS = None
 # T76 R2 (parent's call on D4, 2026-10-18): under --tiled the unique bake is the LOD1 / LOD2 far set (seen past ~250 m). Its
 # weathering ladder starts lower. So a 1024 far set (the top) finds a budget-clean step instead of a 2048 atlas
 TILED_FAR_WEATHER_STEPS = (0.10, 0.15, 0.20, 0.25, 0.30, 0.35)
@@ -871,6 +875,11 @@ def material_table(role, finish=True):
         for k, rgb in flat.items():
             metal = 1.0 if k in ("galv", "dplate") else 0.0
             t[k] = dict(albedo=rgb, metal=metal, rough=0.6)
+    elif TEXPASS:
+        # texture pass: the far bake (LOD1 / LOD2) draws the scans, tiles and tints the sheet swatches draw (gate P11)
+        import tram_tilesheet as TT
+        for k, f in TT.texpass_far_fields().items():
+            t[k] = dict(t[k], **f)
     return t
 
 
@@ -7591,12 +7600,25 @@ def apply_tiled(args):
     return TILED
 
 
+def apply_texpass(args):
+    """Texture pass: TEXPASS follows the run's own args (--texpass), every run (main / build_checked). On: the sheet's
+    pass keys are registered (tram_tilesheet.register_texpass). Off: tram_tilesheet is not imported here."""
+    global TEXPASS
+    v = getattr(args, "texpass", None)
+    TEXPASS = None if v in (None, "off") else v
+    if TEXPASS or "tram_tilesheet" in sys.modules:
+        import tram_tilesheet as TT
+        TT.register_texpass(TEXPASS, int(getattr(args, "tiled_step", 0) or 0))
+    return TEXPASS
+
+
 def build_checked(argv, inject=None):
     """Tests: parse `argv`, clear, assemble (with an optional violation injected) and run the
     contract stage. Returns (t, win, table, report)."""
     args = parse_args(argv)
     apply_fine(args)
     apply_tiled(args)
+    apply_texpass(args)
     clear_scene()
     t, table, _src, _meta = assemble(args.role, args, bool(args.finish), inject=inject)
     report = {"role": args.role, "wheels": bool(args.wheels) if args.role == "top" else None}
@@ -7650,9 +7672,14 @@ def parse_args(argv=None):
                     help="tiled: the sheet workspace (default <out>/_SkiTramSheet<letter>, beside the asset folders)")
     ap.add_argument("--tiled-step", type=int, default=0, choices=(0, 1, 2),
                     help="tiled: the fallback ladder (plan 3.3) steps 1..N applied (0 = the plan's set)")
+    ap.add_argument("--texpass", default="off", choices=("off", "v1"),
+                    help="tiled: texture pass on the station sheet and the far set (tram_tilesheet.TEXPASS: swatch "
+                         "sources at real-world scale, the period of every key kept); off = byte-identical")
     a = ap.parse_args(argv)
     if a.tiled and not a.finish:
         ap.error("--tiled needs --finish (the sheet LOD0 is a finished build)")
+    if a.texpass != "off" and not a.tiled:
+        ap.error("--texpass needs --tiled (the pass swaps swatches of the station sheet)")
     if a.atlas is None:
         a.atlas = "auto" if a.role == "base" else "2048"
     if a.skirt and a.role != "top":
@@ -7691,6 +7718,7 @@ def main(argv=None):
     args = parse_args(argv)
     apply_fine(args)                        # fine-detail step 3c: every run follows its own args (--no-fine)
     apply_tiled(args)                       # T76: every run follows its own args (--tiled)
+    apply_texpass(args)                     # texture pass: every run follows its own args (--texpass)
     clear_scene()
     role = args.role
     name = cs2_asset.validate_asset_name(args.name or NAMES[role])

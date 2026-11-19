@@ -34,6 +34,7 @@ WEATHER (Q4: a weathered swatch per EXISTING piece, no band cuts): after tile_me
 move from the clean swatch to its "~w" cell (same relative position, so the pattern continues).
 """
 
+import dataclasses
 import hashlib
 import json
 import math
@@ -129,6 +130,149 @@ WEATHER_BACK_NZ = -0.7                     # a wall piece is on the back when it
 # missing back face through the glass from the hall). The code fills their open boundary loops on the LOD0 copy
 GLASS_BACKED = ("door_hall_leaf", "door_opcab_leaf", "board_dep")
 
+# ---- texture pass v1 (r4/tex 2026-11-19, docs/PIPELINE.md 1b; tram_station.py --tiled --texpass v1) ----------------
+# Swatch SOURCE swaps on the station sheet by the lodge pilot's method. Every key keeps its period T (tile x repeat),
+# so the LOD0 cut grid, the tris and the px/m per part do not move: only sheet pixels and far-set pixels change. Inert
+# unless register_texpass("v1") runs: flag off is byte-identical and the sheet hash is unchanged.
+#   set / tile_m      the scan and its IMAGE tile (u, v) in meters. The shipped sheet drew the 2:1 Bricks096 / Concrete034
+#                     images on SQUARE tiles (stones and trowel marks stretched 2 x up the wall); a 2:1 tile_m stacks
+#                     the image as the lodges do (cs2_bldg.prefilter_set)
+#   target_srgb       the swatch mean (encoded). Stone: the lodge family's stone_rubble mean (one resort, one quarry;
+#                     the shipped tram stone drew the scan's native olive). Timber: the shipped swatch mean, held
+#   smooth_mean       MaskMap A mean of the swatch (the shipped swatch's, so the pass moves no gloss)
+#   chroma / flatten_m / contrast / normal_gain   cs2_tilesheet.texpass_apply's controls (same meaning, same order)
+#   proc              a procedural layer on top (_procedural), as the flat swatches have (None drops the swatch's own)
+#   flat_to_scan      a FLAT recolor swatch becomes a scan swatch (no slot, no metal, the scan's roughness). Its tile
+#                     must be the swatch's T (repeat 1): tile_mesh keeps dividing a flat key by FLAT_TILE_M
+TEXPASS_VERSION = "+tex1"
+TEXPASS = {
+    "v1": {
+        # the lodge family's stone at (almost) its scale: 3.0 x 1.5 m against the lodges' 3.2 x 1.6 (the period 6.0 m
+        # allows 3.0, not 3.2). chroma 0.6: the scan's green lichen and orange stones turn loud under the tint.
+        # normal_gain 1.4: at 160 px/m the prefiltered relief reads flat (tilt rms 9.9 deg, walls want 15-25)
+        "tram_stone": dict(set="Bricks096", tile_m=(3.0, 1.5), target_srgb=(0.455, 0.435, 0.400), smooth_mean=0.416,
+                           chroma=0.6, normal_gain=1.4),
+        # true aspect (the set is ca. 1.1 x 0.55 m, ambientCG): the square tile stays 3.0 m. contrast 0.6 +
+        # flatten_m: the trowel arcs repeat every 3.0 x 1.5 m and read as a grid on the top station's plinth.
+        # proc "form": formwork panel joints, tie holes and a tone per pour
+        "tram_concrete": dict(set="Concrete034", tile_m=(3.0, 1.5), smooth_mean=0.484, flatten_m=0.15, contrast=0.6,
+                              proc="form"),
+        # WoodSiding013 is a procedural SHINGLE set (ca. 1.4 m): at 2.4 m it drew 30 cm courses with moss lines. The
+        # lodge pass's board scan at its true size: 1.57 m at 1.6 m (x 1.02), 14 boards a tile = 11.4 cm rough-sawn
+        # boards (its autocorrelation peaks at 1 and at 2 boards: the stronger 2-board peak reads as "23 cm")
+        "tram_timber": dict(set="PHWeatheredPlankSiding", tile_m=(1.6, 1.6), target_srgb=(0.406, 0.352, 0.275),
+                            smooth_mean=0.342, normal_gain=1.6),
+    },
+}
+# real-world course / board pitch (m) a pass key must show at its tile (the lodge gate P6's rule)
+TEXPASS_PITCH = {"tram_timber": (0.10, 0.20)}
+# the far bake's material-table key of each pass key (tram_station.material_table): the far set draws what LOD0 draws
+TEXPASS_FAR = {"tram_stone": "stone", "tram_concrete": "concrete", "tram_timber": "timber"}
+TEXPASS_FAR_PPM = 16.0          # far-set px/m the far sources are prefiltered for (x cs2_bldg.PREFILTER_FACTOR)
+TEXPASS_FIELDS = ("set", "tile_m", "target_srgb")
+_TEXPASS = {"version": None, "smooth": {}, "far": None}
+
+
+def texpass_version():
+    return _TEXPASS["version"]
+
+
+def _ts_tag(version):
+    return "tram-" + version        # also a folder name (cs2_tilesheet.texpass_far_specs): no colon
+
+
+def _sw(key):
+    """SWATCHES[key] with the active pass's source over it ("tile" = the edge of the SQUARE tile). Unchanged when off."""
+    bk = TS.base_key(key)
+    d = SWATCHES[bk]
+    v = _TEXPASS["version"]
+    s = TEXPASS[v].get(bk) if v else None
+    if not s:
+        return d
+    out = dict(d, set=s["set"], tile=float(max(s["tile_m"])))
+    if "proc" in s:
+        out["proc"] = s["proc"]
+    return out
+
+
+def register_texpass(version, step=0):
+    """tram_station.py --texpass VERSION: the pass's keys take their scan, image tile and mean in cs2_bldg.BLDG_MATERIALS
+    (the sheet and the far bake both read it) through cs2_tilesheet's own pass registry (register_texpass / texpass_swatch /
+    texpass_apply, entered in-process under "tram-<version>": the register_materials idiom), so the swatch controls run
+    in cs2_tilesheet._swatch_maps exactly as on the lodge sheet. None / "off" restores the originals. Idempotent."""
+    if version in (None, "off"):
+        unregister_texpass()
+        return
+    if _TEXPASS["version"] == version:
+        return
+    unregister_texpass()
+    register_materials(step)
+    specs = TEXPASS[version]
+    for k, s in sorted(specs.items()):
+        r = swatch_T(k, step) / float(max(s["tile_m"]))
+        if abs(r - round(r)) > 1e-9:
+            raise ValueError(f"texpass {version}: {k} period {swatch_T(k, step)} m is not a multiple of {s['tile_m']}")
+    keep = TEXPASS_FIELDS + tuple(TS.TEXPASS_CONTROLS)
+    TS.TEXPASS[_ts_tag(version)] = {k: {f: s[f] for f in keep if f in s} for k, s in specs.items()}
+    TS.register_texpass(_ts_tag(version))
+    for k, s in sorted(specs.items()):
+        if "target_srgb" in s and K.BLDG_MATERIALS[k].tint is not None:
+            # a pass mean replaces the swatch's explicit tint (BldgMat.tint overrides target_srgb)
+            K.BLDG_MATERIALS[k] = dataclasses.replace(K.BLDG_MATERIALS[k], tint=None)
+        if s.get("flat_to_scan"):
+            if abs(float(max(s["tile_m"])) - swatch_T(k, step)) > 1e-9:
+                raise ValueError(f"texpass {version}: {k} flat_to_scan needs tile == T {swatch_T(k, step)} m")
+            K.BLDG_MATERIALS[k] = dataclasses.replace(K.BLDG_MATERIALS[k], metal=0.0, slot=0, recolor=False,
+                                                      smooth=None)
+        if "smooth_mean" in s:
+            _TEXPASS["smooth"][k] = TS.SMOOTH_TARGET.get(k)
+            TS.SMOOTH_TARGET[k] = float(s["smooth_mean"])
+    _TEXPASS["version"] = version
+
+
+def unregister_texpass():
+    v = _TEXPASS["version"]
+    if v is None:
+        return
+    if TS.texpass_version() == _ts_tag(v):
+        TS.unregister_texpass()
+    TS.TEXPASS.pop(_ts_tag(v), None)
+    for k, old in _TEXPASS["smooth"].items():
+        if old is None:
+            TS.SMOOTH_TARGET.pop(k, None)
+        else:
+            TS.SMOOTH_TARGET[k] = old
+    _TEXPASS.update(version=None, smooth={}, far=None)
+
+
+def texpass_far_fields():
+    """{far-bake key: {texture_set, metres_per_tile, tint}} for tram_station.material_table under the pass ({} when off):
+    each pass key's scan prefiltered on its stacked square tile (cs2_bldg.material_specs) and run through the same swatch
+    controls as the sheet swatch (cs2_tilesheet.texpass_far_specs, the lodge gate P11), so LOD1 / LOD2 draw what LOD0
+    draws. The far FBX do not change: the far pack reads UVMap, the tile only moves the sampling."""
+    v = _TEXPASS["version"]
+    if not v:
+        return {}
+    if _TEXPASS["far"] is None:
+        keys = sorted(k for k in TEXPASS[v] if k in TEXPASS_FAR)
+        specs, _info = K.material_specs(keys, TEXPASS_FAR_PPM)
+        specs = TS.texpass_far_specs(specs)
+        _TEXPASS["far"] = {TEXPASS_FAR[k]: dict(texture_set=s.texture_set, metres_per_tile=float(s.metres_per_tile),
+                                                tint=tuple(float(x) for x in K._rgb3(s.tint)))
+                           for k, s in specs.items()}
+    return {k: dict(f) for k, f in _TEXPASS["far"].items()}
+
+
+def texpass_report():
+    """The manifest's tiled.texpass block (None when off): the pass, its specs and the far bake's sources."""
+    v = _TEXPASS["version"]
+    if not v:
+        return None
+    far = {k: dict(f, texture_set=os.path.basename(f["texture_set"]), tint=[round(x, 4) for x in f["tint"]])
+           for k, f in texpass_far_fields().items()}
+    return {"version": v, "specs": _jsonable(TEXPASS[v]), "pitch_m": _jsonable(TEXPASS_PITCH), "far": far,
+            "far_ppm": TEXPASS_FAR_PPM * K.PREFILTER_FACTOR}
+
 
 def register_materials(step=0):
     """The station swatches in cs2_bldg / cs2_tilesheet's lookup tables (in-process, setdefault)."""
@@ -154,7 +298,7 @@ def swatch_T(key, step=0):
 
 
 def swatch_repeat(key, step=0):
-    d = SWATCHES[TS.base_key(key)]
+    d = _sw(key)
     if not d.get("set"):
         return 1
     r = swatch_T(key, step) / float(d["tile"])
@@ -212,6 +356,9 @@ def layout_hash(layout):
          "label_rects": layout["label_rects"], "step": layout["step"],
          "mats": {k: repr(K.BLDG_MATERIALS[k]) for k in SWATCHES}, "w": W_CLASS,
          "smooth_gain": TS.SMOOTH_GAIN}
+    if _TEXPASS["version"]:             # texture pass: the flag-off blob keeps its key set
+        d["v"] += TEXPASS_VERSION
+        d["texpass"] = {_TEXPASS["version"]: TEXPASS[_TEXPASS["version"]]}
     return hashlib.sha1(json.dumps(d, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:16]
 
 
@@ -225,7 +372,7 @@ def check_layout(layout):
         p = t["pad"]
         rects.append((k, x0 - p, y0 - p, C + 2 * p, C + 2 * p))
         if TS.base_key(k) in SWATCHES and SWATCHES[TS.base_key(k)].get("set"):
-            r = t["T_m"] / SWATCHES[TS.base_key(k)]["tile"]
+            r = t["T_m"] / _sw(k)["tile"]
             if abs(r - round(r)) > 1e-9:
                 bad[f"{k} T"] = t["T_m"]
     rects.append(("palette",) + tuple(layout["palette_rect"]) + (layout["palette_rect"][2],))
@@ -318,6 +465,27 @@ def _procedural(proc, key, b, n, sm, C, T, seed):
         n = _height_normal(n, h, ppm)
         b = np.where(holes[..., None], 0.02, b)
         sm = np.where(holes, 0.15, sm)
+    elif proc == "form":
+        # texture pass: formed concrete. T / 2 x T / 4 panels (3.0 x 1.5 m) in running bond (4 rows: the half-panel
+        # shift wraps), a 16 mm joint 4 mm deep and six 25 mm tie cones a panel in the NORMAL only (detail under 5 cm
+        # lives in the normal map), and a +-2 % tone per panel in the albedo (pours differ: the one cue that still reads
+        # at play distance). Walls: joints level and plumb (box projection). Slabs: the same grid reads as saw cuts
+        pw, ph = T / 2.0, T / 4.0
+        row = np.floor(V / ph)
+        uu = U + (row % 2) * (pw / 2.0)
+        lu, lv = uu % pw, V % ph
+        d = np.minimum(np.minimum(lu, pw - lu), np.minimum(lv, ph - lv))
+        w, depth = 0.016, 0.004
+        h = np.where(d < w / 2, -depth * 0.5 * (1.0 + np.cos(np.pi * d / (w / 2))), 0.0)
+        for cu in (pw / 6.0, pw / 2.0, 5.0 * pw / 6.0):
+            for cv in (ph / 4.0, 3.0 * ph / 4.0):
+                r = np.hypot(lu - cu, lv - cv)
+                h = np.minimum(h, -0.006 * np.clip(1.0 - r / 0.0125, 0.0, 1.0))
+        n = _height_normal(n, h, ppm)
+        pid = (np.floor(uu / pw) % 2 + 2 * (row % 4)).astype(np.int64)          # 8 panels a swatch
+        pseed = int(hashlib.sha1(key.encode()).hexdigest()[:8], 16)             # the base key: "~w" continues the panels
+        tone = np.random.default_rng(pseed).permutation(np.linspace(-1.0, 1.0, 8))[pid]
+        b = b * (1.0 + 0.02 * tone)[..., None]
     else:
         raise KeyError(proc)
     return np.clip(b, 0, 1), n, np.clip(sm, 0, 1), holes
@@ -329,7 +497,7 @@ def swatch_maps(key, C, rep, T, cache_dir=None):
     b, n, metal, sm, slot, info = TS._swatch_maps(bk, C, cache_dir, repeat=rep, layout_name="tram")
     seed = int(hashlib.sha1(key.encode()).hexdigest()[:8], 16)
     holes = None
-    proc = SWATCHES[bk].get("proc")
+    proc = _sw(bk).get("proc")
     if proc:
         b, n, sm, holes = _procedural(proc, bk, b, n, sm, C, T, seed)
         info["proc"] = proc
@@ -1227,6 +1395,8 @@ def tiled_lod0(ts, far, lod0, role, name, args, asset_dir, bake, table, report):
         "T4": _jsonable(t4), "C18_tiled": t6, "glass_backed_closed": closed, "glazepanel_parts_main": glz, "lod0_hash": mesh_hash(lod0),
         "seconds": round(time.perf_counter() - t0, 1),
     }
+    if _TEXPASS["version"]:
+        report["tiled"]["texpass"] = texpass_report()
     print(f"[tram] tiled: LOD0 {n_before} -> {n0} tris (cap {cap}, headroom {cap - n0}) on {sname} "
           f"({tm['sliced_tris']} tris sliced, {tm['tjunction_inserts']} T-junction inserts, "
           f"{len(strips)} strip parts, routes {report['tiled']['route_counts']})")
