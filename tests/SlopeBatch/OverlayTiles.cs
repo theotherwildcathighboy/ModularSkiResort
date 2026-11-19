@@ -149,6 +149,13 @@ namespace SlopeBatch
             Check(SkiSlopeOverlayTiles.FadeLevel(15.0, 15f) == SkiSlopeOverlayTiles.FadeLevels, w, "15 m in");
             Check(SkiSlopeOverlayTiles.FadeLevel(3.0, 0f) == SkiSlopeOverlayTiles.FadeLevels, w, "no fade");
             Check(SkiSlopeOverlayTiles.FadeLevel(double.NaN, 15f) == 1, w, "NaN");
+            // DisplayUnits.StripKey reads the green band as raw 1 (ResortBatch links DisplayUnits without the classifier).
+            string k = "overlay/stripkey";
+            Check((byte)SlopeBand.Green == 1, k, "SlopeBand.Green moved off 1: DisplayUnits.StripKey and EuClassOf read it raw");
+            Check(DisplayUnits.StripKey((byte)SlopeBand.Green, 0.20f, true) == DisplayUnits.StripKeyEuBlue, k, "EU 20 % green cell");
+            Check(DisplayUnits.StripKey((byte)SlopeBand.Green, 0.10f, true) == (byte)SlopeBand.Green, k, "EU 10 % green cell");
+            Check(DisplayUnits.StripKey((byte)SlopeBand.Green, 0.20f, false) == (byte)SlopeBand.Green, k, "NA 20 % green cell");
+            Check(DisplayUnits.StripKey((byte)SlopeBand.Blue, 0.30f, true) == (byte)SlopeBand.Blue, k, "EU blue-band cell");
         }
 
         private static void OverlayRuns()

@@ -347,6 +347,18 @@ namespace SkiResortMod.Settings
                     "within the ski area radius. It adds the vertical above the snow line and how much ground lies above it. " +
                     "Default on."
                 },
+                // The slope overlay (T253)
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ShowSlopeOverlay)),
+                    "Show slope colors around the cursor"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowSlopeOverlay)),
+                    "When enabled, the ground within 300 m of the cursor shows its slope in the ski run colors. Green is under 25 %, " +
+                    "blue to 40 %, black to 60 % and double black above. The European grading uses its own colors. A run is rated by " +
+                    "its steepest stretch that skiers cannot go around. A steep patch beside an easier line does not set the run's " +
+                    "color. The hub's Runs tab has a Slope colors button too. Default off."
+                },
                 // The ski area ring
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ShowSkiAreaRadius)),
@@ -636,6 +648,18 @@ namespace SkiResortMod.Settings
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleQuickRuns), "Toggle Resort Planner" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleQuickRuns), "Resort Planner" },
+                // The slope overlay (T253)
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ToggleSlopeOverlayBinding)),
+                    "Slope colors: toggle"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleSlopeOverlayBinding)),
+                    "Turns the slope colors around the cursor on or off. The Runs option \"Show slope colors around the cursor\" " +
+                    "and the Slope colors button on the hub's Runs tab do the same. Default Ctrl+Shift+O."
+                },
+                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleSlopeOverlay), "Toggle slope colors" },
+                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleSlopeOverlay), "Slope colors" },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleGlade), "Toggle tree tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleGlade), "Tree tool" },
                 // The two persisted actions keep their names. Only the labels and descriptions change.

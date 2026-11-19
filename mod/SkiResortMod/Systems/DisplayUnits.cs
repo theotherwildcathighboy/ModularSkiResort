@@ -297,11 +297,11 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The color key of a painted cell (the run heat-map and the slope overlay): its band 0..4, except a European green-band cell at
-        /// EuGreenMaxPct or more, which is StripKeyEuBlue (EuClassOf on the cell's own grade). Same-key cells merge into one strip.</summary>
+        /// EuGreenMaxPct or more, which is StripKeyEuBlue (EuClassOf on the cell's own grade; band 1 = SlopeBand.Green, raw like EuClassOf because ResortBatch links this file without the classifier). Same-key cells merge into one strip.</summary>
         public const byte StripKeyEuBlue = 5;
 
         public static byte StripKey(byte band, float grade, bool eu) =>
-            eu && band == (byte)SlopeBand.Green && grade * 100f >= EuGreenMaxPct ? StripKeyEuBlue : band;
+            eu && band == 1 && grade * 100f >= EuGreenMaxPct ? StripKeyEuBlue : band;
 
         /// <summary>The SlopeBand value a European class belongs to (Green and Blue both read the Green band).</summary>
         public static int BandOfEuClass(EuClass c)

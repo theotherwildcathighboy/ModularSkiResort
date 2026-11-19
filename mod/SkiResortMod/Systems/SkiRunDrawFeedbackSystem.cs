@@ -265,6 +265,12 @@ namespace SkiResortMod.Systems
         public Readout CurrentReadout => m_Readout;
         public bool ReadoutLive => m_ReadoutLive;
 
+        /// <summary>T253: the grid whose cells the heat-map paints this frame (ring mode, a valid readout, strips built), else null. The slope
+        /// overlay (SkiSlopeOverlaySystem, ordered after this system) leaves these cells to the heat-map.</summary>
+        internal SlopeGrid PaintedGrid =>
+            m_ReadoutLive && m_ReadoutFrame == UnityEngine.Time.frameCount && m_Readout.Valid && m_StripCount > 0 && m_Grid != null &&
+            !m_Grid.PolylineMode ? m_Grid : null;
+
         /// <summary>One Projected strip: segment a -> b, width (m), color.</summary>
         private struct Strip
         {

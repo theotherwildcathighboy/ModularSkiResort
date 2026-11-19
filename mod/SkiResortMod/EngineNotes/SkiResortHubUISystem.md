@@ -501,6 +501,10 @@ Appended fields and bindings by contract:
 - 56 (1.0.2, r3/sliders, DECISIONS 677): `CityStats` appends `passPrice`, the Options `SeasonPassPrice` in money (20..2,000, step
   20). The contract adds the `setPassPrice(int)` trigger for the Money view's season pass slider. C# `ApplyPassPrice` clamps it with
   `ClampPassPrice` and saves the options file. The ticket price and the pass slider commit on release only.
+- 57 (1.0.3, T253, r4/slope-overlay): the `slopeOverlay` value binding (bool, `SkiSlopeOverlaySystem.IsOn`) and the
+  `setSlopeOverlay(on)` trigger for the Runs tab's Slope colors chip. The trigger goes through `RequestKind.SetSlopeOverlay` to
+  `SkiSlopeOverlaySystem.RequestSet`, which saves `ShowSlopeOverlay` like the hotkey (Ctrl+Shift+O). Panel binding, no Demand.
+  See EngineNotes/SkiSlopeOverlaySystem.md.
 - 42: the runs-first plans (Resort Planner round, task R2-b). `QuickRunsState` loses `mix`, `liftsKnob` and `home`. `QuickRunsLift` loses
   `wantedKey` and gains `flagged`, `waits`, `overLimitTowers`. `QuickRunsPlan` loses `pods` and gains `trackKm`. `QuickRunsState` gains `tracks`
   and `QuickRunsPod` gains `tracks`. `runs`, `enabled`, `count` and `variety` count pistes only. `QuickRunsSheetRow` gains `flagged`, `waits`,

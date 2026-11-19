@@ -470,8 +470,9 @@ type Game.Rendering.LightingSystem class fcc07f6927
 type Game.Rendering.NotificationIconRenderSystem class 83a26fc008
 type Game.Rendering.ObjectColorSystem class bf57bbeba9
 type Game.Rendering.ObjectInterpolateSystem class 5c620b5774
+type Game.Rendering.OverlayInfomodeSystem class 66b0d14fa2
 type Game.Rendering.OverlayRenderSystem class e9faffedcc
-type Game.Rendering.OverlayRenderSystem.Buffer struct e9faffedcc burst:r:SkiPisteMapSystem,SkiRunDrawFeedbackSystem,SkiRunOutlineSystem m_ProjectedCurves:NativeList<CurveData> m_AbsoluteCurves:NativeList<CurveData> m_CustomMeshes:NativeList<CustomMeshdData> m_TextMeshes:NativeList<TextMeshData> m_Bounds:NativeValue<BoundsData> m_PositionY:float m_ScaleY:float
+type Game.Rendering.OverlayRenderSystem.Buffer struct e9faffedcc burst:r:SkiPisteMapSystem,SkiRunDrawFeedbackSystem,SkiRunOutlineSystem,SkiSlopeOverlaySystem m_ProjectedCurves:NativeList<CurveData> m_AbsoluteCurves:NativeList<CurveData> m_CustomMeshes:NativeList<CustomMeshdData> m_TextMeshes:NativeList<TextMeshData> m_Bounds:NativeValue<BoundsData> m_PositionY:float m_ScaleY:float
 type Game.Rendering.PreCullingSystem class 4757a27628
 type Game.Rendering.RenderingSystem class 577547827a
 type Game.Rendering.RouteBufferSystem class 0610c4b152
@@ -837,5 +838,6 @@ burstsystem SkiReachCensusSystem
 burstsystem SkiResortAttractivenessSystem
 burstsystem SkiRunDrawFeedbackSystem
 burstsystem SkiRunOutlineSystem
+burstsystem SkiSlopeOverlaySystem
 burstsystem SkiSnowInjectionSystem
 burstsystem TrainBoneSystem

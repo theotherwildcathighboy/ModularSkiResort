@@ -31,6 +31,7 @@ namespace SkiResortMod.Settings
     [SettingsUIKeyboardAction(ActCatTrackDeleteMode)]
     [SettingsUIKeyboardAction(ActCatTrackSkiWay)]
     [SettingsUIKeyboardAction(ActToggleQuickRuns)]
+    [SettingsUIKeyboardAction(ActToggleSlopeOverlay)]
     public sealed class SkiResortSettings : ModSetting
     {
         public const string SectionMain = "Main";
@@ -60,6 +61,7 @@ namespace SkiResortMod.Settings
         public const string ActCatTrackDeleteMode = "CatTrackDeleteMode";
         public const string ActCatTrackSkiWay = "CatTrackSkiWay";
         public const string ActToggleQuickRuns = "ToggleQuickRunsTool";
+        public const string ActToggleSlopeOverlay = "ToggleSlopeOverlay";
 
         public const int DefaultAttractivenessScaleK = 4;
         public const int DefaultBackcountryValuePercent = 40;
@@ -320,6 +322,12 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool ShowSkiAreaRadius { get; set; }
 
+        /// <summary>T253: the slope overlay. The ground within SkiSlopeOverlaySystem.RadiusM of the cursor shows each cell's slope band in the
+        /// run colors (SkiSlopeOverlaySystem). Also the hub's Slope colors chip and the ToggleSlopeOverlay key; both save the settings.
+        /// Default off. A settings file from 1.0.2 or older has no key and loads the default.</summary>
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public bool ShowSlopeOverlay { get; set; }
+
         /// <summary>Write each ski run's name flat on the ground at the run's center, in the piste-map color of its difficulty, while the
         /// camera is at piste-map distance (SkiRunLabelSystem). Read live every frame. Default on.</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
@@ -496,6 +504,13 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding ToggleQuickRunsToolBinding { get; set; }
 
+        /// <summary>Toggles the slope overlay (ShowSlopeOverlay, default Ctrl+Shift+O). Polled by SkiSlopeOverlaySystem in a loaded city.
+        /// Ctrl+Shift+O is free in vanilla (no Ctrl+Shift letter) and in the surveyed mods (docs T214-keys: ImageOverlay is plain Ctrl+O,
+        /// and mod key matching is exact on modifiers).</summary>
+        [SettingsUIKeyboardBinding(BindingKeyboard.O, ActToggleSlopeOverlay, ctrl: true, shift: true)]
+        [SettingsUISection(SectionMain, GroupKeybindings)]
+        public ProxyBinding ToggleSlopeOverlayBinding { get; set; }
+
         /// <summary>Write-only button with the game's confirmation dialog (message: GetOptionWarningLocaleID,
         /// AutomaticSettings.cs:1146-1166). Same pattern as GeneralSettings.resetSettings (GeneralSettings.cs:138-146). Restores every
         /// option and the key bindings to their defaults, then saves.</summary>
@@ -559,6 +574,7 @@ namespace SkiResortMod.Settings
             ContourLinesWhileDrawingRuns = true;
             ShowSnowLineWhilePlacing = true;
             ShowSkiAreaRadius = true;
+            ShowSlopeOverlay = false;
             ShowRunNamesOnTheHill = true;
             RunOutlineSize = DefaultRunOutlineSize;
             SnowGunPlumes = DefaultSnowGunPlumes;

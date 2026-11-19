@@ -121,6 +121,7 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`SkiRunTreeMember.md`](SkiRunTreeMember.md) -> SkiRunTreeMember: why glade trees carry a tag instead of Owner(run), and the save layout of that tag
 - [`SkiRunUpkeepSystem.md`](SkiRunUpkeepSystem.md) -> SkiRunUpkeepSystem: how run operating costs are billed, booked and logged
 - [`SkiSlopeClassifier.md`](SkiSlopeClassifier.md) -> SkiSlopeClassifier: how a ski run is rated (crux of the easiest line), its end zones, difficulty layer, measured limits and engine facts
+- [`SkiSlopeOverlaySystem.md`](SkiSlopeOverlaySystem.md) -> SkiSlopeOverlaySystem: slope colors around the cursor, one classifier with the rating, the tile cache and its cost
 - [`SkiSnowGunPlumeSystem.md`](SkiSnowGunPlumeSystem.md) -> SkiSnowGunPlumeSystem: how snow-gun vapor plumes are driven through the engine's effect system
 - [`SkiSnowInjectionSystem.md`](SkiSnowInjectionSystem.md) -> SkiSnowInjectionSystem: how run-shaped snow is injected into the game's own snow simulation buffer
 - [`SkiSnowLineOverlaySystem.md`](SkiSnowLineOverlaySystem.md) -> SkiSnowLineOverlaySystem: where the winter snow line and the snow-gun line are computed and drawn on the terrain
