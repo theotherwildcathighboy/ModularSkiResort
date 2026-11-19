@@ -90,6 +90,12 @@ edges (T234) follow the shown keys too. `CellBand` / `CellGrade` and every ratin
 A Burst IJob (`StripDrawJob`) writes the strips and the crux ring into the `OverlayRenderSystem.Buffer`. It follows
 `AreaBorderRenderSystem`'s pattern (job :40-41, Buffer field without attribute :97, GetBuffer :704, schedule :705, AddBufferWriter :707).
 
+Strip boxes (T253, 1.0.3): each ring-mode strip and black edge draws in its own box. The box spans the needed node heights in the
+strip's rows and columns plus one cell on each side, plus 8 m below and above (`StripBox`). This is the slope overlay's GPU fix
+(EngineNotes/SkiSlopeOverlaySystem.md, GPU cost and strip boxes). The vanilla box of `GetBuffer` spans the whole terrain height.
+Polyline strips and the crux ring keep the vanilla box. When the struct sizes do not match (`SkiSlopeOverlaySystem.TightBoxesSupported`),
+every strip keeps the vanilla box.
+
 - `GetBuffer(out dependencies)` returns `m_BufferWriters` (OverlayRenderSystem.cs:603-634). `AddBufferWriter` folds a job into it
   (:636-639). OnUpdate completes and resets it before uploading and clearing the lists (:740-741, :774-790). So every registered writer
   finishes by the end of the same frame's Rendering phase.
@@ -107,8 +113,15 @@ A Burst IJob (`StripDrawJob`) writes the strips and the crux ring into the `Over
   - the outline width being in meters,
   - whether the mod's Burst AOT compiles StripDrawJob (best-effort as in `SkiSnowInjectionSystem`, otherwise it runs as managed code on a
     worker thread).
-- Band colors (T234, 1.0.2). Flat, green and blue fill at `FillAlpha` 0.35. Black was hard to see in evening light. So black is a lighter
-  black (`BlackGray` 0.15) at `BlackFillAlpha` 0.6. Double black (red, or the European orange route) is at `DoubleBlackFillAlpha` 0.55.
+- Band colors (T234, 1.0.2). Black was hard to see in evening light. So black is a lighter black (`BlackGray` 0.15). The alphas are
+  one table per strip key, shared with the slope overlay (`Tuning.KeyAlpha`, T253, 1.0.3).
+
+  | Key | Flat | Green | Blue (European red) | Black | Double black (European route) | European blue |
+  |---|---|---|---|---|---|---|
+  | Alpha | 0.35 | 0.35 | 0.45 | 0.50 | 0.45 | 0.45 |
+
+  Before 1.0.3 the heat-map drew
+  0.35 / 0.35 / 0.35 / 0.60 / 0.55.
   In ring mode a thin white edge (`BlackEdgeWidthM` 0.5 m, `BlackEdgeAlpha` 0.8) outlines the black-band cells. It runs at the two ends
   of each black row strip. It also runs along a group boundary where the representative row of the neighbor group is not black. Each boundary is drawn once, from
   the black side. The edges are appended after the fills, so they draw on top if the overlay keeps the order (unverified). They use

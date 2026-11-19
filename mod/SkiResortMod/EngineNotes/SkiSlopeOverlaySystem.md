@@ -93,8 +93,8 @@ At zoom 2,600 (two 4 s samples), the difference was inside the noise. The GPU co
 The shots at zoom 450, at zoom 1,100 and at zoom 1,100 with tilt 22 show no holes at the strip edges. Tree canopies stand more than
 8 m above the ground and are no longer tinted.
 
-The overlay's alphas are softer than the heat-map's (`Tuning.Alpha`). The heat-map keeps its own alphas. Whether it should adopt the
-overlay's is an open look question in the T253 report.
+The overlay and the run heat-map use the same alpha per strip key (`SkiRunDrawFeedbackSystem.Tuning.KeyAlpha`). The overlay
+multiplies it by the fade level at the disk edge.
 
 ## Cursor
 

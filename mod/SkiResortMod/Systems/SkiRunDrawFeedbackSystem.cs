@@ -22,6 +22,7 @@ using Game.Simulation;
 using Game.Tools;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;  // UnsafeUtility (SkiSlopeOverlaySystem.BufferView, tight strip boxes)
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -74,14 +75,12 @@ namespace SkiResortMod.Systems
             public const float ThrottleFactor = 8f;
             /// <summary>The cap of the throttle delay above, in ms.</summary>
             public const float MaxThrottleMs = 250f;
-            /// <summary>Overlay fill alpha (inside the polygon only): flat, green and blue cells.</summary>
-            public const float FillAlpha = 0.35f;
-            /// <summary>Black cells: a lighter black (BlackGray) at a higher alpha, so the band reads in low evening light (T234). The European
-            /// black uses the same.</summary>
-            public const float BlackFillAlpha = 0.6f;
+            /// <summary>Fill alpha per strip key (DisplayUnits.StripKey 0..5): flat, green, blue band (European red), black, double black
+            /// (European ski route), European blue. One table for the heat-map and the slope overlay (T253 look verdict: the heat-map takes
+            /// the overlay's softer alphas). Before T253 the heat-map drew 0.35 / 0.35 / 0.35 / 0.60 / 0.55 (T234).</summary>
+            public static readonly float[] KeyAlpha = { 0.35f, 0.35f, 0.45f, 0.50f, 0.45f, 0.45f };
+            /// <summary>Black cells: a lighter black, so the band reads in low evening light (T234). The European black uses the same.</summary>
             public const float BlackGray = 0.15f;
-            /// <summary>Double black cells (North American red, European orange ski route) (T234).</summary>
-            public const float DoubleBlackFillAlpha = 0.55f;
             /// <summary>Thin white edge around the black-band region (ring mode), m wide, drawn after the fills while under MaxStrips (T234).</summary>
             public const float BlackEdgeWidthM = 0.5f;
             public const float BlackEdgeAlpha = 0.8f;
@@ -108,15 +107,15 @@ namespace SkiResortMod.Systems
             public const float ValidationLogWindowS = 10f;
         }
 
-        /// <summary>Band colors, index = (int)SlopeBand. Alpha FillAlpha, except black (BlackFillAlpha, lighter BlackGray) and double black
-        /// (DoubleBlackFillAlpha), T234.</summary>
+        /// <summary>Band colors, index = (int)SlopeBand = the North American strip key. Alpha Tuning.KeyAlpha (black: the lighter
+        /// BlackGray, T234).</summary>
         internal static readonly UnityEngine.Color[] BandColors =
         {
-            new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.FillAlpha),
-            new UnityEngine.Color(Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackFillAlpha),
-            new UnityEngine.Color(0.85f, 0.20f, 0.10f, Tuning.DoubleBlackFillAlpha),
+            new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.KeyAlpha[0]),
+            new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.KeyAlpha[1]),
+            new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.KeyAlpha[2]),
+            new UnityEngine.Color(Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackGray, Tuning.KeyAlpha[3]),
+            new UnityEngine.Color(0.85f, 0.20f, 0.10f, Tuning.KeyAlpha[4]),
         };
 
         /// <summary>The same in European grading (T162 rev. 2, display only), index = the cell key (CellKey): green band under 15 % = green
@@ -124,12 +123,12 @@ namespace SkiResortMod.Systems
         /// blue piste). The North American table never sees key 5.</summary>
         internal static readonly UnityEngine.Color[] BandColorsEu =
         {
-            new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.85f, 0.15f, 0.12f, Tuning.FillAlpha),
-            new UnityEngine.Color(Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackFillAlpha),
-            new UnityEngine.Color(0.95f, 0.55f, 0.05f, Tuning.DoubleBlackFillAlpha),
-            new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.FillAlpha),
+            new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.KeyAlpha[0]),
+            new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.KeyAlpha[1]),
+            new UnityEngine.Color(0.85f, 0.15f, 0.12f, Tuning.KeyAlpha[2]),
+            new UnityEngine.Color(Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackGray, Tuning.KeyAlpha[3]),
+            new UnityEngine.Color(0.95f, 0.55f, 0.05f, Tuning.KeyAlpha[4]),
+            new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.KeyAlpha[5]),
         };
 
         /// <summary>The black-region edge (T234).</summary>
@@ -271,12 +270,46 @@ namespace SkiResortMod.Systems
             m_ReadoutLive && m_ReadoutFrame == UnityEngine.Time.frameCount && m_Readout.Valid && m_StripCount > 0 && m_Grid != null &&
             !m_Grid.PolylineMode ? m_Grid : null;
 
-        /// <summary>One Projected strip: segment a -> b, width (m), color.</summary>
+        /// <summary>One Projected strip: segment a -> b, width (m), color, draw box YLo..YHi (m). YHi < YLo = the vanilla box.</summary>
         private struct Strip
         {
             public float3 A, B;
             public float Width;
+            public float YLo, YHi;
             public UnityEngine.Color Color;
+        }
+
+        /// <summary>The draw box of a ring-mode strip (T253, the slope overlay's GPU fix): the lowest and highest needed node height in rows
+        /// lo - 1 .. hi + 1, columns i0 - 1 .. i1 + 1, plus SkiSlopeOverlaySystem.Tuning.BoxMarginM. YHi < YLo (the vanilla box) when no
+        /// height is known there.</summary>
+        private static void StripBox(SlopeGrid grid, SlopeResult r, int lo, int hi, int i0, int i1, out float yLo, out float yHi)
+        {
+            yLo = 1f;
+            yHi = 0f;
+            float[] h = grid.Heights;
+            byte[] need = grid.Need;
+            int nx = r.Nx, nz = r.Nz;
+            if (h == null || need == null || grid.Nx != nx || grid.Nz != nz || grid.I0 != r.I0 || grid.J0 != r.J0 ||
+                h.Length < nx * nz || need.Length < nx * nz)
+                return;
+            float mn = float.MaxValue, mx = float.MinValue;
+            int j0 = math.max(lo - 1, 0), j1 = math.min(hi + 1, nz - 1), c0 = math.max(i0 - 1, 0), c1 = math.min(i1 + 1, nx - 1);
+            for (int j = j0; j <= j1; j++)
+            {
+                int row = j * nx;
+                for (int i = c0; i <= c1; i++)
+                {
+                    if (need[row + i] == 0)
+                        continue;
+                    float y = h[row + i];
+                    mn = math.min(mn, y);
+                    mx = math.max(mx, y);
+                }
+            }
+            if (mn > mx || !math.isfinite(mn) || !math.isfinite(mx))
+                return;
+            yLo = mn - SkiSlopeOverlaySystem.Tuning.BoxMarginM;
+            yHi = mx + SkiSlopeOverlaySystem.Tuning.BoxMarginM;
         }
 
         /// <summary>Writes Count strips and the optional crux ring into the overlay buffer.
@@ -294,17 +327,41 @@ namespace SkiResortMod.Systems
             public UnityEngine.Color CruxOutline;
             public UnityEngine.Color CruxFill;
             public OverlayRenderSystem.Buffer Overlay;
+            public bool TightBoxes;
 
             public void Execute()
             {
                 var flags = OverlayRenderSystem.StyleFlags.Projected;
                 var roundness = new float2(0f, 0f);
                 int n = Count < Strips.Length ? Count : Strips.Length;
+                // T253: a strip with a known height range draws in its own box (SkiSlopeOverlaySystem.BufferView): the vanilla box spans
+                // the whole terrain height, and its GPU cost grows with strips x screen coverage.
+                SkiSlopeOverlaySystem.BufferView v = default;
+                if (TightBoxes)
+                    v = UnsafeUtility.As<OverlayRenderSystem.Buffer, SkiSlopeOverlaySystem.BufferView>(ref Overlay);
+                float lo = float.MaxValue, hi = float.MinValue;
                 for (int s = 0; s < n; s++)
                 {
                     Strip st = Strips[s];
-                    Overlay.DrawLine(st.Color, st.Color, 0f, flags, new Line3.Segment(st.A, st.B),
-                        st.Width, roundness);   // OverlayRenderSystem.cs:207
+                    if (TightBoxes && st.YHi >= st.YLo)
+                    {
+                        var b = new OverlayRenderSystem.Buffer(v.ProjectedCurves, v.AbsoluteCurves, v.CustomMeshes, v.TextMeshes, v.Bounds,
+                            st.YLo, st.YHi - st.YLo);   // :122, box bottom and height (FitBox :321-327)
+                        b.DrawLine(st.Color, st.Color, 0f, flags, new Line3.Segment(st.A, st.B), st.Width, roundness);
+                        lo = math.min(lo, st.YLo);
+                        hi = math.max(hi, st.YHi);
+                    }
+                    else
+                        Overlay.DrawLine(st.Color, st.Color, 0f, flags, new Line3.Segment(st.A, st.B),
+                            st.Width, roundness);   // OverlayRenderSystem.cs:207
+                }
+                if (TightBoxes && hi >= lo)
+                {
+                    // FitBox sets bounds.max.y = scaleY (the height, not the top): add the real range (SkiSlopeOverlaySystem, same fix).
+                    OverlayRenderSystem.BoundsData bd = v.Bounds.value;
+                    bd.m_CurveBounds.min.y = math.min(bd.m_CurveBounds.min.y, lo);
+                    bd.m_CurveBounds.max.y = math.max(bd.m_CurveBounds.max.y, hi);
+                    v.Bounds.value = bd;
                 }
                 if (DrawCrux)
                 {
@@ -394,6 +451,7 @@ namespace SkiResortMod.Systems
         private readonly Strip[] m_StripStage = new Strip[Tuning.MaxStrips];
         private NativeArray<Strip> m_Strips;
         private int m_StripCount;
+        private bool m_TightBoxes;
         private JobHandle m_DrawHandle;
         // Process-wide (one-time JIT of the draw-job schedule, see Draw): static on purpose.
         private static bool s_FirstDrawDone;
@@ -443,6 +501,7 @@ namespace SkiResortMod.Systems
             m_Grid = m_GridA;
             m_Strips = new NativeArray<Strip>(Tuning.MaxStrips, Allocator.Persistent,
                 NativeArrayOptions.UninitializedMemory);
+            m_TightBoxes = SkiSlopeOverlaySystem.TightBoxesSupported;   // T253: the slope overlay logs the size check
 
             // All{Area, Temp, Node, PrefabRef, Surface} None{Deleted}. Surface narrows to surface areas (every SurfacePrefab archetype
             // carries Game.Areas.Surface, Game.Prefabs/SurfacePrefab.cs:21-23). No RequireForUpdate: the system must run to invalidate the
@@ -542,8 +601,8 @@ namespace SkiResortMod.Systems
                     $"MinRecomputeFrames={Tuning.MinRecomputeFrames} HeartbeatSeconds={Tuning.HeartbeatSeconds} " +
                     $"VerifyNodesPerFrame={Tuning.VerifyNodesPerFrame} " +
                     $"NodeMoveEpsilonM={Tuning.NodeMoveEpsilonM} ThrottleFactor={Tuning.ThrottleFactor} " +
-                    $"MaxThrottleMs={Tuning.MaxThrottleMs} FillAlpha={Tuning.FillAlpha} " +
-                    $"BlackFillAlpha={Tuning.BlackFillAlpha} BlackGray={Tuning.BlackGray} DoubleBlackFillAlpha={Tuning.DoubleBlackFillAlpha} " +
+                    $"MaxThrottleMs={Tuning.MaxThrottleMs} KeyAlpha={string.Join("/", Tuning.KeyAlpha)} " +
+                    $"BlackGray={Tuning.BlackGray} " +
                     $"BlackEdgeWidthM={Tuning.BlackEdgeWidthM} BlackEdgeAlpha={Tuning.BlackEdgeAlpha} " +
                     $"MaxStrips={Tuning.MaxStrips} MaxRowStride={Tuning.MaxRowStride} " +
                     $"PolylineWidthM={Tuning.PolylineWidthM} " +
@@ -1711,6 +1770,8 @@ namespace SkiResortMod.Systems
                             A = pts[s],
                             B = pts[s + 1],
                             Width = Tuning.PolylineWidthM,
+                            YLo = 1f,
+                            YHi = 0f,   // the vanilla box: no node heights along a polyline segment
                             Color = colors[CellKey(b, segGrade != null && s < segGrade.Length ? segGrade[s] : 0f, eu)],
                         };
                         m_StripCount++;
@@ -1864,11 +1925,14 @@ namespace SkiResortMod.Systems
                             : 0f;
                         float xa = (float)(r.Origin.x + (r.I0 + start) * step - half);
                         float xb = (float)(r.Origin.x + (r.I0 + end) * step + half);
+                        StripBox(grid, r, lo, hi, start, end, out float yLo, out float yHi);
                         m_StripStage[m_StripCount] = new Strip
                         {
                             A = new float3(xa, y, wz),
                             B = new float3(xb, y, wz),
                             Width = width,
+                            YLo = yLo,
+                            YHi = yHi,
                             Color = colors[key],
                         };
                         m_StripCount++;
@@ -1927,6 +1991,7 @@ namespace SkiResortMod.Systems
                     float y = heightsMatch ? 0.5f * (heights[row + start] + heights[row + end]) : 0f;
                     float xa = (float)(r.Origin.x + (r.I0 + start) * step - half);
                     float xb = (float)(r.Origin.x + (r.I0 + end) * step + half);
+                    StripBox(grid, r, lo, hi, start, end, out m_EdgeYLo, out m_EdgeYHi);
                     if (!AddEdge(new float3(xa, y, zLo), new float3(xa, y, zHi), w) || !AddEdge(new float3(xb, y, zLo), new float3(xb, y, zHi), w))
                         return;
                     if (!EdgesAlong(cellBand, row, rowBelow, start, end, zLo, y, step, half, r, w) ||
@@ -1962,11 +2027,13 @@ namespace SkiResortMod.Systems
             return true;
         }
 
+        private float m_EdgeYLo = 1f, m_EdgeYHi;   // the draw box of the black run whose edges AddEdge adds (StripBox)
+
         private bool AddEdge(float3 a, float3 b, float w)
         {
             if (m_StripCount >= Tuning.MaxStrips)
                 return false;
-            m_StripStage[m_StripCount] = new Strip { A = a, B = b, Width = w, Color = BlackEdgeColor };
+            m_StripStage[m_StripCount] = new Strip { A = a, B = b, Width = w, YLo = m_EdgeYLo, YHi = m_EdgeYHi, Color = BlackEdgeColor };
             m_StripCount++;
             BlackEdgeStrips++;
             return true;
@@ -2026,6 +2093,7 @@ namespace SkiResortMod.Systems
                 CruxOutline = CruxOutlineColor,
                 CruxFill = CruxFillColor,
                 Overlay = buffer,
+                TightBoxes = m_TightBoxes,
             };
             // Depends on every earlier overlay writer, ours included (engine notes OVERLAY (b)).
             JobHandle handle = job.Schedule(overlayDeps);

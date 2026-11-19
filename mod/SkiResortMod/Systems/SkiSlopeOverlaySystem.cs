@@ -56,9 +56,6 @@ namespace SkiResortMod.Systems
             public const int MaxRowStride = 3;
             /// <summary>Tiles kept (a 600 m disk touches about 34-49; the rest is the recently visited ring).</summary>
             public const int TileCapacity = 128;
-            /// <summary>Overlay alphas per strip key (DisplayUnits.StripKey 0..5): flat, green, blue band, black, double black, European blue.
-            /// Softer than the heat-map's (T253 look review, option C); the heat-map keeps its own.</summary>
-            public static readonly float[] Alpha = { 0.35f, 0.35f, 0.45f, 0.50f, 0.45f, 0.45f };
             /// <summary>Ray march: at most this many steps, then this many bisection steps.</summary>
             public const int MarchSteps = 384, BisectSteps = 14;
             public const float SlowFrameWarnMs = 4f;
@@ -82,7 +79,7 @@ namespace SkiResortMod.Systems
         /// strip box between the camera and the ground (in game, 2026-11-19: 3,358 strips cost +12.8 ms at zoom 450). Used only when the
         /// sizes match (OnCreate); otherwise the job draws through the vanilla buffer.</summary>
 #pragma warning disable CS0649   // filled only by UnsafeUtility.As from the vanilla Buffer
-        private struct BufferView
+        internal struct BufferView
         {
             public NativeList<OverlayRenderSystem.CurveData> ProjectedCurves;
             public NativeList<OverlayRenderSystem.CurveData> AbsoluteCurves;
@@ -92,6 +89,10 @@ namespace SkiResortMod.Systems
             public float PositionY, ScaleY;
         }
 #pragma warning restore CS0649
+
+        /// <summary>True when BufferView has the size of the vanilla Buffer (the tight boxes are safe). The run heat-map uses it too.</summary>
+        internal static bool TightBoxesSupported =>
+            UnsafeUtility.SizeOf<OverlayRenderSystem.Buffer>() == UnsafeUtility.SizeOf<BufferView>();
 
         /// <summary>Writes the cached strips into the overlay buffer. Reads only our own NativeArray (no ECS data).</summary>
         [BurstCompile]
@@ -481,7 +482,7 @@ namespace SkiResortMod.Systems
                 if (r.Key >= colors.Length)
                     continue;
                 UnityEngine.Color c = colors[r.Key];
-                c.a = Tuning.Alpha[r.Key] * r.Fade / SkiSlopeOverlayTiles.FadeLevels;
+                c.a *= (float)r.Fade / SkiSlopeOverlayTiles.FadeLevels;   // the alpha of the key: SkiRunDrawFeedbackSystem.Tuning.KeyAlpha
                 float wz = (float)(origin.y + 0.5 * (r.JLo + r.JHi) * texel);
                 m_Stage[n++] = new Strip
                 {
