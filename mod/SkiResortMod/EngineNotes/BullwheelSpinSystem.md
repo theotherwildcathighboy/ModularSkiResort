@@ -39,7 +39,7 @@ PoweredRotation reads the object's ElectricityConsumer or its efficiency (`Objec
 At a loop cache build (`ChairPinSystem.WheelBuilds` changed):
 1. `CollectWheelDrives` gives one row per loop and station. The row comes from the turn arc whose center is the station's catalog
    wheel (`WheelLocal`).
-2. The row holds the arc's radius and `BullwheelMath.TurnSign(m_ArcB, m_ArcU)`.
+2. The row holds the arc's radius and its turn sense (`BullwheelMath.ArcDrive`, which calls `TurnSign(m_ArcB, m_ArcU)`).
 3. The system finds the wheel bones of the station prefab by name (the `TrainPitchSystem.RigOf` idiom).
 4. The engine sorts `ProceduralBone`. The bone's slot is the entry whose `m_BindIndex` equals the bone's index in `m_Bones`.
 5. The system writes the runtime buffer `BullwheelBone` on the station. This is the only structural change.
@@ -63,6 +63,9 @@ It sets `m_CurrentUpdated` only when the rotation changed. A wheel that stands u
 - A swapped loop turns both wheels the other way. The heading of the line does not change the sign.
 - **Rim speed = rope speed.** The angle is the rope's travel divided by the radius.
 - **Held loops stand.** `WheelSpeedMps` is 0 while the loop is held (no power, closed). A paused game gives a clock step of 0.
+- **A mover that is off stops the wheels.** `WheelSpeedMps` is 0 when ChairPinSystem tripped its catch or runs in static mode.
+- **An arc belongs to a wheel by its center** (`BullwheelMath.ArcDrive`, `MatchM`). The loop builder puts the arc on the wheel.
+  When it refuses a wheel, it builds a plain arc on the terminals' midpoint. That station gets no drive, and the build line counts it.
 - **A resume has no jump.** The system adds to the angle each frame. It does not derive the angle from `PhaseOf`.
   The carriers' resume moves their offsets, and a wheel has no offset.
 - A clock step back leaves the angle. A step over `MaxStepS` (a load) leaves it too.

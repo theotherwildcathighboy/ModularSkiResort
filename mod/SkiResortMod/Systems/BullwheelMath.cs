@@ -42,6 +42,27 @@ namespace SkiResortMod.Systems
             return y >= 0f ? 1 : -1;
         }
 
+        /// <summary>An arc of a loop belongs to a station's wheel when its center is this close to the wheel (the loop builder puts the
+        /// arc's center on the wheel, LiftLoopCache.AppendTerminalTurn). The plain arc between two terminals of a station whose wheel
+        /// the builder refused is centered on the terminals' midpoint, several meters away.</summary>
+        public const float MatchM = 0.5f;
+
+        /// <summary>The wheel drive of one loop turn arc (LiftLoopCache.Segment: m_ArcCenter, m_ArcU = center to entry, m_ArcB =
+        /// travel at entry, m_ArcRadius) for a station whose wheel center at rope height is <paramref name="wheelWorld"/>. False when
+        /// the arc is not that wheel's (center too far) or its radius is no wheel's. Else the rope radius and the turn sense
+        /// (TurnSign).</summary>
+        public static bool ArcDrive(float3 arcCenter, float3 arcU, float3 arcB, float arcRadius, float3 wheelWorld, out float radiusM,
+            out int sign)
+        {
+            radiusM = 0f;
+            sign = 1;
+            if (!(arcRadius >= MinRadiusM) || arcRadius > MaxRadiusM || !(math.distance(arcCenter, wheelWorld) < MatchM))
+                return false;
+            radiusM = arcRadius;
+            sign = TurnSign(arcB, arcU);
+            return true;
+        }
+
         /// <summary>The wheel's angle after one pass, radians, wrapped to (-pi, pi]. <paramref name="speedMps"/> is the rope's speed now
         /// (0 = held or stopped; negative = the rope runs backward, the tram's return trip), <paramref name="dtS"/> the mover clock's
         /// step. A step that is not in (0, MaxStepS], a radius outside the wheel limits or a non-finite input leaves the angle as it

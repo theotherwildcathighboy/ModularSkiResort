@@ -31,8 +31,117 @@ namespace LiftBatch
             Bw5Reversal();
             Bw6Bone();
             Bw7CatalogRates();
+            Bw8ArcDrive();
             Sn1NoseFollows();
             Sn2NoseLimits();
+            Sn3StationGeometry();
+        }
+
+        // ── BW-8: a loop's turn arc, built the way LiftLoopCache builds it, gives the wheel's radius and sense ─────────────────────
+        // AppendTerminalTurn: d = the horizontal direction from the terminals' midpoint to the wheel, l = from - to made perpendicular
+        // to d, the arc runs from wheel + l r to wheel - l r. AppendArc: center = their midpoint (the wheel), U = center to entry (l),
+        // B = the incoming travel direction made perpendicular to U (d).
+        private static void ArcOf(float3 from, float3 to, float3 wheel, out float3 center, out float3 u, out float3 b, out float radius)
+        {
+            float3 mid = (from + to) * 0.5f;
+            float3 d = wheel - mid;
+            d.y = 0f;
+            d = math.normalize(d);
+            radius = math.distance(from, to) * 0.5f;
+            float3 l = from - to;
+            l -= d * math.dot(l, d);
+            l = math.normalize(l);
+            float3 p1 = wheel + l * radius, p2 = wheel - l * radius;
+            center = (p1 + p2) * 0.5f;
+            u = (p1 - center) / radius;
+            b = math.normalize(d - u * math.dot(d, u));
+        }
+
+        private static void Bw8ArcDrive()
+        {
+            const string W = "wheel/BW-8";
+            for (int deg = 0; deg < 360; deg += 30)
+            {
+                float a = math.radians(deg);
+                float3 up = new float3(math.sin(a), 0f, math.cos(a)), right = new float3(math.cos(a), 0f, -math.sin(a));
+                float3 origin = new float3(4500f, 1450f, -2280f);
+                const float R = 1.8f, runTop = 5f, runBase = 7.2f, line = 400f;
+                // the up lane on the right looking uphill: chain A ends at the top on +right, chain B starts there on -right
+                float3 aTop = origin + up * line + right * R + new float3(0f, 122f, 0f), bTop = aTop - right * (2f * R);
+                float3 topWheel = origin + up * (line + runTop) + new float3(0f, 120.5f, 0f);
+                ArcOf(aTop, bTop, topWheel, out float3 c, out float3 u, out float3 b, out float r);
+                bool ok = BullwheelMath.ArcDrive(c, u, b, r, topWheel, out float radius, out int sign);
+                Check(ok && math.abs(radius - R) < 1e-3f && sign == -1, W, "heading " + deg + " top: ok " + ok + " radius " + F(radius) + " sign " + sign);
+                // the base: chain B ends on -right, chain A starts on +right, the wheel lies downhill of them
+                float3 bBase = origin - right * R + new float3(0f, 5.84f, 0f), aBase = bBase + right * (2f * R);
+                float3 baseWheel = origin - up * runBase + new float3(0f, 3.55f, 0f);
+                ArcOf(bBase, aBase, baseWheel, out c, out u, out b, out r);
+                ok = BullwheelMath.ArcDrive(c, u, b, r, baseWheel, out radius, out sign);
+                Check(ok && math.abs(radius - R) < 1e-3f && sign == -1, W, "heading " + deg + " base: ok " + ok + " radius " + F(radius) + " sign " + sign);
+                // the other station's wheel is not this arc's
+                Check(!BullwheelMath.ArcDrive(c, u, b, r, topWheel, out _, out _), W, "heading " + deg + ": the base arc matched the top wheel");
+                // a refused wheel: the plain arc sits on the terminals' midpoint, meters from the wheel
+                Check(!BullwheelMath.ArcDrive((bBase + aBase) * 0.5f, u, b, r, baseWheel, out _, out _), W, "heading " + deg + ": a plain arc matched the wheel");
+            }
+            Check(!BullwheelMath.ArcDrive(float3.zero, new float3(1f, 0f, 0f), new float3(0f, 0f, 1f), 0.3f, float3.zero, out _, out _) &&
+                  !BullwheelMath.ArcDrive(float3.zero, new float3(1f, 0f, 0f), new float3(0f, 0f, 1f), 6f, float3.zero, out _, out _), W,
+                  "a radius outside the wheel limits gave a drive");
+        }
+
+        // ── SN-3: the station's geometry in the world gives the pitches the pose rule takes ──────────────────────────────────────
+        // The fixed-grip base and top with their released numbers (anchors, catalog wheel), at every yaw: the in-station rope from the
+        // anchor to the wheel's tangent point classifies to the station's +z side with the chord's pitch, the line to its -z side.
+        private static void Sn3StationGeometry()
+        {
+            const string W = "wheel/SN-3";
+            float maxPitch = LiftAlignMath.TrainPitchLimit(0.8f), hb = math.radians(LiftAlignMath.MaxHalfBreakDeg);
+            const float hang = 0.02f;
+            for (int deg = 0; deg < 360; deg += 45)
+            {
+                quaternion rot = quaternion.RotateY(math.radians(deg));
+                float3 pos = new float3(3175f, 1105f, -2335f), forward = math.mul(rot, new float3(0f, 0f, 1f));
+                Func<float3, float3> world = p => pos + math.mul(rot, p);
+                // base: anchors (+-1.8, 5.84, -7.025), wheel (0, 3.55, 0.2); tower 1 anchor 30 m out, 12 m up
+                float3 wheel = new float3(0f, 3.55f, 0.2f);
+                float fixSum = 0f, lineSum = 0f;
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    float3 anchor = new float3(side * 1.8f, 5.84f, -7.025f);
+                    float3 tangent = LiftAlignMath.StationTangentPoint(anchor, wheel);
+                    Check(tangent.x == anchor.x && tangent.y == wheel.y && tangent.z == wheel.z, W, "tangent point " + tangent);
+                    Check(LiftAlignMath.LaneEndSide(world(anchor), world(tangent), forward) == 1, W, "yaw " + deg + ": the in-station rope is not on the +z side");
+                    fixSum += LiftAlignMath.LaneEndPitch(world(anchor), world(tangent), forward);
+                    // the line lane as the engine builds it: straight thirds, lowered by d x hang x 4/3 (LaneSystem.cs:4128-4134)
+                    float3 far = anchor + new float3(0f, 12f, -30f);
+                    float3 inner = math.lerp(anchor, far, 1f / 3f) - new float3(0f, 30f * hang * 4f / 3f, 0f);
+                    Check(LiftAlignMath.LaneEndSide(world(anchor), world(inner), forward) == -1, W, "yaw " + deg + ": the line is not on the -z side");
+                    lineSum += LiftAlignMath.LaneEndPitch(world(anchor), world(inner), forward);
+                }
+                float fixedPitch = fixSum / 2f, linePitch = lineSum / 2f;
+                float wantFixed = -math.atan2(5.84f - 3.55f, 7.225f), wantLine = -math.atan(12f / 30f - 4f * hang);
+                Check(math.abs(fixedPitch - wantFixed) < 2e-4f, W, "yaw " + deg + ": fixed pitch " + F(math.degrees(fixedPitch)) + " (want " + F(math.degrees(wantFixed)) + ")");
+                Check(math.abs(linePitch - wantLine) < 2e-4f, W, "yaw " + deg + ": line pitch " + F(math.degrees(linePitch)) + " (want " + F(math.degrees(wantLine)) + ")");
+                float over = LiftAlignMath.StationNosePose(fixedPitch, linePitch, 2, maxPitch, hb, float.PositiveInfinity, out float line, out bool clamped);
+                Check(!clamped && over < 1e-3f && math.abs((line - fixedPitch) - (wantLine - wantFixed)) < 3e-4f, W,
+                    "yaw " + deg + ": nose delta " + F(math.degrees(line - fixedPitch)) + " deg (want " + F(math.degrees(wantLine - wantFixed)) + ")");
+
+                // top: anchors (+-1.8, 5.24, -5.025), wheel (0, 3.75, 0); the hosted end tower is turned 180 deg, so its +z is the
+                // station's -z: the line feeds its front half, the in-station rope its back half
+                float3 towerForward = -forward, topWheel = new float3(0f, 3.75f, 0f);
+                float3 topAnchor = new float3(1.8f, 5.24f, -5.025f);
+                float3 topTangent = LiftAlignMath.StationTangentPoint(topAnchor, topWheel);
+                float3 below = topAnchor + new float3(0f, -12f, -40f);
+                float3 topInner = math.lerp(topAnchor, below, 1f / 3f) - new float3(0f, 40f * hang * 4f / 3f, 0f);
+                Check(LiftAlignMath.LaneEndSide(world(topAnchor), world(topTangent), towerForward) == -1 &&
+                      LiftAlignMath.LaneEndSide(world(topAnchor), world(topInner), towerForward) == 1, W, "yaw " + deg + ": hosted tower sides");
+                float back = LiftAlignMath.LaneEndPitch(world(topAnchor), world(topTangent), towerForward);
+                float front = LiftAlignMath.LaneEndPitch(world(topAnchor), world(topInner), towerForward);
+                // the rope comes up from the line (below, +z of the tower) and dives to the wheel (-z): nose down in front, nose up in back
+                Check(front < 0f && back > 0f, W, "yaw " + deg + ": hosted tower pitches front " + F(math.degrees(front)) + " back " + F(math.degrees(back)));
+                bool towerClamped = LiftAlignMath.HalfPitches(front, 2, back, 2, maxPitch, hb, out float pf, out float pb);
+                Check(!towerClamped && math.abs(pf - front) < 1e-6f && math.abs(pb - back) < 1e-6f, W,
+                    "yaw " + deg + ": hosted tower halves " + F(math.degrees(pf)) + " / " + F(math.degrees(pb)));
+            }
         }
 
         private static void Check(bool cond, string where, string msg) => s_Check(cond, where, msg);

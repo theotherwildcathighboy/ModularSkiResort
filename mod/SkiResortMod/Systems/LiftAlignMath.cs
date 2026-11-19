@@ -580,6 +580,15 @@ namespace SkiResortMod.Systems
             return over;
         }
 
+        /// <summary>Where the in-station rope from a rope anchor meets the bullwheel, in the station's frame (T256): the wheel's tangent
+        /// point on the anchor's side. The wheel's rope radius is half the rope gauge, so the point has the anchor's x, at the wheel's
+        /// rope height and z (<paramref name="wheelLocal"/> = the catalog's WheelLocal). The modeled station rope and the carriers' path
+        /// (LiftLoopCache.AppendTerminalTurn) both run straight from the anchor to this point.</summary>
+        public static float3 StationTangentPoint(float3 anchorLocal, float3 wheelLocal)
+        {
+            return new float3(anchorLocal.x, wheelLocal.y, wheelLocal.z);
+        }
+
         /// <summary>The outer half of a station's nose sheave train (T256): the half on the line side of the rope's corner at the station
         /// anchor. The inner half is part of the station and stays on the in-station rope, pitch <paramref name="fixedPitch"/> (nose
         /// up along the station's +z, as LaneEndPitch of the modeled rope from the anchor to the bullwheel's tangent point).

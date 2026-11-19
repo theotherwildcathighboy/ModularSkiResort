@@ -75,7 +75,7 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_Driven = new HashSet<Entity>();      // stations that carry a BullwheelBone buffer of ours
         private readonly HashSet<Entity> m_DrivenNow = new HashSet<Entity>();
         private NativeArray<float> m_Angles;
-        private int m_LoggedWheels = -1, m_LoggedBare = -1;
+        private int m_LoggedWheels = -1, m_LoggedBare = -1, m_LoggedUnmatched = -1;
 
         /// <summary>The slots' angles, radians, for BullwheelBoneSystem's job (read only there).</summary>
         internal NativeArray<float> Angles => m_Angles;
@@ -114,7 +114,7 @@ namespace SkiResortMod.Systems
             m_Rigs.Clear();
             m_AngleByStation.Clear();
             m_Driven.Clear();
-            m_LoggedWheels = m_LoggedBare = -1;
+            m_LoggedWheels = m_LoggedBare = m_LoggedUnmatched = -1;
             Resize(0);
         }
 
@@ -158,7 +158,7 @@ namespace SkiResortMod.Systems
                 m_AngleByStation[m_Slots[i].Station] = m_Slots[i].Angle;
             m_Slots.Clear();
             m_DrivenNow.Clear();
-            m_ChairPin.CollectWheelDrives(m_Drives);
+            m_ChairPin.CollectWheelDrives(m_Drives, out int unmatched);
             int bare = 0;
             for (int i = 0; i < m_Drives.Count; i++)
             {
@@ -202,12 +202,15 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < m_Slots.Count; i++)
                 m_Angles[i] = (float)m_Slots[i].Angle;
 
-            if (m_Slots.Count != m_LoggedWheels || bare != m_LoggedBare)
+            if (m_Slots.Count != m_LoggedWheels || bare != m_LoggedBare || unmatched != m_LoggedUnmatched)
             {
                 m_LoggedWheels = m_Slots.Count;
                 m_LoggedBare = bare;
+                m_LoggedUnmatched = unmatched;
                 Mod.Log.Info($"Lifts [wheels]: build {m_SeenBuilds}: {m_Slots.Count} bullwheel(s) turn with their rope" +
-                             (bare > 0 ? $", {bare} station wheel(s) without a Bullwheel bone in the mesh (they stand)" : string.Empty));
+                             (bare > 0 ? $", {bare} station wheel(s) without a Bullwheel bone in the mesh (they stand)" : string.Empty) +
+                             (unmatched > 0 ? $", {unmatched} station(s) whose loop does not round the wheel (the turn is a plain arc: " +
+                                              "see the loop build notes; the wheel stands)" : string.Empty));
             }
         }
 

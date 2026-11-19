@@ -483,7 +483,7 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < m_Ends.Count; i++)
             {
                 float3 local = math.mul(inverse, m_Ends[i].End - t.m_Position);
-                float3 tangentPoint = Game.Objects.ObjectUtils.LocalToWorld(t, new float3(local.x, def.WheelLocal.y, def.WheelLocal.z));
+                float3 tangentPoint = Game.Objects.ObjectUtils.LocalToWorld(t, LiftAlignMath.StationTangentPoint(local, def.WheelLocal));
                 m_Fixed.Add(new RopeEnd { End = m_Ends[i].End, Inner = tangentPoint });
             }
 
@@ -531,7 +531,8 @@ namespace SkiResortMod.Systems
                 int nF = 0, nB = 0;
                 Sum(m_Ends, forward, ref sumF, ref nF, ref sumB, ref nB);
                 Sum(m_Fixed, forward, ref sumF, ref nF, ref sumB, ref nB);
-                m_StationSideNext.Add(tower);
+                if (nF + nB > 0)
+                    m_StationSideNext.Add(tower);   // without a rope this pass it goes back to rest below
                 VisitTower(Entity.Null, tower, hp.m_Prefab, ht, nF + nB > 0, nF > 0 ? sumF / nF : 0f, nF, nB > 0 ? sumB / nB : 0f, nB,
                     slopeMax, typeId, headMax, ref st);
             }
@@ -730,6 +731,8 @@ namespace SkiResortMod.Systems
                             }
                     }
                 }
+            if (rig != null && front == 0 && back == 0 && nose == 0)
+                rig = null;   // only a bone named Head*: not a train rig (a station visits its sub-objects' prefabs too)
             m_Rigs[prefab] = rig;
             if (rig != null && wide)
                 m_WideTram.Add(prefab);

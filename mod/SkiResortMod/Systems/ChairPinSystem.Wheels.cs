@@ -24,47 +24,39 @@ namespace SkiResortMod.Systems
             public int Sign;        // BullwheelMath.TurnSign: +1 = clockwise seen from above
         }
 
-        /// <summary>An arc belongs to a station when its center is this close to the station's catalog wheel (the loop builder puts the
-        /// arc's center on the wheel, LiftLoopCache.AppendTerminalTurn). A plain arc between two terminals of a station without a wheel
-        /// row never matches.</summary>
-        private const float WheelMatchM = 0.5f;
-
         /// <summary>Counts the loop cache builds of this load. A consumer that kept loop indices re-reads them when it changes.</summary>
         internal int WheelBuilds { get; private set; }
 
         /// <summary>The mover's clock, seconds (TimeS): stands while the game is paused.</summary>
         internal double WheelClockS => TimeS();
 
-        /// <summary>The wheels of the current loop cache (main thread, at a rebuild only: it reads station Transforms).</summary>
-        internal void CollectWheelDrives(List<WheelDrive> into)
+        /// <summary>The wheels of the current loop cache (main thread, at a rebuild only: it reads station Transforms).
+        /// <paramref name="unmatched"/> counts loop stations that have a catalog wheel but no turn arc on it: the loop builder refused the
+        /// wheel (LiftLoopCache.AppendTerminalTurn's plain arc), so the carriers do not round it and it stands.</summary>
+        internal void CollectWheelDrives(List<WheelDrive> into, out int unmatched)
         {
             into.Clear();
+            unmatched = 0;
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
             {
                 LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
-                bool haveBase = WheelWorld(loop.m_BaseStation, out float3 baseWheel);
-                bool haveTop = WheelWorld(loop.m_TopStation, out float3 topWheel);
-                if (!haveBase && !haveTop)
-                    continue;
-                for (int s = 0; s < loop.m_Segments.Count; s++)
+                for (int end = 0; end < 2; end++)
                 {
-                    LiftLoopCache.Segment seg = loop.m_Segments[s];
-                    if (!seg.m_IsArc || seg.m_ArcRadius < BullwheelMath.MinRadiusM || seg.m_ArcRadius > BullwheelMath.MaxRadiusM)
+                    Entity station = end == 0 ? loop.m_BaseStation : loop.m_TopStation;
+                    if (!WheelWorld(station, out float3 wheel))
                         continue;
-                    Entity station = Entity.Null;
-                    if (haveBase && math.distance(seg.m_ArcCenter, baseWheel) < WheelMatchM)
-                        station = loop.m_BaseStation;
-                    else if (haveTop && math.distance(seg.m_ArcCenter, topWheel) < WheelMatchM)
-                        station = loop.m_TopStation;
-                    if (station == Entity.Null)
-                        continue;
-                    into.Add(new WheelDrive
+                    bool matched = false;
+                    for (int s = 0; s < loop.m_Segments.Count && !matched; s++)
                     {
-                        Station = station,
-                        Loop = l,
-                        RadiusM = seg.m_ArcRadius,
-                        Sign = BullwheelMath.TurnSign(seg.m_ArcB, seg.m_ArcU),
-                    });
+                        LiftLoopCache.Segment seg = loop.m_Segments[s];
+                        if (!seg.m_IsArc ||
+                            !BullwheelMath.ArcDrive(seg.m_ArcCenter, seg.m_ArcU, seg.m_ArcB, seg.m_ArcRadius, wheel, out float radius, out int sign))
+                            continue;
+                        matched = true;
+                        into.Add(new WheelDrive { Station = station, Loop = l, RadiusM = radius, Sign = sign });
+                    }
+                    if (!matched)
+                        unmatched++;
                 }
             }
         }
@@ -72,8 +64,8 @@ namespace SkiResortMod.Systems
         /// <summary>The rope speed of loop <paramref name="loop"/> now, m/s: 0 while it is held (no power, closed) or out of range.</summary>
         internal double WheelSpeedMps(int loop)
         {
-            if (loop < 0 || loop >= m_LoopCache.m_Loops.Count)
-                return 0.0;
+            if (m_Disabled || !MovingChairs || loop < 0 || loop >= m_LoopCache.m_Loops.Count)
+                return 0.0;   // the mover is off (tripped, or the dev tab's static mode): the chairs stand, so do the wheels
             if (m_HeldLoopCount > 0 && loop < m_HoldByLoop.Count && m_HoldByLoop[loop].Held)
                 return 0.0;
             return m_LoopCache.m_Loops[loop].m_SpeedMps;
