@@ -4,7 +4,7 @@
 // Field note (bridge test 2026-11-19): the first default, Ctrl+Shift+O, never reached the game on the test machine. Another program
 // holds it as a system-wide hotkey (RegisterHotKey fails with 1409), and Windows hands such a chord to that program, not to the
 // focused window. The game's raw keyboard saw a plain O but never Ctrl+Shift+O. A mod cannot detect that from inside the game, so the
-// log lines below make a dead key visible instead.
+// log lines below make a dead key visible instead. Since then the action has no default key (the player binds one in Options).
 // Logs: one line when the poller first sees the armed action (its live state and bindings), one line per change of the live state
 // (InputConflictResolution.cs:137-198 turns a mod action off while an enabled vanilla action shares its keys, at most MaxStateLines per
 // load), and one line on the first press.

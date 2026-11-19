@@ -344,7 +344,8 @@ namespace SkiResortMod.Systems
 
         private void Keys()
         {
-            if (m_KeyProbe > 0 && --m_KeyProbe == 0 && m_Toggle != null && !m_Toggle.enabled && !m_KeyProbeLogged)
+            // isSet: the action has a key (ProxyBinding.cs:600). The action is unbound by default, and an unbound action is no conflict.
+            if (m_KeyProbe > 0 && --m_KeyProbe == 0 && m_Toggle != null && m_Toggle.isSet && !m_Toggle.enabled && !m_KeyProbeLogged)
             {
                 m_KeyProbeLogged = true;
                 Mod.Log.Warn($"SlopeOverlay [keys]: {SkiResortSettings.ActToggleSlopeOverlay} is not live 120 frames after the load (probable key " +

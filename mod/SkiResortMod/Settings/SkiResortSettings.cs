@@ -504,11 +504,12 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding ToggleQuickRunsToolBinding { get; set; }
 
-        /// <summary>Toggles the slope overlay (ShowSlopeOverlay, default Ctrl+Shift+O, open for review). Polled by SkiSlopeOverlayKeySystem in
-        /// a loaded city. Known problems with O: ImageOverlay binds Ctrl+O, and a mod key can fire on a chord with one more modifier
-        /// (EngineNotes/SkiResortSettings.md, Default chords). On the test machine, another program held Ctrl+Shift+O system-wide, so the
-        /// key never reached the game (EngineNotes/SkiSlopeOverlaySystem.md, Toggle and settings).</summary>
-        [SettingsUIKeyboardBinding(BindingKeyboard.O, ActToggleSlopeOverlay, ctrl: true, shift: true)]
+        /// <summary>Toggles the slope overlay (ShowSlopeOverlay). No default key: the player binds one in Options. The hub chip and the
+        /// ShowSlopeOverlay option are the default ways in. The attribute without a key gives an empty control path, an unbound action
+        /// (SettingsUIKeyboardBindingAttribute.cs:18-20, :138; ModSetting.cs:82). Polled by SkiSlopeOverlayKeySystem in a loaded city.
+        /// Why no default: the first default, Ctrl+Shift+O, never reached the game on the test machine (another program held it
+        /// system-wide), and O is out under the default-chord rule (EngineNotes/SkiSlopeOverlaySystem.md, Toggle and settings).</summary>
+        [SettingsUIKeyboardBinding(ActToggleSlopeOverlay)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding ToggleSlopeOverlayBinding { get; set; }
 

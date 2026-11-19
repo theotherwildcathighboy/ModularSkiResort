@@ -616,8 +616,8 @@ export const HUB_LOC = {
   catTrackSkiWayTip: ["SkiResort.Hub.CAT_TRACK_SKI_WAY_TIP", "Cat tracks become ski ways: 10 m wide, cut into the hillside with nothing filled below, for steep faces. Ctrl+Shift+J in the tool."],
   /* contract 57 (T253): the Runs tab's Slope colors chip; the tip follows the run grading */
   slopeOverlay: ["SkiResort.Hub.SLOPE_OVERLAY", "Slope colors"],
-  slopeOverlayTip: ["SkiResort.Hub.SLOPE_OVERLAY_TIP", "Each spot's slope within 300 m of the cursor: green under 25 %, blue to 40 %, black to 60 %, double black above. Ctrl+Shift+O."],
-  slopeOverlayTipEu: ["SkiResort.Hub.SLOPE_OVERLAY_TIP[European]", "Each spot's slope within 300 m of the cursor: green under 15 %, blue to 25 %, red to 40 %, black to 60 %, ski route above. Ctrl+Shift+O."],
+  slopeOverlayTip: ["SkiResort.Hub.SLOPE_OVERLAY_TIP", "Each spot's slope within 300 m of the cursor: green under 25 %, blue to 40 %, black to 60 %, double black above."],
+  slopeOverlayTipEu: ["SkiResort.Hub.SLOPE_OVERLAY_TIP[European]", "Each spot's slope within 300 m of the cursor: green under 15 %, blue to 25 %, red to 40 %, black to 60 %, ski route above."],
   quickUnavailable: ["SkiResort.Hub.QUICK_UNAVAILABLE", "The Resort Planner is not available right now."],
   quickScan: ["SkiResort.Hub.QUICK_SCAN", "Scan"],
   quickScanTip: ["SkiResort.Hub.QUICK_SCAN_TIP", "Scan the outlined region for runs. Enter does the same."],

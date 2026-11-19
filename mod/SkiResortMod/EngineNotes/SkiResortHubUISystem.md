@@ -503,7 +503,7 @@ Appended fields and bindings by contract:
   `ClampPassPrice` and saves the options file. The ticket price and the pass slider commit on release only.
 - 57 (1.0.3, T253, r4/slope-overlay): the `slopeOverlay` value binding (bool, `SkiSlopeOverlaySystem.IsOn`) and the
   `setSlopeOverlay(on)` trigger for the Runs tab's Slope colors chip. The trigger goes through `RequestKind.SetSlopeOverlay` to
-  `SkiSlopeOverlaySystem.RequestSet`, which saves `ShowSlopeOverlay` like the hotkey (Ctrl+Shift+O). Panel binding, no Demand.
+  `SkiSlopeOverlaySystem.RequestSet`, which saves `ShowSlopeOverlay` like the toggle key (unbound by default). Panel binding, no Demand.
   See EngineNotes/SkiSlopeOverlaySystem.md.
 - 42: the runs-first plans (Resort Planner round, task R2-b). `QuickRunsState` loses `mix`, `liftsKnob` and `home`. `QuickRunsLift` loses
   `wantedKey` and gains `flagged`, `waits`, `overLimitTowers`. `QuickRunsPlan` loses `pods` and gains `trackKm`. `QuickRunsState` gains `tracks`

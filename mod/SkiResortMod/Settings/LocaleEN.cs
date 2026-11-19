@@ -656,7 +656,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleSlopeOverlayBinding)),
                     "Turns the slope colors around the cursor on or off. The Runs option \"Show slope colors around the cursor\" " +
-                    "and the Slope colors button on the hub's Runs tab do the same. Default Ctrl+Shift+O."
+                    "and the Slope colors button on the hub's Runs tab do the same. No key by default."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleSlopeOverlay), "Toggle slope colors" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleSlopeOverlay), "Slope colors" },

@@ -110,8 +110,12 @@ parent's slot (UpdateSystem.cs:382-412), so it also runs before OverlayRenderSys
 
 ## Toggle and settings
 
-- The `ToggleSlopeOverlay` action, default Ctrl+Shift+O (open for review), rebindable in Options (`ToggleSlopeOverlayBinding`).
-  `SkiSlopeOverlayKeySystem` polls it at UIUpdate, like the other hotkey pollers, and calls `RequestToggle`.
+- The `ToggleSlopeOverlay` action has no default key. The player can bind one in Options (`ToggleSlopeOverlayBinding`). The
+  attribute without a key gives an empty control path (SettingsUIKeyboardBindingAttribute.cs:18-20 and :138, ModSetting.cs:82). The hub
+  chip and the `ShowSlopeOverlay` option are the default ways in. `SkiSlopeOverlayKeySystem` polls the action at UIUpdate, like the
+  other hotkey pollers, and calls `RequestToggle`. The conflict probe (WARN "not live 120 frames after the load") runs only when the
+  action has a key (`isSet`, ProxyBinding.cs:600).
+- Why no default key: the first default, Ctrl+Shift+O, failed (next item), and the T214 rule leaves no free letter (J is Ski way's).
 - **Ctrl+Shift+O never reached the game on the test machine (bridge test 2026-11-19).** The action was live, its binding read
   `<Keyboard>/shift + <Keyboard>/ctrl + <Keyboard>/o`, and the game's raw keyboard saw a plain O. It never saw O with Ctrl+Shift held.
   `RegisterHotKey` for Ctrl+Shift+O fails there with 1409 (already registered): another program holds it system-wide. Windows hands
