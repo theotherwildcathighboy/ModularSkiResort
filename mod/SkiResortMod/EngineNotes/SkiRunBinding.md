@@ -27,9 +27,10 @@ We checked this against the installed 1.6.2f1 Colossal.Core.dll, which is not in
   to Unity Player.log, not the mod log, and skips the block with `ObsoleteComponentSerializer`.
 - The saved type name is `GetComponentType().AssemblyQualifiedName` (`ComponentSerializer.SerializeType`). Never rename this type, move
   its namespace or rename the SkiResortMod assembly without `[FormerlySerializedAs]`. The type table resolves old names only through
-  that attribute (`ComponentSerializerLibrary.UpdateTypeTable`). The AssemblyVersion moves with each release since 1.0.3 (T255): when
-  Type.GetType misses a saved name, DeserializeType strips it down to the self-alias (ComponentSerializer.cs:51-65), so the self-alias
-  is mandatory. Releases 1.0.0-1.0.2 pinned AssemblyVersion 1.0.0.0; their saves load through that fallback (T255 proof: loadcheck).
+  that attribute (`ComponentSerializerLibrary.UpdateTypeTable`). Since 1.0.3 (T255), the AssemblyVersion changes with each release.
+  When Type.GetType misses a saved name, DeserializeType strips the name down to the self-alias (ComponentSerializer.cs:51-65).
+  So the self-alias is mandatory. Releases 1.0.0-1.0.2 pinned AssemblyVersion 1.0.0.0. Their saves load through that fallback
+  (T255 proof: loadcheck).
 
 ## Consequences
 
