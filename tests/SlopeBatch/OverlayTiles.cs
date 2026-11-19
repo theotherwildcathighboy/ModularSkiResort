@@ -207,6 +207,48 @@ namespace SlopeBatch
             Check(notMax == 0, w, notMax + " adjacent runs with the same key and fade");
             Check(seen.Count == diskCells, w, seen.Count + " cells in runs vs " + diskCells + " disk cells");
 
+            // MergeRows: the same cells with the same key and fade, in fewer strips.
+            var rects = new List<SlopeOverlayRun>();
+            tiles.MergeRows(runs, rects);
+            var seenR = new HashSet<long>();
+            int dupR = 0, wrongR = 0, badRows = 0;
+            foreach (SlopeOverlayRun q in rects)
+            {
+                if (q.JHi < q.JLo || q.J < q.JLo || q.J > q.JHi)
+                    badRows++;
+                for (int j = q.JLo; j <= q.JHi; j++)
+                    for (int i = q.I0; i <= q.I1; i++)
+                    {
+                        if (!seenR.Add(SkiSlopeOverlayTiles.Key(i, j)))
+                            dupR++;
+                        tiles.TryCell(i, j, out byte b, out float g);
+                        double dx = Terrain.Origin.x + i * (double)Terrain.Texel - cx, dz = Terrain.Origin.y + j * (double)Terrain.Texel - cz;
+                        byte fade = SkiSlopeOverlayTiles.FadeLevel(r - Math.Sqrt(dx * dx + dz * dz), 15f);
+                        if (DisplayUnits.StripKey(b, g, false) != q.Key || fade != q.Fade)
+                            wrongR++;
+                    }
+            }
+            Check(dupR == 0 && badRows == 0, w + "/merge", dupR + " cells in two rectangles, " + badRows + " bad row spans");
+            Check(seenR.SetEquals(seen), w + "/merge", seenR.Count + " rectangle cells vs " + seen.Count + " run cells");
+            Check(wrongR == 0, w + "/merge", wrongR + " rectangle cells with the wrong key or fade");
+            Check(rects.Count < runs.Count, w + "/merge", rects.Count + " rectangles, not fewer than " + runs.Count + " runs");
+            var rects2 = new List<SlopeOverlayRun>();
+            var runsS2 = new List<SlopeOverlayRun>();
+            tiles.BuildRuns(cx, cz, r, 15f, false, 2, 100000, ref none, runsS2);
+            tiles.MergeRows(runsS2, rects2);
+            Console.WriteLine("INFO  overlay merge: steep 300 m disk " + runs.Count + " row runs -> " + rects.Count + " rectangles (stride 1), " +
+                              runsS2.Count + " -> " + rects2.Count + " (stride 2)");
+            Terrain tm = OverlayTerrain(Mountain(), cx, cz, r);
+            var tsm = new TerrainSampler { T = tm };
+            var tilesM = new SkiSlopeOverlayTiles();
+            tilesM.SetLattice(Terrain.Origin, Terrain.Texel);
+            tilesM.Update(ref tsm, cx, cz, r, 1, 1e9f);
+            var runsM = new List<SlopeOverlayRun>();
+            var rectsM = new List<SlopeOverlayRun>();
+            tilesM.BuildRuns(cx, cz, r, 15f, false, 1, 100000, ref none, runsM);
+            tilesM.MergeRows(runsM, rectsM);
+            Console.WriteLine("INFO  overlay merge: mountain 300 m disk " + runsM.Count + " row runs -> " + rectsM.Count + " rectangles (stride 1)");
+
             // European key: a green cell at 15 % or more is key 5.
             var runsEu = new List<SlopeOverlayRun>();
             tiles.BuildRuns(cx, cz, r, 15f, true, 1, 100000, ref none, runsEu);

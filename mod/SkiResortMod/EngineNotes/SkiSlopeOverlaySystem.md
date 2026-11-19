@@ -35,6 +35,14 @@ mod slot: `OverlayInfomodeSystem` builds its texture from vanilla infomode compo
 Inside the run being drawn, the heat-map paints the same cells. The overlay skips them (`SkiRunDrawFeedbackSystem.PaintedGrid`,
 non-null only on a frame where the heat-map drew strips), so the two never stack alphas.
 
+**GPU cost (measured in game, 2026-11-19, 4K, RTX 5090, 83-mod playset, steep site with 3,358 strips).** Overlay on vs off: frame
+15.2 -> 19.9 ms at zoom 1,100, 15.2 -> 28.1 ms at zoom 450, 16.9 -> 18.0 ms at zoom 2,600. The managed part is only 0.65 ms. The cause
+is in the renderer. `FitBox` (OverlayRenderSystem.cs:320-327) gives every projected strip a full-height box. It reaches from
+`heightScaleOffset.y - 50` to `heightScaleOffset.x + 100` (:633), the whole terrain height range. Every view ray then crosses every strip column between the camera
+and the ground, so the cost grows with strips x screen coverage. The heat-map pays the same per strip, but only inside one run.
+`MergeRows` stacks identical row runs into rectangles (same cells, same picture). It saves only 9-19 % on the SlopeBatch terrains,
+because the band pattern is irregular. A bigger cut needs fewer cells (coarser rows, a smaller radius) or another renderer.
+
 The overlay's alphas are softer than the heat-map's (`Tuning.Alpha`). The heat-map keeps its own alphas. Whether it should adopt the
 overlay's is an open look question in the T253 report.
 
@@ -52,7 +60,9 @@ parent's slot (UpdateSystem.cs:382-412), so it also runs before OverlayRenderSys
 
 ## Toggle and settings
 
-- The `ToggleSlopeOverlay` action, default Ctrl+Shift+O, rebindable in Options (`ToggleSlopeOverlayBinding`).
+- The `ToggleSlopeOverlay` action, default Ctrl+Shift+O, rebindable in Options (`ToggleSlopeOverlayBinding`). `SkiSlopeOverlayKeySystem`
+  polls it at UIUpdate and calls `RequestToggle`. From the overlay's own Rendering-phase OnUpdate, `WasPressedThisFrame` read false for
+  every press (bridge test 2026-11-19). The UIUpdate pollers of the glade and lift tools saw the same keys.
 - The hub's Slope colors chip on the Runs tab (contract 57, `setSlopeOverlay`) calls `RequestSet`.
 - Both paths save the settings file. `ShowSlopeOverlay` is a new bool (default off). Old settings files load without it.
 - Game mode only. Nothing is saved in the city, and no prefab changes.

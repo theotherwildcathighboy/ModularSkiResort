@@ -362,6 +362,9 @@ namespace SkiResortMod
             // OverlayRenderSystem (load-bearing: the renderer completes its writers and clears the lists, :740-790) and reads the heat-map's
             // PaintedGrid of the same frame. ONE anchor only (each call adds an entry). Gated by ShowSlopeOverlay inside. Game mode only.
             updateSystem.UpdateAfter<SkiSlopeOverlaySystem, SkiRunDrawFeedbackSystem>(SystemUpdatePhase.Rendering);
+            // Its toggle key is polled at UIUpdate like every hotkey poller of the mod (load-bearing: WasPressedThisFrame read false for
+            // every press from the Rendering phase, bridge test 2026-11-19). The press is applied in the overlay's next OnUpdate.
+            updateSystem.UpdateAt<SkiSlopeOverlayKeySystem>(SystemUpdatePhase.UIUpdate);
 
             // Grade tooltip. Anchor is load-bearing: TooltipUISystem clears the mouse group each frame (TooltipUISystem.cs:48-55). Running
             // after the vanilla area-tool tooltip keeps our lines with it (a plain UpdateAt sorts after all vanilla UITooltip systems).

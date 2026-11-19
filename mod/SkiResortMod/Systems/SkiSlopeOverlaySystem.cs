@@ -8,7 +8,8 @@
 // raycasts objects only in its default state (DefaultToolSystem.cs:794-796, 1.6.4f1). Hidden while the pointer is over the UI.
 // Per frame, main thread: ray march, Update (tiles nearest first under BudgetMs), Verify (VerifyNodesPerFrame stored heights, bit-exact),
 // strips rebuilt only when the cursor moved RebuildMoveM, a tile changed, the heat-map's grid or the grading scheme changed.
-// Toggle: the ToggleSlopeOverlay key (default Ctrl+Shift+O) and the hub's Slope colors chip (RequestSet), both save the settings.
+// Toggle: the ToggleSlopeOverlay key (default Ctrl+Shift+O, polled in UIUpdate by SkiSlopeOverlayKeySystem: WasPressedThisFrame reads false
+// here in Rendering) and the hub's Slope colors chip (RequestSet). Both save the settings.
 // Phase: Rendering, UpdateBefore OverlayRenderSystem and UpdateAfter SkiRunDrawFeedbackSystem (Mod.cs, both load-bearing). Game mode only.
 // Logs: ARMED once per load; one line per toggle; one [cost] line per CostLogSeconds while on (Measurement diagnostics only); a WARN once
 // per load when the managed frame cost passes SlowFrameWarnMs; a one-shot `!!!` disables the system until the next load.
@@ -48,6 +49,8 @@ namespace SkiResortMod.Systems
             public const float RebuildMoveM = 1.5f;
             /// <summary>Strip cap per frame. Above it the rows are decimated (stride 2..MaxRowStride, the heat-map's rule).</summary>
             public const int MaxStrips = 4500;
+            /// <summary>Row runs gathered before MergeRows stacks them; the strip cap applies to the merged rectangles.</summary>
+            public const int RunCap = 4 * MaxStrips;
             public const int MaxRowStride = 3;
             /// <summary>Tiles kept (a 600 m disk touches about 34-49; the rest is the recently visited ring).</summary>
             public const int TileCapacity = 128;
@@ -116,6 +119,7 @@ namespace SkiResortMod.Systems
 
         private readonly SkiSlopeOverlayTiles m_Tiles = new SkiSlopeOverlayTiles { Capacity = Tuning.TileCapacity };
         private readonly List<SlopeOverlayRun> m_Runs = new List<SlopeOverlayRun>();
+        private readonly List<SlopeOverlayRun> m_Rects = new List<SlopeOverlayRun>();
         private readonly Strip[] m_Stage = new Strip[Tuning.MaxStrips];
         private NativeArray<Strip> m_Strips;
         private int m_StripCount;
@@ -131,7 +135,7 @@ namespace SkiResortMod.Systems
         private int m_BuiltTilesComputed = -1, m_BuiltTilesInvalidated = -1;
         private SlopeGrid m_BuiltSkipGrid;
         private bool m_BuiltEu;
-        private bool m_Request, m_RequestOn;
+        private bool m_Request, m_RequestOn, m_RequestToggle;
         private string m_RequestSource;
 
         // Dev counters (the [cost] line, the dev tab).
@@ -183,7 +187,7 @@ namespace SkiResortMod.Systems
             m_BuiltAt = new double2(double.NaN, double.NaN);
             m_BuiltTilesComputed = m_BuiltTilesInvalidated = -1;
             m_BuiltSkipGrid = null;
-            m_Request = false;
+            m_Request = m_RequestToggle = false;
             PeakFrameMs = 0f;
             ResetCost();
             Visible = false;
@@ -216,6 +220,17 @@ namespace SkiResortMod.Systems
             m_RequestOn = on;
             m_RequestSource = source;
         }
+
+        /// <summary>The toggle key, from SkiSlopeOverlayKeySystem (UIUpdate). Applied in the next OnUpdate like RequestSet.</summary>
+        public void RequestToggle(string source)
+        {
+            m_RequestToggle = true;
+            m_RequestSource = source;
+        }
+
+        /// <summary>The armed toggle action for SkiSlopeOverlayKeySystem, null when not in a game. ProxyAction.WasPressedThisFrame reads false
+        /// in the Rendering phase (measured in game, 2026-11-19), so the key is polled in UIUpdate like every other hotkey of the mod.</summary>
+        internal ProxyAction ToggleAction => m_Armed && !m_Disabled ? m_Toggle : null;
 
         protected override void OnUpdate()
         {
@@ -280,15 +295,15 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn($"SlopeOverlay [keys]: {SkiResortSettings.ActToggleSlopeOverlay} is not live 120 frames after the load (probable key " +
                              "conflict with a vanilla action, InputConflictResolution.cs:138-198) — rebind it; the hub chip still works");
             }
-            bool pressed = m_Toggle != null && m_Toggle.WasPressedThisFrame();
-            if (!pressed && !m_Request)
+            bool toggle = m_RequestToggle;
+            if (!toggle && !m_Request)
                 return;
             SkiResortSettings s = Mod.Settings;
             if (s == null)
                 return;
-            bool want = pressed ? !s.ShowSlopeOverlay : m_RequestOn;
-            string source = pressed ? "key" : m_RequestSource ?? "hub";
-            m_Request = false;
+            bool want = toggle ? !s.ShowSlopeOverlay : m_RequestOn;
+            string source = m_RequestSource ?? (toggle ? "key" : "hub");
+            m_Request = m_RequestToggle = false;
             if (want == s.ShowSlopeOverlay)
                 return;
             s.ShowSlopeOverlay = want;
@@ -389,28 +404,34 @@ namespace SkiResortMod.Systems
             var skip = new HeatMapSkip { Grid = skipGrid, Origin = origin, Texel = texel };
             int stride = 1;
             bool fit;
-            while (!(fit = m_Tiles.BuildRuns(at.x, at.y, Tuning.RadiusM, Tuning.FadeM, eu, stride, Tuning.MaxStrips, ref skip, m_Runs)) &&
-                   stride < Tuning.MaxRowStride)
+            while (true)
+            {
+                bool rowsFit = m_Tiles.BuildRuns(at.x, at.y, Tuning.RadiusM, Tuning.FadeM, eu, stride, Tuning.RunCap, ref skip, m_Runs);
+                m_Tiles.MergeRows(m_Runs, m_Rects);   // fewer strips, the same cells (the GPU cost grows with the strip count)
+                fit = rowsFit && m_Rects.Count <= Tuning.MaxStrips;
+                if (fit || stride >= Tuning.MaxRowStride)
+                    break;
                 stride++;
+            }
             RowStride = stride;
             CapHit = !fit;
 
             UnityEngine.Color[] colors = eu ? SkiRunDrawFeedbackSystem.BandColorsEu : SkiRunDrawFeedbackSystem.BandColors;
             double half = 0.5 * texel;
             int n = 0;
-            for (int k = 0; k < m_Runs.Count && n < m_Stage.Length; k++)
+            for (int k = 0; k < m_Rects.Count && n < m_Stage.Length; k++)
             {
-                SlopeOverlayRun r = m_Runs[k];
+                SlopeOverlayRun r = m_Rects[k];
                 if (r.Key >= colors.Length)
                     continue;
                 UnityEngine.Color c = colors[r.Key];
                 c.a = Tuning.Alpha[r.Key] * r.Fade / SkiSlopeOverlayTiles.FadeLevels;
-                float wz = (float)(origin.y + r.J * (double)texel);
+                float wz = (float)(origin.y + 0.5 * (r.JLo + r.JHi) * texel);
                 m_Stage[n++] = new Strip
                 {
                     A = new float3((float)(origin.x + r.I0 * (double)texel - half), r.Y, wz),
                     B = new float3((float)(origin.x + r.I1 * (double)texel + half), r.Y, wz),
-                    Width = stride * texel,
+                    Width = (r.JHi - r.JLo + 1) * texel,
                     Color = c,
                 };
             }

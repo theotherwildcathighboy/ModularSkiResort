@@ -17,10 +17,11 @@ using Unity.Mathematics;
 namespace SkiResortMod.Systems
 {
     /// <summary>One strip run of the overlay: lattice row J (or the middle row of a row group), cells I0..I1, the color key
-    /// (DisplayUnits.StripKey) and the edge fade level (1..FadeLevels, FadeLevels = full alpha).</summary>
+    /// (DisplayUnits.StripKey) and the edge fade level (1..FadeLevels, FadeLevels = full alpha). JLo..JHi are the lattice rows it covers:
+    /// one row group from BuildRuns, several stacked groups after MergeRows (a rectangle, drawn as one strip).</summary>
     public struct SlopeOverlayRun
     {
-        public int J, I0, I1;
+        public int J, I0, I1, JLo, JHi;
         public byte Key, Fade;
         public float Y;   // mean height of the two end cells (m)
     }
@@ -396,7 +397,7 @@ namespace SkiResortMod.Systems
                     {
                         if (!open)
                         {
-                            cur = new SlopeOverlayRun { J = j, I0 = i, I1 = i, Key = key, Fade = fade, Y = y };
+                            cur = new SlopeOverlayRun { J = j, I0 = i, I1 = i, JLo = g, JHi = gHi, Key = key, Fade = fade, Y = y };
                             open = true;
                         }
                         else
@@ -408,6 +409,52 @@ namespace SkiResortMod.Systems
                 }
             }
             return true;
+        }
+
+        private readonly List<int> m_PrevOpen = new List<int>(), m_CurOpen = new List<int>();
+
+        /// <summary>Stacks BuildRuns' row runs into rectangles (rects is cleared first). A run joins the rectangle right above it when both
+        /// have the same I0, I1, key and fade and its rows follow on (JLo = the rectangle's JHi + 1). Every cell stays in exactly one
+        /// rectangle with its own key and fade, so the picture is the same with fewer strips. Why: OverlayRenderSystem fits each projected
+        /// strip in a box as tall as the whole terrain height range (FitBox, OverlayRenderSystem.cs:320-327 and :633, 1.6.4f1). Every view
+        /// ray then crosses every strip between the camera and the ground, and the GPU cost grows with the strip count (in game, 2026-11-19:
+        /// 3,358 strips cost +4.6 ms at zoom 1,100 and +12.8 ms at zoom 450). The rows must come in BuildRuns order (row groups up, I up).</summary>
+        public void MergeRows(List<SlopeOverlayRun> rows, List<SlopeOverlayRun> rects)
+        {
+            rects.Clear();
+            List<int> prev = m_PrevOpen, cur = m_CurOpen;
+            prev.Clear();
+            int k = 0;
+            while (k < rows.Count)
+            {
+                int gLo = rows[k].JLo;
+                cur.Clear();
+                int p = 0;
+                for (; k < rows.Count && rows[k].JLo == gLo; k++)
+                {
+                    SlopeOverlayRun r = rows[k];
+                    while (p < prev.Count && rects[prev[p]].I0 < r.I0)
+                        p++;
+                    if (p < prev.Count)
+                    {
+                        SlopeOverlayRun q = rects[prev[p]];
+                        if (q.I0 == r.I0 && q.I1 == r.I1 && q.Key == r.Key && q.Fade == r.Fade && q.JHi + 1 == r.JLo)
+                        {
+                            q.JHi = r.JHi;
+                            q.J = (q.JLo + q.JHi) / 2;
+                            rects[prev[p]] = q;
+                            cur.Add(prev[p]);
+                            p++;
+                            continue;
+                        }
+                    }
+                    rects.Add(r);
+                    cur.Add(rects.Count - 1);
+                }
+                List<int> swap = prev;
+                prev = cur;
+                cur = swap;
+            }
         }
 
         /// <summary>1..FadeLevels from the distance to the disk edge (m): FadeLevels from fadeM inward, fewer toward the edge.</summary>
