@@ -173,6 +173,13 @@ DOORS = (("main", "+X", 4.0, 1.0, 1.0, 2.2), ("wingr", "+X", 4.0, 9.25, 1.0, 2.2
          ("wingl", "+X", 4.0, -3.5, 1.0, 2.2), ("svc", "-X", -7.0, -4.1, 0.9, 2.1))
 STEP = (0.02, 0.17, 0.60)            # z0, z1, depth (closed, not ground: deleted at LOD1)
 STEP_SIDE = 0.25                     # step runs past the door opening each side (= band gap)
+# `lodge.py --step-base v1` (opts["step_base"], off = byte-identical): the four door steps become open-bottom GROUND parts
+# from z 0 (the idiom of `step_p1` and `step_porchB`). The lot keeps its slope, so the terrain can lie below the building
+# plane at a door. The engine base then draws its skirt under the step outline down to the terrain, as it does under the
+# walls (BatchMeshHelpers.AddBaseLines: outline edges at y 0 +- 0.01). The closed step (z 0.02 to 0.17) has no such edge and
+# hung in the air (playtest 1.0.2, finding 4). A ground part is never deleted at an LOD (lodge.delete_lists), so the steps
+# leave the LOD delete lists: build() hands the three changed recipe fields back in opts["recipe_replace"].
+STEP_BASE_GROUND = ("step_",)
 HVAC = ((-4.0, 6.0), (-4.0, 11.0))
 
 # ---- revision 2: the red markings (photos, build/school-rev2.md section 1) ----------------
@@ -923,12 +930,18 @@ def build(recipe, opts):
 
     # ---- doors (cs2_kit.door, white) on closed concrete steps --------------------------
     s0, s1, sd = STEP
+    step_base = opts.get("step_base") == "v1"       # STEP_BASE_GROUND: steps as engine-base ground parts
     for nm, side, xw, y, w, hh in DOORS:
         sg = 1.0 if side == "+X" else -1.0
         xs = sorted((xw, xw + sg * sd))
-        P += K.box_part(f"step_{nm}", (xs[0], y - w / 2 - STEP_SIDE, s0),
-                        (xs[1], y + w / 2 + STEP_SIDE, s1), "concrete",
-                        drop=("-X",) if side == "+X" else ("+X",))
+        if step_base:
+            P += K.box_part(f"step_{nm}", (xs[0], y - w / 2 - STEP_SIDE, 0.0),
+                            (xs[1], y + w / 2 + STEP_SIDE, s1), "concrete", ground=True,
+                            drop=("-X",) if side == "+X" else ("+X",))
+        else:
+            P += K.box_part(f"step_{nm}", (xs[0], y - w / 2 - STEP_SIDE, s0),
+                            (xs[1], y + w / 2 + STEP_SIDE, s1), "concrete",
+                            drop=("-X",) if side == "+X" else ("+X",))
         if K.DOOR_KIT["version"] == 2:  # door kit v2 (utility): recessed steel leaf, posts + header.
             # the photo's two STAFF ONLY doors (MARK_DOORS) are flush, the others get a vision panel
             u = y if side == "+X" else -y
@@ -990,6 +1003,11 @@ def build(recipe, opts):
     C.check_coplanar(P, exempt=KIT_INTERNAL)
     C.check_inside(P, massing_volumes(), exempt=INSIDE_EXEMPT + ((tuple(f"sign_{t}_face" for t, _d in MARK_DOORS)
                                                                if K.DOOR_KIT["version"] == 2 else ())))   # door kit v2: placards on the recessed leaves
+    if step_base:                               # the steps are ground parts now: they stay at every LOD
+        opts["recipe_replace"] = {
+            "ground_prefixes": tuple(recipe.ground_prefixes) + STEP_BASE_GROUND,
+            "lod1_extra": tuple(p for p in recipe.lod1_extra if p not in STEP_BASE_GROUND),
+            "lod2_extra": tuple(p for p in recipe.lod2_extra if p not in STEP_BASE_GROUND)}
     return P
 
 
@@ -1002,6 +1020,11 @@ RECIPE = FineRecipe(
     asset="SkiSchoolCommercialLow", prefab="SkiSchool", category="buildings",
     lot=LOT, base_mode="engine", plinth=None, yaw_deg=0.0, tex=2048, allow_4096=False,
     budget=Budget(6000, 7000, 2800, 500, 500),
+    # texture pass (read ONLY under lodge.py --texpass): no under-eave band. On painted siding the "~w" cell is dirt, and
+    # the wall under a deep eave is the cleanest, least faded part of a painted building (the 1.8 m back overhang, the
+    # bubble gallery over the carpet skirt). The splash bands at grade and the sill drips stay. weather_level 0 = the
+    # flag-off level the pass must keep (lodge.assert_texpass_level)
+    texpass={"eave_h": 0.0, "weather_level": 0},
     massing="custom", builder=build,
     rooms={"store": (1, 1), "upper": (3, 1), "tower": (2, 2), "back": (4, 3)},
     interior="CommercialLow", slots=SLOTS,

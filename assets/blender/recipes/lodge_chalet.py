@@ -645,6 +645,15 @@ RECIPE = FineRecipe(
     kit_colour_set=KIT_COLOUR_SET,
     legacy=(("sub_objects", SUB_OBJECTS), ("lod1_extra", ()), ("labels", PICTO_LABELS)),
     cull_ok=(),
+    # texture pass v1 (--texpass v1 only, lodge.texpass_weather; flag off never reads it): no under-eave band. The
+    # rollout rule drew the weathered "~w" cell on the top 0.4-0.6 m of every sheltered wall: the timber stories under
+    # the 1.2 m eaves, the shingle gables under the rakes, the balcony balustrades and the stone under the jetty and the
+    # balconies. Timber grays where sun and rain reach it and stays brown under an eave, and sheltered stone stays dry,
+    # so the band sat where real walls weather least (and its cut is the dearest rule here: 242 of the 408 weathered
+    # pieces at letter Z). Base bands, sill drips, the back roof-eave band and the valleys stay. weather_level 0 = the
+    # flag-off level the pass must keep (lodge.assert_texpass_level); the rule only removes cuts, so LOD0 tris fall
+    # (letter Z: 11,903 -> 11,600, the far set unchanged)
+    texpass={"eave_h": 0.0, "weather_level": 0},
     # post-orient Blender frame (authored (ax, ay) -> (ay, -ax)): terrace 3/4 from authored
     # (-1, +1) -> (1, 1)
     views=(("terrace", (0.9, 0.9, 0.45)),),

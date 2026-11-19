@@ -38,6 +38,8 @@ CLI (headless only):
         [--out DIR | --export] [--letter A] [--name SkiWelcomeSignA] [--masts {0,2,3}] [--no-lanterns]
         [--header "SKI AREA"] [--finish] [--lods] [--blockout] [--preview [DIR]]
         [--we-mock [TEXT]] [--review [DIR]] [--tex 1024] [--ao-samples 48] [--no-validate]
+        [--texpass {off,v1}] [--texpass-picks NAME] [--texpass-roof {key,true,slate}] [--texpass-plank NAME]
+        [--texpass-weather 1.0]
     Without --finish: blockout bake at A = 512, AO off (fast look). --blockout: geometry,
     band, contracts and the manifest only (no bake, no FBX). Exit 1 on any failure. The last line is
         PASS welcome_sign: <Name> LOD0 n, chain [n1, n2], engine base OK, tex A, ...
@@ -58,6 +60,18 @@ sign vertex for vertex (the shipped 2026-10-11 export):
     masts   12-seg masts and finials (were 8 / 6). The flags unchanged. FlagPole01 / 02 have no offline
             GUID (Editor harvest, H5): the masts stay modeled (PLACEHOLDER).
     rows    the manifest gains a sub_objects block (target SkiResortGate, the hosts' (y, z, x) convention).
+
+Texture pass v1 (2026-11-19, docs/PIPELINE.md section 1b on an asset with its own atlas). `--texpass v1`, default off = the
+shipped build byte for byte. The section "Texture pass v1" below holds all of it:
+    link    every scanned key takes its bake source from the family swatch (cs2_tilesheet: scan, tile size, tint, controls,
+            smoothness target), and its weathered texels from the family's "~w" overlay, so the gate's stone, timber and
+            shingles are the lodges' by construction. TEXPASS_PICKS are preview stand-ins for family picks that are not in
+            cs2_tilesheet.TEXPASS yet (--export refuses them).
+    density the gate's own skyline packer (exact margins, the free area beside the emblem rect), per-face weights and
+            half-turn sharing of the parts that repeat under a half turn about the portal axis.
+    weather pixels only (no cut): splash at grade, post feet, the timber outside the roof's cover, the drip line under the
+            eaves, the roof's eave courses. Low frequency (every band >= 0.3 m, soft edges >= 0.1 m).
+    emblem  448 px at 2048 (299 px/m, the sign sets' density) instead of 224.
 """
 
 import argparse
@@ -235,6 +249,86 @@ SUB_OBJECT_NOTE = ("ObjectSubObjects on SkiResortGate (the deployed prefab: keep
                    "(on the sign mesh)")
 
 
+# ---- texture pass v1 (module docstring; every name below is read only under --texpass v1) --------------------------
+TEXPASS_CHOICES = ("off", "v1")
+# Preview stand-ins for family picks that are proposed but not in cs2_tilesheet.TEXPASS yet (the entry format of that
+# table). A key the family pass defines always wins over a stand-in, and --export refuses a build that used one: the gate
+# ships only what the family table says.
+TEXPASS_PICKS = {
+    "family": {},
+    # the shingle key as the hut agent proposes it (r4-fleet/tex/l2/NOTE.md section 2, variant A): Poly Haven
+    # roof_slates_02 (real wooden shingles) at the key's 1.8 m period, 6.9 cm courses, the pre-pass palette mean held
+    "shingle": {"timber_shake": {"set": "PHRoofSlates02", "tile_m": (1.8, 1.8), "target_srgb": (0.406, 0.352, 0.275),
+                                 "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.7, "normal_gain": 1.2}},
+    # + the stone as the summit agent's no-download variant A1 (r4-fleet/tex/l4/NOTE.md): the same rubble scan, calmed
+    "proposed": {
+        "timber_shake": {"set": "PHRoofSlates02", "tile_m": (1.8, 1.8), "target_srgb": (0.406, 0.352, 0.275),
+                         "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.7, "normal_gain": 1.2},
+        "stone_rubble": {"set": "Bricks096", "tile_m": (3.2, 1.6), "flatten_m": 0.2, "contrast": 0.65,
+                         "normal_gain": 1.5}},
+    # + heavy timber on the rough-sawn siding scan (14 boards per image) at the key's full 3.08 m period: 22 cm boards on
+    # the 30-35 cm members, about twice the scan's true size (the pre-pass Planks021 draws 14 cm planed pine planks with
+    # knots). An exploration of the sign agent, not a family proposal on file
+    "proposed+timber": {
+        "timber_shake": {"set": "PHRoofSlates02", "tile_m": (1.8, 1.8), "target_srgb": (0.406, 0.352, 0.275),
+                         "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.7, "normal_gain": 1.2},
+        "stone_rubble": {"set": "Bricks096", "tile_m": (3.2, 1.6), "flatten_m": 0.2, "contrast": 0.65,
+                         "normal_gain": 1.5},
+        "timber_heavy": {"set": "PHWeatheredPlankSiding", "tile_m": (3.08, 3.08), "normal_gain": 1.3}},
+}
+TP_ROOF_CHOICES = ("key", "true", "slate")
+TP_ROOF_ROLE = "gate_roof"            # cs2_tilesheet.texpass_role(TP_ROOF_ROLE) when the family table grows one
+TP_ROOF_KEY = "timber_shake"          # the key the shipped roof draws (the family draws it on gable walls only)
+TP_ROOF_SLATE = "slate"
+TP_TRUE_SIZE_M = {"PHRoofSlates02": 3.0, "WoodSiding013": 1.8}     # scan edge in the world (roof "true")
+TP_TRIM_KEY = "trim_grain"            # the family's painted trim (cs2_tilesheet.register_trim_materials, --trim v1)
+TP_TRIM_PREFIXES = ("beamhead_", "beamheadfront_", "barge_", "ridge_", "plankframe_", "emblemrim_")
+TP_UNDER_KEY = "timber_heavy"         # the roof slab's underside: boards, not the roof's own key
+TP_PLANK_KEY = "sign_plank"
+# The name plank: boards per scan image, board width in the world (the tile = boards x width), the scan's seam phase
+# (periods from the image top, measured on the NormalGL row profile) so a seam sits on the plank's bottom edge.
+TP_PLANKS = {
+    # the family's siding scan (timber_lap under v1: 14 boards per image, 17.1 cm at its 2.4 m tile) snapped to nine
+    # boards on the 1.50 m plank (16.7 cm, 0.97 x the family scale); the shipped plank drew three 0.50 m boards of a
+    # 15 cm siding scan stretched 3.3 x
+    "lap9": dict(set="PHWeatheredPlankSiding", boards=14, board_m=PLANK_H / 9.0, seam_phase=0.516,
+                 controls={"contrast": 0.8, "normal_gain": 1.3}),
+    # six 25 cm planed pine boards (Planks021, 11 per image): fewer lines behind the name, the scan about 1.6 x its size
+    "pine6": dict(set="Planks021", boards=11, board_m=PLANK_H / 6.0, seam_phase=0.984,
+                  controls={"chroma": 0.6, "contrast": 0.7, "normal_gain": 1.3}),
+}
+TP_BAND_PX_1024 = {"emblem": (8, 8, 232, 232), "header": BAND_PX_1024["header"]}   # emblem 448 px at 2048
+TP_BAND_TOP = 0.25
+# Density weights (stone = 1). Longest prefix, then TP_FACE_W by the face's authoring normal. The packer scales all of
+# them by one factor found by bisection (the px/m of a weight-1 face) and clamps an island that is wider than the atlas.
+TP_DENSITY = {"pier_": 1.0, "pierplinth_": 1.0, "piercap_": 0.7, "tpost_": 1.0, "brace_": 0.9, "beamlow_": 0.75,
+              "beamhead_": 0.5, "beamheadfront_": 0.5, "plate_": 0.35, "gable_": 0.55, "plankfront_": 0.65,
+              "plankbody_": 0.45, "plankframe_": 0.5, "strap_": 0.5, "roof_": 1.0, "soffit_": 0.35, "barge_": 0.5,
+              "ridge_": 0.5, "emblemrim_": 0.5, "mast_": 0.3, "finial_": 0.3, "flag_": 0.35, "footing_": 0.5}
+# (part prefix, axis, sign, weight): faces whose authoring normal has sign * n[axis] > 0.5 (hidden or rarely seen sides)
+TP_FACE_W = (("roof_", 2, -1.0, 0.35), ("roof_", 0, 1.0, 0.1), ("roof_", 0, -1.0, 0.1), ("pierplinth_", 2, 1.0, 0.4), ("piercap_", 2, -1.0, 0.25),
+             ("beamlow_", 2, 1.0, 0.4), ("beamlow_", 2, -1.0, 0.6), ("beamhead_", 2, 1.0, 0.4),
+             ("beamhead_", 2, -1.0, 0.4))
+# Parts that repeat under a half turn about the vertical axis through (PORTAL_X, 0): the right pier is the left pier turned,
+# the back of the lower beam and of the name plank are their fronts turned. A copy takes its partner's texels (no viewpoint
+# shows both a face and its partner: the partner faces the other way or stands on the far side of the portal).
+TP_SHARE = ("pier_", "pierplinth_", "piercap_", "tpost_", "brace_", "beamlow_", "plankbody_", "plankfront_", "mast_",
+            "finial_", "footing_", "gable_")
+TP_SHARE_BACK = ("gable_",)           # the original is the BACK face here: the front's AO holds the emblem's contact ring
+# Parts unrolled into one strip island (tp_unwrap): prefix -> (prism axis in authoring, None = the part's own long axis;
+# "u" = the way around runs along u (masonry: courses keep v = up), "v" = along v (members: the grain keeps u = along)).
+# The library projects every face of a box on its own, so a 10.9 m beam was four face islands and eight chamfer slivers,
+# each with its own 32 px margin; unrolled, the scan also runs round the corners without a jump.
+TP_UNWRAP = {"pier_": ((0.0, 0.0, 1.0), "u"), "pierplinth_": ((0.0, 0.0, 1.0), "u"), "piercap_": ((0.0, 0.0, 1.0), "u"),
+             "tpost_": ((0.0, 0.0, 1.0), "v"), "brace_": (None, "v"), "beamlow_": ((0.0, 1.0, 0.0), "v"),
+             "plate_": ((0.0, 1.0, 0.0), "v"), "beamhead_": ((0.0, 1.0, 0.0), "v"), "barge_": (None, "v"),
+             "ridge_": ((1.0, 0.0, 0.0), "v")}
+TP_PARK_U = 2.0                       # copies wait this far outside the atlas during the bake (only originals are baked)
+TP_WEATHER_CLASS = {TP_TRIM_KEY: "paint", TP_PLANK_KEY: "timber", "rock": "stone"}   # keys cs2_tilesheet.W_CLASS lacks
+TP_RATIO_PPM = 48.0                   # the weathered / clean ratio tiles are kept at this density (low frequency only)
+TP_RATIO_BLUR_M = 0.025               # ... after a periodic Gaussian of this sigma (features >= 5 cm)
+
+
 def fine_rows():
     """The fine build's rows (DESIGN frame (gx, gy, gz) = authoring (y, z, x)). lodge.sub_objects_block writes them
     through rule T into the game frame, gx negated. The rows are the two post lanterns as short-range wall lights
@@ -276,6 +370,17 @@ def parse_args(argv=None):
     ap.add_argument("--no-fine", action="store_true",
                     help="the pre-pass sign (header in the band, modeled lanterns, 8-seg masts)")
     ap.add_argument("--signset-out", default=None, help="sign-set letter folder (default: beside --out)")
+    # texture pass v1 (the section "Texture pass v1"); off = byte-identical
+    ap.add_argument("--texpass", default="off", choices=TEXPASS_CHOICES,
+                    help="v1 = texture pass v1 (family swatch sources, own pack, weathering; off = byte-identical)")
+    ap.add_argument("--texpass-picks", default="family", choices=tuple(sorted(TEXPASS_PICKS)),
+                    help="preview stand-ins for family picks that cs2_tilesheet.TEXPASS lacks (family = none)")
+    ap.add_argument("--texpass-roof", default="key", choices=TP_ROOF_CHOICES,
+                    help="the roof under the pass: key = the family's shingle key as it stands, true = that scan at its "
+                         "true size, slate = the family's roof key")
+    ap.add_argument("--texpass-plank", default="lap9", choices=tuple(sorted(TP_PLANKS)),
+                    help="the name plank under the pass")
+    ap.add_argument("--texpass-weather", type=float, default=1.0, help="weathering strength under the pass (0 = none)")
     return ap.parse_args(argv)
 
 
@@ -295,11 +400,12 @@ def clear_scene():
 # Parts
 # ======================================================================================
 
-def band_rects(A, keys=RESERVED_KEYS):
-    """{key: (u0, v0, u1, v1)} fractions. px = BAND_PX_1024 scaled, integral (asserted)."""
+def band_rects(A, keys=RESERVED_KEYS, px_1024=None):
+    """{key: (u0, v0, u1, v1)} fractions. px = BAND_PX_1024 (or `px_1024`, the texture pass's table) scaled, integral
+    (asserted)."""
     out = {}
     for k in keys:
-        px = [p * A / 1024.0 for p in BAND_PX_1024[k]]
+        px = [p * A / 1024.0 for p in (px_1024 or BAND_PX_1024)[k]]
         if any(abs(p - round(p)) > 1e-9 for p in px):
             raise ValueError(f"band rect {k} not integral at A = {A}: {px}")
         out[k] = tuple(round(p) / float(A) for p in px)
@@ -595,11 +701,11 @@ def _place(dst, cov_topdown, cx_px, cy_px):
     dst[r0:r0 + s, c0:c0 + s] = np.maximum(dst[r0:r0 + s, c0:c0 + s], src)
 
 
-def paint_band(A, header_text, out_dir, name, keys=RESERVED_KEYS):
+def paint_band(A, header_text, out_dir, name, keys=RESERVED_KEYS, px_1024=None):
     """Paint the band (contract 4.3 steps 1-6) into A x A arrays (bottom-up, BaseColor display-encoded as the
     importer reads it) and write <name>_band_<Map>.png into `out_dir` (never the asset folder: a stray PNG is a
     validator ERROR). Returns (paths, arrays, coverage {key: (rect slices, cov)}, report)."""
-    rects = band_rects(A)
+    rects = band_rects(A, px_1024=px_1024)
     base = np.zeros((A, A, 4), np.float32)
     nrm = np.zeros((A, A, 4), np.float32)
     msk = np.zeros((A, A, 4), np.float32)
@@ -675,11 +781,11 @@ def _paint_emblem(A, rects, base, msk, ctl, cov_out, rep):
                          glyph_px=gs, ring=EMBLEM_RING)
 
 
-def set_band_uvs(obj, table, A, layer=cs2_bake.TILE_LAYER, keys=RESERVED_KEYS):
+def set_band_uvs(obj, table, A, layer=cs2_bake.TILE_LAYER, keys=RESERVED_KEYS, px_1024=None):
     """Band faces -> their rect (u along authoring +y, v along +z, read from +X). Every other loop is shifted +2 u
     (integer: same tiling) so no kit face can be pinned (skeptic determinism (a)). Runs on the joined mesh in the
     AUTHORING frame."""
-    rects = band_rects(A)
+    rects = band_rects(A, px_1024=px_1024)
     me = obj.data
     lay = me.uv_layers[layer]
     uv = cs2_uv.loop_uvs(lay)
@@ -845,7 +951,7 @@ def contracts_oriented(obj, table):
     return dict(plank_centre_game=[round(x, 4) for x in game], normal_game=(0, 0, 1))
 
 
-def check_band(arrays, cov, rects, A, uv_obj=None, table=None):
+def check_band(arrays, cov, rects, A, uv_obj=None, table=None, band_top=0.125):
     """S3 (texel aspect) + S5 (ControlMask zero under coverage >= 0.5, field slot, R+G+B <= 1, BaseColor alpha 1). S3
     UV containment is checked by set_band_uvs' pinning."""
     rep = {}
@@ -872,8 +978,8 @@ def check_band(arrays, cov, rects, A, uv_obj=None, table=None):
     sl = cs2_compose._rect_slices(rects["emblem"], A)
     if (sl[0].stop - sl[0].start) != (sl[1].stop - sl[1].start):
         raise RuntimeError("S3: emblem rect not square")
-    if max(r[3] for r in rects.values()) > 0.125 + 1e-9:
-        raise RuntimeError("band top above v 0.125")
+    if max(r[3] for r in rects.values()) > band_top + 1e-9:
+        raise RuntimeError(f"band top above v {band_top}")
     rep["S3"] = dict(header_px=(w, h), header_aspect_err_px=round(exp_h - h, 3))
     return rep
 
@@ -882,8 +988,8 @@ def check_band(arrays, cov, rects, A, uv_obj=None, table=None):
 # Bake hook
 # ======================================================================================
 
-def make_post(obj, band_paths, A, dspecs, keys=RESERVED_KEYS):
-    rects = [band_rects(A)[k] for k in keys]
+def make_post(obj, band_paths, A, dspecs, keys=RESERVED_KEYS, px_1024=None, tp=None, table=None, mat_keys=None):
+    rects = [band_rects(A, px_1024=px_1024)[k] for k in keys]
 
     def hook(base, nrm, msk, ctl, ao, mesh, A_):
         # N3: AO was multiplied over the restored band - copy it again, exactly as
@@ -913,6 +1019,8 @@ def make_post(obj, band_paths, A, dspecs, keys=RESERVED_KEYS):
         nrm[fix, 0:3] = (n * 0.5 + 0.5)[fix]
         nrm[uncovered & fix, 0:3] = (0.5, 0.5, 1.0)
         nrm[..., 3] = 1.0
+        if tp is not None:                  # texture pass: the weathering, on the composed maps, outside the band
+            hook.weather = tp_weather(base, msk, mesh, A, table, mat_keys, rects, tp)
         hook.density = K.shipped_density(obj, A)
         hook.band_copied = True
         print(f"[sign] compose: band re-copied over AO (N3), relief "
@@ -921,7 +1029,735 @@ def make_post(obj, band_paths, A, dspecs, keys=RESERVED_KEYS):
         return base, nrm, msk, ctl
     hook.density = None
     hook.band_copied = False
+    hook.weather = None
     return hook
+
+
+# ======================================================================================
+# Texture pass v1 (--texpass v1; nothing below runs with the flag off)
+# ======================================================================================
+
+def texpass_begin(args):
+    """None when the pass is off. Else register the family pass in cs2_tilesheet (plus this build's stand-ins), the family
+    trim keys, the gate's plank key and its roof choice, and return the pass context. texpass_end undoes every table
+    change, so a later build in the same process sees the tables as they were."""
+    version = getattr(args, "texpass", "off")
+    if version in (None, "off"):
+        return None
+    if getattr(args, "no_fine", False):
+        raise ValueError("--texpass needs the fine build (drop --no-fine)")
+    import cs2_tilesheet as TS
+    tp = {"TS": TS, "version": version, "undo": [], "standins": {}, "weather": max(0.0, float(args.texpass_weather)),
+          "work": tempfile.mkdtemp(prefix="sign_texpass_"), "roof": args.texpass_roof, "plank": args.texpass_plank}
+    family = TS.TEXPASS[version]
+    merged = dict(family)
+    for k, s in sorted(TEXPASS_PICKS[args.texpass_picks].items()):
+        if k not in family:                         # the family's own entry always wins
+            merged[k] = dict(s)
+            tp["standins"][k] = dict(s)
+    if tp["standins"] and args.export:
+        raise ValueError(f"--export with stand-in picks {sorted(tp['standins'])}: the gate ships only what "
+                         f"cs2_tilesheet.TEXPASS[{version!r}] defines (--texpass-picks family)")
+    try:
+        plank = TP_PLANKS[args.texpass_plank]
+        tile = plank["boards"] * plank["board_m"]
+        K.BLDG_MATERIALS[TP_PLANK_KEY] = K.BldgMat(plank["set"], (tile, tile), PLANK_MAT.target_srgb,
+                                                   smooth=PLANK_MAT.smooth)
+        tp["undo"].append(lambda: K.BLDG_MATERIALS.pop(TP_PLANK_KEY, None))
+        merged[TP_PLANK_KEY] = dict({"set": plank["set"], "tile_m": (tile, tile)}, **plank["controls"])
+        TS.unregister_texpass()
+        TS.TEXPASS[version] = merged
+        tp["undo"].append(lambda: TS.TEXPASS.__setitem__(version, family))
+        TS.register_texpass(version)
+        tp["undo"].append(TS.unregister_texpass)
+        TS.register_trim_materials()                # trim_grain: the family's painted trim (setdefault, stays registered)
+        import inspect
+        tp["cls_arg"] = "cls" in inspect.signature(TS.weather_overlay).parameters
+        for k, cls in sorted(TP_WEATHER_CLASS.items()):      # until weather_overlay takes the class (sign/patches)
+            if not tp["cls_arg"] and k not in TS.W_CLASS:
+                TS.W_CLASS[k] = cls
+                tp["undo"].append(lambda k=k: TS.W_CLASS.pop(k, None))
+        role = getattr(TS, "texpass_role", None)    # the family's role table, once it has one (sign/patches)
+        key = role(TP_ROOF_ROLE, TP_ROOF_KEY) if role else TP_ROOF_KEY
+        if args.texpass_roof == "slate":
+            key = TP_ROOF_SLATE
+        elif args.texpass_roof == "true":
+            m = K.BLDG_MATERIALS[key]
+            size = TP_TRUE_SIZE_M.get(m.set)
+            if size is None:
+                raise KeyError(f"--texpass-roof true: no true size on record for {m.set} (TP_TRUE_SIZE_M)")
+            K.BLDG_MATERIALS[key] = replace(m, tile_m=(size, size))
+            tp["undo"].append(lambda key=key, m=m: K.BLDG_MATERIALS.__setitem__(key, m))
+        tp["roof_key"] = key
+    except Exception:
+        texpass_end(tp)
+        raise
+    print(f"[sign] texpass {version}: family keys {sorted(family)}, stand-ins {sorted(tp['standins'])}, roof "
+          f"{args.texpass_roof} -> {tp['roof_key']}, plank {args.texpass_plank}, weather {tp['weather']}")
+    return tp
+
+
+def texpass_end(tp):
+    if tp is None:
+        return
+    while tp["undo"]:
+        tp["undo"].pop()()
+
+
+def tp_remat(parts, tp):
+    """The pass's keys: the roof slabs on the roof key, painted trim on the family's grain trim, the plank on its key."""
+    out = []
+    for o, k in parts:
+        n = o.name
+        if n.startswith("roof_"):
+            k = tp["roof_key"]
+        elif k == "trim" and n.startswith(TP_TRIM_PREFIXES):
+            k = TP_TRIM_KEY
+        elif k == "plank":
+            k = TP_PLANK_KEY
+        out.append((o, k))
+    return out
+
+
+def _tp_mesh_arrays(obj):
+    me = obj.data
+    co = K._world_coords(obj)
+    lv = np.empty(len(me.loops), np.int32)
+    me.loops.foreach_get("vertex_index", lv)
+    start, total = cs2_uv.face_loop_table(me)
+    nrm = np.empty(len(me.polygons) * 3, np.float32)
+    me.polygons.foreach_get("normal", nrm)
+    R = np.array(obj.matrix_world, np.float64)[:3, :3]
+    nrm = nrm.reshape(-1, 3).astype(np.float64) @ R.T
+    pv = np.zeros(len(me.polygons), np.int32)
+    me.attributes["part"].data.foreach_get("value", pv)
+    return me, co, lv, start, total, nrm, pv
+
+
+def tp_uvs(obj, table, keys, tp):
+    """Pass work on the joined mesh in the AUTHORING frame, before the band UVs:
+    - roof tops: planar UVs, v up the slope on both sides (the kit's box projection ran one slope's courses upside down
+      and stretched both by 1 / cos(pitch)).
+    - the roof slab's underside: boards (TP_UNDER_KEY) running down the slope, not the roof key.
+    - plank: a board seam of the scan on the plank's bottom edge.
+    - density_w per face (TP_DENSITY, TP_FACE_W).
+    Returns the half-turn share map (tp_share)."""
+    me, co, lv, start, total, nrm, pv = _tp_mesh_arrays(obj)
+    lay = me.uv_layers[cs2_bake.TILE_LAYER]
+    uv = cs2_uv.loop_uvs(lay)
+    names = [""] + list(table)
+    mi = np.empty(len(me.polygons), np.int32)
+    me.polygons.foreach_get("material_index", mi)
+    w = np.ones(len(me.polygons), np.float32)
+    t_roof = K.square_tile_m(K.BLDG_MATERIALS[tp["roof_key"]])
+    t_under = K.square_tile_m(K.BLDG_MATERIALS[TP_UNDER_KEY])
+    i_under = sorted(keys).index(TP_UNDER_KEY)
+    plank = TP_PLANKS[tp["plank"]]
+    t_plank = plank["boards"] * plank["board_m"]
+    dv_plank = (1.0 - plank["seam_phase"] / plank["boards"]) - PLANK_Z[0] / t_plank
+    up = np.array((0.0, 0.0, 1.0))
+    prefixes = sorted(TP_DENSITY.items(), key=lambda kv: -len(kv[0]))
+    rep = {"roof_top": 0, "roof_under": 0, "plank": 0, "unwrapped": 0, "frame": 0}
+    skeys = sorted(keys)
+    by_part = {}
+    for f in range(len(me.polygons)):
+        by_part.setdefault(names[int(pv[f])], []).append(f)
+    for name, faces in sorted(by_part.items()):
+        for pre, (axis, mode) in sorted(TP_UNWRAP.items(), key=lambda kv: -len(kv[0])):
+            if name.startswith(pre):
+                tile = K.square_tile_m(K.BLDG_MATERIALS[skeys[int(mi[faces[0]])]])
+                rep["unwrapped"] += tp_unwrap(faces, axis, mode, co, lv, start, total, nrm, uv, tile)
+                break
+        if name.startswith("plankframe_"):          # the frame's four front strips: one island each, not a hollow ring
+            front = [f for f in faces if nrm[f][0] > 0.5]
+            for i, f in enumerate(front):
+                uv[int(start[f]):int(start[f] + total[f]), 0] += 7.0 * (i + 1)     # whole tiles: same texture phase
+            rep["frame"] += len(front)
+    for f in range(len(me.polygons)):
+        name = names[int(pv[f])]
+        n = nrm[f]
+        sl = slice(int(start[f]), int(start[f] + total[f]))
+        P = co[lv[sl]]
+        if name.startswith(("roof_", "soffit_")) and abs(n[2]) > 0.5:
+            ud = np.cross(up, n)
+            ud /= max(float(np.linalg.norm(ud)), 1e-12)
+            if n[2] > 0.0 and name.startswith("roof_"):
+                vd = np.cross(n, ud)                          # up the slope
+                uv[sl] = np.stack([P @ ud, P @ vd], 1) / t_roof
+                rep["roof_top"] += 1
+            elif n[2] < 0.0:
+                d = np.cross(n, ud)                           # the slope line; boards run along it (u = the scan's grain)
+                uv[sl] = np.stack([P @ d, P @ np.cross(n, d)], 1) / t_under
+                mi[f] = i_under
+                rep["roof_under"] += 1
+        elif name.startswith("roof_") and abs(n[0]) > 0.5:
+            # the slab's rake ends (behind the flush barges): along the slope, not a diagonal bar across the atlas
+            Q = P - P.mean(0)
+            d = np.linalg.eigh(np.cov(Q.T))[1][:, -1]
+            d = d * (1.0 if d[2] > 0 else -1.0)
+            uv[sl] = np.stack([P @ d, P @ np.cross(n, d)], 1) / t_roof
+            rep["roof_rake"] = rep.get("roof_rake", 0) + 1
+        elif name.startswith(("plankbody_", "plankfront_")) and abs(n[2]) < 0.5:
+            uv[sl, 1] += dv_plank
+            rep["plank"] += 1
+        wt = 1.0
+        for pre, val in prefixes:
+            if name.startswith(pre):
+                wt = float(val)
+                break
+        for pre, ax, sg, val in TP_FACE_W:
+            if name.startswith(pre) and sg * n[ax] > 0.5:
+                wt = float(val)
+        w[f] = wt
+    cs2_uv.set_loop_uvs(lay, uv)
+    me.polygons.foreach_set("material_index", mi)
+    me.attributes[cs2_uv.DENSITY_ATTR].data.foreach_set("value", w)
+    share = tp_share(me, co, lv, start, total, nrm, pv, names)
+    share["uv_edits"] = rep
+    return share
+
+
+def tp_unwrap(faces, axis, mode, co, lv, start, total, nrm, uv, tile):
+    """Unroll one prism-like part's side faces (normal within about 17 degrees of square to `axis`: the faces and the
+    chamfers between them) into one strip in the tile layer: one coordinate is the meter along the axis, the other the
+    meters walked round the section. Each face only slides along the strip (no turn: `mode` "u" keeps v = along and
+    u x v = the normal with the way round = axis x normal, "v" keeps u = along with the way round = normal x axis), so the
+    source normals stay valid and the scan runs round the corners. The strip is cut at the widest gap between neighbor
+    normals (a dropped face), else so that the face looking at -X (the back) comes last. Caps, cap chamfers and corner
+    triangles keep the UVs they had. Returns the number of faces moved."""
+    P_all = co[np.unique(np.concatenate([lv[int(start[f]):int(start[f] + total[f])] for f in faces]))]
+    if axis is None:                                # the part's own long axis
+        c = np.cov((P_all - P_all.mean(0)).T)
+        ev, evec = np.linalg.eigh(c)
+        a = evec[:, int(np.argmax(ev))]
+        a = a * (1.0 if a[int(np.argmax(np.abs(a)))] > 0 else -1.0)
+    else:
+        a = np.array(axis, np.float64)
+    a = a / np.linalg.norm(a)
+    e1 = np.cross(a, (1.0, 0.0, 0.0)) if abs(a[0]) < 0.9 else np.cross(a, (0.0, 0.0, 1.0))
+    e1 = np.cross(e1, a)                            # in the section plane; for a = Y or Z this is +X
+    e1 = e1 / np.linalg.norm(e1)
+    e2 = np.cross(a, e1)
+    side = [f for f in faces if abs(float(nrm[f] @ a)) < 0.3]
+    if len(side) < 2:
+        return 0
+    phi = np.array([math.atan2(float(nrm[f] @ e2), float(nrm[f] @ e1)) for f in side])
+    order = np.argsort(phi, kind="stable")
+    groups = []                                     # faces of one direction (coplanar pieces) share a strip slot
+    for j in order:
+        if groups and abs(phi[j] - groups[-1][0]) < 0.035:
+            groups[-1][1].append(side[int(j)])
+        else:
+            groups.append([float(phi[j]), [side[int(j)]]])
+    if len(groups) > 1 and abs(groups[0][0] + 2.0 * math.pi - groups[-1][0]) < 0.035:
+        groups[0][1] += groups.pop()[1]
+    ng = len(groups)
+    gaps = [(groups[(i + 1) % ng][0] - groups[i][0]) % (2.0 * math.pi) for i in range(ng)]
+    if ng > 1 and max(gaps) > math.radians(60.0):
+        first = (int(np.argmax(gaps)) + 1) % ng     # the strip starts after the widest gap
+    else:
+        back = math.atan2(float(-e2[0]), float(-e1[0]))          # the direction of -X in the section plane
+        last = int(np.argmin([abs((g[0] - back + math.pi) % (2.0 * math.pi) - math.pi) for g in groups]))
+        first = (last + 1) % ng if mode == "u" else (last - 1) % ng
+    seq = [groups[(first + i) % ng] for i in range(ng)] if mode == "u" else         [groups[(first - i) % ng] for i in range(ng)]
+    s0, moved = 0.0, 0
+    for _phi, fs in seq:
+        n = np.sum([nrm[f] for f in fs], axis=0)
+        n = n - a * float(n @ a)
+        n = n / max(float(np.linalg.norm(n)), 1e-12)
+        t = np.cross(a, n) if mode == "u" else np.cross(n, a)
+        q_all = np.concatenate([co[lv[int(start[f]):int(start[f] + total[f])]] @ t for f in fs])
+        q0, q1 = float(q_all.min()), float(q_all.max())
+        for f in fs:
+            sl = slice(int(start[f]), int(start[f] + total[f]))
+            P = co[lv[sl]]
+            around, along = s0 + (P @ t - q0), P @ a
+            uv[sl] = (np.stack([around, along], 1) if mode == "u" else np.stack([along, around], 1)) / tile
+            moved += 1
+        s0 += q1 - q0
+    return moved
+
+
+def tp_share(me, co, lv, start, total, nrm, pv, names):
+    """Faces of the TP_SHARE parts that repeat under the half turn (x, y, z) -> (2 PORTAL_X - x, -y, z): pair each with its
+    image (centroid, normal and every vertex within 0.1 mm) and name one of the two the original. The original is the face of
+    the plank front, else of the first part by name (pier_l before pier_r), else, inside one part, the face that looks at the
+    road (+X), else the one on the -Y side. Returns the copies' faces and loops with their originals' loops."""
+    area = cs2_uv.face_world_areas(me)
+    elig = np.array([f for f in range(len(me.polygons)) if names[int(pv[f])].startswith(TP_SHARE)], np.int64)
+    out = dict(dup_faces=np.zeros(0, np.int64), dup_loops=np.zeros(0, np.int64), canon_loops=np.zeros(0, np.int64),
+               pairs=0, saved_m2=0.0, parts={})
+    if len(elig) == 0:
+        return out
+    cen = np.array([co[lv[int(start[f]):int(start[f] + total[f])]].mean(0) for f in elig])
+    nn = nrm[elig]
+    turn = np.array((-1.0, -1.0, 1.0))
+    shift = np.array((2.0 * PORTAL_X, 0.0, 0.0))
+    rc, rn = cen * turn + shift, nn * turn
+    done = set()
+    dup_f, dup_l, can_l = [], [], []
+    for a in range(len(elig)):
+        f = int(elig[a])
+        if f in done:
+            continue
+        d = np.abs(cen - rc[a]).max(1) + np.abs(nn - rn[a]).max(1)
+        b = int(np.argmin(d))
+        g = int(elig[b])
+        if d[b] > 1e-4 or g == f or g in done or int(total[f]) != int(total[g]):
+            continue
+        lf = np.arange(int(start[f]), int(start[f] + total[f]))
+        lg = np.arange(int(start[g]), int(start[g] + total[g]))
+        Pf, Pg = co[lv[lf]] * turn + shift, co[lv[lg]]
+        dist = np.abs(Pf[:, None, :] - Pg[None, :, :]).max(2)
+        match = dist.argmin(1)
+        if float(dist.min(1).max()) > 1e-4 or len(set(match.tolist())) != len(match):
+            continue
+        nf, ng = names[int(pv[f])], names[int(pv[g])]
+        if nf != ng:
+            if nf.startswith(FRONT_PROBE) != ng.startswith(FRONT_PROBE):
+                f_first = nf.startswith(FRONT_PROBE)
+            else:
+                f_first = nf < ng
+        elif abs(nrm[f][0]) > 1e-3:
+            f_first = (nrm[f][0] > 0.0) != nf.startswith(TP_SHARE_BACK)
+        else:
+            f_first = cen[a][1] < cen[b][1]
+        if f_first:                                   # g copies f: g's loop match[i] <- f's loop i
+            dup_f.append(g)
+            dup_l.append(lg[match])
+            can_l.append(lf)
+            part = ng
+        else:
+            dup_f.append(f)
+            dup_l.append(lf)
+            can_l.append(lg[match])
+            part = nf
+        out["parts"][part] = round(out["parts"].get(part, 0.0) + float(area[dup_f[-1]]), 3)
+        done.update((f, g))
+    if dup_f:
+        out.update(dup_faces=np.array(dup_f, np.int64), dup_loops=np.concatenate(dup_l).astype(np.int64),
+                   canon_loops=np.concatenate(can_l).astype(np.int64), pairs=len(dup_f),
+                   saved_m2=round(float(area[np.array(dup_f)].sum()), 2))
+    return out
+
+
+SKYLINE_ORDERS = ("height", "width", "area", "side")
+
+
+def skyline_pack(sizes, W, H, blocked=(), order="height"):
+    """Bottom-left skyline packing of padded rects `sizes` [(w, h)] (px, ints) into W x H, in `order` (SKYLINE_ORDERS:
+    tallest / widest / largest / longest side first). `blocked` = [(x0, x1, top)]: columns whose floor starts at `top` (a
+    reserved rect in a corner). Returns [(x, y)] in input order, or None when a rect does not fit. Pure Python (no bpy):
+    deterministic for a given input."""
+    sky = [(0, 0, int(W))]                                    # (x, y, width), sorted by x
+
+    def raise_to(sky, x, w, top):
+        new = []
+        for sx, sy, sw in sky:
+            ex = sx + sw
+            if ex <= x or sx >= x + w:
+                new.append((sx, sy, sw))
+                continue
+            if sx < x:
+                new.append((sx, sy, x - sx))
+            if ex > x + w:
+                new.append((x + w, sy, ex - (x + w)))
+        new.append((x, top, w))
+        new.sort()
+        merged = [new[0]]
+        for sx, sy, sw in new[1:]:
+            px, py, pw = merged[-1]
+            if py == sy and px + pw == sx:
+                merged[-1] = (px, py, pw + sw)
+            else:
+                merged.append((sx, sy, sw))
+        return merged
+    for x0, x1, top in blocked:
+        sky = raise_to(sky, int(x0), int(x1 - x0), int(top))
+    pos = [None] * len(sizes)
+    rank = {"height": lambda i: (-sizes[i][1], -sizes[i][0], i), "width": lambda i: (-sizes[i][0], -sizes[i][1], i),
+            "area": lambda i: (-sizes[i][0] * sizes[i][1], -sizes[i][1], i),
+            "side": lambda i: (-max(sizes[i]), -min(sizes[i]), i)}[order]
+    for i in sorted(range(len(sizes)), key=rank):
+        w, h = int(sizes[i][0]), int(sizes[i][1])
+        best = None
+        for j, (sx, _sy, _sw) in enumerate(sky):
+            if sx + w > W:
+                break
+            y, k = 0, j
+            while k < len(sky) and sky[k][0] < sx + w:
+                y = max(y, sky[k][1])
+                k += 1
+            if y + h > H:
+                continue
+            if best is None or (y, sx) < best:
+                best = (y, sx)
+        if best is None:
+            return None
+        y, x = best
+        pos[i] = (x, y)
+        sky = raise_to(sky, x, w, y + h)
+    return pos
+
+
+def tp_pack_plan(obj, A, reserved, margin, share):
+    """The pass's unique layout, computed on the tile layer before the bake: every UV island of the free faces (not in a
+    reserved rect, not a share copy) keeps its shape and direction (uniform scale and a move only: the bake does not turn
+    tangent normals) at px/m = k x its area-weighted density_w, k the largest value whose rects the skyline packer fits with
+    `margin` px between islands. An island wider or taller than the atlas is clamped to it. Returns the plan."""
+    me = obj.data
+    lay = me.uv_layers[cs2_bake.TILE_LAYER]
+    pinned = cs2_uv.pinned_faces(me, lay, reserved)
+    hold = set(pinned) | set(int(f) for f in share["dup_faces"])
+    free = [i for i in range(len(me.polygons)) if i not in hold]
+    uv = cs2_uv.loop_uvs(lay)
+    start, total = cs2_uv.face_loop_table(me)
+    wa = cs2_uv.face_world_areas(me)
+    ua = cs2_uv.face_uv_areas(me, uv, start, total)
+    weights = cs2_uv.face_density_weights(me)
+    isl = []
+    for faces in cs2_uv.uv_islands(me, lay, faces=free):
+        idx = np.concatenate([np.arange(start[f], start[f] + total[f]) for f in faces])
+        a3, a2 = float(wa[faces].sum()), float(ua[faces].sum())
+        m_per_uv = math.sqrt(a3 / a2) if a2 > 1e-14 and a3 > 1e-12 else 0.0
+        wt = float((weights[faces] * wa[faces]).sum() / a3) if a3 > 1e-12 else 1.0
+        lo, hi = uv[idx].min(0), uv[idx].max(0)
+        isl.append(dict(idx=idx, faces=faces, lo=lo, ext=(hi - lo), m=m_per_uv, w=wt))
+    half = margin // 2
+    blocked = []
+    for (u0, v0, u1, v1) in reserved:
+        if u0 * A > margin or v0 * A > margin:
+            raise ValueError(f"texpass pack: reserved rect {(u0, v0, u1, v1)} is not in the lower-left corner")
+        blocked.append((0, int(math.ceil(u1 * A)) + half, int(math.ceil(v1 * A)) + half))
+    lim = float(A - margin - 1)
+
+    def scales(k):
+        out = []
+        for d in isl:
+            s = d["m"] * k * d["w"]                            # px per UV unit
+            ex = float(max(d["ext"][0], d["ext"][1], 1e-12))
+            out.append(min(s, lim / ex))
+        return out
+
+    def fit(k, order):
+        sc = scales(k)
+        sizes = [(max(1, int(math.ceil(d["ext"][0] * s))) + margin, max(1, int(math.ceil(d["ext"][1] * s))) + margin)
+                 for d, s in zip(isl, sc)]
+        pos = skyline_pack(sizes, A, A, blocked, order)
+        return None if pos is None else (sc, pos)
+    best = None                                     # (k, order, (scales, positions)): the densest fit of any order
+    for order in SKYLINE_ORDERS:
+        lo_k, hi_k, got = 1.0, 4096.0, None
+        for _ in range(22):
+            k = 0.5 * (lo_k + hi_k)
+            r = fit(k, order)
+            if r is None:
+                hi_k = k
+            else:
+                lo_k, got = k, (k, order, r)
+        # a heuristic packer is not monotone in k: a few steps above the bisection's edge sometimes fit again
+        for step in range(1, 13):
+            if got is None:
+                break
+            r = fit(got[0] * (1.0 + 0.01 * step), order)
+            if r is not None:
+                got = (got[0] * (1.0 + 0.01 * step), order, r)
+        if got is not None and (best is None or got[0] > best[0]):
+            best = got
+    if best is None:
+        raise RuntimeError("texpass pack: nothing fits")
+    k, pack_order, (sc, pos) = best
+    islands, face_ppm, px_area, clamped = [], np.zeros(len(me.polygons)), 0.0, 0
+    for d, s, (x, y) in zip(isl, sc, pos):
+        islands.append((d["idx"], d["lo"], float(s), int(x + half), int(y + half)))
+        ppm = s / d["m"] if d["m"] > 0 else 0.0
+        face_ppm[d["faces"]] = ppm
+        px_area += float(ua[d["faces"]].sum()) * s * s
+        clamped += int(s < d["m"] * k * d["w"] * (1.0 - 1e-9))
+    return dict(A=int(A), margin=int(margin), k=float(k), islands=islands, pinned=sorted(pinned), face_ppm=face_ppm,
+                fill=px_area / float(A * A), clamped=clamped, free_faces=len(free), order=pack_order)
+
+
+def tp_pack_layout(plan, shr):
+    """The stand-in for cs2_uv._pack_layout during the pass's bake: write the plan into UVUnique and park the share copies
+    outside the atlas, so the bake, its AO and the compose step see every shared face once (its original)."""
+    def layout(obj, mesh, A, reserved, margin_px=None, equalise=True, density_layer=cs2_uv.DENSITY_ATTR, share=None):
+        if int(A) != plan["A"]:
+            raise RuntimeError(f"texpass pack: plan made for {plan['A']}, bake asks {A}")
+        layer = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
+        mesh.uv_layers.active = layer
+        uv = cs2_uv.loop_uvs(layer)
+        for idx, lo, s, x, y in plan["islands"]:
+            uv[idx] = ((uv[idx] - lo) * s + np.array((x, y), np.float64)) / float(A)
+        if len(shr["dup_loops"]):                   # every copy at u >= TP_PARK_U, whatever its tile UV was
+            uv[shr["dup_loops"], 0] += TP_PARK_U - float(uv[shr["dup_loops"], 0].min())
+        cs2_uv.set_loop_uvs(layer, uv)
+        d = plan["face_ppm"][plan["face_ppm"] > 0]
+        print(f"[sign] texpass pack @ {A}: {len(plan['islands'])} islands, {len(plan['pinned'])} pinned faces, "
+              f"{len(shr['dup_faces'])} shared faces parked, margin {plan['margin']} px, w=1 {plan['k']:.1f} px/m, "
+              f"fill {plan['fill']:.3f}, clamped {plan['clamped']}")
+        return {"A": int(A), "margin_px": plan["margin"], "faces": len(mesh.polygons),
+                "pinned_faces": len(plan["pinned"]), "islands": len(plan["islands"]), "band": (0.0, 1.0),
+                "w1_px_per_m": round(plan["k"], 2), "fill": round(plan["fill"], 4), "clamped": plan["clamped"],
+                "order": plan["order"],
+                "shared_faces": int(len(shr["dup_faces"])),
+                "px_per_m": {"min": float(d.min()) if d.size else 0.0, "median": float(np.median(d)) if d.size else 0.0,
+                             "max": float(d.max()) if d.size else 0.0}}
+    return layout
+
+
+def tp_finish_uvs(obj, plan, share, reserved):
+    """After the bake: every share copy takes its original's packed UVs. Then the library's layout contract (every loop in
+    [0, 1], nothing free inside a reserved rect, no collapsed island)."""
+    me = obj.data
+    layer = me.uv_layers[cs2_uv.UNIQUE_LAYER]
+    uv = cs2_uv.loop_uvs(layer)
+    if len(share["dup_loops"]):
+        uv[share["dup_loops"]] = uv[share["canon_loops"]]
+        cs2_uv.set_loop_uvs(layer, uv)
+    cs2_uv.check_layout(me, me.uv_layers[cs2_uv.UNIQUE_LAYER], reserved, set(plan["pinned"]))
+
+
+def _tp_native_px(mat):
+    """Texels across the SQUARE tile of a set material's Color map (a 2:1 set is stacked along its short axis)."""
+    p = cs2_bake.find_set_map(cs2_bake._set_dir(mat.set), "Color")
+    img = bpy.data.images.load(p, check_existing=False)
+    try:
+        return int(max(img.size[0], img.size[1]))
+    finally:
+        bpy.data.images.remove(img)
+
+
+def tp_swatch_source(key, ppm, tp):
+    """One scanned key's bake source = the FAMILY SWATCH content (cs2_tilesheet._swatch_maps: the registered pass's scan,
+    tile size, tint to the palette mean, swatch controls, rib relief, smoothness target) at 3 x `ppm` (never past the scan's
+    own resolution), written as a tiling set. Also the key's weathered / clean ratio tile and smoothness shift from the
+    family's "~w" overlay (cs2_tilesheet.weather_overlay with the sheet's seed), blurred to low frequency: tp_weather
+    samples it at the face's tile UV. Returns (MaterialSpec, info)."""
+    TS = tp["TS"]
+    m = K.BLDG_MATERIALS[key]
+    tile = K.square_tile_m(m)
+    native = _tp_native_px(m)
+    # in steps of 128 px, so two builds whose packs differ by a few px/m share one prefiltered tile (the cache key is N)
+    N = int(max(16, min(128 * math.ceil(tile * K.PREFILTER_FACTOR * float(ppm) / 128.0), native)))
+    swatch = getattr(TS, "swatch_maps", None) or TS._swatch_maps      # the public name once the family module has it
+    base, nrm, metal, sm, slot, info = swatch(key, N, None, repeat=1, layout_name="rollout")
+    if key in TS.TRIM_SMOOTH:                               # the strip keys' measured smoothness (not in SMOOTH_TARGET)
+        sm = np.clip(sm - sm.mean() + float(TS.TRIM_SMOOTH[key]), 0.0, 1.0)
+    tag = f"sw_{key}_{N}"
+    ddir = os.path.join(tp["work"], tag)
+    os.makedirs(ddir, exist_ok=True)
+    col = np.rint(np.clip(K.linear_to_srgb(base), 0.0, 1.0) * 255.0) / 255.0
+    for mp, rgb in (("Color", col), ("NormalGL", nrm), ("Roughness", np.repeat((1.0 - sm)[..., None], 3, -1))):
+        px = np.ones(rgb.shape[:2] + (4,), np.float64)
+        px[..., :3] = np.clip(rgb, 0.0, 1.0)
+        K._write_raw_png(os.path.join(ddir, f"{tag}_{mp}.png"), px)
+    spec = cs2_bake.MaterialSpec(texture_set=ddir, metres_per_tile=tile, tint=(1.0, 1.0, 1.0), metal=float(metal),
+                                 rough=None, slot=int(slot), recolor_albedo=True if m.recolor else None,
+                                 projection="planar" if m.proj == "inplane" else "box")
+    info = dict(info, swatch=True, N=N, native_px=native, source_ppm=round(N / tile, 1), filtered_dir=ddir,
+                target_srgb=list(m.target_srgb) if m.target_srgb else None,
+                mean_srgb=[round(float(c), 3) for c in K.linear_to_srgb(base.reshape(-1, 3).mean(0))],
+                smooth_mean=round(float(sm.mean()), 3), standin=key in tp["standins"])
+    cls = TS.W_CLASS.get(key) or TP_WEATHER_CLASS.get(key)
+    if cls and tp["weather"] > 0.0:
+        wkey = key + TS.W_SUFFIX
+        seed = int(hashlib.sha1(wkey.encode()).hexdigest()[:8], 16)                 # the sheet's seed for this cell
+        bw, _mt, smw = TS.weather_overlay(wkey, base, nrm, metal, sm, seed, **({"cls": cls} if tp["cls_arg"] else {}))
+        sig = TP_RATIO_BLUR_M * N / tile
+        ratio = TS.blur_periodic(bw / np.maximum(base, 1e-4), sig)
+        ds = TS.blur_periodic(smw - sm, sig)
+        nr = int(max(16, min(N, round(tile * TP_RATIO_PPM))))
+        tp.setdefault("ratio", {})[key] = (K.box_filter(ratio, nr).astype(np.float32),
+                                          K.box_filter(ds[..., None], nr)[..., 0].astype(np.float32))
+        info["weather_class"] = cls
+        info["weather_ratio_mean"] = [round(float(c), 3) for c in ratio.reshape(-1, 3).mean(0)]
+    return spec, info
+
+
+def tp_bake_sources(keys, key_ppm, band_paths, tp):
+    """bake_sources under the pass: scanned keys from the family swatch (tp_swatch_source), flat keys as before."""
+    keys = sorted(keys)
+    flat = [k for k in keys if k != BAND_KEY and not K.BLDG_MATERIALS[k].set]
+    specs, info = K.material_specs(flat, 64.0)
+    out = {}
+    for i, k in enumerate(keys):
+        if k == BAND_KEY:
+            out[i] = cs2_bake.SourceSet(base=band_paths["BaseColor"], normal=band_paths["Normal"],
+                                        normal_convention="GL", mask=band_paths["MaskMap"],
+                                        control=band_paths["ControlMask"], uv=None, slot=0, recolor_albedo=False)
+            info[k] = dict(band=True, files={m: os.path.basename(p) for m, p in band_paths.items()})
+            continue
+        if k not in flat:
+            specs[k], info[k] = tp_swatch_source(k, key_ppm.get(k, 64.0), tp)
+        ss = cs2_bake._resolve_spec(cs2_bake._as_material_spec(specs[k], k), k)
+        out[i] = replace(ss, uv=cs2_bake.TILE_LAYER)
+    return out, info, keys.index(BAND_KEY)
+
+
+def tp_fields(me, A, dilate_px=3.0):
+    """Per texel of the unique layout: authoring position and normal (the mesh is oriented: its (x, y, z) = authoring
+    (y, -x, z)), part id (0 = gutter), material index (-1 = gutter) and the face's tile UV. Two passes: dilated (the borders
+    the first mips read), then exact."""
+    tile = cs2_bake.ATLAS_LAYER if cs2_bake.ATLAS_LAYER in me.uv_layers else cs2_bake.TILE_LAYER
+    tuv = cs2_uv.loop_uvs(me.uv_layers[tile])
+    ids = cs2_compose.part_indices(me)
+    mi = cs2_bake._polygon_material_indices(me)
+    P = np.zeros((A, A, 3), np.float32)
+    N = np.zeros((A, A, 3), np.float32)
+    T = np.zeros((A, A, 2), np.float32)
+    part = np.zeros((A, A), np.int32)
+    mat = np.full((A, A), -1, np.int32)
+    for dil in (float(dilate_px), 0.0):
+        for poly, sl, mask, X, Y, q, Pv, _ppm in cs2_compose.iter_face_rasters(me, A, cs2_uv.UNIQUE_LAYER, dil):
+            qm, Pm, Mt = cs2_compose._affine_uv_to_world(q, Pv)
+            d = np.stack([X - qm[0], Y - qm[1]], -1)
+            w = Pm + d @ Mt
+            t = tuv[poly.loop_start:poly.loop_start + poly.loop_total]
+            tm = t.mean(0)
+            Tt = np.linalg.lstsq(q - qm, t - tm, rcond=None)[0]
+            nw = poly.normal
+            P[sl][mask] = np.stack([-w[..., 1], w[..., 0], w[..., 2]], -1)[mask]
+            N[sl][mask] = (-nw.y, nw.x, nw.z)
+            T[sl][mask] = (tm + d @ Tt)[mask]
+            part[sl][mask] = ids[poly.index]
+            mat[sl][mask] = mi[poly.index]
+    return P, N, T, part, mat
+
+
+def _tp_smooth(a, b, x):
+    t = np.clip((x - a) / (b - a), 0.0, 1.0)
+    return t * t * (3.0 - 2.0 * t)
+
+
+def tp_weather(base, msk, me, A, table, keys, reserved, tp):
+    """The pass's weathering, pixels only (LINEAR base and MaskMap changed in place; nothing inside a reserved rect):
+    where a real timber-and-stone gate weathers, the texel moves toward the family's "~w" look of its key (the ratio tile of
+    tp_swatch_source at the face's tile UV), by a soft mask in authoring meters:
+        splash   piers, plinths, footings: from grade to the family's side base band (TileWeather.base_h)
+        feet     posts and braces: the first 0.3 m over the pier cap (water stands on the cap)
+        exposed  posts, braces, beams, plate: outside the roof's cover (|y| past the eave line)
+        eave     roof tops: the lowest courses, the family's roof-eave band length up the slope
+        cap      pier cap tops: patches
+        trim     barges and ridge: thin, patchy
+    plus the drip line: beams darker and a little glossier in a 0.4 m band under each eave. Every mask is at least 0.3 m
+    deep with soft edges of 0.1 m or more, and is the same under the half turn that the shared parts repeat by (it reads |y|
+    and z only). Returns the report."""
+    import cs2_weather
+    TS = tp["TS"]
+    strength = float(tp["weather"])
+    rep = {"strength": strength, "rules": {}}
+    if strength <= 0.0:
+        return rep
+    P, N, T, part, mat = tp_fields(me, A)
+    keys = sorted(keys)
+    names = [""] + list(table)
+    rules = TS.TileWeather()
+    seed = zlib.crc32(b"SkiResortGate:texpass")
+    covered = part > 0
+    for r in reserved:
+        covered[cs2_compose._rect_slices(r, A)] = False
+    idx = np.nonzero(covered)
+    p = P[idx].astype(np.float64)
+    n = N[idx]
+    pid = part[idx]
+    z, ay = p[:, 2], np.abs(p[:, 1])
+    wob = cs2_weather.vnoise3(p / 0.6, seed) - 0.5                     # 0.6 m cells, +-0.5
+    patch = cs2_weather.vnoise3(p / 0.45 + 17.0, seed + 1)
+
+    def of(*prefixes):
+        ids = [i for i, nm in enumerate(names) if nm and nm.startswith(prefixes)]
+        return np.isin(pid, ids)
+    m = np.zeros(len(z), np.float64)
+    h = float(rules.base_h["side"])
+    sel = of("pier_", "pierplinth_", "footing_")
+    splash = np.where(sel, 1.0 - _tp_smooth(h - 0.35, h + 0.05, z + 0.25 * wob), 0.0)
+    sel = of("tpost_", "brace_")
+    feet = np.where(sel, 0.9 * (1.0 - _tp_smooth(0.08, 0.38, z - POST[1] + 0.12 * wob)), 0.0)
+    sel = of("tpost_", "brace_", "beamlow_", "beamhead_", "beamheadfront_", "plate_")
+    exposed = np.where(sel, 0.75 * _tp_smooth(EAVE_Y - 0.35, EAVE_Y + 0.45, ay + 0.3 * wob), 0.0)
+    sel = of("roof_") & (n[:, 2] > 0.5)
+    up_slope = (EAVE_Y - ay) / math.cos(math.radians(GABLE_PITCH))
+    band = float(rules.roof_eave_m["back"])
+    eave = np.where(sel, 0.85 * (1.0 - _tp_smooth(0.3 * band, band, up_slope + 0.3 * wob)), 0.0)
+    sel = of("piercap_") & (n[:, 2] > 0.5)
+    cap = np.where(sel, 0.6 * _tp_smooth(0.35, 0.75, patch), 0.0)
+    sel = of("barge_", "ridge_")
+    trim = np.where(sel, 0.45 * (0.6 + 0.8 * patch), 0.0)
+    for nm, a in (("splash", splash), ("feet", feet), ("exposed", exposed), ("eave", eave), ("cap", cap),
+                  ("trim", trim)):
+        m = np.maximum(m, a)
+        rep["rules"][nm] = {"texels": int((a > 0.05).sum()), "mean": round(float(a[a > 0.05].mean()), 3)
+                            if (a > 0.05).any() else 0.0}
+    m = np.clip(m * strength, 0.0, 1.0)
+    b = base[idx][:, :3].astype(np.float64)
+    s = msk[idx][:, 3].astype(np.float64)
+    kid = mat[idx]
+    t = T[idx].astype(np.float64)
+    used = {}
+    for i, key in enumerate(keys):
+        got = tp.get("ratio", {}).get(key)
+        if got is None:
+            continue
+        sel = (kid == i) & (m > 0.003)
+        if not sel.any():
+            continue
+        ratio, ds = got
+        nr = ratio.shape[0]
+        f = (t[sel] % 1.0) * nr - 0.5
+        i0 = np.floor(f).astype(np.int64)
+        fr = f - i0
+        x0, y0 = i0[:, 0] % nr, i0[:, 1] % nr
+        x1, y1 = (x0 + 1) % nr, (y0 + 1) % nr
+        wx, wy = fr[:, 0:1], fr[:, 1:2]
+        rr = ((ratio[y0, x0] * (1 - wx) + ratio[y0, x1] * wx) * (1 - wy)
+              + (ratio[y1, x0] * (1 - wx) + ratio[y1, x1] * wx) * wy)
+        dd = ((ds[y0, x0] * (1 - wx[:, 0]) + ds[y0, x1] * wx[:, 0]) * (1 - wy[:, 0])
+              + (ds[y1, x0] * (1 - wx[:, 0]) + ds[y1, x1] * wx[:, 0]) * wy[:, 0])
+        mm = m[sel]
+        b[sel] *= 1.0 + (rr - 1.0) * mm[:, None]
+        s[sel] += dd * mm
+        used[key] = int(sel.sum())
+    # the drip line: the eaves end over the beams, their runoff wets a band of every beam face under them
+    sel = of("beamlow_", "beamhead_", "beamheadfront_", "plate_")
+    drip = np.where(sel, np.exp(-((ay - EAVE_Y) / 0.20) ** 2) * (0.6 + 0.8 * patch), 0.0) * strength
+    b *= (1.0 - 0.14 * np.clip(drip, 0.0, 1.0))[:, None]
+    s += 0.05 * np.clip(drip, 0.0, 1.0)
+    rep["rules"]["drip"] = {"texels": int((drip > 0.05).sum()), "mean": round(float(drip[drip > 0.05].mean()), 3)
+                            if (drip > 0.05).any() else 0.0}
+    base[idx[0], idx[1], :3] = np.clip(b, 0.0, 1.0).astype(np.float32)
+    msk[idx[0], idx[1], 3] = np.clip(s, 0.0, 1.0).astype(np.float32)
+    rep["keys"] = used
+    rep["family_rules"] = {"base_h_side": h, "roof_eave_m_back": band}
+    return rep
+
+
+def tp_density_table(obj, table, A, face_keys):
+    """Shipped px/m per part and per material key (area-weighted median over the faces, share copies included) and the
+    faces' kept area."""
+    me = obj.data
+    d = cs2_uv.face_px_per_m(me, me.uv_layers[cs2_uv.UNIQUE_LAYER], A)
+    a = cs2_uv.face_world_areas(me)
+    pv = cs2_compose.part_indices(me)
+    names = [""] + list(table)
+
+    def wmed(sel):
+        sel = sel & np.isfinite(d)
+        if not sel.any():
+            return None
+        order = np.argsort(d[sel])
+        dd, aa = d[sel][order], a[sel][order]
+        c = np.cumsum(aa)
+        return round(float(dd[np.searchsorted(c, 0.5 * c[-1])]), 1)
+    by_part, by_key = {}, {}
+    for i, nm in enumerate(names):
+        sel = pv == i
+        if nm and sel.any():
+            by_part[nm] = [round(float(a[sel].sum()), 2), wmed(sel)]
+    for k in sorted(set(face_keys)):
+        sel = np.array([fk == k for fk in face_keys])
+        by_key[k] = [round(float(a[sel].sum()), 2), wmed(sel)]
+    return {"by_part_m2_ppm": by_part, "by_key_m2_ppm": by_key}
 
 
 # ======================================================================================
@@ -1018,6 +1854,14 @@ def render_closeups(obj, table, asset_dir, name, out_dir, tint):
 
 
 def run(args):
+    tp = texpass_begin(args)                # None with --texpass off (the default)
+    try:
+        return _run(args, tp)
+    finally:
+        texpass_end(tp)
+
+
+def _run(args, tp=None):
     if not bpy.app.background:
         raise RuntimeError("welcome_sign.py runs headless only (ROUND-SPEC R10)")
     t0 = time.perf_counter()
@@ -1060,12 +1904,16 @@ def run(args):
             me = o.data
             bpy.data.objects.remove(o, do_unlink=True)
             bpy.data.meshes.remove(me)
+    if tp is not None:
+        parts = tp_remat(parts, tp)
     keys = sorted({k for _o, k in parts})
     # 3-5 bevel, density, tags
     n_bev = K.bevel_parts(parts, prefixes=BEVEL)
-    cs2_uv.set_density(parts, DENSITY)
+    cs2_uv.set_density(parts, DENSITY if tp is None else TP_DENSITY)
     table = cs2_asset.tag_parts(parts)
     dspecs = K.detail_specs([(o, k) for o, k in parts if k in K.BLDG_MATERIALS])
+    if tp is not None:                      # the family swatch already carries a key's rib relief (battens)
+        dspecs = {n: d for n, d in dspecs.items() if getattr(d, "seam_axes", None) != "ribs"}
     # 6 materials: UVTile projection (band placeholder, M6) + kit retile
     K.strip_uv_layers(parts)
     proj = projection_specs(keys)
@@ -1087,12 +1935,14 @@ def run(args):
     cs2_asset.store_part_table(obj, table)
     cs2_asset.shade_by_angle(obj, SHADE_ANGLE, weighted=True)
     # band UVs (authoring frame), band paint, contracts before orient
-    rects = set_band_uvs(obj, table, A, keys=bkeys)
+    band_px = None if tp is None else TP_BAND_PX_1024
+    share = None if tp is None else tp_uvs(obj, table, keys, tp)
+    rects = set_band_uvs(obj, table, A, keys=bkeys, px_1024=band_px)
     # per run (name, A, asset folder): two builds at once never share band PNGs
     band_dir = os.path.join(tempfile.gettempdir(), "welcome_sign",
                             f"{name}_{A}_{zlib.crc32(asset_dir.encode('utf-8')):08x}")
-    band_paths, band_arrays, cov, band_rep = paint_band(A, args.header, band_dir, name, keys=bkeys)
-    band_check = check_band(band_arrays, cov, rects, A)
+    band_paths, band_arrays, cov, band_rep = paint_band(A, args.header, band_dir, name, keys=bkeys, px_1024=band_px)
+    band_check = check_band(band_arrays, cov, rects, A, band_top=0.125 if tp is None else TP_BAND_TOP)
     pre = contracts_authoring(obj, table, args)
     # 8 orient, G4 / S6, engine base G1 / G2
     cs2_asset.orient_for_net(obj)
@@ -1124,19 +1974,47 @@ def run(args):
         return result, obj
     # 9 bake (reserved band, post hook)
     base_ppm = area["predicted_ppm_w1"].get(A) or 0.48 * A / math.sqrt(max(area["sum_w2a"], 1.0))
-    sources, mat_info, band_index = bake_sources(keys, base_ppm, band_paths)
-    hook = make_post(obj, band_paths, A, dspecs, keys=bkeys)
+    if tp is None:
+        sources, mat_info, band_index = bake_sources(keys, base_ppm, band_paths)
+        hook = make_post(obj, band_paths, A, dspecs, keys=bkeys)
+    else:                                   # texture pass: own layout first, then sources at the densities it gives
+        reserved = [tuple(float(x) for x in rects[k]) for k in bkeys]
+        plan = tp_pack_plan(obj, A, reserved, pack_margin(A), share)
+        face_keys = [keys[int(i)] for i in cs2_bake._polygon_material_indices(obj.data)]
+        key_ppm = {}
+        for fk, d in zip(face_keys, plan["face_ppm"]):
+            key_ppm[fk] = max(key_ppm.get(fk, 0.0), float(d))
+        sources, mat_info, band_index = tp_bake_sources(keys, key_ppm, band_paths, tp)
+        hook = make_post(obj, band_paths, A, dspecs, keys=bkeys, px_1024=band_px, tp=tp, table=table, mat_keys=keys)
     world = bpy.context.scene.world or bpy.data.worlds.new("World")
     bpy.context.scene.world = world
     world.light_settings.distance = 2.0
     emissive = not args.no_lanterns and not fine       # fine: the lanterns are vanilla rows
-    brep = cs2_bake.bake_unique(obj, asset_dir, name, A, sources,
-                                reserved=[rects[k] for k in bkeys],
-                                margin_px=pack_margin(A),
-                                ao_samples=ao, post_compose=hook, emissive=emissive,
-                                src_uv=cs2_bake.TILE_LAYER)
+    saved_pack = cs2_uv._pack_layout
+    if tp is not None:
+        cs2_uv._pack_layout = tp_pack_layout(plan, share)
+    try:
+        brep = cs2_bake.bake_unique(obj, asset_dir, name, A, sources,
+                                    reserved=[rects[k] for k in bkeys],
+                                    margin_px=pack_margin(A),
+                                    ao_samples=ao, post_compose=hook, emissive=emissive,
+                                    src_uv=cs2_bake.TILE_LAYER)
+    finally:
+        cs2_uv._pack_layout = saved_pack
     if not hook.band_copied:
         raise RuntimeError("post hook did not run")
+    if tp is not None:
+        tp_finish_uvs(obj, plan, share, reserved)
+        covered = A * A - int(brep["uncovered_texels"])
+        result["texpass"] = {
+            "version": tp["version"], "picks": args.texpass_picks, "standins": tp["standins"],
+            "roof": [args.texpass_roof, tp["roof_key"]], "plank": args.texpass_plank,
+            "pack": dict(brep["pack"], covered_texels=covered, planned_fill_texels=int(plan["fill"] * A * A)),
+            "share": {k: v for k, v in share.items() if k in ("pairs", "saved_m2", "parts", "uv_edits")},
+            "weather": hook.weather, "key_ppm": {k: round(v, 1) for k, v in sorted(key_ppm.items())},
+            "density": tp_density_table(obj, table, A, face_keys),
+            "emblem_px": int(round((rects["emblem"][2] - rects["emblem"][0]) * A))}
+        hook.density = K.shipped_density(obj, A)        # with the share copies on their originals
     result["bake"] = {k: brep[k] for k in ("A", "margin_px", "uncovered_texels", "seconds", "files", "ao")}
     result["bake"]["band_index"] = band_index
     if fine:                       # a map this build no longer writes (the old _Emissive) goes
@@ -1268,6 +2146,8 @@ def _manifest(asset_dir, name, args, result, A, t0):
         "review_pack": result.get("review_pack"), "previews": result.get("previews"),
         "total_seconds": round(time.perf_counter() - t0, 1),
     }
+    if result.get("texpass"):      # texture pass: the key exists only on a pass build
+        data["texpass"] = result.get("texpass")
     if result.get("fine"):         # fine-detail step 3d: keys only on the fine build (--no-fine unchanged)
         data["sub_objects"] = result.get("sub_objects")
         ss = {k: v for k, v in (result.get("sign_set") or {}).items() if k not in ("obj", "texture")}
