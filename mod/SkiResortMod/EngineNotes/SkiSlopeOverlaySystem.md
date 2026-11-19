@@ -93,6 +93,17 @@ At zoom 2,600 (two 4 s samples), the difference was inside the noise. The GPU co
 The shots at zoom 450, at zoom 1,100 and at zoom 1,100 with tilt 22 show no holes at the strip edges. Tree canopies stand more than
 8 m above the ground and are no longer tinted.
 
+Test with the display smoothing: 2026-11-19 11:25, the same site and camera, 2,485 strips (-6 %), sim paused.
+
+| Zoom | Overlay on | Overlay off |
+|---|---|---|
+| 450 | 13.97 ms | 12.97 ms |
+| 1,100 | 13.03 ms | 12.78 ms |
+| 2,600 | 14.52 ms | 14.21 ms |
+
+The base frame was 3.4 ms faster than in the first test, so the frame was less GPU-bound. The added 1.0 ms at zoom 450 then includes
+the managed cost of about 0.63 ms (the [cost] line). The run heat-map with its strip boxes added 0.08 ms for a run of about 2,750 cells.
+
 The overlay and the run heat-map use the same alpha per strip key (`SkiRunDrawFeedbackSystem.Tuning.KeyAlpha`). The overlay
 multiplies it by the fade level at the disk edge.
 
