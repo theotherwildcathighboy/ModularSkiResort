@@ -303,8 +303,16 @@ def ground(rig, rec, mode):
     gnd = rig.track(bpy.context.active_object)
     gnd.name = "PGround"
     if mode == "recipe" and rec is not None and getattr(rec, "base_mode", None) == "plinth":
-        mod = sys.modules.get(getattr(rec.builder, "__module__", ""), None)
-        grade = float(getattr(mod, "SLOPE", 0.35))   # the recipe's design slope (L2: 0.35)
+        # the recipe's design slope: its texpass grade rule (the number the weathering uses), else the SLOPE constant
+        # of the recipe module. bldg_recipes._load_module never registers a recipe module in sys.modules, so the old
+        # sys.modules lookup always fell back to 0.35: L4 (20 %) was drawn on the hut's 35 %. No silent default.
+        tp = (getattr(rec, "texpass", None) or {}).get("grade") or {}
+        mod_slope = (getattr(rec.builder, "__globals__", None) or {}).get("SLOPE")
+        if "slope" not in tp and mod_slope is None:
+            raise RuntimeError(f"{rec.key}: --ground recipe needs the plinth's design slope "
+                               f"(recipe.texpass['grade']['slope'] or a SLOPE constant in the recipe module); "
+                               f"pass --ground flat")
+        grade = float(tp["slope"] if "slope" in tp else mod_slope)
         front = 4.0 * rec.lot[1]                     # the lot front edge (exported -Y side)
         # exported frame: arrival side at y = -front, z 0 there; the ground falls toward +y
         gnd.rotation_euler = (-math.atan(grade), 0.0, 0.0)
