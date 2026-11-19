@@ -1350,6 +1350,8 @@ def materials_m():
     import cs2_bake
     MS = cs2_bake.MaterialSpec
     grey = _lin_m((0.80, 0.80, 0.80))
+    if TEXPASS_M:
+        return texpass_materials_m(MS, grey)
     return {
         "paint1": MS(albedo=grey, metal=0.10, rough=0.55, slot=1, recolor_albedo=True,
                      projection="planar"),
@@ -1380,6 +1382,8 @@ def materials_for_m(parts):
 def mat_roles_m():
     import cs2_liftdress as LD
     import cs2_sheaves as S
+    if TEXPASS_M:
+        return {**LD.DQ_MAT_ROLES, "timber": "timber", **TP1_ROLES, **S.wheel_roles()}
     return {**LD.DQ_MAT_ROLES, "timber": "timber", **S.wheel_roles()}
 
 
@@ -1436,7 +1440,203 @@ def detail_specs_m():
         "signband_": D(), "scale_": D(), "badge": D(), "label_": D(), "board_": D(),
         "stripe_": D(), "chev_": D(), "carpet_": D(), "doorlite_": D(), "winframe_": D(),
         "plate_cap": D(),
+        **(texpass_detail_specs_m(D) if TEXPASS_M else {}),
     }
+
+
+# ---------------------------------------------------------------- texture pass v1 ---------
+# r4/tex (2026-11-19): `--texpass v1`, default off = every FBX and map byte for byte as before (the tables below are read
+# only under the flag). The pass changes pixels, UV density weights and material response. It moves no vertex, renames no
+# part and adds no triangle. What it does, per audit finding (docs: r4-fleet/tex/fg/NOTE.md):
+# - TP1_TONE: the towers' detail-pass-1 tone layer (cs2_compose.detail_tone: paint mottle + chalk on up-facing paint, galv
+#   bloom) reaches the stations, plus a damp-patch mottle on the concrete and a board tone on the timber. The stations
+#   shipped flat paint, a featureless galv (Metal032 is one blue-gray tone) and a clean scan on 121 m2 of pad.
+# - TP1_CAVITY: relief deeper than 2.5 mm darkens and dulls (grating holes, plank gaps, slab joints). Flag-off relief is
+#   normal-map only, which does not read at play distance.
+# - texpass_detail_specs_m: slab joints on the pad (3.85 m panels), standing seams on the two sheet roofs.
+# - texpass_materials_m: satin structural paint (rough 0.55 -> 0.42); the galvanized steel leaves Metal032's blue-gray for
+#   the light neutral zinc of the pass's towers (lift_tower.TEXPASS_MATERIALS, one galv in the family); the concrete takes
+#   the towers' warm tint and roughness (the hosted end tower's pier stands on this pad).
+# - TP1_DENSITY: texels move from the fat painted tubes to the surfaces the game camera sees from above (pad, roofs,
+#   grating, load deck).
+# IDENTITY_M ("shack", `--identity shack`, needs the pass): the station-identity proposal. The operator hut is clad in the
+# lodges' stained plank siding (key hutclad, the lodge timber_lap scan at its 1.2 m tile) and the machine house leaves the
+# structure's recolor slot for slot 2 (key hood, satin), so the machine carries the lift's own color. Material keys only.
+TEXPASS_M = None            # None | "v1" (main_m sets it from the args before a part is built)
+IDENTITY_M = None           # None | "shack"
+TEXPASS_CHOICES = ("off", "v1")
+IDENTITY_CHOICES = ("off", "shack")
+TP1_ROUGH_PAINT = 0.42
+TP1_ROUGH_HOOD = 0.32
+TP1_GALV_TINT = (2.09, 1.93, 1.76)          # = lift_tower.TEXPASS_MATERIALS v1 FG galv: sRGB 0.70 / 0.715 / 0.73
+TP1_CONCRETE = dict(tint=(0.661, 0.625, 0.547), rough=0.76)     # = lift_tower.TOWER_MATERIALS concrete
+TP1_HUTCLAD = dict(texture_set="PHWeatheredPlankSiding", metres_per_tile=1.2, metal=0.0)
+TP1_ROLES = {"hood": "paint_metal", "hutclad": "timber"}
+TP1_REKEY = {"shack": {"hut": "hutclad", "house": "hood", "door_house_leaf": "hood"}}
+# density weights (longest prefix wins) laid over M_DENSITY
+TP1_DENSITY = {
+    "pad": 1.0, "houseroof": 1.2, "hutroof": 1.2, "grate_": 0.9, "loaddeck": 1.2, "loadramp": 1.2,
+    "hutbase": 0.8, "cwfoot": 0.7, "crest": 0.8, "rampup": 0.8, "rampdown": 0.8,
+    "leg_": 1.15, "beam_": 1.15, "rail_n": 1.15, "rail_p": 1.15, "column": 1.2,
+}
+# detail_tone specs per MATERIAL key (cs2_compose.DetailSpec tone fields). paint / galv = lift_tower.DP1_TONE within 20 %
+TP1_TONE = {
+    "paint1": dict(mottle_m=0.60, mottle_amp=0.04, mottle_smooth=0.08, chalk_amp=0.05, chalk_smooth=0.10),
+    "hood": dict(mottle_m=0.90, mottle_amp=0.03, mottle_smooth=0.06, chalk_amp=0.04, chalk_smooth=0.08),
+    "galv": dict(mottle_m=0.15, mottle_stretch=2.5, mottle_amp=0.06, mottle_smooth=0.10),
+    "concrete": dict(mottle_m=1.50, mottle_amp=0.07, mottle_smooth=0.04),
+    "timber": dict(mottle_m=0.35, mottle_stretch=4.0, mottle_amp=0.07, mottle_smooth=0.04),
+}
+TP1_TONE_FLOOR_TEXELS = 4.4     # mottle cell >= this many texels (lift_tower.DP1_TONE_FLOOR_TEXELS)
+TP1_CAVITY = dict(from_m=0.0025, span_m=0.0075, dark=0.40, dull=0.15)
+TP1_JOINT_M = 3.85              # slab panel = the pad's half width: joints on the center line and at the edges
+# weather overrides laid BEFORE FG_WEATHER (first match wins on an equal prefix), and two lower ladder steps: the pass moves
+# texels to the walked pad, so the texel-weighted vanilla budget (VL1 / VL2) can WARN at the shipped first step 0.40
+TP1_WEATHER = ()
+TP1_WEATHER_STEPS = (0.30, 0.35)
+TP1_SEAM_M = 0.45               # standing-seam pitch of the sheet roofs
+
+
+def texpass_materials_m(MS, grey):
+    """materials_m under --texpass v1: the flag-off table with satin structural paint, and under IDENTITY_M the two keys of
+    the proposal (hood = slot 2, hutclad = the lodges' plank siding). galv keeps its set and tile
+    (cs2_liftdress.merge_materials: one galv on every station)."""
+    table = {
+        "paint1": MS(albedo=grey, metal=0.10, rough=TP1_ROUGH_PAINT, slot=1, recolor_albedo=True,
+                     projection="planar"),
+        "signband": MS(albedo=grey, metal=0.10, rough=0.50, slot=1, recolor_albedo=True),
+        "concrete": MS(texture_set="Concrete034", metres_per_tile=3.0, metal=0.0, **TP1_CONCRETE),
+        "darksteel": MS(albedo=cs2_asset.STEEL_DEFAULT_RGB, metal=0.2, rough=0.60),
+        "galv": MS(texture_set="Metal032", metres_per_tile=2.0, metal=1.0, rough=0.65, tint=TP1_GALV_TINT),
+        "glass": MS(albedo=(0.07, 0.09, 0.11), metal=0.0, rough=0.08),
+        "rope": MS(**cs2_asset.ROPE_MATERIAL),
+        "rubber": MS(albedo=(0.04, 0.04, 0.045), metal=0.0, rough=0.70),
+        "timber": MS(albedo=_lin_m((0.50, 0.40, 0.29)), metal=0.0, rough=0.78),
+    }
+    if IDENTITY_M == "shack":
+        table["hood"] = MS(albedo=grey, metal=0.0, rough=TP1_ROUGH_HOOD, slot=2, recolor_albedo=True,
+                           projection="planar")
+        table["hutclad"] = MS(**TP1_HUTCLAD)
+    return table
+
+
+def identity_rekey_m(parts):
+    """IDENTITY_M: the proposal's material keys on the named parts (TP1_REKEY). Objects, names and order are unchanged."""
+    table = TP1_REKEY[IDENTITY_M]
+    hit = sorted(o.name for o, _m in parts if o.name in table)
+    if not hit:
+        raise RuntimeError(f"identity {IDENTITY_M}: none of {sorted(table)} in this station")
+    return [(o, table.get(o.name, m)) for o, m in parts]
+
+
+def set_texpass_m(texpass="off", identity="off"):
+    """main_m: the pass and the identity proposal of this run ("off" / None = the shipped build). Tests call it too."""
+    global TEXPASS_M, IDENTITY_M
+    tp = None if texpass in (None, "off") else texpass
+    idn = None if identity in (None, "off") else identity
+    if tp not in (None,) + TEXPASS_CHOICES[1:] or idn not in (None,) + IDENTITY_CHOICES[1:]:
+        raise ValueError(f"texpass {texpass!r} / identity {identity!r}: choices {TEXPASS_CHOICES} / {IDENTITY_CHOICES}")
+    if idn and not tp:
+        raise SystemExit("--identity needs --texpass v1")
+    TEXPASS_M, IDENTITY_M = tp, idn
+
+
+def texpass_block_m(hook, part_material):
+    """The manifest's `texpass` block (written only under the flag)."""
+    keys = sorted(set(part_material.values()))
+    return {"version": TEXPASS_M, "identity": IDENTITY_M or "off",
+            "rough": {"paint1": TP1_ROUGH_PAINT, **({"hood": TP1_ROUGH_HOOD} if IDENTITY_M else {})},
+            "galv_tint": list(TP1_GALV_TINT), "concrete": {k: list(v) if isinstance(v, tuple) else v
+                                                           for k, v in TP1_CONCRETE.items()},
+            "density": dict(TP1_DENSITY), "tone": {k: dict(v) for k, v in TP1_TONE.items() if k in keys},
+            "tone_stats": hook.inner.tone, "cavity": hook.inner.cavity,
+            "relief": {"pad_joint_m": TP1_JOINT_M, "roof_seam_m": TP1_SEAM_M},
+            "rekey": dict(TP1_REKEY[IDENTITY_M]) if IDENTITY_M else {},
+            "weather": [list(map(str, r)) for r in TP1_WEATHER],
+            "tris_added": 0, "textures_added_mb": 0.0}
+
+
+def density_m():
+    """The density weights of this build: M_DENSITY, with TP1_DENSITY over it under --texpass v1."""
+    return {**M_DENSITY, **TP1_DENSITY} if TEXPASS_M else M_DENSITY
+
+
+def texpass_detail_specs_m(D):
+    """Relief the pass adds to detail_specs_m: slab joints on the pad, raised standing seams across the two sheet roofs
+    ("rings" on a horizontal face = lines at constant travel x, across the short side). Under IDENTITY_M the hut loses the
+    corrugation: its boards come from the scan's own normal map."""
+    out = {
+        "pad": D(seams_m=TP1_JOINT_M, seam_width_m=0.03, seam_depth_m=0.008),
+        "houseroof": D(seams_m=TP1_SEAM_M, seam_axes="rings", seam_width_m=0.03, seam_depth_m=-0.012),
+        "hutroof": D(seams_m=TP1_SEAM_M, seam_axes="rings", seam_width_m=0.03, seam_depth_m=-0.012),
+    }
+    if IDENTITY_M == "shack":
+        out["hut"] = D()
+    return out
+
+
+def tone_specs_tp1(table, part_material, ppm_of):
+    """detail_tone specs keyed by FULL part name (every part gets a key, so a short name never lends its tone to a longer one):
+    TP1_TONE by material key, a galv bloom cell never below TP1_TONE_FLOOR_TEXELS texels."""
+    D = cs2_compose.DetailSpec
+    out = {}
+    for i, nm in enumerate(table, start=1):
+        key = part_material.get(nm)
+        tone = TP1_TONE.get(key)
+        if tone is None or nm.startswith(("signband", "signboard", "scale_", "badge", "label_", "plate_cap")):
+            out[nm] = D()
+            continue
+        g = dict(tone)
+        ppm = ppm_of.get(i, 0.0)
+        if key == "galv" and ppm > 0:
+            g["mottle_m"] = max(g["mottle_m"], TP1_TONE_FLOOR_TEXELS / ppm)
+        out[nm] = D(**g)
+    return out
+
+
+def make_post_compose_tp1(obj, reserved, part_material):
+    """--texpass v1 twin of make_post_compose (same steps, same order): the relief of detail_specs_m, then the tone layer
+    (tone_specs_tp1) and the cavity term (TP1_CAVITY) go through compose_maps' tone_l / tone_s. Records hook.tone and
+    hook.cavity for the manifest."""
+    def hook(base, nrm, msk, ctl, ao, mesh, A):
+        hook.density = cs2_uv.density_report(obj, A, reserved_rects=reserved)
+        part_map, ppm_map = cs2_compose.rasterise_face_fields(mesh, A)
+        h = cs2_compose.detail_height(mesh, A, detail_specs_m())
+        hook.height_range = (float(h.min()), float(h.max()))
+        table = cs2_compose.read_part_table(mesh)
+        flat_p, flat_d = part_map.ravel(), ppm_map.ravel()
+        order = np.argsort(flat_p, kind="stable")
+        cuts = np.flatnonzero(np.diff(flat_p[order])) + 1
+        ppm_of = {}
+        for seg in np.split(order, cuts):
+            p = int(flat_p[seg[0]])
+            if p > 0:
+                ppm_of[p] = float(np.median(flat_d[seg]))
+        dl, ds = cs2_compose.detail_tone(mesh, A, tone_specs_tp1(table, part_material, ppm_of))
+        hook.tone = {k: dict(v) for k, v in cs2_compose.LAST_TONE_STATS.items()}
+        c = TP1_CAVITY
+        cav = np.clip((-h - c["from_m"]) / c["span_m"], 0.0, 1.0).astype(np.float32)
+        hook.cavity = {"texels": int((cav > 0).sum()), "mean": round(float(cav[cav > 0].mean()), 4) if (cav > 0).any()
+                       else 0.0, **c}
+        dl = dl - c["dark"] * cav
+        ds = ds - c["dull"] * cav
+        uncovered = nrm[..., 0:3].max(axis=-1) < 1e-3       # EMIT bake left them black
+        base, nrm, msk, ctl = cs2_compose.compose_maps(
+            base, nrm, msk, ctl, None, h, ppm_map,
+            {"reserved": reserved, "part_map": part_map, "seed": 0, "tone_l": dl, "tone_s": ds})
+        n = nrm[..., 0:3] * 2.0 - 1.0
+        n[..., 2] = np.maximum(n[..., 2], 0.05)
+        n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-6)
+        nrm[..., 0:3] = n * 0.5 + 0.5
+        nrm[uncovered, 0:3] = (0.5, 0.5, 1.0)
+        nrm[..., 3] = 1.0
+        print(f"[terminal] compose tp1: relief height {h.min():+.4f} .. {h.max():+.4f} m, tone {hook.tone}, cavity "
+              f"{hook.cavity['texels']} texels, {int((~uncovered).sum())} covered texels @ {A}")
+        return base, nrm, msk, ctl
+    hook.density = None
+    hook.height_range = None
+    hook.tone = hook.cavity = None
+    return hook
 
 
 # not walkable by design (C15-FG / tram C15 N2 rule: every standable top is walkable or listed)
@@ -2919,6 +3119,8 @@ def build_station_m(kind):
     if bad or len(set(names)) != len(names):
         dup = sorted({n for n in names if names.count(n) > 1})
         raise RuntimeError(f"M part names collided: renamed {bad[:8]}, duplicates {dup[:8]}")
+    if TEXPASS_M and IDENTITY_M:
+        parts = identity_rekey_m(parts)       # r4/tex identity proposal: material keys only
     missing = sorted({m for _o, m in parts} - set(materials_for_m(parts)))
     if missing:
         raise RuntimeError(f"M parts use undefined materials {missing}")
@@ -2969,7 +3171,7 @@ def assemble_m(parts, finish, kind):
         me = obj.data
         while me.uv_layers:
             me.uv_layers.remove(me.uv_layers[0])
-    cs2_uv.set_density(parts, {**LD.DRESS_DENSITY, **M_DENSITY})
+    cs2_uv.set_density(parts, {**LD.DRESS_DENSITY, **density_m()})
     table = cs2_asset.tag_parts(parts)
     bpy.context.view_layer.update()
     seed_parts_m(parts, kind)
@@ -4467,14 +4669,19 @@ def stamp_scale_m(base, ctl, me, table):
     return info
 
 
-def make_hook_m(t, table, kind):
+def make_hook_m(t, table, kind, part_material=None):
     """post_compose = make_post_compose (density report, relief with detail_specs_m, compose_maps, normal renormalize, the
     reserved rects keep their baked texels), then the sign + badge, the labels, the tension scale and the 8-bit ControlMask
     exclusivity guard."""
     import cs2_liftdress as LD
     LTD = _LTD()
     rects = list(reserved_rects_m(kind).values())
-    inner = make_post_compose(t, rects, specs=detail_specs_m)
+    if TEXPASS_M:
+        if part_material is None:
+            raise ValueError("make_hook_m: --texpass needs part_material ({part name: material key})")
+        inner = make_post_compose_tp1(t, rects, part_material)
+    else:
+        inner = make_post_compose(t, rects, specs=detail_specs_m)
     LTD.digit_triangles(sign_layout_m())
     LD.stem_ratio()
     if kind == "drive":
@@ -4520,12 +4727,13 @@ def weather_spec_m(name, kind, intensity):
     FG_WEATHER (+ FG_WEATHER_TOP on the top) before DRESS_WEATHER_OVERRIDES of the dressing. ground = the pad top (base) /
     grade (top)."""
     import cs2_liftdress as LD
+    tp = tuple(TP1_WEATHER) if TEXPASS_M else ()
     if kind == "drive":
         return LD.station_weather_spec(name, ground="grade", ground_z=M_BASE["pad_h"],
-                                       overrides=FG_WEATHER + tuple(LD.DRESS_WEATHER_OVERRIDES),
+                                       overrides=tp + FG_WEATHER + tuple(LD.DRESS_WEATHER_OVERRIDES),
                                        traffic_extra=FG_TRAFFIC, intensity=intensity)
     return LD.station_weather_spec(name, ground="grade", ground_z=0.0,
-                                   overrides=FG_WEATHER_TOP + FG_WEATHER + tuple(LD.DRESS_WEATHER_OVERRIDES),
+                                   overrides=tp + FG_WEATHER_TOP + FG_WEATHER + tuple(LD.DRESS_WEATHER_OVERRIDES),
                                    traffic_extra=tuple(p for p in FG_TRAFFIC if p not in
                                                        ("crest", "liftiebay", "rampup", "rampdown")),
                                    intensity=intensity)
@@ -4825,6 +5033,7 @@ def main_m(args):
     if getattr(args, "rope_on_crown", False):
         set_m_rope_on_crown(True)          # T27 preview flag: the anchors on the ET crown (surgery in M1)
     FINE_DETAIL_M = not bool(getattr(args, "no_fine", False))     # fine-detail step 3c: every run follows its args
+    set_texpass_m(getattr(args, "texpass", "off"), getattr(args, "identity", "off"))   # every run follows its args
     kind = args.kind
     M_NOSE_TRAIN = bool(getattr(args, "no_hosted_tower", False))
     M_ROPE_R = THIN_ROPE_R if getattr(args, "thin_rope", False) else M_ROPE_R_SHIPPED   # every run follows its args
@@ -4839,6 +5048,7 @@ def main_m(args):
           f"hosted {spec.tower} at x {spec.tower_x} -> {asset_dir}")
     clear_scene()
     parts = build_station_m(kind)
+    part_material = {o.name: str(m) for o, m in parts}
     dress = LD.lod_split([(o, m) for o, m in parts if o.name.startswith(
         ("maze_", "gate_", "board_", "label_", "stripe_", "chev_", "carpet_", "ext_", "tool_", "skirack_",
          "ski_", "estop_", "gauge_"))])
@@ -4879,11 +5089,12 @@ def main_m(args):
     A = args.atlas if args.finish else M_SMOKE_ATLAS
     ao = args.ao_samples if args.finish else 0
     rects = list(reserved_rects_m(kind).values())
-    hook0 = make_hook_m(t, table, kind)
+    hook0 = make_hook_m(t, table, kind, part_material=part_material)
     hook = hook0
     if args.weather == "on":
         roles = LD.lift_mat_roles(t.data, mat_roles_m())
-        hook = LTD.SteppedWeather(hook0, lambda s: weather_spec_m(name, kind, s), LD.INTENSITY_STEPS,
+        steps = (TP1_WEATHER_STEPS + tuple(LD.INTENSITY_STEPS)) if TEXPASS_M else LD.INTENSITY_STEPS
+        hook = LTD.SteppedWeather(hook0, lambda s: weather_spec_m(name, kind, s), steps,
                                   mat_roles=roles, detail_specs=detail_specs_m(), reserved=rects,
                                   compose_contact=False)
     margin = max(2, int(round(M_PACK_MARGIN_PX * A / float(M_ATLAS))))
@@ -4991,6 +5202,7 @@ def main_m(args):
         "sign_band": hook0.stamps, "labels": hook0.labels, "tension_scale": hook0.scale,
         "detail_stats": hook0.detail_stats, "ctl_seam_texels_scaled": hook0.ctl_scaled,
         "dressing_lod": {k: list(v) for k, v in dress.items()},
+        **({"texpass": texpass_block_m(hook0, part_material)} if TEXPASS_M else {}),
         "sub_objects": subobject_rows_m(kind),
         **({"fine_detail": fine_block} if fine_block else {}),
         "prefab_contract": pc,
@@ -5070,6 +5282,12 @@ def parse_args():
     ap.add_argument("--wheels", choices=["v1", "v2"], default="v2",
                     help="M, T62: sheave wheel generation (v2 default = cs2_sheaves.wheel on the hold-down train and the "
                          "counterweight sheaves: the round-3 wheel (16 segments, groove, seen hub bosses); v1 = the pre-T62 wheels byte for byte).")
+    ap.add_argument("--texpass", choices=list(TEXPASS_CHOICES), default="off",
+                    help="M, r4/tex: texture pass (v1 = TP1_* tables: tone layer, cavity term, slab joints, roof seams, "
+                         "satin paint, density toward the pad / roofs). off = the shipped maps byte for byte.")
+    ap.add_argument("--identity", choices=list(IDENTITY_CHOICES), default="off",
+                    help="M, r4/tex proposal, needs --texpass v1: shack = plank-siding operator hut + the machine house "
+                         "on recolor slot 2. off = the pass alone.")
     ap.add_argument("--kind", choices=["drive", "return"], default="drive")
     ap.add_argument("--name", default=None)
     ap.add_argument("--preview", default=None)
