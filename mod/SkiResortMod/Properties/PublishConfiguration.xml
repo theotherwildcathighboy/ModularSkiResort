@@ -82,78 +82,26 @@ Open the Ski Resort hub (button at the top left). Its Start card lists the four 
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset. Source: the newest entry of release/CHANGELOG.md (tools/sync-listing.js copies it)-->
 	<ChangeLog>
-**What you may notice on load:**
-- Some runs may change difficulty band, mostly from black to blue, under the new rating rule (Runs, below).
-- The season pass is now set as a price. Your Options value carries over as that price.
+**Season passes:**
+- Passes go on sale before the winter and sell for four months. The price rises 15 % halfway through.
+- Sales end in the fifth month of the season. Guests who first arrive after that pay day tickets.
+- Tourists can now ski on a destination pass. They pay a reduced day fee, come more often, and the fee counts as pass income.
+- The Finances view shows how long passes stay on sale, and the destination fee with the share of tourists on a pass.
+- Pass texts in the Finances and Guests views are reworded ("On a pass", "Season passes sold").
 
-**Saves:**
-- What you build from now on remembers the version that built it, so a later update can bring older objects up to date.
-- A city saved with 1.0.2 still loads in 1.0.1, but that version forgets which version built what.
+**Lift tickets:**
+- Tourist groups that the game sends on outings now react to the ticket price. Above the default ticket some walk away, about half at the highest ticket.
+- The Guests view counts them as "Turned away by price".
 
-**Sync resort:**
-- When an update changes how resort objects look, the Attraction view lists the out-of-date ones under "Sync resort". First: Patrol Huts from before 1.0.1 get their firewood pile.
-- Sync is free, per object, and has no undo.
+**Lodges:**
+- Lodge spending now follows the ticket price, damped: a higher ticket brings more per guest, but less than the ticket rises. At the default ticket nothing changes.
 
-**Prices:**
-- Sliders in the Finances view for the lift ticket price and the season pass price.
-- The ticket price shows one demand word, from unaffected to very low. Its tooltip says how many fewer guests come.
-- Season pass price: 20 to 2,000, default 400. Above 4 day tickets' worth, fewer households buy one.
-- Season passes go on sale in August (the season's second month), whether or not anything is open yet. Households judge the resort as if it were fully open.
-- Ticket tolerance reads the same everywhere: 40, 60 with a Chalet Lodge, 80 with a Swanky Summit or Grand Lodge.
-- Tooltips name the lever, such as "build better lodges".
+**History:**
+- A revenue chart in the season block: income and costs by part on one scale, the net gap between them, and the pass share of lift income. Each part has a tooltip.
 
-**Hub:**
-- Sliders for snow gun and light spacing on runs, and for tree density.
-- History: a "This season so far" block with totals, the best month, the average ticket and the income and cost mix, against last season.
-- Snow report on the Welcome Sign card and in the status tooltip: summit and base, snow depth, temperature, new snow and season snowfall.
-- "Closed for the summer" in the off-season, instead of "Too warm for snow".
-- Lodges and the school closed for the off-season are no longer listed as a problem.
-- "Ski-day cars not arriving" names the main cause: no route, stuck on the way, never left home, or out of time.
-- The merge card shows only with the hub open. Tiers the city cannot pay for are blocked.
-- The build strip keeps its size: a tab click never closes it, the chevron does.
-- One height for all text buttons. The Resort Planner's features are check boxes.
-- The Start card says a lift needs low-voltage power.
-- The full problem list moves the view down instead of covering it.
-
-**Tourism:**
-- Resort tourism bonus: ski areas raise the whole city's attractiveness, as an airport does. Up to 10 % by default (Options, 0 to 20 %, 0 turns it off). It brings tourists to the city, not skiers to the runs.
-- New Attraction view rows: tourists in the city, guests at resort hotels (merged buildings), and the tourist spending the ski area draws.
-- "City tourist income" is now "Tourist spending" and shows under Tourism Overhaul too. It is spending at city businesses, so it stays out of the resort's net.
-
-**Runs:**
-- Blue runs are easier to get: a steep pitch makes a run black only when it is 40 m or longer. A narrow steep spot, such as a cat track bank, no longer does.
-- While you draw, the rating reads "(so far)" until the outline is closed.
-- Black and double black shading is easier to see in evening light.
-- A run that costs more than the city has shows the game's no-money icon.
-- Run labels change color when you switch the run grading.
-- Runs that cannot be rated are pale orange, apart from the orange ski route.
-
-**Snow:**
-- Snow guns build a 2 m base, then stop, and start again below 1.95 m. Runs stay open longer through a thaw.
-- Made snow melts at the game's own rate, on runs and cat tracks alike. A run and a cat track over the same height open together, at any game speed.
-- Some narrow runs that never opened on made snow now do.
-- A cat track pays snowmaking for the part of it the guns work on.
-- After a load the snow guns continue as they were: no plume flash, no missed bill.
-
-**Groomers and lights:**
-- Groomers work from dusk to dawn. They arrive one after another, nearest first, and leave at dawn.
-- Groomers leave a cat track below 80 % snow cover, so they no longer drive on grass.
-- On short cat tracks, groomers rest at each end.
-- Run floodlights, snow gun beacons and groomer lamps turn on at dusk, like street lights, instead of at 18:00.
-
-**Lift tool:**
-- Lifts can cross at 15°, down from 20°.
-- Right click a tower to remove it. Right click elsewhere or Esc still steps back.
-- A line the city cannot pay for says so.
-
-**Buildings:**
-- Placing a lodge, the ski school or a patrol building no longer opens the Happiness view.
-- A merged building's goods trade no longer makes the ski area's efficiency jump off-season.
-- The Ski Bus roof roundel reads right from every side.
-- Menu and Find It icons show the building alone, like vanilla.
-
-**Options:**
-- The ski area radius is measured from the Welcome Sign in a straight line, not along roads.
+**Behind the scenes:**
+- The mod now carries its real version number (1.0.3) instead of 1.0.0, so Skyve and the game show the right version.
+- Saves from 1.0.0 to 1.0.2 load as before.
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme". PLACEHOLDER: the DISCORD_URL token stands for the Discord bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or delete this line if only the forum thread is used (the same gate and the same UNVERIFIED publisher behavior as ForumLink)-->
 	<ExternalLink Type="discord" Url="https://discord.com/channels/263634513861541888/1570379334672326736" />

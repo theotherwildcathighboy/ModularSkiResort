@@ -10,6 +10,33 @@ Version history starts with the first Paradox Mods release, 1.0.0. Newest releas
 before it are not listed, and beta saves are not supported by 1.0.0.
 </Aside>
 
+## 1.0.3 (unreleased)
+
+- Save compatible with previous: yes
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1, TrackPack 2, RulesStamp 1
+- Do not load in older versions: no
+
+**Season passes:**
+- Passes go on sale before the winter and sell for four months. The price rises 15 % halfway through.
+- Sales end in the fifth month of the season. Guests who first arrive after that pay day tickets.
+- Tourists can now ski on a destination pass. They pay a reduced day fee, come more often, and the fee counts as pass income.
+- The Finances view shows how long passes stay on sale, and the destination fee with the share of tourists on a pass.
+- Pass texts in the Finances and Guests views are reworded ("On a pass", "Season passes sold").
+
+**Lift tickets:**
+- Tourist groups that the game sends on outings now react to the ticket price. Above the default ticket some walk away, about half at the highest ticket.
+- The Guests view counts them as "Turned away by price".
+
+**Lodges:**
+- Lodge spending now follows the ticket price, damped: a higher ticket brings more per guest, but less than the ticket rises. At the default ticket nothing changes.
+
+**History:**
+- A revenue chart in the season block: income and costs by part on one scale, the net gap between them, and the pass share of lift income. Each part has a tooltip.
+
+**Behind the scenes:**
+- The mod now carries its real version number (1.0.3) instead of 1.0.0, so Skyve and the game show the right version.
+- Saves from 1.0.0 to 1.0.2 load as before.
+
 ## 1.0.2 (2026-11-18)
 
 - Save compatible with previous: yes
