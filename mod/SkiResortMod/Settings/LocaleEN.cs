@@ -194,12 +194,13 @@ namespace SkiResortMod.Settings
                 },
                 // Description (1.0.2): "about 30 % fewer at 100, 80 % fewer at 200" = 1 - PriceFactor. 40 and 200 are SkiDayRules' price edge and SkiMoneyRules.TicketPriceMax
                 // (HubRulesTests H17 holds them). The gate (Welcome Sign working, an open run) and the household with no money are in the hub's
-                // ticket notes, not here.
+                // ticket notes, not here. 1.0.3 T258: the outing line is SkiDayRules.PartyPriceFactor (1 up to 100 + tolerance, 0.5 at 200).
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
                     "What each guest pays on arrival, one price for every ski area. Above ¢40, the ticket tolerance, fewer guests choose a ski " +
                     "day: about 30 % fewer at ¢100, 80 % fewer at ¢200. To raise ticket tolerance, build better lodges: ¢60 with a Chalet Lodge, " +
-                    "¢80 with a Swanky Summit or Grand Lodge. Season pass holders, and visitors the game sends on its own, come at any price. Income " +
+                    "¢80 with a Swanky Summit or Grand Lodge. Season pass holders come at any price. Tourist groups the game sends on outings turn " +
+                    "away only above ¢100 plus that tolerance, about half at ¢200. Other visitors the game sends on its own come at any price. Income " +
                     "shows in the Economy panel under public transportation fees. 0 turns lift tickets off. Default 100."
                 },
                 // Lodge spend per guest: "price 0 = nothing charged" is documented in the slider tip. Multipliers: SkiCatalog.LodgeDef.SpendMultiplier.
@@ -209,10 +210,11 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LodgeSpendPerGuest)),
-                    "What each paying ski guest also spends at the lodge they arrive at. Bigger lodges get more: at the " +
-                    "default, 15 at a hut or A-frame, 23 at a chalet and 45 at a summit or grand lodge. It comes out of " +
-                    "what the household has left after the lift ticket, so nothing is spent while lift tickets are off. " +
-                    "0 turns it off. Default 15."
+                    "What each paying ski guest also spends at the lodge they arrive at, at a ¢100 ticket. The spend follows " +
+                    "the ticket price, but slower: about 30 % less at ¢50, about 40 % more at ¢200. Bigger lodges get more: at the default, 15 at a hut or " +
+                    "A-frame, 23 at a chalet and 45 at a summit or grand lodge. It comes out of " +
+                    "what the household has left after the lift ticket and any lesson, so nothing is spent while lift tickets " +
+                    "are off. 0 turns it off. Default 15."
                 },
                 // Lessons and season passes.
                 {

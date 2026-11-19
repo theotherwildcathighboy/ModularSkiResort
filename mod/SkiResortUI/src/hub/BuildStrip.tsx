@@ -419,7 +419,7 @@ function TreeToolSet({ t, quick }: { t: Translate; quick: boolean }): JSX.Elemen
 }
 
 /*
- * Contract 57 (T253): the Runs tab's Slope colors chip, the last of the row. It shows the ShowSlopeOverlay option (slopeOverlay$, C# owns it:
+ * Contract 59 (T253): the Runs tab's Slope colors chip, the last of the row. It shows the ShowSlopeOverlay option (slopeOverlay$, C# owns it:
  * the toggle key (unbound by default) and the Options page change it too, and it is saved). The tip gives the band limits of the run grading in use.
  * Always drawn on the ok panel; focusKey={FOCUS_DISABLED} (R15).
  */

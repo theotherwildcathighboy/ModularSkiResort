@@ -8,7 +8,7 @@
 //   * SL-A the built DLL: every ISerializable / IEmptySerializable type has a SaveLayouts row and exactly one
 //     [FormerlySerializedAs] == SaveLayouts.Alias(row). No duplicate alias key, as in UpdateTypeTable :113-121.
 //     The saved AQN with any version strips to its own type through DeserializeType :51-65.
-//   * SL-AV AssemblyVersion == PinnedAssemblyVersion.
+//   * SL-AV AssemblyVersion == ModVersion + ".0" (T255); the 1.0.0-1.0.2 saves' Version=1.0.0.0 names still strip to their types.
 //   * SL-CL: ChangelogTests.
 //   * SL-R / SL-S: RulesStampTests (every release line against the table; the 1.0.2 rules stamp across saves).
 

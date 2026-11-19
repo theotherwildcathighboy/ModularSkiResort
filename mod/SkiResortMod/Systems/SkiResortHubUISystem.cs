@@ -43,7 +43,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 57;
+        public const int HubContract = 59;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -400,6 +400,9 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(value.TourismBonusCapPct));
                 writer.PropertyName("touristsDayMean");
                 writer.Write(Fin(value.TouristsDayMean));
+                // Contract 57 (1.0.3 R3-B): the ski season's first calendar month 1..12, the pass sale window's months.
+                writer.PropertyName("seasonFirstMonth");
+                writer.Write(Fin(value.SeasonFirstMonth));
                 writer.TypeEnd();
             }
         }
@@ -418,7 +421,8 @@ namespace SkiResortMod.Systems
                        a.PassShare == b.PassShare && a.PassPrice == b.PassPrice &&
                        a.Month == b.Month &&
                        a.TourismBonusPct.Equals(b.TourismBonusPct) && a.TourismBonusSumPct.Equals(b.TourismBonusSumPct) &&
-                       a.TourismBonusCapPct == b.TourismBonusCapPct && a.TouristsDayMean == b.TouristsDayMean;
+                       a.TourismBonusCapPct == b.TourismBonusCapPct && a.TouristsDayMean == b.TouristsDayMean &&
+                       a.SeasonFirstMonth == b.SeasonFirstMonth;
             }
 
             public override int GetHashCode(CityStats c)
@@ -442,6 +446,7 @@ namespace SkiResortMod.Systems
                     h = h * 31 + c.TourismBonusPct.GetHashCode();
                     h = h * 31 + c.TourismBonusCapPct;
                     h = h * 31 + c.TouristsDayMean;
+                    h = h * 31 + c.SeasonFirstMonth;
                     return h * 31 + c.Month;
                 }
             }
@@ -516,7 +521,7 @@ namespace SkiResortMod.Systems
             DeleteCatTrack,                  // contract 18: the cat track row's trash button
             SetCatTrackDeleteMode,           // contract 19: the Runs tab's Delete cat tracks chip
             SetCatTrackSkiWay,               // contract 45: the Runs tab's Ski way chip (T194)
-            SetSlopeOverlay,                 // contract 57: the Runs tab's Slope colors chip (T253)
+            SetSlopeOverlay,                 // contract 59: the Runs tab's Slope colors chip (T253)
             SetRunPropSpacing,               // contract 28: the Runs view's prop rows (Bool = lights, Int = meters)
             SetRunGroomed,                   // run types R2: Groomed on (Bool) or off by a re-emit (SkiRunReemitSystem)
             SetDrawRun,                      // contract 33: the Run tile's option row (Text = key, Int = value)
@@ -592,7 +597,7 @@ namespace SkiResortMod.Systems
         private RawValueBinding m_Problems;
         private ValueBinding<CityStats> m_City;
         private ValueBinding<bool> m_PisteMapBinding;
-        private ValueBinding<bool> m_SlopeOverlayBinding;   // contract 57 (T253): the ShowSlopeOverlay option
+        private ValueBinding<bool> m_SlopeOverlayBinding;   // contract 59 (T253): the ShowSlopeOverlay option
         private SkiSlopeOverlaySystem m_SlopeOverlay;
         private ValueBinding<bool> m_CatTrackDeleteBinding;   // contract 19: the cat track tool is open AND in Delete mode
         private ValueBinding<bool> m_CatTrackSkiWayBinding;   // contract 45: the cat track tool's Ski way profile is on (open or not)
@@ -836,7 +841,7 @@ namespace SkiResortMod.Systems
             AddBinding(m_City = new ValueBinding<CityStats>(Group, "city", default(CityStats), new CityStatsWriter(),
                 new CityStatsComparer()));
             AddBinding(m_PisteMapBinding = new ValueBinding<bool>(Group, "pisteMap", true));
-            AddBinding(m_SlopeOverlayBinding = new ValueBinding<bool>(Group, "slopeOverlay", false));   // contract 57
+            AddBinding(m_SlopeOverlayBinding = new ValueBinding<bool>(Group, "slopeOverlay", false));   // contract 59
             AddBinding(m_FollowBinding = new ValueBinding<int>(Group, "follow", 0));
             AddBinding(m_GradeSchemeBinding = new ValueBinding<int>(Group, "gradeScheme", 0));
             AddBinding(m_DisplayUnitsBinding = new ValueBinding<int>(Group, "displayUnits", 0));
@@ -890,7 +895,7 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<string, int>(Group, "quickLiftsAct", OnQuickLiftsAct));   // contract 41
             AddBinding(new TriggerBinding<bool>(Group, "setCatTrackDeleteMode", OnSetCatTrackDeleteMode));
             AddBinding(new TriggerBinding<bool>(Group, "setCatTrackSkiWay", OnSetCatTrackSkiWay));   // contract 45
-            AddBinding(new TriggerBinding<bool>(Group, "setSlopeOverlay", OnSetSlopeOverlay));   // contract 57
+            AddBinding(new TriggerBinding<bool>(Group, "setSlopeOverlay", OnSetSlopeOverlay));   // contract 59
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunGunSpacing", OnSetRunGunSpacing));
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunLightSpacing", OnSetRunLightSpacing));
             AddBinding(new TriggerBinding<Entity, bool>(Group, "setRunGroomed", OnSetRunGroomed));
@@ -1048,7 +1053,7 @@ namespace SkiResortMod.Systems
                              "stats revision (slow rows and live rows apart), logged only when a row count changes; triggers " +
                              "toggleHub, setHubOpen, uiHello, uiError, launch, focusRun, deleteCatTrack (contract 18), gladeToggle, gladeSetLevel, " +
                              "gladeSetTreeLine, dumpHub, selectResort, rename, focusLift, focusBuilding, uiLayout, setPisteMap " +
-                             "liftLineToggle (contract 12), setCatTrackDeleteMode (contract 19), setCatTrackSkiWay (contract 45), setSlopeOverlay (contract 57) (queued, applied in OnUpdate, one line each; uiLayout only when changed) and hoverRun (a field " +
+                             "liftLineToggle (contract 12), setCatTrackDeleteMode (contract 19), setCatTrackSkiWay (contract 45), setSlopeOverlay (contract 59) (queued, applied in OnUpdate, one line each; uiLayout only when changed) and hoverRun (a field " +
                              "write, validated next update, counted; first per load logged); settings " +
                              $"ShowHubButton={Mod.Settings == null || Mod.Settings.ShowHubButton} OpenHubOnSignSelect=" +
                              $"{Mod.Settings == null || Mod.Settings.OpenHubOnSignSelect}; {itemText}; {catalogItems}; item " +
@@ -1113,7 +1118,7 @@ namespace SkiResortMod.Systems
 
                 // Setting → binding (a bool read, the binding pushes only on a change).
                 m_ShowHubButton.Update(Mod.Settings == null || Mod.Settings.ShowHubButton);
-                m_SlopeOverlayBinding.Update(SkiSlopeOverlaySystem.IsOn);   // contract 57: the key and the Options page change it too
+                m_SlopeOverlayBinding.Update(SkiSlopeOverlaySystem.IsOn);   // contract 59: the key and the Options page change it too
                 // The run grading (T162): re-resolved only when the option or the city theme changes (DisplayState.Refresh).
                 m_GradeSchemeBinding.Update((int)DisplayState.Refresh(m_CityConfigForScheme, m_PrefabSystem,
                     Mod.Settings?.RunGradeScheme ?? GradeSchemeOption.Auto));
@@ -3838,6 +3843,10 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.PassHoldersThisMonth));
                 writer.PropertyName("passHoldersLastMonth");
                 writer.Write(Fin(r.PassHoldersLastMonth));
+                writer.PropertyName("priceTurnedThisMonth");   // 58 (T258)
+                writer.Write(Fin(r.PriceTurnedThisMonth));
+                writer.PropertyName("priceTurnedLastMonth");
+                writer.Write(Fin(r.PriceTurnedLastMonth));
                 // Lessons by month, the lesson income so far this month, the pre-season part of the season's
                 // passes, and the city-income estimate (-1 = unknown or Tourism Overhaul).
                 writer.PropertyName("lessonsThisMonth");

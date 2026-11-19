@@ -86,6 +86,9 @@ namespace SkiResortMod.Systems
         // (SkiMoneyRules.SeasonKeyOfDate). The ledger is in memory, so the sales count since the game was loaded. PassHoldersThisMonth / LastMonth
         // = guests who came in on a pass (-1 unknown, as the other guest numbers).
         public int PassesSoldSeason, PassIncomeSeason, PassHoldersThisMonth, PassHoldersLastMonth;
+        // 1.0.3 T258 (contract 58): the people of game-sent tourist parties that walked away at the ticket price, this month (since the
+        // load: the ledger entry, not the saved month) and last month (-1 unknown).
+        public int PriceTurnedThisMonth, PriceTurnedLastMonth;
         // Lessons, pre-season sale and city income, appended in this order:
         // LessonsThisMonth / LessonsLastMonth = people who took a lesson (-1 unknown, Last -1 until a month rolled).
         // LessonIncomeMonth = what this month's lessons paid so far (the ledger's raw month figure, no projection, -1 unknown).
@@ -221,6 +224,8 @@ namespace SkiResortMod.Systems
         // the last game day (-1 until 3 game hours are sampled after a load).
         public float TourismBonusPct, TourismBonusSumPct;
         public int TourismBonusCapPct, TouristsDayMean;
+        // Contract 57 (1.0.3 R3-B): the ski season's first calendar month 1..12 (SkiClimateCalendar.SeasonFirstMonth), for the pass sale window.
+        public int SeasonFirstMonth;
 
         public bool Equals(CityStats o)
         {
@@ -231,7 +236,8 @@ namespace SkiResortMod.Systems
                    TripPlannerBlocksSkiDays == o.TripPlannerBlocksSkiDays &&
                    PassShare == o.PassShare && PassPrice == o.PassPrice && Month == o.Month &&
                    TourismBonusPct.Equals(o.TourismBonusPct) && TourismBonusSumPct.Equals(o.TourismBonusSumPct) &&
-                   TourismBonusCapPct == o.TourismBonusCapPct && TouristsDayMean == o.TouristsDayMean;
+                   TourismBonusCapPct == o.TourismBonusCapPct && TouristsDayMean == o.TouristsDayMean &&
+                   SeasonFirstMonth == o.SeasonFirstMonth;
         }
 
         public override bool Equals(object obj)
@@ -2422,6 +2428,8 @@ namespace SkiResortMod.Systems
                     live.PassIncomeSeason = ClampToInt(SkiResortLedger.PassSeasonIncomeOf(e, seasonKey));
                     live.PassHoldersThisMonth = e.This.PassHolderGuests;
                     live.PassHoldersLastMonth = lastKnown ? e.Last.PassHolderGuests : -1;
+                    live.PriceTurnedThisMonth = e.PriceTurnedThis;
+                    live.PriceTurnedLastMonth = lastKnown ? e.PriceTurnedLast : -1;
                     // Lessons by month, the lesson income so far this month, the pre-season part of the season's passes.
                     live.LessonsThisMonth = e.This.Lessons;
                     live.LessonsLastMonth = lastKnown ? e.Last.Lessons : -1;
@@ -2438,6 +2446,7 @@ namespace SkiResortMod.Systems
                     live.GuestsLastMonth = live.TouristsLastMonth = live.TouristGroupsLastMonth = live.ResidentsLastMonth = -1;
                     live.PaidLastMonth = live.TicketsLastMonth = -1;
                     live.PassesSoldSeason = live.PassIncomeSeason = live.PassHoldersThisMonth = live.PassHoldersLastMonth = -1;
+                    live.PriceTurnedThisMonth = live.PriceTurnedLastMonth = -1;
                     live.LessonsThisMonth = live.LessonsLastMonth = live.LessonIncomeMonth = live.PassesPreSeason = live.PassIncomePreSeason = -1;
                     ticketIncome = ticketPaid = -1;
                     ticketEstimated = true;
@@ -2591,6 +2600,7 @@ namespace SkiResortMod.Systems
                 BusGuestsMonth = -1,
                 // no ski area: the pass numbers unknown.
                 PassesSoldSeason = -1, PassIncomeSeason = -1, PassHoldersThisMonth = -1, PassHoldersLastMonth = -1,
+                PriceTurnedThisMonth = -1, PriceTurnedLastMonth = -1,
                 // no ski area: the lesson, pre-season and city-income numbers unknown.
                 LessonsThisMonth = -1, LessonsLastMonth = -1, LessonIncomeMonth = -1, PassesPreSeason = -1, PassIncomePreSeason = -1, CityIncomeEst = -1,
                 // no ski area: no tourism bonus part, no resort hotel (contract 50).
@@ -2797,6 +2807,8 @@ namespace SkiResortMod.Systems
                 TourismBonusSumPct = m_Bonus != null ? m_Bonus.SumPct : 0f,
                 TourismBonusCapPct = m_Bonus != null ? m_Bonus.CapPct : SkiResortSettings.CapPctOf(settings),
                 TouristsDayMean = m_Bonus != null ? m_Bonus.TouristsDayMean : -1,
+                // contract 57: the season's first month 1..12 (the pass sale window, SkiPassRules)
+                SeasonFirstMonth = SkiClimateCalendar.SeasonFirstMonth(m_ClimateSystem, m_PrefabSystem),
             };
         }
 
@@ -3280,6 +3292,8 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.PassIncomeSeason);
                 h = Mix(h, (uint)r.PassHoldersThisMonth);
                 h = Mix(h, (uint)r.PassHoldersLastMonth);
+                h = Mix(h, (uint)r.PriceTurnedThisMonth);
+                h = Mix(h, (uint)r.PriceTurnedLastMonth);
                 h = Mix(h, (uint)r.LessonsThisMonth);
                 h = Mix(h, (uint)r.LessonsLastMonth);
                 h = Mix(h, (uint)r.LessonIncomeMonth);
@@ -3684,6 +3698,7 @@ namespace SkiResortMod.Systems
               .Append(l.PatrolledRuns).Append("; lodge spend/month ").Append(l.LodgeSpendMonth)
               .Append("; passes this season ").Append(l.PassesSoldSeason).Append(" +").Append(l.PassIncomeSeason)
               .Append(", pass-holder guests this month ").Append(l.PassHoldersThisMonth).Append(" / last ").Append(l.PassHoldersLastMonth)
+              .Append(", turned away by price this month ").Append(l.PriceTurnedThisMonth).Append(" / last ").Append(l.PriceTurnedLastMonth)
               .Append("; pre-season passes ").Append(l.PassesPreSeason).Append(" +").Append(l.PassIncomePreSeason)
               .Append("; lessons this month ").Append(l.LessonsThisMonth).Append(" +").Append(l.LessonIncomeMonth).Append(" / last ").Append(l.LessonsLastMonth)
               .Append("; city income estimate ").Append(l.CityIncomeEst)

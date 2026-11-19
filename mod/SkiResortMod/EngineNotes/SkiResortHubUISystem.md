@@ -501,7 +501,13 @@ Appended fields and bindings by contract:
 - 56 (1.0.2, r3/sliders, DECISIONS 677): `CityStats` appends `passPrice`, the Options `SeasonPassPrice` in money (20..2,000, step
   20). The contract adds the `setPassPrice(int)` trigger for the Money view's season pass slider. C# `ApplyPassPrice` clamps it with
   `ClampPassPrice` and saves the options file. The ticket price and the pass slider commit on release only.
-- 57 (1.0.3, T253, r4/slope-overlay): the `slopeOverlay` value binding (bool, `SkiSlopeOverlaySystem.IsOn`) and the
+- 57 (1.0.3, R3-B, r4/dest-pass): `CityStats` appends `seasonFirstMonth`, the ski season's first calendar month 1..12
+  (`SkiClimateCalendar.SeasonFirstMonth`, July for a December winter; 0 = not known). The Money view's pass sale line
+  (hubRules.saleWindow) names its months from it. No trigger was added.
+- 58 (1.0.3, T258, r4/dest-pass): `ResortLive` appends `priceTurnedThisMonth` / `priceTurnedLastMonth` after `passHoldersLastMonth`:
+  the people of game-sent tourist parties that walked away at the ticket price (ledger Entry fields, not the saved month: the count
+  restarts at a load; -1 unknown). The Guests view's "Turned away by price" row shows them. No trigger was added.
+- 59 (1.0.3, T253, r4/slope-overlay): the `slopeOverlay` value binding (bool, `SkiSlopeOverlaySystem.IsOn`) and the
   `setSlopeOverlay(on)` trigger for the Runs tab's Slope colors chip. The trigger goes through `RequestKind.SetSlopeOverlay` to
   `SkiSlopeOverlaySystem.RequestSet`, which saves `ShowSlopeOverlay` like the toggle key (unbound by default). Panel binding, no Demand.
   See EngineNotes/SkiSlopeOverlaySystem.md.
