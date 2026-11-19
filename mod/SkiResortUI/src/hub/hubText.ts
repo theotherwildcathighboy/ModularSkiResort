@@ -587,6 +587,10 @@ export const HUB_LOC = {
   historyAvgTicket: ["SkiResort.Hub.HISTORY_SEASON[AvgTicket]", "Average ticket"],
   historyIncomeMix: ["SkiResort.Hub.HISTORY_SEASON[IncomeMix]", "Income mix"],
   historyCostMix: ["SkiResort.Hub.HISTORY_SEASON[CostMix]", "Cost mix"],
+  // R3-A (1.0.3): the revenue chart under "This season so far"
+  historyRevenueHead: ["SkiResort.Hub.HISTORY_SEASON[RevenueHead]", "Income and costs"],
+  historyRevenueTip: ["SkiResort.Hub.HISTORY_SEASON[RevenueTip]", "This season so far: each income part and each cost part as a share of its side, with the net between them."],
+  historyPassShareTip: ["SkiResort.Hub.HISTORY_SEASON[PassShareTip]", "Season pass money as a share of lift income: lift tickets plus season passes. Lodge spend and lessons are not lift income."],
   historyLastSeason: ["SkiResort.Hub.HISTORY[LastSeason]", "Last season"],
   historySeasonTotal: ["SkiResort.Hub.HISTORY[SeasonTotal]", "Season total"],
   historyEmpty: ["SkiResort.Hub.HISTORY[Empty]", "No month recorded yet. The first one closes at the end of this month."],
@@ -946,6 +950,8 @@ export const HUB_FMT = {
   historyMixTop: ["SkiResort.Hub.HISTORY_SEASON[MixTop]", "{NAME} {PCT}"],
   /* T245: {AMOUNT} = Money, {PCT} = Percentage */
   historyMixPart: ["SkiResort.Hub.HISTORY_SEASON[MixPart]", "{AMOUNT} · {PCT}"],
+  /* R3-A: {PCT} = Percentage */
+  historyPassShare: ["SkiResort.Hub.HISTORY_SEASON[PassShare]", "Passes: {PCT} of lift income"],
   // the Quick runs tool (QuickRunsControls.tsx). The MIX / CLUSTER / POD templates are also the tool tooltip's
   quickRegion: ["SkiResort.Hub.QUICK_REGION_LINE", "{N} corners · {AREA} of {MAX} · {V} vertical"],
   quickScanning: ["SkiResort.Hub.QUICK_SCANNING_LINE", "Scanning the region: {P}"],

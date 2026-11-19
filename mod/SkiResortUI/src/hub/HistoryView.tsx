@@ -22,10 +22,12 @@ import type { HistoryArea } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
 import { BarChart, HISTORY_COLOR, Legend, LineStrip } from "./HistoryChart";
+import { REVENUE_VARIANTS, RevenueChart } from "./RevenueChart";
+import type { RevenueVariant } from "./RevenueChart";
 import type { ChartBehind, ChartSeries, ChartSlot } from "./HistoryChart";
 import {
   HISTORY_RANGES, compareOf, effectiveRange, labelStep, linePoints, monthOfKey, netChange, niceMax, pctChange,
-  rangeEnabled, seasonIsOneYear, seasonSoFar, setSeasonFirstMonth0, sharesPct, sumAreas, windowOf, yearOfKey, yearOnYear,
+  rangeEnabled, seasonIsOneYear, seasonSoFar, setSeasonFirstMonth0, sumAreas, windowOf, yearOfKey, yearOnYear,
 } from "./historyRules";
 import type { HistoryBucket, HistoryRange, SeasonSoFar } from "./historyRules";
 import { historyRange$, historyScope$ } from "./hubState";
@@ -129,6 +131,16 @@ function Segment<K extends string>({ options, value, label, tip, enabled, onSele
   );
 }
 
+/** R3-A iteration 1 ONLY (look): picks the revenue chart variant for the owner's verdict. Removed in iteration 2 with the losing variants. */
+const REVENUE_LABEL: Readonly<Record<RevenueVariant, string>> = { a: "A: 100 % bars", b: "B: donuts", c: "C: one scale" };
+function RevenueSwitch({ variant, onSelect }: { variant: RevenueVariant; onSelect: (v: RevenueVariant) => void }): JSX.Element {
+  return (
+    <div className={styles.revSwitch}>
+      <Segment options={REVENUE_VARIANTS} value={variant} label={(k) => REVENUE_LABEL[k]} tip={(k) => REVENUE_LABEL[k]} onSelect={onSelect} />
+    </div>
+  );
+}
+
 /** A season drawn as its average month is faded only while it runs. The average already makes a partial season comparable,
 *  and its tooltip still says "Partial" and "{N} of 12 months". */
 function slotsOf(buckets: readonly HistoryBucket[]): ChartSlot[] {
@@ -158,39 +170,9 @@ function SeasonRow({ label, value, change, tip, wide }: {
   );
 }
 
-/* T245: the mix bars' parts get one hue, the first (largest by design) part strongest. */
-const MIX_ALPHA = [1, 0.7, 0.45, 0.25] as const;
-
-/** T245: a share bar (income or costs): label, one bar of parts in a fixed order, the largest part named at the end. */
-function MixRow({ label, parts, color, head, t }: {
-  label: string; parts: ReadonlyArray<{ name: string; value: number }>; color: string; head: string; t: Translate;
-}): JSX.Element {
-  const pct = sharesPct(parts.map((p) => p.value));
-  let top = -1;
-  for (let i = 0; i < parts.length; i++) if (pct[i] > 0 && (top < 0 || pct[i] > pct[top])) top = i;
-  const tip = <TipLines lines={[head, ...parts.map((p, i) => ({
-    label: p.name,
-    value: <LocText entry={HUB_FMT.historyMixPart} args={{ AMOUNT: numArg(round(Math.max(0, p.value)), Unit.Money), PCT: numArg(pct[i], Unit.Percentage) }} />,
-  }))]} />;
-  return (
-    <Tip tip={tip}>
-      <div className={styles.infoLine}>
-        <div className={styles.histMixLabel}>{label}</div>
-        <div className={styles.histMixTrack}>
-          {top < 0 ? <div className={styles.barRest} style={{ flexGrow: 1 }} /> : parts.map((p, i) => (pct[i] > 0
-            ? <div key={p.name} className={styles.histMixPart} style={{ flexGrow: pct[i], backgroundColor: color, opacity: MIX_ALPHA[i] ?? 0.25 }} />
-            : null))}
-        </div>
-        <div className={styles.histMixTop}>
-          {top < 0 ? "–" : <LocText entry={HUB_FMT.historyMixTop} args={{ NAME: parts[top].name, PCT: numArg(pct[top], Unit.Percentage) }} />}
-        </div>
-      </div>
-    </Tip>
-  );
-}
-
 /** T245: "This season so far". Flat rows (no wrapper), so the view pager can move them to a second page at a large text scale. */
 function SeasonBlock({ s, samples, t }: { s: SeasonSoFar; samples: NumberSamples; t: Translate }): JSX.Element {
+  const [variant, setVariant] = useState<RevenueVariant>("a");
   const now = s.now, whole = s.nowWhole, before = s.before;
   const cmp = !!whole && !!before;
   const pctCellOf = (a: number, b: number): JSX.Element | string => {
@@ -242,18 +224,8 @@ function SeasonBlock({ s, samples, t }: { s: SeasonSoFar; samples: NumberSamples
         value={avgTicket >= 0 ? <Num value={round(avgTicket)} unit={Unit.Money} /> : "–"}
         tip={<LocText entry={HUB_FMT.historyAvgTicketTip} args={{ N: numArg(round(now.ticketsPaid), Unit.Integer) }} />}
       />
-      <MixRow label={t(HUB_LOC.historyIncomeMix)} color={HISTORY_COLOR.income} head={t(HUB_LOC.historyIncomeMix)} t={t} parts={[
-        { name: t(HUB_LOC.historyTickets), value: now.ticketIncome },
-        { name: t(HUB_LOC.historyPasses), value: now.passIncome },
-        { name: t(HUB_LOC.historyLodge), value: now.lodgeIncome },
-        { name: t(HUB_LOC.historyLessons), value: now.lessonIncome },
-      ]} />
-      <MixRow label={t(HUB_LOC.historyCostMix)} color={HISTORY_COLOR.costs} head={t(HUB_LOC.historyCostMix)} t={t} parts={[
-        { name: t(HUB_LOC.historyLifts), value: now.liftCost },
-        { name: t(HUB_LOC.historyRuns), value: now.runCost },
-        { name: t(HUB_LOC.moneyRowBuildings), value: Math.max(0, s.buildings) },
-        { name: t(HUB_LOC.moneyRowWages), value: Math.max(0, s.wages) },
-      ]} />
+      <RevenueSwitch variant={variant} onSelect={setVariant} />
+      <RevenueChart s={s} variant={variant} t={t} />
     </>
   );
 }

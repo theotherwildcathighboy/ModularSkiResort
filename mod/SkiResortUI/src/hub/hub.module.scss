@@ -3418,6 +3418,198 @@
   white-space: nowrap;
 }
 
+// R3-A (1.0.3): the revenue chart. Flat rows; flex only (no grid, no gap, no auto margins).
+.revBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-shrink: 0;
+  padding: 3rem 10rem 3rem 10rem;
+}
+
+.revHead {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--fontSizeS);
+  line-height: 130%;
+}
+
+.revHeadLabel {
+  flex-shrink: 0;
+}
+
+.revHeadValue {
+  flex-shrink: 0;
+  color: var(--hubTextDim);
+}
+
+.revTrack {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  height: 1.7em;
+  margin-top: 2rem;
+  margin-bottom: 3rem;
+  background-color: var(--sectionBackgroundColor);
+  border-radius: 2rem;
+  overflow: hidden;
+}
+
+.revFilled {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  min-width: 0rem;
+}
+
+.revSeg {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  margin-right: 1rem;
+  overflow: hidden;
+  font-size: var(--fontSizeXS);
+  color: var(--normalTextColor);
+  white-space: nowrap;
+}
+
+.revSeg:last-child {
+  margin-right: 0rem;
+}
+
+.revGap {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-width: 0rem;
+  overflow: hidden;
+  border-width: 1rem;
+  border-style: dashed;
+  font-size: var(--fontSizeXS);
+  white-space: nowrap;
+}
+
+.revLegend {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: var(--hubTextDim);
+}
+
+.revNet {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  flex-shrink: 0;
+  padding: 4rem 10rem 4rem 10rem;
+  font-size: var(--fontSizeS);
+  line-height: 130%;
+  border-top-width: 1rem;
+  border-bottom-width: 1rem;
+  border-left-width: 0rem;
+  border-right-width: 0rem;
+  border-style: solid;
+  border-top-color: var(--hubEdge);
+  border-bottom-color: var(--hubEdge);
+}
+
+.revNetLabel {
+  flex-shrink: 0;
+  margin-right: 10rem;
+}
+
+.revNetValue {
+  flex-shrink: 0;
+  margin-right: 10rem;
+}
+
+.revNetPct {
+  flex-shrink: 0;
+  font-size: var(--fontSizeXS);
+  color: var(--hubTextDim);
+}
+
+.revDonuts {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  flex-shrink: 0;
+  padding: 4rem 10rem 4rem 10rem;
+}
+
+.revDonutCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
+.revDonut {
+  position: relative;
+  width: 110rem;
+  height: 110rem;
+  flex-shrink: 0;
+  margin-bottom: 4rem;
+}
+
+.revDonutSvg {
+  position: absolute;
+  left: 0rem;
+  top: 0rem;
+  width: 100%;
+  height: 100%;
+}
+
+.revDonutMid {
+  position: absolute;
+  left: 0rem;
+  top: 0rem;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+}
+
+.revDonutLabel {
+  color: var(--hubTextDim);
+}
+
+.revDonutTotal {
+  font-size: var(--fontSizeS);
+}
+
+.revSwitch {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
+  padding-left: 10rem;
+  padding-right: 10rem;
+  margin-top: 2rem;
+}
+
 .histControls .histSeg {
   padding-left: 5rem;
   padding-right: 5rem;
