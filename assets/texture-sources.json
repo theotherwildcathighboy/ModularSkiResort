@@ -36,6 +36,15 @@
         "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/concrete_wall_008/concrete_wall_008_nor_gl_2k.png", "md5": "c18dca9f78907c891c3e058aeea687d7"},
         "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/concrete_wall_008/concrete_wall_008_rough_2k.png", "md5": "49e9fee865f14a478762ffb80d2a3303"}
       }
+    },
+    "PHWoodPlanksGray": {
+      "source": "Poly Haven", "id": "wood_planks_grey", "page": "https://polyhaven.com/a/wood_planks_grey",
+      "license": "CC0", "authors": {"Rob Tuytel": "All"}, "size_m": 1.5,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/wood_planks_grey/wood_planks_grey_diff_2k.png", "md5": "df56b569da7d50a195dbada81d908a59"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/wood_planks_grey/wood_planks_grey_nor_gl_2k.png", "md5": "b21bfa0d5511ed33d749ca66d3d11cbe"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/wood_planks_grey/wood_planks_grey_rough_2k.png", "md5": "3db8138b0173986c3b02d229102e4d62"}
+      }
     }
   }
 }
