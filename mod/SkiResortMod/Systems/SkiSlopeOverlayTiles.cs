@@ -24,6 +24,7 @@ namespace SkiResortMod.Systems
         public int J, I0, I1, JLo, JHi;
         public byte Key, Fade;
         public float Y;   // mean height of the two end cells (m)
+        public float YLo, YHi;   // lowest and highest node height near its cells (Tile.Lo / Hi), the strip's draw box (m)
     }
 
     /// <summary>Which cells the overlay leaves to someone else (the run heat-map paints the live run polygon). Struct, no allocation.</summary>
@@ -51,7 +52,12 @@ namespace SkiResortMod.Systems
             public float[] Heights;   // (TileCells + 2·Pad)², padded node heights as sampled
             public float[] Grade;     // TileCells², CellValue
             public byte[] Band;       // TileCells², BandOf(Grade)
+            public float[] Lo, Hi;    // TileCells², min / max node height within HeightSpan nodes of the cell
         }
+
+        /// <summary>Lo / Hi cover the nodes within this many lattice steps of a cell (clamped to Pad): the cell's own square (1), plus the
+        /// rows of a row group of stride MaxRowStride drawn from its middle row (1 more), plus one spare.</summary>
+        public const int HeightSpan = 3;
 
         private readonly Dictionary<long, Tile> m_Tiles = new Dictionary<long, Tile>();
         private readonly Stack<Tile> m_Pool = new Stack<Tile>();
@@ -214,6 +220,11 @@ namespace SkiResortMod.Systems
                     t.Grade = new float[TileCells * TileCells];
                     t.Band = new byte[TileCells * TileCells];
                 }
+                if (t.Lo == null)
+                {
+                    t.Lo = new float[TileCells * TileCells];
+                    t.Hi = new float[TileCells * TileCells];
+                }
                 m_Tiles.Add(key, t);
             }
             t.TI = ti;
@@ -254,9 +265,51 @@ namespace SkiResortMod.Systems
                     t.Grade[q] = o;
                     t.Band[q] = (byte)SkiSlopeClassifier.BandOf(o);
                 }
+            HeightRange(t);
             t.Valid = true;
             t.VerifyCursor = 0;
             TilesComputed++;
+        }
+
+        private float[] m_RowLo, m_RowHi;
+
+        /// <summary>Tile.Lo / Hi: the min / max node height within HeightSpan nodes of each cell (separable: rows, then columns).</summary>
+        private void HeightRange(Tile t)
+        {
+            int side = m_Side, pad = m_Pad, r = HeightSpan < pad ? HeightSpan : pad;
+            if (m_RowLo == null || m_RowLo.Length != side * TileCells)
+            {
+                m_RowLo = new float[side * TileCells];
+                m_RowHi = new float[side * TileCells];
+            }
+            float[] h = t.Heights;
+            for (int j = 0; j < side; j++)
+                for (int i = 0; i < TileCells; i++)
+                {
+                    float lo = float.MaxValue, hi = float.MinValue;
+                    int row = j * side + i + pad;
+                    for (int d = -r; d <= r; d++)
+                    {
+                        float v = h[row + d];
+                        lo = v < lo ? v : lo;
+                        hi = v > hi ? v : hi;
+                    }
+                    m_RowLo[j * TileCells + i] = lo;
+                    m_RowHi[j * TileCells + i] = hi;
+                }
+            for (int j = 0; j < TileCells; j++)
+                for (int i = 0; i < TileCells; i++)
+                {
+                    float lo = float.MaxValue, hi = float.MinValue;
+                    for (int d = -r; d <= r; d++)
+                    {
+                        int q = (j + pad + d) * TileCells + i;
+                        lo = m_RowLo[q] < lo ? m_RowLo[q] : lo;
+                        hi = m_RowHi[q] > hi ? m_RowHi[q] : hi;
+                    }
+                    t.Lo[j * TileCells + i] = lo;
+                    t.Hi[j * TileCells + i] = hi;
+                }
         }
 
         private void Evict(int frame)
@@ -360,7 +413,7 @@ namespace SkiResortMod.Systems
                 {
                     bool have = false;
                     byte key = 0, fade = 0;
-                    float y = 0f;
+                    float y = 0f, yLo = 0f, yHi = 0f;
                     if (i <= iHi)
                     {
                         int ti = FloorDiv(i, TileCells);
@@ -383,6 +436,8 @@ namespace SkiResortMod.Systems
                                 double edge = radius - math.sqrt(dx * dx + dz * dz);
                                 fade = FadeLevel(edge, fadeM);
                                 y = tile.Heights[(lj + m_Pad) * m_Side + li + m_Pad];
+                                yLo = tile.Lo[q];
+                                yHi = tile.Hi[q];
                             }
                         }
                     }
@@ -397,13 +452,15 @@ namespace SkiResortMod.Systems
                     {
                         if (!open)
                         {
-                            cur = new SlopeOverlayRun { J = j, I0 = i, I1 = i, JLo = g, JHi = gHi, Key = key, Fade = fade, Y = y };
+                            cur = new SlopeOverlayRun { J = j, I0 = i, I1 = i, JLo = g, JHi = gHi, Key = key, Fade = fade, Y = y, YLo = yLo, YHi = yHi };
                             open = true;
                         }
                         else
                         {
                             cur.I1 = i;
                             cur.Y = 0.5f * (cur.Y + y);
+                            cur.YLo = yLo < cur.YLo ? yLo : cur.YLo;
+                            cur.YHi = yHi > cur.YHi ? yHi : cur.YHi;
                         }
                     }
                 }
@@ -415,10 +472,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>Stacks BuildRuns' row runs into rectangles (rects is cleared first). A run joins the rectangle right above it when both
         /// have the same I0, I1, key and fade and its rows follow on (JLo = the rectangle's JHi + 1). Every cell stays in exactly one
-        /// rectangle with its own key and fade, so the picture is the same with fewer strips. Why: OverlayRenderSystem fits each projected
-        /// strip in a box as tall as the whole terrain height range (FitBox, OverlayRenderSystem.cs:320-327 and :633, 1.6.4f1). Every view
-        /// ray then crosses every strip between the camera and the ground, and the GPU cost grows with the strip count (in game, 2026-11-19:
-        /// 3,358 strips cost +4.6 ms at zoom 1,100 and +12.8 ms at zoom 450). The rows must come in BuildRuns order (row groups up, I up).</summary>
+        /// rectangle with its own key and fade, so the picture is the same with fewer strips (9-19 % fewer on the SlopeBatch terrains). A
+        /// rectangle's YLo / YHi are the min / max of its rows' (its draw box). The rows must come in BuildRuns order (row groups up, I up).</summary>
         public void MergeRows(List<SlopeOverlayRun> rows, List<SlopeOverlayRun> rects)
         {
             rects.Clear();
@@ -442,6 +497,8 @@ namespace SkiResortMod.Systems
                         {
                             q.JHi = r.JHi;
                             q.J = (q.JLo + q.JHi) / 2;
+                            q.YLo = r.YLo < q.YLo ? r.YLo : q.YLo;
+                            q.YHi = r.YHi > q.YHi ? r.YHi : q.YHi;
                             rects[prev[p]] = q;
                             cur.Add(prev[p]);
                             p++;

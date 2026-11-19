@@ -158,6 +158,33 @@ namespace SlopeBatch
             Check(DisplayUnits.StripKey((byte)SlopeBand.Blue, 0.30f, true) == (byte)SlopeBand.Blue, k, "EU blue-band cell");
         }
 
+        private static void BoxCheck(string w, string what, SkiSlopeOverlayTiles tiles, TerrainSampler ts, List<SlopeOverlayRun> rects)
+        {
+            int miss = 0, bad = 0;
+            double sumH = 0.0, maxH = 0.0;
+            float texel = tiles.Texel;
+            foreach (SlopeOverlayRun q in rects)
+            {
+                if (!(q.YHi >= q.YLo))
+                    bad++;
+                double hgt = q.YHi - q.YLo;
+                sumH += hgt;
+                maxH = Math.Max(maxH, hgt);
+                for (int j = q.JLo - 1; j <= q.JHi + 1; j++)
+                    for (int i = q.I0 - 1; i <= q.I1 + 1; i++)
+                    {
+                        float x = (float)(tiles.Origin.x + i * (double)texel), z = (float)(tiles.Origin.y + j * (double)texel);
+                        float y = ts.Sample(new float3(x, 0f, z));
+                        if (y < q.YLo || y > q.YHi)
+                            miss++;
+                    }
+            }
+            Check(bad == 0 && miss == 0, w, what + ": " + miss + " nodes outside their box, " + bad + " empty boxes");
+            Console.WriteLine("INFO  overlay box: " + what + " " + rects.Count + " strips, node range mean " +
+                              (rects.Count > 0 ? sumH / rects.Count : 0.0).ToString("F1") + " m, max " + maxH.ToString("F1") +
+                              " m (plus 2 x BoxMarginM; vanilla boxes are the whole terrain height range)");
+        }
+
         private static void OverlayRuns()
         {
             string w = "overlay/runs";
@@ -248,6 +275,17 @@ namespace SlopeBatch
             tilesM.BuildRuns(cx, cz, r, 15f, false, 1, 100000, ref none, runsM);
             tilesM.MergeRows(runsM, rectsM);
             Console.WriteLine("INFO  overlay merge: mountain 300 m disk " + runsM.Count + " row runs -> " + rectsM.Count + " rectangles (stride 1)");
+
+            // Draw boxes: every node around every cell a rectangle paints (the cell square, so the nodes at +-1) lies inside YLo..YHi.
+            // The system adds Tuning.BoxMarginM on both sides; this checks the bare range, so a miss here is a hole in game.
+            BoxCheck(w + "/box", "steep stride 1", tiles, ts, rects);
+            BoxCheck(w + "/box", "steep stride 2", tiles, ts, rects2);
+            BoxCheck(w + "/box", "mountain stride 1", tilesM, tsm, rectsM);
+            var runsS3 = new List<SlopeOverlayRun>();
+            var rects3 = new List<SlopeOverlayRun>();
+            tiles.BuildRuns(cx, cz, r, 15f, false, 3, 100000, ref none, runsS3);
+            tiles.MergeRows(runsS3, rects3);
+            BoxCheck(w + "/box", "steep stride 3", tiles, ts, rects3);
 
             // European key: a green cell at 15 % or more is key 5.
             var runsEu = new List<SlopeOverlayRun>();

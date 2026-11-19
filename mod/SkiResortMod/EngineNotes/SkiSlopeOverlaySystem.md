@@ -24,7 +24,7 @@ its full 20 m window and needs no neighbor tile. The tiles are pure C# (System a
   whose height differs bit for bit. Terraforming and the Editor brush then repaint within a few frames. No event from the terrain
   system is needed.
 - **Evict.** At `TileCapacity` (128) the least recently used tile goes.
-- **Runs.** `BuildRuns` turns the disk into same-key row runs. The outer `FadeM` (15 m) fades in `FadeLevels` (4) alpha steps. Over
+- **Runs.** `BuildRuns` turns the disk into same-key row runs, `MergeRows` stacks equal runs into rectangles. The outer `FadeM` (15 m) fades in `FadeLevels` (4) alpha steps. Over
   `MaxStrips` (4,500) runs, rows are decimated with stride 2..3, the heat-map's rule.
 
 ## Renderer
@@ -35,13 +35,25 @@ mod slot: `OverlayInfomodeSystem` builds its texture from vanilla infomode compo
 Inside the run being drawn, the heat-map paints the same cells. The overlay skips them (`SkiRunDrawFeedbackSystem.PaintedGrid`,
 non-null only on a frame where the heat-map drew strips), so the two never stack alphas.
 
-**GPU cost (measured in game, 2026-11-19, 4K, RTX 5090, 83-mod playset, steep site with 3,358 strips).** Overlay on vs off: frame
-15.2 -> 19.9 ms at zoom 1,100, 15.2 -> 28.1 ms at zoom 450, 16.9 -> 18.0 ms at zoom 2,600. The managed part is only 0.65 ms. The cause
-is in the renderer. `FitBox` (OverlayRenderSystem.cs:320-327) gives every projected strip a full-height box. It reaches from
-`heightScaleOffset.y - 50` to `heightScaleOffset.x + 100` (:633), the whole terrain height range. Every view ray then crosses every strip column between the camera
-and the ground, so the cost grows with strips x screen coverage. The heat-map pays the same per strip, but only inside one run.
-`MergeRows` stacks identical row runs into rectangles (same cells, same picture). It saves only 9-19 % on the SlopeBatch terrains,
-because the band pattern is irregular. A bigger cut needs fewer cells (coarser rows, a smaller radius) or another renderer.
+**GPU cost and the strip boxes.** `GetBuffer` builds the buffer with `positionY = heightScaleOffset.y - 50` and
+`scaleY = heightScaleOffset.x + 100` (OverlayRenderSystem.cs:633). `FitBox` (:321-327) gives every projected curve a box from
+positionY with height scaleY (the box mesh is y 0..1, :1086-1096): the whole terrain height scale plus 150 m. Every view ray then crosses every strip box between
+the camera and the ground, so the GPU cost grows with strips x screen coverage. Measured with those boxes (2026-11-19, 4K, RTX 5090,
+83-mod playset, steep site, 3,358 strips, overlay on vs off): 15.2 -> 19.9 ms at zoom 1,100, 15.2 -> 28.1 ms at zoom 450,
+16.9 -> 18.0 ms at zoom 2,600. The managed part was only 0.65 ms.
+
+The fix: the `Buffer` constructor is public (:122) and takes positionY / scaleY. The draw job reads the buffer's five native containers
+through `BufferView` (the same fields in the same order, `UnsafeUtility.As`) and builds one `Buffer` per strip with the strip's own
+box: from its lowest node height minus `BoxMarginM` (8 m) to its highest plus 8 m. The node range comes from `Tile.Lo / Hi`, the
+min / max node height within `HeightSpan` (3) lattice steps of each cell. That covers the cell square and the rows of a stride-3 row
+group. SlopeBatch `overlay/runs/box` checks that every node around every painted cell lies inside the bare range. Node range per strip
+on the SlopeBatch terrains: mean 28 m (steep), 12 m (mountain), against the whole height scale for the vanilla box. `FitBox` writes
+bounds.max.y = scaleY, the height and not the top, so the job adds the real top to `m_CurveBounds` after its strips. OnCreate compares
+the two struct sizes. On a mismatch (a game patch changed `Buffer`) it logs a WARN and draws through the vanilla buffer, slow but correct.
+The game-surface lock pins the `Buffer` fields.
+
+`MergeRows` stacks identical row runs into rectangles (same cells, same picture), 9-19 % fewer strips on the SlopeBatch terrains.
+Expected, not yet seen in game: trees and buildings more than the margin above the ground are no longer tinted (the vanilla box reaches the top of the height range).
 
 The overlay's alphas are softer than the heat-map's (`Tuning.Alpha`). The heat-map keeps its own alphas. Whether it should adopt the
 overlay's is an open look question in the T253 report.

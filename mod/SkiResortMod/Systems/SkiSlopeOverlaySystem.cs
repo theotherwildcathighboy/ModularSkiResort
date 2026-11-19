@@ -17,6 +17,7 @@
 
 using System;
 using System.Collections.Generic;
+using Colossal.Collections;             // NativeValue (BufferView)
 using Colossal.Mathematics;              // Line3
 using Colossal.Serialization.Entities;   // Purpose
 using Game;
@@ -28,6 +29,7 @@ using Game.Tools;
 using SkiResortMod.Settings;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;  // UnsafeUtility (BufferView)
 using Unity.Jobs;
 using Unity.Mathematics;
 
@@ -61,14 +63,35 @@ namespace SkiResortMod.Systems
             public const int MarchSteps = 384, BisectSteps = 14;
             public const float SlowFrameWarnMs = 4f;
             public const float CostLogSeconds = 30f;
+            /// <summary>Draw box margin below and above the node heights of a strip (m): the rendered terrain LOD and the ground cover.</summary>
+            public const float BoxMarginM = 8f;
         }
 
         public struct Strip
         {
             public float3 A, B;
             public float Width;
+            public float YLo, YHi;   // draw box bottom and top (m)
             public UnityEngine.Color Color;
         }
+
+        /// <summary>The same fields in the same order as OverlayRenderSystem.Buffer (OverlayRenderSystem.cs:106-131, 1.6.4f1; the
+        /// game-surface lock pins them). The draw job reads the buffer's lists through it to build a Buffer per strip with the strip's own
+        /// box height: the public constructor takes positionY / scaleY (:122). Why: GetBuffer gives every projected curve a box from
+        /// heightScaleOffset.y - 50 to heightScaleOffset.x + 100 (:633, FitBox :321-327), about 4 km tall. Every view ray then crosses every
+        /// strip box between the camera and the ground (in game, 2026-11-19: 3,358 strips cost +12.8 ms at zoom 450). Used only when the
+        /// sizes match (OnCreate); otherwise the job draws through the vanilla buffer.</summary>
+#pragma warning disable CS0649   // filled only by UnsafeUtility.As from the vanilla Buffer
+        private struct BufferView
+        {
+            public NativeList<OverlayRenderSystem.CurveData> ProjectedCurves;
+            public NativeList<OverlayRenderSystem.CurveData> AbsoluteCurves;
+            public NativeList<OverlayRenderSystem.CustomMeshdData> CustomMeshes;
+            public NativeList<OverlayRenderSystem.TextMeshData> TextMeshes;
+            public NativeValue<OverlayRenderSystem.BoundsData> Bounds;
+            public float PositionY, ScaleY;
+        }
+#pragma warning restore CS0649
 
         /// <summary>Writes the cached strips into the overlay buffer. Reads only our own NativeArray (no ECS data).</summary>
         [BurstCompile]
@@ -76,6 +99,7 @@ namespace SkiResortMod.Systems
         {
             [ReadOnly] public NativeArray<Strip> Strips;
             public int Count;
+            public bool TightBoxes;
             public OverlayRenderSystem.Buffer Overlay;
 
             public void Execute()
@@ -83,10 +107,35 @@ namespace SkiResortMod.Systems
                 var flags = OverlayRenderSystem.StyleFlags.Projected;
                 var roundness = new float2(0f, 0f);
                 int n = Count < Strips.Length ? Count : Strips.Length;
+                if (!TightBoxes)
+                {
+                    for (int s = 0; s < n; s++)
+                    {
+                        Strip st = Strips[s];
+                        Overlay.DrawLine(st.Color, st.Color, 0f, flags, new Line3.Segment(st.A, st.B), st.Width, roundness);
+                    }
+                    return;
+                }
+                BufferView v = UnsafeUtility.As<OverlayRenderSystem.Buffer, BufferView>(ref Overlay);
+                float lo = float.MaxValue, hi = float.MinValue;
                 for (int s = 0; s < n; s++)
                 {
                     Strip st = Strips[s];
-                    Overlay.DrawLine(st.Color, st.Color, 0f, flags, new Line3.Segment(st.A, st.B), st.Width, roundness);
+                    // FitBox: box bottom = positionY, height = scaleY (box mesh y 0..1, OverlayRenderSystem.cs:1086-1096).
+                    var b = new OverlayRenderSystem.Buffer(v.ProjectedCurves, v.AbsoluteCurves, v.CustomMeshes, v.TextMeshes, v.Bounds,
+                        st.YLo, st.YHi - st.YLo);
+                    b.DrawLine(st.Color, st.Color, 0f, flags, new Line3.Segment(st.A, st.B), st.Width, roundness);
+                    lo = math.min(lo, st.YLo);
+                    hi = math.max(hi, st.YHi);
+                }
+                // FitBox sets bounds.max.y = scaleY, the height and not the top. In vanilla both are the same, here they are not: add the
+                // real top so the bounds of the instanced draw (:865) hold every strip.
+                if (n > 0)
+                {
+                    OverlayRenderSystem.BoundsData bd = v.Bounds.value;
+                    bd.m_CurveBounds.min.y = math.min(bd.m_CurveBounds.min.y, lo);
+                    bd.m_CurveBounds.max.y = math.max(bd.m_CurveBounds.max.y, hi);
+                    v.Bounds.value = bd;
                 }
             }
         }
@@ -124,6 +173,7 @@ namespace SkiResortMod.Systems
         private NativeArray<Strip> m_Strips;
         private int m_StripCount;
         private JobHandle m_DrawHandle;
+        private bool m_TightBoxes;
 
         private ProxyAction m_Toggle;
         private bool m_Game, m_Armed, m_Disabled, m_ErrorLogged, m_SlowLogged, m_KeyProbeLogged;
@@ -164,7 +214,13 @@ namespace SkiResortMod.Systems
             m_Camera = World.GetOrCreateSystemManaged<CameraUpdateSystem>();
             m_HeatMap = World.GetOrCreateSystemManaged<SkiRunDrawFeedbackSystem>();
             m_Strips = new NativeArray<Strip>(Tuning.MaxStrips, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            Mod.Log.Info($"{nameof(SkiSlopeOverlaySystem)} created");
+            int vanilla = UnsafeUtility.SizeOf<OverlayRenderSystem.Buffer>(), view = UnsafeUtility.SizeOf<BufferView>();
+            m_TightBoxes = vanilla == view;
+            if (m_TightBoxes)
+                Mod.Log.Info($"{nameof(SkiSlopeOverlaySystem)} created, tight strip boxes");
+            else
+                Mod.Log.Warn($"{nameof(SkiSlopeOverlaySystem)} created: !!! OverlayRenderSystem.Buffer is {vanilla} bytes, BufferView {view}. " +
+                             "Strips use the full-height vanilla boxes (slow on the GPU).");
         }
 
         protected override void OnDestroy()
@@ -432,6 +488,8 @@ namespace SkiResortMod.Systems
                     A = new float3((float)(origin.x + r.I0 * (double)texel - half), r.Y, wz),
                     B = new float3((float)(origin.x + r.I1 * (double)texel + half), r.Y, wz),
                     Width = (r.JHi - r.JLo + 1) * texel,
+                    YLo = r.YLo - Tuning.BoxMarginM,
+                    YHi = r.YHi + Tuning.BoxMarginM,
                     Color = c,
                 };
             }
@@ -444,7 +502,7 @@ namespace SkiResortMod.Systems
         private void Draw()
         {
             OverlayRenderSystem.Buffer buffer = m_Overlay.GetBuffer(out JobHandle deps);   // OverlayRenderSystem.cs:603-634
-            var job = new StripDrawJob { Strips = m_Strips, Count = m_StripCount, Overlay = buffer };
+            var job = new StripDrawJob { Strips = m_Strips, Count = m_StripCount, TightBoxes = m_TightBoxes, Overlay = buffer };
             JobHandle handle = job.Schedule(deps);
             m_Overlay.AddBufferWriter(handle);   // :636-639, completed at OverlayRenderSystem :740
             m_DrawHandle = handle;
