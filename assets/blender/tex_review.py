@@ -248,7 +248,7 @@ def shipped_slots(asset_dir, name):
     """The slot colors the game multiplies in: the manifest's `tiled.slots_v2.defaults` (= the mesh prefab's VariationSet
     after --slots v2), or None. recipe.slots is the pre-slots-v2 table: with it the slot-2 trim boards and the slot-3
     casings render in colors the game never shows (P1: orange fascias, pale casings)."""
-    base = re.sub(r"_LODd$", "", name)
+    base = re.sub(r"_LOD[0-9]$", "", name)
     path = os.path.join(asset_dir, f"{base}.manifest.json")
     if not os.path.exists(path):
         return None
