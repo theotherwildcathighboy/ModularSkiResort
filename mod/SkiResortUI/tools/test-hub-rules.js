@@ -664,8 +664,8 @@ function run(srcDir) {
   const csTuples = new Map();
   for (const m of locale.matchAll(/\{\s*"([^"]+)",\s*"((?:[^"\\]|\\.)*)"\s*\}/g)) csTuples.set(m[1], m[2]);
   const histKeys = [...tuples.keys()].filter((k) => /^SkiResort\.Hub\.(HISTORY|TILE\[History\]|TILE_TIP\[History\])/.test(k));
-  eq("T20.2 every HISTORY key of hubText.ts is in LocaleEN.cs with the same text (63 keys; Finances / Both went with the charts segment; T245 added 15)",
-    [histKeys.length, histKeys.filter((k) => csTuples.get(k) !== tuples.get(k))], [63, []]);
+  eq("T20.2 every HISTORY key of hubText.ts is in LocaleEN.cs with the same text (67 keys; Finances / Both went with the charts segment; T245 added 15; R3-A added 4)",
+    [histKeys.length, histKeys.filter((k) => csTuples.get(k) !== tuples.get(k))], [67, []]);
   const viewSrc = read(path.join("hub", "HistoryView.tsx"));
   const H = HR;
   eq("T20.3 three range options (12 months, this season vs last, by season), each with a label and a tooltip in HistoryView",
