@@ -1460,8 +1460,10 @@ def detail_specs_m():
 # - TP1_DENSITY: texels move from the fat painted tubes to the surfaces the game camera sees from above (pad, roofs,
 #   grating, load deck).
 # IDENTITY_M ("shack", `--identity shack`, needs the pass): the station-identity proposal. The operator hut is clad in the
-# lodges' stained plank siding (key hutclad, the lodge timber_lap scan at its 1.2 m tile) and the machine house leaves the
-# structure's recolor slot for slot 2 (key hood, satin), so the machine carries the lift's own color. Material keys only.
+# lodges' stained plank siding (key hutclad, the lodge timber_lap scan at the lodges' 2.4 m tile = 17 cm boards; the scan
+# holds 14 boards, so the 1.2 m tile of the first draft drew 8.6 cm boards, cs2_tilesheet.TEXPASS r4/tex a2f5552d) and the
+# machine house leaves the structure's recolor slot for slot 2 (key hood, satin), so the machine carries the lift's own
+# color. Material keys only.
 TEXPASS_M = None            # None | "v1" (main_m sets it from the args before a part is built)
 IDENTITY_M = None           # None | "shack"
 TEXPASS_CHOICES = ("off", "v1")
@@ -1470,7 +1472,7 @@ TP1_ROUGH_PAINT = 0.42
 TP1_ROUGH_HOOD = 0.32
 TP1_GALV_TINT = (2.09, 1.93, 1.76)          # = lift_tower.TEXPASS_MATERIALS v1 FG galv: sRGB 0.70 / 0.715 / 0.73
 TP1_CONCRETE = dict(tint=(0.661, 0.625, 0.547), rough=0.76)     # = lift_tower.TOWER_MATERIALS concrete
-TP1_HUTCLAD = dict(texture_set="PHWeatheredPlankSiding", metres_per_tile=1.2, metal=0.0)
+TP1_HUTCLAD = dict(texture_set="PHWeatheredPlankSiding", metres_per_tile=2.4, metal=0.0)
 TP1_ROLES = {"hood": "paint_metal", "hutclad": "timber"}
 TP1_REKEY = {"shack": {"hut": "hutclad", "house": "hood", "door_house_leaf": "hood"}}
 # density weights (longest prefix wins) laid over M_DENSITY
