@@ -35,6 +35,7 @@ namespace LiftBatch
             Sn1NoseFollows();
             Sn2NoseLimits();
             Sn3StationGeometry();
+            Sn4ChairEnvelope();
         }
 
         // ── BW-8: a loop's turn arc, built the way LiftLoopCache builds it, gives the wheel's radius and sense ─────────────────────
@@ -339,6 +340,38 @@ namespace LiftBatch
             LiftAlignMath.StationNosePose(-18.4f * d, -55f * d, 2, dq, hb, float.PositiveInfinity, out float once, out _);
             float again = LiftAlignMath.StationNosePose(-18.4f * d, once, 2, dq, hb, float.PositiveInfinity, out float twice, out bool c2);
             Check(once == twice && again == 0f && !c2, W, "not idempotent: " + F(math.degrees(once)) + " -> " + F(math.degrees(twice)));
+        }
+
+        // ── SN-4: the pose rule keeps the fixed-grip base's nose inside the art's chair envelope ─────────────────────────────────
+        // The art (lift_terminal RIG_NOSE, contract c) turns NoseTrain by theta, + raising the line end (-z): theta = -(line - fixed).
+        // A chair clears its own rope for theta in [-40, +20] (at +30 its body touches the rope at the kink); the joint sweep clears
+        // +-40. The rule needs no extra clamp: the 30 deg pitch cap stops the raise at +12.4 on the base's -17.6 deg in-station rope.
+        // This case fails when a limit or the station geometry changes so that a pose leaves the envelope.
+        private static void Sn4ChairEnvelope()
+        {
+            const string W = "wheel/SN-4";
+            const float RaiseMaxDeg = 20f, DropMaxDeg = 40f;
+            float hb = math.radians(LiftAlignMath.MaxHalfBreakDeg);
+            float fixedPitch = -math.atan2(5.84f - 3.55f, 7.225f);   // the base anchor (y 5.84, z -7.025) to the wheel (y 3.55, z 0.2)
+            float worstRaise = 0f, worstDrop = 0f;
+            foreach (float slopeMax in new[] { 0.3f, 0.5f, 0.8f, 1.0f, 1.5f, 3.0f, 10f })
+            {
+                float maxPitch = LiftAlignMath.TrainPitchLimit(slopeMax);
+                for (int lineDeg = -89; lineDeg <= 89; lineDeg++)
+                {
+                    LiftAlignMath.StationNosePose(fixedPitch, math.radians(lineDeg), 2, maxPitch, hb, float.PositiveInfinity, out float line, out _);
+                    float theta = -math.degrees(line - fixedPitch);
+                    worstRaise = math.max(worstRaise, theta);
+                    worstDrop = math.min(worstDrop, theta);
+                    if (theta > RaiseMaxDeg + 1e-3f || theta < -DropMaxDeg - 1e-3f)
+                    {
+                        Check(false, W, "slope " + F(slopeMax) + " line " + lineDeg + " deg: nose theta " + F(theta) + " outside [-40, +20]");
+                        return;
+                    }
+                }
+            }
+            Check(worstRaise > 12f && worstRaise < 12.6f && worstDrop < -39.9f, W,
+                "envelope used " + F(worstDrop) + " .. " + F(worstRaise) + " (want about -40 .. +12.4)");
         }
     }
 }
