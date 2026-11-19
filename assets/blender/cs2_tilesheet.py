@@ -349,9 +349,12 @@ GLASS_VERSION = "+gls1"
 TEXPASS_VERSION = "+tex1"
 TEXPASS = {
     "v1": {
-        # 1.57 m scan at 1.2 m (x 0.76): 17 cm rough-sawn boards (WoodSiding009 drew painted 15 cm boards, tinted);
-        # normal_gain 1.6: the scan's seams read flatter than the old set's (tilt rms 10.8 -> 15.9 deg, was 14.9)
-        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (1.2, 1.2), "repeat": 2, "normal_gain": 1.6},
+        # 1.57 m scan at 2.4 m (x 1.53): 17 cm rough-sawn lapped boards (WoodSiding009 drew painted 15 cm boards, tinted).
+        # The scan holds 14 boards (11.2 cm), not 7: the pilot's tile 1.2 x repeat 2 drew 8.6 cm boards, under the range
+        # below (its gate measured the 2-board harmonic of the luminance autocorrelation: alternate boards differ in tone).
+        # Tile 2.4 x 1 is the key's old period, so the cut grid and the far-set units are the flag-off ones.
+        # normal_gain 1.6: the scan's seams read flatter than the old set's
+        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (2.4, 2.4), "normal_gain": 1.6},
         # 1.5 m scan at 1.6 m (x 1.07): 20 x 14.5 cm slates (RoofingTiles003 drew 40 cm slates with scratch streaks)
         "slate": {"set": "PHGrayRoofTiles02", "tile_m": (1.6, 1.6), "repeat": 2,
                   "target_srgb": (0.214, 0.224, 0.215), "normal_gain": 1.3},
@@ -367,7 +370,8 @@ TEXPASS = {
 }
 # Real-world course / board pitch (m) a pass key must show at its tile size: lap siding exposure 10-20 cm, slate and
 # tile courses 10-25 cm, deck boards 9-16 cm on center, roof shakes 12-26 cm. test_texpass P6 measures each scan
-# (row-profile autocorrelation of the Color map at texture-sources.json size_m, times tile_m / size_m).
+# (the FUNDAMENTAL of the Color map's row-profile autocorrelation at texture-sources.json size_m, times tile_m / size_m;
+# count the seams on the normal map when you pick a scan: a bond or a two-tone board pattern has a stronger harmonic).
 TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.12, 0.26)}
 # Swatch controls a pass key may carry (texpass_apply runs them in this order on the sheet swatch and on the far source);
 # the color ones move the swatch mean, which the target_srgb tint then restores

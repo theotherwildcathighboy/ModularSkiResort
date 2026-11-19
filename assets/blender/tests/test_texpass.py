@@ -19,14 +19,15 @@ Gates (the pilot's lessons, made mechanical):
       clean and uncut while every other face keeps its state (the hut's posts: 192 tris and a weather level);
   P5  lodge.texpass_weather: the hut recipe's grade in the tiled frame matches the authoring grade through
       cs2_asset.orient_for_net; eave_h overrides every side; band_skip carried; a yawed recipe raises; None stays None;
-  P6  real-world scale: every pass key has a TEXPASS_PITCH range and its scan's course / board pitch (Color map row
-      autocorrelation at the set's size_m) times tile_m / size_m lies in it (the 0.6 x shake scan failed this);
+  P6  real-world scale: every pass key has a TEXPASS_PITCH range and its scan's course / board pitch (the fundamental of
+      the Color map's row autocorrelation at the set's size_m) times tile_m / size_m lies in it (the 0.6 x shake scan
+      failed this; the strongest peak passed the siding at half its intended board width);
   P7  swatch controls: deck chroma + flatten_m + contrast keep the swatch mean within 0.01 sRGB (the palette) and cut
       the mean chroma and the luminance CoV, normal_gain raises the tilt rms; texpass_swatch is {} with the pass off
       (alias followers too);
   P8  weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
       a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise;
-  P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate, timber_lap: 2} (off: {}); a plinth + lap
+  P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate: 2} (off: {}); a plinth + lap
       wall + slate roof through lodge's prep: the pass's UVTile is exactly 2 x the flag-off one on the pass keys'
       faces (meters / square tile); after lodge.texpass_far_units + align_islands + split_poor_islands the UVTile and
       the dry pack's UVUnique equal the flag-off ones bit for bit, and the sampling layer is the flag-off UVTile x 2
@@ -313,7 +314,10 @@ def check_texpass_weather():
 
 
 def row_pitch(path):
-    """The dominant row period of an image as a fraction of its height (luminance row means, autocorrelation)."""
+    """The fundamental row period of an image as a fraction of its height (luminance row means, autocorrelation): the
+    SHORTEST lag whose peak reaches half the strongest peak. The strongest peak alone is not the pitch: boards that
+    alternate in tone, or a bond, put more energy into the 2-course harmonic (PHWeatheredPlankSiding: 0.52 at one
+    board, 0.64 at two; the pilot drew its siding at half the intended board width)."""
     im = bpy.data.images.load(path, check_existing=False)
     im.colorspace_settings.name = "Non-Color"
     w, h = im.size
@@ -324,7 +328,10 @@ def row_pitch(path):
     p = prof - prof.mean()
     ac = np.fft.irfft(np.abs(np.fft.rfft(p, 2 * h)) ** 2)[:h]
     lo = int(h * 0.01) + 2
-    return (lo + int(np.argmax(ac[lo:h // 3]))) / h
+    seg = ac[lo:h // 3]
+    peaks = [i for i in range(1, len(seg) - 1) if seg[i] > seg[i - 1] and seg[i] >= seg[i + 1]]
+    top = max(seg[i] for i in peaks)
+    return (lo + next(i for i in peaks if seg[i] >= 0.5 * top)) / h
 
 
 def check_scale():
@@ -536,7 +543,7 @@ def check_far_units():
     TS.register_texpass("v1")
     try:
         fac = TS.texpass_tile_factors()
-        assert fac == {"lux_slate": 2.0, "slate": 2.0, "timber_lap": 2.0}, fac
+        assert fac == {"lux_slate": 2.0, "slate": 2.0}, fac     # timber_lap keeps its 2.4 m square tile: no factor
         on = far_layout(True)
     finally:
         TS.unregister_texpass()
@@ -544,7 +551,7 @@ def check_far_units():
     f = np.ones(len(on["loop_mi"]))
     for i, s in on["idx"].items():
         f[on["loop_mi"] == i] = s
-    assert sorted(on["keys"][i] for i in on["idx"]) == ["slate", "timber_lap"], on["idx"]
+    assert sorted(on["keys"][i] for i in on["idx"]) == ["slate"], on["idx"]
     assert np.array_equal(on["raw"], off["raw"] * f[:, None]), "the pass's UVTile is not exactly f x the flag-off one"
     assert np.array_equal(on["tile"], off["tile"]), \
         f"far UVTile after the island ops differs from flag-off (max {np.abs(on['tile'] - off['tile']).max()})"
