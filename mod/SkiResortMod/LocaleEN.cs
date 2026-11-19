@@ -1762,7 +1762,7 @@ namespace SkiResortMod
                 // (PRICE / PRICE2 = the opening / stepped pass price, MONTH / MONTH2 = the last month at each price, or the month sales open).
                 { "SkiResort.Hub.MONEY_DEST_TIP[Fee]", "Tourists on a destination pass pay a quarter of the season pass price a day instead of the lift ticket, never more than the ticket." },
                 { "SkiResort.Hub.MONEY_DEST_TIP[Share]", "Fewer tourists hold one while the pass or its day fee is dear. The Options pass share sets both kinds of pass." },
-                { "SkiResort.Hub.MONEY_DEST_TIP[Raise]", "To earn more per destination guest, raise the pass price." },
+                { "SkiResort.Hub.MONEY_DEST_TIP[Raise]", "To raise destination fees, raise the pass price." },
                 { "SkiResort.Hub.MONEY_DEST_TIP[Full]", "Destination guests pay the full lift ticket." },
                 { "SkiResort.Hub.MONEY_SALE_TIP", "Each household buys at its own time, most of them early. After the sale, guests without a pass pay the lift ticket." },
                 { "SkiResort.Hub.MONEY_DEST_LINE", "Destination pass {FEE} a day · {PCT} of tourists" },

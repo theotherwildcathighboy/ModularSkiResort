@@ -371,7 +371,7 @@ export const HUB_LOC = {
   // 1.0.3 R3-B: the destination pass and pass sale tooltip lines
   moneyDestTipFee: ["SkiResort.Hub.MONEY_DEST_TIP[Fee]", "Tourists on a destination pass pay a quarter of the season pass price a day instead of the lift ticket, never more than the ticket."],
   moneyDestTipShare: ["SkiResort.Hub.MONEY_DEST_TIP[Share]", "Fewer tourists hold one while the pass or its day fee is dear. The Options pass share sets both kinds of pass."],
-  moneyDestTipRaise: ["SkiResort.Hub.MONEY_DEST_TIP[Raise]", "To earn more per destination guest, raise the pass price."],
+  moneyDestTipRaise: ["SkiResort.Hub.MONEY_DEST_TIP[Raise]", "To raise destination fees, raise the pass price."],
   moneyDestTipFull: ["SkiResort.Hub.MONEY_DEST_TIP[Full]", "Destination guests pay the full lift ticket."],
   moneySaleTip: ["SkiResort.Hub.MONEY_SALE_TIP", "Each household buys at its own time, most of them early. After the sale, guests without a pass pay the lift ticket."],
   moneyPassTipLocked: ["SkiResort.Hub.MONEY_PASS_TIP[Locked]", "Price locked at the sale."],

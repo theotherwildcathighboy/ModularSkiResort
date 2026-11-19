@@ -343,7 +343,7 @@ function demandText(pct: number, t: Translate): string {
  *  Tooltip (DECISIONS 677): the fact line with this area's limit, "about N % fewer than at the limit" at the shown price (hubRules.fewerPct,
  *  above the limit and under DEMAND_EXAMPLE_BELOW), the lever line (676: maxed with a luxury-tier lodge counted), and the pass holders.
  *  `price` = hubRules.hubPrice(city): -1 ("–", no thumb) until C# sends the city. The label is one text node (check-bundle rule R13). */
-function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; t: Translate }): JSX.Element {
+function PriceLine({ price, tolerance, passPrice, passShare, t }: { price: number; tolerance: number; passPrice: number; passShare: number; t: Translate }): JSX.Element {
   const [shown, setShown] = useState(price);
   // The area's lodges' price tolerance (ResortLive.priceTolerance, -1 unknown reads as 0).
   const tol = tolerance > 0 ? tolerance : 0;
@@ -360,6 +360,8 @@ function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; 
     // The lever line (DECISIONS 676). Maxed: the area already counts a luxury-tier lodge (Summit, Grand or a merged building of that tier).
     t(tol >= LUXURY_PRICE_TOLERANCE ? HUB_LOC.moneyPriceTipMax : HUB_LOC.moneyPriceTipLever),
     t(HUB_LOC.moneyPriceTipPasses),
+    // 1.0.3 T259 (owner verdict): with passes on and the destination fee (pass / 4) below the shown ticket, the lever that lifts it.
+    passShare > 0 && now > 0 && destFee(passPrice, now) < now && t(HUB_LOC.moneyDestTipRaise),
   ]} />;
   const heat = (v: number): readonly [number, number] => demandHeat(priceFactorPct(v, tol));
   return (
@@ -483,7 +485,7 @@ function SignMoney({ row, l, city, build, feats, problems, samples, t }: {
       <Fold view="money" id="income" header label={t(HUB_LOC.sectionIncome)}
         value={<Cell samples={samples}>{incomeValue(l ? l.incomeMonth ?? -1 : -1)}</Cell>}>
       <TicketsRow l={l} price={city.ticketPrice} samples={samples} t={t} />
-      <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} t={t} />
+      <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} passPrice={city.passPrice} passShare={city.passShare} t={t} />
       <PassLine city={city} l={l} t={t} />
       <LodgeSpendRow l={l} city={city} samples={samples} t={t} />
       <LessonRow l={l} city={city} school={schoolState(l, problems, row.sign, schoolBuiltOf(build))} samples={samples} t={t} />
