@@ -22,7 +22,10 @@ Gates (the lodge pilot's P gates, keyed to the station sheet, plus the aspect ga
       max(1.25 x the flag-off swatch, 0.03) (cs2_tilesheet's P10 rule);
   X7  far sources: texpass_far_fields gives every TEXPASS_FAR key a prefiltered folder with the three maps on the
       SQUARE tile of the swatch, and far mean x tint lies within 0.02 sRGB of the sheet swatch mean (the far set
-      draws what LOD0 draws); off = {} and material_table is the shipped table.
+      draws what LOD0 draws); off = {} and material_table is the shipped table;
+  X8  UV turn (tram_tilesheet.TEXPASS_UV_TURN): the timber struts' UVTile turns 90 deg under the pass so the boards
+      run up the member: inert when off, a rotation (det +1), the cut grid kept at grid offsets 0 / 0.5, only
+      timber parts of the shipped part tables that do not strip.
 Exit 1 on the first failure; one PASS line otherwise.
 """
 
@@ -245,12 +248,54 @@ def check_far():
     ok("X7 far sources (far mean x tint vs the sheet swatch, sRGB): " + ", ".join(rows) + "; off = the shipped table")
 
 
+def check_uv_turn():
+    """X8: the per-part UVTile turn (TEXPASS_UV_TURN) is inert when off, is a rotation (the normal map's tangent frame
+    turns with the UVs, it is never mirrored), keeps the cut grid at both grid offsets the stations use, and names
+    only timber parts of the shipped part tables that do not strip."""
+    import json
+    assert not TT.uv_turned("tram_timber", "vstrut_La"), "pass off: no UV turn"
+    M = TT.turn_uv(np.eye(2))
+    assert np.allclose(M, [[0.0, -1.0], [1.0, 0.0]]) and abs(np.linalg.det(M) - 1.0) < 1e-12, M
+    rng = np.random.default_rng(7)
+    uv = rng.uniform(-30.0, 30.0, (256, 2))
+    assert np.allclose(np.linalg.norm(TT.turn_uv(uv), axis=1), np.linalg.norm(uv, axis=1))
+    for g in (0.0, 0.5):                         # tile_mesh cuts where uv / repeat + grid_offset is an integer
+        lines = np.arange(-8, 9) - g             # the u cut lines (in periods); the turn makes v' = -u
+        x = -lines + g
+        assert np.abs(x - np.round(x)).max() < 1e-12, f"grid offset {g}: turned u lines leave the cut grid"
+    repo = os.path.dirname(os.path.dirname(HERE))
+    turned = {}
+    TT.register_texpass(V)
+    try:
+        spec = TT.TEXPASS_UV_TURN[V]
+        assert set(spec) <= set(TT.TEXPASS[V]), f"a turned key must be a pass key: {sorted(spec)}"
+        for role, name in (("base", "SkiTramBaseStationB"), ("top", "SkiTramTopStationB")):
+            p = os.path.join(repo, "assets", "import", "stations", "tram", "B", name, f"{name}.manifest.json")
+            with open(p, encoding="utf-8") as fh:
+                td = json.load(fh)["tiled"]
+            parts = {q for qs in td["routes"].values() for q in qs}
+            on_key = {k: set(td["remap"].get(f"{k.split('_', 1)[1]} -> {k}", ())) for k in spec}
+            for k, pre in spec.items():
+                hit = sorted(q for q in parts if q.startswith(tuple(pre)))
+                assert all(TT.uv_turned(k, q) for q in hit)
+                assert set(hit) <= on_key[k], f"{name}: turned parts not on {k}: {sorted(set(hit) - on_key[k])}"
+                assert not set(hit) & set(td["routes"].get("strip", ())), f"{name}: a turned part strips"
+                turned[name] = hit
+    finally:
+        TT.unregister_texpass()
+    assert not TT.uv_turned("tram_timber", "vstrut_La")
+    assert len(turned["SkiTramBaseStationB"]) >= 4, turned
+    ok(f"X8 UV turn: (u, v) -> (v, -u), det +1, cut grid kept at offsets 0 / 0.5; base {len(turned['SkiTramBaseStationB'])}"
+       f" timber struts ({', '.join(turned['SkiTramBaseStationB'])}), top {len(turned['SkiTramTopStationB'])}; off = none")
+
+
 def main():
     off, _h = check_flag_off()
     check_cut_grid(off)
     check_aspect()
     check_scale_palette_lf(off)
     check_far()
+    check_uv_turn()
     print(f"PASS test_tram_texpass: {len(CHECKS)} checks")
 
 

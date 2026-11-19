@@ -169,6 +169,27 @@ TEXPASS_PITCH = {"tram_timber": (0.10, 0.20)}
 # the far bake's material-table key of each pass key (tram_station.material_table): the far set draws what LOD0 draws
 TEXPASS_FAR = {"tram_stone": "stone", "tram_concrete": "concrete", "tram_timber": "timber"}
 TEXPASS_FAR_PPM = 16.0          # far-set px/m the far sources are prefiltered for (x cs2_bldg.PREFILTER_FACTOR)
+# per-part UVTile turn under the pass {version: {key: part prefixes}}. box_uv draws a key's boards level (walls u = the
+# viewer's right, v = up): right for siding, wrong for posts. The V-strut / JH-strut members stand near vertical (10-13
+# deg off plumb), so the plank scan drew its boards ACROSS them: a stack of planks at 7 m (restart review 2026-11-19).
+# turn_uv (u, v) -> (v, -u) is a rotation, so the normal map stays valid, and it runs the boards up the member. The cut
+# grid is the same set of world lines (one period T on both axes; grid offset 0 or 0.5 is symmetric under negation), so
+# no tri moves: only these parts' UVs inside the same swatch change. The grain follows plumb, not the member axis
+# (10-13 deg off): an axis-aligned projection would move cut lines (a geometry question, not v1)
+TEXPASS_UV_TURN = {"v1": {"tram_timber": ("vstrut_", "jhstrut_")}}
+
+
+def turn_uv(uv):
+    """(n, 2) UVTile turned 90 deg: u' = v, v' = -u (determinant +1)."""
+    uv = np.asarray(uv, np.float64)
+    return np.stack([uv[:, 1], -uv[:, 0]], 1)
+
+
+def uv_turned(key, part_name):
+    """True when the active pass turns this part's UVTile on this key (TEXPASS_UV_TURN; always False when off)."""
+    v = _TEXPASS["version"]
+    pre = TEXPASS_UV_TURN.get(v, {}).get(key) if v else None
+    return bool(pre) and part_name.startswith(tuple(pre))
 TEXPASS_FIELDS = ("set", "tile_m", "target_srgb")
 _TEXPASS = {"version": None, "smooth": {}, "far": None}
 
@@ -271,7 +292,7 @@ def texpass_report():
     far = {k: dict(f, texture_set=os.path.basename(f["texture_set"]), tint=[round(x, 4) for x in f["tint"]])
            for k, f in texpass_far_fields().items()}
     return {"version": v, "specs": _jsonable(TEXPASS[v]), "pitch_m": _jsonable(TEXPASS_PITCH), "far": far,
-            "far_ppm": TEXPASS_FAR_PPM * K.PREFILTER_FACTOR}
+            "far_ppm": TEXPASS_FAR_PPM * K.PREFILTER_FACTOR, "uv_turn": _jsonable(TEXPASS_UV_TURN.get(v, {}))}
 
 
 def register_materials(step=0):
@@ -756,6 +777,8 @@ def uvtile_for(obj, keys, fkey, table, dx, groups, targets, ts):
             uvt[L] = uv
             continue
         uv = box_uv(P[lv[L]], N[i])
+        if uv_turned(k, name_of(p)):            # texture pass only: boards up the timber struts
+            uv = turn_uv(uv)
         if k in SWATCHES and SWATCHES[k].get("set"):
             uv = uv / TS.tile_m_of(k)
         uvt[L] = uv
