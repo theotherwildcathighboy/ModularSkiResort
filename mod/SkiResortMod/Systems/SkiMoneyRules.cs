@@ -97,6 +97,18 @@ namespace SkiResortMod.Systems
         public static int LodgeSpendOf(int setting, float multiplier)
             => setting <= 0 || !(multiplier > 0f) ? 0 : (int)math.floor(setting * multiplier + 0.5f);
 
+        /// <summary>The lodge spend at the day ticket price in force (1.0.3, r4/lodge-spend): the setting is the spend per guest at the DEFAULT
+        /// ticket (<see cref="TicketPriceDefault"/>), and the spend scales with the ticket: floor(setting x multiplier x ticket / default + 0.5).
+        /// At the default ticket it equals <see cref="LodgeSpendOf(int, float)"/>. 0 when the setting, the multiplier or the ticket price is not &gt; 0
+        /// (tickets off: no gate, no spend). Computed in double so the half-up rounding is exact for the slider's values.</summary>
+        public static int LodgeSpendOf(int setting, float multiplier, int ticketPrice)
+        {
+            if (setting <= 0 || !(multiplier > 0f) || ticketPrice <= 0)
+                return 0;
+            double v = (double)setting * multiplier * ClampTicketPrice(ticketPrice) / TicketPriceDefault;
+            return (int)math.floor(v + 0.5);
+        }
+
         /// <summary>Paying guests of a household that also spend at the lodge: min(paid, money left after the tickets /
         /// spend per person), never into debt. The result is 0 when any input is not &gt; 0.</summary>
         public static int SpendPaid(int paidPeople, int spendPerPerson, int moneyAfterTickets)
