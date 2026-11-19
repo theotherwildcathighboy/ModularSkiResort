@@ -22,8 +22,7 @@ import type { HistoryArea } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
 import { BarChart, HISTORY_COLOR, Legend, LineStrip } from "./HistoryChart";
-import { REVENUE_VARIANTS, RevenueChart } from "./RevenueChart";
-import type { RevenueVariant } from "./RevenueChart";
+import { RevenueChart } from "./RevenueChart";
 import type { ChartBehind, ChartSeries, ChartSlot } from "./HistoryChart";
 import {
   HISTORY_RANGES, compareOf, effectiveRange, labelStep, linePoints, monthOfKey, netChange, niceMax, pctChange,
@@ -131,16 +130,6 @@ function Segment<K extends string>({ options, value, label, tip, enabled, onSele
   );
 }
 
-/** R3-A iteration 1 ONLY (look): picks the revenue chart variant for the owner's verdict. Removed in iteration 2 with the losing variants. */
-const REVENUE_LABEL: Readonly<Record<RevenueVariant, string>> = { a: "A: 100 % bars", b: "B: donuts", c: "C: one scale" };
-function RevenueSwitch({ variant, onSelect }: { variant: RevenueVariant; onSelect: (v: RevenueVariant) => void }): JSX.Element {
-  return (
-    <div className={styles.revSwitch}>
-      <Segment options={REVENUE_VARIANTS} value={variant} label={(k) => REVENUE_LABEL[k]} tip={(k) => REVENUE_LABEL[k]} onSelect={onSelect} />
-    </div>
-  );
-}
-
 /** A season drawn as its average month is faded only while it runs. The average already makes a partial season comparable,
 *  and its tooltip still says "Partial" and "{N} of 12 months". */
 function slotsOf(buckets: readonly HistoryBucket[]): ChartSlot[] {
@@ -172,7 +161,6 @@ function SeasonRow({ label, value, change, tip, wide }: {
 
 /** T245: "This season so far". Flat rows (no wrapper), so the view pager can move them to a second page at a large text scale. */
 function SeasonBlock({ s, samples, t }: { s: SeasonSoFar; samples: NumberSamples; t: Translate }): JSX.Element {
-  const [variant, setVariant] = useState<RevenueVariant>("a");
   const now = s.now, whole = s.nowWhole, before = s.before;
   const cmp = !!whole && !!before;
   const pctCellOf = (a: number, b: number): JSX.Element | string => {
@@ -224,8 +212,7 @@ function SeasonBlock({ s, samples, t }: { s: SeasonSoFar; samples: NumberSamples
         value={avgTicket >= 0 ? <Num value={round(avgTicket)} unit={Unit.Money} /> : "–"}
         tip={<LocText entry={HUB_FMT.historyAvgTicketTip} args={{ N: numArg(round(now.ticketsPaid), Unit.Integer) }} />}
       />
-      <RevenueSwitch variant={variant} onSelect={setVariant} />
-      <RevenueChart s={s} variant={variant} t={t} />
+      <RevenueChart s={s} t={t} />
     </>
   );
 }

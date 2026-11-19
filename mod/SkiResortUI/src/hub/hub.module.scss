@@ -3430,13 +3430,13 @@
 .revHead {
   display: flex;
   flex-direction: row;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   font-size: var(--fontSizeS);
   line-height: 130%;
 }
 
 .revHeadLabel {
+  flex-grow: 1;
   flex-shrink: 0;
 }
 

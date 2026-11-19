@@ -1,29 +1,25 @@
 /*
- * src/hub/RevenueChart.tsx - R3-A iteration 1 (1.0.3, LOOK ONLY): the season's income and cost mix as a chart, with the net and the
- * passes' share of lift income. Three variants for the owner's pick (HistoryView draws the chosen one and a temporary switcher):
- *   a  two 100 % bars, income on top, the net between them, costs below
- *   b  a donut per mix, the net under them
- *   c  income bar and cost bar at ONE scale, the gap between their ends = the net
+ * src/hub/RevenueChart.tsx - R3-A (1.0.3): the season's income and cost mix as ONE chart with the net and the passes' share of lift income.
+ * Income bar and cost bar at ONE scale (the longer total fills the track), so the gap between their ends is the net: a dashed outline
+ * on the income bar for a loss, on the cost bar for a profit. Variants A (two 100 % bars) and B (donuts) were dropped on the owner's pick (C).
  * Fed by historyRules.seasonSoFar (the season block already holds every number: no C# change, no contract field). The pass share is
  * passIncome / (ticketIncome + passIncome): the passes' part of the lift money (the PASS-3 "32 %" line).
- * Gameface rules as the rest of the hub: flex only (no grid, no gap, no auto margins), SVG limited to svg / circle / path,
- * HTML text around it, never SVG <text>. Rows render flat (fit.tsx pager). Part shades are one hue per side, the first part strongest
- * (the shades the mix rows used).
+ * Colors: the strongest part of each side is exactly the Finances chart legend's Income / Costs color (HISTORY_COLOR), the other parts
+ * the same hue in fainter steps; the bar headers carry that legend swatch.
+ * Gameface rules as the rest of the hub: flex only (no grid, no gap, no auto margins), HTML text, a CSS dashed border for the gap.
+ * Rows render flat (fit.tsx pager).
  */
 import type { ReactNode } from "react";
 import { Unit } from "cs2/l10n";
 import type { Translate } from "../l10n";
-import { HISTORY_RGB } from "./HistoryChart";
+import { HISTORY_COLOR, HISTORY_RGB } from "./HistoryChart";
 import { sharesPct } from "./historyRules";
 import type { SeasonSoFar } from "./historyRules";
 import { HUB_FMT, HUB_LOC } from "./hubText";
 import { InfoLine, LocText, Num, SignedNum, Tip, TipLines, numArg } from "./parts";
 import styles from "./hub.module.scss";
 
-export type RevenueVariant = "a" | "b" | "c";
-export const REVENUE_VARIANTS: readonly RevenueVariant[] = ["a", "b", "c"];
-
-const SHADE = [0.85, 0.6, 0.4, 0.25] as const;
+const SHADE = [0.8, 0.55, 0.38, 0.24] as const;   // the first = HISTORY_COLOR's alpha
 const round = (v: number): number => Math.round(v);
 const rgba = (rgb: string, a: number): string => `rgba(${rgb}, ${a})`;
 
@@ -52,14 +48,7 @@ function partTip(m: Mix, p: Part): ReactNode {
   }]} />;
 }
 
-function mixTip(m: Mix): ReactNode {
-  return <TipLines lines={[m.label, ...m.parts.map((p) => ({
-    label: p.name,
-    value: <LocText entry={HUB_FMT.historyMixPart} args={{ AMOUNT: numArg(round(p.value), Unit.Money), PCT: numArg(p.pct, Unit.Percentage) }} />,
-  }))]} />;
-}
-
-/** One bar of parts. `widthPct` = the share of the track the filled part takes (100 for a 100 % bar). */
+/** One bar of parts. `widthPct` = the share of the track the filled part takes (the shared scale). */
 function PartBar({ m, widthPct, children }: { m: Mix; widthPct: number; children?: ReactNode }): JSX.Element {
   return (
     <div className={styles.revTrack}>
@@ -68,7 +57,7 @@ function PartBar({ m, widthPct, children }: { m: Mix; widthPct: number; children
           ? (
             <Tip key={p.name} tip={partTip(m, p)}>
               <div className={styles.revSeg} style={{ flexGrow: p.value, backgroundColor: p.color }}>
-                {p.pct >= 9 ? <Num value={p.pct} unit={Unit.Percentage} /> : null}
+                {(p.pct * widthPct) / 100 >= 12 ? <Num value={p.pct} unit={Unit.Percentage} /> : null}   {/* a label only where it fits (share of the track) */}
               </div>
             </Tip>
           )
@@ -94,17 +83,18 @@ function PartLegend({ m }: { m: Mix }): JSX.Element {
   );
 }
 
-/** A mix's header: its name and its total. */
-function BarHead({ m }: { m: Mix }): JSX.Element {
+/** A mix's header: the legend swatch of the Finances chart (the same color), its name and its total. */
+function BarHead({ m, swatch }: { m: Mix; swatch: string }): JSX.Element {
   return (
     <div className={styles.revHead}>
+      <div className={styles.histSwatch} style={{ backgroundColor: swatch }} />
       <div className={styles.revHeadLabel}>{m.label}</div>
       <div className={styles.revHeadValue}><Num value={round(m.total)} unit={Unit.Money} /></div>
     </div>
   );
 }
 
-/** The net as a line: "Net" and its signed amount in the profit / loss color. */
+/** The net as a line: "Net", its signed amount in the profit / loss color, and its share of income. */
 function NetLine({ net, income, t }: { net: number; income: number; t: Translate }): JSX.Element {
   const loss = net < 0;
   const pct = income > 0 ? Math.round((net * 100) / income) : null;
@@ -119,43 +109,7 @@ function NetLine({ net, income, t }: { net: number; income: number; t: Translate
   );
 }
 
-// ---- b: donuts. One ring of arcs per mix (stroke arcs on one circle); the total in the middle as HTML.
-const R = 38, STROKE = 17, C = 50;
-function arcPath(a0: number, a1: number): string {
-  const p = (a: number): string => `${(C + R * Math.sin(a)).toFixed(3)} ${(C - R * Math.cos(a)).toFixed(3)}`;
-  return `M ${p(a0)} A ${R} ${R} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${p(a1)}`;
-}
-
-function Donut({ m }: { m: Mix }): JSX.Element {
-  const marks: JSX.Element[] = [];
-  let at = 0;
-  const live = m.parts.filter((p) => p.value > 0);
-  for (const p of live) {
-    const span = (p.value / m.total) * Math.PI * 2;
-    if (live.length === 1) marks.push(<circle key={p.name} cx={C} cy={C} r={R} fill="none" stroke={p.color} strokeWidth={STROKE} />);
-    else {
-      const gap = 0.012;   // a hairline between parts
-      marks.push(<path key={p.name} d={arcPath(at + gap, at + span - gap)} fill="none" stroke={p.color} strokeWidth={STROKE} />);
-    }
-    at += span;
-  }
-  return (
-    <Tip tip={m.total > 0 ? mixTip(m) : undefined}>
-      <div className={styles.revDonut}>
-        <svg className={styles.revDonutSvg} viewBox="0 0 100 100">
-          <circle cx={C} cy={C} r={R} fill="none" stroke="rgba(255, 255, 255, 0.08)" strokeWidth={STROKE} />
-          {marks}
-        </svg>
-        <div className={styles.revDonutMid}>
-          <div className={styles.revDonutLabel}>{m.label}</div>
-          <div className={styles.revDonutTotal}><Num value={round(m.total)} unit={Unit.Money} /></div>
-        </div>
-      </div>
-    </Tip>
-  );
-}
-
-export function RevenueChart({ s, variant, t }: { s: SeasonSoFar; variant: RevenueVariant; t: Translate }): JSX.Element {
+export function RevenueChart({ s, t }: { s: SeasonSoFar; t: Translate }): JSX.Element {
   const now = s.now;
   const income = mixOf(t(HUB_LOC.historyIncome), HISTORY_RGB.income, [
     { name: t(HUB_LOC.historyTickets), value: now.ticketIncome },
@@ -172,81 +126,63 @@ export function RevenueChart({ s, variant, t }: { s: SeasonSoFar; variant: Reven
   const net = income.total - costs.total;
   const share = passSharePct(now.ticketIncome, now.passIncome);
   const none = income.total <= 0 && costs.total <= 0;
+  const money = (v: number): JSX.Element => <Num value={round(Math.max(0, v))} unit={Unit.Money} />;
 
   const passLine = (
     <InfoLine
       label={share === null ? t(HUB_LOC.historyPasses) : <LocText entry={HUB_FMT.historyPassShare} args={{ PCT: numArg(share, Unit.Percentage) }} />}
       value={share === null ? "–" : undefined}
-      tip={t(HUB_LOC.historyPassShareTip)}
+      tip={<TipLines lines={[
+        t(HUB_LOC.historyPassShareTip),
+        { label: t(HUB_LOC.historyPasses), value: money(now.passIncome) },
+        { label: t(HUB_LOC.historyTickets), value: money(now.ticketIncome) },
+      ]} />}
     />
   );
 
-  let body: JSX.Element;
-  if (none) {
-    body = <div className={styles.histNote}>{"–"}</div>;
-  } else if (variant === "a") {
-    body = (
-      <>
-        <div className={styles.revBlock}>
-          <BarHead m={income} />
-          <PartBar m={income} widthPct={100} />
-          <PartLegend m={income} />
+  // One scale: the longer total fills the track; the shorter bar ends early and the gap to the longer one is the net
+  // (a dashed outline: the loss on the income bar, the profit on the cost bar).
+  const scale = Math.max(income.total, costs.total);
+  const wI = scale > 0 ? (income.total / scale) * 100 : 0, wC = scale > 0 ? (costs.total / scale) * 100 : 0;
+  const netTip = (
+    <TipLines lines={[
+      t(HUB_LOC.historyNet),
+      { label: t(HUB_LOC.historyIncome), value: money(income.total) },
+      { label: t(HUB_LOC.historyCosts), value: <SignedNum value={-round(costs.total)} unit={Unit.Money} /> },
+      { label: t(HUB_LOC.historyNet), value: <SignedNum value={round(net)} unit={Unit.Money} /> },
+    ]} />
+  );
+  const gap = (side: "loss" | "profit"): JSX.Element | null => {
+    const gw = side === "loss" ? 100 - wI : 100 - wC;
+    if (!(gw > 0.5) || (side === "loss") !== (net < 0)) return null;
+    const rgb = side === "loss" ? HISTORY_RGB.costs : HISTORY_RGB.income;
+    return (
+      <Tip tip={netTip}>
+        <div className={styles.revGap} style={{ width: `${gw}%`, borderColor: rgba(rgb, 0.9), backgroundColor: rgba(rgb, 0.22) }}>
+          <SignedNum value={round(net)} unit={Unit.Money} />
         </div>
-        <NetLine net={net} income={income.total} t={t} />
-        <div className={styles.revBlock}>
-          <BarHead m={costs} />
-          <PartBar m={costs} widthPct={100} />
-          <PartLegend m={costs} />
-        </div>
-      </>
+      </Tip>
     );
-  } else if (variant === "b") {
-    body = (
-      <>
-        <div className={styles.revDonuts}>
-          <div className={styles.revDonutCol}><Donut m={income} /><PartLegend m={income} /></div>
-          <div className={styles.revDonutCol}><Donut m={costs} /><PartLegend m={costs} /></div>
-        </div>
-        <NetLine net={net} income={income.total} t={t} />
-      </>
-    );
-  } else {
-    // c: one scale. The longer total fills the track; the shorter bar ends early and the gap to the longer one is drawn as the net
-    // (a dashed outline: the loss on the income bar, the profit on the cost bar).
-    const scale = Math.max(income.total, costs.total);
-    const wI = scale > 0 ? (income.total / scale) * 100 : 0, wC = scale > 0 ? (costs.total / scale) * 100 : 0;
-    const gap = (side: "loss" | "profit"): JSX.Element | null => {
-      const gw = side === "loss" ? 100 - wI : 100 - wC;
-      if (!(gw > 0.5) || (side === "loss") !== (net < 0)) return null;
-      const rgb = side === "loss" ? HISTORY_RGB.costs : HISTORY_RGB.income;
-      return (
-        <Tip tip={<TipLines lines={[t(HUB_LOC.historyNet), { label: t(HUB_LOC.historyNet), value: <SignedNum value={round(net)} unit={Unit.Money} /> }]} />}>
-          <div className={styles.revGap} style={{ width: `${gw}%`, borderColor: rgba(rgb, 0.9), backgroundColor: rgba(rgb, 0.22) }}>
-            <SignedNum value={round(net)} unit={Unit.Money} />
-          </div>
-        </Tip>
-      );
-    };
-    body = (
-      <>
-        <div className={styles.revBlock}>
-          <BarHead m={income} />
-          <PartBar m={income} widthPct={wI}>{gap("loss")}</PartBar>
-          <PartLegend m={income} />
-        </div>
-        <div className={styles.revBlock}>
-          <BarHead m={costs} />
-          <PartBar m={costs} widthPct={wC}>{gap("profit")}</PartBar>
-          <PartLegend m={costs} />
-        </div>
-        <NetLine net={net} income={income.total} t={t} />
-      </>
-    );
-  }
+  };
+
   return (
     <>
       <InfoLine header className={styles.pagerKeepTail} label={t(HUB_LOC.historyRevenueHead)} tip={t(HUB_LOC.historyRevenueTip)} />
-      {body}
+      {none ? <div className={styles.histNote}>{"–"}</div> : (
+        <>
+          <div className={styles.revBlock}>
+            <BarHead m={income} swatch={HISTORY_COLOR.income} />
+            <PartBar m={income} widthPct={wI}>{gap("loss")}</PartBar>
+            <PartLegend m={income} />
+          </div>
+          <div className={styles.revBlock}>
+            <BarHead m={costs} swatch={HISTORY_COLOR.costs} />
+            <PartBar m={costs} widthPct={wC}>{gap("profit")}</PartBar>
+            <PartLegend m={costs} />
+          </div>
+          <NetLine net={net} income={income.total} t={t} />
+        </>
+      )}
       {passLine}
     </>
   );
