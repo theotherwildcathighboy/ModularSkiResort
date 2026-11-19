@@ -80,6 +80,8 @@ const entry = (clEnd < 0 ? clRest : clRest.slice(0, clEnd)).split("\n").slice(1)
 const log = entry.split("\n").filter((l) => !/^- (Save compatible with previous|Layout versions|Do not load in older versions):/.test(l))
   .join("\n").trim();
 if (/[<>&`]/.test(log)) problems.push("change log holds one of < > & `");
+// ModPublisher refuses a longer entry at the upload ("changelogEntry: Must be a string between 1 and 5000 length", 1.0.2, 2026-11-18).
+if (log.length > 5000) problems.push("change log is " + log.length + " characters (Paradox Mods takes at most 5000)");
 const logRe = /<ChangeLog>\n?([\s\S]*?)\n?[ \t]*<\/ChangeLog>/;
 const curLog = (x.match(logRe) || [])[1];
 if (curLog === undefined) { console.error("PublishConfiguration.xml: ChangeLog not found"); process.exit(2); }
