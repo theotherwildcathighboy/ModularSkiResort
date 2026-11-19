@@ -27,6 +27,15 @@
         "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/weathered_brown_planks/weathered_brown_planks_nor_gl_2k.png", "md5": "b7fa266208d57c10c329349037744311"},
         "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/weathered_brown_planks/weathered_brown_planks_rough_2k.png", "md5": "275afa40d8167bf97fcbf68217a00e93"}
       }
+    },
+    "PHConcreteWall008": {
+      "source": "Poly Haven", "id": "concrete_wall_008", "page": "https://polyhaven.com/a/concrete_wall_008",
+      "license": "CC0", "authors": {"Charlotte Baglioni": "Photography", "Dario Barresi": "Processing"}, "size_m": 2.71,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/concrete_wall_008/concrete_wall_008_diff_2k.png", "md5": "b33a28a2744ce12c7d309325c0529a20"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/concrete_wall_008/concrete_wall_008_nor_gl_2k.png", "md5": "c18dca9f78907c891c3e058aeea687d7"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/concrete_wall_008/concrete_wall_008_rough_2k.png", "md5": "49e9fee865f14a478762ffb80d2a3303"}
+      }
     }
   }
 }
