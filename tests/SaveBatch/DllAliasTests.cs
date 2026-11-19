@@ -72,8 +72,12 @@ namespace SaveBatch
                 string asmName = md.GetString(asm.Name);
                 string asmVer = asm.Version.ToString();
                 check(asmName == SaveLayouts.AssemblyName, "SL-AV", "assembly name '" + asmName + "', want '" + SaveLayouts.AssemblyName + "' (the save stores it)");
-                check(asmVer == SaveLayouts.PinnedAssemblyVersion, "SL-AV",
-                      "AssemblyVersion " + asmVer + ", want the pinned " + SaveLayouts.PinnedAssemblyVersion + " (SkiResortMod.csproj SAVE IDENTITY: never changes)");
+                // SL-AV (T255): the version moves with ModVersion; what must hold is that a save written by any version resolves. The
+                // strip loop below replays the saves of 1.0.0-1.0.2 (Version=LegacyAssemblyVersion), this DLL's own and a foreign one.
+                string pubXml = File.ReadAllText(Path.Combine(modDir, "Properties", "PublishConfiguration.xml"));
+                var mv = System.Text.RegularExpressions.Regex.Match(pubXml, "<ModVersion\\s+Value=\"([0-9]+\\.[0-9]+\\.[0-9]+)\"");
+                check(mv.Success && asmVer == mv.Groups[1].Value + ".0", "SL-AV",
+                      "AssemblyVersion " + asmVer + ", want ModVersion " + (mv.Success ? mv.Groups[1].Value : "?") + " + .0 (SkiResortMod.csproj VERSION derives it)");
                 string culture = asm.Culture.IsNil || md.GetString(asm.Culture).Length == 0 ? "neutral" : md.GetString(asm.Culture);
                 string token = asm.PublicKey.IsNil || md.GetBlobBytes(asm.PublicKey).Length == 0 ? "null" : "(signed)";
                 string tail = ", " + asmName + ", Version=" + asmVer + ", Culture=" + culture + ", PublicKeyToken=" + token;
@@ -117,7 +121,9 @@ namespace SaveBatch
                 // DeserializeType's strip loop, for the AQN this DLL writes and for one with another version (Type.GetType failed)
                 foreach (Persisted p in found.Where(q => rowNames.Contains(q.FullName)))
                 {
-                    foreach (string saved in new[] { p.FullName + tail, p.FullName + ", " + asmName + ", Version=0.9.8.7, Culture=neutral, PublicKeyToken=null" })
+                    foreach (string saved in new[] { p.FullName + tail,
+                                                     p.FullName + ", " + asmName + ", Version=" + SaveLayouts.LegacyAssemblyVersion + ", Culture=neutral, PublicKeyToken=null",
+                                                     p.FullName + ", " + asmName + ", Version=0.9.8.7, Culture=neutral, PublicKeyToken=null" })
                     {
                         string hit = Strip(table, saved, out string key);
                         check(hit == p.FullName, "SL-A " + p.FullName, "saved '" + saved + "' resolves to " + (hit ?? "NOTHING ('Not serializable type', block skipped)"));

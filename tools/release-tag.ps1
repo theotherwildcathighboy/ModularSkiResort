@@ -8,7 +8,7 @@
     - the tag vX.Y.Z does not exist, locally or on origin;
     - -Commit (default HEAD) IS the checked-out HEAD, and the tracked tree is clean;
     - the commit is on origin/main (the integration branch is merged and pushed first, step 9);
-    - FileVersion in SkiResortMod.csproj = X.Y.Z.0 and ModVersion in PublishConfiguration.xml = X.Y.Z;
+    - ModVersion in PublishConfiguration.xml = X.Y.Z (the csproj derives AssemblyVersion / FileVersion X.Y.Z.0 from it, T255);
     - release/CHANGELOG.md has "## X.Y.Z (PDX version N, <date>)" (the GitHub release notes are that entry);
     - tools\release-check.ps1 passes on this commit NOW (exit 0, "ALL n CHECKS PASS"; it includes the ci.yml gate for HEAD, so a commit
       without a green CI run never gets tagged), and the built SkiResortMod.dll's build stamp names this commit.
@@ -73,9 +73,10 @@ Gate 'on-origin-main' ($anc.code -eq 0) "$(if ($anc.code -eq 0) { 'the commit is
 # 4. version numbers
 $csproj = Get-Content (Join-Path $Repo 'mod\SkiResortMod\SkiResortMod.csproj') -Raw -Encoding UTF8
 $pub = Get-Content (Join-Path $Repo 'mod\SkiResortMod\Properties\PublishConfiguration.xml') -Raw -Encoding UTF8
-$fv = if ($csproj -match '<FileVersion>([\d.]+)</FileVersion>') { $Matches[1] } else { '?' }
+# T255: the csproj derives AssemblyVersion / FileVersion from ModVersion; release-check "version" reads them from the built DLL.
+$derived = $csproj.Contains('<AssemblyVersion>$(ModVersion).0</AssemblyVersion>') -and $csproj.Contains('<FileVersion>$(ModVersion).0</FileVersion>')
 $mv = if ($pub -match '<ModVersion\s+Value="([\d.]+)"') { $Matches[1] } else { '?' }
-Gate 'version' ($fv -eq "$Version.0" -and $mv -eq $Version) "FileVersion $fv, ModVersion $mv, wanted $Version.0 and $Version"
+Gate 'version' ($derived -and $mv -eq $Version) "ModVersion $mv (wanted $Version)$(if (-not $derived) { '; the csproj no longer derives AssemblyVersion / FileVersion from ModVersion (T255)' })"
 
 # 5. the changelog entry (also the release notes)
 $cl = Get-Content (Join-Path $Repo 'release\CHANGELOG.md') -Raw -Encoding UTF8

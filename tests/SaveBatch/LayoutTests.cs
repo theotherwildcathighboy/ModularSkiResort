@@ -83,6 +83,8 @@ namespace SaveBatch
             // A cat track's made-snow pack (T220). v2 ships in 1.0.1; v1 only ever lived in unreleased test saves, still loadable.
             "SkiTrackPack v1 5 m_DepthMm:i32",
             "SkiTrackPack v2 6 m_Flags:u8",
+            // The rules stamp (T251). Ships in 1.0.2 (added after the release: SL-R2 caught it on the 1.0.3 branch).
+            "SkiRulesStamp v1 6 m_Rules:i32 m_Flags:u8",
         };
 
         public static void Run(Func<bool, string, string, bool> check)
