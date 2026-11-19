@@ -99,6 +99,34 @@
         "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/red_brick_pavers/red_brick_pavers_nor_gl_2k.png", "md5": "ebba4f8fa4832d56c47b20de916b3d42"},
         "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/red_brick_pavers/red_brick_pavers_rough_2k.png", "md5": "a5e128270b79bacec4f24821bd569121"}
       }
+    },
+    "PHStoneWall": {
+      "source": "Poly Haven", "id": "stone_wall", "page": "https://polyhaven.com/a/stone_wall",
+      "license": "CC0", "authors": {"Charlotte Baglioni": "Photography", "Dario Barresi": "Processing"}, "size_m": 2.0,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/stone_wall/stone_wall_diff_2k.png", "md5": "17c16b9b9e2bc8cc82c63fa49bbfe1dc"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/stone_wall/stone_wall_nor_gl_2k.png", "md5": "fc69cf471874114bdbff2d418f075bde"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/stone_wall/stone_wall_rough_2k.png", "md5": "3d7859aca5d0cb1fbd86ab2cf6cec137"}
+      }
+    },
+    "PHRustCoarse01": {
+      "source": "Poly Haven", "id": "rust_coarse_01", "page": "https://polyhaven.com/a/rust_coarse_01",
+      "license": "CC0", "authors": {"Dimitrios Savva": "Photography", "Rico Cilliers": "Processing"}, "size_m": 2.2,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rust_coarse_01/rust_coarse_01_diff_2k.png", "md5": "ccfbc8f04be9a57c4bf4f57e13392ef2"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rust_coarse_01/rust_coarse_01_nor_gl_2k.png", "md5": "e1794a4830de6acde8b9d238104fa61f"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rust_coarse_01/rust_coarse_01_rough_2k.png", "md5": "153d3c923bb12f4d0c1f0d0f67b480a9"}
+      }
+    },
+    "PHCorrugatedIron": {
+      "source": "Poly Haven", "id": "corrugated_iron", "page": "https://polyhaven.com/a/corrugated_iron",
+      "license": "CC0", "authors": {"Jenelle van Heerden": "Photography", "Dimitrios Savva": "Processing"}, "size_m": 1.12,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/corrugated_iron/corrugated_iron_diff_2k.png", "md5": "94457bfd1f8facd2f1da7c23a911d86d"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/corrugated_iron/corrugated_iron_nor_gl_2k.png", "md5": "c59cda425ee2fa541551d39e9d878d5a"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/corrugated_iron/corrugated_iron_rough_2k.png", "md5": "8a2258f4651f6050a227bae3095f0cbf"},
+        "Metalness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/corrugated_iron/corrugated_iron_metal_2k.png", "md5": "bd71a637d562c44c95556b757fdab24a"}
+      }
     }
   }
 }
