@@ -410,6 +410,7 @@ namespace SlopeBatch
             RandomOracleTests();            // brute-force minimax oracle on random polygons / terrains
             CaptureTests();                 // field captures + format round trip (+ length columns and regression values)
             RaterParityTests();             // SkiRunRater == direct calls == pre-extraction path (RaterParity.cs)
+            OverlayTilesTests();            // T253 slope overlay tiles == ClassifyRing cells, runs, verify, eviction (OverlayTiles.cs)
             LengthTests();                  // run length: 11 synthetic shapes
             AllocationTests();              // zero allocation once grown
             TimingReport();                 // TIME (1.5 ms budget, crux share)

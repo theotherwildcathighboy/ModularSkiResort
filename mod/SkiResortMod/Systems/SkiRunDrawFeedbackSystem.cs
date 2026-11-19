@@ -110,7 +110,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Band colors, index = (int)SlopeBand. Alpha FillAlpha, except black (BlackFillAlpha, lighter BlackGray) and double black
         /// (DoubleBlackFillAlpha), T234.</summary>
-        private static readonly UnityEngine.Color[] BandColors =
+        internal static readonly UnityEngine.Color[] BandColors =
         {
             new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.FillAlpha),
             new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.FillAlpha),
@@ -122,7 +122,7 @@ namespace SkiResortMod.Systems
         /// <summary>The same in European grading (T162 rev. 2, display only), index = the cell key (CellKey): green band under 15 % = green
         /// piste, blue band = red piste, black, double black = the ski route's orange, and key 5 = a green-band cell at 15 % or more (the
         /// blue piste). The North American table never sees key 5.</summary>
-        private static readonly UnityEngine.Color[] BandColorsEu =
+        internal static readonly UnityEngine.Color[] BandColorsEu =
         {
             new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.FillAlpha),
             new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.FillAlpha),
@@ -135,12 +135,8 @@ namespace SkiResortMod.Systems
         /// <summary>The black-region edge (T234).</summary>
         private static readonly UnityEngine.Color BlackEdgeColor = new UnityEngine.Color(1f, 1f, 1f, Tuning.BlackEdgeAlpha);
 
-        private const byte KeyEuBlue = 5;
-
-        /// <summary>The strip key of a cell or segment: its band, except a European green-band cell at EuGreenMaxPct or more, which is
-        /// KeyEuBlue (DisplayUnits.EuClassOf on the cell's own grade). Same-key cells merge into one strip.</summary>
-        private static byte CellKey(byte band, float grade, bool eu) =>
-            eu && band == (byte)SlopeBand.Green && grade * 100f >= DisplayUnits.EuGreenMaxPct ? KeyEuBlue : band;
+        /// <summary>The strip key of a cell or segment (DisplayUnits.StripKey, shared with the slope overlay).</summary>
+        private static byte CellKey(byte band, float grade, bool eu) => DisplayUnits.StripKey(band, grade, eu);
 
         /// <summary>Crux ring: white outline, no fill (fill = outline with alpha 0, the vanilla
         /// range-circle style, EffectRangeRenderSystem.cs:166-169).</summary>
