@@ -9,7 +9,10 @@
     - -Commit (default HEAD) IS the checked-out HEAD, and the tracked tree is clean;
     - the commit is on origin/main (the integration branch is merged and pushed first, step 9);
     - ModVersion in PublishConfiguration.xml = X.Y.Z (the csproj derives AssemblyVersion / FileVersion X.Y.Z.0 from it, T255);
-    - release/CHANGELOG.md has "## X.Y.Z (PDX version N, <date>)" (the GitHub release notes are that entry);
+    - release/CHANGELOG.md at the built commit has "## X.Y.Z (PDX version N, <date>)" or the pre-upload placeholder
+      "## X.Y.Z (PDX version N, unreleased)". The date comes from -Date, else from origin/main's dated heading (the commit after the
+      upload), else from the built commit, else today; a -Date that disagrees with a dated heading is refused. The GitHub release notes
+      are origin/main's dated entry when it exists, else the built commit's entry;
     - tools\release-check.ps1 passes on this commit NOW (exit 0, "ALL n CHECKS PASS"; it includes the ci.yml gate for HEAD, so a commit
       without a green CI run never gets tagged), and the built SkiResortMod.dll's build stamp names this commit.
   The release-check result is not remembered between runs: this script runs it itself, against -DeployDir (default: the toolchain's deploy
@@ -23,6 +26,7 @@
 .PARAMETER Pdx         the Paradox Mods version number the upload got ("3"). Required (record it after step 7).
 .PARAMETER Commit      the built commit (default HEAD; must equal HEAD).
 .PARAMETER DeployDir   passed to release-check.ps1.
+.PARAMETER Date        the upload date "2026-11-18" for the tag message (optional; see the changelog gate).
 .PARAMETER Execute     really tag, push and create the release (after the typed confirmation).
 .PARAMETER SkipReleaseCheck  offline test of the OTHER gates only. Never with -Execute (refused).
 
@@ -35,6 +39,7 @@ param(
     [Parameter(Mandatory)][int]$Pdx,
     [string]$Commit,
     [string]$DeployDir,
+    [ValidatePattern('^\d{4}-\d{2}-\d{2}$')][string]$Date,
     [switch]$Execute,
     [switch]$SkipReleaseCheck
 )
@@ -79,11 +84,27 @@ $mv = if ($pub -match '<ModVersion\s+Value="([\d.]+)"') { $Matches[1] } else { '
 Gate 'version' ($derived -and $mv -eq $Version) "ModVersion $mv (wanted $Version)$(if (-not $derived) { '; the csproj no longer derives AssemblyVersion / FileVersion from ModVersion (T255)' })"
 
 # 5. the changelog entry (also the release notes)
+# The built commit carries "## X.Y.Z (PDX version N, unreleased)": the date is known only after the upload, and the commit that writes
+# it comes after the built commit (1.0.1 and 1.0.2 had to be tagged by hand). So the built commit may hold the placeholder or the date.
+# The dated heading, when origin/main has it, supplies the date and the notes; -Date overrides (and must agree with it).
+$entryRe = "(?ms)^## $([regex]::Escape($Version)) \(PDX version (\d+), (\d{4}-\d{2}-\d{2}|unreleased)\)\r?\n(.*?)(?=^## |\z)"
 $cl = Get-Content (Join-Path $Repo 'release\CHANGELOG.md') -Raw -Encoding UTF8
-$m = [regex]::Match($cl, "(?ms)^## $([regex]::Escape($Version)) \(PDX version (\d+), (\d{4}-\d{2}-\d{2})\)\r?\n(.*?)(?=^## |\z)")
-$date = if ($m.Success) { $m.Groups[2].Value } else { '' }
-Gate 'changelog' ($m.Success -and [int]$m.Groups[1].Value -eq $Pdx) $(if (-not $m.Success) { "no '## $Version (PDX version $Pdx, <date>)' entry in release/CHANGELOG.md" } elseif ([int]$m.Groups[1].Value -ne $Pdx) { "the entry says PDX version $($m.Groups[1].Value), not $Pdx" } else { "entry found ($date)" })
-$notes = if ($m.Success) { $m.Groups[3].Value.Trim() } else { '' }
+$m = [regex]::Match($cl, $entryRe)
+$mainCl = (Invoke-Git show 'origin/main:release/CHANGELOG.md').out
+$mm = [regex]::Match($mainCl, $entryRe)
+$mainDate = if ($mm.Success -and $mm.Groups[2].Value -ne 'unreleased') { $mm.Groups[2].Value } else { '' }
+$builtDate = if ($m.Success -and $m.Groups[2].Value -ne 'unreleased') { $m.Groups[2].Value } else { '' }
+$tagDate = if ($Date) { $Date } elseif ($mainDate) { $mainDate } elseif ($builtDate) { $builtDate } else { (Get-Date).ToString('yyyy-MM-dd') }
+$clProblems = @()
+if (-not $m.Success) { $clProblems += "no '## $Version (PDX version $Pdx, <date> or unreleased)' entry at the built commit" }
+elseif ([int]$m.Groups[1].Value -ne $Pdx) { $clProblems += "the built commit's entry says PDX version $($m.Groups[1].Value), not $Pdx" }
+if ($mm.Success -and [int]$mm.Groups[1].Value -ne $Pdx) { $clProblems += "origin/main's entry says PDX version $($mm.Groups[1].Value), not $Pdx" }
+if ($Date -and $mainDate -and $Date -ne $mainDate) { $clProblems += "-Date $Date disagrees with origin/main's heading ($mainDate)" }
+if ($Date -and $builtDate -and $Date -ne $builtDate) { $clProblems += "-Date $Date disagrees with the built commit's heading ($builtDate)" }
+$dateFrom = if ($Date) { '-Date' } elseif ($mainDate) { "origin/main's heading" } elseif ($builtDate) { "the built commit's heading" } else { 'today (no dated heading yet: commit the date after the upload, or pass -Date)' }
+Gate 'changelog' ($clProblems.Count -eq 0) $(if ($clProblems.Count) { $clProblems -join '; ' } else { "entry found; date $tagDate from $dateFrom" })
+# Notes: the dated entry on origin/main is the final text; else the built commit's entry.
+$notes = if ($mm.Success -and $mainDate) { $mm.Groups[3].Value.Trim() } elseif ($m.Success) { $m.Groups[3].Value.Trim() } else { '' }
 
 # 6. release-check on this commit now, and the DLL's build stamp
 $stamp = ''
@@ -106,7 +127,7 @@ $failed = @($results | Where-Object { -not $_.ok }).Count
 if ($failed -gt 0) { Write-Host "release-tag: refused: $failed gate(s) FAILED. Nothing was tagged."; exit 2 }
 
 $short = $full.Substring(0, 8)
-$tagMessage = "$Version = Paradox Mods 167215 PDX version $Pdx ($date); built commit $short (build stamp $stamp)"
+$tagMessage = "$Version = Paradox Mods 167215 PDX version $Pdx ($tagDate); built commit $short (build stamp $stamp)"
 $notesFile = Join-Path $env:TEMP "release-notes-$Version.md"
 Write-Host ''
 Write-Host "WOULD run:"
