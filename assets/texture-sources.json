@@ -45,6 +45,33 @@
         "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/wood_planks_grey/wood_planks_grey_nor_gl_2k.png", "md5": "b21bfa0d5511ed33d749ca66d3d11cbe"},
         "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/wood_planks_grey/wood_planks_grey_rough_2k.png", "md5": "3db8138b0173986c3b02d229102e4d62"}
       }
+    },
+    "PHRusticStoneWall02": {
+      "source": "Poly Haven", "id": "rustic_stone_wall_02", "page": "https://polyhaven.com/a/rustic_stone_wall_02",
+      "license": "CC0", "authors": {"Amal Kumar": "All"}, "size_m": 1.5,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rustic_stone_wall_02/rustic_stone_wall_02_diff_2k.png", "md5": "8cb6634cb6bf4f0cb4af2f60060e1da8"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rustic_stone_wall_02/rustic_stone_wall_02_nor_gl_2k.png", "md5": "8abbc89048c64b2cd22009b6835ff79a"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rustic_stone_wall_02/rustic_stone_wall_02_rough_2k.png", "md5": "03ff45cb45592b7b08637cf10caf22d2"}
+      }
+    },
+    "PHCastleWallSlates": {
+      "source": "Poly Haven", "id": "castle_wall_slates", "page": "https://polyhaven.com/a/castle_wall_slates",
+      "license": "CC0", "authors": {"Rob Tuytel": "All"}, "size_m": 2.5,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/castle_wall_slates/castle_wall_slates_diff_2k.png", "md5": "c581ec93e7ecb561cb37618b0e06af3f"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/castle_wall_slates/castle_wall_slates_nor_gl_2k.png", "md5": "81608698d51d4868843b24f467d0be38"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/castle_wall_slates/castle_wall_slates_rough_2k.png", "md5": "f577d9e1fe47cee78e577a01f99e5203"}
+      }
+    },
+    "PHMarbleCliff01": {
+      "source": "Poly Haven", "id": "marble_cliff_01", "page": "https://polyhaven.com/a/marble_cliff_01",
+      "license": "CC0", "authors": {"Amal Kumar": "All"}, "size_m": 4.3,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/marble_cliff_01/marble_cliff_01_diff_2k.png", "md5": "efa058930e88a99a509261cce449a65f"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/marble_cliff_01/marble_cliff_01_nor_gl_2k.png", "md5": "f09c5b85da2980e966ebfdaf62bc6b13"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/marble_cliff_01/marble_cliff_01_rough_2k.png", "md5": "be050421062eae777ba944cc2dd45577"}
+      }
     }
   }
 }
