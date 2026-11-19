@@ -1635,6 +1635,23 @@ TOWER_MATERIALS = {
     "rubber": dict(albedo=(0.035, 0.035, 0.038), metal=0.0, rough=0.80, projection="box"),
     "plate": dict(albedo=(0.69, 0.69, 0.69), metal=0.0, rough=0.45, projection="box"),
 }
+# r4/tex texture pass (2026-11-19): `--texpass v1`, default off = every FBX and map byte for byte as before. Per FAMILY
+# material overrides, pixels only: the pack, the UV islands and every FBX stay as flag-off, so the twins and heads keep
+# drawing their member's maps with no re-run. FG (line members + ET62 / ET68): the galvanized steel leaves Metal032's
+# blue-gray (sRGB 0.50 / 0.53 / 0.565) for a light neutral zinc (0.70 / 0.715 / 0.73), the paint goes satin.
+TEXPASS = None
+TEXPASS_CHOICES = ("off", "v1")
+TEXPASS_MATERIALS = {"v1": {"FG": {"galv": dict(tint=(2.09, 1.93, 1.76)), "paint": dict(rough=0.42)}}}
+
+
+def tower_materials(spec):
+    """TOWER_MATERIALS, with the pass's overrides for this variant's family under --texpass (the same dict object when
+    there is none)."""
+    over = TEXPASS_MATERIALS.get(TEXPASS, {}).get(spec.family, {}) if TEXPASS else {}
+    if not over:
+        return TOWER_MATERIALS
+    return {k: dict(v, **over.get(k, {})) for k, v in TOWER_MATERIALS.items()}
+
 
 DENSITY_V2 = {
     "pier": 0.25, "pad": 0.75, "ladder_": 0.75,
@@ -3856,7 +3873,7 @@ def build_tower_v2(spec, head=None, finish=True, kagelok=None, name=None):
         import cs2_bake
         bpy.context.view_layer.update()
         # T62 round 2: + the one wheel material (cs2_sheaves.WHEEL_MATERIAL) under v2. v1 = TOWER_MATERIALS as it was
-        sources = cs2_bake.material_sources({**TOWER_MATERIALS, **S.wheel_materials(dict)}, parts)
+        sources = cs2_bake.material_sources({**tower_materials(spec), **S.wheel_materials(dict)}, parts)
     bpy.ops.object.select_all(action="DESELECT")
     for o, _k in parts:
         o.select_set(True)
@@ -6899,6 +6916,8 @@ def parse_args_v2(argv):
     ap.add_argument("--skin-views", default=None,
                     help="with --skinned: folder for the round 2 views (skin_views: level, slope, crest, the 20 deg "
                          "limit, steep, dip), each half's rope drawn (needs the finish)")
+    ap.add_argument("--texpass", choices=TEXPASS_CHOICES, default="off",
+                    help="r4/tex: texture pass (TEXPASS_MATERIALS, per family, pixels only); off = the shipped maps")
     ap.add_argument("--gd-sheaves", dest="gd_sheaves", type=int, choices=(8, 10, 12), default=None,
                     help="with --skinned: GD sheaves a side (SKIN_GD sheaves, default 8); 10 = the shipped count, each "
                          "half a 4-wheel bogie + its inner wheel on a 1-wheel rocker hung on a link")
@@ -6909,6 +6928,8 @@ def main_v2(argv):
     import time
     t0 = time.perf_counter()
     args = parse_args_v2(argv)
+    global TEXPASS
+    TEXPASS = None if args.texpass == "off" else args.texpass      # every run follows its args
     S.set_wheels(args.wheels)          # T62: before any part is built
     # the wheel dress (materials + relief rings, 0 tris): on by default for skinned builds, unskinned stay as shipped
     S.set_wheel_dress(args.skinned if args.wheel_dress is None else args.wheel_dress)
@@ -7096,6 +7117,9 @@ def main_v2(argv):
     }
     if ROPE_ON_CROWN:
         manifest["rope_on_crown"] = rope_on_crown_block(spec)
+    if TEXPASS:
+        manifest["texpass"] = {"version": TEXPASS, "materials": TEXPASS_MATERIALS.get(TEXPASS, {}).get(spec.family, {}),
+                               "uv": "flag-off pack (pixels only)", "tris_added": 0, "textures_added_mb": 0.0}
     if SKINNED:
         manifest["skin"] = skin_manifest_block(spec, info["skin"])
     if spec.family == "DQ" and spec.role == "line":
