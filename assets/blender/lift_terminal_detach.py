@@ -8035,9 +8035,9 @@ def stamp_livery(base, ctl, mesh, table, p):
     width = (z1 - z0) * ppm_min
     if width < 3.0 and A >= ATLAS:
         raise ContractError(f"livery belt: {width:.2f} texels wide at {ppm_min:.1f} px/m (< 3)")
-    info = {"kind": LIVERY, "z_m": [round(z0, 3), round(z1, 3)], "srgb": list(L["srgb"]), "texels": int(round(texels)),
+    info = {"kind": "belt", "z_m": [round(z0, 3), round(z1, 3)], "srgb": list(L["srgb"]), "texels": int(round(texels)),
             "width_texels": round(width, 2), "px_per_m_min": round(ppm_min, 1)}
-    print(f"[detach] livery {LIVERY}: {info}")
+    print(f"[detach] livery belt: {info}")
     return info
 
 
@@ -8383,6 +8383,7 @@ class SteppedWeather:
         self.report = None
         self.chosen = None
         self.ladder = []
+        self.sidecar_variants = {}      # dev (--tex-sidecar): {tag: fn(base, ctl, mesh)}, see __call__
 
     def __getattr__(self, name):
         if name.startswith("__"):
@@ -8431,6 +8432,15 @@ class SteppedWeather:
         self.chosen, out, self.report = best
         print(f"[detach] weathering: intensity {self.chosen} (highest budget-clean step of "
               f"{[(r['intensity'], r['ok']) for r in self.ladder]})")
+        # dev (--tex-sidecar): a texel-only variant of THIS bake (a livery stamp) in the same order as its own build
+        # (compose, stamp, weathering at the chosen step), on copies: the shipped maps are not touched
+        for tag, fn in (self.sidecar_variants.items() if TEX_SIDECAR else ()):
+            b1 = np.array(b0, dtype=np.float32, copy=True)
+            c1 = np.array(c0, dtype=np.float32, copy=True)
+            fn(b1, c1, mesh)
+            hk = CW.make_weather_hook(lambda *_a: (b1.copy(), n0.copy(), m0.copy(), c1),
+                                      self.spec_at(self.chosen), **self.hook_kw)
+            tex_sidecar_set(f"{tag}_w{int(round(self.chosen * 100)):02d}", hk(base, nrm, msk, ctl, ao, mesh, A), mesh, A)
         return out
 
 
@@ -9550,6 +9560,9 @@ def main(argv=None):
                                   tp.get("weather_steps", LD.INTENSITY_STEPS),
                                   mat_roles=roles, detail_specs=specs_for(p)(), reserved=rects,
                                   compose_contact=False)
+            if TEX_SIDECAR and tp and LIVERY == "off":
+                # dev: the belt livery from this bake (its own build differs only by this stamp), as sidecar belt_wNN
+                hook.sidecar_variants["belt"] = lambda b, c, me: stamp_livery(b, c, me, table, p)
     if g1 and args.finish and args.weather == "on":
         # revision 1: the station preset at the highest budget-clean step (DECISIONS 171), roles by
         # material INDEX, the sign + label rects protected, compose_contact off (no bay sharing)
