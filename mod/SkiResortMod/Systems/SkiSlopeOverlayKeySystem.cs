@@ -18,7 +18,7 @@ namespace SkiResortMod.Systems
 
         private SkiSlopeOverlaySystem m_Overlay;
         private ProxyAction m_Seen;
-        private bool m_LastEnabled, m_PressLogged;
+        private bool m_LastEnabled, m_PressLogged, m_RawLogged;
         private int m_StateLines;
 
         protected override void OnCreate()
@@ -41,7 +41,11 @@ namespace SkiResortMod.Systems
                 m_LastEnabled = a.enabled;
                 m_PressLogged = false;
                 m_StateLines = 0;
-                Mod.Log.Info($"SlopeOverlay [keys]: polling {a.name} in UIUpdate, live {a.enabled}, shouldBeEnabled {a.shouldBeEnabled}");
+                var sb = new System.Text.StringBuilder();
+                foreach (ProxyBinding pb in a.bindings)
+                    sb.Append(sb.Length > 0 ? "; " : "").Append(pb.ToString());
+                Mod.Log.Info($"SlopeOverlay [keys]: polling {a.name} in UIUpdate, live {a.enabled}, shouldBeEnabled {a.shouldBeEnabled}, " +
+                             $"set {a.isSet}, bindings [{sb}]");
             }
             else if (a.enabled != m_LastEnabled)
             {
@@ -49,6 +53,16 @@ namespace SkiResortMod.Systems
                 if (m_StateLines++ < MaxStateLines)
                     Mod.Log.Info($"SlopeOverlay [keys]: {a.name} live {a.enabled} (shouldBeEnabled {a.shouldBeEnabled}" +
                                  (a.enabled ? ")" : "; a vanilla action with the same keys is enabled now)"));
+            }
+            if (!m_RawLogged)
+            {
+                UnityEngine.InputSystem.Keyboard kb = UnityEngine.InputSystem.Keyboard.current;
+                if (kb != null && kb.oKey.isPressed)
+                {
+                    m_RawLogged = true;
+                    Mod.Log.Info($"SlopeOverlay [keys]: raw O key down (ctrl {kb.ctrlKey.isPressed}, shift {kb.shiftKey.isPressed}, " +
+                                 $"alt {kb.altKey.isPressed}), action pressed {a.IsPressed()}, live {a.enabled}");
+                }
             }
             bool pressed = a.WasPressedThisFrame();
             if (!m_PressLogged && (pressed || a.IsPressed()))
