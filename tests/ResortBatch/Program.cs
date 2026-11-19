@@ -44,6 +44,7 @@ namespace ResortBatch
             RunLabelTests.Run(Check);
             SkiDayTests.Run(Check);
             SkiDayTimingTests.Run(Check);
+            PassRulesTests.Run(Check);
             ParkingTests.Run(Check);
             DensityTests.Run(Check);
             DisplayUnitsTests.Run(Check);

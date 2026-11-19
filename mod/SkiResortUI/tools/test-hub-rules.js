@@ -1562,6 +1562,27 @@ function run(srcDir) {
     eq("R3S.9 pass factor edges: no ticket, no price, unknown", [R.passFactor(400, 0), R.passFactor(0, 100), R.passFactor(NaN, 100)], [0, 0, -1]);
     eq("R3S.10 pass limit = 4 x the ticket", [R.passFullPrice(65), R.passFullPrice(100), R.passFullPrice(-1)], [260, 400, 0]);
   }
+  {
+    // 1.0.3 R3-B: the destination pass and the sale window. The same literals as C# tests/ResortBatch/PassRulesTests.cs (parity).
+    eq("R3B.1 dest fee = round(pass / 4), at most the ticket, 0 tickets off", [[320, 80], [400, 80], [240, 80], [300, 80], [20, 80], [2000, 200], [400, 0]].map(([p, t]) => R.destFee(p, t)),
+      [80, 80, 60, 75, 5, 200, 0]);
+    eq("R3B.2 dest share %: PASS-3 (50, 320, 80) = 40, pass 240 = 45, Chalet at 320 = 45, off, tickets off, 90 with a luxury lodge", [
+      R.destSharePct(50, 320, 80), R.destSharePct(50, 240, 80), R.destSharePct(50, 320, 80, 20), R.destSharePct(0, 320, 80), R.destSharePct(50, 320, 0),
+      R.destSharePct(100, 400, 200, 40), R.destSharePct(NaN, 320, 80)], [40, 45, 45, 0, 0, 90, -1]);
+    eq("R3B.3 stepped price +15 %, snapped to 20", [320, 400, 100, 20, 2000].map(R.steppedPassPrice), [360, 460, 120, 20, 2000]);
+    eq("R3B.4 clamp pass price", [0, -5, 29, 30, 410, 5000].map(R.clampPassPrice), [20, 20, 20, 40, 420, 2000]);
+    // a December winter (season starts in July = 7): Jul before, Aug-Sep opening, Oct-Nov stepped, Dec-Jun closed
+    eq("R3B.5 phases, July season", [6, 7, 8, 9, 10, 11, 0, 5].map((m) => R.salePhaseOf(R.seasonMonthOf(m, 7))),
+      ["before", "opening", "opening", "stepped", "stepped", "closed", "closed", "closed"]);
+    // a June winter (season starts in January = 1): Jan before, Feb-Mar opening, Apr-May stepped, Jun-Dec closed
+    eq("R3B.6 phases, January season", [0, 1, 2, 3, 4, 5, 11].map((m) => R.salePhaseOf(R.seasonMonthOf(m, 1))),
+      ["before", "opening", "opening", "stepped", "stepped", "closed", "closed"]);
+    eq("R3B.7 unknown month or season", [R.seasonMonthOf(-1, 7), R.seasonMonthOf(3, 0), R.salePhaseOf(-1), R.saleWindow(3, 0, 320)], [-1, -1, null, null]);
+    eq("R3B.8 sale window, July season in August at 320", R.saleWindow(7, 7, 320),
+      { phase: "opening", open: 7, stepAt: 8, last: 10, price: 320, stepped: 360 });
+    eq("R3B.9 sale window, January season in December", R.saleWindow(11, 1, 400),
+      { phase: "closed", open: 1, stepAt: 2, last: 4, price: 400, stepped: 460 });
+  }
 
   const hr = require("./test-history-rules").run(srcDir);
   checks += hr.checks;

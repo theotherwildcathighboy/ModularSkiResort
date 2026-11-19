@@ -93,6 +93,9 @@
     <Compile Include="SkiDayTimingTests.cs" />
     <Compile Include="ParkingTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiDayRules.cs" Link="SkiDayRules.cs" />
+    <!-- 1.0.3 R3-B: the destination pass and the pass sale window (pure: Unity.Mathematics + SkiMoneyRules). -->
+    <Compile Include="PassRulesTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiPassRules.cs" Link="SkiPassRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiBusRules.cs" Link="SkiBusRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiDayTiming.cs" Link="SkiDayTiming.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiParkingRules.cs" Link="SkiParkingRules.cs" />

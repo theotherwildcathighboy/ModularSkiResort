@@ -221,6 +221,8 @@ namespace SkiResortMod.Systems
         // the last game day (-1 until 3 game hours are sampled after a load).
         public float TourismBonusPct, TourismBonusSumPct;
         public int TourismBonusCapPct, TouristsDayMean;
+        // Contract 57 (1.0.3 R3-B): the ski season's first calendar month 1..12 (SkiClimateCalendar.SeasonFirstMonth), for the pass sale window.
+        public int SeasonFirstMonth;
 
         public bool Equals(CityStats o)
         {
@@ -231,7 +233,8 @@ namespace SkiResortMod.Systems
                    TripPlannerBlocksSkiDays == o.TripPlannerBlocksSkiDays &&
                    PassShare == o.PassShare && PassPrice == o.PassPrice && Month == o.Month &&
                    TourismBonusPct.Equals(o.TourismBonusPct) && TourismBonusSumPct.Equals(o.TourismBonusSumPct) &&
-                   TourismBonusCapPct == o.TourismBonusCapPct && TouristsDayMean == o.TouristsDayMean;
+                   TourismBonusCapPct == o.TourismBonusCapPct && TouristsDayMean == o.TouristsDayMean &&
+                   SeasonFirstMonth == o.SeasonFirstMonth;
         }
 
         public override bool Equals(object obj)
@@ -2797,6 +2800,8 @@ namespace SkiResortMod.Systems
                 TourismBonusSumPct = m_Bonus != null ? m_Bonus.SumPct : 0f,
                 TourismBonusCapPct = m_Bonus != null ? m_Bonus.CapPct : SkiResortSettings.CapPctOf(settings),
                 TouristsDayMean = m_Bonus != null ? m_Bonus.TouristsDayMean : -1,
+                // contract 57: the season's first month 1..12 (the pass sale window, SkiPassRules)
+                SeasonFirstMonth = SkiClimateCalendar.SeasonFirstMonth(m_ClimateSystem, m_PrefabSystem),
             };
         }
 

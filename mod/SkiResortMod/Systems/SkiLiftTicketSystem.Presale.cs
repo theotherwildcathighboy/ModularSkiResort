@@ -1,6 +1,9 @@
-// Pre-season pass sale: the ticket system's second job. It runs once per (ski area, season key), at the first ticket tick in which that
-// area's gate is Open in a new season (SkiMoneyRules.SeasonKeyOf). One Burst job rates every resident household of the area's pool
-// and sells passes in bulk. The first-arrival sale in SkiLiftTicketSystem.cs then covers only households not in the pool.
+// Pre-season pass sale: the ticket system's second job. Since 1.0.3 (R3-B, SkiPassRules) it is the tapered sale: once per game hour per ski
+// area while the sale window is open (season months 1-4, August to November for a December winter), one Burst job rates the resident
+// households of the area's pool whose own buy hour has come (SkiPassRules.BuyPosition, front-loaded) and that have no standing this season,
+// at the price of the window's phase (the slider price, then +15 % from month 3). Every rated household gets a standing (Bought or
+// Declined), so the hours are idempotent with no new save state. The first-arrival sale in SkiLiftTicketSystem.cs covers households not in
+// the pool, and ends with the window.
 // Ordering: the main thread applies the standings as components at the next tick's step 1. So a tick that starts a sale does not
 // drain arrivals. They stay in the counter's pending list, and nothing is lost or repeated. The reason: a ticket job in the same window
 // could not see the standings and would sell the same household a pass again. The system schedules a sale only with no ticket job in flight.
@@ -45,7 +48,18 @@ namespace SkiResortMod.Systems
         private Entity m_SaleSign;
         private int m_SaleSeasonKey, m_SalePassPrice;
         private double m_SaleScheduleMs;
-        private readonly System.Collections.Generic.Dictionary<Entity, int> m_SaleSeasonOf = new System.Collections.Generic.Dictionary<Entity, int>();
+        // 1.0.3 tapered sale: the game hour (SaleHourKey) each sign last ran in, memory only (a re-run after a load finds the standings).
+        private readonly System.Collections.Generic.Dictionary<Entity, long> m_SaleHourOf = new System.Collections.Generic.Dictionary<Entity, long>();
+        private double m_SaleWindowPos = -1.0;      // the window position of the scheduled run (SkiPassRules.WindowPosition)
+        private SkiPassRules.SalePhase m_SalePhase;  // the phase of the scheduled run
+        // The window position of the last APPLIED run, -1 before the first run of this load. The ticket job's first-arrival sale decides a
+        // household only once its buy hour is at or before it (a pool household is the hourly sale's).
+        private double m_SaleAppliedPos = -1.0;
+        private int m_SaleAppliedSeason = int.MinValue;
+        // The day's fold of the hourly runs (one `Passes [sale]` line per game day; the first run of a load writes its own line).
+        private int m_SaleDayKey = int.MinValue, m_SaleDayRuns, m_SaleDayPool, m_SaleDayBought, m_SaleDayCannotPay, m_SaleDayDeclined;
+        private long m_SaleDayIncome;
+        private bool m_SaleFirstLogged;
         // Totals this load, for the dump
         private int m_SalesRun;
         private long m_SalePoolTotal, m_SaleBoughtTotal, m_SaleCannotPayTotal, m_SaleIncomeTotal;
@@ -101,55 +115,70 @@ namespace SkiResortMod.Systems
             m_SaleInFlight = false;
             m_SaleWrites.Clear();
             m_SaleTargets.Clear();
-            m_SaleSeasonOf.Clear();
+            m_SaleHourOf.Clear();
+            m_SaleWindowPos = -1.0;
+            m_SaleAppliedPos = -1.0;
+            m_SaleAppliedSeason = int.MinValue;
+            m_SaleDayKey = int.MinValue;
+            m_SaleDayRuns = m_SaleDayPool = m_SaleDayBought = m_SaleDayCannotPay = m_SaleDayDeclined = 0;
+            m_SaleDayIncome = 0;
+            m_SaleFirstLogged = false;
             m_SaleSign = Entity.Null;
             m_SalesRun = 0;
             m_SalePoolTotal = m_SaleBoughtTotal = m_SaleCannotPayTotal = m_SaleIncomeTotal = 0;
             m_SaleLastScheduleMs = m_SaleLastApplyMs = m_SaleLastWaitMs = 0.0;
         }
 
-        /// <summary>Step 2c (main thread, after step 1 applied last tick's ticket job). Starts the sale of the first live ski area whose sale
-        /// has not run this season, from the season's second month on (SkiMoneyRules.PresaleDue: August for a December winter). Nothing needs
-        /// to be open: the sale rates the area as if fully open. Returns true when a sale was scheduled (the caller skips the arrival drain this
-        /// tick, engine notes Ordering). Nothing happens with passes off, no ticket price, or a job in flight.</summary>
+        /// <summary>Step 2c (main thread, after step 1 applied last tick's ticket job). The tapered sale (1.0.3): while the window is open
+        /// (SkiPassRules.PhaseOf: Opening or Stepped), starts the hourly run of the first live ski area that has not run this game hour. Nothing
+        /// needs to be open: the sale rates the area as if fully open. Returns true when a run was scheduled (the caller skips the arrival drain
+        /// this tick, engine notes Ordering). Nothing happens with passes off, no ticket price, outside the window, or a job in flight.</summary>
         private bool TryStartSale(int price)
         {
             if (m_JobInFlight || m_SaleInFlight || PassShare <= 0 || price <= 0)
                 return false;
-            int passPrice = SkiMoneyRules.SalePassPrice(PassPriceSetting, price);
-            if (passPrice <= 0)
-                return false;
             int firstMonth = SkiClimateCalendar.SeasonFirstMonth(m_ClimateSystem, m_PrefabSystem);
-            int month = SkiMoneyRules.MonthOfKey(SkiMoneyRules.MonthKey(m_TimeSystem.year, m_TimeSystem.normalizedDate));
-            if (!SkiMoneyRules.PresaleDue(month, firstMonth))
-                return false;
+            double seasonPos = SkiPassRules.SeasonPosition(m_TimeSystem.normalizedDate, firstMonth);
+            SkiPassRules.SalePhase phase = SkiPassRules.PhaseOf(seasonPos);
+            int passPrice = SkiPassRules.SalePrice(PassPriceSetting, price, phase);
+            if (passPrice <= 0)
+                return false;   // Before or Closed (or tickets off)
             int season = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate, firstMonth);
+            long hour = SaleHourKey();
             foreach (var pair in m_WatchGate)   // every live sign the gate watch knows, open or not
             {
                 Entity sign = pair.Key;
-                if (m_SaleSeasonOf.TryGetValue(sign, out int done) && done == season)
+                if (m_SaleHourOf.TryGetValue(sign, out long done) && done == hour)
                     continue;
-                // m_SaleSeasonOf is memory only: after a load the ledger (seeded from the save) says the sale already ran.
-                if (m_Counter.Ledger.TryGet(Ref(sign), out SkiResortLedger.Entry soldEntry) && SkiResortLedger.PassSeasonPreOf(soldEntry, season) > 0)
-                {
-                    m_SaleSeasonOf[sign] = season;
-                    continue;
-                }
                 long t0 = Stopwatch.GetTimestamp();
                 PresaleCopy copy = m_SkiDay.TryCopyPresaleInputs(sign, m_SaleTargets, out SkiDayPresaleInputs inputs);
                 if (copy == PresaleCopy.NotReady)
                     continue;   // the ski-day system or the score has not taken this sign yet: retry next tick
-                m_SaleSeasonOf[sign] = season;   // decided for this season either way
+                m_SaleHourOf[sign] = hour;   // this hour is done for the sign either way
                 if (copy == PresaleCopy.NoTarget)
                 {
-                    Mod.Log.Info($"Passes [season sale] ski area {Fmt(sign)} season {season}: no sale — the area has no lodge with a road " +
-                                 "near the runs, open or closed; first arrivals buy passes as before");
+                    if (!m_SaleFirstLogged)
+                    {
+                        m_SaleFirstLogged = true;
+                        Mod.Log.Info($"Passes [sale] ski area {Fmt(sign)} season {season}: no sale this hour — the area has no lodge with a road " +
+                                     "near the runs, open or closed; first arrivals buy passes as before (logged once per load)");
+                    }
                     continue;
                 }
+                m_SaleWindowPos = SkiPassRules.WindowPosition(seasonPos);
+                m_SalePhase = phase;
                 ScheduleSale(sign, season, passPrice, price, inputs, t0);
                 return true;
             }
             return false;
+        }
+
+        /// <summary>The game hour as one key: SkiDayRules.DayKey × 24 + the hour of the day.</summary>
+        private long SaleHourKey()
+        {
+            int day = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear);
+            int h = (int)math.floor(math.clamp(m_TimeSystem.normalizedTime, 0f, 0.99999f) * 24f);
+            return (long)day * 24L + h;
         }
 
         private void ScheduleSale(Entity sign, int season, int passPrice, int price, in SkiDayPresaleInputs inputs, long t0)
@@ -185,6 +214,7 @@ namespace SkiResortMod.Systems
                 PassPrice = passPrice,
                 PassShare = PassShare,
                 PassFactor = SkiMoneyRules.PassFactor(passPrice, price),
+                WindowPos = m_SaleWindowPos,
             };
             JobHandle handle = job.Schedule(JobHandle.CombineDependencies(Dependency, chunksHandle, feeDeps));
             m_ServiceFeeSystem.AddQueueWriter(handle);
@@ -254,15 +284,50 @@ namespace SkiResortMod.Systems
             m_SaleLastScheduleMs = m_SaleScheduleMs;
             m_SaleLastApplyMs = applyMs;
             m_SaleLastWaitMs = waitMs;
-            string meanP = r.Pool > 0 ? (r.ChanceSum / r.Pool).ToString("P1", System.Globalization.CultureInfo.InvariantCulture) : "n/a";
-            Mod.Log.Info($"Passes [season sale] ski area {Fmt(m_SaleSign)} season {m_SaleSeasonKey}: pool {r.Pool} resident household(s) within reach " +
-                         $"with no standing, offered {r.Offered} (rolled in at {PassShare} % × their ski-day chance as pass holders, mean p {meanP}), " +
-                         $"bought {r.Bought} +{r.Income} ({m_SalePassPrice} each at the lift ticket {Price}, demand x{SkiMoneyRules.PassFactor(m_SalePassPrice, Price):0.###}, " +
-                         $"booked as public transportation fees), could not pay {r.CannotPay}, rolled out {declined}; " +
-                         $"cost: scheduled in {m_SaleScheduleMs:F2} ms, applied in {applyMs:F2} ms, waited {waitMs:F2} ms for the job " +
-                         "(once per ski area per season)");
+            m_SaleAppliedPos = m_SaleWindowPos;
+            m_SaleAppliedSeason = m_SaleSeasonKey;
+            SaleLines(r, declined, applyMs, waitMs);
         }
 
+
+        /// <summary>The run's line: the first run of a load in full, then one folded line per game day (the day's runs summed), written by the
+        /// first run of the next day or the preload (FlushSaleDay).</summary>
+        private void SaleLines(SaleResult r, int declined, double applyMs, double waitMs)
+        {
+            int day = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear);
+            if (day != m_SaleDayKey)
+            {
+                FlushSaleDay();
+                m_SaleDayKey = day;
+            }
+            m_SaleDayRuns++;
+            m_SaleDayPool += r.Pool;
+            m_SaleDayBought += r.Bought;
+            m_SaleDayCannotPay += r.CannotPay;
+            m_SaleDayDeclined += declined;
+            m_SaleDayIncome += r.Income;
+            if (m_SaleFirstLogged)
+                return;
+            m_SaleFirstLogged = true;
+            string meanP = r.Pool > 0 ? (r.ChanceSum / r.Pool).ToString("P1", System.Globalization.CultureInfo.InvariantCulture) : "n/a";
+            Mod.Log.Info($"Passes [sale] ski area {Fmt(m_SaleSign)} season {m_SaleSeasonKey} ({m_SalePhase}, window {m_SaleWindowPos:P0}): pool {r.Pool} resident " +
+                         $"household(s) within reach with no standing whose buy hour has come, offered {r.Offered} (rolled in at {PassShare} % × their " +
+                         $"ski-day chance as pass holders, mean p {meanP}), bought {r.Bought} +{r.Income} ({m_SalePassPrice} each at the lift ticket {Price}, " +
+                         $"demand x{SkiMoneyRules.PassFactor(m_SalePassPrice, Price):0.###}, booked as public transportation fees), could not pay {r.CannotPay}, " +
+                         $"rolled out {declined}; cost: scheduled in {m_SaleScheduleMs:F2} ms, applied in {applyMs:F2} ms, waited {waitMs:F2} ms for the job " +
+                         "(once per ski area per game hour while the sale window is open; then one line per game day)");
+        }
+
+        /// <summary>Writes the day's folded `Passes [sale]` line, if the day had runs. Main thread.</summary>
+        private void FlushSaleDay()
+        {
+            if (m_SaleDayRuns > 0)
+                Mod.Log.Info($"Passes [sale] day {m_SaleDayKey}: {m_SaleDayRuns} hourly run(s), pool {m_SaleDayPool} household-hour(s), bought {m_SaleDayBought} " +
+                             $"+{m_SaleDayIncome}, could not pay {m_SaleDayCannotPay}, rolled out {m_SaleDayDeclined}; last price {m_SalePassPrice} ({m_SalePhase}), " +
+                             $"window {m_SaleWindowPos:P0}, season {m_SaleSeasonKey}");
+            m_SaleDayRuns = m_SaleDayPool = m_SaleDayBought = m_SaleDayCannotPay = m_SaleDayDeclined = 0;
+            m_SaleDayIncome = 0;
+        }
 
         /// <summary>One pass over the resident households (m_SaleQuery's chunks). For each household it runs: the pool test, the household's
         /// ski-day chance as a pass holder, SkiMoneyRules.PresaleDecision, and for a buyer the debit + booking like TicketJob.
@@ -287,6 +352,7 @@ namespace SkiResortMod.Systems
             public SkiDayPresaleInputs Inputs;
             public int SeasonKey, Price, PassPrice, PassShare;
             public double PassFactor;   // SkiMoneyRules.PassFactor(PassPrice, Price), pass demand (1.0.2)
+            public double WindowPos;    // 1.0.3: only households whose buy hour is at or before it (SkiPassRules.HourCome)
 
             public void Execute()
             {
@@ -303,6 +369,8 @@ namespace SkiResortMod.Systems
                         Entity hh = entities[i];
                         if ((households[i].m_Flags & HouseholdFlags.Commuter) != 0)
                             continue;
+                        if (!SkiPassRules.HourCome(hh.Index, SeasonKey, WindowPos))
+                            continue;   // its buy hour has not come (cheap hash first)
                         if (Passes.TryGetComponent(hh, out SkiSeasonPass have) &&
                             SkiMoneyRules.PassStandingOf(true, have.m_SeasonKey, have.m_Flags, SeasonKey) != SkiMoneyRules.PassStanding.None)
                             continue;   // decided this season already (holder or declined)

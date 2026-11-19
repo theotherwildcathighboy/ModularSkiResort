@@ -46,7 +46,9 @@
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
     tripPlanner: "", tripPlannerBlocksSkiDays: false, passShare: 50, passPrice: 260, month: 1,
     // Contract 50 (T226 / T225): Ash Flat's 2.9 % of a 10 % cap, a day mean of 2,430 tourists.
-    tourismBonusPct: 2.93, tourismBonusSumPct: 2.93, tourismBonusCapPct: 10, touristsDayMean: 2430 };
+    tourismBonusPct: 2.93, tourismBonusSumPct: 2.93, tourismBonusCapPct: 10, touristsDayMean: 2430,
+    // Contract 57 (1.0.3 R3-B): a December winter, its season starts in July (the pass sale window: August to November).
+    seasonFirstMonth: 7 };
 
   const SIGN = E(101), SIGN2 = E(102);
   const runs = [
@@ -309,7 +311,7 @@
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800, affordMask: 31 };
   const snowCardHidden = { shown: false, report: Object.assign({}, snowReport, { known: false }) };
-  const base = { hubOpen: false, contract: 56, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 57, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
