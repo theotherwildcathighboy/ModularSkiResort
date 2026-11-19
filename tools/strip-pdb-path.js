@@ -1,6 +1,6 @@
 /*
  * tools/strip-pdb-path.js - shortens the PDB path in a PE file's CodeView (RSDS) debug record to the bare file name, in place.
- * Written for this repo (MIT). Release review 2026-10-30, B2. mod/SkiResortMod/SkiPublish.targets runs it on the deploy folder's
+ * Written for this repo (all rights reserved, see LICENSE). Release review 2026-10-30, B2. mod/SkiResortMod/SkiPublish.targets runs it on the deploy folder's
  * DLLs in publish builds only. The build output in bin\ keeps the original files.
  *
  * Why: the CS2 ModPostProcessor runs the Burst compiler with its temp folder fixed under the LocalApplicationData known folder

@@ -1,7 +1,7 @@
 /*
  * tools/check-no-vanilla-art.js - no game art in the repo. The hub may REFERENCE an installed game icon by its `Media/` path (vanilla
  * first), but a copy of game art in the repo would be published with it (the docs site, the public repo at 1.0). Our art is
- * CC BY-NC-SA; the game's is not ours to license.
+ * all rights reserved; the game's is not ours to license.
  *
  *   node tools/check-no-vanilla-art.js              check every tracked or new (not ignored) .svg / .png / .jpg in the repo
  *   node tools/check-no-vanilla-art.js --self-test  prove the detector catches a byte copy and a copied SVG path inside our own file
