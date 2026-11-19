@@ -1,12 +1,12 @@
 /*
  * src/hub/RevenueChart.tsx - R3-A (1.0.3): the season's income and cost mix as ONE chart with the net and the passes' share of lift income.
- * Income bar and cost bar at ONE scale (the longer total fills the track), so the gap between their ends is the net: a dashed outline
+ * Income bar and cost bar at ONE scale (the longer total fills the track), so the gap between their ends is the net: an outlined, tinted box (Gameface draws no dashed border)
  * on the income bar for a loss, on the cost bar for a profit. Variants A (two 100 % bars) and B (donuts) were dropped on the owner's pick (C).
  * Fed by historyRules.seasonSoFar (the season block already holds every number: no C# change, no contract field). The pass share is
  * passIncome / (ticketIncome + passIncome): the passes' part of the lift money (the PASS-3 "32 %" line).
  * Colors: the strongest part of each side is exactly the Finances chart legend's Income / Costs color (HISTORY_COLOR), the other parts
  * the same hue in fainter steps; the bar headers carry that legend swatch.
- * Gameface rules as the rest of the hub: flex only (no grid, no gap, no auto margins), HTML text, a CSS dashed border for the gap.
+ * Gameface rules as the rest of the hub: flex only (no grid, no gap, no auto margins), HTML text, a solid CSS border for the gap (dashed is not drawn in game).
  * Rows render flat (fit.tsx pager).
  */
 import type { ReactNode } from "react";
@@ -141,7 +141,7 @@ export function RevenueChart({ s, t }: { s: SeasonSoFar; t: Translate }): JSX.El
   );
 
   // One scale: the longer total fills the track; the shorter bar ends early and the gap to the longer one is the net
-  // (a dashed outline: the loss on the income bar, the profit on the cost bar).
+  // (an outlined box: the loss on the income bar, the profit on the cost bar).
   const scale = Math.max(income.total, costs.total);
   const wI = scale > 0 ? (income.total / scale) * 100 : 0, wC = scale > 0 ? (costs.total / scale) * 100 : 0;
   const netTip = (

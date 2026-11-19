@@ -3495,8 +3495,8 @@
   box-sizing: border-box;
   min-width: 0rem;
   overflow: hidden;
-  border-width: 1rem;
-  border-style: dashed;
+  border-width: 2rem;
+  border-style: solid;   // Gameface draws no dashed border (checked in game 2026-11-19: a 1 px dashed edge showed as a faint gray line); a solid outline + tint reads as the open gap
   font-size: var(--fontSizeXS);
   white-space: nowrap;
 }
