@@ -43,7 +43,9 @@ import tex_review as T    # noqa: E402
 
 # (name, camera direction from the target, distance m, aim). Directions are in the EXPORTED frame
 # (after cs2_asset.orient_for_net + export, Z up). A station's nose (line side) is +Y, its long
-# glazed sides face +-X. A tower's line runs along Y. Aim kinds are tex_review.aim_point's.
+# glazed sides face +-X. A tower's line runs along Y. Aim kinds are tex_review.aim_point's, plus "body" (bounds center)
+# and "bbox:<f>" (where the horizontal ray from the bounds center along the direction leaves the bounds, at f x the
+# height: a glazed hall has no facade for a ray cast, the ray goes through the panes).
 SHOTS = {
     "station": (
         ("side_p_d45", (1.0, 0.12, 0.28), 45.0, "center"),
@@ -51,7 +53,9 @@ SHOTS = {
         ("nose_d45", (0.15, 1.0, 0.25), 45.0, "center"),
         ("back_d45", (-0.15, -1.0, 0.25), 45.0, "center"),
         ("top_d55", (0.02, -0.05, 1.0), 55.0, "center"),
-        ("entry_d7", (1.0, 0.45, 0.14), 7.0, "facade"),
+        ("q_d30", (0.8, 0.75, 0.42), 30.0, "center"),
+        ("wall_d8", (1.0, 0.30, 0.10), 8.0, "bbox:0.30"),
+        ("eave_d10", (1.0, 0.25, -0.72), 10.0, "bbox:0.83"),
         ("plinth_d6", (1.0, -0.55, 0.10), 6.0, "low"),
         ("portal_d14", (0.35, 1.0, 0.12), 14.0, "facade"),
         ("play_d60", (0.75, 0.85, 0.70), 60.0, "center"),
@@ -148,6 +152,12 @@ def _aim(o, kind, direction, gnd):
         import lift_tower
         c, _size = lift_tower.world_bounds(o)
         return mathutils.Vector(c)
+    if kind.startswith("bbox:"):
+        import lift_tower
+        c, size = lift_tower.world_bounds(o)
+        dx, dy = float(direction[0]), float(direction[1])
+        s = min((size.x / 2.0) / abs(dx) if abs(dx) > 1e-9 else 1e9, (size.y / 2.0) / abs(dy) if abs(dy) > 1e-9 else 1e9)
+        return mathutils.Vector((c.x + dx * s, c.y + dy * s, c.z - size.z / 2.0 + float(kind[5:]) * size.z))
     return T.aim_point(o, kind, direction, gnd)
 
 

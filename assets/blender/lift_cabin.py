@@ -2496,9 +2496,43 @@ def join_parts(parts, name):
     return obj
 
 
+# r4 texture pass v1 (--texpass v1, GONDOLA cabin + grip; off = the shipped carrier byte for byte). Pixels only: every
+# vertex, UV and stamp rect stays, so the grip envelope (--remap-from) and the prefab numbers hold.
+# - a coated cabin shell is glossier than site steel, and tinted glazing is the darkest, smoothest surface on it
+# - the carrier preset of cs2_weather (no ground, no snow) at a low intensity: a clean, maintained cabin with a little
+#   film in the gaps and on the skirt, never rust
+TEXPASS = None
+TEXPASS_MATERIALS = {
+    "paint_body": {"rough": 0.32}, "paint_band": {"rough": 0.32}, "paint_roof": {"rough": 0.40},
+    "glass": {"albedo": (0.022, 0.030, 0.040), "rough": 0.06},
+}
+TEXPASS_WEATHER_I = 0.20
+TEXPASS_ROLES = {"paint_body": "paint", "paint_band": "paint", "paint_roof": "paint", "paint_trim": "paint",
+                 "paint_frame": "paint_steel", "paint_dark": "paint", "glass": "none", "galv": "galv",
+                 "rubber": "pad", "plate": "none", "safety": "paint"}
+
+
 def material_specs():
     import cs2_bake
-    return {k: cs2_bake.MaterialSpec(**v) for k, v in MATERIALS.items()}
+    table = MATERIALS
+    if TEXPASS:
+        table = {k: {**v, **TEXPASS_MATERIALS.get(k, {})} for k, v in MATERIALS.items()}
+    return {k: cs2_bake.MaterialSpec(**v) for k, v in table.items()}
+
+
+def texpass_weather_hook(inner, obj, name, cfg, reserved):
+    """The carrier weathering layer round the generator's post_compose hook (texture pass v1). Roles by material INDEX
+    (the joined mesh's CS2SRC_<key> slots, read before the bake). The stamp rects are reserved (restored 1:1)."""
+    import cs2_liftdress as LD
+    import cs2_sheaves as S
+    import cs2_weather as CW
+    keys = LD.mat_keys_of(obj.data)
+    wheel = S.wheel_roles()
+    roles = {i: TEXPASS_ROLES.get(k, wheel.get(k, "paint")) for i, k in enumerate(keys)}
+    none = CW.PartWeather(role="none")
+    spec = CW.WeatherSpec.preset("carrier", name, intensity=TEXPASS_WEATHER_I,
+                                 overrides=(("logo_", none), ("plate_", none)))
+    return CW.make_weather_hook(inner, spec, mat_roles=roles, detail_specs=cfg["detail"](), reserved=reserved)
 
 
 def build_lod0(parts, name, density, table_out):
@@ -4253,9 +4287,16 @@ def finish_asset(args, cfg, obj, sources, result):
             reserved = layout["reserved"]
             sources = pin_sources(sources, layout["materials"])
             result["stamp_layout"] = layout["info"]
+        whook = None
+        if TEXPASS and quality == "finish":
+            whook = hook = texpass_weather_hook(hook, obj, name, cfg, reserved)
         bake = cs2_bake.bake_unique(obj, asset_dir, name, A, sources, reserved=reserved,
                                     margin_px=margin, ao_samples=ao, post_compose=hook,
                                     src_uv="UVMap")
+        if whook is not None:
+            wrep = getattr(whook, "report", None) or {}
+            result["texpass"] = {"pass": TEXPASS, "materials": TEXPASS_MATERIALS, "weather_intensity": TEXPASS_WEATHER_I,
+                                 "weather_vanilla": wrep.get("vanilla"), "weather_coverage": wrep.get("coverage")}
         if layout is not None:
             result["stamp_layout"]["reserved_restored"] = len(bake.get("reserved_restored") or [])
         result["bake"] = {"A": A, "ao_samples": ao, "margin_px": bake["margin_px"],
@@ -4321,6 +4362,7 @@ def finish_asset(args, cfg, obj, sources, result):
         "density_px_per_m": post_rep.get("density_px_per_m"),
         "density_hero_px_per_m": post_rep.get("density_hero"),
         "stamp_layout": result.get("stamp_layout"),
+        **({"texpass": result["texpass"]} if result.get("texpass") else {}),
         "revision": "Revision 1 (verdicts 2026-10-11 items 6 / 9): soft-edged rebuild, "
                     "CAD-tell cleanup, pinned >= 4x logo square; Revision 1b (2026-10-11): "
                     "geometry defects C1-C4 fixed (cap triangulation, closed shell, 2 mm insets), "
@@ -5482,7 +5524,12 @@ def parse_args(argv):
                     help="--envelope: the letter folder holding the shipped split meshes and maps")
     ap.add_argument("--ab", default=DEFAULT_AB)
     ap.add_argument("--no-validate", action="store_true")
+    ap.add_argument("--texpass", choices=("off", "v1"), default="off",
+                    help="r4 texture pass, GONDOLA only: v1 = glossier shell and glazing + the carrier weathering layer "
+                         "(pixels only, UVs and stamps unchanged); off = the shipped carrier byte for byte")
     args = ap.parse_args(argv)
+    if args.texpass != "off" and args.kind != "gondola":
+        ap.error("--texpass v1 covers the gondola cabin only in this file")
     if args.outboard is None:          # nitpick A3: the gondola ships -Y. The tram is symmetric (R29)
         args.outboard = GD_OUTBOARD if args.kind == "gondola" else "+Y"
     if args.out is None:
@@ -5500,9 +5547,10 @@ def parse_args(argv):
 
 def run(argv):
     """Build one kind. Returns a list of per-asset result dicts. Clears the scene first."""
-    global ENVELOPE
+    global ENVELOPE, TEXPASS
     args = parse_args(argv)
     ENVELOPE = bool(args.envelope)
+    TEXPASS = args.texpass if args.texpass != "off" else None      # r4: every run follows its own args
     if not bpy.app.background:
         raise RuntimeError("lift_cabin runs headless only (ROUND-SPEC R10)")
     clear_scene()
