@@ -34,7 +34,7 @@ Notes...
 **Season passes:**
 - Passes go on sale before the winter and sell for four months. The price rises 15 % halfway through.
 - Sales end in the fifth month of the season. Guests who first arrive after that pay day tickets.
-- Tourists can now ski on a destination pass. They pay a reduced day fee, come more often, and the fee counts as pass income.
+- Tourists can now ski on a destination pass. They pay a reduced day fee, never skip a ski day over the price, and the fee counts as pass income.
 - The Finances view shows how long passes stay on sale, and the destination fee with the share of tourists on a pass.
 - Pass texts in the Finances and Guests views are reworded ("On a pass", "Season passes sold").
 
