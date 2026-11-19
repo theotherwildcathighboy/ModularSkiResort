@@ -389,6 +389,8 @@ def render(a):
             tint, rec = recipe_tint(a.recipe, adir, name, raw=a.raw_tint)
     elif a.vanilla:
         o, mdir, mname, tint = load_vanilla(a.vanilla, a.bench, a.vanilla_scripts)
+        if tint and not a.raw_tint:
+            tint = game_tint(tint)                  # the vanilla VariationSet is stored sRGB-encoded too
     else:
         raise SystemExit("render needs --ours or --vanilla")
     rig = P._Rig(o, a.samples)
