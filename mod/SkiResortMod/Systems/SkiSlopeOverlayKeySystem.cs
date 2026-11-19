@@ -1,10 +1,13 @@
-// T253: polls the slope overlay's toggle key (ToggleSlopeOverlay, default Ctrl+Shift+O) in UIUpdate and hands each press to
-// SkiSlopeOverlaySystem.RequestToggle. Why a second system: ProxyAction.WasPressedThisFrame read false for every press when polled from
-// the overlay's Rendering-phase OnUpdate (bridge test 2026-11-19, two key forms), while the mod's UIUpdate pollers (SkiGladeHotkeySystem,
-// LiftLineHotkeySystem) saw the same bridge keys. The overlay system owns the action, its enabled state and the key-liveness probe.
-// Logs (a dead key must be visible): one line when the poller first sees the armed action, one line per change of the action's live
-// state (InputConflictResolution.cs:137-198 turns a mod action off while an enabled vanilla action shares its keys, at most
-// MaxStateLines per load), and one line on the first press it sees.
+// T253: polls the slope overlay's toggle key (ToggleSlopeOverlay) in UIUpdate, like every other hotkey poller of the mod
+// (SkiGladeHotkeySystem, LiftLineHotkeySystem), and hands each press to SkiSlopeOverlaySystem.RequestToggle. The overlay system owns
+// the action, its enabled state and the key-liveness probe.
+// Field note (bridge test 2026-11-19): the first default, Ctrl+Shift+O, never reached the game on the test machine. Another program
+// holds it as a system-wide hotkey (RegisterHotKey fails with 1409), and Windows hands such a chord to that program, not to the
+// focused window. The game's raw keyboard saw a plain O but never Ctrl+Shift+O. A mod cannot detect that from inside the game, so the
+// log lines below make a dead key visible instead.
+// Logs: one line when the poller first sees the armed action (its live state and bindings), one line per change of the live state
+// (InputConflictResolution.cs:137-198 turns a mod action off while an enabled vanilla action shares its keys, at most MaxStateLines per
+// load), and one line on the first press.
 // Engine notes: EngineNotes/SkiSlopeOverlaySystem.md
 
 using Game;
@@ -18,7 +21,7 @@ namespace SkiResortMod.Systems
 
         private SkiSlopeOverlaySystem m_Overlay;
         private ProxyAction m_Seen;
-        private bool m_LastEnabled, m_PressLogged, m_RawLogged;
+        private bool m_LastEnabled, m_PressLogged;
         private int m_StateLines;
 
         protected override void OnCreate()
@@ -54,21 +57,11 @@ namespace SkiResortMod.Systems
                     Mod.Log.Info($"SlopeOverlay [keys]: {a.name} live {a.enabled} (shouldBeEnabled {a.shouldBeEnabled}" +
                                  (a.enabled ? ")" : "; a vanilla action with the same keys is enabled now)"));
             }
-            if (!m_RawLogged)
-            {
-                UnityEngine.InputSystem.Keyboard kb = UnityEngine.InputSystem.Keyboard.current;
-                if (kb != null && kb.oKey.isPressed)
-                {
-                    m_RawLogged = true;
-                    Mod.Log.Info($"SlopeOverlay [keys]: raw O key down (ctrl {kb.ctrlKey.isPressed}, shift {kb.shiftKey.isPressed}, " +
-                                 $"alt {kb.altKey.isPressed}), action pressed {a.IsPressed()}, live {a.enabled}");
-                }
-            }
             bool pressed = a.WasPressedThisFrame();
-            if (!m_PressLogged && (pressed || a.IsPressed()))
+            if (!m_PressLogged && pressed)
             {
                 m_PressLogged = true;
-                Mod.Log.Info($"SlopeOverlay [keys]: first press seen (WasPressedThisFrame {pressed})");
+                Mod.Log.Info($"SlopeOverlay [keys]: first press of {a.name} this load");
             }
             if (pressed)
                 m_Overlay.RequestToggle("key");

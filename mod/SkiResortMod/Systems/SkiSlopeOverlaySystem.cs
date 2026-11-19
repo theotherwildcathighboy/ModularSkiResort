@@ -8,8 +8,8 @@
 // raycasts objects only in its default state (DefaultToolSystem.cs:794-796, 1.6.4f1). Hidden while the pointer is over the UI.
 // Per frame, main thread: ray march, Update (tiles nearest first under BudgetMs), Verify (VerifyNodesPerFrame stored heights, bit-exact),
 // strips rebuilt only when the cursor moved RebuildMoveM, a tile changed, the heat-map's grid or the grading scheme changed.
-// Toggle: the ToggleSlopeOverlay key (default Ctrl+Shift+O, polled in UIUpdate by SkiSlopeOverlayKeySystem: WasPressedThisFrame reads false
-// here in Rendering) and the hub's Slope colors chip (RequestSet). Both save the settings.
+// Toggle: the ToggleSlopeOverlay key (polled in UIUpdate by SkiSlopeOverlayKeySystem, like every hotkey poller of the mod) and the hub's
+// Slope colors chip (RequestSet). Both save the settings.
 // Phase: Rendering, UpdateBefore OverlayRenderSystem and UpdateAfter SkiRunDrawFeedbackSystem (Mod.cs, both load-bearing). Game mode only.
 // Logs: ARMED once per load; one line per toggle; one [cost] line per CostLogSeconds while on (Measurement diagnostics only); a WARN once
 // per load when the managed frame cost passes SlowFrameWarnMs; a one-shot `!!!` disables the system until the next load.
@@ -284,8 +284,7 @@ namespace SkiResortMod.Systems
             m_RequestSource = source;
         }
 
-        /// <summary>The armed toggle action for SkiSlopeOverlayKeySystem, null when not in a game. ProxyAction.WasPressedThisFrame reads false
-        /// in the Rendering phase (measured in game, 2026-11-19), so the key is polled in UIUpdate like every other hotkey of the mod.</summary>
+        /// <summary>The armed toggle action for SkiSlopeOverlayKeySystem, null when not in a game.</summary>
         internal ProxyAction ToggleAction => m_Armed && !m_Disabled ? m_Toggle : null;
 
         protected override void OnUpdate()

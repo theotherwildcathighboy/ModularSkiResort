@@ -36,24 +36,36 @@ Inside the run being drawn, the heat-map paints the same cells. The overlay skip
 non-null only on a frame where the heat-map drew strips), so the two never stack alphas.
 
 **GPU cost and the strip boxes.** `GetBuffer` builds the buffer with `positionY = heightScaleOffset.y - 50` and
-`scaleY = heightScaleOffset.x + 100` (OverlayRenderSystem.cs:633). `FitBox` (:321-327) gives every projected curve a box from
-positionY with height scaleY (the box mesh is y 0..1, :1086-1096): the whole terrain height scale plus 150 m. Every view ray then crosses every strip box between
-the camera and the ground, so the GPU cost grows with strips x screen coverage. Measured with those boxes (2026-11-19, 4K, RTX 5090,
-83-mod playset, steep site, 3,358 strips, overlay on vs off): 15.2 -> 19.9 ms at zoom 1,100, 15.2 -> 28.1 ms at zoom 450,
-16.9 -> 18.0 ms at zoom 2,600. The managed part was only 0.65 ms.
+`scaleY = heightScaleOffset.x + 100` (OverlayRenderSystem.cs:633). `FitBox` (:321-327) gives every projected curve a box. The box
+starts at positionY and is scaleY tall (the box mesh is y 0..1, :1086-1096). That is the whole terrain height scale plus 150 m. Every
+view ray then crosses every strip box between the camera and the ground. So the GPU cost grows with the strip count and the screen
+coverage. Test with those boxes: 2026-11-19, 4K, RTX 5090, 83-mod playset, steep site, 3,358 strips. Frame time, overlay off vs on:
+15.2 -> 19.9 ms at zoom 1,100, 15.2 -> 28.1 ms at zoom 450, 16.9 -> 18.0 ms at zoom 2,600. The managed part was only 0.65 ms.
 
-The fix: the `Buffer` constructor is public (:122) and takes positionY / scaleY. The draw job reads the buffer's five native containers
-through `BufferView` (the same fields in the same order, `UnsafeUtility.As`) and builds one `Buffer` per strip with the strip's own
-box: from its lowest node height minus `BoxMarginM` (8 m) to its highest plus 8 m. The node range comes from `Tile.Lo / Hi`, the
-min / max node height within `HeightSpan` (3) lattice steps of each cell. That covers the cell square and the rows of a stride-3 row
-group. SlopeBatch `overlay/runs/box` checks that every node around every painted cell lies inside the bare range. Node range per strip
-on the SlopeBatch terrains: mean 28 m (steep), 12 m (mountain), against the whole height scale for the vanilla box. `FitBox` writes
-bounds.max.y = scaleY, the height and not the top, so the job adds the real top to `m_CurveBounds` after its strips. OnCreate compares
-the two struct sizes. On a mismatch (a game patch changed `Buffer`) it logs a WARN and draws through the vanilla buffer, slow but correct.
-The game-surface lock pins the `Buffer` fields.
+The fix: the `Buffer` constructor is public (:122) and takes positionY and scaleY. The draw job reads the five native containers of the
+buffer through `BufferView`, a struct with the same fields in the same order (`UnsafeUtility.As`). It builds one `Buffer` per strip
+with the box of that strip. The box goes from the lowest node height minus `BoxMarginM` (8 m) to the highest node height plus 8 m.
+`Tile.Lo / Hi` give the node range: the min and max node height within `HeightSpan` (3) lattice steps of each cell. That range covers
+the cell square and the rows of a stride-3 row group. SlopeBatch `overlay/runs/box` asserts that every node around every painted
+cell is inside the bare range. Mean node range per strip on the SlopeBatch terrains: 28 m (steep), 12 m (mountain).
+
+`FitBox` writes bounds.max.y = scaleY, which is the height, not the top. So after its strips the job adds the real top to
+`m_CurveBounds`. OnCreate compares the sizes of the two structs. On a mismatch (a game patch changed `Buffer`), it logs a WARN and
+draws through the vanilla buffer. That path is slow but draws the same picture. The game-surface lock pins the `Buffer` fields.
 
 `MergeRows` stacks identical row runs into rectangles (same cells, same picture), 9-19 % fewer strips on the SlopeBatch terrains.
-Expected, not yet seen in game: trees and buildings more than the margin above the ground are no longer tinted (the vanilla box reaches the top of the height range).
+
+Test with the tight boxes: 2026-11-19 08:55, the same machine, site and camera, 2,650 strips, sim paused. Each value is the mean of
+three interleaved 5 s samples.
+
+| Zoom | Overlay on | Overlay off |
+|---|---|---|
+| 450 | 15.8 ms | 16.4 ms |
+| 1,100 | 18.3 ms | 18.1 ms |
+
+At zoom 2,600 (two 4 s samples), the difference was inside the noise. The GPU cost of the overlay is now below the noise floor of about 0.5 ms (before: +12.8 ms).
+The shots at zoom 450, at zoom 1,100 and at zoom 1,100 with tilt 22 show no holes at the strip edges. Tree canopies stand more than
+8 m above the ground and are no longer tinted.
 
 The overlay's alphas are softer than the heat-map's (`Tuning.Alpha`). The heat-map keeps its own alphas. Whether it should adopt the
 overlay's is an open look question in the T253 report.
@@ -72,9 +84,17 @@ parent's slot (UpdateSystem.cs:382-412), so it also runs before OverlayRenderSys
 
 ## Toggle and settings
 
-- The `ToggleSlopeOverlay` action, default Ctrl+Shift+O, rebindable in Options (`ToggleSlopeOverlayBinding`). `SkiSlopeOverlayKeySystem`
-  polls it at UIUpdate and calls `RequestToggle`. From the overlay's own Rendering-phase OnUpdate, `WasPressedThisFrame` read false for
-  every press (bridge test 2026-11-19). The UIUpdate pollers of the glade and lift tools saw the same keys.
+- The `ToggleSlopeOverlay` action, default Ctrl+Shift+O (open for review), rebindable in Options (`ToggleSlopeOverlayBinding`).
+  `SkiSlopeOverlayKeySystem` polls it at UIUpdate, like the other hotkey pollers, and calls `RequestToggle`.
+- **Ctrl+Shift+O never reached the game on the test machine (bridge test 2026-11-19).** The action was live, its binding read
+  `<Keyboard>/shift + <Keyboard>/ctrl + <Keyboard>/o`, and the game's raw keyboard saw a plain O. It never saw O with Ctrl+Shift held.
+  `RegisterHotKey` for Ctrl+Shift+O fails there with 1409 (already registered): another program holds it system-wide. Windows hands
+  such a chord to that program, not to the focused window. Of the 26 Ctrl+Shift letters, only O and X were taken that way on that
+  machine. The owning program is not identified. The T214 key audit had already ruled out O: ImageOverlay binds Ctrl+O. A mod key
+  can fire on a chord with one more modifier (EngineNotes/SkiResortSettings.md). An earlier note here said that a poll from the
+  Rendering phase reads false. That was wrong: the same system-wide hotkey caused those misses too.
+- The key log lines (`SlopeOverlay [keys]`): the live state and bindings when polling starts, each live-state change, and the first
+  press. A dead key from outside the game shows as "polling ... live True" with no "first press" line.
 - The hub's Slope colors chip on the Runs tab (contract 57, `setSlopeOverlay`) calls `RequestSet`.
 - Both paths save the settings file. `ShowSlopeOverlay` is a new bool (default off). Old settings files load without it.
 - Game mode only. Nothing is saved in the city, and no prefab changes.
