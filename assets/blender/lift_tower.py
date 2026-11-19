@@ -2719,6 +2719,32 @@ def set_skinned(on):
         set_rope_on_crown(True)
 
 
+HOSTED_LANE = None     # T256: {variant: crown height} set by set_hosted_lane (None = every mast as shipped)
+
+
+def set_hosted_lane(key, lane):
+    """T256 (the FG top's skinned hosted end tower): rebuild FG terminal variant `key` with the mast that puts its rope crown
+    (lane_y on the crown = the TrainFront / TrainBack pivot) at `lane` (m above the tower origin), so the pivot lands ON the
+    station's lane end with the hosted row at y 0. Axle = lane - crown_seat, mast = axle + 0.96. Only under SKINNED (the crown
+    datum); every other variant and every unskinned build stay as shipped."""
+    global HOSTED_LANE
+    if not SKINNED:
+        raise TowerContractError("set_hosted_lane: the crown datum needs SKINNED")
+    s0 = VARIANTS[key]
+    if s0.family != "FG" or s0.role != "terminal":
+        raise TowerContractError(f"set_hosted_lane: {key} is not an FG terminal head")
+    seat = crown_seat(s0)
+    mast = round(float(lane) - seat + (s0.tube_top - s0.axle), 6)
+    VARIANTS[key] = _fg_spec(key, mast, s0.role, s0.comm_y, s0.lod0)
+    got = lane_y(VARIANTS[key], True)
+    if abs(got - float(lane)) > 1e-4:
+        raise TowerContractError(f"set_hosted_lane: {key} crown {got} != {lane}")
+    HOSTED_LANE = {"variant": key, "lane_y": float(lane), "crown_seat": seat, "mast": mast,
+                   "axle": VARIANTS[key].axle, "shipped_mast": s0.tube_top}
+    print(f"[tower2] T256 hosted lane: {key} mast {s0.tube_top} -> {mast} (axle {VARIANTS[key].axle}, crown {got})")
+    return VARIANTS[key]
+
+
 def skin_spec(spec):
     """The spec a skinned build uses: GD at SKIN_GD["sheaves"] a side (10 default as shipped, --gd-sheaves). Otherwise `spec`."""
     if SKINNED and spec.family == "GD" and spec.sheaves != SKIN_GD["sheaves"]:
@@ -6896,6 +6922,9 @@ def parse_args_v2(argv):
                     help="lift alignment phase 2 (SKINNED): every LOD skinned to Root / TrainFront / TrainBack, two half "
                          "trains a lane hinged on the rope line; implies --rope-on-crown; FG Yan / DQ ingest / GD "
                          "rebuild heads only")
+    ap.add_argument("--hosted-lane", dest="hosted_lane", type=float, default=None,
+                    help="with --skinned, FG terminal heads (ET62 / ET68), T256: the mast set so the rope crown (the "
+                         "half bones' pivot) sits at this hosted height (the FG top's lane end 5.24); off = the shipped mast")
     ap.add_argument("--skin-views", default=None,
                     help="with --skinned: folder for the round 2 views (skin_views: level, slope, crest, the 20 deg "
                          "limit, steep, dip), each half's rope drawn (needs the finish)")
@@ -6920,6 +6949,10 @@ def main_v2(argv):
         raise SystemExit("--skin-views / --gd-sheaves need --skinned")
     if args.gd_sheaves:
         SKIN_GD["sheaves"] = args.gd_sheaves      # round 4: the GD 10-a-side option (the default stays 8)
+    if args.hosted_lane is not None:
+        if not args.skinned:
+            raise SystemExit("--hosted-lane needs --skinned")
+        set_hosted_lane(args.variant, args.hosted_lane)      # T256: the crown (pivot) on the station's lane end
     spec = skin_spec(VARIANTS[args.variant])      # SKINNED GD: SKIN_GD sheaves a side
     if args.head is not None and spec.family == "FG":
         raise SystemExit(f"--head applies to DQ variants only ({spec.key} is FG)")
@@ -7098,6 +7131,8 @@ def main_v2(argv):
         manifest["rope_on_crown"] = rope_on_crown_block(spec)
     if SKINNED:
         manifest["skin"] = skin_manifest_block(spec, info["skin"])
+    if HOSTED_LANE is not None:
+        manifest["hosted_lane"] = dict(HOSTED_LANE)
     if spec.family == "DQ" and spec.role == "line":
         manifest["catalog_handoff"] = {"AimHeightM": DQ_AIM_HEIGHT_M, "piece_lanes": [2.6, 8.0],
                                        "piece_comm_lv_y": 9.2,
