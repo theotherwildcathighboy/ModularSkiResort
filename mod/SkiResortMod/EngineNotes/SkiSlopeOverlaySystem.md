@@ -93,7 +93,7 @@ At zoom 2,600 (two 4 s samples), the difference was inside the noise. The GPU co
 The shots at zoom 450, at zoom 1,100 and at zoom 1,100 with tilt 22 show no holes at the strip edges. Tree canopies stand more than
 8 m above the ground and are no longer tinted.
 
-Test with the display smoothing: 2026-11-19 11:25, the same site and camera, 2,485 strips (-6 %), sim paused.
+Test with the smoothing of the shown colors: 2026-11-19 11:25, the same site and camera, 2,485 strips (-6 %), sim paused.
 
 | Zoom | Overlay on | Overlay off |
 |---|---|---|
