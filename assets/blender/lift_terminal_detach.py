@@ -1011,12 +1011,14 @@ GD_TEXPASS_SCANS = {
 GD_TEXPASS_ASPECT = {"concrete": 2.0}
 # the rubble scan needs texels (stones of 0.15-0.40 m). The soffit boards are 0.17 m
 GD_TEXPASS_DENSITY = {"stonebase_": 1.3, "eavesof_": 0.8}
-# The cs2_uv pack switches under the pass: name -> (PACK_SHAPE, PACK_BAND_ISOTROPIC). Flag off = ("AABB", False), the
-# shipped layout. "concave-iso" is the default; the others exist to measure each switch alone (512 blockouts: the
-# coverage log line of cs2_uv._pack_layout)
+# The cs2_uv pack switches (lead-owned proposal) under the pass: name -> (PACK_SHAPE, PACK_BAND_ISOTROPIC). Flag off =
+# ("AABB", False), the shipped layout. Measured on the base at 512 (blockouts, the coverage line of cs2_uv._pack_layout):
+# aabb 17.8 %, concave 18.0 %, aabb-iso 16.9 %, concave-iso 16.9 % of the square. The pack is margin-bound (thin
+# islands between gutters): the concave shape gains 1 %, square band texels cost 5 %. So the pass keeps the shipped pack
+# by default, and it then runs unchanged with or without the cs2_uv proposal (unknown attributes are never read)
 GD_TEXPASS_PACKS = {"concave-iso": ("CONCAVE", True), "aabb-iso": ("AABB", True), "concave": ("CONCAVE", False),
                     "aabb": ("AABB", False)}
-GD_TEXPASS_PACK = "concave-iso"
+GD_TEXPASS_PACK = "aabb"
 # Identity proposals: part prefix -> material key (first match wins). Keys live in GD_IDENTITY_MATERIALS.
 # "skin": the roof, the gable fascias, the ring beams and the entry canopies leave slot 1 (the steel frame) for slot 2,
 # which no gondola station part uses today (pad2 has no part). The station then has a SKIN color apart from its frame.
@@ -9159,8 +9161,8 @@ def parse_args(argv=None):
                          "board since 2026-10-12); default = the fine-detail pass (FINE_DETAIL)")
     ap.add_argument("--texpass", choices=("off", "v1"), default="off",
                     help="r4 texture pass (gondola stations): v1 = the lodges' stone and timber scans on the plinth and "
-                         "soffits, square concrete tiles, concave island packing with square texels in the band; "
-                         "off = the shipped station byte for byte")
+                         "soffits, square concrete tiles, standing-seam ribs, density weights (the shipped pack unless "
+                         "--gd-pack); off = the shipped station byte for byte")
     ap.add_argument("--gd-identity", choices=sorted(GD_IDENTITY_REMAP), default=None, dest="gd_identity",
                     help="station identity proposal (needs --texpass v1): material keys per GD_IDENTITY_REMAP; "
                          "default = the shipped slots")
