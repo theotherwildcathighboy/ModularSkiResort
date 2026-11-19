@@ -83,6 +83,10 @@ Mono measured 4-5 ms per recompute, about 5-8x CoreCLR.
 
 ## Overlay
 
+Ring-mode strips draw the shown key of each cell (`PrepareShownKeys`): `DisplayUnits.StripKey` per inside cell, then the slope
+overlay's 3x3 mode filter (`SkiSlopeOverlayTiles.ModeFilter3`, EngineNotes/SkiSlopeOverlaySystem.md, Smoothing of the shown colors). The black
+edges (T234) follow the shown keys too. `CellBand` / `CellGrade` and every rating number stay raw.
+
 A Burst IJob (`StripDrawJob`) writes the strips and the crux ring into the `OverlayRenderSystem.Buffer`. It follows
 `AreaBorderRenderSystem`'s pattern (job :40-41, Buffer field without attribute :97, GetBuffer :704, schedule :705, AddBufferWriter :707).
 

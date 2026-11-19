@@ -27,6 +27,32 @@ its full 20 m window and needs no neighbor tile. The tiles are pure C# (System a
 - **Runs.** `BuildRuns` turns the disk into same-key row runs, `MergeRows` stacks equal runs into rectangles. The outer `FadeM` (15 m) fades in `FadeLevels` (4) alpha steps. Over
   `MaxStrips` (4,500) runs, rows are decimated with stride 2..3, the heat-map's rule.
 
+## Smoothing of the shown colors
+
+The shown color of a cell is the 3x3 mode of the cell keys around it (`SkiSlopeOverlayTiles.ModeFilter3`, on while
+`SmoothDisplay`). The cell keeps its own key unless another key has strictly more votes among its 3x3 neighbors. So a tie never
+moves an edge, a lone cell takes the color of its surroundings, and a straight band edge stays where it is. Cells without a value
+(`NoKey`) do not vote and never gain a key. This changes only the shown colors: `Grade` and `Band` (the rating's values, `TryCell`, the parity tests) stay
+raw, and the rating fingerprints in SlopeBatch are unchanged.
+
+- Per tile, at compute time. A tile computes its 32 x 32 cells plus a one-cell ring (`Pad` = `FullWindowMargin` + 1, so the ring
+  cells also read the full 20 m window). The filter reads the ring, so a tile never needs a neighbor tile and never goes stale. Two
+  keys are cached per cell (`KeyNa`, `KeyEu`), so a scheme switch needs no recompute.
+- The run heat-map uses the same filter over its own cells (`SkiRunDrawFeedbackSystem.PrepareShownKeys`). So both draw the same rule.
+  At the edge of the run, its filter sees only the run's cells. So a border cell can differ from the overlay's cell next to it.
+- SlopeBatch: `overlay/modefilter` (lone cell, ties, NoKey, window pass) and `overlay/runs` against an independent reference that reads
+  the neighbors through `TryCell` from their own tiles. On the steep test disk, 501 of 23,079 cells (2.2 %) change color. The strips
+  drop from 3,034 to 2,782 (-8 %). On the mountain disk the count stays about the same (2,528 -> 2,530).
+
+**Feathered edges: not possible with this renderer.** A projected curve carries only its size, dash lengths, roundness, outline
+width, fill style and depth-fade style (`CurveData`, OverlayRenderSystem.cs:38-60, set in `DrawCurveImpl` :267-296). It has no
+feather or smoothing width. The outline could fake a soft rim (a fill color with a lower alpha). But every strip has one, also
+where a band is split into several strips, so it would draw a grid inside the bands. Roundness rounds the strip ends and opens gaps
+where strips meet.
+
+**Half-size cells (1.75 m) near the cursor: not done.** The heights exist only at the 3.5 m texel. Half cells would show interpolated
+values that no rating ever reads (against the one source of truth), with about 4x the strips near the cursor.
+
 ## Renderer
 
 The run heat-map's path: `OverlayRenderSystem.Buffer.DrawLine` with `StyleFlags.Projected`, one strip per run, written by a

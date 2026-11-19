@@ -1723,6 +1723,7 @@ namespace SkiResortMod.Systems
                 // heat-map stays complete at a coarser row resolution. Linear search, because the count at stride s is not monotone in s
                 // (different representative rows). A failed pass stops at the first strip past the cap, and the buffers are simply rewritten.
                 // The list is truncated (at that stride) only when even MaxRowStride overflows.
+                PrepareShownKeys(r);
                 int stride = 1;
                 while (!BuildRingStrips(grid, r, stride))
                 {
@@ -1767,14 +1768,43 @@ namespace SkiResortMod.Systems
         /// group may be shorter. s = 1 is the full-resolution layout (one group per row, width = Step, center = the row). Returns false
         /// when the strips do not fit Tuning.MaxStrips: the stage then holds the first MaxStrips strips (the truncated
         /// list).</summary>
+        private byte[] m_ShownRaw, m_ShownKey;
+
+        /// <summary>T253 look: the key each cell shows (m_ShownKey, nx x nz). DisplayUnits.StripKey per inside cell, NoKey outside, then
+        /// SkiSlopeOverlayTiles.ModeFilter3 when SmoothDisplay: the slope overlay's display rule, so the two draw the same picture. The
+        /// filter sees only the run's own cells, so at the run's edge it can differ from the overlay's cell next to it. Display only:
+        /// CellBand / CellGrade and the rating stay raw.</summary>
+        private void PrepareShownKeys(SlopeResult r)
+        {
+            int n = r.Nx * r.Nz;
+            byte[] cellBand = r.CellBand;
+            float[] cellGrade = r.CellGrade;
+            if (cellBand == null || cellBand.Length < n || n <= 0)
+                return;
+            if (m_ShownRaw == null || m_ShownRaw.Length < n)
+            {
+                m_ShownRaw = new byte[n];
+                m_ShownKey = new byte[n];
+            }
+            bool eu = DisplayState.Scheme == GradeScheme.European && cellGrade != null && cellGrade.Length >= n;
+            for (int q = 0; q < n; q++)
+            {
+                byte b = cellBand[q];
+                m_ShownRaw[q] = b > (byte)SlopeBand.DoubleBlack ? SkiSlopeOverlayTiles.NoKey : eu ? CellKey(b, cellGrade[q], true) : b;
+            }
+            if (SkiSlopeOverlayTiles.SmoothDisplay)
+                SkiSlopeOverlayTiles.ModeFilter3(m_ShownRaw, r.Nx, r.Nz, 0, 0, r.Nx, r.Nz, m_ShownKey);
+            else
+                Array.Copy(m_ShownRaw, m_ShownKey, n);
+        }
+
         private bool BuildRingStrips(SlopeGrid grid, SlopeResult r, int s)
         {
             m_StripCount = 0;
             // Row run-length merge of same-band inside cells. Cell (i, j) is centered on the lattice node x = Origin.x + (I0 + i) * Step,
             // spanning ± Step / 2. A strip runs from the first cell's west edge to the last cell's east edge, y = mean of the two end
             // heights (at the representative row).
-            byte[] cellBand = r.CellBand;
-            float[] cellGrade = r.CellGrade;
+            byte[] shown = m_ShownKey;
             int nx = r.Nx, nz = r.Nz;
             double step = r.Step;
             float[] heights = grid.Heights;
@@ -1788,9 +1818,8 @@ namespace SkiResortMod.Systems
             int[] maskRuns = grid.MaskRuns, maskStart = grid.MaskRowStart;
             bool spans = geomMatch && maskStart != null && maskStart.Length >= nz + 1 && maskStart[nz] >= 0 &&
                          (maskStart[nz] == 0 || (maskRuns != null && maskRuns.Length >= 2L * maskStart[nz]));
-            if (cellBand == null || cellBand.Length < nx * nz)
+            if (shown == null || shown.Length < nx * nz || r.CellBand == null || r.CellBand.Length < nx * nz)
                 return true;
-            bool eu = DisplayState.Scheme == GradeScheme.European && cellGrade != null && cellGrade.Length >= nx * nz;
             UnityEngine.Color[] colors = DisplayState.Scheme == GradeScheme.European ? BandColorsEu : BandColors;
             double half = step * 0.5;
             int groups = (nz + s - 1) / s;
@@ -1817,15 +1846,14 @@ namespace SkiResortMod.Systems
                     }
                     while (i < iEnd)
                     {
-                        byte b = cellBand[row + i];
-                        if (b > (byte)SlopeBand.DoubleBlack)
+                        byte key = shown[row + i];
+                        if (key >= colors.Length)
                         {
                             i++;
-                            continue;   // BandOutside (255) and anything invalid
+                            continue;   // NoKey (outside) and anything invalid
                         }
-                        byte key = eu ? CellKey(b, cellGrade[row + i], true) : b;
                         int start = i;
-                        while (i + 1 < iEnd && cellBand[row + i + 1] == b && (!eu || CellKey(b, cellGrade[row + i + 1], true) == key))
+                        while (i + 1 < iEnd && shown[row + i + 1] == key)
                             i++;
                         int end = i;
                         i++;
@@ -1855,7 +1883,7 @@ namespace SkiResortMod.Systems
         /// black. Each boundary is drawn once, from the black side. Optional: it stops at MaxStrips (the fills always win the budget).</summary>
         private void BuildBlackEdges(SlopeGrid grid, SlopeResult r, int s)
         {
-            byte[] cellBand = r.CellBand;
+            byte[] cellBand = m_ShownKey;   // the shown keys: key 3 is the black band in both schemes (DisplayUnits.StripKey)
             int nx = r.Nx, nz = r.Nz;
             if (cellBand == null || cellBand.Length < nx * nz || nx <= 0 || nz <= 0)
                 return;

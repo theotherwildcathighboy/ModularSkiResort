@@ -46,6 +46,7 @@ namespace SlopeBatch
                 OverlayParity("mountain", Mountain());
                 OverlayParity("steep", OverlaySteep());
                 OverlayFade();
+                OverlayModeFilter();
                 OverlayRuns();
                 OverlayVerify();
                 OverlayEvict();
@@ -185,6 +186,67 @@ namespace SlopeBatch
                               " m (plus 2 x BoxMarginM; vanilla boxes are the whole terrain height range)");
         }
 
+        /// <summary>Reference for the shown key, independent of ModeFilter3 and of the tile ring: the raw keys of the 3x3 neighbors from
+        /// TryCell (their own tiles), then the most common key, the cell's own key on a tie.</summary>
+        private static byte RefShownKey(SkiSlopeOverlayTiles tiles, int i, int j, bool eu)
+        {
+            byte Raw(int a, int b2)
+            {
+                if (!tiles.TryCell(a, b2, out byte band, out float grade) || band > (byte)SlopeBand.DoubleBlack)
+                    return SkiSlopeOverlayTiles.NoKey;
+                return DisplayUnits.StripKey(band, grade, eu);
+            }
+            byte own = Raw(i, j);
+            if (own == SkiSlopeOverlayTiles.NoKey || !SkiSlopeOverlayTiles.SmoothDisplay)
+                return own;
+            var votes = new int[8];
+            for (int dj = -1; dj <= 1; dj++)
+                for (int di = -1; di <= 1; di++)
+                {
+                    byte k = Raw(i + di, j + dj);
+                    if (k < 8)
+                        votes[k]++;
+                }
+            byte best = own;
+            for (int k = 0; k < 8; k++)
+                if (votes[k] > votes[best])
+                    best = (byte)k;
+            return best;
+        }
+
+        private static void OverlayModeFilter()
+        {
+            string w = "overlay/modefilter";
+            const byte N = SkiSlopeOverlayTiles.NoKey;
+            // 5 x 5: a lone 3 in a field of 1 goes; a 2-wide band of 2 stays; NoKey stays NoKey and never gains a key.
+            byte[] src =
+            {
+                1, 1, 1, 2, 2,
+                1, 3, 1, 2, 2,
+                1, 1, 1, 2, 2,
+                1, 1, 1, 2, 2,
+                N, N, 1, 2, 2,
+            };
+            var dst = new byte[25];
+            SkiSlopeOverlayTiles.ModeFilter3(src, 5, 5, 0, 0, 5, 5, dst);
+            Check(dst[6] == 1, w, "lone cell kept its key " + dst[6]);
+            Check(dst[20] == N && dst[21] == N, w, "NoKey cell gained a key");
+            int bandKept = 0;
+            for (int z = 0; z < 5; z++)
+                bandKept += (dst[z * 5 + 3] == 2 ? 1 : 0) + (dst[z * 5 + 4] == 2 ? 1 : 0);
+            Check(bandKept == 10, w, "2-wide band lost " + (10 - bandKept) + " cells");
+            // A straight edge does not move: column 2 (all 1, next to the 2 band) keeps 1 on rows 0-3.
+            Check(dst[2] == 1 && dst[7] == 1 && dst[12] == 1 && dst[17] == 1, w, "a straight edge moved");
+            // Window: the 3 x 3 interior of a 5 x 5 source, the same values as the full pass.
+            var win = new byte[9];
+            SkiSlopeOverlayTiles.ModeFilter3(src, 5, 5, 1, 1, 3, 3, win);
+            bool same = true;
+            for (int z = 0; z < 3; z++)
+                for (int x = 0; x < 3; x++)
+                    same &= win[z * 3 + x] == dst[(z + 1) * 5 + x + 1];
+            Check(same, w, "window pass differs from the full pass");
+        }
+
         private static void OverlayRuns()
         {
             string w = "overlay/runs";
@@ -194,7 +256,7 @@ namespace SlopeBatch
             var ts = new TerrainSampler { T = t };
             var tiles = new SkiSlopeOverlayTiles();
             tiles.SetLattice(Terrain.Origin, Terrain.Texel);
-            tiles.Update(ref ts, cx, cz, r, 1, 1e9f);
+            tiles.Update(ref ts, cx, cz, r + 8f, 1, 1e9f);   // + 8 m: the tiles of every disk cell's 3x3 neighbors (RefShownKey)
             var runs = new List<SlopeOverlayRun>();
             var none = new NoSlopeCellSkip();
             bool ok = tiles.BuildRuns(cx, cz, r, 15f, false, 1, 100000, ref none, runs);
@@ -213,8 +275,7 @@ namespace SlopeBatch
                     double dx = Terrain.Origin.x + i * (double)Terrain.Texel - cx, dz = Terrain.Origin.y + ru.J * (double)Terrain.Texel - cz;
                     if (dx * dx + dz * dz > (double)r * r + 1e-6)
                         outside++;
-                    tiles.TryCell(i, ru.J, out byte b, out float g);
-                    if (DisplayUnits.StripKey(b, g, false) != ru.Key)
+                    if (RefShownKey(tiles, i, ru.J, false) != ru.Key)
                         wrongKey++;
                 }
                 if (k > 0 && runs[k - 1].J == ru.J && runs[k - 1].I1 + 1 == ru.I0 && runs[k - 1].Key == ru.Key && runs[k - 1].Fade == ru.Fade)
@@ -248,10 +309,9 @@ namespace SlopeBatch
                     {
                         if (!seenR.Add(SkiSlopeOverlayTiles.Key(i, j)))
                             dupR++;
-                        tiles.TryCell(i, j, out byte b, out float g);
                         double dx = Terrain.Origin.x + i * (double)Terrain.Texel - cx, dz = Terrain.Origin.y + j * (double)Terrain.Texel - cz;
                         byte fade = SkiSlopeOverlayTiles.FadeLevel(r - Math.Sqrt(dx * dx + dz * dz), 15f);
-                        if (DisplayUnits.StripKey(b, g, false) != q.Key || fade != q.Fade)
+                        if (RefShownKey(tiles, i, j, false) != q.Key || fade != q.Fade)
                             wrongR++;
                     }
             }
@@ -275,6 +335,35 @@ namespace SlopeBatch
             tilesM.BuildRuns(cx, cz, r, 15f, false, 1, 100000, ref none, runsM);
             tilesM.MergeRows(runsM, rectsM);
             Console.WriteLine("INFO  overlay merge: mountain 300 m disk " + runsM.Count + " row runs -> " + rectsM.Count + " rectangles (stride 1)");
+            {
+                int rawStrips = 0;
+                SkiSlopeOverlayTiles.SmoothDisplay = false;
+                try
+                {
+                    var raw = new SkiSlopeOverlayTiles();
+                    raw.SetLattice(Terrain.Origin, Terrain.Texel);
+                    raw.Update(ref ts, cx, cz, r, 1, 1e9f);
+                    var rr = new List<SlopeOverlayRun>();
+                    var rq = new List<SlopeOverlayRun>();
+                    raw.BuildRuns(cx, cz, r, 15f, false, 1, 100000, ref none, rr);
+                    raw.MergeRows(rr, rq);
+                    rawStrips = rq.Count;
+                }
+                finally
+                {
+                    SkiSlopeOverlayTiles.SmoothDisplay = true;
+                }
+                int changed = 0;
+                foreach (long k in seen)
+                {
+                    int ki = (int)(k >> 32), kj = (int)(uint)k;
+                    tiles.TryCell(ki, kj, out byte b0, out float g0);
+                    if (RefShownKey(tiles, ki, kj, false) != DisplayUnits.StripKey(b0, g0, false))
+                        changed++;
+                }
+                Console.WriteLine("INFO  overlay smoothing: steep 300 m disk, raw " + rawStrips + " strips -> smoothed " + rects.Count +
+                                  " (stride 1, merged); " + changed + " of " + seen.Count + " cells change key");
+            }
 
             // Draw boxes: every node around every cell a rectangle paints (the cell square, so the nodes at +-1) lies inside YLo..YHi.
             // The system adds Tuning.BoxMarginM on both sides; this checks the bare range, so a miss here is a hole in game.

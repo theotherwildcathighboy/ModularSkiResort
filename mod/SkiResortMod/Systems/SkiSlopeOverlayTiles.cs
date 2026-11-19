@@ -53,11 +53,66 @@ namespace SkiResortMod.Systems
             public float[] Grade;     // TileCells², CellValue
             public byte[] Band;       // TileCells², BandOf(Grade)
             public float[] Lo, Hi;    // TileCells², min / max node height within HeightSpan nodes of the cell
+            public byte[] KeyNa, KeyEu;   // TileCells², the DISPLAY key per scheme: StripKey, then ModeFilter3 when SmoothDisplay
         }
 
         /// <summary>Lo / Hi cover the nodes within this many lattice steps of a cell (clamped to Pad): the cell's own square (1), plus the
         /// rows of a row group of stride MaxRowStride drawn from its middle row (1 more), plus one spare.</summary>
         public const int HeightSpan = 3;
+
+        /// <summary>The display key of a cell with no value (outside the known heights, or not a cell of the run).</summary>
+        public const byte NoKey = 255;
+
+        /// <summary>T253 look: the shown key is the 3x3 mode of the cell keys (ModeFilter3). It removes single-cell speckle and softens
+        /// stair steps. Display only: Grade and Band (the rating's values, TryCell, the parity tests) stay raw.</summary>
+        public static bool SmoothDisplay = true;
+
+        private static readonly int[] s_Votes = new int[8];   // main thread only (the overlay and the heat-map both build there)
+
+        /// <summary>3x3 mode filter over display keys. dst[z * w + x] is the key of src cell (x0 + x, z0 + z) (src is sx x sz) that the
+        /// most of its 3x3 neighbors (itself included, NoKey cells and cells off src excluded) have. The cell keeps its own key unless
+        /// another key has strictly more votes, so ties never move an edge. A NoKey cell stays NoKey and never gains a key. Keys 0..7.
+        /// Used by the overlay tiles and the run heat-map, so the two draw the same display rule.</summary>
+        public static void ModeFilter3(byte[] src, int sx, int sz, int x0, int z0, int w, int h, byte[] dst)
+        {
+            int[] votes = s_Votes;
+            for (int z = 0; z < h; z++)
+                for (int x = 0; x < w; x++)
+                {
+                    int cx = x0 + x, cz = z0 + z;
+                    byte own = src[cz * sx + cx];
+                    if (own >= 8)
+                    {
+                        dst[z * w + x] = own;
+                        continue;
+                    }
+                    Array.Clear(votes, 0, 8);
+                    for (int dz = -1; dz <= 1; dz++)
+                    {
+                        int qz = cz + dz;
+                        if (qz < 0 || qz >= sz)
+                            continue;
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            int qx = cx + dx;
+                            if (qx < 0 || qx >= sx)
+                                continue;
+                            byte k = src[qz * sx + qx];
+                            if (k < 8)
+                                votes[k]++;
+                        }
+                    }
+                    byte best = own;
+                    int bestVotes = votes[own];
+                    for (int k = 0; k < 8; k++)
+                        if (votes[k] > bestVotes)
+                        {
+                            best = (byte)k;
+                            bestVotes = votes[k];
+                        }
+                    dst[z * w + x] = best;
+                }
+        }
 
         private readonly Dictionary<long, Tile> m_Tiles = new Dictionary<long, Tile>();
         private readonly Stack<Tile> m_Pool = new Stack<Tile>();
@@ -93,7 +148,8 @@ namespace SkiResortMod.Systems
             m_Texel = texel;
             m_Origin = origin;
             m_Params = SkiSlopeClassifier.CellParams.For(texel);
-            m_Pad = SkiSlopeClassifier.FullWindowMargin(texel);
+            // One node more than the full window: the ring of cells around the tile (ModeFilter3's neighbors) also gets a full window.
+            m_Pad = SkiSlopeClassifier.FullWindowMargin(texel) + 1;
             m_Side = TileCells + 2 * m_Pad;
             m_Mask = new byte[m_Side * m_Side];
             for (int k = 0; k < m_Mask.Length; k++)
@@ -224,6 +280,8 @@ namespace SkiResortMod.Systems
                 {
                     t.Lo = new float[TileCells * TileCells];
                     t.Hi = new float[TileCells * TileCells];
+                    t.KeyNa = new byte[TileCells * TileCells];
+                    t.KeyEu = new byte[TileCells * TileCells];
                 }
                 m_Tiles.Add(key, t);
             }
@@ -256,15 +314,42 @@ namespace SkiResortMod.Systems
                     h[j * side + i] = v;
                 }
             }
-            for (int j = 0; j < TileCells; j++)
-                for (int i = 0; i < TileCells; i++)
+            // The tile's cells plus a one-cell ring (r = -1 .. TileCells): the ring feeds ModeFilter3 only, so the filter needs no
+            // neighbor tile and a tile never goes stale when its neighbor is computed later.
+            const int ring = TileCells + 2;
+            if (m_RingNa == null)
+            {
+                m_RingNa = new byte[ring * ring];
+                m_RingEu = new byte[ring * ring];
+            }
+            for (int j = -1; j <= TileCells; j++)
+                for (int i = -1; i <= TileCells; i++)
                 {
                     float o = SkiSlopeClassifier.CellValue(h, m_Mask, side, side, i + pad, j + pad, in m_Params, out bool _,
                         out float _, out float _, out float _);
+                    byte band = (byte)SkiSlopeClassifier.BandOf(o);
+                    bool shown = band <= (byte)SlopeBand.DoubleBlack;
+                    int rq = (j + 1) * ring + i + 1;
+                    m_RingNa[rq] = shown ? DisplayUnits.StripKey(band, o, false) : NoKey;
+                    m_RingEu[rq] = shown ? DisplayUnits.StripKey(band, o, true) : NoKey;
+                    if (i < 0 || j < 0 || i >= TileCells || j >= TileCells)
+                        continue;
                     int q = j * TileCells + i;
                     t.Grade[q] = o;
-                    t.Band[q] = (byte)SkiSlopeClassifier.BandOf(o);
+                    t.Band[q] = band;
                 }
+            if (SmoothDisplay)
+            {
+                ModeFilter3(m_RingNa, ring, ring, 1, 1, TileCells, TileCells, t.KeyNa);
+                ModeFilter3(m_RingEu, ring, ring, 1, 1, TileCells, TileCells, t.KeyEu);
+            }
+            else
+                for (int j = 0; j < TileCells; j++)
+                    for (int i = 0; i < TileCells; i++)
+                    {
+                        t.KeyNa[j * TileCells + i] = m_RingNa[(j + 1) * ring + i + 1];
+                        t.KeyEu[j * TileCells + i] = m_RingEu[(j + 1) * ring + i + 1];
+                    }
             HeightRange(t);
             t.Valid = true;
             t.VerifyCursor = 0;
@@ -272,6 +357,7 @@ namespace SkiResortMod.Systems
         }
 
         private float[] m_RowLo, m_RowHi;
+        private byte[] m_RingNa, m_RingEu;
 
         /// <summary>Tile.Lo / Hi: the min / max node height within HeightSpan nodes of each cell (separable: rows, then columns).</summary>
         private void HeightRange(Tile t)
@@ -427,11 +513,11 @@ namespace SkiResortMod.Systems
                         if (tile != null)
                         {
                             int li = i - ti * TileCells, q = lj * TileCells + li;
-                            byte band = tile.Band[q];
-                            if (band <= (byte)SlopeBand.DoubleBlack && !skip.Skip(i, j))
+                            byte shownKey = eu ? tile.KeyEu[q] : tile.KeyNa[q];
+                            if (shownKey != NoKey && !skip.Skip(i, j))
                             {
                                 have = true;
-                                key = DisplayUnits.StripKey(band, tile.Grade[q], eu);
+                                key = shownKey;
                                 double dx = m_Origin.x + i * t - cx;
                                 double edge = radius - math.sqrt(dx * dx + dz * dz);
                                 fade = FadeLevel(edge, fadeM);
