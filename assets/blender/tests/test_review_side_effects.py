@@ -206,11 +206,12 @@ def chair_manifest_core(folder):
 
 
 def manifest_core(folder):
-    """The station manifest minus what legitimately differs between two builds."""
+    """The station manifest minus what legitimately differs between two builds (T256: the args carry --review / --out)."""
     with open(os.path.join(folder, STATION_NAME, f"{STATION_NAME}.manifest.json"),
               encoding="utf-8") as fh:
         m = json.load(fh)
     m.pop("written_utc", None)
+    m.pop("args", None)
     for fn, row in m.get("files", {}).items():
         if fn.lower().endswith(".fbx"):
             row.pop("sha1", None)

@@ -13,7 +13,10 @@ test_terminal_fg_rig.py - T256 (r4 lift motion): the RIGGED fixed-grip stations 
   and the turning bullwheel's envelope clears every static part by 5 mm. Negatives: a sheave 3 mm off, a static box 3 mm
   from the rim.
 - R4 nose train (contract c, base): the joint sweep +-40 deg clear by 5 mm, the chair on the posed line rope. Negative: a
-  static box in the outer half's swept path.
+  static box in the outer half's swept path. Round 2 (S4): every nose-train bogie pin hangs in its straps (its part
+  overlaps the half beam and the bogie bar).
+- R6 the shipped letters' flags (SHIPPED_FLAGS): the O base without --thin-rope and the O top with --rig stop naming the
+  flag; the shipped set (preview / review flags included) passes; --allow-flag-drift builds and reports.
 - R5 every generation-M contract (M1-M21, M3 with the real chair) on both rigged stations, and the budgets (LOD0 caps,
   the LOD1 ratio with the rope kept un-decimated).
 
@@ -202,11 +205,55 @@ def r1_skin(kind, t, table):
         bpy.data.objects.remove(l, do_unlink=True)
 
 
+def r4_pin_links(co, tris, names):
+    """S4 (round 2): every nose-train bogie pin hangs in its straps (cs2_sheaves pin_links): the pin's part overlaps its half
+    beam and its bogie bar (the straps' buried ends; the bare pin at (main_z + sub_z) / 2 touches neither)."""
+    pre = LT.M_HOLD["prefix"]
+    bad, sizes = [], {}
+    for tag in ("n", "p"):
+        for si, half in ((0, "b"), (1, "f")):
+            sel = [tris[[x == n for x in names]] for n in (f"{pre}pivot_{tag}_{si}", f"{pre}rocker_main_{tag}_{half}",
+                                                           f"{pre}rocker_sub_{tag}_{si}")]
+            pin, beam, bar = sel
+            sizes[f"{tag}{si}"] = len(pin)
+            bp = LT._bvh(co, pin)
+            if not (len(beam) and len(bar) and bp.overlap(LT._bvh(co, beam)) and bp.overlap(LT._bvh(co, bar))):
+                bad.append((tag, si))
+    check(not bad, "R4 S4 the nose train's bogie pins hang in straps (into the half beam and the bogie bar)",
+          f"(failing {bad}, pin part tris {sizes})")
+
+
+def r6_shipped_flags():
+    """The shipped letters build with their shipped flags (SHIPPED_FLAGS, orchestrator finding 2026-11-19): the O base without
+    --thin-rope stops naming the flag, the O top with --rig stops, the shipped set passes, --allow-flag-drift passes."""
+    print("R6 shipped flags")
+    ap = LT.build_parser()
+
+    def args(*a):
+        return ap.parse_args(["--out", "x"] + list(a))
+    base = ["--name", "SkiLiftBaseStationO", "--kind", "drive", "--finish", "--lods"]
+    for label, a, want in (("the O base without --thin-rope", base + ["--no-hosted-tower"], "thin_rope"),
+                           ("the O top with --rig", ["--name", "SkiLiftTopStationO", "--kind", "return", "--finish",
+                                                     "--lods", "--thin-rope", "--rig"], "rig")):
+        try:
+            LT.check_shipped_flags(args(*a), ap)
+            check(False, f"R6 {label} stops", "(no SystemExit)")
+        except SystemExit as e:
+            check(want in str(e) and "SkiLift" in str(e), f"R6 {label} stops naming the flag", f"({str(e)[:140]})")
+    ok = args(*(base + ["--thin-rope", "--no-hosted-tower", "--preview", "p", "--review"]))
+    check(LT.check_shipped_flags(ok, ap) == {}, "R6 the shipped O base flags pass (preview / review never count)")
+    drift = args(*(base + ["--no-hosted-tower", "--allow-flag-drift"]))
+    check(set(LT.check_shipped_flags(drift, ap)) == {"thin_rope"}, "R6 --allow-flag-drift builds and reports the drift")
+    check(LT.flag_drift(args("--name", "SkiLiftBaseStationP", "--rig"), ap) == {}, "R6 a new letter is not checked")
+
+
 def run_kind(kind):
     print(f"== {kind}")
     t, table, co, tris, names = build_rig(kind)
     spec = LT.M_SPECS[kind]
     r1_bones(kind, t, table)
+    if kind == "drive":
+        r4_pin_links(co, tris, names)
     try:
         rig = LT.rig_contracts_m(t, table, kind)
         check(True, f"R2 {kind} rope on the carrier path", f"({ {k: rig['rope'][k] for k in ('chord_radius_dev_m', 'chord_end_dev_m', 'ring_center_dev_m', 'ring_radius_dev_m', 'torus_sagitta_m')} })")
@@ -285,6 +332,7 @@ def negatives():
 
 def main():
     t0 = time.perf_counter()
+    r6_shipped_flags()
     r0_flags_off()
     run_kind("drive")
     run_kind("return")
@@ -295,7 +343,8 @@ def main():
         print(f"FAIL test_terminal_fg_rig: {len(FAILS)} failed: {FAILS}")
         sys.exit(1)
     print(f"PASS test_terminal_fg_rig: R0 flags off, R1 bones / weights / round trip / posed copies, R2 rope, R3 entry "
-          f"sheaves, R4 nose joint + chair sweep, R5 M1-M21 + budgets on both rigged stations, every negative raises "
+          f"sheaves, R4 nose joint + pin straps + chair sweep, R5 M1-M21 + budgets on both rigged stations, R6 shipped flags, "
+          f"every negative raises "
           f"({N_OK[0]} ok, {dt:.0f} s)")
 
 

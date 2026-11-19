@@ -1192,8 +1192,9 @@ FG_HANG = 2.400                  # carriers tr hang_m (grip top = the code lane 
 FG_GRIP_ABOVE = 0.080            # carriers tr grip_top_above_rope_m (only the rope-point pin uses it)
 M_ROPE_R_SHIPPED = 0.055         # the shipped stations' modeled rope
 # art-601 #10 (owner hand-test note 10, "really jarring"): the modeled station rope (ropechord_ / wheelrope, 0.11 m across)
-# read 2-3x the line's vanilla cable beside it. --thin-rope builds with THIN_ROPE_R, the 0.048 m rope that the lines and the
-# chair contract use (carriers tr / dq: the grip's rope), for a new station letter. Every consumer of the radius (the axle of
+# read 2-3x the line's vanilla cable beside it. --thin-rope builds with THIN_ROPE_R, the 0.048 m rope of the chair contract
+# (carriers tr / dq: the grip's rope; the line cable draws at r 0.060, rope-width-check.md). The shipped letter O uses it
+# (SHIPPED_FLAGS). Every consumer of the radius (the axle of
 # the hold trains on the rope's top, the rope parts, the checks) follows the one global. The manifest records the radius of
 # the build (rope_r_m), and the seams tests read it per asset. LOD caveat: vanilla cables keep a minimum screen width at
 # distance, but a modeled 0.048 m rope does not (judge the far preview).
@@ -1885,8 +1886,8 @@ M_HOLD = dict(xc=-4.60, n=4, prefix="sheave_hold_", boom_w=0.15, boom_rear=-0.30
 # tab stiffens the root. Two thin cheek plates clamp the tube onto the saddle. Round 1 read chunky with its 0.15 x 0.22 box,
 # 0.42 m haunch web and full root plate.
 #
-# Everything sits above the rope in the plane of the lane: the chairs pass under it as under the train. False = the deployed
-# station byte for byte.
+# Everything sits above the rope in the plane of the lane: the chairs pass under it as under the train. False = the pre-art-601
+# station; the shipped letter O base is built with it on (--no-hosted-tower, SHIPPED_FLAGS).
 M_NOSE_TRAIN = False
 M_NOSE = dict(rim_gap=0.02,          # m along x: the outer rim's line-side edge inboard of anchor_in
               tube_r=0.075, tube_segs=12,   # the boom tube (round 1: a 0.15 x 0.22 box)
@@ -1912,6 +1913,8 @@ M_NOSE = dict(rim_gap=0.02,          # m along x: the outer rim's line-side edge
 # - base only: the nose train (fg_train_side_halves as the skinned towers' FG halves, mirrored to a hold-down: sheaves over
 #   the rope, the main pin ON the rope line at the lane end, the tree RIG_NOSE["inboard"] inboard of the wheels) on the slim
 #   tube boom of art-601, now out to the pin. The inner half is static, the outer half rides NoseTrain.
+# - round 2 (critic pass 1, S4): the nose train's bogie pins hang in straps (cs2_sheaves.fg_train_side_halves pin_links,
+#   FG_PIN_LINK) instead of floating between beam and bar; the shipped towers keep the floating pin (kit-wide fix = new letters).
 # False = every shipped station byte for byte (no expression below runs).
 M_RIG = False
 RIG_ROPE_R = 0.060            # m, the line cable's circumscribed radius (tune after an in-game side-by-side photo)
@@ -1928,8 +1931,9 @@ RIG_NOSE = dict(inboard=0.20,     # the tree plane this far inboard of the wheel
                 chair_tmax=20.0)  # deg, the chair (M3 rules on the posed line) must clear within +-this; wider = reported
 RIG_NOSE_CHAIR_THETAS = (-40.0, -30.0, -20.0, -10.0, 0.0, 10.0, 20.0, 30.0, 40.0)
 RIG_ENTRY = dict(r=0.20, w=0.10, arm=(0.10, 0.10), cheek_t=0.02, stub_r=0.035, clear=0.005)
-RIG_LOD0_CAP = {"drive": 9200, "return": 3600}   # M15 under --rig: the base +2.2 % over the 9,000 design cap (finished
-                                                 # 9,124: rope 0.060 + wheel + entry sheaves + nose train; the 5 % rule)
+RIG_LOD0_CAP = {"drive": 9450, "return": 3600}   # M15 under --rig: the base at the 5 % rule's ceiling over the 9,000
+                                                 # design cap (lead, critic round 2). Round 1 finished 9,124 (rope 0.060 +
+                                                 # wheel + entry sheaves + nose train); round 2 S4 pin straps +80 (est.)
 RIG_HOSTED_X = -5.025         # top: the skinned hosted end tower's pivot on the lane end (shipped row: -4.9)
 RIG_HOSTED_DIR = None         # top: folder holding the skinned hosted tower's FBXs (M5 / previews), CLI --rig-hosted
 RIG_WHEEL = dict(spokes=8, spoke=(0.10, 0.16), spoke_r=(0.30, 1.52), cap_r=0.24, cap_h=0.06,
@@ -2678,7 +2682,7 @@ def build_nose_rig_m(spec):
                                      T["main_span"] / 2.0, T["r"], T["w"], pin_z=0.0, inboard=R["inboard"],
                                      shift=R["shift"], arm_t=S.FG_ARM_T, hanger=S.FG_HANGER, ins=S.FG_HANGER_INSET,
                                      gap=0.015, poke=0.006, pin_r=0.05, lap_gap=0.010, beam=True, prefix=pre,
-                                     lap=R["lap"])
+                                     lap=R["lap"], pin_links=True)     # T256 S4: the bogie pins in their straps
         S.finish_train(raw, "FG", prefix=pre)
         hang = [o for o, _k in raw if o.name == f"{pre}hanger_{tag}"][0]
         hv = [hang.matrix_world @ v.co for v in hang.data.vertices]
@@ -5921,6 +5925,7 @@ def main_m(args):
     pc = contracts.pop("M1")
     fine_block = fine_detail_block_m(kind, contracts)          # fine-detail step 3c (None when off)
     cs2_validate.write_manifest(asset_dir, name, {
+        "args": vars(args),            # T256: every parsed flag (defaults too): a letter's build is reproducible
         "generator": GEN_M, "kind": kind, "generation": "M", "rope_r_m": M_ROPE_R,
         "spec": "design/fg-stations-m.md + fg-stations-m-skeptic.md MUST-CHANGE 1-6 (build/fg-stations-m.md)",
         "finish": "shipping" if args.finish else "blockout", "atlas_px": A, "ao_samples": ao,
@@ -5984,9 +5989,54 @@ def main_m(args):
 #@@M-SECTION-END@@
 
 
+# T256 (orchestrator finding, 2026-11-19): the shipped letters' build flags. The O stations were built with --thin-rope (both)
+# and --no-hosted-tower (base), and no manifest recorded it (HEAD without them builds base O at 7,950 tris, shipped 8,166).
+# An entry lists the flags that differ from the parser defaults, checked against the shipped manifests in
+# assets/import/stations/fixedgrip/O/<name>/<name>.manifest.json: rope_r_m 0.024 (= THIN_ROPE_R, --thin-rope), the base's
+# nose_train block (--no-hosted-tower), finish "shipping" (--finish), tris "1" / "2" (--lods), kind. Every build's manifest now
+# records "args" (vars(args)). A build under a listed --name stops when a SHAPE_FLAGS value differs, unless
+# --allow-flag-drift (experiments).
+SHIPPED_FLAGS = {
+    "SkiLiftBaseStationO": dict(kind="drive", thin_rope=True, no_hosted_tower=True, finish=True, lods=True),
+    "SkiLiftTopStationO": dict(kind="return", thin_rope=True, finish=True, lods=True),
+}
+# the flags that change what a build exports (meshes, maps, settings). Output / preview / review / debugging flags (--out,
+# --preview, --review, --ab, --no-validate, --skip-sweep, --name) never count
+SHAPE_FLAGS = ("gen", "weather", "atlas", "ao_samples", "no_fine", "rope_on_crown", "thin_rope", "no_hosted_tower",
+               "wheels", "rig", "rig_hosted", "kind", "finish", "lods")
+
+
+def flag_drift(args, ap=None):
+    """{flag: (shipped, given)} of the SHAPE_FLAGS that differ from SHIPPED_FLAGS[args.name] (parser defaults for the flags an
+    entry leaves out). {} when the name is not a shipped letter."""
+    entry = SHIPPED_FLAGS.get(getattr(args, "name", None))
+    if entry is None:
+        return {}
+    ap = ap or build_parser()
+    want = {k: ap.get_default(k) for k in SHAPE_FLAGS}
+    want.update(entry)
+    return {k: (want[k], getattr(args, k, None)) for k in SHAPE_FLAGS if getattr(args, k, None) != want[k]}
+
+
+def check_shipped_flags(args, ap=None):
+    """SystemExit naming the differing flags when --name is a shipped letter and a shape flag differs (flag_drift), unless
+    --allow-flag-drift."""
+    drift = flag_drift(args, ap)
+    if drift and not getattr(args, "allow_flag_drift", False):
+        raise SystemExit(f"{args.name} is a shipped letter (SHIPPED_FLAGS) and these flags differ from its shipped build "
+                         f"(shipped, given): {drift}. Use the shipped flags, another --name, or --allow-flag-drift.")
+    if drift:
+        print(f"[terminal] --allow-flag-drift: {args.name} built with flags that differ from the shipped letter: {drift}")
+    return drift
+
+
 def parse_args():
     argv = sys.argv
     argv = argv[argv.index("--") + 1:] if "--" in argv else []
+    return build_parser().parse_args(argv)
+
+
+def build_parser():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument(
@@ -6007,11 +6057,9 @@ def parse_args():
                     help="M, T27 preview flag (M_ROPE_ON_CROWN): the HV anchors on the hosted end tower's sheave "
                          "crown; M1 reports the prefab surgery. Off = the shipped station byte for byte.")
     ap.add_argument("--thin-rope", action="store_true", dest="thin_rope",
-                    help="art-601 #10: the modeled station rope at THIN_ROPE_R (the lines' 0.048 m rope), a new letter; "
-                         "off = the shipped radius 0.055")
+                    help="art-601 #10: the station rope at THIN_ROPE_R (r 0.024, the chair grip's rope); the shipped letter O uses this flag.")
     ap.add_argument("--no-hosted-tower", action="store_true", dest="no_hosted_tower",
-                    help="M drive, art-601 (M_NOSE_TRAIN): the base without its hosted end tower; the hold-down train "
-                         "moves out to the sub-lane's inboard end and gets a king post + tie. Off = the shipped station.")
+                    help="M drive, art-601 (M_NOSE_TRAIN): the base without its hosted end tower; the shipped letter O uses this flag.")
     ap.add_argument("--wheels", choices=["v1", "v2"], default="v2",
                     help="M, T62: sheave wheel generation (v2 default = cs2_sheaves.wheel on the hold-down train and the "
                          "counterweight sheaves: the round-3 wheel (16 segments, groove, seen hub bosses); v1 = the pre-T62 wheels byte for byte).")
@@ -6053,7 +6101,9 @@ def parse_args():
         help="also write the live-review pack <DIR>/<name>.blend (cs2_review.write_pack, "
              "duplicates only; exports, manifest and validation unchanged).",
     )
-    return ap.parse_args(argv)
+    ap.add_argument("--allow-flag-drift", action="store_true", dest="allow_flag_drift",
+                    help="build a shipped letter (SHIPPED_FLAGS) with other shape flags anyway (experiments only).")
+    return ap
 
 
 # Ground parts that must feed the engine base (cs2_validate.ground_ring_report ok_parts).
@@ -6124,6 +6174,7 @@ def main():
     """CLI entry (tests/test_review_side_effects.py 1b drives it through sys.argv): generation M
     by default, L with --gen L."""
     args = parse_args()
+    check_shipped_flags(args)          # T256: a shipped letter builds with its shipped flags (SHIPPED_FLAGS)
     if args.gen == "M":
         return main_m(args)
     return main_l(args)

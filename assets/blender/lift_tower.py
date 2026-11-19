@@ -2745,6 +2745,13 @@ def set_hosted_lane(key, lane):
     return VARIANTS[key]
 
 
+def hosted_pin_links(spec):
+    """T256 S4: True on the hosted-lane build of `spec` (set_hosted_lane, the skinned ET62Q): its FG bogie pins hang in
+    straps (cs2_sheaves.fg_train_side_halves pin_links). Every other build, the shipped towers included: False. The kit-wide
+    fix (every FG tower) needs new letters: a follow-up."""
+    return HOSTED_LANE is not None and HOSTED_LANE["variant"] == spec.key
+
+
 def skin_spec(spec):
     """The spec a skinned build uses: GD at SKIN_GD["sheaves"] a side (10 default as shipped, --gd-sheaves). Otherwise `spec`."""
     if SKINNED and spec.family == "GD" and spec.sheaves != SKIN_GD["sheaves"]:
@@ -3237,7 +3244,9 @@ def fg_parts(spec):
             P += S.fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_span / 2.0,
                                         spec.sheave_r, spec.sheave_w, pin_z=lane_y(spec, True),
                                         inboard=FG_CROWN_INBOARD, shift=SKIN_HALF_SHIFT["FG"], arm_t=FG_ARM_T,
-                                        hanger=FG_HANGER, ins=ins, lap_gap=SKIN_LAP_GAP, **SKIN_FG)
+                                        hanger=FG_HANGER, ins=ins, lap_gap=SKIN_LAP_GAP, **SKIN_FG,
+                                        # T256 S4: the bogie pins in their straps on the hosted-lane build only (ET62Q)
+                                        pin_links=hosted_pin_links(spec))
             continue
         # the Yan rocker tree of this lane: cs2_sheaves.fg_train_side (this loop's body, moved verbatim)
         P += S.fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span,
@@ -6716,7 +6725,7 @@ def twin_settings(asset_dir, name, owner, levels):
     return path
 
 
-def twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weights):
+def twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weights, args=None):
     """--twin --export: the twin's import folder beside its member (TWIN_ATLAS): skinned LOD0 / 1 / 2 FBXs (every level
     weighted, as the members), settings.json on the member's maps (twin_settings), the skin round trip, the manifest
     (the twin report + skin_manifest_block + the texture note for the surgery), validate_asset_folder (0 errors)."""
@@ -6737,6 +6746,8 @@ def twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weigh
     skin = dict(info["skin"], rope_points_game=[[-spec.gauge / 2.0, zp, 0.0], [spec.gauge / 2.0, zp, 0.0]],
                 half_shift_m=SKIN_HALF_SHIFT[spec.family], weights=weights, roundtrip=rt)
     man = {k: v for k, v in rep.items() if k not in ("frames", "seconds", "skin", "grip")}
+    if args is not None:
+        man["args"] = vars(args)      # T256: every parsed flag (defaults too): a letter's build is reproducible
     man["skin"] = dict(skin_manifest_block(spec, skin), twin=rep["skin"])
     man["textures"] = {
         "shared_from": f"../{owner}/{owner}", "maps": list(TWIN_MAPS), "levels": list(range(len(lods) + 1)),
@@ -6861,7 +6872,7 @@ def main_twin(argv):
            "grip": grip and {k: v for k, v in grip.items() if k != "frames"},
            "frames": frames, "seconds": round(time.perf_counter() - t0, 1)}
     if args.export:
-        twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weights)
+        twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weights, args=args)
         print(f"[twin] exported {name}: LOD0/1/2 {bud['tris']} -> {asset_dir} ({time.perf_counter() - t0:.0f} s)")
         return 0
     with open(os.path.join(asset_dir, f"{name}.twin.json"), "w", encoding="utf-8", newline="\n") as f:
@@ -7097,6 +7108,7 @@ def main_v2(argv):
     density = compose.density if compose is not None else None
     manifest = {
         "generator": f"lift_tower.py@{cs2_review.git_sha()}",
+        "args": vars(args),            # T256: every parsed flag (defaults too): a letter's build is reproducible
         "spec": "towers-v2 + skeptic" if spec.family != "GD" else
                 "towers-v2 + skeptic; Revision 1b GD (tram_tower.GD / lattice-towers D2 contract)",
         "variant": spec.key, "family": spec.family, "role": spec.role, "kind": spec.kind,
