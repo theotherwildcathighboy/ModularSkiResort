@@ -46,7 +46,9 @@
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
     tripPlanner: "", tripPlannerBlocksSkiDays: false, passShare: 50, passPrice: 260, month: 1,
     // Contract 50 (T226 / T225): Ash Flat's 2.9 % of a 10 % cap, a day mean of 2,430 tourists.
-    tourismBonusPct: 2.93, tourismBonusSumPct: 2.93, tourismBonusCapPct: 10, touristsDayMean: 2430 };
+    tourismBonusPct: 2.93, tourismBonusSumPct: 2.93, tourismBonusCapPct: 10, touristsDayMean: 2430,
+    // Contract 57 (1.0.3 R3-B): a December winter, its season starts in July (the pass sale window: August to November).
+    seasonFirstMonth: 7 };
 
   const SIGN = E(101), SIGN2 = E(102);
   const runs = [
@@ -94,7 +96,7 @@
     netMonth: 138600, netEstimated: false,
     skiDaysState: 6, skiDaysThisMonth: 2410, skiDaysLastMonth: 3300, skiDaysSent: 2600, skiDaysSentCar: 1900, skiDaysSentNoCar: 700, skiDaysNow: 310, skiDaysCap: 480, skiDaysLimit: 2, skiDaysPowderPct: 35,
     lodgeBest: "lodgeMid", lodgeExtra: 1, luxuryIgnored: 0, schoolValue: 12, patrolledRuns: 3, priceTolerance: 20, lodgeSpendMonth: 46000,
-    passesSoldSeason: 420, passIncomeSeason: 126000, passHoldersThisMonth: 390, passHoldersLastMonth: 410, lessonsThisMonth: 120, lessonsLastMonth: 160, lessonIncomeMonth: 9600,
+    passesSoldSeason: 420, passIncomeSeason: 126000, passHoldersThisMonth: 390, passHoldersLastMonth: 410, priceTurnedThisMonth: 14, priceTurnedLastMonth: 22, lessonsThisMonth: 120, lessonsLastMonth: 160, lessonIncomeMonth: 9600,
     passesPreSeason: 85, passIncomePreSeason: 25500, cityIncomeEst: 390000,
     // Contract 40 (icon scheme, DECISIONS 620): every VARIETY_BAND bit set, the vertical at the full bonus.
     varietyBands: 7, verticalShortM: 0,
@@ -343,7 +345,7 @@
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800, affordMask: 31 };
   const snowCardHidden = { shown: false, report: Object.assign({}, snowReport, { known: false }) };
-  const base = { hubOpen: false, contract: 56, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 58, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },

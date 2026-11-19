@@ -805,7 +805,9 @@ namespace SkiResortMod.Systems
                 lift += m.LiftCharged;
                 bus += m.BusCharged;
                 Entity sign = Ent(e.Sign);
-                Mod.Log.Info($"Guests [month] {month} ski area {Fmt(e.Sign)}{NameSuffix(sign)}: {MonthBody(m)}");
+                // T258: the people of game-sent parties that walked away at the price (the ledger entry, not the saved Month).
+                Mod.Log.Info($"Guests [month] {month} ski area {Fmt(e.Sign)}{NameSuffix(sign)}: {MonthBody(m)}; " +
+                             $"{(last ? e.PriceTurnedLast : e.PriceTurnedThis)} turned away by price");
             }
             int parties = 0, locals = 0, tourists = 0;
             foreach (var pair in m_PickedLast)

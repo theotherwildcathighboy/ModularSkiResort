@@ -128,9 +128,43 @@ household then rolls the same way again and pays twice.
 Pre-season pass sale: `SkiLiftTicketSystem.Presale.cs` (its header says how the pool is built and why a sale tick does not drain
 arrivals). Step 1b applies it. Step 2c starts it. It feeds the same pass totals.
 
+### Sale window and destination pass (1.0.3, R3-B, `SkiPassRules.cs`)
+
+Design: `docs/research/round3-2026-11-18/r4-fleet/dest-pass/DESIGN.md` (main checkout). Nothing new is saved: every decision is a hash
+of (household, season) or a standing that 1.0.2 already writes.
+
+- **Sale window.** Season months 1-2 sell at the setting, 3-4 at `SteppedPrice` (+15 %, snapped to 20), from month 5 nothing
+  (`SkiPassRules.PhaseOf(SeasonPosition(normalizedDate, SeasonFirstMonth))`). Before 1.0.3 the sale ran once in month 1 and first
+  arrivals bought all season.
+- **Hourly sale.** Step 2c starts the pool sale once per ski area per game hour (`SaleHourKey`) while the window is open. A household
+  is in a run's pool only once its own buy hour has come (`HourCome(index, season, windowPos)`, `BuyPosition = 1 - sqrt(1 - u)`:
+  43.75 % of the households in month 1, 75 % before the step). Each run writes Bought or Declined, so a household is rolled once.
+  `m_SaleAppliedPos` is the window position of the last applied run. The log folds the runs into one `Passes [sale]` line a game day.
+- **First arrivals** buy only inside the window, at the window's price (`TicketParams.SalePrice`), and only when their buy hour has
+  come by `m_SaleAppliedPos` (else the household waits for its pool run and pays the ticket today).
+- **Destination pass.** A tourist party rolls once a season (`DestRoll`, salt DEST) against `DestShare = share x PassFactor(pass,
+  ticket) x PriceFactor(fee, the area's tolerance)`. One on a pass pays `DestFee = min(ticket, round(pass / 4))` per person instead of
+  the ticket (never into debt; `TicketsPaid`), then lessons and lodge spend as a paying guest. The fee books with
+  `ledger.AddPasses(sign, 0, fee money, payers)`: pass income and guests on a pass, no season-sale fields. `TicketSlot.DestShare` /
+  `DestFee` come from the main thread (BuildSlots, `DestShareAt` reads `SkiDaySystem.PriceToleranceOf`). The send gives such a party
+  P = 1 (SkiDaySystem ClaimJob `DestPassAt`, the same roll). Logs: `Passes [destination] first`, then folded lines; DUMP totals.
+
 ## Ski lessons
 
 This applies to a counted arrival at an OPEN gate (pass holder or not, resident or tourist). The ski area's Welcome Sign must have an ACTIVE ski school (Result.SchoolActive: installed, not BuildingOption.Inactive). Then each person counted gets one roll at LessonShare %. The roll is
 `SkiMoneyRules.LessonRoll`, a stateless hash of household index, SkiDayRules.DayKey and the person's index. A taker pays LessonPrice =
 LessonMultiplier x the lift ticket now. The taker pays from what remains of the household's money after the ticket or pass
 (`SkiMoneyRules.LessonsPaid`), BEFORE the lodge spend. The system books the lesson like tickets (Book).
+
+## Game-sent tourist parties check the price (1.0.3, T258)
+
+A tourist arrival from the meeting scan (a vanilla attraction outing: `GuestArrival.OnLeisure` false, `TicketRequest.Outing` 1) that is
+not on a destination pass rolls `SkiDayRules.PartyStays(price, tolerance, household, DayKey)` before the ticket. The factor is
+`PartyPriceFactor = clamp01((300 + tolerance − price) / 200)`: 1 up to the default ticket 100 (plus the area's best lodge's tolerance,
+`SkiDaySystem.PriceToleranceOf`, as the ski days), 0.5 at 200. A party that fails walks away: nothing is taken (no ticket, lesson or
+lodge spend), `TicketResult.PriceTurned` = its people, booked in the ledger entry's `PriceTurnedThis` (not the saved Month: the count
+restarts at a load). At a factor of 1 there is no roll, so a city at or below the default price keeps its numbers exactly.
+- Order in TicketJob: the destination pass first (a party on one paid for the season and never walks), then this check, then the ticket.
+- Not covered: leisure-scan tourists. Those the ski days claimed were already priced at the claim (SkiDayRules.Chance with PriceFactor);
+  those vanilla leisure sent on its own still come at any price (the Options text says so).
+- Logs: `Tickets [turned away] first` once per load; `Guests [month]` per ski area ends with "N turned away by price"; DUMP totals.

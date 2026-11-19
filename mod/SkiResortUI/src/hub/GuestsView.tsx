@@ -18,7 +18,7 @@ import type { BuildItemId, CityStats, LodgeParkingRow, ResortLive } from "../bin
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
-  guestBarParts, guestBarScale, lastMonthMark, lessonsShown, liveOf, passesShown, skiDayLine, skiDayTip, skiDayWalk, ticketNote, tripPlannerNote,
+  guestBarParts, guestBarScale, lastMonthMark, lessonsShown, liveOf, passesShown, priceTurnedShown, skiDayLine, skiDayTip, skiDayWalk, ticketNote, tripPlannerNote,
 } from "./hubRules";
 import type { LastMonthMark, TicketNote, TripPlannerNote } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LODGE_BUILDING, allMonthNames, monthName } from "./hubText";
@@ -326,6 +326,13 @@ function SignGuests({ l, city, parking, samples, t }: {
           label={t(HUB_LOC.guestsRowLessons)} samples={samples}
           thisMonth={countCell(l ? l.lessonsThisMonth : -1)} lastMonth={last(l?.lessonsLastMonth)}
           tip={rowTip(t(HUB_LOC.guestsTipLessons))}
+        />
+      )}
+      {priceTurnedShown(l) && (
+        <GuestRow
+          label={t(HUB_LOC.guestsRowPriceTurned)} samples={samples}
+          thisMonth={countCell(l ? l.priceTurnedThisMonth : -1)} lastMonth={last(l?.priceTurnedLastMonth)}
+          tip={rowTip(t(HUB_LOC.guestsTipPriceTurned))}
         />
       )}
       {/* the ticket money is Finances' Income row (DECISIONS 613) */}
