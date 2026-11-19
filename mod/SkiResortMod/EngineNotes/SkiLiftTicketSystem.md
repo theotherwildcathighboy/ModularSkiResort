@@ -155,3 +155,16 @@ This applies to a counted arrival at an OPEN gate (pass holder or not, resident 
 `SkiMoneyRules.LessonRoll`, a stateless hash of household index, SkiDayRules.DayKey and the person's index. A taker pays LessonPrice =
 LessonMultiplier x the lift ticket now. The taker pays from what remains of the household's money after the ticket or pass
 (`SkiMoneyRules.LessonsPaid`), BEFORE the lodge spend. The system books the lesson like tickets (Book).
+
+## Game-sent tourist parties check the price (1.0.3, T258)
+
+A tourist arrival from the meeting scan (a vanilla attraction outing: `GuestArrival.OnLeisure` false, `TicketRequest.Outing` 1) that is
+not on a destination pass rolls `SkiDayRules.PartyStays(price, tolerance, household, DayKey)` before the ticket. The factor is
+`PartyPriceFactor = clamp01((300 + tolerance − price) / 200)`: 1 up to the default ticket 100 (plus the area's best lodge's tolerance,
+`SkiDaySystem.PriceToleranceOf`, as the ski days), 0.5 at 200. A party that fails walks away: nothing is taken (no ticket, lesson or
+lodge spend), `TicketResult.PriceTurned` = its people, booked in the ledger entry's `PriceTurnedThis` (not the saved Month: the count
+restarts at a load). At a factor of 1 there is no roll, so a city at or below the default price keeps its numbers exactly.
+- Order in TicketJob: the destination pass first (a party on one paid for the season and never walks), then this check, then the ticket.
+- Not covered: leisure-scan tourists. Those the ski days claimed were already priced at the claim (SkiDayRules.Chance with PriceFactor);
+  those vanilla leisure sent on its own still come at any price (the Options text says so).
+- Logs: `Tickets [turned away] first` once per load; `Guests [month]` per ski area ends with "N turned away by price"; DUMP totals.

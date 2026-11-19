@@ -984,6 +984,24 @@ export function lessonsShown(l: ResortLive | null): boolean {
   return !!l && (l.lessonsThisMonth > 0 || l.lessonsLastMonth > 0);
 }
 
+/** 1.0.3 T258: the "Turned away by price" row once a game-sent party walked away this month or last. */
+export function priceTurnedShown(l: ResortLive | null): boolean {
+  return !!l && (l.priceTurnedThisMonth > 0 || l.priceTurnedLastMonth > 0);
+}
+
+/** 1.0.3 T258: the party price check's full-demand price (C# SkiDayRules.PartyPriceFullAt − PriceSpan + tolerance): the default ticket
+ *  100 plus the best lodge's tolerance. */
+export const PARTY_PRICE_FULL_AT = 300;
+export function partyPriceFullWith(tolerance: number): number {
+  return PARTY_PRICE_FULL_AT - PRICE_SPAN + Math.max(0, tolerance);
+}
+
+/** 1.0.3 T258: the share of game-sent parties that pay instead of walking away, 0..1 (C# SkiDayRules.PartyPriceFactor). */
+export function partyPriceFactor(price: number, tolerance = 0): number {
+  if (!(price >= 0)) return -1;
+  return Math.min(1, Math.max(0, (PARTY_PRICE_FULL_AT + Math.max(0, tolerance) - Math.min(PRICE_MAX, price)) / PRICE_SPAN));
+}
+
 /** The "sold before the season" pass row is drawn under the season's pass row once the pre-season sale sold a pass. */
 export function presaleShown(l: ResortLive | null): boolean {
   return !!l && l.passesPreSeason > 0;

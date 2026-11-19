@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 57;
+export const HUB_CONTRACT = 58;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -891,6 +891,11 @@ export interface ResortLive {
   passHoldersThisMonth: number;
   /** The same, last month. -1 until a month rolled since counting started. */
   passHoldersLastMonth: number;
+  /** 1.0.3 T258 (contract 58): people of game-sent tourist parties (vanilla outings) who walked away at the ticket price this month,
+   *  counted since the game was loaded. -1 unknown. */
+  priceTurnedThisMonth: number;
+  /** The same, last month. -1 until a month rolled since counting started. */
+  priceTurnedLastMonth: number;
   // Lessons and city income: appended in this order, as in C# ResortLiveStats.
   /** People who took a lesson at this area this month (one lesson each). -1 unknown. */
   lessonsThisMonth: number;

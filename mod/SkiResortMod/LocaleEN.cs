@@ -1554,6 +1554,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_ROW[CityIncome]", "Tourist spending" },
                 { "SkiResort.Hub.MONEY_TIP[CityIncome]", "Estimate: what tourists spend at the city's hotels, shops and leisure places in a month, times this ski area's share of the tourist draw." },
                 { "SkiResort.Hub.GUESTS_ROW[Lessons]", "Lessons" },
+                // 1.0.3 T258: game-sent tourist parties that walked away at the ticket price.
+                { "SkiResort.Hub.GUESTS_ROW[PriceTurned]", "Turned away by price" },
+                { "SkiResort.Hub.GUESTS_TIP[PriceTurned]", "Tourist groups on an outing who left at the ticket price, paying nothing. To keep them, lower the ticket or build better lodges." },
                 { "SkiResort.Hub.GUESTS_TIP[Lessons]", "Guests who took a lesson, one each." },
                 { "SkiResort.Hub.MONEY_TIP[Passes]", "Sold before the winter. Holders ski free all season and come more often. Share and price: Options > Modular Ski Resort > Ski area balance." },
                 { "SkiResort.Hub.MONEY_ROW[PassHolders]", "Guests on a pass, {MONTH}" },
@@ -1751,6 +1754,7 @@ namespace SkiResortMod
                 // r3/sliders: the season pass line (PRICE = the pass price) and the price / pass tooltip lines (N = 4, the pass limit in tickets).
                 { "SkiResort.Hub.MONEY_PASS_LINE", "Season pass {PRICE} · Demand: {WORD}" },
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Above]", "Above {FULL}, fewer guests choose a ski day." },
+                { "SkiResort.Hub.MONEY_PRICE_TIP[Outings]", "Tourist groups on an outing put up with more: none turn away up to {FULL}." },
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Example]", "At {PRICE}, about {PCT} fewer guests ski than at {FULL}." },
                 { "SkiResort.Hub.MONEY_PASS_TIP[Above]", "Above {FULL}, fewer households buy a pass." },
                 { "SkiResort.Hub.MONEY_PASS_TIP[Example]", "At {PRICE}, about {PCT} fewer households buy than at {FULL}." },

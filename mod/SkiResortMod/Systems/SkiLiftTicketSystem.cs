@@ -40,17 +40,21 @@ namespace SkiResortMod.Systems
 
         // SpendPerPerson = the lodge spend per paying guest of this request (0 = none). The main thread fills it. Spends / SpendIncome =
         // the guests who spent and the ₵ moved for it.
-        private struct TicketRequest { public int Slot; public Entity Household; public int People; public byte Tourist; public int SpendPerPerson; }
+        // Outing (1.0.3 T258) = a game-sent tourist party (a vanilla attraction outing from the meeting scan, not a leisure arrival): it passes
+        // the party price check at the gate (SkiDayRules.PartyStays).
+        private struct TicketRequest { public int Slot; public Entity Household; public int People; public byte Tourist; public byte Outing; public int SpendPerPerson; }
         // RunStateKnown = score present and not held. SchoolActive = the area's score is known and its ski school is installed and not
         // Inactive (Result.SchoolActive).
         // 1.0.3 destination pass (SkiPassRules): DestShare = the share of tourist parties on a pass at this area (its price tolerance prices the
         // fee), DestFee = what a person on one pays per counted day. The main thread fills both (BuildSlots).
-        private struct TicketSlot { public Entity Sign; public byte RunStateKnown; public int OpenRuns; public byte SchoolActive; public double DestShare; public int DestFee; }
+        // PriceTolerance (T258) = the area's best lodge's tolerance for the party price check (SkiDaySystem.PriceToleranceOf, as the ski days).
+        private struct TicketSlot { public Entity Sign; public byte RunStateKnown; public int OpenRuns; public byte SchoolActive; public double DestShare; public int DestFee; public int PriceTolerance; }
         // Booked = the income booked as public transportation fees instead of added to PlayerMoney (tickets, passes, lessons, lodge
         // spend). PassSold (0/1) and PassIncome = the pass this arrival bought (PassSeason = its season key). PassHolders = the people who
         // came in on a pass.
         // DestPaid / DestIncome (1.0.3) = the tourists on a destination pass who paid the fee, and the fee money (pass income, not tickets).
-        private struct TicketResult { public int Paid, Unpaid, Free, Income, Spends, SpendIncome, Booked, PassSold, PassIncome, PassHolders, PassSeason, Lessons, LessonIncome, DestPaid, DestIncome, DestUnpaid; public byte NoCity; }
+        // PriceTurned (T258) = the people of a game-sent party that walked away at the price: no ticket, lesson or lodge spend.
+        private struct TicketResult { public int Paid, Unpaid, Free, Income, Spends, SpendIncome, Booked, PassSold, PassIncome, PassHolders, PassSeason, Lessons, LessonIncome, DestPaid, DestIncome, DestUnpaid, PriceTurned; public byte NoCity; }
         // One SkiSeasonPass to add or overwrite on the main thread (Flags 0 = a pass bought, else Declined.
         // CannotPay 1 = Declined because the household could not afford the pass it rolled).
         private struct PassWrite { public Entity Household; public int SeasonKey; public int PricePaid; public byte Flags; public byte CannotPay; }
@@ -130,6 +134,9 @@ namespace SkiResortMod.Systems
         // 1.0.3 destination pass, this load (DUMP, `Passes [destination]`): people who paid the fee, its money, people who could not pay it.
         private long m_DestGuests, m_DestIncomeTotal, m_DestUnpaid;
         private bool m_DestFirstLogged;
+        // T258, this load (DUMP, `Tickets [turned away] first`): people and parties of game-sent outings that walked away at the price.
+        private long m_PriceTurnedTotal, m_PriceTurnedParties;
+        private bool m_PriceTurnedLogged;
         private readonly LogWindow m_DestLog = new LogWindow(Tuning.LogWindowS);   // `Passes [destination]`
         private int m_LargestBatch, m_MaxLagTicks, m_LastLagTicks;
         private int m_CostTicks, m_CostLargestBatch;
@@ -288,6 +295,8 @@ namespace SkiResortMod.Systems
             m_LessonFirstLogged = false;
             m_DestGuests = m_DestIncomeTotal = m_DestUnpaid = 0;
             m_DestFirstLogged = false;
+            m_PriceTurnedTotal = m_PriceTurnedParties = 0;
+            m_PriceTurnedLogged = false;
             m_DestLog.Reset();   // flushed in OnGamePreload. Nothing carries over
             m_LargestBatch = m_MaxLagTicks = m_LastLagTicks = 0;
             m_CostTicks = m_CostLargestBatch = 0;
@@ -554,6 +563,7 @@ namespace SkiResortMod.Systems
                         SchoolActive = (byte)(known && view.Result.SchoolActive ? 1 : 0),
                         DestShare = DestShareAt(a.Sign, price),
                         DestFee = SkiPassRules.DestFee(PassPriceSetting, price),
+                        PriceTolerance = m_SkiDay != null ? m_SkiDay.PriceToleranceOf(a.Sign) : 0,
                     });
                 }
                 int spendPerPerson = 0;
@@ -567,6 +577,7 @@ namespace SkiResortMod.Systems
                     Household = a.Household,
                     People = a.People,
                     Tourist = (byte)(a.Tourist ? 1 : 0),
+                    Outing = (byte)(a.Tourist && !a.OnLeisure ? 1 : 0),
                     SpendPerPerson = spendPerPerson,
                 });
             }
@@ -663,6 +674,20 @@ namespace SkiResortMod.Systems
                 ledger.AddPasses(Ref(sign), 0, r.DestIncome, r.DestPaid);   // all-zero = no change
                 if (r.DestPaid > 0 || r.DestUnpaid > 0)
                     destBatch.Add(i);
+                if (r.PriceTurned > 0)
+                {
+                    ledger.AddPriceTurned(Ref(sign), r.PriceTurned);   // T258
+                    m_PriceTurnedTotal += r.PriceTurned;
+                    m_PriceTurnedParties++;
+                    if (!quiet && !m_PriceTurnedLogged)
+                    {
+                        m_PriceTurnedLogged = true;
+                        int tol = m_Slots[q.Slot].PriceTolerance;
+                        Mod.Log.Info($"Tickets [turned away] first: ski area {Fmt(sign)}: a tourist party of {q.People} walked away at the lift ticket {Price} " +
+                                     $"(party price factor {SkiDayRules.PartyPriceFactor(Price, tol):0.00}: 1 up to {SkiDayRules.PartyPriceFullAt - SkiDayRules.PriceSpan + tol}, " +
+                                     "a stateless roll per party and day); no ticket, lesson or lodge spend");
+                    }
+                }
                 if (r.Lessons > 0 && firstLessonSign == Entity.Null)
                 {
                     firstLessonSign = sign;
@@ -1114,6 +1139,7 @@ namespace SkiResortMod.Systems
                   .Append(" pass-holder guest(s), ").Append(m_PassesDeclined).Append(" rolled out, ").Append(m_PassesCannotPay)
                   .Append(" could not afford it, destination pass ").Append(m_DestGuests).Append(" paid +").Append(m_DestIncomeTotal)
                   .Append(" (").Append(m_DestUnpaid).Append(" could not pay)")
+                  .Append(", turned away by price ").Append(m_PriceTurnedTotal).Append(" in ").Append(m_PriceTurnedParties).Append(" party(ies)")
                   .Append(" (last season key ").Append(m_PassSeasonKey == int.MinValue ? "n/a" : m_PassSeasonKey.ToString()).Append(')')
                   // The pre-season sale (included in the pass totals above), then lessons, as booked.
                   .Append(", pre-season sale: ").Append(m_SalesRun).Append(" run(s), pool ").Append(m_SalePoolTotal).Append(", bought ")
@@ -1259,7 +1285,8 @@ namespace SkiResortMod.Systems
                             // 1.0.3 destination pass: a party on one this season (stateless roll, SkiPassRules) pays the fee per person
                             // instead of the ticket, never into debt. The fee is pass income; the payers are guests on a pass.
                             TicketSlot ds = Slots[q.Slot];
-                            if (ds.DestFee > 0 && SkiPassRules.OnDestPass(q.Household.Index, q.Household.Version, SeasonKey, ds.DestShare))
+                            bool onDest = ds.DestFee > 0 && SkiPassRules.OnDestPass(q.Household.Index, q.Household.Version, SeasonKey, ds.DestShare);
+                            if (onDest)
                             {
                                 int destPaid = SkiMoneyRules.TicketsPaid(people, ds.DestFee, money);
                                 if (destPaid > 0)
@@ -1273,6 +1300,15 @@ namespace SkiResortMod.Systems
                                 r.DestPaid = destPaid;
                                 r.Unpaid = people - destPaid;
                                 r.DestUnpaid = people - destPaid;
+                                Results[i] = r;
+                                continue;
+                            }
+                            // 1.0.3 T258: a game-sent party (a vanilla outing; the ski days already priced their own claims) checks the
+                            // price on its own curve and may walk away: nothing is taken (no ticket, lesson or lodge spend). Destination-pass
+                            // holders never get here (they paid above). At a factor of 1 there is no roll: the default price keeps today's numbers.
+                            if (SkiDayRules.PartyWalksAway(q.Outing != 0, onDest, Price, ds.PriceTolerance, q.Household.Index, q.Household.Version, LessonDay))
+                            {
+                                r.PriceTurned = people;
                                 Results[i] = r;
                                 continue;
                             }

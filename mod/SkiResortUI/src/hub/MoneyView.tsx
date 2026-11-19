@@ -18,7 +18,7 @@ import { BUILD_ITEMS, LUXURY_PRICE_TOLERANCE, findBuildItem } from "./buildItems
 import {
   DEMAND_EXAMPLE_BELOW, PASS_FULL_AT, destFee, destSharePct, saleWindow, PASS_PRICE_STOPS, PASS_SPAN, PRICE_STOPS, cityIncomeShown, demandHeat, demandWord, fewerPct, hubPrice, liveOf,
   netRowShown, passFactor, passFactorPct, passFullPrice, passSliderShown, passesShown, presaleShown, priceFactor, priceFactorPct,
-  priceFullWith, schoolBuiltOf, schoolState, ticketsRow,
+  priceFullWith, partyPriceFullWith, schoolBuiltOf, schoolState, ticketsRow,
 } from "./hubRules";
 import type { SchoolState } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, demandWordEntry, monthName } from "./hubText";
@@ -352,6 +352,8 @@ function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; 
   const full = priceFullWith(tol);
   const tip = <TipLines lines={[
     <LocText key="a" entry={HUB_FMT.moneyPriceTipAbove} args={{ FULL: numArg(full, Unit.Money) }} />,
+    // 1.0.3 T258: game-sent tourist groups check the price on their own, gentler curve.
+    <LocText key="o" entry={HUB_FMT.moneyPriceTipOutings} args={{ FULL: numArg(partyPriceFullWith(tol), Unit.Money) }} />,
     now > full && pct >= 0 && pct < DEMAND_EXAMPLE_BELOW && <LocText key="e" entry={HUB_FMT.moneyPriceTipExample} args={{
       PRICE: numArg(now, Unit.Money), PCT: numArg(fewerPct(priceFactor(now, tol)), Unit.Percentage), FULL: numArg(full, Unit.Money),
     }} />,

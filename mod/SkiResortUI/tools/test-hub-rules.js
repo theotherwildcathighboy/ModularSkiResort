@@ -1582,6 +1582,13 @@ function run(srcDir) {
       { phase: "opening", open: 7, stepAt: 8, last: 10, price: 320, stepped: 360 });
     eq("R3B.9 sale window, January season in December", R.saleWindow(11, 1, 400),
       { phase: "closed", open: 1, stepAt: 2, last: 4, price: 400, stepped: 460 });
+    // 1.0.3 T258: the party price check (C# tests/ResortBatch/PartyPriceTests.cs T258.1, same literals).
+    eq("T258.1 party price factor %", [[0, 0], [80, 0], [100, 0], [120, 0], [150, 0], [200, 0], [260, 0], [120, 20], [200, 20], [140, 40], [200, 40], [200, -5]]
+      .map(([p, t]) => Math.round(R.partyPriceFactor(p, t) * 100)), [100, 100, 100, 90, 75, 50, 50, 100, 60, 100, 70, 50]);
+    eq("T258.3 full-demand price = default ticket + tolerance", [R.partyPriceFullWith(0), R.partyPriceFullWith(40), R.partyPriceFullWith(-1)], [100, 140, 100]);
+    eq("T258.6 turned-away row shown", [R.priceTurnedShown(null), R.priceTurnedShown({ priceTurnedThisMonth: 0, priceTurnedLastMonth: 0 }),
+      R.priceTurnedShown({ priceTurnedThisMonth: 3, priceTurnedLastMonth: -1 }), R.priceTurnedShown({ priceTurnedThisMonth: -1, priceTurnedLastMonth: 2 })],
+      [false, false, true, true]);
   }
 
   const hr = require("./test-history-rules").run(srcDir);

@@ -67,6 +67,10 @@ namespace SkiResortMod.Systems
         public const int PowderPctDefault = 100, PowderPctMin = 0, PowderPctMax = 200;
         public const ulong ResidentSalt = 0x534B494441595331UL;      // "SKIDAYS1"
         public const ulong TouristSalt = 0x534B494441595332UL;       // "SKIDAYS2"
+        // 1.0.3 T258: the price check of a game-sent tourist party at the gate (PartyPriceFactor). Its full-price threshold is the default
+        // ticket (SkiMoneyRules.TicketPriceDefault = PartyPriceFullAt − PriceSpan): the resident curve moved 60 to the right, same span.
+        public const int PartyPriceFullAt = 300;                     // (300 − price) / 200: 1 up to 100, 0.75 at 150, 0.5 at 200
+        public const ulong PartyPriceSalt = 0x534B495052494345UL;    // "SKIPRICE"
 
         public enum GuestKind : byte { Resident = 0, Tourist = 1 }
         public enum TravelClass : byte { Walk = 0, Car = 1, NoCarFar = 2, None = 3 }     // None = not claimable
@@ -548,6 +552,32 @@ namespace SkiResortMod.Systems
         /// guard). From 160 on every price ≤ 200 already reads 1, so the upper clamp changes no result.</summary>
         public static double PriceFactor(int ticketPrice, int tolerance)
             => Unit01((PriceFullAt + math.clamp(tolerance, 0, PriceMax) - math.clamp(ticketPrice, 0, PriceMax)) / (double)PriceSpan);
+
+        /// <summary>1.0.3 T258: the share of game-sent tourist parties (vanilla attraction outings, not ski days) that pay the ticket instead of
+        /// walking away. P = clamp01((300 + max(0, tolerance) − clamp(price, 0, 200)) / 200): 1 up to the default ticket 100 (plus the area's
+        /// best lodge's tolerance, as PriceFactor), 0.5 at the slider maximum 200 (0.7 with the luxury lodge's 40). It is the resident
+        /// curve moved 60 to the right with the same slope, so its own-price elasticity just above 100 is −0.5 against −0.71 for
+        /// PriceFactor there: a destination guest's ticket is a small part of the trip (travel and lodging), so it deters less. The −0.5 is a
+        /// design value (stated assumption, no source pins it). Exact in int before the one division.</summary>
+        public static double PartyPriceFactor(int ticketPrice, int tolerance)
+            => Unit01((PartyPriceFullAt + math.clamp(tolerance, 0, PriceMax) - math.clamp(ticketPrice, 0, PriceMax)) / (double)PriceSpan);
+
+        /// <summary>The party's price roll: one per party (household) per game day (DayKey), independent of TouristRoll.</summary>
+        public static double PartyPriceRoll(int householdIndex, int householdVersion, int dayKey)
+            => UnitOf(Mix64(Mix64(KeyOf(householdIndex, householdVersion) ^ PartyPriceSalt) ^ (uint)dayKey));
+
+        /// <summary>True when the party pays (stays): always at a factor of 1 (no roll, so a city at the default price keeps today's numbers
+        /// exactly), else roll &lt; PartyPriceFactor. Tickets off (price 0) always stays.</summary>
+        public static bool PartyStays(int ticketPrice, int tolerance, int householdIndex, int householdVersion, int dayKey)
+        {
+            double f = PartyPriceFactor(ticketPrice, tolerance);
+            return f >= 1.0 || PartyPriceRoll(householdIndex, householdVersion, dayKey) < f;
+        }
+
+        /// <summary>The gate decision of T258: true when an arrival walks away at the price. Only a game-sent party (outing) can; a party on
+        /// a destination pass never does (it paid for the season), and neither does any arrival that PartyStays.</summary>
+        public static bool PartyWalksAway(bool outing, bool onDestPass, int ticketPrice, int tolerance, int householdIndex, int householdVersion, int dayKey)
+            => outing && !onDestPass && !PartyStays(ticketPrice, tolerance, householdIndex, householdVersion, dayKey);
 
         /// <summary>Open share, value-weighted (Result.RunsValue / Result.RunsValueFull = the hub's "open %"). The result is 0 unless the
         /// full value is finite and &gt; 0.</summary>

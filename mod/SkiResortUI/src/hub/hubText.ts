@@ -526,6 +526,8 @@ export const HUB_LOC = {
   moneyRowCityIncome: ["SkiResort.Hub.MONEY_ROW[CityIncome]", "Tourist spending"],
   moneyTipCityIncome: ["SkiResort.Hub.MONEY_TIP[CityIncome]", "Estimate: what tourists spend at the city's hotels, shops and leisure places in a month, times this ski area's share of the tourist draw."],
   guestsRowLessons: ["SkiResort.Hub.GUESTS_ROW[Lessons]", "Lessons"],
+  guestsRowPriceTurned: ["SkiResort.Hub.GUESTS_ROW[PriceTurned]", "Turned away by price"],
+  guestsTipPriceTurned: ["SkiResort.Hub.GUESTS_TIP[PriceTurned]", "Tourist groups on an outing who left at the ticket price, paying nothing. To keep them, lower the ticket or build better lodges."],
   guestsTipLessons: ["SkiResort.Hub.GUESTS_TIP[Lessons]", "Guests who took a lesson, one each."],
   unlinkedMoney: ["SkiResort.Hub.UNLINKED_MONEY", "Runs and lifts that are not linked earn nothing. Their upkeep is still charged."],
 
@@ -901,6 +903,8 @@ export const HUB_FMT = {
   /* r3/sliders (DECISIONS 677): {FULL} = priceFullWith(area tolerance) or passFullPrice(ticket) (Money), {PRICE} = the slider price (Money),
    {PCT} = hubRules.fewerPct (Percentage, a multiple of 5), {N} = PASS_FULL_AT + PASS_SPAN, where demand reaches 0 (Integer) */
   moneyPriceTipAbove: ["SkiResort.Hub.MONEY_PRICE_TIP[Above]", "Above {FULL}, fewer guests choose a ski day."],
+  /* 1.0.3 T258: {FULL} = the party price check's full-demand price (hubRules.partyPriceFullWith) */
+  moneyPriceTipOutings: ["SkiResort.Hub.MONEY_PRICE_TIP[Outings]", "Tourist groups on an outing put up with more: none turn away up to {FULL}."],
   moneyPriceTipExample: ["SkiResort.Hub.MONEY_PRICE_TIP[Example]", "At {PRICE}, about {PCT} fewer guests ski than at {FULL}."],
   moneyPassTipAbove: ["SkiResort.Hub.MONEY_PASS_TIP[Above]", "Above {FULL}, fewer households buy a pass."],
   moneyPassTipExample: ["SkiResort.Hub.MONEY_PASS_TIP[Example]", "At {PRICE}, about {PCT} fewer households buy than at {FULL}."],
