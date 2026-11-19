@@ -320,7 +320,6 @@ namespace SkiResortMod.Systems
                 None = new[] { ComponentType.ReadOnly<Deleted>() },
             });
             RequireForUpdate(m_Query);
-            m_Spin = World.GetOrCreateSystemManaged<BullwheelSpinSystem>();
             // Job reflection data and JIT before the first Schedule (the PrewarmJit precedent). Schedules nothing.
             JobChunkExtensions.EarlyJobInit<WriteWheelsJob>();
             Mod.Log.Info($"{nameof(BullwheelBoneSystem)} created");
@@ -335,6 +334,10 @@ namespace SkiResortMod.Systems
 
         protected override void OnUpdate()
         {
+            // Resolved here, not in OnCreate: BullwheelSpinSystem resolves this system in its own OnCreate
+            m_Spin ??= World.GetExistingSystemManaged<BullwheelSpinSystem>();
+            if (m_Spin == null)
+                return;
             NativeArray<float> angles = m_Spin.Angles;
             if (!angles.IsCreated || angles.Length == 0)
                 return;
