@@ -1008,9 +1008,61 @@ def hanger_tongue(name, zc, r, z_top, hw_top, ya, yb, segs=6):
     return _new_part(name, bm)
 
 
+# T256 S4 (critic pass 1 on the rigged FG stations, 2026-11-19): in the beam tree (fg_train_side_halves beam=True) each bogie
+# pivot pin floats between the half beam's bottom and the bogie bar's top at (main_z + sub_z) / 2 and touches neither (the
+# "floating hex parts"; the shipped fg_train_side has the same pin). pin_links=True (opt-in: the rigged P stations' nose
+# train and the skinned hosted ET62Q only; every shipped tower builds without it) hangs the pin in two straps that ride IN
+# the pin's part (no new part names: bones, LOD deletes, contacts and the regexes stay): an upper strap in the half beam's
+# lateral slab, buried `bury` in the beam's bottom, down `past` beyond the pin, and a lower strap in the bogie bar's slab,
+# buried in the bar's top, up past the pin. hx = half length along travel, inset = in from each slab face (past the beam's 0.02 bevel and the
+# bar's 0.012 chamfer, so the buried ends stay inside). 20 tris a pin.
+FG_PIN_LINK = dict(hx=0.05, inset=0.020, bury=0.010, past=0.025)
+
+
+def _box_shells(obj, boxes):
+    """T256 S4: bake `obj`'s object transform into its mesh, then append axis-aligned boxes as extra shells of the SAME part.
+    boxes = [(lo (x, y, z), hi (x, y, z), dropped face keys "+Z" / "-Z" ...)]. Outward normals; the new faces take the
+    dominant-axis metric projection of _box_uv_bm (the part's own faces keep their UVs)."""
+    me = obj.data
+    me.transform(obj.matrix_basis)
+    obj.matrix_basis = mathutils.Matrix.Identity(4)
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    layer = bm.loops.layers.uv.get("UVMap") or bm.loops.layers.uv.new("UVMap")
+    new = []
+    for lo, hi, drop in boxes:
+        v = {(i, j, k): bm.verts.new((hi[0] if i else lo[0], hi[1] if j else lo[1], hi[2] if k else lo[2]))
+             for i in (0, 1) for j in (0, 1) for k in (0, 1)}
+        quads = {"-X": [(0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 1, 0)], "+X": [(1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1)],
+                 "-Y": [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)], "+Y": [(0, 1, 0), (0, 1, 1), (1, 1, 1), (1, 1, 0)],
+                 "-Z": [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)], "+Z": [(0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)]}
+        cen = mathutils.Vector(((lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0))
+        for key in ("-X", "+X", "-Y", "+Y", "-Z", "+Z"):
+            if key in drop:
+                continue
+            f = bm.faces.new([v[c] for c in quads[key]])
+            f.normal_update()
+            if f.normal.dot(f.calc_center_median() - cen) < 0.0:
+                f.normal_flip()
+            new.append(f)
+    for f in new:
+        f.normal_update()
+        n = f.normal
+        ax = max(range(3), key=lambda i: abs(n[i]))
+        sg = 1.0 if n[ax] >= 0.0 else -1.0
+        for lp in f.loops:
+            c = lp.vert.co
+            lp[layer].uv = (sg * c.y, c.z) if ax == 0 else (-sg * c.x, c.z) if ax == 1 else (sg * c.x, c.y)
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    return obj
+
+
 def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, sheave_r, sheave_w, pin_z, inboard,
                          shift, arm_t=FG_ARM_T, hanger=FG_HANGER, ins=FG_HANGER_INSET, gap=0.015, poke=0.006,
-                         pin_r=0.05, lap_gap=0.010, bogie_low=False, beam=False):
+                         pin_r=0.05, lap_gap=0.010, bogie_low=False, beam=False, prefix="", lap=None,
+                         pin_links=False):
     """
     The Yan rocker tree of ONE lane as two HALF trains hinged on the main pin (lift alignment phase 2 round 2, the
     articulation design note option C). Each half = one 2-wheel bogie (sub rocker, its pivot, two sheave arms, two wheels,
@@ -1030,8 +1082,18 @@ def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, 
     (FG_YOKE: a lug plate rising from the pin into the beam). The bogie pivots float between beam and bogie bar at (main_z +
     sub_z) / 2 as in fg_train_side, the bars at sub_z on sheave arms. Bars, arms and stubs stay in the tree plane inboard of
     the wheels. Returns [(obj, tower material key)].
+
+    T256 (the FG base station's articulated nose train, lift_terminal M_RIG): `prefix` goes in front of every part name
+    (the station's "sheave_hold_" family) and `lap` replaces FG_BEAM_LAP (how far each half beam runs past the main pin; a
+    negative lap stops both beams short of the pin, so a 40 deg fold cannot bring the other half's bogie pin into a beam).
+    The defaults ("" / None) build the towers' tree expression for expression. `pin_links` (T256 S4, beam only, FG_PIN_LINK):
+    each bogie pivot pin hangs in two straps inside its own part (default off = every shipped tree).
     """
+    if pin_links and not beam:
+        raise ValueError("fg_train_side_halves: pin_links needs the beam tree (the pin floats only there)")
     P = []
+    pf = prefix
+    beam_lap = FG_BEAM_LAP if lap is None else lap
     yl = y
     yt = y - s * inboard
     t_sub, t_main, t_hang = arm_t * 0.55, arm_t * 0.7, 0.15
@@ -1039,7 +1101,7 @@ def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, 
     yh = ym - s * (t_main / 2.0 + gap + t_hang / 2.0)
     h_top = main_z + hanger + arm_t / 2.0 - ins
     h_bot = pin_z - pin_r - 0.04
-    P.append((K.add_box(f"hanger_{tag}", (0.16, t_hang, h_top - h_bot), (0.0, yh, (h_top + h_bot) / 2.0)),
+    P.append((K.add_box(f"{pf}hanger_{tag}", (0.16, t_hang, h_top - h_bot), (0.0, yh, (h_top + h_bot) / 2.0)),
               "paint"))
     t_p = (t_main - lap_gap) / 2.0
     am, bm_ = abs(ym) - t_main / 2.0, abs(ym) + t_main / 2.0
@@ -1059,8 +1121,8 @@ def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, 
         g0, g1 = slab[half]
         ya, yb = sorted((s * g0, s * g1))
         if beam:            # the half beam at the shipped height, on the main pin through its rising yoke strap
-            x_in, x_out = -hs * FG_BEAM_LAP, hs * (main_half + shift + 0.20)
-            P.append((K.add_box(f"rocker_main_{tag}_{half}", (abs(x_out - x_in), t_p, 0.15),
+            x_in, x_out = -hs * beam_lap, hs * (main_half + shift + 0.20)
+            P.append((K.add_box(f"{pf}rocker_main_{tag}_{half}", (abs(x_out - x_in), t_p, 0.15),
                                 ((x_in + x_out) / 2.0, s * (g0 + g1) / 2.0, main_z)), "paint"))
             yk = FG_YOKE
             ang = math.radians(yk["ang"])
@@ -1069,30 +1131,37 @@ def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, 
                 zk = ln * math.sin(ang) + zc * yk["r"] * math.cos(ang) - main_z + pin_z
                 if abs(zk) > 0.075 - 0.010:
                     raise ValueError(f"fg_train_side_halves: yoke strap corner {zk:+.3f} off the beam's center line")
-            P.append((lug_plate(f"yoke_{tag}_{half}", 0.0, pin_z, yk["r"], pin_z - yk["r"], pin_z + yk["r"], hs * ln,
+            P.append((lug_plate(f"{pf}yoke_{tag}_{half}", 0.0, pin_z, yk["r"], pin_z - yk["r"], pin_z + yk["r"], hs * ln,
                                 ya + yk["inset"], yb - yk["inset"], segs=yk["segs"], rot=hs * ang), "paint"))
         elif bogie_low:     # the plate drops from its lug on the main pin to the bogie pivot at the axle
-            P.append((drop_plate(f"rocker_main_{tag}_{half}", pin_z, h, axle_z - FG_BOGIE_LOW_BELOW,
+            P.append((drop_plate(f"{pf}rocker_main_{tag}_{half}", pin_z, h, axle_z - FG_BOGIE_LOW_BELOW,
                                  hs * (main_half + shift - FG_BOGIE_LOW_INNER), hs * (main_half + shift + 0.20), ya, yb),
                       "paint"))
         else:
-            P.append((lug_plate(f"rocker_main_{tag}_{half}", 0.0, pin_z, h, pin_z - h, pin_z + h,
+            P.append((lug_plate(f"{pf}rocker_main_{tag}_{half}", 0.0, pin_z, h, pin_z - h, pin_z + h,
                                 hs * (main_half + shift + 0.20), ya, yb), "paint"))
-        P.append((lateral_pin(f"pivot_{tag}_{si}", 0.045, g0 - poke, abs(yt) + t_sub / 2.0 + poke, sx, zp, 6),
-                  "galv"))
-        P.append((K.add_box(f"rocker_sub_{tag}_{si}", (sub_span + 0.30, t_sub, 0.12), (sx, yt, zs)), "paint"))
+        pin = lateral_pin(f"{pf}pivot_{tag}_{si}", 0.045, g0 - poke, abs(yt) + t_sub / 2.0 + poke, sx, zp, 6)
+        if pin_links:       # T256 S4: the upper strap in the half beam's slab, the lower in the bogie bar's slab
+            L = FG_PIN_LINK
+            x0, x1 = sx - L["hx"], sx + L["hx"]
+            u0, u1 = sorted((s * (g0 + L["inset"]), s * (g1 - L["inset"])))
+            b0, b1 = sorted((s * (abs(yt) - t_sub / 2.0 + L["inset"]), s * (abs(yt) + t_sub / 2.0 - L["inset"])))
+            _box_shells(pin, [((x0, u0, zp - 0.045 - L["past"]), (x1, u1, main_z - 0.075 + L["bury"]), ("+Z",)),
+                              ((x0, b0, sub_z + 0.06 - L["bury"]), (x1, b1, zp + 0.045 + L["past"]), ("-Z",))])
+        P.append((pin, "galv"))
+        P.append((K.add_box(f"{pf}rocker_sub_{tag}_{si}", (sub_span + 0.30, t_sub, 0.12), (sx, yt, zs)), "paint"))
         for wtag, wv in (("m", -1.0), ("p", 1.0)):
             wx = sx + wv * sub_span / 2.0
             if not bogie_low:
-                P.append((K.add_box(f"sheave_arm_{tag}_{si}_{wtag}", (0.09, 0.10, 0.26),
+                P.append((K.add_box(f"{pf}sheave_arm_{tag}_{si}_{wtag}", (0.09, 0.10, 0.26),
                                     (wx, yt, (sub_z + axle_z) / 2.0)), "paint"))
-            P += train_wheel(f"sheave_{tag}_{si}_{wtag}_rim", f"liner_{tag}_{si}_{wtag}", sheave_r, sheave_w,
+            P += train_wheel(f"{pf}sheave_{tag}_{si}_{wtag}_rim", f"{pf}liner_{tag}_{si}_{wtag}", sheave_r, sheave_w,
                              (wx, yl, axle_z))
             y0, y1 = yt, yl - s * sheave_w / 2.0
-            P.append((K.add_cyl(f"axlecap_stub_{tag}_{si}_{wtag}", 0.035, abs(y1 - y0),
+            P.append((K.add_cyl(f"{pf}axlecap_stub_{tag}_{si}_{wtag}", 0.035, abs(y1 - y0),
                                 (wx, (y0 + y1) / 2.0, axle_z), (math.radians(90.0), 0.0, 0.0),
                                 segments=6, caps="both"), "galv"))
-    P.append((lateral_pin(f"pivot_main_{tag}", pin_r, abs(yh) - t_hang / 2.0 - poke, bm_ + poke, 0.0, pin_z, 8),
+    P.append((lateral_pin(f"{pf}pivot_main_{tag}", pin_r, abs(yh) - t_hang / 2.0 - poke, bm_ + poke, 0.0, pin_z, 8),
               "galv"))
     return P
 

@@ -70,6 +70,7 @@ namespace SkiResortMod.Settings
         public const bool DefaultGroomers = true;
         public const bool DefaultDiagnosticMeasurements = false;
         public const bool DefaultAnimatedLiftCarriers = true;
+        public const bool DefaultLiftStationRetrofit = true;   // T256 F1: the old-save skeleton retrofit (BoneRetrofitSystem)
         public const bool DefaultQuickRunsEnabled = true;   // T193: the Resort Planner is on by default (DECISIONS 659)
         public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;
         public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;
@@ -420,6 +421,16 @@ namespace SkiResortMod.Settings
         /// <summary>Null-tolerant read for the movers</summary>
         public static bool AnimatedLiftCarriersOn => Mod.Settings?.AnimatedLiftCarriers ?? DefaultAnimatedLiftCarriers;
 
+        /// <summary>T256 F1: at each load, BoneRetrofitSystem gives fixed-grip stations placed before their mesh had bones the skeleton
+        /// their turning bullwheel needs. Off: those stations keep a still bullwheel (the changelog's known-issue fallback); stations
+        /// placed since then turn either way. Read once per load by BoneRetrofitSystem (it takes effect at the next load). Outside the
+        /// save on purpose: a city resaved with the markers loads the same with it off.</summary>
+        [SettingsUISection(SectionMain, GroupLifts)]
+        public bool LiftStationRetrofit { get; set; }
+
+        /// <summary>Null-tolerant read for BoneRetrofitSystem</summary>
+        public static bool LiftStationRetrofitOn => Mod.Settings?.LiftStationRetrofit ?? DefaultLiftStationRetrofit;
+
 
         /// <summary>Measurement scaffolding for field tests, off by default and for every player. It covers the midday measurement re-arm
         /// and the measure-only ResidentAI pass in SkiDaySystem / SkiGuestCounterSystem / SkiLodgeParkingSystem (they force main-thread
@@ -597,6 +608,7 @@ namespace SkiResortMod.Settings
             LiftBuildAids = true;
             LiftTowerPlanner = true;
             AnimatedLiftCarriers = DefaultAnimatedLiftCarriers;
+            LiftStationRetrofit = DefaultLiftStationRetrofit;
             DiagnosticMeasurements = DefaultDiagnosticMeasurements;
             // Key bindings are deliberately absent: the base constructor generated them (ModSetting.cs:43, 56-64) before this runs
         }

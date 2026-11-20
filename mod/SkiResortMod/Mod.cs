@@ -428,6 +428,20 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<TrainPitchSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
             updateSystem.UpdateAfter<TrainBoneSystem, Game.Rendering.InitializeBonesSystem>(SystemUpdatePhase.Rendering);
 
+            // Turning bullwheels (T256). AFTER ChairPinSystem at 4B: it reads the loop cache of this frame (the wheels of each loop, the
+            // rope speed, the hold state) and advances the wheel angles on the mover's clock. The phase must stay Modification4B or the
+            // anchor is skipped. The bone writer runs at Rendering right AFTER InitializeBonesSystem, like the train bones.
+            updateSystem.UpdateAfter<BullwheelSpinSystem, ChairPinSystem>(SystemUpdatePhase.Modification4B);
+            updateSystem.UpdateAfter<BullwheelBoneSystem, Game.Rendering.InitializeBonesSystem>(SystemUpdatePhase.Rendering);
+
+            // Old saves (T256 F1): a station placed before its mesh had bones loads without a skeleton (the archetype comes from the
+            // save). The retrofit adds Skeleton + Bone + BoneHistory once per load, in Deserialize right AFTER vanilla's
+            // RequiredComponentSystem (which adds only BoneHistory) and before the culling / batch post-deserialize steps
+            // (SystemOrder.cs:803, :865, :891). It must stay in the load: a structural add in a running city exited the game.
+            // Its check (no anchor, Modification1 of the main loop, asleep unless a load armed it) logs one OK or WARN line.
+            updateSystem.UpdateAfter<BoneRetrofitSystem, Game.Serialization.RequiredComponentSystem>(SystemUpdatePhase.Deserialize);
+            updateSystem.UpdateAt<BoneRetrofitVerifySystem>(SystemUpdatePhase.Modification1);
+
             // Low spans (hub row LiftLowSpan). AFTER the census at 4B for the same reason as the trains: the rope lanes LaneSystem built at
             // Modification4 are this frame's. The phase must stay Modification4B or the anchor is skipped.
             updateSystem.UpdateAfter<LiftClearanceSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);

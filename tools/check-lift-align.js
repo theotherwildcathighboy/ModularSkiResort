@@ -20,6 +20,10 @@
 //   BONEROOT  every owned skinned mesh's root bone is identity (rotation 0,0,0,1, scale 1).
 //             The import gives it the FBX scene conversion, and the game composes it into every skin matrix.
 //             Bug class: the rig probe drew turned and 100x.
+//   OURBONES  (T256) every bone our code writes (TrainFront* / TrainBack* / Head* / NoseTrain* / Bullwheel*) is type 0 (None) with an
+//             identity rest rotation, and every LOD mesh of the asset carries the same bones of ours.
+//             Bug classes: a bone left on a vanilla rotating type spins on its own against our pose; a LOD without the bones draws
+//             frozen at rest while LOD0 moves.
 //   CARRIERPASS the lift-line tool keeps the carriers and their grips passable for its whole session
 //             (LiftLineToolSystem start / stop / station hooks, the grip list).
 //             Bug classes:
@@ -258,7 +262,15 @@ const NUM = '(-?[0-9.]+(?:E[-+]?[0-9]+)?)';
 const TYPE = '"\\$type":\\s*(?:"[^"]*"|\\d+),\\s*';
 const boneRe = new RegExp('"name":\\s*"([^"]+)",\\s*"position":\\s*\\{[^}]*\\},\\s*"rotation":\\s*\\{\\s*' + TYPE +
     `${NUM},\\s*${NUM},\\s*${NUM},\\s*${NUM}\\s*\\},\\s*"scale":\\s*\\{\\s*${TYPE}${NUM},\\s*${NUM},\\s*${NUM}\\s*\\}` +
-    '[\\s\\S]*?"parentId":\\s*(-?\\d+)', 'gi');
+    '[\\s\\S]*?"parentId":\\s*(-?\\d+)(?:,\\s*"m_Type":\\s*(\\d+))?', 'gi');
+// OURBONES (T256): a bone that our code writes (TrainPitchSystem: TrainFront* / TrainBack* / Head* / NoseTrain*, BullwheelSpinSystem:
+// Bullwheel*) has bone type 0 (None) and an identity rest rotation. Vanilla animates every other type each frame
+// (ObjectInterpolateSystem.cs:796-1056) and would fight our pose; the code turns a bone about its own axis on top of the rest rotation,
+// and the art contract is an identity rest. Every LOD mesh of the asset carries the same bones of ours (a LOD without them draws
+// frozen at rest while LOD0 moves). Bug class: a re-import keeps m_Type by bone name only when the prefab already had the component
+// (AssetImportPipeline.cs:2407-2418); a renamed bone comes back as a new one, and a probe left on PoweredRotation spins on its own.
+const OUR_BONE = /^(TrainFront|TrainBack|Head|NoseTrain|Bullwheel)/;
+const ourBonesByMesh = new Map();   // "<dir>|<asset base name>" -> { lod0: Set | null, lods: [[file, Set]] }
 function* ownedPrefabs(dir, top) {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
         if (top && !(e.isDirectory() && (e.name.startsWith('Ski') || e.name === LIB))) continue;
@@ -272,13 +284,49 @@ for (const f of ownedPrefabs(root, true)) {
     const text = fs.readFileSync(f, 'utf8');
     if (!text.includes('Game.Prefabs.ProceduralAnimationProperties')) continue;
     skinned++;
+    const ours = new Set();
     for (const m of text.matchAll(boneRe)) {
-        if (Number(m[9]) !== -1) continue;
         const [qx, qy, qz, qw, sx, sy, sz] = m.slice(2, 9).map(Number);
+        if (OUR_BONE.test(m[1])) {
+            ours.add(m[1]);
+            if (m[10] === undefined || Number(m[10]) !== 0)
+                fail('OURBONES', `${path.relative(root, f)}: bone ${m[1]} has m_Type ${m[10] === undefined ? '(not found)' : m[10]}; a bone our code ` +
+                     'writes is type 0 (None)');
+            if (Math.abs(qx) > 1e-4 || Math.abs(qy) > 1e-4 || Math.abs(qz) > 1e-4 || Math.abs(qw - 1) > 1e-4)
+                fail('OURBONES', `${path.relative(root, f)}: bone ${m[1]} rest rotation (${qx}, ${qy}, ${qz}, ${qw}); the art contract is identity`);
+        }
+        if (Number(m[9]) !== -1) continue;
         if (Math.abs(qx) > 1e-4 || Math.abs(qy) > 1e-4 || Math.abs(qz) > 1e-4 || Math.abs(qw - 1) > 1e-4 ||
             Math.abs(sx - 1) > 1e-4 || Math.abs(sy - 1) > 1e-4 || Math.abs(sz - 1) > 1e-4)
             fail('BONEROOT', `${path.relative(root, f)}: root bone ${m[1]} rotation (${qx}, ${qy}, ${qz}, ${qw}) scale (${sx}, ${sy}, ${sz}); ` +
                  'set it to (0, 0, 0, 1) and (1, 1, 1) after the import (the bind poses assume identity)');
+    }
+    // group the meshes of one asset: "<Name> Mesh_<hash>.Prefab" is LOD0, "<Name>_LOD<n> Mesh_<hash>.Prefab" its LODs
+    const fm = path.basename(f).match(/^(.*?)(_LOD\d+)? Mesh(?:_[0-9a-f]+)?\.Prefab$/i);
+    if (fm) {
+        const key = path.dirname(f) + '|' + fm[1];
+        if (!ourBonesByMesh.has(key)) ourBonesByMesh.set(key, { lod0: null, lods: [], dir: path.dirname(f), name: fm[1] });
+        if (fm[2]) ourBonesByMesh.get(key).lods.push([f, ours]);
+        else ourBonesByMesh.get(key).lod0 = ours;
+    }
+}
+let ourBoneMeshes = 0, wheelMeshes = 0, noseMeshes = 0;
+for (const g of ourBonesByMesh.values()) {
+    if (!g.lod0 || g.lod0.size === 0) continue;
+    ourBoneMeshes++;
+    if ([...g.lod0].some(n => n.startsWith('Bullwheel'))) wheelMeshes++;
+    if ([...g.lod0].some(n => n.startsWith('NoseTrain'))) noseMeshes++;
+    // a LOD mesh prefab of the asset with no ProceduralAnimationProperties at all never reached g.lods: find it on disk
+    const lodFiles = fs.readdirSync(g.dir).filter(n => n.startsWith(g.name + '_LOD') && /_LOD\d+ Mesh(?:_[0-9a-f]+)?\.Prefab$/i.test(n));
+    for (const n of lodFiles)
+        if (!g.lods.some(([f]) => path.basename(f) === n))
+            fail('OURBONES', `${path.relative(root, path.join(g.dir, n))}: no ProceduralAnimationProperties, but LOD0 has bones of ours ` +
+                 `(${[...g.lod0].join(', ')}): this LOD draws frozen at rest`);
+    for (const [f, set] of g.lods) {
+        const missing = [...g.lod0].filter(n => !set.has(n)), extra = [...set].filter(n => !g.lod0.has(n));
+        if (missing.length || extra.length)
+            fail('OURBONES', `${path.relative(root, f)}: its bones differ from LOD0's (missing ${missing.join(', ') || 'none'}; extra ` +
+                 `${extra.join(', ') || 'none'}): every LOD carries the same bones of ours`);
     }
 }
 
@@ -522,5 +570,6 @@ if (failures.length) {
     process.exit(failures.length);
 }
 console.log(`check-lift-align: OK (PINDROP ${pinScanned} systems, ROPELANE ${ropeFiles} prefabs in ${groups.length} lift types, ` +
-            `BONEROOT ${skinned} skinned meshes under ${path.relative(repo, root) || root}, CARRIERPASS ${passRules.length} tool hooks, ` +
+            `BONEROOT ${skinned} skinned meshes under ${path.relative(repo, root) || root}, OURBONES ${ourBoneMeshes} assets with bones of ` +
+            `ours (${wheelMeshes} with a bullwheel, ${noseMeshes} with a nose train), CARRIERPASS ${passRules.length} tool hooks, ` +
             `${ladder.summary}, MANIFESTSHA ${shaRes.checked} re-frozen manifests pinned, ${shaRes.snapshots} import-time snapshots skipped)`);

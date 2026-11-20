@@ -1133,6 +1133,7 @@ namespace SkiResortMod.Systems
         private void BuildLoopCache()
         {
             m_LoopCacheDirty = false;
+            WheelBuilds++;   // BullwheelSpinSystem re-reads its wheels (ChairPinSystem.Wheels.cs)
             long rebuildT0 = System.Diagnostics.Stopwatch.GetTimestamp();
             m_RebuildFresh.Clear();
 

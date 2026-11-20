@@ -101,6 +101,8 @@
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.LiftTowerPlanner]": "After you draw or change a lift line, the mod raises its towers and moves them along the line. Chairs and cabins then stay at least 3 m (10 ft) above the ground (trams 5 m, 16 ft). Off: the towers stay where the game puts them. Default on.",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.AnimatedLiftCarriers]": "Animated lift carriers",
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.AnimatedLiftCarriers]": "Grips follow the slope of the rope, and chairs and cabins swing in the wind. Off: they hang level and still. Default on.",
+  "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.LiftStationRetrofit]": "Moving parts for older lift stations",
+  "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.LiftStationRetrofit]": "When a city loads, fixed-grip chairlift stations built before version 1.0.4 get what their turning bullwheel needs. Off: those stations keep a still bullwheel, and newer ones turn either way. Takes effect at the next load. Default on.",
   "Options.GROUP[SkiResortMod.SkiResortMod.Mod.Diagnostics]": "Diagnostics",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.DiagnosticMeasurements]": "Measurement diagnostics",
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.DiagnosticMeasurements]": "For field tests, off by default. Turns on extra measurements that cost a little frame time (a daily ski-day measurement pass and the Ctrl+Alt+G slope capture file). Leave it off for normal play. Default off.",
