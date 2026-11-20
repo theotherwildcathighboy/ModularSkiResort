@@ -1011,14 +1011,9 @@ GD_TEXPASS_SCANS = {
 GD_TEXPASS_ASPECT = {"concrete": 2.0}
 # the rubble scan needs texels (stones of 0.15-0.40 m). The soffit boards are 0.17 m
 GD_TEXPASS_DENSITY = {"stonebase_": 1.3, "eavesof_": 0.8}
-# The cs2_uv pack switches (lead-owned proposal) under the pass: name -> (PACK_SHAPE, PACK_BAND_ISOTROPIC). Flag off =
-# ("AABB", False), the shipped layout. Measured on the base at 512 (blockouts, the coverage line of cs2_uv._pack_layout):
-# aabb 17.8 %, concave 18.0 %, aabb-iso 16.9 %, concave-iso 16.9 % of the square. The pack is margin-bound (thin
-# islands between gutters): the concave shape gains 1 %, square band texels cost 5 %. So the pass keeps the shipped pack
-# by default, and it then runs unchanged with or without the cs2_uv proposal (unknown attributes are never read)
-GD_TEXPASS_PACKS = {"concave-iso": ("CONCAVE", True), "aabb-iso": ("AABB", True), "concave": ("CONCAVE", False),
-                    "aabb": ("AABB", False)}
-GD_TEXPASS_PACK = "aabb"
+# The pass keeps the shipped cs2_uv pack. Measured on the base at 512 (blockouts with a pack-shape proposal, since
+# dropped): aabb 17.8 %, concave 18.0 %, aabb with square band texels 16.9 %, concave with them 16.9 % of the square.
+# The pack is margin-bound (thin islands between gutters): a concave shape gains 1 %, square band texels cost 5 %
 # Identity proposals: part prefix -> material key (first match wins). Keys live in GD_IDENTITY_MATERIALS.
 # "skin": the roof, the gable fascias, the ring beams and the entry canopies leave slot 1 (the steel frame) for slot 2,
 # which no gondola station part uses today (pad2 has no part). The station then has a SKIN color apart from its frame.
@@ -9161,14 +9156,11 @@ def parse_args(argv=None):
                          "board since 2026-10-12); default = the fine-detail pass (FINE_DETAIL)")
     ap.add_argument("--texpass", choices=("off", "v1"), default="off",
                     help="r4 texture pass (gondola stations): v1 = the lodges' stone and timber scans on the plinth and "
-                         "soffits, square concrete tiles, standing-seam ribs, density weights (the shipped pack unless "
-                         "--gd-pack); off = the shipped station byte for byte")
+                         "soffits, square concrete tiles, standing-seam ribs, density weights (the shipped "
+                         "pack); off = the shipped station byte for byte")
     ap.add_argument("--gd-identity", choices=sorted(GD_IDENTITY_REMAP), default=None, dest="gd_identity",
                     help="station identity proposal (needs --texpass v1): material keys per GD_IDENTITY_REMAP; "
                          "default = the shipped slots")
-    ap.add_argument("--gd-pack", choices=sorted(GD_TEXPASS_PACKS), default=GD_TEXPASS_PACK, dest="gd_pack",
-                    help="texture pass v1 only: the cs2_uv pack switches (shape + square texels in the band); "
-                         f"default {GD_TEXPASS_PACK}. Measurement option: the blockouts compare them")
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
                     help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel on the top's nose train (the GD "
                          "head too: the round-3 wheel); v1 = the pre-T62 wheels byte for byte")
@@ -9291,10 +9283,6 @@ def main(argv=None):
         raise SystemExit("--gd-identity needs --gondola --texpass v1")
     if TEXPASS and not args.gondola:
         raise SystemExit("--texpass v1 covers the gondola stations only in this file (the DQ path has its own pass)")
-    # the pack switches of the pass (cs2_uv proposal). Reset on every run: tests call main() in-process
-    if args.gd_pack != GD_TEXPASS_PACK and not TEXPASS:
-        raise SystemExit("--gd-pack needs --texpass v1")
-    cs2_uv.PACK_SHAPE, cs2_uv.PACK_BAND_ISOTROPIC = GD_TEXPASS_PACKS[args.gd_pack] if TEXPASS else ("AABB", False)
     ROPE_ON_CROWN = bool(args.rope_on_crown)     # T27: every run follows its own args (tests call main() in-process)
     BASE_NOSE_TRAIN = bool(args.no_hosted_tower)
     ROPE_R = THIN_ROPE_R if args.thin_rope else ROPE_R_SHIPPED   # every run follows its args (tests call main())
@@ -9618,8 +9606,6 @@ def main(argv=None):
                             "(build/gondola-stations-rev1.md)"} if g1 else {}),
         "finish": "shipping" if args.finish else "blockout",
         **({"texpass": {"pass": TEXPASS, "identity": GD_IDENTITY, "scans": {k: v[0] for k, v in GD_TEXPASS_SCANS.items()},
-                        "pack": args.gd_pack, "pack_shape": cs2_uv.PACK_SHAPE,
-                        "band_isotropic": cs2_uv.PACK_BAND_ISOTROPIC,
                         "tiles_m": {k: v[1] for k, v in GD_TEXPASS_SCANS.items()}}}
            if TEXPASS else {}),
         "atlas_px": A, "ao_samples": ao, "pack_margin_px": margin,

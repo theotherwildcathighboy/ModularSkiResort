@@ -5472,9 +5472,6 @@ def parse_args(argv=None):
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
                     help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel (round 3: the 16-segment "
                          "grooved wheel) on the haul rollers and the lattice GD head; v1 = the pre-T62 sheave_lite wheels byte for byte")
-    ap.add_argument("--texpass", choices=("off", "v1"), default="off",
-                    help="r4 texture pass, GONDOLA lattices only: v1 = concave island packing (cs2_uv.PACK_SHAPE, the "
-                         "lattice atlas is margin-bound); off = the shipped towers byte for byte")
     ap.add_argument("--lineup", action="store_true",
                     help="only re-render the family lineup from the exported asset folders")
     ap.add_argument("--skinned", action="store_true",
@@ -5510,10 +5507,6 @@ def main():
     # the wheel dress (materials only on the tram, 0 tris): on by default for skinned builds
     cs2_sheaves.set_wheel_dress(args.skinned if args.wheel_dress is None else args.wheel_dress)
     set_skinned(args.skinned)                # phase 2: before any part is built
-    if args.texpass != "off" and args.family != "gondola":
-        raise SystemExit("--texpass v1 covers the gondola lattices only in this file")
-    import cs2_uv
-    cs2_uv.PACK_SHAPE = "CONCAVE" if args.texpass == "v1" else "AABB"      # r4: every run follows its own args
     _rows, drift = load_catalog()
     if args.lineup:
         clear_scene()

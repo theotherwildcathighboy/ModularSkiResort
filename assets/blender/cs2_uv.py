@@ -71,15 +71,6 @@ BAND_GUARD = 0.005      # lift_tower's guard between the packed band and a reser
 BOUNDS_TOL = 1e-6
 ZERO_ISLAND_AREA = 1e-9
 COLLAPSE_RATIO = 1e-3   # check_layout: an island under ZERO_ISLAND_AREA is collapsed below this x the layout's UV per m2
-# r4 texture pass (PROPOSAL): two pack switches. The defaults reproduce every shipped layout bit for bit. A generator
-# sets them for ONE build (under its --texpass flag) and resets them after it.
-# - PACK_SHAPE: the shape pack_islands gives an island. "AABB" (shipped) wastes the box of every L / U / diagonal island,
-#   "CONCAVE" packs the real outline (holes and notches take small islands).
-# - PACK_BAND_ISOTROPIC: the reserved-free band squeeze scales v only, so a layout with a reserved strip of height h ships
-#   v density = (1 - h) x u density. True pre-stretches v by 1 / (band height) before the pack: the squeeze restores
-#   square texels.
-PACK_SHAPE = "AABB"
-PACK_BAND_ISOTROPIC = False
 
 
 # --------------------------------------------------------------------------------------
@@ -424,23 +415,14 @@ def _pack_layout(obj, mesh, A, reserved, margin_px=None, equalise=True,
     layer = mesh.uv_layers[UNIQUE_LAYER]           # mode switches invalidate the handle
     weights = face_density_weights(mesh, density_layer)
     n_scaled = _scale_islands_by_weight(mesh, layer, hold, weights)
-    lo, hi = free_v_band(reserved) if reserved else (0.0, 1.0)
-    if PACK_BAND_ISOTROPIC and reserved and (hi - lo) < 1.0:
-        # r4 proposal: the pack sees every free island 1 / (hi - lo) taller, the squeeze below undoes it (square texels)
-        uv = loop_uvs(layer)
-        start, total = face_loop_table(mesh)
-        free = np.ones(len(uv), dtype=bool)
-        for i in hold:
-            free[start[i]:start[i] + total[i]] = False
-        uv[free, 1] /= (hi - lo)
-        set_loop_uvs(layer, uv)
     # 4. ONE pack pass, no rotation (the EMIT rebake keeps texel vectors as they are)
     _select_unpinned(obj, mesh, hold)
     bpy.ops.uv.pack_islands(rotate=False, scale=True, margin_method="FRACTION",
-                            margin=margin_px / float(A), shape_method=PACK_SHAPE)
+                            margin=margin_px / float(A), shape_method="AABB")
     bpy.ops.object.mode_set(mode="OBJECT")
     # 5. squeeze into the tallest reserved-free v-band
     layer = mesh.uv_layers[UNIQUE_LAYER]
+    lo, hi = free_v_band(reserved) if reserved else (0.0, 1.0)
     if reserved:
         _squeeze_into_band(mesh, layer, hold, lo, hi)
     # 5b. bay sharing: every dup loop takes its canonical loop's packed UV
@@ -474,14 +456,6 @@ def _pack_layout(obj, mesh, A, reserved, margin_px=None, equalise=True,
           f"pinned faces) @ {A}, margin {margin_px} px, band v {lo:.3f}..{hi:.3f}, "
           f"px/m min {report['px_per_m']['min']:.0f} / med {report['px_per_m']['median']:.0f}"
           f" / max {report['px_per_m']['max']:.0f}")
-    # r4: how much of the square the free (non-pinned, non-shared) faces fill. A log line only: the report dict, and
-    # every manifest that embeds it, keeps its keys
-    ua = np.abs(face_uv_areas(mesh, loop_uvs(mesh.uv_layers[UNIQUE_LAYER])))
-    keep = np.ones(len(ua), dtype=bool)
-    for i in hold:
-        keep[i] = False
-    print(f"[uv] {obj.name}: coverage {100.0 * float(ua[keep].sum()):.1f} % of the square on {int(keep.sum())} free "
-          f"faces (shape {PACK_SHAPE}, band isotropic {PACK_BAND_ISOTROPIC})")
     return report
 
 
