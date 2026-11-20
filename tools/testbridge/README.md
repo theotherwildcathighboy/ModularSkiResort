@@ -25,7 +25,8 @@ on a black screen.
 
 Start it with `tools/start-game.ps1`. It first copies the previous start's logs (Player.log, Logs\*.log) to
 `<game user data>\LogArchive\<time>_<label>\`, because every start overwrites them. Then it starts the game as below. It keeps
-the last 40 archive folders. `-NoStart` only archives (exit 1 = the game already runs).
+the last 40 archive folders. `-NoStart` only archives (exit 1 = the game already runs). `-Editor` starts the Editor
+(`--startEditor`, for imports and the `package` op).
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/start-game.ps1 -Label "<session> <why>"

@@ -5,12 +5,14 @@
 #   -Label   who starts it and why (folder name part), for example "r4-tex import Q"
 #   -NoStart only archive (for example right after the game exits)
 #   -Keep    archive folders kept (oldest are deleted first), default 40
+#   -Editor  start in the Editor (adds --startEditor; Editor imports and the bridge `package` op need it)
 # Archive: <game user data>\LogArchive\<yyyyMMdd-HHmmss>_<label>\ with the top-level *.log (Player.log, Player-prev.log), Logs\*.log
 # (Modding.log, SkiResortMod.Mod.log, SceneFlow.log, the other mods' logs) and START.txt (label, world status).
 # Exit 0 = archived (and started), 1 = Cities2 already runs, 2 = no logs and nothing to do.
 param(
     [string]$Label = 'start',
     [switch]$NoStart,
+    [switch]$Editor,
     [int]$Keep = 40
 )
 $ErrorActionPreference = 'Stop'
@@ -57,6 +59,9 @@ if ($NoStart) { exit 0 }
 
 $env:SteamAppId = '949230'; $env:SteamGameId = '949230'; $env:SteamOverlayGameId = '949230'
 $g = 'C:\Program Files (x86)\Steam\steamapps\common\Cities Skylines II'
-Start-Process -FilePath "$g\Cities2.exe" -WorkingDirectory $g -ArgumentList '--developerMode', '--uiDeveloperMode' | Out-Null
-Write-Output 'start-game: Cities2 started (port 9444 opens after 1 to 2 minutes; then testbridge\wait-ready.ps1)'
+$gameArgs = @('--developerMode', '--uiDeveloperMode')
+if ($Editor) { $gameArgs += '--startEditor' }
+Start-Process -FilePath "$g\Cities2.exe" -WorkingDirectory $g -ArgumentList $gameArgs | Out-Null
+if ($Editor) { Write-Output 'start-game: Cities2 started in the Editor (wait for "Workspace" in the UI; the first 9444 reply comes earlier)' }
+else { Write-Output 'start-game: Cities2 started (port 9444 opens after 1 to 2 minutes; then testbridge\wait-ready.ps1)' }
 exit 0
