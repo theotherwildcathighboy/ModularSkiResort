@@ -24,7 +24,9 @@ Gates (the pilot's lessons, made mechanical):
       sills and raises on a prefix that is not a sill_ or matches no part; _write_manifest copies its result key
       (texpass_drip_skip, as P15's texpass_mat); each recipe that opts in names its real
       sills (L1's loft pair, a 0.7 m strip that ends mid-gable; the hut's attic pairs and L3's Mass B gable window,
-      a strip that runs off the shingle gable onto the boards below: each read as a hard rectangle under the window);
+      a strip that runs off the shingle gable onto the boards below: each read as a hard rectangle under the window; the
+      strip gate's find, P16: L4's balcony door ubf1, whose strip ran from the walnut 0.55 m down onto the stone under
+      the balcony slab);
   P5  lodge.texpass_weather: the hut recipe's grade in the tiled frame matches the authoring grade through
       cs2_asset.orient_for_net; eave_h overrides every side; band_skip and drip_skip carried; a yawed recipe raises;
       None stays None;
@@ -70,7 +72,13 @@ Gates (the pilot's lessons, made mechanical):
   P11 far sources: texpass_far_specs runs the same controls on the prefiltered far sources (the far bake drew the raw
       scan): the deck's low frequency halves at least and its mean x tint stays on the palette, the normal-only keys
       keep their color bytes and tint, lux_slate takes slate's controls, a key outside the pass and the off state are
-      untouched.
+      untouched;
+  P16 strip gate: cs2_tilesheet.audit_strips on P4d's wall after tile_mesh (the plan from LAST_STRIPS, each strip
+      named by its sill): both strips lie on the timber wall over their full height and pass in RAISE mode; a planted
+      strip moved 1.1 m down (its bottom 0.3 m on the stone plinth: an overrun) and one moved 2.5 m along the wall
+      (0.64 m past its end: in the air) are reported with those lengths and RAISE; "report" mode only reports; a
+      STRIP_ALLOW line makes a strip "allowed" (flag "off": only with the pass off, the same strip under v1 raises; a
+      bad flag fails); lodge.py runs the gate after the weather ladder.
 Exit 1 on the first failure; one PASS line otherwise.
 """
 
@@ -339,7 +347,8 @@ def check_band_skip():
 # recipe.texpass drip_skip: the sills each opted recipe skips (lodge.texpass_drip_skip on its real parts)
 DRIP_SKIP_SILLS = {"L1": ["sill_LoftN", "sill_LoftS"],
                    "L2": ["sill_aE0", "sill_aE1", "sill_aW0", "sill_aW1"],
-                   "L3": ["sill_bSa"]}
+                   "L3": ["sill_bSa"],
+                   "L4": ["sill_ubf1"]}
 
 
 def check_drip_skip():
@@ -392,7 +401,8 @@ def check_drip_skip():
     assert '"texpass_drip_skip"' in mkeys, "_write_manifest drops result['texpass_drip_skip']"
     ok(f"P4d drip_skip: two sills hang a strip each ({both['tris']} tris); drip_skip (\"sill_b\",) keeps sill_a's "
        f"strip and every other face ({one['tris']} tris); no ladder step sets it; a non-sill or dead prefix raises; "
-       f"manifest key texpass_drip_skip; opted {', '.join(f'{k} {len(v)} sills' for k, v in sorted(got.items()))}")
+       f"manifest key texpass_drip_skip; opted "
+       f"{', '.join(f'{k} {len(v)} sill' + ('' if len(v) == 1 else 's') for k, v in sorted(got.items()))}")
 
 
 def check_texpass_weather():
@@ -872,6 +882,65 @@ def check_far_units():
        f"pack equal flag-off bit for bit; the sampling layer carries the pass's units")
 
 
+def check_strip_gate():
+    """r4/tex 2026-11-20: audit_strips on the P4d wall (timber_lap z 0..3 over a stone_rubble plinth, sills on the -X
+    face at y 1.0..2.2 and 5.0..6.2, bottom z 1.5: strips z 0.8..1.495)."""
+    mode, allow = TS.STRIP_AUDIT_MODE, TS.STRIP_ALLOW
+    try:
+        obj, uvt, keys = scene(sills=True)
+        lay = layout()
+        TS.tile_mesh(obj, uvt, keys, lay, weather=dataclasses.replace(bare(), sill_drips=True),
+                     flat_prefixes=TS.FLAT_DETAIL_PREFIXES)
+        plan = [dict(r) for r in TS.LAST_STRIPS["plan"]]
+        assert sorted(r["part"] for r in plan if r["rule"] == "sill_drip") == ["sill_a", "sill_b"], plan
+        TS.STRIP_ALLOW = ()
+        TS.STRIP_AUDIT_MODE = "raise"
+        a = TS.audit_strips(obj, keys, lay, "T", texpass="v1")
+        assert a["strips"] == 2 and len(a["judged"]) == 2 and not a["hits"], a
+        moved = {"sill_a": np.array((0.0, 0.0, -1.1)), "sill_b": np.array((0.0, 2.5, 0.0))}
+        bad = [dict(r, quad=r["quad"] + moved[r["part"]]) if r["part"] in moved else r for r in plan]
+
+        def audit(tp="v1"):
+            return TS.audit_strips(obj, keys, lay, "T", texpass=tp, plan=bad)
+
+        def raises(tp="v1", what=RuntimeError):
+            try:
+                audit(tp)
+            except what as e:
+                return str(e)
+            raise AssertionError(f"audit_strips did not raise {what.__name__} (texpass {tp})")
+        TS.STRIP_AUDIT_MODE = "report"
+        a = audit()
+        h = {r["part"]: r for r in a["hits"]}
+        assert sorted(h) == ["sill_a", "sill_b"], a
+        assert 0.28 <= h["sill_a"]["over_m"] <= 0.36 and h["sill_a"]["air_m"] == 0.0, h["sill_a"]
+        assert any(k.startswith("stone_rubble") for k in h["sill_a"]["behind"]), h["sill_a"]
+        assert 0.6 <= h["sill_b"]["air_m"] <= 0.7, h["sill_b"]
+        TS.STRIP_AUDIT_MODE = "raise"
+        msg = raises()
+        assert "2 sill-drip strip(s) off their host wall" in msg and "sill_a" in msg and "sill_b" in msg, msg
+        TS.STRIP_ALLOW = (("T", "sill_a", "test: an accepted overrun"),)                    # no flag: any pass
+        assert "sill_a" not in raises() and "1 sill-drip strip(s)" in raises()
+        TS.STRIP_ALLOW = (("T", "sill_", "test: shipped geometry the pass fixes", "off"),)
+        a = audit("off")
+        assert not a["hits"] and [r["part"] for r in a["allowed"]] == ["sill_a", "sill_b"], a
+        assert a["allowed"][0]["reason"] == "test: shipped geometry the pass fixes", a
+        assert "2 sill-drip strip(s)" in raises("v1")                # the same strips in a v1 build still raise
+        TS.STRIP_ALLOW = (("T", "sill_a", "test: a bad flag", "v9"),)
+        assert "STRIP_ALLOW" in raises(what=ValueError)
+    finally:
+        TS.STRIP_AUDIT_MODE, TS.STRIP_ALLOW = mode, allow
+        clear()
+    with open(lodge.__file__, encoding="utf-8") as fh:
+        src = fh.read()
+    call = 'TS.audit_strips(lod0, sorted(keys), layout, recipe.key, texpass=getattr(args, "texpass", "off"))'
+    assert call in src, "lodge.py does not run the strip gate with its pass"
+    ok(f"P16 strip gate: P4d's two strips pass in RAISE mode; planted, sill_a's runs {h['sill_a']['over_m']} m onto "
+       f"the stone plinth and sill_b's hangs {h['sill_b']['air_m']} m in the air past the wall's end: both reported, "
+       f"both RAISE; a STRIP_ALLOW line makes one \"allowed\" (flag \"off\": only with the pass off, v1 raises; a "
+       f"bad flag fails); lodge.py runs the gate after the ladder")
+
+
 def main():
     check_provenance()
     check_cut_grid_and_round_trip()
@@ -889,6 +958,7 @@ def main():
     check_far_units()
     check_low_frequency()
     check_far_sources()
+    check_strip_gate()
     print(f"PASS test_texpass: {len(CHECKS)} checks")
 
 

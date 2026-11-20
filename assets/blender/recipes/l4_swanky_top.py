@@ -920,9 +920,11 @@ RECIPE = FineRecipe(
     # quoins (0.40 m blocks, 0.05 m proud) draw concrete under the pass. On the D2 fieldstone a block held 5-6 small
     # stones and read as more rubble; concrete is a calm neutral gray (sRGB 0.565, luminance CoV 0.060), one step
     # lighter than the wall (0.43), the way dressed quoins sit on rubble, and L5's pier-cap key. Flag off keeps
-    # stone_rubble (lodge.texpass_rules is {} there)
+    # stone_rubble (lodge.texpass_rules is {} there). drip_skip: the balcony door ubf1 hangs no sill-drip strip. Under
+    # the pass its sill stands on the belt, so the strip took the walnut and ran 0.55 m down onto the stone: a walnut
+    # rectangle under the balcony slab (cs2_tilesheet.audit_strips, r4/tex 2026-11-20; LOD0 13,015 -> 13,013)
     texpass={"grade": {"slope": S_DESIGN, "anchor_x": HX}, "eave_h": 0.0,
-             "band_skip": ("deck_s", "deck_dslab", "stair_"), "weather_level": 0,
+             "band_skip": ("deck_s", "deck_dslab", "stair_"), "drip_skip": ("sill_ubf1",), "weather_level": 0,
              "mat": {"trim_uquoins": "concrete"}},
     massing="custom", builder=build_l4,
     rooms="auto", interior="CommercialLow",

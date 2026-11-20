@@ -2696,6 +2696,10 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
               f"(cap {cap})")
         if tm["tris_after"] <= cap:
             break
+    # r4/tex 2026-11-20: the strip gate (cs2_tilesheet.audit_strips): every sill-drip strip of the accepted weather
+    # level lies on its host wall over its full height, on the punched mesh; RAISES. Read-only: nothing it does reaches
+    # the mesh or the manifest
+    TS.audit_strips(lod0, sorted(keys), layout, recipe.key, texpass=getattr(args, "texpass", "off"))
     assert_texpass_level(name, tp, tried[-1]["level"], tm["tris_after"], cap)
     if tcfg and tcfg["seg_m"]:
         # T70 segment cuts (opt-in, A/B / --trim v2 only) pay tris. Measure them against the UNCUT strip map run through the

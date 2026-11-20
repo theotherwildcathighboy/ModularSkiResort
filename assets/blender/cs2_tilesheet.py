@@ -2730,8 +2730,15 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
                     edge_pts.setdefault((ea, eb), {})[round(tt, 7)] = vi_
     # -- decal strips (sill drips, door thresholds): separate quads, never welded ---------
     strips = []
+    LAST_STRIPS["plan"] = []
     if wctx is not None:
         strips = _plan_strips(wctx, Vw, tris, fpart, part_name, weather, ground_band)
+        # r4/tex 2026-11-20: the plan the strip gate judges (audit_strips, on the punched mesh after the ladder)
+        names = getattr(strips, "names", None)
+        names = names if names is not None and len(names) == len(strips) else [None] * len(strips)
+        LAST_STRIPS["plan"] = [{"rule": rule, "part": nm, "host": part_name(int(fpart[ti_h])), "wkey": wctx.wkey[ti_h],
+                                "quad": np.array(q, np.float64), "n": np.array(wctx.n[ti_h], np.float64),
+                                "offset": float(weather.strip_offset)} for (q, ti_h, rule), nm in zip(strips, names)]
         Minv = np.linalg.inv(Mw)
         for sid, (Pw4, ti_h, rule) in enumerate(strips):
             Ph = Vw[list(tris[ti_h])]
@@ -2869,10 +2876,11 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
 def _plan_strips(wctx, Vw, tris, fpart, part_name, R, ground_band):
     """[(world quad (4,3) CCW seen from outside, host tri index, rule)] for sill drips and
     door thresholds. A strip is kept only when every corner has its host plane right behind
-    (below) it, so it never overhangs an edge."""
+    (below) it, so it never overhangs an edge. The list's .names holds each strip's sill part (None for a threshold),
+    for the strip gate (audit_strips)."""
     from mathutils import Vector
     bvh = wctx.bvh
-    out = []
+    out = _Strips()
     by_part = {}
     for i, p in enumerate(fpart):
         by_part.setdefault(int(p), []).append(i)
@@ -2939,6 +2947,7 @@ def _plan_strips(wctx, Vw, tris, fpart, part_name, R, ground_band):
             if float(np.dot(np.cross(quad[1] - quad[0], quad[2] - quad[0]), out_dir)) < 0:
                 quad = quad[::-1]
             out.append((quad, ti_h, "sill_drip"))
+            out.names.append(nm)
     if R.thresholds:
         doors = [(p, idx) for p, idx in sorted(by_part.items()) if part_name(p).startswith("door_")]
         groups = []
@@ -2988,6 +2997,172 @@ def _plan_strips(wctx, Vw, tris, fpart, part_name, R, ground_band):
             if np.cross(quad[1] - quad[0], quad[2] - quad[0])[2] < 0:
                 quad = quad[::-1]
             out.append((quad, ti_h, "threshold"))
+            out.names.append(None)
+    return out
+
+
+class _Strips(list):
+    """_plan_strips' result: [(quad, host tri, rule)] with .names, each strip's source part (the sill; None for a
+    threshold)."""
+
+    def __init__(self):
+        super().__init__()
+        self.names = []
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# A DRIP STRIP LIES ON ITS WALL (r4/tex, 2026-11-20). _plan_strips checks a strip's four corners only; between them L3's
+# Mass B gable strip ran off the shingle gable onto the boards below (critic batch 5; drip_skip since cc860caf).
+# audit_strips judges every sill-drip strip of the accepted weather level on the built LOD0 (tile_mesh's output with the
+# window holes punched; the strips themselves are no wall): rays on a grid over the strip (rows STRIP_STEP_M apart over
+# its full height, columns at most STRIP_COL_M apart, the end ones 2 cm in) look STRIP_REACH_M behind its face for the
+# host wall: a face parallel to the host (|cos| >= 0.99), on the host's swatch (swatch_key "~w", aliases resolved), at
+# the host plane (strip_offset +- STRIP_PLANE_TOL_M). Nothing there is "air" (the strip floats: a window hole, a wall
+# that ends, a recess); anything else is an overrun (another key, another plane, a face at an angle). A strip fails when
+# one column has more than STRIP_TOL_M of either. A strip that ends mid-wall is NOT judged here (that is drip_skip's
+# call, by frame). STRIP_AUDIT_MODE "raise" (the default) fails the build on a failing strip STRIP_ALLOW does not list;
+# "report" prints each as a [strips] WARN line and goes on (the triage run). STRIP_ALLOW holds the accepted ones,
+# (building key, sill part prefix, one-line reason[, flag]); a listed strip is reported under "allowed", never passed
+# silently. The flag (STRIP_ALLOW_FLAGS, default "any") is the texture-pass state the entry holds for: "off" for shipped
+# geometry the pass fixes (recipe.texpass drip_skip), so the same strip in a pass build still raises. lodge.py runs it
+# after the weather ladder with the pass from its args (a direct lodge.run does not register it; texpass_version() is
+# the fallback).
+# ---------------------------------------------------------------------------------------------------------------------
+STRIP_AUDIT_MODE = "raise"
+STRIP_ALLOW_FLAGS = ("off", "v1", "any")
+STRIP_ALLOW = (
+    # (building key, sill part prefix, reason[, flag "off" | "v1" | "any" (default)])
+    ("L1", "sill_ParkC", "hidden: x 0..0.9 runs inside the entry canopy's metal roof where it meets the wall"),
+    ("L2", "sill_aE", "shipped geometry; fixed under v1 by drip_skip (off the shake gable onto the boards)", "off"),
+    ("L2", "sill_aW", "shipped geometry; fixed under v1 by drip_skip (off the shake gable onto the boards)", "off"),
+    ("L3", "sill_bSa", "shipped geometry; fixed under v1 by drip_skip (off the shake gable onto the boards)", "off"),
+    ("L4", "sill_ubf1", "hidden: its top 0.07 m on the walnut lies inside the belt trim_ubelt (0.10 m proud)", "off"),
+    ("P2", "sill_hqw", "hidden: its bottom 0.1 m on the floor edge lies in and under the porch deck"),
+)
+STRIP_STEP_M = 0.025         # sample rows over the strip's height
+STRIP_COL_M = 0.10           # widest gap between sample columns
+STRIP_REACH_M = 0.04         # how far behind the strip's face a ray looks (the host plane sits strip_offset behind)
+STRIP_PLANE_TOL_M = 0.01     # the host plane's depth tolerance
+STRIP_TOL_M = 0.0            # off-wall length one sample column may have
+LAST_STRIPS = {"plan": []}   # tile_mesh's last strip plan (audit_strips' default input)
+LAST_STRIP_AUDIT = {}
+
+
+def _strip_allow(building, part, texpass):
+    """The STRIP_ALLOW reason for this sill's strip under texture pass `texpass` ("off" / "v1"), else None."""
+    for e in STRIP_ALLOW:
+        flag = e[3] if len(e) > 3 else "any"
+        if e[0] == building and part and part.startswith(e[1]) and flag in ("any", texpass):
+            return e[2]
+    return None
+
+
+def audit_strips(obj, keys, layout, building, texpass=None, plan=None):
+    """The strip gate (see the block comment) on `obj`, the built LOD0, for the sill-drip strips of `plan` (default
+    LAST_STRIPS["plan"], the last tile_mesh call's; `keys` its sorted keys, `layout` its sheet layout). Returns
+    {"building", "texpass", "strips", "judged", "hits", "allowed" (+ "reason")}, one row per strip: {"part" (the sill),
+    "host", "wkey", "z", "width_m", "center", "air_m", "over_m" (the worst column's), "behind" {what: samples},
+    "cols_off", "off_at_m"}. Raises in STRIP_AUDIT_MODE "raise" on a hit STRIP_ALLOW does not list for this pass
+    (`texpass`, default texpass_version())."""
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    bad = [e for e in STRIP_ALLOW if len(e) not in (3, 4) or (len(e) == 4 and e[3] not in STRIP_ALLOW_FLAGS)]
+    if bad:
+        raise ValueError(f"STRIP_ALLOW: entries need (building, sill prefix, reason[, flag in {STRIP_ALLOW_FLAGS}]): "
+                         f"{bad}")
+    texpass = (texpass_version() if texpass is None else texpass) or "off"
+    rows = [r for r in (LAST_STRIPS["plan"] if plan is None else plan) if r["rule"] == "sill_drip"]
+    judged, hits, allowed = [], [], []
+    if rows:
+        me = obj.data
+        n = len(me.polygons)
+        co = np.zeros(len(me.vertices) * 3); me.vertices.foreach_get("co", co)
+        M = np.array(obj.matrix_world)
+        V = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+        lt = np.zeros(n, np.int32); me.polygons.foreach_get("loop_total", lt)
+        ls = np.zeros(n, np.int32); me.polygons.foreach_get("loop_start", ls)
+        lv = np.zeros(len(me.loops), np.int32); me.loops.foreach_get("vertex_index", lv)
+        mi = np.zeros(n, np.int32); me.attributes["cs2ts_mat"].data.foreach_get("value", mi)
+        wf = np.zeros(n, np.int32); me.attributes["cs2ts_w"].data.foreach_get("value", wf)
+        keep = np.flatnonzero(wf != 2)                  # the strips themselves are no wall
+        polys = [[int(v) for v in lv[ls[i]: ls[i] + lt[i]]] for i in keep]
+        bvh = BVHTree.FromPolygons([tuple(v) for v in V], polys, all_triangles=False)
+        nrm = np.zeros((len(polys), 3))
+        for j, pv in enumerate(polys):
+            P = V[pv]
+            s = np.zeros(3)
+            for k in range(1, len(P) - 1):
+                s += np.cross(P[k] - P[0], P[k + 1] - P[0])
+            L = np.linalg.norm(s)
+            if L > 1e-12:
+                nrm[j] = s / L
+        sw = [swatch_key(layout, keys[int(mi[i])], weathered=True) for i in keep]
+        for r in rows:
+            q = np.asarray(r["quad"], np.float64)
+            nh = np.asarray(r["n"], np.float64)
+            z0, z1 = float(q[:, 2].min()), float(q[:, 2].max())
+            lo, hi = q[q[:, 2] < 0.5 * (z0 + z1)], q[q[:, 2] >= 0.5 * (z0 + z1)]
+            if float(np.dot(hi[1] - hi[0], lo[1] - lo[0])) < 0:
+                hi = hi[::-1]
+            wid, hgt = float(np.linalg.norm(lo[1] - lo[0])), z1 - z0
+            nr = max(1, int(round(hgt / STRIP_STEP_M)))
+            nc = max(3, int(math.ceil(max(wid - 0.04, 0.0) / STRIP_COL_M)) + 1)
+            e = min(0.02 / wid, 0.5) if wid > 1e-6 else 0.5
+            depth = 0.004 + float(r.get("offset", 0.012))
+            air, over, behind = np.zeros(nc), np.zeros(nc), {}
+            us = np.linspace(e, 1.0 - e, nc)
+            ax = (lo[1] - lo[0]) / max(wid, 1e-9)
+            jit = (np.zeros(3), 0.001 * ax + (0.0, 0.0, 0.0007), -0.001 * ax - (0.0, 0.0, 0.0007))
+            for ci, u in enumerate(us):
+                b, t = lo[0] + (lo[1] - lo[0]) * u, hi[0] + (hi[1] - hi[0]) * u
+                for v in (np.arange(nr) + 0.5) / nr:
+                    p = b + (t - b) * v + nh * 0.004
+                    for dp in jit:                  # a ray on a cut line can slip between two faces: retry 1 mm off
+                        _loc, _n, j, d = bvh.ray_cast(Vector(tuple(p + dp)), Vector(tuple(-nh)), 0.004 + STRIP_REACH_M)
+                        if j is not None:
+                            break
+                    if j is None:
+                        what = "air"
+                    elif abs(float(np.dot(nrm[j], nh))) < 0.99:
+                        what = f"angle:{sw[j]}"
+                    elif sw[j] != r["wkey"]:
+                        what = str(sw[j])
+                    elif abs(d - depth) > STRIP_PLANE_TOL_M:
+                        what = f"plane:{sw[j]}"
+                    else:
+                        continue
+                    behind[what] = behind.get(what, 0) + 1
+                    (air if what == "air" else over)[ci] += hgt / nr
+            rec = {"part": r.get("part"), "host": r.get("host"), "wkey": r["wkey"], "z": [round(z0, 3), round(z1, 3)],
+                   "width_m": round(wid, 3), "center": [round(float(x), 3) for x in q.mean(0)],
+                   "air_m": round(float(air.max()), 3), "over_m": round(float(over.max()), 3),
+                   "behind": dict(sorted(behind.items())), "cols_off": f"{int(((air + over) > 1e-9).sum())}/{nc}",
+                   "off_at_m": [round(float(us[k] * wid), 3) for k in np.flatnonzero((air + over) > 1e-9)]}
+            judged.append(rec)
+            if float((air + over).max()) <= STRIP_TOL_M + 1e-9:
+                continue
+            why = _strip_allow(building, rec["part"], texpass)
+            (allowed if why else hits).append(dict(rec, reason=why) if why else rec)
+    out = {"building": building, "texpass": texpass, "strips": len(rows), "judged": judged, "hits": hits,
+           "allowed": allowed}
+    LAST_STRIP_AUDIT.clear()
+    LAST_STRIP_AUDIT.update(out)
+
+    def line(h):
+        return (f"{h['part']} on {h['host']} ({h['wkey']}): {h['air_m']} m in the air, {h['over_m']} m over "
+                f"{', '.join(k for k in h['behind'] if k != 'air') or '-'} ({h['cols_off']} columns), z {h['z'][0]}.."
+                f"{h['z'][1]}, at {h['center']}")
+    for a in allowed:
+        print(f"[strips] allowed {building} (texpass {texpass}): {line(a)} ({a['reason']})")
+    if hits and STRIP_AUDIT_MODE == "raise":
+        raise RuntimeError(f"strips {building} (texpass {texpass}): {len(hits)} sill-drip strip(s) off their host wall "
+                           f"(cs2_tilesheet.audit_strips; skip it with recipe.texpass drip_skip, or list an accepted "
+                           f"one in STRIP_ALLOW with its reason and pass flag): "
+                           + "; ".join(line(h) for h in hits[:12]))
+    for h in hits:
+        print(f"[strips] WARN {building} (texpass {texpass}): {line(h)}")
+    print(f"[strips] gate {building} (texpass {texpass}): {len(rows)} sill drips, {len(hits)} off their wall, "
+          f"{len(allowed)} allowed")
     return out
 
 
