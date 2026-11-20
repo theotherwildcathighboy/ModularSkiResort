@@ -37,6 +37,10 @@ Gates (the pilot's lessons, made mechanical):
       23 %); slate without its normal_lean fails it;
   P8  weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
       a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise;
+  P14 ridge key: recipe.texpass ridge_key is L1's alone (metal_roof_lt); lodge.texpass_ridge moves the galv ridge_
+      parts onto it and nothing else, and raises on a key outside TEXPASS_RIDGE_KEYS, a roof slab on another key, or
+      no ridge; lodge.texpass_ridge_prefixes is trim v1's pair without a ridge_key (pass off: flag-off byte for
+      byte) and draws ridge_ flat (no strip) with one; every ridge key has a v1 tile + "~f" cell and is coated;
   P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate, timber_heavy, lux_glulam_s2, siding_paint: 2} (off: {}); a plinth + lap
       wall + slate roof through lodge's prep: the pass's UVTile is exactly 2 x the flag-off one on the pass keys'
       faces (meters / square tile); after lodge.texpass_far_units + align_islands + split_poor_islands the UVTile and
@@ -606,6 +610,48 @@ def check_level_gate():
     ok(f"P8 weather level: {', '.join(opted)} stated; a pass build below it raises, at or above it is quiet")
 
 
+def check_ridge_key():
+    named = {key: rc.texpass["ridge_key"] for key, rc in sorted(lodge.R.load_recipes().items())
+             if (getattr(rc, "texpass", None) or {}).get("ridge_key")}
+    assert named == {"L1": "metal_roof_lt"}, f"ridge_key is L1's alone (no other building's ridge changes): {named}"
+    rc = lodge.R.load_recipes()["L1"]
+    clear()
+    parts = K.box_part("roof_tA", (0.0, 0.0, 3.0), (4.0, 8.0, 3.2), "metal_roof_lt")
+    parts += K.box_part("ridge_t", (1.8, 0.0, 3.2), (2.2, 8.0, 3.3), "galv")
+    parts += K.box_part("gutter_t", (-0.2, 0.0, 2.9), (0.0, 8.0, 3.0), "galv")
+    same, none = lodge.texpass_ridge(parts, rc, {})
+    assert same is parts and none is None, "the pass off (tp {}) must leave the parts as they are"
+    out, moved = lodge.texpass_ridge(parts, rc, {"ridge_key": "metal_roof_lt"})
+    assert moved == {"ridge_t": ["galv", "metal_roof_lt"]}, moved
+    assert [k for _o, k in out] == ["metal_roof_lt", "metal_roof_lt", "galv"], [(o.name, k) for o, k in out]
+    dark = [(o, "metal_roof_dk" if o.name.startswith("roof_") else k) for o, k in parts]
+    bare = [(o, k) for o, k in parts if not o.name.startswith("ridge_")]
+    for tp, pp in (({"ridge_key": "galv"}, parts), ({"ridge_key": "metal_roof_dk"}, parts),
+                   ({"ridge_key": "metal_roof_lt"}, dark), ({"ridge_key": "metal_roof_lt"}, bare)):
+        try:
+            lodge.texpass_ridge(pp, rc, tp)
+        except ValueError:
+            continue
+        raise AssertionError(f"texpass_ridge must raise on {tp} with {[(o.name, k) for o, k in pp]}")
+    clear()
+    for trim in (False, True):
+        off = (TS.flat_detail_prefixes(trim), TS.STRIP_PREFIXES_OWN if trim else ())
+        assert lodge.texpass_ridge_prefixes(trim, {}) == off, f"trim {trim}: the off pair moved"
+        assert lodge.texpass_ridge_prefixes(trim, {"eave_h": 0.0}) == off, f"trim {trim}: a pass without ridge_key"
+        fl, st = lodge.texpass_ridge_prefixes(trim, {"ridge_key": "metal_roof_lt"})
+        assert st == () and "ridge_" in fl, f"trim {trim}: a ridge_key draws ridge_ flat ({fl}, {st})"
+    TS.register_texpass("v1")
+    try:
+        lay = layout()
+        for k in lodge.TEXPASS_RIDGE_KEYS:      # a ridge follows a coated (painted, metal < 0.5) roof key only
+            assert k in lay["tiles"] and (k + TS.F_SUFFIX) in lay["palette"], f"{k}: no tile / flat cell in v1"
+            assert float(TS.texpass_flat(k).get("metal", 1.0)) < 0.5, f"{k}: not a coated key under v1"
+    finally:
+        TS.unregister_texpass()
+    ok(f"P14 ridge key: {named} alone; the galv ridge moves, the gutter stays; a non-roof key, a dark key, a roof on "
+       f"another key and no ridge raise; the off pair is trim v1's; {list(lodge.TEXPASS_RIDGE_KEYS)} coated in v1")
+
+
 def far_layout(tp):
     """A stone_rubble plinth, a timber_lap wall and a slate roof slab through lodge's prep, then the far set's UV steps
     (lodge.run: texpass_far_units, align_islands, split_poor_islands, texpass_sample_layer, the dry pack)."""
@@ -685,6 +731,7 @@ def main():
     check_normal_lean()
     check_mean_slope()
     check_level_gate()
+    check_ridge_key()
     check_far_units()
     check_low_frequency()
     check_far_sources()

@@ -486,8 +486,9 @@ L1 = Recipe(
     # texture pass v1 (read only under lodge.py --texpass v1): no under-eave band. The 1.1 m eaves keep the top of the
     # knee walls dry, and sheltered wood stays the browner part of a wall; the rain-washed lower boards go gray. The
     # rollout band grayed the top 0.4-0.6 m at half density. Measured (tiled LOD0, no bake): 10,562 -> 10,364 tris
-    # (eave rule 317 pieces gone), ladder level 0 kept.
-    texpass={"eave_h": 0.0, "weather_level": 0},
+    # (eave rule 317 pieces gone), ladder level 0 kept. ridge_key: the three ridge flashings in the coated roof's color
+    # (lodge.texpass_ridge), the cap from the panels' coil; the galv cap read as a dark line on the light roof.
+    texpass={"eave_h": 0.0, "weather_level": 0, "ridge_key": "metal_roof_lt"},
     views=(("prow", (0.55, 1.0, 0.30)), ("entry", (0.35, -1.0, 0.22)),
            ("roofwindows", (-1.0, 0.25, 0.85))),
     notes="base_lodge.py port: skirt deleted, porch slab a ground part, entry surround on "

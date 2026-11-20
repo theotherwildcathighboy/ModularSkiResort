@@ -1911,6 +1911,9 @@ def run(recipe, args):
         import cs2_tilesheet as TS
         parts, slot_moved = TS.slots_v2_remap(parts, recipe.key, SLOTS_V2_ACCENT.get(recipe.key, "accent_orange"),
                                               no_frame=door2["flat"] if door2 else ())
+    # texpass ridge_key (--texpass only: {} when off): the galv ridge flashings take the coated roof's key
+    parts, _ridge_moved = texpass_ridge(parts, recipe, (getattr(recipe, "texpass", None) or {})
+                                        if getattr(args, "texpass", "off") != "off" else {})
     plates = None
     if glass == "gls":                      # T85: a backing plate behind every light group
         import cs2_tilesheet as TS
@@ -2421,6 +2424,47 @@ def texpass_weather(W, recipe, tp):
     return _rp(W, **kw) if kw else W
 
 
+# recipe.texpass["ridge_key"]: a painted standing-seam roof takes its ridge cap from the same coil. On the coated light
+# roof (TEXPASS_FLAT metal_roof_lt: metal 0, smooth 0.40) the galv cap (metal 1.0) read as a dark line along the ridge
+# at 20-70 m. Only the coated roof keys may be named, and only by a recipe that opts in, so no other ridge changes
+TEXPASS_RIDGE_KEYS = ("metal_roof_lt",)
+
+
+def texpass_ridge(parts, recipe, tp):
+    """(parts, {part: [old, new]} | None): recipe.texpass["ridge_key"] (tp is {} with the pass off) moves the galv ridge
+    flashings (ridge_*) onto that roof key; texpass_ridge_prefixes then draws them flat (the key's "~f" cell: the
+    panel's mean color and mask, no cuts, no tris). Raises unless the key is in TEXPASS_RIDGE_KEYS, every roof slab
+    (roof_*) is on it (a ridge never takes a color its roof does not have) and a galv ridge_ part moved."""
+    rk = tp.get("ridge_key")
+    if not rk:
+        return parts, None
+    if rk not in TEXPASS_RIDGE_KEYS:
+        raise ValueError(f"{recipe.key}: texpass ridge_key {rk!r} is not a coated roof key {TEXPASS_RIDGE_KEYS}")
+    roofs = sorted({k for o, k in parts if o.name.startswith("roof_")})
+    if roofs != [rk]:
+        raise ValueError(f"{recipe.key}: texpass ridge_key {rk}: the roof slabs are on {roofs}")
+    out, moved = [], {}
+    for o, k in parts:
+        if o.name.startswith("ridge_") and k == "galv":
+            moved[o.name] = [k, rk]
+            out.append((o, rk))
+        else:
+            out.append((o, k))
+    if not moved:
+        raise ValueError(f"{recipe.key}: texpass ridge_key {rk}: no galv ridge_ part to move")
+    return out, moved
+
+
+def texpass_ridge_prefixes(trim, tp):
+    """(flat detail prefixes, strip prefixes) for tile_mesh. A ridge_key recipe draws ridge_* flat on its roof key's
+    "~f" cell (strip-mapped on the roof swatch it would show the panel ribs across the cap); otherwise trim v1's
+    split (ridge_ strip-mapped on its own galv swatch). With tp {} (pass off) this is the flag-off pair."""
+    import cs2_tilesheet as TS
+    if tp.get("ridge_key"):
+        return TS.flat_detail_prefixes(False), ()
+    return TS.flat_detail_prefixes(trim), (TS.STRIP_PREFIXES_OWN if trim else ())
+
+
 def assert_texpass_level(name, tp, level, tris, cap):
     """PIPELINE gate 316 under --texpass: the pass may not buy its look with weathering. recipe.texpass["weather_level"]
     is the ladder level the flag-off build keeps; a pass build that falls below it raises (cut detail or raise the
@@ -2535,12 +2579,14 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
     pristine = lod0.data.copy()
     tm = None
     tried = []
+    # texpass ridge_key: ridge_* flat on the roof key's "~f" cell, not strip-mapped (flag off: trim v1's pair)
+    ridge_flat, ridge_strip = texpass_ridge_prefixes(trim, tp)
     tm_kw = dict(label_prefixes=tuple(p for p, _pa, _kw in recipe.labels),
                  ground_prefixes=tuple(recipe.ground_prefixes) if recipe.base_mode == "engine" else (),
                  label_ppm=TS.LABEL_PPM * SA / 4096.0,
                  # recipe.texpass["label_w"] (--texpass only; tp is {} when off): per-label density weights
                  label_weights=dict(tp.get("label_w") or {}) or None,
-                 flat_prefixes=TS.flat_detail_prefixes(trim) + tuple(getattr(recipe, "tiled_flat", ()) or ())
+                 flat_prefixes=ridge_flat + tuple(getattr(recipe, "tiled_flat", ()) or ())
                  # kit v2: the window parts draw their material's mean color (no tile cuts)
                  + ((K.KIT2_PARTS + WINDOW_FLAT_EXTRA.get(recipe.key, ()))
                     if getattr(args, "window_kit", "v1") == "v2" else ())
@@ -2550,7 +2596,7 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
                  + (FITTINGS_FLAT if "fittings" in result else ()),
                  grid_offset=0.5 if recipe.base_mode == "plinth" else 0.0,
                  # T70 trim v1: ridge caps strip-mapped on their own swatch (the strip keys need nothing)
-                 strip_prefixes=TS.STRIP_PREFIXES_OWN if trim else ())
+                 strip_prefixes=ridge_strip)
     for W in ladder:
         if tm is not None:                          # retry from the untouched copy
             old = lod0.data
