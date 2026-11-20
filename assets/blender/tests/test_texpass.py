@@ -483,9 +483,24 @@ def check_far_sources():
             for side, d in (("src", src), ("dst", dst)):
                 maps[k][side] = {m: TS._load(cs2_bake.find_set_map(d, m))[..., :3] for m in MAPS}
         for k in ("slate", "timber_lap", "lux_slate"):
-            assert np.array_equal(maps[k]["src"]["Color"], maps[k]["dst"]["Color"]), f"{k}: no color control"
-            assert far[k].tint == specs[k].tint, (k, far[k].tint, specs[k].tint)
-            assert not np.array_equal(maps[k]["src"]["NormalGL"], maps[k]["dst"]["NormalGL"]), f"{k}: normal_gain"
+            # what the far source must show follows the key's swatch controls (v1 gave slate chroma + flatten and
+            # timber_lap contrast + row_shuffle): a color control re-derives the tint onto the palette, a pixel move
+            # (rot, row_shuffle) changes the map but keeps the mean, no color-side control keeps the map bit for bit
+            tps = TS.texpass_swatch(k)
+            colctl = any(f in tps for f in TS.TEXPASS_COLOR_CONTROLS)
+            moved = colctl or any(f in tps for f in ("rot", "row_shuffle"))
+            same = np.array_equal(maps[k]["src"]["Color"], maps[k]["dst"]["Color"])
+            assert same != moved, f"{k}: far Color {'unchanged' if same else 'changed'} with controls {sorted(tps)}"
+            mat = K.BLDG_MATERIALS[k]
+            if not colctl or mat.tint is not None:
+                assert far[k].tint == specs[k].tint, (k, far[k].tint, specs[k].tint)
+            elif mat.target_srgb is not None:
+                got = K.srgb_to_linear(maps[k]["dst"]["Color"]).reshape(-1, 3).mean(0) * np.asarray(far[k].tint)
+                d = float(np.abs(np.asarray(K.linear_to_srgb(got)) -
+                                 np.asarray(K.linear_to_srgb(np.asarray(TS._lin(mat.target_srgb))))).max())
+                assert d < 0.01, f"{k} far mean x tint misses the palette by {d:.4f} sRGB"
+            if any(f in tps for f in ("nflatten_m", "normal_gain", "normal_lean")):
+                assert not np.array_equal(maps[k]["src"]["NormalGL"], maps[k]["dst"]["NormalGL"]), f"{k}: normal"
         assert TS.texpass_swatch("lux_slate") == TS.texpass_swatch("slate") != {}, \
             "lux_slate draws slate's cell: its far source takes slate's controls (at its own density)"
         dsrc, ddst = maps["deck"]["src"]["Color"], maps["deck"]["dst"]["Color"]
@@ -500,7 +515,7 @@ def check_far_sources():
     finally:
         TS.unregister_texpass()
     ok(f"P11 far sources: deck LF {lf_src:.3f} -> {lf_dst:.3f} at {ppm:.1f} px/m, mean x tint on the palette "
-       f"({d:.4f} sRGB); slate / lux_slate / timber_lap normals gained, colors untouched; off = unchanged")
+       f"({d:.4f} sRGB); slate / lux_slate / timber_lap far maps and tints follow their swatch controls; off = unchanged")
 
 
 def check_normal_lean():
