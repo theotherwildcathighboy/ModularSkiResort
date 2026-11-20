@@ -1,0 +1,23 @@
+{
+  "sharedAssets": {
+    "SkiLodgeChaletW_BaseColor.png": "../SkiSchoolW/SkiSchoolW_BaseColor.png",
+    "SkiLodgeChaletW_Normal.png": "../SkiSchoolW/SkiSchoolW_Normal.png",
+    "SkiLodgeChaletW_MaskMap.png": "../SkiSchoolW/SkiSchoolW_MaskMap.png",
+    "SkiLodgeChaletW_ControlMask.png": "../SkiSchoolW/SkiSchoolW_ControlMask.png",
+    "SkiLodgeChaletW_Emissive.png": "../SkiSchoolW/SkiSchoolW_Emissive.png",
+    "SkiLodgeChaletW_LOD1_BaseColor.png": "SkiLodgeChaletW_LOD1_BaseColor.png",
+    "SkiLodgeChaletW_LOD1_Normal.png": "SkiLodgeChaletW_LOD1_Normal.png",
+    "SkiLodgeChaletW_LOD1_MaskMap.png": "SkiLodgeChaletW_LOD1_MaskMap.png",
+    "SkiLodgeChaletW_LOD1_ControlMask.png": "SkiLodgeChaletW_LOD1_ControlMask.png",
+    "SkiLodgeChaletW_LOD2_BaseColor.png": "SkiLodgeChaletW_LOD1_BaseColor.png",
+    "SkiLodgeChaletW_LOD2_Normal.png": "SkiLodgeChaletW_LOD1_Normal.png",
+    "SkiLodgeChaletW_LOD2_MaskMap.png": "SkiLodgeChaletW_LOD1_MaskMap.png",
+    "SkiLodgeChaletW_LOD2_ControlMask.png": "SkiLodgeChaletW_LOD1_ControlMask.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}
