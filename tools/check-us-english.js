@@ -1,6 +1,6 @@
 /*
  * tools/check-us-english.js - US English in every player-facing text (T130, 2026-10-20, field test note 18, "remove ALL British
- * English, here and everywhere", the owner is American, DECISIONS 350). Written for this repo (MIT). Reads only. Writes nothing.
+ * English, here and everywhere", the owner is American, DECISIONS 350). Written for this repo (all rights reserved, see LICENSE). Reads only. Writes nothing.
  *
  * Scans the text a player can read:
  *   - mod/SkiResortMod/LocaleEN.cs and mod/SkiResortMod/Settings/LocaleEN.cs: every string literal outside a // comment.

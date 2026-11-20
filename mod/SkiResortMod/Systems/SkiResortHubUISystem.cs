@@ -43,7 +43,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 56;
+        public const int HubContract = 58;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -400,6 +400,9 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(value.TourismBonusCapPct));
                 writer.PropertyName("touristsDayMean");
                 writer.Write(Fin(value.TouristsDayMean));
+                // Contract 57 (1.0.3 R3-B): the ski season's first calendar month 1..12, the pass sale window's months.
+                writer.PropertyName("seasonFirstMonth");
+                writer.Write(Fin(value.SeasonFirstMonth));
                 writer.TypeEnd();
             }
         }
@@ -418,7 +421,8 @@ namespace SkiResortMod.Systems
                        a.PassShare == b.PassShare && a.PassPrice == b.PassPrice &&
                        a.Month == b.Month &&
                        a.TourismBonusPct.Equals(b.TourismBonusPct) && a.TourismBonusSumPct.Equals(b.TourismBonusSumPct) &&
-                       a.TourismBonusCapPct == b.TourismBonusCapPct && a.TouristsDayMean == b.TouristsDayMean;
+                       a.TourismBonusCapPct == b.TourismBonusCapPct && a.TouristsDayMean == b.TouristsDayMean &&
+                       a.SeasonFirstMonth == b.SeasonFirstMonth;
             }
 
             public override int GetHashCode(CityStats c)
@@ -442,6 +446,7 @@ namespace SkiResortMod.Systems
                     h = h * 31 + c.TourismBonusPct.GetHashCode();
                     h = h * 31 + c.TourismBonusCapPct;
                     h = h * 31 + c.TouristsDayMean;
+                    h = h * 31 + c.SeasonFirstMonth;
                     return h * 31 + c.Month;
                 }
             }
@@ -3823,6 +3828,10 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.PassHoldersThisMonth));
                 writer.PropertyName("passHoldersLastMonth");
                 writer.Write(Fin(r.PassHoldersLastMonth));
+                writer.PropertyName("priceTurnedThisMonth");   // 58 (T258)
+                writer.Write(Fin(r.PriceTurnedThisMonth));
+                writer.PropertyName("priceTurnedLastMonth");
+                writer.Write(Fin(r.PriceTurnedLastMonth));
                 // Lessons by month, the lesson income so far this month, the pre-season part of the season's
                 // passes, and the city-income estimate (-1 = unknown or Tourism Overhaul).
                 writer.PropertyName("lessonsThisMonth");

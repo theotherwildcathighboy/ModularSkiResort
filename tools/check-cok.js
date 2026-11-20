@@ -1,5 +1,5 @@
 /*
- * tools/check-cok.js - the packaging check of docs/RELEASE-CHECKLIST.md section 7 (release-prep, 2026-10-22). Written for this repo (MIT). Reads only.
+ * tools/check-cok.js - the packaging check of docs/RELEASE-CHECKLIST.md section 7 (release-prep, 2026-10-22). Written for this repo (all rights reserved, see LICENSE). Reads only.
  *
  * Opens a Paradox Mods .cok (a plain ZIP: the game's own container, entries "<Name>.Prefab" and "<Name>.Prefab.cid" side by side) and checks it
  * against tools/shipped-prefabs.json, the frozen list of our hand-made prefabs:

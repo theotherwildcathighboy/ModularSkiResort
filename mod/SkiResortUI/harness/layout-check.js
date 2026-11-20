@@ -239,8 +239,14 @@
           const [cur, n] = pageOfPager();
           if (n !== n0) { fail(`history paging: the page count went ${n0} -> ${n} on page ${cur} at ${tag}`); break; }
           const rows = Array.from(q(cls("viewSlot")).children);
-          const head = rows.find((r) => String(r.className).includes("pagerKeepTail")), last = rows[rows.length - 1];
-          if (mustFit && shown(head) !== shown(last)) { fail(`history paging: the season block is split on page ${cur} / ${n} at ${tag} (header ${shown(head)}, last row ${shown(last)})`); break; }
+          // Each keep block (pagerKeepTail row .. the row before the next one, or the last row) is drawn whole or not at all on a page
+          const starts = rows.map((r, i) => (String(r.className).includes("pagerKeepTail") ? i : -1)).filter((i) => i >= 0);
+          let split = false;
+          starts.forEach((from, k) => {
+            const last = rows[(k + 1 < starts.length ? starts[k + 1] : rows.length) - 1];
+            if (mustFit && !split && shown(rows[from]) !== shown(last)) { split = true; fail(`history paging: a keep block is split on page ${cur} / ${n} at ${tag} (block ${k + 1}: header ${shown(rows[from])}, last row ${shown(last)})`); }
+          });
+          if (split) break;
         }
       }
       if (closed) { const c = chev(); if (c && !footerOpen()) { c.click(); await settle(); } }

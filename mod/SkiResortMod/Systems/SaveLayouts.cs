@@ -16,8 +16,9 @@ namespace SkiResortMod.Systems
         public const string Namespace = "SkiResortMod.Systems";
         public const string AssemblyName = "SkiResortMod";
 
-        /// <summary>The csproj's pinned AssemblyVersion (SAVE IDENTITY comment in SkiResortMod.csproj).</summary>
-        public const string PinnedAssemblyVersion = "1.0.0.0";
+        /// <summary>The AssemblyVersion that releases 1.0.0-1.0.2 pinned, so their saves name our types with "Version=1.0.0.0". The pin is
+        /// retired (T255): the csproj derives AssemblyVersion from ModVersion and the self-aliases resolve any version (SaveBatch SL-A).</summary>
+        public const string LegacyAssemblyVersion = "1.0.0.0";
 
         public const string KindComponent = "IComponentData";
         public const string KindBuffer = "IBufferElementData";

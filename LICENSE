@@ -1,34 +1,48 @@
-MIT License
+Modular Ski Resort
 
-Copyright (c) 2026 theotherwildcathighboy
+Copyright (c) 2026 theotherwildcathighboy. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This repository is source-available. It is not open source.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+What you may do:
+- View and read the contents of this repository on GitHub.
+- Play the mod as published on Paradox Mods, under the terms of that platform.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+What you may not do without prior written permission from the copyright holder:
+- Copy, modify, merge, publish, distribute, sublicense or sell this software or its
+  art assets, in whole or in part.
+- Use any part of it in another mod, asset, package or project.
 
----
+The GitHub Terms of Service let GitHub users view and fork a public repository on
+GitHub. This notice grants no right beyond that.
 
-Scope. This license covers the code in this repository: the C# mod (mod/), the
-Blender generators and tooling (assets/blender/, tools/), and the build scripts.
-The art assets (meshes, textures, previews and the generated import folders under
-assets/) are licensed separately under Creative Commons Attribution-NonCommercial-
-ShareAlike 4.0 International (CC BY-NC-SA 4.0); see assets/LICENSE.
+Scope. This notice covers everything in this repository that is not listed under
+"Third-party material" below: the C# mod and its UI (mod/), the Blender generators
+and tooling (assets/blender/, tools/), the build scripts, the art assets (assets/)
+and everything generated from them (meshes, textures, previews, import folders and
+the in-game prefabs), and the documentation site (docs-site/).
 
-Third-party notice. Cities: Skylines II, its modding toolchain and the game
-assemblies this mod compiles against are the property of Paradox Interactive and
-their respective owners and are not covered by this license. No third-party code is
-included; design references are credited in release/CREDITS.md.
+Earlier versions. Versions published before this notice (the mod through 1.0.2 and
+the repository history before this notice) were licensed under the MIT license
+(code) and CC BY-NC-SA 4.0 (art). Copies obtained under those versions keep those
+terms. This notice applies to every later version.
+
+Third-party material keeps its own license (release/CREDITS.md and the docs site's
+Credits page list each item):
+- tools/ste-lint: MIT, see tools/ste-lint/LICENSE.
+- npm packages bundled into the UI module: their own licenses, reproduced in
+  SkiResortMod.mjs.LICENSE.txt next to the bundle.
+- Tiling materials from ambientCG: CC0.
+- Barlow Condensed (docs site font): SIL Open Font License 1.1.
+- Other credited references and items under the terms named in release/CREDITS.md.
+Cities: Skylines II, its modding toolchain and the game assemblies this mod compiles
+against are the property of Paradox Interactive and their respective owners.
+
+THE SOFTWARE AND ASSETS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR ASSETS OR THE USE OR OTHER DEALINGS IN THEM.
+
+Permission requests: open an issue on the GitHub repository.
