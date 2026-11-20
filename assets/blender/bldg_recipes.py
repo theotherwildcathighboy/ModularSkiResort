@@ -174,6 +174,13 @@ class Recipe:
     # They go to the plain-glass `_Gls` sub-mesh with the `win_` panes under lodge.py --glass gls (no backing plate:
     # e.g. the school's gallery tunnel). Read only on the gls path. () = every recipe unchanged.
     gls_extra: tuple = ()
+    # ---- texture pass v1 (2026-10-29, docs/PIPELINE.md "Texture pass"): read ONLY under lodge.py --texpass v1
+    # (lodge.texpass_weather). {"grade": {"slope": s, "anchor_x": a}} = a plinth recipe's design grade in the
+    # authoring frame (z = -s (a - x), falling toward -X): the LOD0 base bands follow it instead of z 0;
+    # {"eave_h": 0.0} = no under-eave band; {"band_skip": ("col_",)} = parts that take no base band;
+    # {"weather_level": n} = the ladder level the flag-off build keeps (required: lodge.assert_texpass_level
+    # raises below it). None = the rollout rules.
+    texpass: object = None
 
 
 # ======================================================================================

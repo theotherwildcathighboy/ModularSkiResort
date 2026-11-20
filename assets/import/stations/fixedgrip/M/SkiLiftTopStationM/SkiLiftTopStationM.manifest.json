@@ -905,9 +905,9 @@
   },
   "prefab_contract": {
     "source": "gamedata-mirror/ImportedData/SkiTopStationBuilding/SkiTopStationBuilding.Prefab",
-    "source_sha256": "4d31e48d58dc144fc4f1c8f01f6aae5272a0a7c6ef386837fd220d2842c6e67e",
+    "source_sha256": "f16ca573eb0d24ebd3ab051918e16934316b161463fbcb236473f80f7b851c54",
     "repoint": {
-      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:e8fcca056298c4f7d08c6ab99778d58d",
+      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:a2a488a67f70e8db1e71e85a6d81952b",
       "m_Meshes[0].m_Mesh_to": "<the M mesh's CID, written by the importer>",
       "k_mesh": "SkiLiftTopStationK",
       "rule": "only this line changes (surgery/towers-transfer.md; never rename, never a new .Prefab.cid)"
@@ -1208,7 +1208,7 @@
                     "$type": 11,
                     "x": 0,
                     "y": 0,
-                    "z": -4.9
+                    "z": -5.025
                   },
                   "m_Rotation": {
                     "$type": "21|Unity.Mathematics.quaternion, Unity.Mathematics",
@@ -1371,7 +1371,7 @@
         }
       ]
     },
-    "frozen_sha256": "542dece3220004302d3de8c1fefc482d186ae580ea39d829a8b06c575bc690b2",
+    "frozen_sha256": "8be8e7a17a28b130f8b8638888d35621e098ba246a5d4c460b61da516cb9b84c",
     "code": {
       "WheelLocal_game": [
         0.0,
@@ -1394,14 +1394,17 @@
       "position": [
         0.0,
         0.0,
-        -4.9
+        -5.025
       ],
       "rotation_quat": [
         0.0,
         1.0,
         0.0,
         0.0
-      ]
+      ],
+      "deployed_generation": "SkiLiftTopStationQ",
+      "deployed_mesh": "SkiLiftTowerET62Q",
+      "why": "T256: the building draws the rig generation; its row sits at RIG_HOSTED_X"
     },
     "utility_object": null,
     "colour_slots_lod0": [
@@ -1425,8 +1428,8 @@
       ]
     ],
     "refrozen": {
-      "utc": "2026-11-20T09:27:53Z",
-      "why": "LV service rows (1.0.4): PowerLinePole8m01 + ElectricalBox02 mesh rows, 3 single-point LV wire anchors idx 10-12, riser idx 13-14",
+      "utc": "2026-11-20T18:47:30Z",
+      "why": "FG Q meshes on the M stations (rig rope r 0.024), top sub-object z -5.025; merged with the LV service rows (1.0.4, refrozen 2026-11-20T09:27:53Z)",
       "previous_source_sha256": "4d31e48d58dc144fc4f1c8f01f6aae5272a0a7c6ef386837fd220d2842c6e67e",
       "earlier": {
         "utc": "2026-11-09T19:21:44Z",

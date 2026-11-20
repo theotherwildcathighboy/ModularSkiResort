@@ -678,6 +678,13 @@ RECIPE = FineRecipe(
     # tiled rollout (texture-parity-rollout-2026-10-16.md section 2, --tiled only): columns, snow guards and decking at 2 x 2
     # tiles keep the tiled LOD0 under the 6,000 cap
     tile_scale=(("timber_heavy", 2), ("galv", 2), ("deck", 2)),
+    # texture pass v1 (--texpass v1 only): the splash band follows the 35 % design grade down the plinth
+    # (the z-0 rule weathered 98.6 % of the plinth at half density and a band of siding 4-6 m above the
+    # downhill ground); no under-eave band (sheltered timber stays browner); the 0.20 m posts take no band
+    # (their concrete footings take the splash; banding every post foot cost 192 tris and the weather
+    # level); weather_level 0 = the flag-off level the pass must keep (lodge.assert_texpass_level)
+    texpass={"grade": {"slope": SLOPE, "anchor_x": ANCHOR_X}, "eave_h": 0.0, "band_skip": ("col_",),
+             "weather_level": 0},
     massing="custom", builder=build_hut,
     rooms=ROOMS, interior="CommercialLow",
     # one resort, one trim (lodges-basic Q6): slot 1 = L1's shipped green VariationSet, slot 2 house orange (no slot-2

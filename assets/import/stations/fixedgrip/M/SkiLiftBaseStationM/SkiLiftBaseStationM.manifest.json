@@ -1420,9 +1420,9 @@
   },
   "prefab_contract": {
     "source": "gamedata-mirror/ImportedData/SkiBaseStationBuilding/SkiBaseStationBuilding.Prefab",
-    "source_sha256": "7dac14029614027302132f72ec52f2a4a846ad6fe52485189165a9b5cd45fa2d",
+    "source_sha256": "44a02c15b1e86c7a34e8d0d05c0df9d39e444171258a1d0c6b98b2a4d86eac1d",
     "repoint": {
-      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:6f6c04e66e711a0bc96c79415581a81f",
+      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:562422700e971deff0ba4c37bf8e18d3",
       "m_Meshes[0].m_Mesh_to": "<the M mesh's CID, written by the importer>",
       "k_mesh": "SkiLiftBaseStationK",
       "rule": "only this line changes (surgery/towers-transfer.md; never rename, never a new .Prefab.cid)"
@@ -2250,8 +2250,8 @@
       ]
     ],
     "refrozen": {
-      "utc": "2026-11-20T09:27:53Z",
-      "why": "LV service rows (1.0.4): PowerLinePole8m01 + ElectricalBox02 mesh rows, 3 single-point LV wire anchors idx 10-12, riser idx 13-14",
+      "utc": "2026-11-20T18:47:30Z",
+      "why": "FG Q meshes on the M stations (rig rope r 0.024), top sub-object z -5.025; merged with the LV service rows (1.0.4, refrozen 2026-11-20T09:27:53Z)",
       "previous_source_sha256": "9603af8ef7f8206159a935fec726f0326260e421b27fda1645c4902df3fd810a",
       "earlier": {
         "utc": "2026-11-09T18:45:13Z",
