@@ -1620,6 +1620,9 @@ GD_STATION_INBOARD_MAX = -8.4          # lift_terminal_detach.GD_TOWER_KEEPOUT: 
 WEATHER_I = {"FG": 0.30, "DQ": 0.25, "GD": 0.25}   # --weather-probe 2026-10-11: FG/ET ok to 0.30.
 #   DQ / ETDQ / GD12 / ETGD first WARN at 0.30 (VL2, the >15 % share: edge wear on thin slot steel)
 WEATHER_PROBE = (0.50, 0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.15, 0.10)
+# per texture pass, the family intensity by the same rule (texpass off: WEATHER_I). v1 DQ: the lighter zinc galv raises the
+# >15 % share, DQ10 VL2 0.0807 > 0.08 at 0.25 (export 2026-11-20), so the next 0.05 step down
+TEXPASS_WEATHER_I = {"v1": {"DQ": 0.20}}
 LINER_KEY, PLATE_KEY = S.LINER_KEY, "plate"
 
 # Material keys -> cs2_bake.MaterialSpec fields (dicts: cs2_bake is imported lazily)
@@ -7018,7 +7021,8 @@ def main_v2(argv):
     bake = None
     compose = None
     post = None
-    w_int = WEATHER_I[spec.family] if args.weather_i is None else float(args.weather_i)
+    w_int = (TEXPASS_WEATHER_I.get(TEXPASS, {}).get(spec.family, WEATHER_I[spec.family]) if args.weather_i is None
+             else float(args.weather_i))
     if args.finish:
         import cs2_bake
         keys = [m.name[len(cs2_bake.SRC_MAT_PREFIX):] for m in t.data.materials]   # BEFORE the bake
