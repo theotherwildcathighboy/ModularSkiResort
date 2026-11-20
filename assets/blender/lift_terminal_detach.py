@@ -9085,8 +9085,9 @@ def prefab_numbers(p, bounds_authoring):
                 "slot1": {"rgb": [0.25, 0.26, 0.275], "what": "roof, mullions, transoms, ring beams, corner "
                           "columns, outriggers, gable fascias, canopies, door frames, portal trims (dark steel; "
                           "towers-transfer G5 compensated value)"},
-                "slot3": {"rgb": [0.16, 0.30, 0.20], "what": "sign spandrel + side sign plates + the sign "
-                          "fields (the DQ / draft-1 green default)"},
+                "slot3": {"rgb": [0.173, 0.420, 0.260] if TEXPASS else [0.16, 0.30, 0.20], "what": "sign spandrel + "
+                          "side sign plates + the sign fields (the DQ / draft-1 green default; the pass: forest green, "
+                          "the lead's ruling of 2026-11-20, as stored in the prefab)"},
                 "slot2": {"rgb": [0.85, 0.25, 0.10], "what": "the ski rack gear's accent color (the shared "
                           "cs2_bldg gear via cs2_liftdress.ski_rack, material 'accent'); the platform stripes "
                           "are fixed safety yellow"}}
