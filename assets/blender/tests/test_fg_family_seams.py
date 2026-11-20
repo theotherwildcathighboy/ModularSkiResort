@@ -195,8 +195,9 @@ def code_seams():
         if rep["hosted_tower"] is None:   # art-601: the drive base ships without its ET68 (the nose train holds the rope)
             check(kind == "drive", f"S1 {kind}: no hosted {et} in the deployed prefab (art-601 nose-train base)")
         else:
-            check(rep["hosted_tower"]["position"][2] == sp.tower_x, f"S1 {kind} hosted {et} at z {sp.tower_x} "
-                                                                      f"(deployed prefab, rot 180)")
+            hx, _tw, hst, hrig = LT.hosted_expected_m(kind)   # T256: the rig generation's row is RIG_HOSTED_X
+            check(rep["hosted_tower"]["position"][2] == hx, f"S1 {kind} hosted {et} at z {hx} "
+                                                             f"(deployed prefab, rot 180{', rig ' + str(hst) if hrig else ''})")
         check(close(rep["code"]["WheelLocal_game"][1], sp.wheel[2]) and close(rep["code"]["WheelLocal_game"][2],
                                                                                sp.wheel[0]),
               f"S1 {kind} WheelLocal {rep['code']['WheelLocal_game']} == the station rope datum")
