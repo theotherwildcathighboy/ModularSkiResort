@@ -514,6 +514,10 @@ Appended fields and bindings by contract:
   use that value: the area's best passing lodge. A closed lodge no longer zeroes it in the off-season. It is -1 (unknown) before the area's
   first ski-day pass after a load, and with ski days off. Before, it came from the score (active lodges only, 0 without a result).
   The Finances demand word shows "–" while it is -1. The destination line shows "–" for its share. No trigger was added.
+- 60 (1.0.4, T253, r4/slope-overlay): the `slopeOverlay` value binding (bool, `SkiSlopeOverlaySystem.IsOn`) and the
+  `setSlopeOverlay(on)` trigger for the Runs tab's Slope colors chip. The trigger goes through `RequestKind.SetSlopeOverlay` to
+  `SkiSlopeOverlaySystem.RequestSet`, which saves `ShowSlopeOverlay` like the toggle key (unbound by default). Panel binding, no Demand.
+  See EngineNotes/SkiSlopeOverlaySystem.md.
 - 42: the runs-first plans (Resort Planner round, task R2-b). `QuickRunsState` loses `mix`, `liftsKnob` and `home`. `QuickRunsLift` loses
   `wantedKey` and gains `flagged`, `waits`, `overLimitTowers`. `QuickRunsPlan` loses `pods` and gains `trackKm`. `QuickRunsState` gains `tracks`
   and `QuickRunsPod` gains `tracks`. `runs`, `enabled`, `count` and `variety` count pistes only. `QuickRunsSheetRow` gains `flagged`, `waits`,

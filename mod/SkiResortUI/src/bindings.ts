@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 59;
+export const HUB_CONTRACT = 60;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -1245,6 +1245,7 @@ export const BINDING = {
   quickRuns: "quickRuns",  // the Quick runs tool (experimental)
   catTrackDeleteMode: "catTrackDeleteMode",  // contract 19: the cat track tool is open and in Delete mode
   catTrackSkiWay: "catTrackSkiWay",  // contract 45: the cat track tool's Ski way profile is on
+  slopeOverlay: "slopeOverlay",  // contract 60: the slope overlay option is on (T253)
   busCard: "busCard",  // contract 26: the Ski Bus card
   lodgeParking: "lodgeParking",  // contract 29: car spaces per road lodge
   runReplaced: "runReplaced",  // contract 32: a re-emitted run's old and new entity
@@ -1297,6 +1298,7 @@ export const TRIGGER = {
   syncRun: "syncRun",  // contract 51: the card's Sync button (sign)
   setTicketPrice: "setTicketPrice",  // contract 54: the Money view's price stepper (T240)
   setPassPrice: "setPassPrice",  // contract 56: the Money view's season pass slider
+  setSlopeOverlay: "setSlopeOverlay",  // contract 60: the Runs tab's Slope colors chip (T253)
 } as const;
 
 /**
@@ -1367,6 +1369,8 @@ export const FALLBACK = {
   quickRuns: EMPTY_QUICK_RUNS,
   catTrackDeleteMode: false,
   catTrackSkiWay: false,
+  /** Contract 59: off until C# says otherwise (the option's default). */
+  slopeOverlay: false,
   busCard: { shown: false, area: "", guestsMonth: -1, billMonth: 0, distanceM: 0, state: "off" } as BusCardState,
   lodgeParking: EMPTY_LODGE_PARKING,
   runReplaced: { seq: 0, from: NULL_ENTITY, to: NULL_ENTITY } as RunReplaced,
@@ -1403,6 +1407,8 @@ export const catTrackDeleteMode$: ValueBinding<boolean> = bindValue<boolean>(GRO
 /** The cat track tool's Ski way profile is on (contract 45, C# owns it: it stays on across closing the tool until switched off or the
  *  next load). Panel only, the Build strip's Runs tab (never on a mismatch). */
 export const catTrackSkiWay$: ValueBinding<boolean> = bindValue<boolean>(GROUP, BINDING.catTrackSkiWay, FALLBACK.catTrackSkiWay);
+/** Contract 60 (T253): the ShowSlopeOverlay option as C# holds it (the chip, the key and the Options page all change it). */
+export const slopeOverlay$: ValueBinding<boolean> = bindValue<boolean>(GROUP, BINDING.slopeOverlay, FALLBACK.slopeOverlay);
 /** The Ski Bus card. Always mounted: C# sends it only while a coach or a depot is selected. */
 export const busCard$: ValueBinding<BusCardState> = bindValue<BusCardState>(GROUP, BINDING.busCard, FALLBACK.busCard);
 /** The merge card. Always mounted: C# sends it only while a building it applies to is selected. */
@@ -1493,6 +1499,8 @@ export const hubTriggers = {
   /** The cat track tool's Ski way profile (contract 45). On: C# SetSkiWay(true), then opens the tool out of Delete mode. Off: the
    *  standard track again, the tool stays as it is. */
   setCatTrackSkiWay: (on: boolean): void => fire(TRIGGER.setCatTrackSkiWay, on),
+  /** Contract 60: the slope overlay on / off. C# SkiSlopeOverlaySystem.RequestSet saves the options file and logs `SlopeOverlay: ON|off (hub)`. */
+  setSlopeOverlay: (on: boolean): void => fire(TRIGGER.setSlopeOverlay, on),
   /** A run's prop spacing in meters. C# clamps to Off or 20..200 and re-places after its settle. Look only. */
   setRunGunSpacing: (run: Entity, meters: number): void => fire(TRIGGER.setRunGunSpacing, wire(run), Math.round(meters)),
   setRunLightSpacing: (run: Entity, meters: number): void => fire(TRIGGER.setRunLightSpacing, wire(run), Math.round(meters)),

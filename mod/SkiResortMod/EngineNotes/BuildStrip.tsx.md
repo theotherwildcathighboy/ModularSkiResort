@@ -21,7 +21,8 @@ scrolls away. Its tiles never move under the mouse.
 - The family row under the tabs holds:
   - Lifts: the lift-type chips and the LIFT_TOOL toggle (`hubTriggers.liftLineToggle` -> `LiftLineToolSystem.TryActivate("hub")`).
   - Runs: the tree tool. Since 2026-10-24 there is no grading chip: the Cat track tile opens `CatTrackGradeToolSystem` through
-    ApplyLaunch, contract 16.
+    ApplyLaunch, contract 16. With quick runs, the row ends in Resort Planner, Delete cat tracks, Ski way and Slope colors. Slope
+    colors is contract 59 (T253): `setSlopeOverlay` -> `SkiSlopeOverlaySystem.RequestSet`, the saved option of the toggle key (unbound by default).
   - Buildings: the group captions.
 
   The row is always drawn at one fixed height, so a tab switch never moves the tabs under the mouse. The toggles are ok-panel only

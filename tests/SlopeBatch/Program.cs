@@ -373,6 +373,8 @@ namespace SlopeBatch
         private static int Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            if (args.Length >= 2 && args[0] == "--outline-preview")
+                return OutlinePreview(args[1]);   // T253 look preview (Contours.cs), no tests
             Stopwatch total = Stopwatch.StartNew();
 
             BandTests();
@@ -410,6 +412,8 @@ namespace SlopeBatch
             RandomOracleTests();            // brute-force minimax oracle on random polygons / terrains
             CaptureTests();                 // field captures + format round trip (+ length columns and regression values)
             RaterParityTests();             // SkiRunRater == direct calls == pre-extraction path (RaterParity.cs)
+            ContourTests();                 // T253 (1.0.4) smooth band outlines (Contours.cs)
+            OverlayTilesTests();            // T253 slope overlay tiles == ClassifyRing cells, runs, verify, eviction (OverlayTiles.cs)
             LengthTests();                  // run length: 11 synthetic shapes
             AllocationTests();              // zero allocation once grown
             TimingReport();                 // TIME (1.5 ms budget, crux share)

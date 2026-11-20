@@ -363,6 +363,15 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<SkiRunDrawFeedbackSystem, Game.Rendering.OverlayRenderSystem>(
                 SystemUpdatePhase.Rendering);
 
+            // T253 slope overlay around the cursor. Anchored AFTER the heat-map, which itself runs before OverlayRenderSystem: an UpdateAfter
+            // child is added right after its parent inside the parent's slot (UpdateSystem.cs:382-412, 1.6.4f1), so this also runs before
+            // OverlayRenderSystem (load-bearing: the renderer completes its writers and clears the lists, :740-790) and reads the heat-map's
+            // PaintedGrid of the same frame. ONE anchor only (each call adds an entry). Gated by ShowSlopeOverlay inside. Game mode only.
+            updateSystem.UpdateAfter<SkiSlopeOverlaySystem, SkiRunDrawFeedbackSystem>(SystemUpdatePhase.Rendering);
+            // Its toggle key is polled at UIUpdate like every hotkey poller of the mod (the input phase the others are proven in). The
+            // press is applied in the overlay's next OnUpdate.
+            updateSystem.UpdateAt<SkiSlopeOverlayKeySystem>(SystemUpdatePhase.UIUpdate);
+
             // Grade tooltip. Anchor is load-bearing: TooltipUISystem clears the mouse group each frame (TooltipUISystem.cs:48-55). Running
             // after the vanilla area-tool tooltip keeps our lines with it (a plain UpdateAt sorts after all vanilla UITooltip systems).
             updateSystem.UpdateAfter<SkiRunTooltipSystem, Game.UI.Tooltip.AreaToolTooltipSystem>(

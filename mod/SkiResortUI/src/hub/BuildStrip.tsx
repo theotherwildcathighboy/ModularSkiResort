@@ -22,7 +22,7 @@ import { bindLocalValue, useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { build$, catTrackDeleteMode$, follow$, glade$, hubTriggers, liftLine$, mergeOverlay$, problems$, quickRuns$, resortLive$, resorts$, selectedResort$ } from "../bindings";
+import { GRADE_SCHEME, build$, catTrackDeleteMode$, follow$, glade$, gradeScheme$, hubTriggers, liftLine$, mergeOverlay$, problems$, quickRuns$, resortLive$, resorts$, selectedResort$, slopeOverlay$ } from "../bindings";
 import type { BuildItem, BuildItemId, MergeOverlayState, RunKind } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
@@ -411,13 +411,38 @@ function TreeToolSet({ t, quick }: { t: Translate; quick: boolean }): JSX.Elemen
           </Tip>
         </div>
       </div>
-      {/* T202 mockup: four equal chips (Tree tool was 2 of 5, so Resort Planner and Delete cat tracks shrank) */}
-      <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 3 }}>
+      {/* T202 mockup: four equal chips (Tree tool was 2 of 5, so Resort Planner and Delete cat tracks shrank). T253: Slope colors is the fifth. */}
+      <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: quick ? 4 : 3 }}>
         {quick && <QuickRunsChip t={t} />}
         {quick && <CatTrackDeleteChip t={t} />}
         {quick && <CatTrackSkiWayChip t={t} />}
+        {quick && <SlopeOverlayChip t={t} />}
       </div>
     </>
+  );
+}
+
+/*
+ * Contract 60 (T253): the Runs tab's Slope colors chip, the last of the row. It shows the ShowSlopeOverlay option (slopeOverlay$, C# owns it:
+ * the toggle key (unbound by default) and the Options page change it too, and it is saved). The tip gives the band limits of the run grading in use.
+ * Always drawn on the ok panel; focusKey={FOCUS_DISABLED} (R15).
+ */
+function SlopeOverlayChip({ t }: { t: Translate }): JSX.Element {
+  const on = !!useValue(slopeOverlay$);
+  const eu = useValue(gradeScheme$) === GRADE_SCHEME.European;
+  return (
+    <div className={cx(styles.pickerCell, styles.pickerCellNext)}>
+      <Tip tip={t(eu ? HUB_LOC.slopeOverlayTipEu : HUB_LOC.slopeOverlayTip)}>
+        <Button
+          focusKey={FOCUS_DISABLED}
+          theme={{ button: cx(styles.pickerChip, on && styles.pickerChipOn) }}
+          selected={on}
+          onSelect={() => hubTriggers.setSlopeOverlay(!on)}
+        >
+          <div className={styles.pickerLabel}>{t(HUB_LOC.slopeOverlay)}</div>
+        </Button>
+      </Tip>
+    </div>
   );
 }
 
