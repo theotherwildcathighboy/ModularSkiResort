@@ -383,9 +383,15 @@ TEXPASS = {
         # 1.8 m scan at 1.54 m (x 0.86): 12 cm weathered deck boards; the recipes' repeat 2 stays. On L3's 15 m deck
         # the scan repeated as a grid: its ~0.5 m water stains (flatten_m 0.15: low-frequency CoV 0.089 -> 0.012, was
         # 0.021) and its rust specks (chroma 0.25, contrast 0.6: luminance CoV 0.287 -> 0.172, was 0.151); normal_gain
-        # 1.6 keeps the board seams legible once the albedo is calm
-        "deck": {"set": "PHWeatheredBrownPlanks", "tile_m": (1.54, 1.54), "chroma": 0.25, "flatten_m": 0.15,
-                 "contrast": 0.6, "normal_gain": 1.6},
+        # 1.6 keeps the board seams legible once the albedo is calm. flatten_m 0.08 (was 0.15): the scan's 5-15 cm
+        # stains passed the 0.15 m sigma and read as a regular mottle on L4's 511 m2 terrace at 14 m (off-seam blotch
+        # CoV 0.029 flag-off, 0.048 at 0.15, 0.028 at 0.08; the board seam profile holds, 0.088 -> 0.087). row_shuffle
+        # 13: the knot and stain clusters that span several boards lined up into diagonal rows on a large deck (L3's
+        # terrace from 8-14 m); each board row takes its own u offset, the cuts land on the board seams (no new
+        # in-board break) and the stain correlation across boards halves (0.056 -> 0.025). Both: blotch 0.031,
+        # luminance CoV 0.162, low-frequency CoV 0.007
+        "deck": {"set": "PHWeatheredBrownPlanks", "tile_m": (1.54, 1.54), "chroma": 0.25, "flatten_m": 0.08,
+                 "contrast": 0.6, "row_shuffle": 13, "normal_gain": 1.6},
         # Sawn heavy timber (posts, beams, knee braces, sign backs, L3's opaque balustrades, P1's log posts): Planks021
         # drew 14 cm floor planks, so every 20-24 cm member face carried 1-2 plank seams and nail-hole pairs along it.
         # Wood060 is a seam-free face; at 0.77 m x 4 (the key's 3.08 m period, tile factor 2 like slate) it reads as

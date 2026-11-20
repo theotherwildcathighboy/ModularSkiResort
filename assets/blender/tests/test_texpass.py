@@ -49,7 +49,8 @@ Gates (the pilot's lessons, made mechanical):
       every far FBX was repacked and L1 lost 11 % of its far px/m);
   P10 low frequency: every pass key's sheet swatch keeps its luminance CoV after a periodic 0.2 m Gaussian (the
       blotches that read as a grid when the tile repeats) at or under max(1.25 x the pre-pass swatch, 0.03); the deck
-      without flatten_m fails it (v1's first family round: 0.021 -> 0.089, a blotch grid on L3's 15 m deck);
+      without flatten_m fails it (v1's first family round: 0.021 -> 0.089, a blotch grid on L3's 15 m deck; the
+      mutation drops row_shuffle too, which alone breaks the 0.2 m stain grid: 0.053 -> 0.028);
   P11 far sources: texpass_far_specs runs the same controls on the prefiltered far sources (the far bake drew the raw
       scan): the deck's low frequency halves at least and its mean x tint stays on the palette, the normal-only keys
       keep their color bytes and tint, lux_slate takes slate's controls, a key outside the pass and the off state are
@@ -405,7 +406,7 @@ def check_swatch_controls():
         tuned = TS._swatch_maps("deck", 480, repeat=2)
         saved = dict(spec)
         try:
-            for f in DECK_CONTROLS:
+            for f in TS.TEXPASS_CONTROLS:       # raw = the bare scan (row_shuffle and any later control too)
                 spec.pop(f, None)
             raw = TS._swatch_maps("deck", 480, repeat=2)
         finally:
@@ -433,7 +434,7 @@ def check_swatch_controls():
     assert chroma(tuned[0]) < 0.75 * chroma(raw[0]), (chroma(tuned[0]), chroma(raw[0]))
     assert lum_cov(tuned[0]) < 0.75 * lum_cov(raw[0]), (lum_cov(tuned[0]), lum_cov(raw[0]))
     assert tilt(tuned[1]) > 1.15 * tilt(raw[1]), (tilt(tuned[1]), tilt(raw[1]))
-    assert tuned[5].get("texpass") == {f: float(saved[f]) for f in DECK_CONTROLS if f in saved}, tuned[5]
+    assert tuned[5].get("texpass") == {f: float(saved[f]) for f in TS.TEXPASS_CONTROLS if f in saved}, tuned[5]
     assert "texpass" not in raw[5], raw[5]
     assert TS.texpass_swatch("lux_slate") == {}, "pass off: no alias control"
     ok(f"P7 swatch controls: deck mean held ({d:.4f} sRGB), chroma {chroma(raw[0]):.4f} -> {chroma(tuned[0]):.4f}, "
@@ -468,6 +469,7 @@ def check_low_frequency():
         saved = dict(spec)
         try:
             spec.pop("flatten_m")
+            spec.pop("row_shuffle", None)
             raw, _ = swatch_lf("deck", on)
         finally:
             spec.clear()
