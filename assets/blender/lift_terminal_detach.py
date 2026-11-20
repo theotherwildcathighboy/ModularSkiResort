@@ -992,29 +992,27 @@ MARK_WHITE = _lin((0.85, 0.86, 0.88))  # lift_terminal.py:240 white, as written 
 
 # --------------------------------------------------------------------------------------
 # r4 texture pass v1 (--texpass v1): GONDOLA stations only. Off (the default) = the shipped build byte for byte.
-# It changes material sources, tile aspect, density weights, relief specs and the slot-3 color default. No part
-# moves, no part is renamed, no tri changes.
+# v1 changes the tile aspect (concrete), the roof's relief specs and the slot-3 color default; the scan sources and
+# density weights below are hooks, empty in v1. No part moves, no part is renamed, no tri changes.
 # --------------------------------------------------------------------------------------
 TEXPASS = None                 # "v1" under --texpass v1. main() sets it from its own args on every run
 GD_IDENTITY = None             # --gd-identity <name>: the station identity proposal (GD_IDENTITY_REMAP), None = shipped
 # key -> (CC0 set under assets/textures, meters per tile (u), target encoded sRGB mean, Color map width / height).
-# The two keys were flat colors. They take the lodge family's scans and palette means, so the hall's plinth and soffits
-# are the lodges' stone and timber:
-# - stone: L5's squared fieldstone (cs2_tilesheet TEXPASS v1 "lux_stone_tan": PHRusticStoneWall at 2.4 m, 33 cm courses,
-#   mean STONE_TAN_LIN). The first pick, the lodges' rubble (Bricks096 at 3.2 m, mean 0.455), read as high-frequency
-#   mush with lichen specks at the plinth's 34 px/m and turned the shipped pale base dark (critic, 2026-11-20)
-# - cedar: the siding scan holds 14 boards per 1.57 m: at 2.4 m it draws 17 cm boards, the lodge family's v1 scale (r4/tex
-#   a2f5552d). Mean = L5's light cedar (lux_siding_red); the lap siding's dark mean (0.295) read as a gray smear in
-#   the eave shadow, and the shipped soffit's warm note was gone (critic, 2026-11-20)
-GD_TEXPASS_SCANS = {
-    "stone": ("PHRusticStoneWall", 2.4, (0.584, 0.448, 0.349), 1.0),
-    "cedar": ("PHWeatheredPlankSiding", 2.4, (0.584, 0.403, 0.272), 1.0),
-}
+# EMPTY in v1: the plinth ("stone") and the soffits ("cedar") keep their shipped flat materials and drawn joints. Tried
+# and rejected (overnight call of 2026-11-20, gd NOTE "Overnight calls"):
+# - stone = L5's squared fieldstone (PHRusticStoneWall at 2.4 m, mean = L5's tan (0.584, 0.448, 0.349)). The mean
+#   matched, but at scan strength its rust blocks and black joints read as red brick veneer at every distance; the
+#   lodges grade the same scan (chroma 0.7, contrast 0.8 in cs2_tilesheet), and the bake path has no such control.
+#   Close call against the shipped plinth, so the shipped look stays. Needs that grade first (lead-owned bake path).
+# - cedar = PHWeatheredPlankSiding at 2.4 m (17 cm boards), mean = L5's light cedar (0.584, 0.403, 0.272): a thin brown
+#   sliver at the eave that adds nothing at play distance.
+# The earlier pick, the lodges' rubble (Bricks096 at 3.2 m), read as mush at the plinth's 34 px/m.
+GD_TEXPASS_SCANS = {}
 # cs2_bake.project_world_uv makes SQUARE tiles. A 2:1 Color map then draws stretched 2x in v (Concrete034 is 1024 x 512:
 # every lift asset ships it that way). The pass scales the tile v by the map aspect.
 GD_TEXPASS_ASPECT = {"concrete": 2.0}
-# the stone scan needs texels (33 cm courses). The soffit boards are 0.17 m
-GD_TEXPASS_DENSITY = {"stonebase_": 1.3, "eavesof_": 0.8}
+# density weights over the shipped table: none in v1 (the scans that needed texels, stone 1.3 / soffit 0.8, are out)
+GD_TEXPASS_DENSITY = {}
 # The pass keeps the shipped cs2_uv pack. Measured on the base at 512 (blockouts with a pack-shape proposal, since
 # dropped): aabb 17.8 %, concave 18.0 %, aabb with square band texels 16.9 %, concave with them 16.9 % of the square.
 # The pack is margin-bound (thin islands between gutters): a concave shape gains 1 %, square band texels cost 5 %
@@ -1035,7 +1033,10 @@ GD_IDENTITY_SCANS = {
 GD_IDENTITY_ROLES = {"skin2": "paint_steel", "timberclad": "timber", "glulam": "timber"}
 # The skin's slot-2 default under "skin" (stored sRGB, as the prefab holds it): a weathered natural zinc. The overnight
 # call of 2026-11-20 (gd NOTE "Overnight calls"): silver 0.70 dissolved into snow and the concrete ramp at 150 m, the
-# shipped orange is louder than any vanilla roof and pairs red-green with the forest-green signs
+# shipped orange is louder than any vanilla roof and pairs red-green with the forest-green signs. The re-check on the
+# fixed build found zinc against no skin a close call (zinc meets the concrete portal at the same value), so the pass
+# recommends shipping WITHOUT --gd-identity skin; zinc stays this option's default. The critic's untested tweak:
+# (0.50, 0.51, 0.50)
 GD_SKIN_RGB = (0.56, 0.58, 0.60)
 _GD_SCAN_MEAN = {}
 
@@ -1275,11 +1276,11 @@ def detail_specs_gd():
 
 
 def detail_specs_gd_texpass():
-    """Texture pass v1: the gondola table without the drawn joints on the parts that now draw a scan (the coursed 0.35 m
-    grid on the stone shell, the 0.30 m soffit joints): the scans carry their own joints and normals."""
+    """Texture pass v1: the gondola table with the standing seams below; a part that draws a scan of GD_TEXPASS_SCANS
+    drops its drawn joints (the scan carries its own joints and normals). v1 has no such part."""
     D = cs2_compose.DetailSpec
     out = detail_specs_gd()
-    out.update({"stonebase_": D(), "eavesof_": D()})
+    out.update({pref: D() for pref, key in (("stonebase_", "stone"), ("eavesof_", "cedar")) if key in GD_TEXPASS_SCANS})
     # the shipped set's normal tilt is 3.2 deg rms (vanilla houses 22-25, PIPELINE 1b targets 8-25): the standing seams
     # are 1.4 texels wide and 6 mm deep at 35 px/m. A real seam is a 25-40 mm rib: 0.06 m wide (2 texels). 10 mm deep: at
     # 15 mm the facets of the barrel stepped the seams into a tile grid (critic, 2026-11-20). The roof rim (the fascia
