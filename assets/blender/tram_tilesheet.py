@@ -149,9 +149,10 @@ TEXPASS = {
     "v1": {
         # the lodge family's stone at (almost) its scale: 3.0 x 1.5 m against the lodges' 3.2 x 1.6 (the period 6.0 m
         # allows 3.0, not 3.2). chroma 0.6: the scan's green lichen and orange stones turn loud under the tint.
-        # normal_gain 1.4: at 160 px/m the prefiltered relief reads flat (tilt rms 9.9 deg, walls want 15-25)
+        # No normal gain: at 1.4 (tilt rms 9.8 -> 13.3 deg) the gray wall read as crumpled relief at 7 m and was the
+        # busiest panel at 22 m next to the near-flat vanilla neighbor (overnight call 2026-11-20, critic)
         "tram_stone": dict(set="Bricks096", tile_m=(3.0, 1.5), target_srgb=(0.455, 0.435, 0.400), smooth_mean=0.416,
-                           chroma=0.6, normal_gain=1.4),
+                           chroma=0.6),
         # true aspect (the set is ca. 1.1 x 0.55 m, ambientCG): the square tile stays 3.0 m. contrast 0.6 +
         # flatten_m: the trowel arcs repeat every 3.0 x 1.5 m and read as a grid on the top station's plinth.
         # proc "form": formwork panel joints, tie holes and a tone per pour
