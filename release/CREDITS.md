@@ -57,7 +57,8 @@ the generators in `assets/blender/`.
   attribution required. The Poly Haven photo scans on the buildings: `weathered_plank_siding` by Dimitrios Savva;
   `grey_roof_tiles_02` by Rob Tuytel; `weathered_brown_planks` by Dimitrios Savva (photography)
   and Rico Cilliers (processing); `wood_planks_grey` by Rob Tuytel; `roof_slates_02` by Rob Tuytel;
-  `rustic_stone_wall` by Dimitrios Savva. Download links and checksums: assets/texture-sources.json.
+  `rustic_stone_wall` by Dimitrios Savva; `stone_wall` by Charlotte Baglioni (photography) and Dario Barresi
+  (processing). Download links and checksums: assets/texture-sources.json.
 
 ## Trailer music
 

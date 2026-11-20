@@ -363,10 +363,12 @@ TEXPASS = {
         # at gain 1.6, P13): the butt steps are too shallow to close the course. A tilt of the bake plane is likely but
         # unproven (u is 0.0); normal_lean (0, +1.8) is the de-tilted swatch's lean (it was +8.7)
         # row_shuffle 14: every board row of the tile takes its own u offset (wrap), so the scan's butt joints and
-        # knots stop lining up in columns every 2.4 m (L1's gable is 17 x 6 tiles); contrast 0.7: the two-tone
-        # boards and knots repeat as a pattern at 20-45 m (luminance CoV 0.284 -> 0.199, shipped 0.123)
-        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (2.4, 2.4), "contrast": 0.7, "row_shuffle": 14,
-                       "normal_gain": 1.6, "normal_lean": (0.0, 1.8)},
+        # knots stop lining up in columns every 2.4 m (L1's gable is 17 x 6 tiles); contrast 0.6: the two-tone
+        # boards and knots repeat as a pattern at 20-45 m (luminance CoV 0.284 -> 0.170, shipped 0.123); row_level 1.0:
+        # the scan's darker / redder board rows recur every 2.4 m up a 15 m gable (row-level CoV on a wall at 20 m
+        # 0.053, shipped 0.029); each row scaled to the tile mean: 0.026, the boards and their grain stay
+        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (2.4, 2.4), "contrast": 0.6, "row_shuffle": 14,
+                       "row_level": 1.0, "normal_gain": 1.6, "normal_lean": (0.0, 1.8)},
         # 1.5 m scan at 1.6 m (x 1.07): 20 x 14.5 cm slates (RoofingTiles003 drew 40 cm slates with scratch streaks).
         # Its normal map carries a bake tilt: mean slope (+7.1, +6.4) deg raw where a relief that tiles has 0 (no
         # course explains a u tilt, and its faces rise up the slope where a lapped course's fall; the butts face down-
@@ -387,15 +389,27 @@ TEXPASS = {
         # Sawn heavy timber (posts, beams, knee braces, sign backs, L3's opaque balustrades, P1's log posts): Planks021
         # drew 14 cm floor planks, so every 20-24 cm member face carried 1-2 plank seams and nail-hole pairs along it.
         # Wood060 is a seam-free face; at 0.77 m x 4 (the key's 3.08 m period, tile factor 2 like slate) it reads as
-        # one solid member at 6-8 m (luminance CoV 0.184, low-frequency CoV 0.009, tilt 8.3 deg); the key's tint keeps
-        # its color. No course to measure, so P6 skips it (TEXPASS_SOLID)
-        "timber_heavy": {"set": "Wood060", "tile_m": (0.77, 0.77), "repeat": 4, "normal_gain": 1.6},
+        # one solid member at 6-8 m (luminance CoV 0.184, low-frequency CoV 0.009); the key's tint keeps its color.
+        # normal_gain 1.0 (as lux_glulam_s2's Wood077), not 1.6: at 1.6 the scan's pore relief (tilt 8.3 deg on the lodge
+        # sheet) drew a fine speckle on every member face (L3's 8 m balustrade: pixel-scale luma sd +21 % over the
+        # shipped Planks021; the sign's denser swatch read as cork / granite). At 1.0 (tilt 5.3, Planks021 5.9) it is
+        # 12 % under the shipped faces and the grain still reads. No course to measure, so P6 skips it (TEXPASS_SOLID)
+        "timber_heavy": {"set": "Wood060", "tile_m": (0.77, 0.77), "repeat": 4, "normal_gain": 1.0},
         # L5 (l5 NOTE section 3, render set PD). lux_stone_tan: 1.52 m Poly Haven squared fieldstone at 2.4 m (x 1.58):
         # 33 cm courses (P6), buff stones in gray mortar (Bricks096 drew gray rubble in salmon mortar, the same scan as
         # the plaza); chroma 0.7 / contrast 0.8 calm its rust stones (loud on the chimneys at 22 m), normal_gain 0.85
         # brings the tilt rms 28.6 -> about 24 deg (walls 15-25)
         "lux_stone_tan": {"set": "PHRusticStoneWall", "tile_m": (2.4, 2.4), "chroma": 0.7, "contrast": 0.8,
                           "normal_gain": 0.85},
+        # stone_rubble (L1-L4 plinths, piers and chimneys; the welcome sign's piers and plinths): Poly Haven stone_wall
+        # (2.0 m random fieldstone) at 3.2 m (x 1.6): 20-50 cm stones in tight joints, the fieldstone of the reference
+        # lodges. Bricks096 drew slobbered farm rubble from a 2:1 image stacked twice: its ring stone and lichen spots
+        # came back every 1.6 m up a wall (a ladder on L1's chimney) and its 0.5 m blotches read as a grid at 20-45 m
+        # (low-frequency CoV 0.083 -> 0.022, luminance CoV 0.40 -> 0.30). 3.2 m is the key's period, so the cut grid and
+        # the far units are the flag-off ones; flatten_m 0.2 calms the scan's stained patches. Its mean slope is -3.8
+        # deg along v raw (P13); normal_lean (0, -0.8) is the de-tilted swatch's lean (-0.9 on the 960 px hero cut,
+        # where -0.8 leaves the smaller residual: +1.4 deg against +1.6)
+        "stone_rubble": {"set": "PHStoneWall", "tile_m": (3.2, 3.2), "flatten_m": 0.2, "normal_lean": (0.0, -0.8)},
         # lux_paver: interlocking concrete unit pavers at 1.6 m (9 cm courses: 0.8 x a 22.5 x 11.25 cm unit; the cut
         # grid allows only x 2 steps) instead of a rubble wall laid flat; normal_gain 1.6: the joints read at 30 m
         "lux_paver": {"set": "PavingStones135", "tile_m": (1.6, 1.6), "normal_gain": 1.6},
@@ -411,6 +425,14 @@ TEXPASS = {
         # lux_vboard_red: battens at 0.35 m = every second 17.5 cm board seam, 8 per 2.8 m
         # tile (K.BATTEN's 0.30 m beat against the boards every 2.1 m and broke at every tile edge: 9.33 per tile)
         "lux_vboard_red": {"detail": {"seams_m": 0.35}, "target_srgb": (0.5838, 0.403, 0.2717)},
+        # timber_vboard (the patrol HQ's and the patrol hut's walls and gables): the flag-off scan and tile
+        # (WoodSiding009, 15 cm boards) with RAISED battens, 19 x 50 mm, every 0.30 m = on every second board seam,
+        # 8 per 2.4 m tile (the flag-off BATTEN drew 10 mm grooves at the same pitch: a faint line at 6 m, a plain
+        # wall at 18 m; real patrol board-and-batten carries a raised strip every 24-30 cm under one dark stain).
+        # The scan's cell carries a baked tilt (mean slope v -4.1 deg on the shipped sheet, -4.9 with the battens):
+        # normal_lean (0, 0) de-tilts it (P13) (p2 NOTE 2.1)
+        "timber_vboard": {"normal_lean": (0.0, 0.0),
+                          "detail": {"seams_m": 0.30, "seam_width_m": 0.05, "seam_depth_m": -0.019}},
         # timber_shake is wall shingles (gable walls of L2 / L3 / L5, L3's kiosk walls). The one roof that draws the key
         # is the welcome sign's (TEXPASS_ROLES["gate_roof"]); 6.9 cm is too fine for a roof, so the sign picks its own
         # roof scale (welcome_sign.py --texpass-roof: true size or slate, never the key as is). WoodSiding013 (a 1.4 m shingle-siding scan) was drawn at 1.8 m: 22.5 cm courses that
@@ -443,11 +465,14 @@ TEXPASS = {
 TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.06, 0.19),
                  # squared fieldstone courses 15-50 cm; unit pavers 8-15 cm courses
                  "lux_stone_tan": (0.15, 0.50), "lux_paver": (0.08, 0.15),
+                 # random fieldstone has no course: P6 reads its stone-height rhythm (stone_wall at 3.2 m: 13.8 cm);
+                 # rubble stones 10-50 cm high (a 1.6 m tile, 6.9 cm, fails it: the scan drawn under its true size)
+                 "stone_rubble": (0.10, 0.50),
                  # board-and-batten boards 20-30 cm on center (1x8 .. 1x12; the reference school 0.20-0.23 m)
                  "siding_paint": (0.20, 0.30)}
 # Pass keys with no course or board pitch to measure (P6 skips them; the grain scale is judged on renders): seam-free
 # member faces, and detail- or color-only keys that keep the flag-off scan
-TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red", "lux_siding_red")
+TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red", "lux_siding_red", "timber_vboard")
 # Swatch controls a pass key may carry (texpass_apply runs them in this order on the sheet swatch and on the far source);
 # the color ones move the swatch mean, which the target_srgb tint then restores. "rot" = quarter turns of the square
 # scan tile before everything else: a scan whose boards run VERTICAL in the file (PHWoodPlanksGray) under a uv_rot 90 key
@@ -463,7 +488,11 @@ TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red", "lux_siding_
 # that copies the other scan's normal-map artifact. u is 0 (a course is symmetric across u)
 # row_shuffle n = a horizontal-board tile cut into n board rows, each shifted by its own u offset (wrap): butt joints
 # and knots stop lining up in columns every tile
-TEXPASS_CONTROLS = ("rot", "chroma", "flatten_m", "contrast", "row_shuffle", "nflatten_m", "normal_gain", "normal_lean")
+# row_level k (0..1, needs row_shuffle: the same n rows) = each board row's luminance scaled toward the tile mean by
+# k (in log space; 1.0 = every row at the mean): darker / lighter rows of the scan stop recurring every tile up a wall;
+# the grain and the seams inside a row stay
+TEXPASS_CONTROLS = ("rot", "chroma", "flatten_m", "contrast", "row_shuffle", "row_level", "nflatten_m", "normal_gain",
+                    "normal_lean")
 # Tilt gate (test_texpass P13): the mean height slope (mean of -n.x / n.z, -n.y / n.z) of a relief that tiles is 0, so
 # a nonzero mean slope is a tilt baked into the normal map (the bake plane), not relief. Every pass key's sheet swatch
 # (after normal_gain and normal_lean) stays under this in u and v (PHGrayRoofTiles02 at gain 1.3: +9.2 / +7.8)
@@ -491,10 +520,16 @@ TEXPASS_FLAT = {
                              "smooth_streak": 0.012, "light_w": True, "paint": True},
            "metal_roof_s1": {"panel": {"name": "rib30w", "profile": "rib", "pitch_m": 0.30, "rib_top": 0.028, "rib_base": 0.096,
                                        "rib_h": 0.026, "can_mm": 0.3, "panel": 0.008, "streak": 0.0,
-                                       "sm_streak": 0.030, "sheet_ribs": 3}}},
+                                       "sm_streak": 0.030, "sheet_ribs": 3}},
+           # metal_roof_dk (L4's dining roof and fascias, L5's porte-cochere roof, the school's tower and lantern roof):
+           # the light roof's raised seam (7 per 3.0 m tile = 0.43 m, the same trapezoid) on the shipped dark metal
+           # (metal 1.0; albedo and smoothness unchanged). The rollout's 0.50 m grooves did not read at 14 m: a flat
+           # black slab. It stays bare metal: metal_roof_lt's coated model lifted L4's dining roof above the slate
+           # beside it at 14 m (luminance 0.13 -> 0.27, slate 0.21) and would lighten L5's and the school's roofs too
+           "metal_roof_dk": {"ribs": 7, "rib_m": (0.007, 0.020, 0.014)}},
 }
-PANEL_SS = 4                    # a panel swatch is box-filtered from PANEL_SS x its content size
-TEXPASS_COLOR_CONTROLS = ("chroma", "flatten_m", "contrast")
+PANEL_SS = 4                   # a panel swatch is box-filtered from PANEL_SS x its content size
+TEXPASS_COLOR_CONTROLS = ("chroma", "flatten_m", "contrast", "row_level")
 # Low-frequency gate (test_texpass P10): a tile repeats every tile_m, so blotches above the board / course scale read as
 # a grid. Luminance CoV after a periodic Gaussian of TEXPASS_LF_SIGMA_M may not exceed max(TEXPASS_LF_RATIO x the
 # pre-pass swatch, TEXPASS_LF_FLOOR) (measured: shipped deck 0.021 clean, v1 deck 0.089 a visible grid)
@@ -758,6 +793,28 @@ def _row_shuffle(n_rows, lin, nrm, rough):
     return out
 
 
+def _row_level(n_rows, k, lin):
+    """Horizontal-board tile: scale each of its n_rows board rows (cut as _row_shuffle cuts them; a u shift does not
+    move a row's mean, so the cut is the same before and after the shuffle) by (tile mean / row mean) ** k of the
+    luminance. The rows' tone steps that recur every tile up a wall go; the grain and seams inside a row stay."""
+    if n_rows < 2:
+        raise ValueError("texpass: row_level needs row_shuffle (the board rows)")
+    N = lin.shape[0]
+    pitch = N / float(n_rows)
+    lum = lin[..., :3] @ LUMA
+    prof = lum.mean(1)
+    idx = np.floor(np.mod(np.arange(N), pitch)).astype(int)
+    fold = np.bincount(idx, weights=prof) / np.maximum(np.bincount(idx), 1)
+    phase = float(np.argmin(fold)) + 0.5
+    edges = np.rint(phase + np.arange(n_rows + 1) * pitch).astype(int)
+    m = float(lum.mean())
+    out = lin.copy()
+    for i in range(n_rows):
+        rows = np.arange(edges[i], edges[i + 1]) % N
+        out[rows] = lin[rows] * (m / max(float(lum[rows].mean()), 1e-9)) ** float(k)
+    return out
+
+
 def texpass_apply(tps, lin, nrm, rough, ppm):
     """One seamless scan tile (linear RGB, 0..1 normals, roughness; ppm px per meter) through a pass key's controls
     (texpass_swatch) in TEXPASS_CONTROLS order. flatten and contrast keep every channel's mean exactly."""
@@ -779,6 +836,8 @@ def texpass_apply(tps, lin, nrm, rough, ppm):
         lin = keep_mean(lin * ((m + (lum - m) * tps["contrast"]) / np.maximum(lum, 1e-6))[..., None], lin)
     if "row_shuffle" in tps:
         lin, nrm, rough = _row_shuffle(int(tps["row_shuffle"]), lin, nrm, rough)
+    if "row_level" in tps:
+        lin = keep_mean(_row_level(int(tps.get("row_shuffle", 0)), tps["row_level"], lin), lin)
     if "nflatten_m" in tps:
         nrm = _normal_flatten(nrm, tps["nflatten_m"] * ppm)
     if "normal_gain" in tps:
