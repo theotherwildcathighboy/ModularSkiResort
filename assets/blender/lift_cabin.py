@@ -5242,6 +5242,16 @@ def tram_split_parts(parts, dims):
 # shipped manifest). v1 scales the margin with the atlas, 32 x 1024 / 2048 = 16 px: the cabin's own 1/64 of the atlas
 # (the same mip safety), median 81 px/m, 21 % of the atlas, 0 MB. UVs and pixels only; the cabin is untouched
 TRAM_TEXPASS_CHOICES = ("off", "v1")
+#: The v1 carriage is a re-import after release, so it takes the next generation letter (PIPELINE: never import over a
+#: shipped name; the Editor mints new CIDs, surgery repoints SkiTramCarriage's m_Mesh). The cabin is not re-imported
+#: and keeps its shipped B name (the same idiom as the gondola --envelope grip, GD_ENVELOPE["letter"])
+TRAM_TEXPASS_CARRIAGE = {"v1": "SkiTramCarriageC"}
+
+
+def tram_split_names(texpass="off"):
+    """(cabin, carriage) names of the tram --split pair: SPLIT_NAMES["tram"], the carriage renamed under the pass."""
+    cab, car = SPLIT_NAMES["tram"]
+    return cab, TRAM_TEXPASS_CARRIAGE.get(texpass, car)
 
 
 def tram_margin(role, tex, texpass="off"):
@@ -5255,7 +5265,7 @@ def tram_margin(role, tex, texpass="off"):
 def run_tram(args):
     dims = tram_dims(args.hang)
     if args.split:
-        names = [cs2_asset.validate_asset_name(n) for n in SPLIT_NAMES["tram"]]
+        names = [cs2_asset.validate_asset_name(n) for n in tram_split_names(getattr(args, "tram_texpass", "off"))]
     else:
         names = [cs2_asset.validate_asset_name(args.name or NAMES["tram"])]
     for n in names:
@@ -5494,7 +5504,8 @@ def parse_args(argv):
                     help="carrier split (2026-11-03): body + grip meshes, letter B (both kinds)")
     ap.add_argument("--tram-texpass", choices=TRAM_TEXPASS_CHOICES, default="off",
                     help="r4 texture pass, TRAM only: v1 = the split carriage packs with its atlas-scaled margin "
-                         "(UVs and pixels only); off = the shipped carriers byte for byte")
+                         "(UVs and pixels only) and ships as the new generation SkiTramCarriageC; off = the shipped "
+                         "carriers byte for byte")
     ap.add_argument("--envelope", action="store_true",
                     help="with --split (gondola): the B2 v2 grip passage (GD_ENVELOPE): grip letter C, "
                          "the shipped B atlas remapped, no bake")

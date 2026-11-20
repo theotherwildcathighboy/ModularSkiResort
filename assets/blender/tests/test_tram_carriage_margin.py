@@ -6,6 +6,8 @@ M1 flag off: every tram asset bakes with the shipped T["margin"] (the carriers b
 M2 v1: the split carriage's margin is T["margin"] x split_tex / tex (the cabin's fraction of its atlas); the cabin and the
    one-piece tram keep T["margin"].
 M3 the flag is a tram --split option: off by default, refused for the gondola and for the one-piece tram.
+M4 names: off = SPLIT_NAMES["tram"] (the shipped B pair); v1 = the cabin keeps B, the carriage takes the next generation
+   letter (SkiTramCarriageC, a post-release re-import never reuses a shipped name). Both pass validate_asset_name.
 No build, no bake: seconds.
 """
 import os
@@ -60,8 +62,22 @@ def m3_args():
     return "M3 --tram-texpass: off by default, tram --split only (gondola and one-piece tram refused)"
 
 
+def m4_names():
+    import cs2_asset
+    shipped = tuple(LC.SPLIT_NAMES["tram"])
+    check(shipped == ("SkiTramCabinB", "SkiTramCarriageB"), f"M4 SPLIT_NAMES tram moved: {shipped}")
+    check(tuple(LC.tram_split_names()) == shipped, f"M4 default names {LC.tram_split_names()}")
+    check(tuple(LC.tram_split_names("off")) == shipped, f"M4 off names {LC.tram_split_names('off')}")
+    v1 = tuple(LC.tram_split_names("v1"))
+    check(v1 == ("SkiTramCabinB", "SkiTramCarriageC"), f"M4 v1 names {v1}")
+    check(v1[1] != shipped[1] and v1[1][:-1] == shipped[1][:-1], f"M4 v1 carriage {v1[1]} is not a new letter")
+    for n in shipped + v1:
+        check(cs2_asset.validate_asset_name(n) == n, f"M4 {n} fails validate_asset_name")
+    return f"M4 names: off {shipped[0]} + {shipped[1]}; v1 {v1[0]} + {v1[1]} (cabin keeps B)"
+
+
 def main():
-    lines = [m1_off(), m2_v1(), m3_args()]
+    lines = [m1_off(), m2_v1(), m3_args(), m4_names()]
     for ln in lines:
         print("  ok " + ln)
     print(f"PASS test_tram_carriage_margin: {len(lines)} checks")
