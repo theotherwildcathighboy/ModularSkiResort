@@ -178,6 +178,12 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<LiftReconnectSystem, Game.Net.LaneSystem>(
                 SystemUpdatePhase.Modification4);
 
+            // LV service backfill (1.0.4): once per load, tags old LV wires and riser-less base stations Updated. Load-bearing slot: directly
+            // AFTER LiftReconnectSystem (so still before LaneSystem, UpdateSystem.AddSystemUpdate nests it there). LaneSystem rebuilds the
+            // tagged lanes the same frame, and LiftReconnectSystem never sees the station tag as a station event.
+            updateSystem.UpdateAfter<LvServiceBackfillSystem, LiftReconnectSystem>(
+                SystemUpdatePhase.Modification4);
+
             // Mast lean (DECISIONS 600). It runs AFTER Game.Objects.AlignSystem in Modification4. AlignSystem re-derives a node tower's
             // Transform yaw-only on every Updated (AlignSystem.cs:153-160). This also puts it before LaneSystem (SystemOrder.cs:153, :155),
             // which hangs the ropes from the leaned anchors in the same frame. Any other slot shows a plumb frame or ropes on the old

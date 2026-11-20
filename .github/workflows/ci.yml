@@ -80,6 +80,10 @@ jobs:
         run: node tools/export-locale.js --check
       - name: Docs-site symbol table matches the hub icon table
         run: node tools/export-hub-symbols.js --check
+      - name: Demand-curve page matches the code constants
+        run: |
+          node docs-site/tools/demand-curves.js --self-test
+          node docs-site/tools/demand-curves.js --check
       - name: STE ratchet (player text and docs)
         run: node tools/check-ste.js
       - name: Hub rules, history rules, gate fixtures

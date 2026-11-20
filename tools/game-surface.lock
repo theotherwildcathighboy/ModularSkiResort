@@ -774,10 +774,12 @@ guid UnityGUID:03b1510ce391829409b4f09a7bffaa49 m_Object
 guid UnityGUID:05564431524791c48846dbd183fd232d m_Group
 guid UnityGUID:0bbcb0620e01694448cb78385580351b m_Object
 guid UnityGUID:0d01c98e6f7cd9b44ac31084b6ba7ccd m_Object
+guid UnityGUID:12633b57802d4a84a8e8c08bbef9091d m_Mesh
 guid UnityGUID:1a4c93c0bf4c1fa438702f35ad299923 m_Effect
 guid UnityGUID:1ad78f47f5ed32b4a85ae101abc6d7ae m_Object
 guid UnityGUID:2ea04b52c3797114cb8e4c281a6c91c3 m_Object
 guid UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b m_Lane,m_LanePrefab
+guid UnityGUID:3880b17eed0efbd448e640f6353a7f7b m_Mesh
 guid UnityGUID:3e47e765f44f210409edf4e6229fd0df (list)
 guid UnityGUID:3f3008bdf841128428290d4f3678baa7 m_Object
 guid UnityGUID:3f8dafc1558bce24597bd8ca898947fa m_Object

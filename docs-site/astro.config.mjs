@@ -98,6 +98,7 @@ export default defineConfig({
             { slug: 'guides/passes-and-lessons' },
             { slug: 'guides/hub-panel' },
             { slug: 'guides/economy-panel' },
+            { slug: 'guides/how-demand-works' },
             { slug: 'guides/troubleshooting' },
           ],
         },

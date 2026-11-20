@@ -95,6 +95,8 @@ $KnownVanilla = @{
     "9cbf401c04ad63b44a36c0dc0db26e67" = "Low-voltage Ground Cable (m_UndergroundPrefab of the vanilla LV line; used by SkiLiftMarker/LV)"
     "3e47e765f44f210409edf4e6229fd0df" = "Grass Surface 01 unlock requirement (verified: vanilla Grass 01 ships same ref)"
     "ec48568022d46c1448c6620d95f993c1" = "ParkSign placeholder (vanilla CityPark01/02/04 host it; resolves ParkSign01-03). Relabelled 2026-10-13: SkiResortGate no longer references it (S1 sign surgery replaced its ParkSign row, build/s1-finish.md); no owned prefab does. Kept, never dropped"
+    "3880b17eed0efbd448e640f6353a7f7b" = "PowerLinePole8m01 mesh (LV service pole, an m_Meshes row on the 4 base stations, 1.0.4; dump-verified: PowerLinePole8m01.Prefab m_Meshes[0])"
+    "12633b57802d4a84a8e8c08bbef9091d" = "ElectricalBox02 mesh (LV service box, an m_Meshes row on the 4 base stations, 1.0.4; dump-verified: ElectricalBox02.Prefab m_Meshes[0])"
     "4010d5851d69dbb418c62e6bd4d19759" = "PowerLinePole01 placeholder (verified: Low-voltage Line NetSubObjects m_Object + PowerLinePole8m01 SpawnableObject back-ref; resolves PowerLinePole 8/13/18m)"
     # Vanilla sub-object placeholders of the shipped manifests' rows (fine-detail step 3d, 2026-10-12: every
     # sub_objects / detail1 / detail row GUID of assets/import/**/*.manifest.json, archive excluded). Each is the
@@ -897,6 +899,17 @@ if ($LASTEXITCODE -ne 0) {
 } else {
     $rows.Add("OK    SYMBOLS $(($symOut | Select-Object -Last 1))")
 }
+
+# ---- 12c2b. DEMAND: the demand-curve page matches the code constants (R3-D, 1.0.4) ------------------------------------------------
+# docs-site/tools/demand-curves.js --check recomputes the five curves from SkiDayRules / SkiMoneyRules / SkiPassRules / SkiCatalog and fails
+# when a committed SVG, a generated region of guides/how-demand-works.mdx, or a number in the older passes-and-lessons tables differs, or when
+# a C# formula no longer has the shape the script computes. Its --self-test plants a constant, a tolerance and a formula fault.
+$dcOut = @(Invoke-Node (Join-Path $PSScriptRoot "../docs-site/tools/demand-curves.js") --check)
+$dcCode = $LASTEXITCODE
+$dcSelf = @(Invoke-Node (Join-Path $PSScriptRoot "../docs-site/tools/demand-curves.js") --self-test)
+if ($LASTEXITCODE -ne 0) { $rows.Add("FAIL  DEMAND self-test: $(($dcSelf | Select-Object -Last 1))"); $failures++ }
+elseif ($dcCode -ne 0) { foreach ($l in $dcOut) { $rows.Add("FAIL  DEMAND $l") }; $failures++ }
+else { $rows.Add("OK    DEMAND $(($dcOut | Select-Object -Last 1))") }
 
 # ---- 12c3. NOVANILLAART: no copy of game art in the repo (round 622) -----------------------------------------------------------
 # The hub may reference an installed game icon by its Media/ path; a copy in the repo would be published with it. tools/check-no-vanilla-art.js
