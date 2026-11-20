@@ -380,13 +380,16 @@ TEXPASS = {
         # Its normal map carries a bake tilt: mean slope (+7.1, +6.4) deg raw where a relief that tiles has 0 (no
         # course explains a u tilt, and its faces rise up the slope where a lapped course's fall; the butts face down-
         # slope, so it is not laid upside down). At gain 1.3 it leaned (-9.0, -7.2) and the shaded roof slope rendered
-        # 23 % darker than flag-off; normal_lean (0, +0.5) is the de-tilted swatch's lean. The scan's moss and tone
+        # 23 % darker than flag-off. De-tilted (normal_lean (0, +0.5)) the roof slopes that face away from the sun read
+        # 15 % darker than the shipped slate at 45 / 68 m: the shipped scan kept a +10.6 deg kick toward the ridge (real
+        # butts, lauze-deep). normal_lean (0, +10) puts the kick back (TEXPASS_ROOF_KICK_MAX_DEG, P13; v runs up the
+        # slope on every slate roof top: tests/test_roof_uvv.py). The scan's moss and tone
         # patches (0.3-0.8 m) repeat every 1.6 m and read as a mottle on L3's 936 m2 of roof from the lift: chroma 0.5
         # halves the moss green, flatten_m 0.25 divides out the patches above the slate size (low-frequency CoV 0.064 ->
-        # 0.026; slate-to-slate tone and the course seams stay)
+        # 0.026; slate-to-slate tone and the course seams stay; without it the 1.6 m repeat returns as eave-parallel bands)
         "slate": {"set": "PHGrayRoofTiles02", "tile_m": (1.6, 1.6), "repeat": 2,
                   "target_srgb": (0.214, 0.224, 0.215), "chroma": 0.5, "flatten_m": 0.25, "normal_gain": 1.3,
-                  "normal_lean": (0.0, 0.5)},
+                  "normal_lean": (0.0, 10.0)},
         # 1.8 m scan at 1.54 m (x 0.86): 12 cm weathered deck boards; the recipes' repeat 2 stays. On L3's 15 m deck
         # the scan repeated as a grid: its ~0.5 m water stains (flatten_m 0.15: low-frequency CoV 0.089 -> 0.012, was
         # 0.021) and its rust specks (chroma 0.25, contrast 0.6: luminance CoV 0.287 -> 0.172, was 0.151); normal_gain
@@ -517,6 +520,14 @@ TEXPASS_CONTROLS = ("rot", "chroma", "flatten_m", "contrast", "row_shuffle", "ro
 # a nonzero mean slope is a tilt baked into the normal map (the bake plane), not relief. Every pass key's sheet swatch
 # (after normal_gain and normal_lean) stays under this in u and v (PHGrayRoofTiles02 at gain 1.3: +9.2 / +7.8)
 TEXPASS_MAX_MEAN_SLOPE_DEG = 2.0
+# Roof kick (the one P13 exception): a lapped roof unit rests on the course below, so its face pitches flatter than the
+# roof and its mean normal leans up the slope. That lean is real, not a bake tilt: the shipped RoofingTiles003 slate
+# carried +10.6 deg (sawtooth rows at a 20 cm pitch, butt steps at +38 deg), and the de-tilted v1 slate read 15 %
+# darker than it looking toward the sun (lean +10 brings it to -0.1 %). A key listed here may keep a mean v slope down
+# to -limit, i.e. a normal leaning toward +v, which is up the slope only where every roof face that draws the key
+# runs its UV v toward the ridge (tests/test_roof_uvv.py, on the export). u stays under TEXPASS_MAX_MEAN_SLOPE_DEG, and a
+# lean toward -v (down the slope) is never allowed. lux_slate draws slate's cell (alias), so it shares the kick
+TEXPASS_ROOF_KICK_MAX_DEG = {"slate": 11.0}
 # Flat (procedural) keys a pass re-draws, by EXACT key (no V2_BASE fallback: metal_roof_dk and metal_roof_s1 derive
 # from metal_roof but have their own proposers). metal_roof_lt (the fixed light roof, slots v2) is a COATED
 # standing-seam panel (PVDF, 20-35 gloss units at 60 degrees: satin), not bare metal: METAL_ROLLOUT 1.0 made it a

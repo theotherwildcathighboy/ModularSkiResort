@@ -42,8 +42,10 @@ Gates (the pilot's lessons, made mechanical):
   P13 no baked tilt: every pass key's sheet swatch (after normal_gain and normal_lean, as the sheet draws it) has a mean
       height slope under TEXPASS_MAX_MEAN_SLOPE_DEG in u and v (a relief that tiles averages 0; PHGrayRoofTiles02
       carries a bake tilt of +9.2 / +7.8 deg at gain 1.3, which turned its lean and darkened the shaded roof slope by
-      23 %); slate without its normal_lean fails it;
-  P8  weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
+      23 %); slate without its normal_lean fails it; the one exception is a roof kick (TEXPASS_ROOF_KICK_MAX_DEG): such
+      a key may lean its v slope toward +v (up the slope) down to -limit, never the other way (a mirrored kick fails);
+      that +v is up the slope is the export's property: tests/test_roof_uvv.py checks it per asset;
+  P8 weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
       a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise;
   P14 ridge key: recipe.texpass ridge_key is L1's alone (metal_roof_lt); lodge.texpass_ridge moves the galv ridge_
       parts onto it and nothing else, and raises on a key outside TEXPASS_RIDGE_KEYS, a roof slab on another key, or
@@ -646,28 +648,42 @@ def check_mean_slope():
             C, r = t["rect_px"][2], t["repeat"]
             n = C // r
             return TS.mean_slope_deg(TS._swatch_maps(k, C, repeat=r, layout_name="rollout")[1][:n, :n])
+
+        def passes(k, su, sv):
+            kick = TS.TEXPASS_ROOF_KICK_MAX_DEG.get(k)
+            if kick is None:
+                return max(abs(su), abs(sv)) < lim
+            return abs(su) < lim and -kick <= sv < lim     # a roof kick leans toward +v (negative slope) only
+        assert set(TS.TEXPASS_ROOF_KICK_MAX_DEG) <= set(TS.TEXPASS["v1"]), TS.TEXPASS_ROOF_KICK_MAX_DEG
+        assert all(0 < v <= 12.0 for v in TS.TEXPASS_ROOF_KICK_MAX_DEG.values()), "a roof kick stays under 12 deg"
         for k in sorted(TS.TEXPASS["v1"]):
             su, sv = slope(k)
             if "set" not in TS.TEXPASS["v1"][k]:
                 # detail-only key: it keeps the flag-off scan, so any tilt is the shipped look, not the pass's (recorded)
                 rows.append(f"{k} ({su:+.1f}, {sv:+.1f}) flag-off scan, not gated")
                 continue
-            assert max(abs(su), abs(sv)) < lim, (f"{k}: mean slope ({su:+.2f}, {sv:+.2f}) deg >= {lim}: the normal map "
-                                                 f"carries a baked tilt (de-tilt it: normal_lean to the de-tilted lean)")
-            rows.append(f"{k} ({su:+.1f}, {sv:+.1f})")
+            assert passes(k, su, sv), (f"{k}: mean slope ({su:+.2f}, {sv:+.2f}) deg outside the gate (|u|, |v| < {lim}; "
+                                       f"a roof kick: v in [-{TS.TEXPASS_ROOF_KICK_MAX_DEG.get(k)}, {lim})): the "
+                                       f"normal map carries a baked tilt (de-tilt it: normal_lean to the de-tilted lean)")
+            rows.append(f"{k} ({su:+.1f}, {sv:+.1f})" + (" roof kick" if k in TS.TEXPASS_ROOF_KICK_MAX_DEG else ""))
         spec = TS.TEXPASS["v1"]["slate"]
         saved = dict(spec)
         try:
             spec.pop("normal_lean")
             raw = slope("slate")
+            # a mirrored kick (the lean toward -v, down the slope) must fail too
+            spec["normal_lean"] = (float(saved["normal_lean"][0]), -abs(float(saved["normal_lean"][1])) - 4.0)
+            mirror = slope("slate")
         finally:
             spec.clear()
             spec.update(saved)
-        assert max(abs(x) for x in raw) >= lim, f"mutation: slate without normal_lean ({raw}) must fail the gate"
+        assert not passes("slate", *raw), f"mutation: slate without normal_lean ({raw}) must fail the gate"
+        assert not passes("slate", *mirror), f"mutation: slate leaning down the slope ({mirror}) must fail the gate"
     finally:
         TS.unregister_texpass()
-    ok(f"P13 no baked tilt (|mean slope| < {lim} deg): " + ", ".join(rows) +
-       f"; slate without normal_lean ({raw[0]:+.1f}, {raw[1]:+.1f}) fails it")
+    ok(f"P13 no baked tilt (|mean slope| < {lim} deg, roof kick {TS.TEXPASS_ROOF_KICK_MAX_DEG}): " + ", ".join(rows) +
+       f"; slate without normal_lean ({raw[0]:+.1f}, {raw[1]:+.1f}) and leaning down the slope ({mirror[0]:+.1f}, "
+       f"{mirror[1]:+.1f}) fail it")
 
 
 def check_level_gate():
