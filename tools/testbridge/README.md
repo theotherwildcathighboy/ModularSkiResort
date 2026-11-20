@@ -23,6 +23,16 @@ Do this only where the owner has allowed a restart. The Steam URL opens the Para
 but it needs the Steam variables. Without them, the game logs a NullReference in `AssetDatabase.PopulateFromDataSource` in a loop
 on a black screen.
 
+Start it with `tools/start-game.ps1`. It first copies the previous start's logs (Player.log, Logs\*.log) to
+`<game user data>\LogArchive\<time>_<label>\`, because every start overwrites them. Then it starts the game as below. It keeps
+the last 40 archive folders. `-NoStart` only archives (exit 1 = the game already runs).
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/start-game.ps1 -Label "<session> <why>"
+```
+
+What the script runs (reference; do not start the game without the archive step):
+
 ```powershell
 $env:SteamAppId="949230"; $env:SteamGameId="949230"; $env:SteamOverlayGameId="949230"; $g="C:\Program Files (x86)\Steam\steamapps\common\Cities Skylines II"; Start-Process -FilePath "$g\Cities2.exe" -WorkingDirectory $g -ArgumentList "--developerMode","--uiDeveloperMode"
 ```
