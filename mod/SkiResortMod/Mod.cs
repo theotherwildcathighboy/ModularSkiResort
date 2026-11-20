@@ -423,7 +423,9 @@ namespace SkiResortMod
             // save). The retrofit adds Skeleton + Bone + BoneHistory once per load, in Deserialize right AFTER vanilla's
             // RequiredComponentSystem (which adds only BoneHistory) and before the culling / batch post-deserialize steps
             // (SystemOrder.cs:803, :865, :891). It must stay in the load: a structural add in a running city exited the game.
+            // Its check (no anchor, Modification1 of the main loop, asleep unless a load armed it) logs one OK or WARN line.
             updateSystem.UpdateAfter<BoneRetrofitSystem, Game.Serialization.RequiredComponentSystem>(SystemUpdatePhase.Deserialize);
+            updateSystem.UpdateAt<BoneRetrofitVerifySystem>(SystemUpdatePhase.Modification1);
 
             // Low spans (hub row LiftLowSpan). AFTER the census at 4B for the same reason as the trains: the rope lanes LaneSystem built at
             // Modification4 are this frame's. The phase must stay Modification4B or the anchor is skipped.
