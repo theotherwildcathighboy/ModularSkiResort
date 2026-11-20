@@ -180,6 +180,8 @@ class Recipe:
     # {"base_h": {"front": f, "side": s, "back": b}} = the recipe's own base band heights (m), at most the ladder step's;
     # {"eave_h": 0.0} = no under-eave band; {"band_skip": ("col_",)} = parts that take no base band;
     # {"label_w": {"emblem_p1_face": 2.0}} = per-label density weights in the building's label rect (tile_mesh);
+    # {"mat": {"balc_ASbal": "timber_lap"}} = parts whose names start with a prefix draw that key (lodge.texpass_mat;
+    # raises on an unknown key or a prefix that matches no part);
     # {"weather_level": n} = the ladder level the flag-off build keeps (required: lodge.assert_texpass_level
     # raises below it). None = the rollout rules.
     texpass: object = None

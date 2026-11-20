@@ -1895,6 +1895,12 @@ def run(recipe, args):
             me = o.data
             bpy.data.objects.remove(o, do_unlink=True)
             bpy.data.meshes.remove(me)
+    # --texpass: recipe.texpass["mat"] moves named parts to another key BEFORE the trim / slot remaps, so they treat a
+    # moved part like any other part of its new key (texpass_rules is {} with the flag off: never read there)
+    mat_moved = None
+    tp_mat = texpass_rules(recipe, args)
+    if tp_mat.get("mat"):
+        parts, mat_moved = texpass_mat(parts, recipe, tp_mat)
     trim_moved = None
     if tc:                                  # T70 trim v1: the one remap by prefix (cs2_tilesheet.trim_remap)
         import cs2_tilesheet as TS
@@ -1912,8 +1918,7 @@ def run(recipe, args):
         parts, slot_moved = TS.slots_v2_remap(parts, recipe.key, SLOTS_V2_ACCENT.get(recipe.key, "accent_orange"),
                                               no_frame=door2["flat"] if door2 else ())
     # texpass ridge_key (--texpass only: {} when off): the galv ridge flashings take the coated roof's key
-    parts, _ridge_moved = texpass_ridge(parts, recipe, (getattr(recipe, "texpass", None) or {})
-                                        if getattr(args, "texpass", "off") != "off" else {})
+    parts, _ridge_moved = texpass_ridge(parts, recipe, texpass_rules(recipe, args))
     plates = None
     if glass == "gls":                      # T85: a backing plate behind every light group
         import cs2_tilesheet as TS
@@ -2004,6 +2009,8 @@ def run(recipe, args):
                               "mesh": signset["spec"].mesh}
     if we_boards:
         result["we_boards"] = we_boards
+    if mat_moved is not None:                           # --texpass builds with a "mat" rule only
+        result["texpass_mat"] = {"moved": dict(sorted(mat_moved.items()))}
     if slot_moved is not None:
         result["slots_v2"] = {"moved": dict(sorted(slot_moved.items())),
                               "by_key": {f"{o}->{n}": sum(1 for v in slot_moved.values() if v == [o, n])
@@ -2397,6 +2404,44 @@ def finalize_family_sheet(args):
     return {"sheet": sname, "hash": lay["hash"], "owner_dir": odir, "files": files}
 
 
+def texpass_rules(recipe, args):
+    """recipe.texpass under --texpass, else {}: the one place a build reads a recipe's pass rules, so a flag-off build
+    never sees one (test_texpass P15)."""
+    return (getattr(recipe, "texpass", None) or {}) if getattr(args, "texpass", "off") != "off" else {}
+
+
+def texpass_mat(parts, recipe, tp):
+    """recipe.texpass["mat"] {part-name prefix: material key} (lodge.py --texpass only): every part whose name starts
+    with a prefix draws that key (the longest prefix wins). This is for a pass scan that suits one use of a key and not
+    another (e.g. a 1 m x 12 m board balustrade on timber_heavy, whose pass scan is a solid member, Wood060). It is
+    the one remap by prefix under the pass, beside cs2_tilesheet.trim_remap; test_texpass P15 proves it on a synthetic
+    copy of L3's recipe, so it needs no live user. Raises on a key that is not a building
+    material and on a prefix that matches no part (a renamed part must not drop the rule silently). Returns (parts,
+    {part name: [old key, new key]})."""
+    rules = dict(tp.get("mat") or {})
+    if not rules:
+        return parts, {}
+    bad = sorted(k for k in rules.values() if k not in K.BLDG_MATERIALS)
+    if bad:
+        raise ValueError(f"{recipe.key}: texpass mat names unknown material keys {bad}")
+    order = sorted(rules, key=len, reverse=True)
+    hits = dict.fromkeys(rules, 0)
+    out, moved = [], {}
+    for o, k in parts:
+        p = next((p for p in order if o.name.startswith(p)), None)
+        if p is None:
+            out.append((o, k))
+            continue
+        hits[p] += 1
+        if rules[p] != k:
+            moved[o.name] = [k, rules[p]]
+        out.append((o, rules[p]))
+    dead = sorted(p for p, n in hits.items() if n == 0)
+    if dead:
+        raise ValueError(f"{recipe.key}: texpass mat prefixes match no part: {dead}")
+    return out, moved
+
+
 def texpass_weather(W, recipe, tp):
     """recipe.texpass rules on one weathering-ladder step (lodge.py --texpass): "grade" {"slope", "anchor_x"} = the
     plinth's design grade in the AUTHORING frame (z = -s (a - x), falling toward -X), turned into the tiled frame
@@ -2572,7 +2617,7 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
         ladder = [TS.weather_level(int(wl))]
     else:
         ladder = [TS.weather_level(i) for i in range(6)]
-    tp = (getattr(recipe, "texpass", None) or {}) if getattr(args, "texpass", "off") != "off" else {}
+    tp = texpass_rules(recipe, args)
     if tp:
         ladder = [texpass_weather(W, recipe, tp) for W in ladder]
     cap = recipe.budget.lod0_cap
@@ -2884,7 +2929,8 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
     }
     if result.get("window_kit"):           # kit v2 builds only (older manifests keep their keys)
         data["window_kit"] = result["window_kit"]
-    for k_ in ("glass", "slots_v2", "budget_override", "ridge", "flags", "p1_gear", "step_base"):   # T85 / T89 / ridge v2 / T174 / T175 / step-base builds only
+    for k_ in ("glass", "slots_v2", "budget_override", "ridge", "flags", "p1_gear", "step_base",
+               "texpass_mat"):   # T85 / T89 / ridge v2 / T174 / T175 / step-base / texpass "mat" rule builds only
         if result.get(k_) is not None:
             data[k_] = result[k_]
     if result.get("door_kit"):             # door kit v2 builds only

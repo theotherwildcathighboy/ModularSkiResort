@@ -41,6 +41,12 @@ Gates (the pilot's lessons, made mechanical):
       parts onto it and nothing else, and raises on a key outside TEXPASS_RIDGE_KEYS, a roof slab on another key, or
       no ridge; lodge.texpass_ridge_prefixes is trim v1's pair without a ridge_key (pass off: flag-off byte for
       byte) and draws ridge_ flat (no strip) with one; every ridge key has a v1 tile + "~f" cell and is coated;
+  P15 mat rule: lodge.py reads recipe.texpass in one place (texpass_rules), which is {} for every recipe with the flag
+      off, so no flag-off build sees a "mat" rule; lodge.texpass_mat moves only the parts a prefix names (the
+      longest prefix wins; other parts keep key and object), raises on an unknown key and on a prefix that matches no
+      part; no live user needed: L3's real parts under a synthetic copy of its recipe that names the two balustrades
+      move exactly those two timber_heavy -> timber_lap under v1 and nothing with the flag off, and a prefix one
+      character off a real part name raises;
   P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate, timber_heavy, lux_glulam_s2, siding_paint: 2} (off: {}); a plinth + lap
       wall + slate roof through lodge's prep: the pass's UVTile is exactly 2 x the flag-off one on the pass keys'
       faces (meters / square tile); after lodge.texpass_far_units + align_islands + split_poor_islands the UVTile and
@@ -654,6 +660,62 @@ def check_ridge_key():
        f"another key and no ridge raise; the off pair is trim v1's; {list(lodge.TEXPASS_RIDGE_KEYS)} coated in v1")
 
 
+def check_mat_rule():
+    # flag off never reads a rule: lodge reads recipe.texpass in ONE place (texpass_rules), and that is {} when off
+    with open(lodge.__file__, encoding="utf-8") as fh:
+        src = fh.read()
+    reads = len(re.findall(r'getattr\(recipe, "texpass"', src))
+    assert reads == 1, f"lodge.py reads recipe.texpass in {reads} places; texpass_rules must be the only one"
+    # the manifest writer copies only listed result keys: texpass_mat must be one, or a build's moves never reach it
+    keys = re.search(r'for k_ in \(([^)]*)\):', src[src.index("def _write_manifest"):]).group(1)
+    assert '"texpass_mat"' in keys, "_write_manifest drops result['texpass_mat']"
+    off = lodge.parse_args(["--recipe", "L3"])
+    on = lodge.parse_args(["--recipe", "L3", "--texpass", "v1"])
+    opted = []
+    for key, rc in sorted(lodge.R.load_recipes().items()):
+        assert lodge.texpass_rules(rc, off) == {}, f"{key}: texpass_rules read a rule with the flag off"
+        if (getattr(rc, "texpass", None) or {}).get("mat"):
+            opted.append(key)
+    # the rule on probe parts: the longest prefix wins, other parts keep their key and object
+    clear()
+    rc = lodge.select_recipe(off)
+    parts = (K.box_part("balc_ASbal", (0, 0, 0), (1, 0.1, 1), "timber_heavy")
+             + K.box_part("balc_AS", (0, 0, -0.2), (1, 1, 0), "deck")
+             + K.box_part("col_probe", (2, 0, 0), (2.2, 0.2, 2), "timber_heavy"))
+    out, moved = lodge.texpass_mat(parts, rc, {"mat": {"balc_ASbal": "timber_lap", "balc_": "deck"}})
+    assert moved == {"balc_ASbal": ["timber_heavy", "timber_lap"]}, moved
+    assert [k for _o, k in out] == ["timber_lap", "deck", "timber_heavy"], out
+    assert all(a[0] is b[0] for a, b in zip(parts, out))
+    assert lodge.texpass_mat(parts, rc, {}) == (parts, {})
+    for rules, why in (({"balc_ASbal": "no_such_key"}, "an unknown key"), ({"balcony_": "timber_lap"}, "a dead prefix")):
+        try:
+            lodge.texpass_mat(parts, rc, {"mat": rules})
+        except ValueError:
+            continue
+        raise AssertionError(f"texpass mat with {why} must raise")
+    # real parts, no live user needed: L3's built parts under a synthetic copy of its recipe whose rule names the two
+    # balustrades (the registry is untouched); on = exactly those two move timber_heavy -> timber_lap, off = no rule,
+    # no move; a prefix one character off the real part name raises (a renamed part never drops a rule silently)
+    clear()
+    real = list(rc.builder(rc, {}))
+    syn_mat = {"balc_AWbal": "timber_lap", "balc_ASbal": "timber_lap"}
+    syn = dataclasses.replace(rc, texpass=dict(rc.texpass or {}, mat=syn_mat))
+    _o, moved = lodge.texpass_mat(real, syn, lodge.texpass_rules(syn, on))
+    want = {"balc_AWbal": ["timber_heavy", "timber_lap"], "balc_ASbal": ["timber_heavy", "timber_lap"]}
+    assert moved == want, moved
+    assert lodge.texpass_mat(real, syn, lodge.texpass_rules(syn, off))[1] == {}
+    try:
+        lodge.texpass_mat(real, syn, {"mat": dict(syn_mat, balc_AWbalX="timber_lap")})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("texpass mat with a dead prefix on real parts must raise")
+    clear()
+    ok(f"P15 mat rule: lodge reads recipe.texpass once (texpass_rules, {{}} with the flag off for every recipe); "
+       f"opted {', '.join(opted) or 'none'}; a synthetic L3 rule moves {sorted(moved)} to timber_lap on its real parts "
+       f"(manifest key texpass_mat); an unknown key or a dead prefix raises (probe and real parts)")
+
+
 def far_layout(tp):
     """A stone_rubble plinth, a timber_lap wall and a slate roof slab through lodge's prep, then the far set's UV steps
     (lodge.run: texpass_far_units, align_islands, split_poor_islands, texpass_sample_layer, the dry pack)."""
@@ -734,6 +796,7 @@ def main():
     check_mean_slope()
     check_level_gate()
     check_ridge_key()
+    check_mat_rule()
     check_far_units()
     check_low_frequency()
     check_far_sources()
