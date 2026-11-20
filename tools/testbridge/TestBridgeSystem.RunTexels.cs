@@ -7,7 +7,8 @@
 //   stopped a stopped gun run's cold texel (no target this pass; counted)
 //   none    inside the outline but no target: dropped by the edge noise (never raised; counted only when no full, warm or stopped
 //           texel is there, RunSnowRules.CountDroppedTexels)
-// Per class: count, mean depth, the share at the open bar, the mean chill (full only), and depth quantiles of the full texels.
+// Per run: the outline's bounds (x0, z0, x1, z1) and center. Per class: count, mean depth, the share at the open bar, the mean
+// chill (full only), and depth quantiles of the full texels.
 // "countedShare" is the run's open share as the fold forms it from these classes (texel centers only, so an estimate: the fold weighs
 // partly covered edge texels by their coverage). Read-only.
 
@@ -190,6 +191,7 @@ namespace SkiTestBridge
                         ["yMin"] = Math.Round(yLo, 1),
                         ["yMax"] = Math.Round(yHi, 1),
                         ["center"] = new JArray(Math.Round((lo.x + hi.x) * 0.5f, 1), Math.Round((lo.y + hi.y) * 0.5f, 1)),
+                        ["bounds"] = new JArray(Math.Round(lo.x, 1), Math.Round(lo.y, 1), Math.Round(hi.x, 1), Math.Round(hi.y, 1)),   // x0, z0, x1, z1 (T269 probe)
                         ["texels"] = cls["full"].N + cls["fringe"].N + cls["warm"].N + cls["stopped"].N + cls["none"].N,
                         ["classes"] = classes,
                         ["fullQuantilesM"] = q,
