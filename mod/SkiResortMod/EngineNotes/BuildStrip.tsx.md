@@ -80,7 +80,9 @@ tile's reason line had no top margin, so the strip lost 5 rem.
 The fix (Design A):
 
 - A tab click shows that tab and never closes the strip (`hubRules.tabClick`). A chevron at the end of the tab row opens and closes it
-  (`chevronClick`). It uses the fold glyphs. It is disabled while a strip mode is engaged, because the strip stays open then.
+  (`chevronClick`). It uses the fold glyphs. While a strip mode is engaged, a chevron click cancels it. Then the strip closes.
+  `chevronCancel` picks the actions (T262): the lit tile's launch, or the tree, Quick runs or lift tool toggle. The merge overlay goes off.
+  Before T262 the chevron was disabled then.
 - Every tab pads its tile row to one slot count and one gap count (`hubRules.stripSlots`). The counts are the most tiles and the most
   group gaps of any tab or Buildings family. Empty slots go at the end of the last group. Missing gaps go at the row end as `.buildGap` (8 rem, the
   `.buildGroupNext` margin). So every tab spends the same rem on gaps, and a tile has one width (60 px at 1080, text scale 1).

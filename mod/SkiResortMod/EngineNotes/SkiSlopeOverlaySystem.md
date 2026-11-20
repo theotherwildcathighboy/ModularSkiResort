@@ -142,7 +142,7 @@ parent's slot (UpdateSystem.cs:382-412), so it also runs before OverlayRenderSys
   Rendering phase reads false. That was wrong: the same system-wide hotkey caused those misses too.
 - The key log lines (`SlopeOverlay [keys]`): the live state and bindings when polling starts, each live-state change, and the first
   press. A dead key from outside the game shows as "polling ... live True" with no "first press" line.
-- The hub's Slope colors chip on the Runs tab (contract 59, `setSlopeOverlay`) calls `RequestSet`.
+- The hub's Slope colors chip on the Runs tab (contract 60, `setSlopeOverlay`) calls `RequestSet`.
 - Both paths save the settings file. `ShowSlopeOverlay` is a new bool (default off). Old settings files load without it.
 - Game mode only. Nothing is saved in the city, and no prefab changes.
 
