@@ -55,6 +55,9 @@ namespace SkiResortMod.Systems
             public const float BuildMarginM = 40f, RebuildMoveM = 20f;
             /// <summary>Caps of one build: fill strips and outline curves. Over MaxFill the builder uses fewer sub-rows (4, 2, 1).</summary>
             public const int MaxFill = 40000, MaxCurves = 8000;
+            /// <summary>Sub-rows by camera distance to the cursor hit (game check 2026-11-20: 13k thin strips cost +2 ms at zoom 2,600, where a
+            /// sub-row is under a pixel). Beyond SubRows2M: 2 sub-rows; beyond SubRows1M: 1. HysteresisM avoids rebuilds at a boundary.</summary>
+            public const float SubRows2M = 300f, SubRows1M = 1600f, SubRowsHysteresisM = 50f;
             /// <summary>Tiles kept (a 600 m disk touches about 34-49; the rest is the recently visited ring).</summary>
             public const int TileCapacity = 128;
             /// <summary>Ray march: at most this many steps, then this many bisection steps.</summary>
@@ -357,14 +360,26 @@ namespace SkiResortMod.Systems
             var at = new double2(hit.x, hit.z);
             TakeBuild();
             bool moved = !(math.distancesq(at, m_BuiltAt) < (double)Tuning.RebuildMoveM * Tuning.RebuildMoveM);
-            if ((moved || m_Tiles.TilesComputed != m_BuiltTilesComputed || m_Tiles.TilesInvalidated != m_BuiltTilesInvalidated ||
+            float camDist = math.distance(viewer.position, hit);
+            int lodSubs = LodSubRows(camDist, m_Builder.MaxSubRows);
+            if ((moved || lodSubs != m_Builder.MaxSubRows || m_Tiles.TilesComputed != m_BuiltTilesComputed || m_Tiles.TilesInvalidated != m_BuiltTilesInvalidated ||
                  !ReferenceEquals(skipGrid, m_BuiltSkipGrid) || eu != m_BuiltEu) && m_Builder.Idle)
+            {
+                m_Builder.MaxSubRows = lodSubs;
                 StartBuild(at, eu, skipGrid, origin, texel);
+            }
             if (m_FillCount == 0 && m_CurveCount == 0)
                 return false;
-            float camDist = math.distance(viewer.position, hit);
             Draw(new float2(hit.x, hit.z), camDist, eu);
             return true;
+        }
+
+        /// <summary>Most sub-rows for a camera distance, with hysteresis around the current value.</summary>
+        private static int LodSubRows(float dist, int current)
+        {
+            float d2 = Tuning.SubRows2M + (current >= 4 ? Tuning.SubRowsHysteresisM : -Tuning.SubRowsHysteresisM);
+            float d1 = Tuning.SubRows1M + (current >= 2 ? Tuning.SubRowsHysteresisM : -Tuning.SubRowsHysteresisM);
+            return dist > d1 ? 1 : dist > d2 ? 2 : 4;
         }
 
         /// <summary>First crossing of the camera ray with the terrain: steps of 0.7 x the height above ground (at least 1 m, at most 400 m),

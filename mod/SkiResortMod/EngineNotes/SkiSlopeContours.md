@@ -58,11 +58,27 @@ gone: the outlines mark every band edge.
 - The overlay builds `R + BuildMarginM` (300 + 40 m) and rebuilds after a 20 m cursor move. The draw job clips that to the live
   disk every frame, so the disk follows the cursor without a rebuild.
 - Over `MaxFill` strips, the builder retries with `SubRows` 2, then 1.
+- Sub-rows by camera distance (the overlay only): 4 within `SubRows2M` (300 m), 2 up to `SubRows1M` (1,600 m), then 1, with
+  `SubRowsHysteresisM` (50 m). A far camera sees a sub-row as less than a pixel. A change rebuilds once.
 - The draw job (`ContourDrawJob`, `[BurstCompile]` IJob, `AddBufferWriter`) writes `DrawLine` strips and `DrawCurve` outlines, each
   with its own tight box (`SkiSlopeOverlaySystem.BufferView`, see EngineNotes/SkiSlopeOverlaySystem.md).
 - Host cost (CoreCLR, SlopeBatch ContourTiming): about 2.3-2.7 ms per 300 m disk. Mono in game is 5-8x slower, which is why the
   build is off the main thread. Counts on the SlopeBatch terrains: 13-16k fill strips (10-13k of them thin) and 1.5-1.8k curves,
-  against 2.7-2.9k strips in 1.0.3. The in-game GPU cost is measured in game (A/B against main at the same camera).
+  against 2.7-2.9k strips in 1.0.3.
+
+Game test (2026-11-20 08:50-09:32, 4K, RTX 5090, the test site of EngineNotes/SkiSlopeOverlaySystem.md, sim paused). Each value
+is the mean of three interleaved 5 s samples, overlay on vs off in the same run. Main has no overlay (on = off there: 13.3 / 13.15 /
+14.2 ms).
+
+| Zoom | 4 sub-rows everywhere | Sub-rows by distance (shipped) | 1.0.3 cells |
+|---|---|---|---|
+| 450 | +1.30 ms (13,383 strips) | +1.17 ms (5,848 strips, 2 sub-rows) | +1.0 ms |
+| 1,100 | +0.67 ms | +0.43 ms (2 sub-rows) | +0.25 ms |
+| 2,600 | +1.97 ms | +0.47 ms (2,788 strips, 1 sub-row) | +0.3 ms |
+
+The managed part is 0.62 ms at every zoom, the same as in 1.0.3 (the tile verify and the schedule). The worker build takes 11-17 ms
+under Mono, off the main thread. The run heat-map costs nothing measurable (drawn 13.47 ms, no polygon 13.52 ms, main 14.44 /
+14.45 ms). At zoom 450 the shots with 4 and 2 sub-rows look the same.
 
 ## Tests (SlopeBatch)
 

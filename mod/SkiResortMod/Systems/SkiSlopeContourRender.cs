@@ -80,6 +80,8 @@ namespace SkiResortMod.Systems
         public double2[] Ring = new double2[0];
         public int RingCount;
         public int MaxFill, MaxCurves;
+        /// <summary>Most sub-rows to try (4, 2 or 1): the overlay lowers it by camera distance (far zoom: fewer thin strips).</summary>
+        public int MaxSubRows = 4;
         public int Gen;
 
         // Outputs (main thread, once Done).
@@ -126,7 +128,7 @@ namespace SkiResortMod.Systems
                 c.ClipRing = RingCount >= 3 ? Ring : null;
                 c.ClipCount = RingCount;
                 // Thin strips first; over MaxFill, fewer sub-rows (the edge steps grow, the outline still covers 2 sub-rows).
-                for (int subs = 4; ; subs /= 2)
+                for (int subs = MaxSubRows >= 4 ? 4 : MaxSubRows >= 2 ? 2 : 1; ; subs /= 2)
                 {
                     c.SubRows = subs;
                     c.Build(O, H, Nx, Nz, Ox, Oz, Step, Eu);
