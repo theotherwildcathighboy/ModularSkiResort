@@ -12,8 +12,10 @@
 // humans from old versions). So a mesh swap on a released building (release-update-constraints change-table row 3a) that
 // adds such a component draws, but the feature never runs in a city saved before the swap: P1 measured 4 / 4 fixed-grip
 // stations without a Skeleton, so their new bullwheels never turned.
-// Covered: Skeleton + Bone + BoneHistory on a "Ski" prefab (BoneRetrofitSystem adds them once per load), when no bone needs
-// Momentum or PlaybackLayer; Emissive on a CarPrefab (vanilla, above).
+// Covered: Skeleton + Bone + BoneHistory on a prefab listed in BoneRetrofitSystem.RetrofitPrefabs (type + name; the system adds
+// them once per load), when no bone needs Momentum or PlaybackLayer; Emissive on a CarPrefab (vanilla, above).
+// Also checked (critic-f1 change 4): the retrofit's one ComponentTypeSet is exactly Skeleton + Bone + BoneHistory (a dropped
+// BoneHistory would crash at the first sizing, vanilla's Bone fix has already run), and every listed prefab is a released one.
 // Reads: tools/shipped-prefabs.json (the released prefabs), the mirror (or --root) for now, and the mirror at every release tag
 // v<major>.<minor>.<patch> (git). Vanilla meshes (CIDs not in our mirror) are not judged.
 // Exit 0 = PASS, 1 = FAIL. --self-test runs planted cases.
@@ -87,7 +89,8 @@ function judge(prefab, now, then, tag, retrofit) {
     if (!added.length) return null;
     const covered = [], open = [];
     for (const a of added) {
-        if (a === 'Skeleton' && retrofit && prefab.name.startsWith('Ski')) covered.push(`${a} (BoneRetrofitSystem)`);
+        if (a === 'Skeleton' && retrofit && retrofit.present && retrofit.names.get(prefab.name) === prefab.type)
+            covered.push(`${a} (BoneRetrofitSystem)`);
         else if (a === 'Emissive' && prefab.type === 'CarPrefab') covered.push(`${a} (vanilla RequiredComponentSystem, cars)`);
         else open.push(a);
     }
@@ -173,10 +176,28 @@ function sourceNow(root, files) {
     return { prefabs, meshes };
 }
 
-function retrofitPresent() {
-    const sys = path.join(REPO, 'mod/SkiResortMod/Systems/BoneRetrofitSystem.cs');
-    const mod = path.join(REPO, 'mod/SkiResortMod/Mod.cs');
-    return fs.existsSync(sys) && fs.existsSync(mod) && /UpdateAfter<BoneRetrofitSystem,/.test(fs.readFileSync(mod, 'utf8'));
+/** The retrofit as the source declares it: registered in Mod.cs, its prefab list and its component set. */
+function parseRetrofit(sysText, modText) {
+    const r = { present: false, names: new Map(), set: [], problems: [] };
+    if (sysText == null || modText == null || !/UpdateAfter<BoneRetrofitSystem,/.test(modText)) return r;
+    r.present = true;
+    const list = /RetrofitPrefabs\s*=\s*\{([\s\S]*?)\};/.exec(sysText);
+    if (!list) r.problems.push('BoneRetrofitSystem.RetrofitPrefabs not found');
+    else for (const m of list[1].matchAll(/\(nameof\((\w+)\),\s*"(\w+)"\)/g)) r.names.set(m[2], m[1]);
+    const sets = [...sysText.matchAll(/new ComponentTypeSet\(([\s\S]*?)\)\);/g)];
+    if (sets.length !== 1) r.problems.push(`BoneRetrofitSystem has ${sets.length} ComponentTypeSet(s), want exactly one structural call`);
+    else {
+        r.set = [...sets[0][1].matchAll(/ComponentType\.\w+<(\w+)>\(\)/g)].map(x => x[1]);
+        const want = ['Bone', 'BoneHistory', 'Skeleton'];
+        if ([...r.set].sort().join(',') !== want.join(','))
+            r.problems.push(`the retrofit adds [${r.set.join(', ')}], want exactly Skeleton + Bone + BoneHistory`);
+    }
+    return r;
+}
+
+function retrofitNow() {
+    const rd = p => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null);
+    return parseRetrofit(rd(path.join(REPO, 'mod/SkiResortMod/Systems/BoneRetrofitSystem.cs')), rd(path.join(REPO, 'mod/SkiResortMod/Mod.cs')));
 }
 
 function run(root) {
@@ -187,7 +208,11 @@ function run(root) {
         tags = git(['tag', '--list', 'v*']).toString('utf8').split(/\r?\n/).filter(t => /^v\d+\.\d+\.\d+$/.test(t));
     } catch (e) { tags = []; }
     if (!tags.length) { console.log('check-archetype-swap: SKIP (no release tags in this clone)'); return 0; }
-    const retrofit = retrofitPresent();
+    const retrofit = retrofitNow();
+    const problems = [...retrofit.problems];
+    for (const [name, type] of retrofit.names)
+        if (!shipped.some(p => p.name === name && p.type === type)) problems.push(`RetrofitPrefabs lists ${type} ${name}, not a released prefab`);
+    for (const p of problems) console.log(`FAIL  ${p}`);
     const now = sourceNow(root, files);
     const fails = [], covered = [];
     let judged = 0;
@@ -216,9 +241,10 @@ function run(root) {
     }
     const cov = new Set(covered.map(r => `${r.prefab} ${r.covered.join(', ')}`));
     const summary = `${shipped.length} released prefabs, ${tags.length} release tags (${tags.join(', ')}), ${judged} prefab x tag pairs with object meshes, ` +
-        `${cov.size} covered swap(s)${cov.size ? ` [${[...cov].join('; ')}]` : ''}, retrofit ${retrofit ? 'present' : 'ABSENT'}`;
-    console.log(`check-archetype-swap: ${once.size ? `FAIL (${once.size})` : 'PASS'} | ${summary}`);
-    return once.size ? 1 : 0;
+        `${cov.size} covered swap(s)${cov.size ? ` [${[...cov].join('; ')}]` : ''}, retrofit ${retrofit.present ? `present (${retrofit.names.size} prefab(s), adds ${retrofit.set.join(' + ')})` : 'ABSENT'}`;
+    const n = once.size + problems.length;
+    console.log(`check-archetype-swap: ${n ? `FAIL (${n})` : 'PASS'} | ${summary}`);
+    return n ? 1 : 0;
 }
 
 function selfTest() {
@@ -236,17 +262,19 @@ function selfTest() {
         [E, { name: 'Tinted', text: mesh('{"$type": "2|Game.Prefabs.ColorProperties, Game"}') }],
     ]);
     const flagsOf = (cid) => prefabFlags(bldg(cid), meshes);
+    const R = { present: true, names: new Map([['SkiX', 'BuildingPrefab'], ['SkiBus', 'CarPrefab']]) }, NOR = { present: false, names: new Map() };
     const cases = [
-        ['bones on a Ski building, retrofit present: covered', { name: 'SkiX', type: 'BuildingPrefab' }, B, A, true, r => r && !r.open.length && r.covered.length === 1],
-        ['bones without the retrofit: FAIL', { name: 'SkiX', type: 'BuildingPrefab' }, B, A, false, r => r && r.open.includes('Skeleton')],
-        ['bones on a non-Ski prefab: FAIL', { name: 'Other', type: 'BuildingPrefab' }, B, A, true, r => r && r.open.includes('Skeleton')],
-        ['emissive swap on a building: FAIL', { name: 'SkiX', type: 'BuildingPrefab' }, C, A, true, r => r && r.open.includes('Emissive')],
-        ['emissive swap on a car: covered', { name: 'SkiBus', type: 'CarPrefab' }, C, A, true, r => r && !r.open.length],
-        ['a PoweredRotation bone needs Momentum: FAIL', { name: 'SkiX', type: 'BuildingPrefab' }, D, A, true, r => r && r.open.includes('Momentum')],
-        ['a LodProperties m_Type after the bones is not a bone', { name: 'SkiX', type: 'BuildingPrefab' }, B, A, true, r => r && !r.open.includes('Momentum')],
-        ['color swap: FAIL', { name: 'SkiX', type: 'BuildingPrefab' }, E, A, true, r => r && r.open.includes('Color')],
-        ['no change: no finding', { name: 'SkiX', type: 'BuildingPrefab' }, B, B, true, r => r === null],
-        ['a mesh with fewer flags: no finding', { name: 'SkiX', type: 'BuildingPrefab' }, A, B, true, r => r === null],
+        ['bones on a Ski building, retrofit present: covered', { name: 'SkiX', type: 'BuildingPrefab' }, B, A, R, r => r && !r.open.length && r.covered.length === 1],
+        ['bones without the retrofit: FAIL', { name: 'SkiX', type: 'BuildingPrefab' }, B, A, NOR, r => r && r.open.includes('Skeleton')],
+        ['bones on a prefab not in RetrofitPrefabs: FAIL', { name: 'SkiOther', type: 'BuildingPrefab' }, B, A, R, r => r && r.open.includes('Skeleton')],
+        ['bones on a listed name of another type: FAIL', { name: 'SkiX', type: 'StaticObjectPrefab' }, B, A, R, r => r && r.open.includes('Skeleton')],
+        ['emissive swap on a building: FAIL', { name: 'SkiX', type: 'BuildingPrefab' }, C, A, R, r => r && r.open.includes('Emissive')],
+        ['emissive swap on a car: covered', { name: 'SkiBus', type: 'CarPrefab' }, C, A, R, r => r && !r.open.length],
+        ['a PoweredRotation bone needs Momentum: FAIL', { name: 'SkiX', type: 'BuildingPrefab' }, D, A, R, r => r && r.open.includes('Momentum')],
+        ['a LodProperties m_Type after the bones is not a bone', { name: 'SkiX', type: 'BuildingPrefab' }, B, A, R, r => r && !r.open.includes('Momentum')],
+        ['color swap: FAIL', { name: 'SkiX', type: 'BuildingPrefab' }, E, A, R, r => r && r.open.includes('Color')],
+        ['no change: no finding', { name: 'SkiX', type: 'BuildingPrefab' }, B, B, R, r => r === null],
+        ['a mesh with fewer flags: no finding', { name: 'SkiX', type: 'BuildingPrefab' }, A, B, R, r => r === null],
     ];
     let bad = 0;
     for (const [label, p, now, then, retro, ok] of cases) {
@@ -256,7 +284,19 @@ function selfTest() {
     if (meshCids('{"$type": "1|Game.Prefabs.NetLaneGeometryPrefab, Game", "m_Mesh": $fstrref:"CID:' + A + '"}') !== null) {
         bad++; console.log('FAIL  self-test: a prefab without ObjectMeshInfo rows is not judged');
     }
-    console.log(`check-archetype-swap --self-test: ${bad ? `FAIL (${bad})` : `OK (${cases.length + 1} planted cases)`}`);
+    const mod = 'updateSystem.UpdateAfter<BoneRetrofitSystem, X>(P);';
+    const sys = (set) => 'RetrofitPrefabs = { (nameof(BuildingPrefab), "SkiA"), (nameof(StaticObjectPrefab), "SkiB"), };\n' +
+        `EntityManager.AddComponent(fix.AsArray(), new ComponentTypeSet(${set}));`;
+    const RW = (t) => `ComponentType.ReadWrite<${t}>()`;
+    const parses = [
+        ['the three buffers in one call parse clean', parseRetrofit(sys([RW('Skeleton'), RW('Bone'), RW('BoneHistory')].join(',\n ')), mod),
+            r => r.present && !r.problems.length && r.names.get('SkiA') === 'BuildingPrefab' && r.names.get('SkiB') === 'StaticObjectPrefab'],
+        ['a set without BoneHistory: FAIL', parseRetrofit(sys([RW('Skeleton'), RW('Bone')].join(', ')), mod), r => r.problems.length === 1],
+        ['a fourth component: FAIL', parseRetrofit(sys([RW('Skeleton'), RW('Bone'), RW('BoneHistory'), RW('Momentum')].join(', ')), mod), r => r.problems.length === 1],
+        ['not registered in Mod.cs: absent', parseRetrofit(sys(RW('Skeleton')), 'nothing'), r => !r.present],
+    ];
+    for (const [label, r, ok] of parses) if (!ok(r)) { bad++; console.log(`FAIL  self-test: ${label} (${JSON.stringify({ ...r, names: [...r.names] })})`); }
+    console.log(`check-archetype-swap --self-test: ${bad ? `FAIL (${bad})` : `OK (${cases.length + 1 + parses.length} planted cases)`}`);
     return bad ? 1 : 0;
 }
 

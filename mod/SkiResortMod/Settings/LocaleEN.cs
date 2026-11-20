@@ -491,6 +491,15 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.AnimatedLiftCarriers)),
                     "Grips follow the slope of the rope, and chairs and cabins swing in the wind. Off: they hang level and still. Default on."
                 },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LiftStationRetrofit)),
+                    "Moving parts for older lift stations"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftStationRetrofit)),
+                    "When a city loads, fixed-grip chairlift stations built before version 1.0.4 get what their turning bullwheel needs. " +
+                    "Off: those stations keep a still bullwheel, and newer ones turn either way. Takes effect at the next load. Default on."
+                },
 
                 // --- Diagnostics ---
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupDiagnostics), "Diagnostics" },
