@@ -98,6 +98,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `wind` | optional `x`, `y`, `force`; optional `wx`, `wz` | sets `WindSimulationSystem.constantWind` (default 0.275, 0.275). With `force`, it also writes that velocity into every cell of the wind simulation. Both are saved values. It reads the wind map at a point. See "Filming" |
 | `fps` | optional `target` (-1 = no cap, or 24 to 240), `capture` (0 = off, or 24 to 240) | `Application.targetFrameRate` and `Time.captureFramerate` for this run of the game. Not game settings, not saved. See "Filming" |
 | `overlay` | optional `hidden`, `seconds` (default 120, at most 900) | the game's own hide-overlay switch (`RenderingSystem.hideOverlay`): notification icons and the piste map are not drawn, nothing is deleted, the active tool stays. It turns itself off after `seconds`. No argument: the state. See "Filming" |
+| `pointer` | optional `hold`, `seconds` (default 120, at most 900), `x`, `y` (screen pixels from the top left, default the center) | a game-side cursor without window focus: each frame it sets the game's focus flag (`InputManager.OnFocusChanged(true)`), `mouseOverUI` false and the InputSystem mouse position. Systems that read the cursor (the tool raycast, the slope overlay) then see it at that pixel. No OS input, no clicks or keys. It ends after `seconds` or on `hold: false`. No argument: the state (`held`, `mouseOnScreen`, `mouseOverUI`, `appFocused`, `mousePosition`). See "Rules of use" |
 | `package` | `list` (absolute path of `tools/shipped-prefabs.json`), optional `dry` (default true), `main`, `show`; or `status` | the Editor's package step for the release `.cok`, without the hand selection. See "Packaging the release .cok". It never uploads |
 | `loadcheck` | `action`: `begin` (`save`, a label), `report` (`month`, default true; `speed`, default 8; `motionFrames`, default 300; `monthTimeoutMinutes`, default 45), `status`, `census` | the machine half of the old-save checklist. See "Old-save load check" |
 | `prefabalias` | `list` (absolute path of `tools/shipped-prefabs.json`), optional `dry` (default true); or `action: "status"` | T228: maps each dev-made id PrefabID(type, name, Hash128(cid)) onto the loaded pack prefab in PrefabSystem.m_PrefabIndices (reflection). Run at the main menu BEFORE the load, ImportedData parked; save the city under a NEW name and the new file needs no alias. Gone when the game exits. See `docs/research/round2-2026-11-16/tourism-lab/part1/README.md` (main checkout) |
@@ -566,6 +567,10 @@ engine.call("skitest.cmd", JSON.stringify({ op: "seq", steps: [
 Then poll `seqStatus` until `done`.
 
 ## Rules of use
+
+- **Measuring without window focus (op `pointer`, 2026-11-20).** When the game window cannot be brought to the front, hold a
+  game-side cursor with `pointer` instead of `move`. Frame times of an unfocused window can be throttled: compare A and B in the
+  same run and the same state, never against numbers from a focused run.
 
 - **Input needs focus.** Every input step checks that the game is the foreground window. If it is not, the step fails the sequence,
   so input cannot land in another app. First bring the game to the front from outside, with the `SetForegroundWindow` recipe above.
