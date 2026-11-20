@@ -991,6 +991,97 @@ TWOTONE = {"R": (0.08, 0.16, 0.30), "G": cs2_asset.PAD_RGB, "B": (0.10, 0.55, 0.
 MARK_WHITE = _lin((0.85, 0.86, 0.88))  # lift_terminal.py:240 white, as written to the PNG
 
 # --------------------------------------------------------------------------------------
+# Texture pass (--texpass v1, DQ stations only; off = the shipped station byte for byte). r4/tex, PIPELINE section 1b.
+# A pass changes material sources, relief, pack weights and weathering. It adds, moves and renames NO part, so every
+# contract number, the tri counts, the pivots, the rope path and the sub-object rows stay.
+# --------------------------------------------------------------------------------------
+TEXPASS = "off"                # this run's pass (main sets it from --texpass: tests call main() in-process)
+LIVERY = "off"                 # this run's livery proposal (main, --livery; needs a pass)
+TEX_SIDECAR = None             # dev (--tex-sidecar DIR): the weathering ladder's map sets + the part map, outside the asset
+TEXPASS_DQ = {
+    "v1": {
+        # material key -> MaterialSpec: a new key, or the pass's source for a MATERIALS key
+        "materials": {
+            # the operator cabin and the engine room: the lodges' lap siding (cs2_tilesheet.TEXPASS v1 timber_lap: the same
+            # scan at the same 1.2 m tile). The tint moves the scan's mean (sRGB 0.300 / 0.243 / 0.199) to the lodge swatch
+            # mean 0.295 / 0.235 / 0.185 (cs2_bldg.BLDG_MATERIALS timber_lap). Smoothness 0.35 = the lodge sheet's timber
+            "siding": _MS(texture_set="PHWeatheredPlankSiding", metres_per_tile=1.2, tint=(0.963, 0.940, 0.872),
+                          metal=0.0, rough=0.65, projection="planar"),
+            # the soffit: sealed cedar boards (the timber ceiling of the Leitner-Poma terminals). Planks021 at the lodges'
+            # 1.54 m deck tile, tinted from its pine mean (sRGB 0.770 / 0.671 / 0.466) to a honey cedar 0.74 / 0.55 / 0.35
+            # (critic pass 1: 0.66 / 0.47 / 0.29 read dark in the soffit's shade; the reference soffits glow). It was a
+            # flat (0.60, 0.32, 0.12) = sRGB 0.80 / 0.60 / 0.38 with 14 cm procedural joints
+            "cedar": _MS(texture_set="Planks021", metres_per_tile=1.54, tint=(0.911, 0.643, 0.542), metal=0.0,
+                         rough=0.60),
+        },
+        # albedo flattening of the board scans (critic pass 1): both scans carry their plank gaps and knots as dark dashes
+        # in the Color map, and at 7 m the hut read as brick. Each texel's deviation from the local mean (a box of
+        # radius_m, about two boards) is cut to `dark` below the mean and `light` above it; each part keeps its mean. The
+        # gaps stay in the scans' Normal maps (detail under 5 cm lives in the normal map)
+        "flatten": dict(prefixes=("cab_walls", "engroom_walls", "soffit_"), radius_m=0.25, dark=0.45, light=0.85),
+        # part-name prefix -> material key (the part keeps its name, its geometry and its place in the part table)
+        "remap": (("cab_walls", "siding"), ("engroom_walls", "siding")),
+        "roles": {"siding": "timber"},          # cs2_weather role of each new key
+        # pack weights over density_for: the walked slab 0.6 -> 0.8 (the nearest surface in every close-up), the flat dark
+        # end glazing 0.8 -> 0.4 (one flat color: it only carries AO)
+        "density": {"deck": 0.8, "rampback": 0.8, "endglass_": 0.4},
+        # weathering: the ladder stops at the fixed-grip stations' level (they ship 0.40 / 0.45). The shipped D stations took
+        # the top of cs2_liftdress.INTENSITY_STEPS (0.70: the budget never WARNed), the highest of any lift asset
+        "weather_steps": (0.20, 0.30, 0.40),
+        # (prefix, PartWeather fields), ahead of DQ_WEATHER's (cs2_weather keeps the first on an equal prefix): no rust on the
+        # painted skin (a maintained enamel housing; rust stays below the galvanized fittings and on the underframe steel)
+        "weather": (("roof_", {"rust": 0.0}), ("band_", {"rust": 0.0}), ("cabroof", {"rust": 0.0}),
+                    ("engroof", {"rust": 0.0})),
+    },
+}
+# The livery proposals (--livery, with a pass; texels only, the owner picks one or none):
+# - belt: a fixed white belt line along the lower band, drawn in the band's own texels with ControlMask 0 (the slot-3 tint
+#   does not reach it). Heights above the soffit, m
+# - timber: the two long band sides in the lodges' lap siding (the Leitner-Poma terminals with timber cladding, e.g. Falcon
+#   SuperChair). The nose and back ends, the sign panels and the roof stay recolor slots. band_p_ / band_n_ = the cut pieces
+#   of the long sides only (band_nose_* does not match)
+# The DQ stations' prefab color defaults with the pass (manifest contract color_defaults: the prefab surgery after the
+# import writes them as the VariationSet; the stored tuples, as the prefab holds them). Slot 3 = the lead's ruling of
+# 2026-11-20 for all 8 DQ and all 5 gondola station meshes: forest green (0.173, 0.420, 0.260), was (0.16, 0.30, 0.20),
+# which the game shows near black. Slots 1 and 2 as shipped
+DQ_COLOR_DEFAULTS = {
+    "slot1": {"rgb": [0.62, 0.64, 0.66], "what": "paint1: the barrel roof, the hut roofs, the roof lining (as shipped)"},
+    "slot2": {"rgb": [0.85, 0.25, 0.10], "what": "pad2: the pedestal pads (as shipped)"},
+    "slot3": {"rgb": [0.173, 0.420, 0.260], "what": "accent3 + signband: the housing band, its lining and the sign band "
+              "(forest green; shipped (0.16, 0.30, 0.20))"},
+}
+LIVERY_BELT = dict(z0=0.52, z1=0.70, srgb=(0.86, 0.86, 0.84), prefixes=("band_p", "band_n", "band_back", "band_nose"))
+LIVERY_REMAP = {"timber": (("band_p_", "siding"), ("band_n_", "siding"))}
+# timber: the painted frame round the siding panels, in the slot-3 color (ControlMask B 1 over a neutral light albedo): a
+# rail under the roof, the lower rail with the fillet, and a rib on every panel joint of the band's relief (1.5 m)
+LIVERY_FRAME = dict(top=0.14, bottom=0.12, rib=0.11, pitch=1.50, metal=0.10, smooth=0.50)
+
+
+def texpass_table(p):
+    """This run's pass table ({} when off, or on the gondola: its pass lives with its own keys)."""
+    if TEXPASS == "off" or p.gondola or not DETAIL1:
+        return {}
+    return TEXPASS_DQ[TEXPASS]
+
+
+def texpass_parts(parts, p):
+    """[(obj, material key)] with the pass's remap applied by part-name prefix (unchanged when off)."""
+    remap = texpass_table(p).get("remap", ())
+    if remap:
+        remap = tuple(LIVERY_REMAP.get(LIVERY, ())) + tuple(remap)
+    if not remap:
+        return parts
+    out = []
+    for obj, mat in parts:
+        for prefix, key in remap:
+            if obj.name.startswith(prefix):
+                mat = key
+                break
+        out.append((obj, mat))
+    return out
+
+
+# --------------------------------------------------------------------------------------
 # Pipeline tables (contract 3.4, 4.1-4.3)
 # --------------------------------------------------------------------------------------
 
@@ -1149,10 +1240,29 @@ def detail_specs_gd():
     return out
 
 
+def detail_specs_dq_tex():
+    """Texture pass v1 relief for the DQ (over detail_specs_dq):
+    - the roof's standing seams 0.04 x 0.004 -> 0.06 x 0.014 m (2.7 texels wide at the roof's ~45 px/m: a 15 deg normal step
+      on each flank. The shipped groove was 1.9 texels and 5 deg, a line nobody saw from 50 m)
+    - no procedural board joints on the soffit, the cabin and the engine room: their scans carry the boards
+    - saw-cut control joints on the slab and the back ramp (3 m grid): scale on a 290 m2 plain surface"""
+    D = cs2_compose.DetailSpec
+    out = detail_specs_dq()
+    out.update({
+        "roof_": D(seams_m=0.50, seam_axes="ribs", seam_width_m=0.06, seam_depth_m=0.014),
+        "soffit_": D(), "cab_": D(), "engroom_": D(),
+        "deck": D(seams_m=3.0, seam_axes="both", seam_width_m=0.04, seam_depth_m=0.012),
+        "rampback": D(seams_m=3.0, seam_axes="both", seam_width_m=0.04, seam_depth_m=0.012),
+    })
+    return out
+
+
 def specs_for(p):
     """The relief table of this station (a zero-argument function: lift_terminal's hook calls it)."""
     if p.gondola and GD_REV1:
         return detail_specs_gd
+    if texpass_table(p):
+        return detail_specs_dq_tex
     return detail_specs_dq if (DETAIL1 and not p.gondola) else detail_specs
 
 
@@ -1168,7 +1278,7 @@ def density_for(p):
     if not DETAIL1:
         return DENSITY_WEIGHTS
     LD = _LD()
-    return {**DENSITY_WEIGHTS, **LD.DRESS_DENSITY, **DQ_D1_DENSITY}
+    return {**DENSITY_WEIGHTS, **LD.DRESS_DENSITY, **DQ_D1_DENSITY, **texpass_table(p).get("density", {})}
 
 
 def _LD():
@@ -4200,6 +4310,7 @@ def build_station(p):
         parts += build_wx(p)
         parts += build_gd_dress(p)           # revision 1: the detail pass's kit where it fits
     parts = cut_long_parts(parts)
+    parts = texpass_parts(parts, p)              # --texpass: material keys by part prefix (the same list when off)
     names = [o.name for o, _ in parts]
     bad = sorted(n for n in names if "." in n)
     if bad or len(set(names)) != len(names):
@@ -4270,7 +4381,9 @@ def materials_for(p, parts=None):
         return {**MATERIALS, **wm}
     LD = _LD()
     keys = LD.part_keys(parts) if parts is not None else sorted(LD.DRESS_MATERIALS)
-    return {**LD.merge_materials(MATERIALS, [k for k in keys if k in LD.DRESS_MATERIALS]), **wm}
+    tp = texpass_table(p).get("materials")
+    table = {**MATERIALS, **tp} if tp else MATERIALS      # --texpass: the pass's sources over MATERIALS
+    return {**LD.merge_materials(table, [k for k in keys if k in LD.DRESS_MATERIALS]), **wm}
 
 
 
@@ -7884,15 +7997,182 @@ def make_hook(t, table, p):
         relief_signbands(nrm, hook.stamps, p)
         if labels:
             hook.labels = stamp_labels(base, ctl, mesh, table, p)
+        if texpass_table(p):
+            hook.flatten = flatten_boards(base, mesh, table, p)
+        if LIVERY == "belt" and texpass_table(p):
+            hook.livery = stamp_livery(base, ctl, mesh, table, p)
+        elif LIVERY == "timber" and texpass_table(p):
+            hook.livery = stamp_livery_frame(base, ctl, msk, mesh, table, p)
         hook.ctl_scaled = ctl_8bit_exclusive(ctl)
         return base, nrm, msk, ctl
 
     hook.inner = inner
+    hook.livery = None
+    hook.flatten = None
     hook.stamps = None
     hook.labels = None
     hook.detail_stats = None
     hook.ctl_scaled = None
     return hook
+
+
+def _box_sum(a, r):
+    """Sum of a 2-D array over a (2r + 1)^2 window centered on each texel (zero outside), by an integral image."""
+    k = 2 * r + 1
+    c = np.pad(np.asarray(a, np.float64), ((r + 1, r), (r + 1, r))).cumsum(0).cumsum(1)
+    return c[k:, k:] - c[:-k, k:] - c[k:, :-k] + c[:-k, :-k]
+
+
+def flatten_boards(base, mesh, table, p):
+    """Texture pass: the board scans' albedo flattened (the pass table's "flatten"; critic pass 1). In the texels of the
+    listed parts (and of the band sides that the timber livery puts on the siding), each texel's luminance deviation from
+    the local mean (a box of radius_m over the same parts' texels only) is scaled by `dark` below the mean and `light`
+    above it, hue kept; then each part's mean luminance is restored. The texels round each island (3 px of its gutter)
+    follow, so mip levels do not pull the old gaps back in. Linear BaseColor, in place. Returns the measured contrast."""
+    F = (texpass_table(p) or {}).get("flatten")
+    if not F:
+        return None
+    A = base.shape[0]
+    pre = tuple(F["prefixes"]) + tuple(k for k, m in LIVERY_REMAP.get(LIVERY, ()) if m == "siding")
+    parts = cs2_compose.part_indices(mesh)
+    want = [n.startswith(pre) for n in table]
+    pid = np.zeros((A, A), np.int32)
+    ppms = []
+    for poly, sl, mask, X, Y, q, P, ppm in cs2_compose.iter_face_rasters(mesh, A, cs2_uv.UNIQUE_LAYER, 1.0):
+        pi = int(parts[poly.index])
+        if pi < 1 or pi > len(table) or not want[pi - 1]:
+            continue
+        pid[sl] = np.where(mask, pi, pid[sl])
+        ppms.append(ppm)
+    if not ppms:
+        raise ContractError(f"flatten boards: no texel of {pre}")
+    face = pid > 0
+    # the gutter: the nearest part id within 3 px (a gutter is 6 px, so 3 px stay on this island's side)
+    for _i in range(3):
+        grow = np.zeros_like(pid)
+        grow[1:, :] = np.maximum(grow[1:, :], pid[:-1, :])        # no wrap at the atlas edges
+        grow[:-1, :] = np.maximum(grow[:-1, :], pid[1:, :])
+        grow[:, 1:] = np.maximum(grow[:, 1:], pid[:, :-1])
+        grow[:, :-1] = np.maximum(grow[:, :-1], pid[:, 1:])
+        pid = np.where(pid > 0, pid, grow)
+    sel = pid > 0
+    lum = base[..., 0:3] @ np.array((0.2126, 0.7152, 0.0722), np.float32)
+    r = max(1, int(round(F["radius_m"] * float(np.median(ppms)))))
+    m_face = face.astype(np.float64)
+    den = _box_sum(m_face, r)
+    mean = np.where(den > 0.5, _box_sum(lum * m_face, r) / np.maximum(den, 1e-9), lum)
+    d = lum - mean
+    new = mean + np.where(d < 0.0, F["dark"], F["light"]) * d
+    ids = pid[face]
+    s0 = np.bincount(ids, weights=lum[face], minlength=len(table) + 1)
+    s1 = np.bincount(ids, weights=new[face], minlength=len(table) + 1)
+    keep = np.where(s1 > 1e-9, s0 / np.maximum(s1, 1e-9), 1.0)
+    new = new * keep[pid]
+    ratio = np.where(lum > 1e-5, new / np.maximum(lum, 1e-5), 1.0).astype(np.float32)
+    base[..., 0:3] = np.where(sel[..., None], base[..., 0:3] * ratio[..., None], base[..., 0:3])
+
+    def spread(v):
+        rel = v[face] / np.maximum(mean[face], 1e-6)
+        return [round(float(x), 3) for x in np.percentile(rel, (5, 50, 95))]
+    info = {"texels": int(face.sum()), "gutter_texels": int(sel.sum() - face.sum()), "radius_px": r,
+            "dark": F["dark"], "light": F["light"], "rel_p5_p50_p95_before": spread(lum),
+            "rel_p5_p50_p95_after": spread(new)}
+    print(f"[detach] flatten boards: {info}")
+    return info
+
+
+def stamp_livery(base, ctl, mesh, table, p):
+    """--livery belt (the station-identity proposal, with a texture pass): a fixed white belt line round the lower band,
+    LIVERY_BELT z0 .. z1 above the soffit, on the band's upright outer faces only (below the sign panels and the windows,
+    above the fillet). It is drawn in the band's own texels: BaseColor -> white, ControlMask -> 0 with a one-texel soft edge,
+    so no color set tints it. No geometry, no new island. The weathering layer runs after it. Returns the texel count and the
+    line's width in texels (a line under 3 texels wide raises: it would shimmer)."""
+    L = LIVERY_BELT
+    A = base.shape[0]
+    z0, z1 = p.z_soffit + L["z0"], p.z_soffit + L["z1"]
+    white = np.array(_lin(L["srgb"]), dtype=np.float32)
+    up = np.array((0.0, 0.0, 1.0))
+    parts = cs2_compose.part_indices(mesh)
+    want = [n.startswith(tuple(L["prefixes"])) for n in table]
+    texels, ppm_min = 0.0, None
+    for poly, sl, mask, X, Y, q, P, ppm in cs2_compose.iter_face_rasters(mesh, A, cs2_uv.UNIQUE_LAYER, 1.0):
+        pi = int(parts[poly.index])
+        if pi < 1 or pi > len(table) or not want[pi - 1]:
+            continue
+        if abs(float(cs2_compose._poly_normal(P)[2])) > 0.2:      # the fillet, the return and the caps stay in the slot
+            continue
+        if float(P[:, 2].max()) < z0 or float(P[:, 2].min()) > z1:
+            continue
+        qm, Pm, Mt = cs2_compose._affine_uv_to_world(q, P)
+        z = cs2_compose._world_coord_field(up, X, Y, qm, Pm, Mt)
+        w = np.clip((z - z0) * ppm + 0.5, 0.0, 1.0) * np.clip((z1 - z) * ppm + 0.5, 0.0, 1.0)
+        w = np.where(mask, w, 0.0).astype(np.float32)
+        if not (w > 0).any():
+            continue
+        bv, cv = base[sl], ctl[sl]
+        bv[..., 0:3] = bv[..., 0:3] * (1.0 - w[..., None]) + white[None, None, :] * w[..., None]
+        cv[..., 0:3] = cv[..., 0:3] * (1.0 - w[..., None])
+        texels += float(w.sum())
+        ppm_min = ppm if ppm_min is None else min(ppm_min, ppm)
+    if not texels:
+        raise ContractError("livery belt: no band texel between the belt heights")
+    width = (z1 - z0) * ppm_min
+    if width < 3.0 and A >= ATLAS:
+        raise ContractError(f"livery belt: {width:.2f} texels wide at {ppm_min:.1f} px/m (< 3)")
+    info = {"kind": "belt", "z_m": [round(z0, 3), round(z1, 3)], "srgb": list(L["srgb"]), "texels": int(round(texels)),
+            "width_texels": round(width, 2), "px_per_m_min": round(ppm_min, 1)}
+    print(f"[detach] livery belt: {info}")
+    return info
+
+
+def stamp_livery_frame(base, ctl, msk, mesh, table, p):
+    """--livery timber: the painted steel frame round the band's siding panels (LIVERY_FRAME), drawn in the texels of the
+    long band sides (LIVERY_REMAP put them on the siding key): BaseColor -> the neutral recolor albedo, ControlMask B -> 1
+    (slot 3, as the band's nose and back ends), MaskMap -> the paint's metal / smoothness. The ribs sit on the relief joints
+    (the same world lattice as detail_specs_dq band_: seams_m 1.5). No geometry, no new island. Returns the texel counts."""
+    F = LIVERY_FRAME
+    A = base.shape[0]
+    z_lo = p.z_soffit + FILLET_R + F["bottom"]          # the fillet and a rail above it
+    z_hi = p.z_top - F["top"]
+    grey = float(cs2_preview._srgb_to_linear(np.float32(cs2_asset.RECOLOR_ALBEDO)))
+    up = np.array((0.0, 0.0, 1.0))
+    parts = cs2_compose.part_indices(mesh)
+    want = [n.startswith(tuple(k for k, _m in LIVERY_REMAP["timber"])) for n in table]
+    frame_tx, panel_tx, ppm_min = 0.0, 0.0, None
+    for poly, sl, mask, X, Y, q, P, ppm in cs2_compose.iter_face_rasters(mesh, A, cs2_uv.UNIQUE_LAYER, 1.0):
+        pi = int(parts[poly.index])
+        if pi < 1 or pi > len(table) or not want[pi - 1]:
+            continue
+        n = cs2_compose._poly_normal(P)
+        qm, Pm, Mt = cs2_compose._affine_uv_to_world(q, P)
+        z = cs2_compose._world_coord_field(up, X, Y, qm, Pm, Mt)
+        w = np.maximum(np.clip((z_lo - z) * ppm + 0.5, 0.0, 1.0), np.clip((z - z_hi) * ppm + 0.5, 0.0, 1.0))
+        if abs(float(n[2])) <= 0.2:                      # upright faces: a rib on each panel joint
+            e_h, _e_v = cs2_compose._inplane_world_axes(n)
+            s_h = cs2_compose._world_coord_field(e_h, X, Y, qm, Pm, Mt)
+            d = cs2_compose._dist_to_lattice(s_h, F["pitch"])
+            w = np.maximum(w, np.clip((0.5 * F["rib"] - d) * ppm + 0.5, 0.0, 1.0))
+            ppm_min = ppm if ppm_min is None else min(ppm_min, ppm)
+        else:                                            # the fillet's curl and the return under it: all frame
+            w = np.ones_like(w)
+        w = np.where(mask, w, 0.0).astype(np.float32)
+        bv, cv, mv = base[sl], ctl[sl], msk[sl]
+        bv[..., 0:3] = bv[..., 0:3] * (1.0 - w[..., None]) + grey * w[..., None]
+        cv[..., 0:3] = cv[..., 0:3] * (1.0 - w[..., None])
+        cv[..., 2] = cv[..., 2] + w
+        mv[..., 0] = mv[..., 0] * (1.0 - w) + F["metal"] * w
+        mv[..., 3] = mv[..., 3] * (1.0 - w) + F["smooth"] * w
+        frame_tx += float(w.sum())
+        panel_tx += float((np.where(mask, 1.0, 0.0) - w).sum())
+    if not frame_tx or ppm_min is None:
+        raise ContractError("livery timber: no band texel took the frame")
+    rib = F["rib"] * ppm_min
+    if rib < 3.0 and A >= ATLAS:
+        raise ContractError(f"livery timber: ribs {rib:.2f} texels wide at {ppm_min:.1f} px/m (< 3)")
+    info = {"kind": LIVERY, "frame_texels": int(round(frame_tx)), "panel_texels": int(round(panel_tx)),
+            "rib_texels": round(rib, 2), "px_per_m_min": round(ppm_min, 1), "frame": dict(F)}
+    print(f"[detach] livery {LIVERY}: {info}")
+    return info
 
 
 def _awm(vals, wts):
@@ -8076,8 +8356,9 @@ def dq_weather_spec(name, intensity):
     equal prefix cs2_weather keeps the first)."""
     LD = _LD()
     w = DQ_WEATHER
+    tp = TEXPASS_DQ[TEXPASS].get("weather", ()) if TEXPASS != "off" else ()    # --texpass: the pass's overrides first
     return LD.station_weather_spec(name, ground=w["ground"], ground_z=w["ground_z"],
-                                   overrides=tuple(w["overrides"]) + tuple(LD.DRESS_WEATHER_OVERRIDES),
+                                   overrides=tuple(tp) + tuple(w["overrides"]) + tuple(LD.DRESS_WEATHER_OVERRIDES),
                                    traffic_extra=w["traffic_extra"], intensity=intensity)
 
 
@@ -8100,6 +8381,72 @@ def gd_weather_spec(name, intensity):
                                    traffic_extra=w["traffic_extra"], intensity=intensity)
 
 
+def tex_sidecar_set(tag, maps, mesh, A):
+    """Dev (--tex-sidecar DIR, a texture-pass review aid): one map set of the weathering ladder as PNGs in
+    DIR/<name>/<tag>/<name>_<Map>.png, encoded as cs2_bake.bake_unique encodes the shipped set (clip, alpha 1, MaskMap B 0,
+    ControlMask A 0, BaseColor sRGB). A review render then draws every ladder step of ONE build. The first call also writes
+    the part map (part index per texel + px/m per texel + the part table). Nothing is written into the asset folder and no
+    map the build ships is touched. A no-op without the flag."""
+    if not TEX_SIDECAR:
+        return
+    name = mesh.name
+    out = os.path.join(TEX_SIDECAR, name, tag)
+    os.makedirs(out, exist_ok=True)
+    arrs = []
+    for x in maps:
+        a = np.ones((A, A, 4), dtype=np.float32)
+        x = np.clip(np.asarray(x, dtype=np.float32), 0.0, 1.0)
+        a[..., :x.shape[-1]] = x
+        arrs.append(a)
+    base, nrm, msk, ctl = arrs
+    base[..., 0:3] = cs2_preview._linear_to_srgb(base[..., 0:3])
+    base[..., 3] = 1.0
+    nrm[..., 3] = 1.0
+    msk[..., 2] = 0.0
+    ctl[..., 3] = 0.0
+    for arr, suffix, is_data in ((base, "BaseColor", False), (nrm, "Normal", True), (msk, "MaskMap", True),
+                                 (ctl, "ControlMask", True)):
+        cs2_asset._write_png_raw(os.path.join(out, f"{name}_{suffix}.png"), f"TexSidecar_{suffix}", arr, A, is_data)
+    pm_path = os.path.join(TEX_SIDECAR, name, "parts.npz")
+    if tag == "w00" or not os.path.isfile(pm_path):
+        part_map, ppm_map = cs2_compose.rasterise_face_fields(mesh, A)
+        np.savez_compressed(pm_path, part=part_map.astype(np.uint16), ppm=ppm_map.astype(np.float32),
+                            table=np.array(cs2_compose.read_part_table(mesh)))
+    print(f"[detach] tex sidecar {tag} -> {out}")
+
+
+def tex_sidecar_islands(t, table, A, name, reserved=()):
+    """Dev (--tex-sidecar DIR): DIR/<name>/islands.json = every packed UVUnique island (texel bbox, UV area in texels,
+    world area, density weight, first part name, pinned or not). The pack-fill study reads it (how much of the square the
+    islands, their boxes and their margins take). A no-op without the flag."""
+    if not TEX_SIDECAR:
+        return
+    me = t.data
+    lay = me.uv_layers[cs2_uv.UNIQUE_LAYER]
+    uv = cs2_uv.loop_uvs(lay) * float(A)
+    start, total = cs2_uv.face_loop_table(me)
+    ua = cs2_uv.face_uv_areas(me, uv, start, total)
+    wa = cs2_uv.face_world_areas(me)
+    wts = cs2_uv.face_density_weights(me)
+    part = _face_parts(me)
+    pinned = cs2_uv.pinned_faces(me, lay, list(reserved)) if reserved else set()
+    rows = []
+    for isl in cs2_uv.uv_islands(me, lay):
+        idx = np.concatenate([np.arange(start[f], start[f] + total[f]) for f in isl])
+        q = uv[idx]
+        f0 = int(isl[0])
+        rows.append({"part": table[int(part[f0]) - 1] if 0 < int(part[f0]) <= len(table) else "?",
+                     "faces": len(isl), "bbox_px": [round(float(v), 2) for v in (q[:, 0].min(), q[:, 1].min(),
+                                                                                q[:, 0].max(), q[:, 1].max())],
+                     "uv_px2": round(float(ua[isl].sum()), 1), "m2": round(float(wa[isl].sum()), 4),
+                     "w": round(float(np.mean(wts[isl])), 3), "pinned": bool(f0 in pinned)})
+    out = os.path.join(TEX_SIDECAR, name)
+    os.makedirs(out, exist_ok=True)
+    with open(os.path.join(out, "islands.json"), "w", encoding="utf-8") as fh:
+        json.dump({"A": int(A), "islands": rows}, fh)
+    print(f"[detach] tex sidecar islands: {len(rows)} -> {out}")
+
+
 class SteppedWeather:
     """Detail pass 1 weathering (DECISIONS 171: per asset the HIGHEST budget-clean intensity on visible texels). It is a
     cs2_bake post_compose hook that:
@@ -8120,6 +8467,7 @@ class SteppedWeather:
         self.report = None
         self.chosen = None
         self.ladder = []
+        self.sidecar_variants = {}      # dev (--tex-sidecar): {tag: fn(base, ctl, mesh)}, see __call__
 
     def __getattr__(self, name):
         if name.startswith("__"):
@@ -8136,12 +8484,14 @@ class SteppedWeather:
         b0, n0, m0 = (np.array(x, dtype=np.float32, copy=True) for x in (b0, n0, m0))
         self.ladder = []
         best = None
+        tex_sidecar_set("w00", (b0, n0, m0, c0), mesh, A)       # dev: the unweathered set (nothing when the flag is off)
         for s in self.steps:
             hk = CW.make_weather_hook(lambda *_a: (b0.copy(), n0.copy(), m0.copy(), c0),
                                       self.spec_at(s), **self.hook_kw)
             out = hk(base, nrm, msk, ctl, ao, mesh, A)
             rep = hk.report
             ok = LD.weather_budget_ok(rep)
+            tex_sidecar_set(f"w{int(round(s * 100)):02d}", out, mesh, A)
             v, pd = rep["vanilla"], rep["perceptual"]
             self.ladder.append({"intensity": s, "ok": ok,
                                 "VL1": round(float(v["VL1_mean_rel_dL"]), 4),
@@ -8166,6 +8516,15 @@ class SteppedWeather:
         self.chosen, out, self.report = best
         print(f"[detach] weathering: intensity {self.chosen} (highest budget-clean step of "
               f"{[(r['intensity'], r['ok']) for r in self.ladder]})")
+        # dev (--tex-sidecar): a texel-only variant of THIS bake (a livery stamp) in the same order as its own build
+        # (compose, stamp, weathering at the chosen step), on copies: the shipped maps are not touched
+        for tag, fn in (self.sidecar_variants.items() if TEX_SIDECAR else ()):
+            b1 = np.array(b0, dtype=np.float32, copy=True)
+            c1 = np.array(c0, dtype=np.float32, copy=True)
+            fn(b1, c1, mesh)
+            hk = CW.make_weather_hook(lambda *_a: (b1.copy(), n0.copy(), m0.copy(), c1),
+                                      self.spec_at(self.chosen), **self.hook_kw)
+            tex_sidecar_set(f"{tag}_w{int(round(self.chosen * 100)):02d}", hk(base, nrm, msk, ctl, ao, mesh, A), mesh, A)
         return out
 
 
@@ -8959,6 +9318,8 @@ def prefab_numbers(p, bounds_authoring):
         nums["deck_top_y"] = DECK_H
         nums["floor_y"] = GD_FLOOR_Z
         nums["machinery_deck_y"] = GD_DECK_Z
+    if not p.gondola and texpass_table(p):
+        nums["color_defaults"] = DQ_COLOR_DEFAULTS     # the pass's prefab defaults (flag off: the contract as shipped)
     return nums
 
 
@@ -9023,6 +9384,16 @@ def parse_args(argv=None):
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
                     help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel on the top's nose train (the GD "
                          "head too: the round-3 wheel); v1 = the pre-T62 wheels byte for byte")
+    ap.add_argument("--texpass", default="off", choices=("off",) + tuple(sorted(TEXPASS_DQ)),
+                    help="texture pass (DQ stations, r4/tex): v1 = scanned timber, stronger roof seams, slab joints, the "
+                         "slab's pack weight, weathering capped at 0.40 without rust on the painted skin; off = the "
+                         "shipped station byte for byte")
+    ap.add_argument("--livery", default="off", choices=("off", "belt", "timber"),
+                    help="with --texpass: a station-identity proposal, texels only (belt = a fixed white belt line round "
+                         "the lower band; timber = the long band sides in the lodges' lap siding); off = none")
+    ap.add_argument("--tex-sidecar", dest="tex_sidecar", default=None, metavar="DIR",
+                    help="dev: write every weathering-ladder step's map set and the part map under DIR (review renders "
+                         "of one build at several intensities); the asset folder is not touched")
     args = ap.parse_args(argv)
     args.kind = {"drive": "base", "return": "top"}.get(args.kind, args.kind)
     return args
@@ -9138,6 +9509,13 @@ def main(argv=None):
     ROPE_ON_CROWN = bool(args.rope_on_crown)     # T27: every run follows its own args (tests call main() in-process)
     BASE_NOSE_TRAIN = bool(args.no_hosted_tower)
     ROPE_R = THIN_ROPE_R if args.thin_rope else ROPE_R_SHIPPED   # every run follows its args (tests call main())
+    global TEXPASS, LIVERY, TEX_SIDECAR
+    TEXPASS, LIVERY = args.texpass, args.livery  # r4/tex: every run follows its own args
+    TEX_SIDECAR = os.path.abspath(args.tex_sidecar) if args.tex_sidecar else None
+    if TEXPASS != "off" and args.gondola:
+        raise SystemExit("--texpass: the gondola pass is not in this table (DQ stations only)")
+    if LIVERY != "off" and TEXPASS == "off":
+        raise SystemExit("--livery needs --texpass")
     if BASE_NOSE_TRAIN and args.kind != "base":
         raise SystemExit("--no-hosted-tower is base only (DQ or gondola)")
     import cs2_sheaves as S
@@ -9255,17 +9633,22 @@ def main(argv=None):
         # MC6: bay sharing on the bake mesh (after split_windows), never a prefix with an active DetailSpec (detail_height
         # sums world-anchored relief per face), labels / boards / sign bands / lamps, the hero list or a pinned face.
         # Grade-contact copies stack apart
-        share = LD.share_identical(t, table, LD.DQ_SHARE_WHITELIST, detail_specs=detail_specs_dq(),
+        share = LD.share_identical(t, table, LD.DQ_SHARE_WHITELIST, detail_specs=specs_for(p)(),
                                    hero=LD.DQ_SHARE_HERO, reserved=rects, uv_layer=SEED_LAYER,
                                    ground_band=(DQ_WEATHER["ground_z"], 0.60))
         if args.weather == "on":
             # MC7a: roles by material INDEX (the joined mesh's CS2SRC_<key> slots, read before the bake). Labels + sign live
             # in reserved rects (restored 1:1). compose_contact off
             import cs2_sheaves as S
-            roles = LD.lift_mat_roles(t.data, {**LD.DQ_MAT_ROLES, **S.wheel_roles()})
-            hook = SteppedWeather(dq_hook, lambda s: dq_weather_spec(name, s), LD.INTENSITY_STEPS,
-                                  mat_roles=roles, detail_specs=detail_specs_dq(), reserved=rects,
+            tp = texpass_table(p)                # --texpass: its roles and its ladder ({} when off)
+            roles = LD.lift_mat_roles(t.data, {**LD.DQ_MAT_ROLES, **S.wheel_roles(), **tp.get("roles", {})})
+            hook = SteppedWeather(dq_hook, lambda s: dq_weather_spec(name, s),
+                                  tp.get("weather_steps", LD.INTENSITY_STEPS),
+                                  mat_roles=roles, detail_specs=specs_for(p)(), reserved=rects,
                                   compose_contact=False)
+            if TEX_SIDECAR and tp and LIVERY == "off":
+                # dev: the belt livery from this bake (its own build differs only by this stamp), as sidecar belt_wNN
+                hook.sidecar_variants["belt"] = lambda b, c, me: stamp_livery(b, c, me, table, p)
     if g1 and args.finish and args.weather == "on":
         # revision 1: the station preset at the highest budget-clean step (DECISIONS 171), roles by
         # material INDEX, the sign + label rects protected, compose_contact off (no bay sharing)
@@ -9290,6 +9673,7 @@ def main(argv=None):
                                   margin_px=margin, ao_samples=ao, post_compose=hook,
                                   emissive=emis_map, src_uv=SEED_LAYER,
                                   **({} if share is None else {"share": share}))
+    tex_sidecar_islands(t, table, A, name, list(label_rects(p).values()))    # dev (--tex-sidecar): the packed islands
     base_report = engine_base_gate(t, p)
     contracts["C5"] = (f"engine base {base_report['verdict']}, {base_report['ok_edges']} OK edges, "
                        f"parts {sorted(p.engine_base)} all OK")
@@ -9475,6 +9859,15 @@ def main(argv=None):
         **({"sheave_trains": sheave_nums} if sheave_nums is not None else {}),
         **({"orientation": orient_nums} if orient_nums is not None else {}),
         "win_cells": want_cells,
+        # r4/tex: the pass this build ran (no key when off: the flag-off manifest keeps its keys)
+        **({"texpass": {"version": TEXPASS, "livery": LIVERY,
+                        "livery_stamp": (dq_hook.livery if dq_hook is not None else None),
+                        "flatten": (dq_hook.flatten if dq_hook is not None else None),
+                        "remap":[list(r) for r in texpass_table(p).get("remap", ())],
+                        "density": texpass_table(p).get("density", {}),
+                        "weather_steps": list(texpass_table(p).get("weather_steps", ())),
+                        "weather_overrides": [[k, v] for k, v in texpass_table(p).get("weather", ())]}}
+           if texpass_table(p) else {}),
         "density_worst": [{"part": table[q - 1] if 0 < q <= len(table) else q,
                            "source_px_per_m": round(s, 1), "shipped_px_per_m": round(d, 1)}
                           for q, s, d in (density or [])[:8]],
