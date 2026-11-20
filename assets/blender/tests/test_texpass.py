@@ -324,18 +324,23 @@ def check_texpass_weather():
        f"{tp['eave_h']} on every side; band_skip {W.band_skip}; yaw raises")
 
 
-def row_pitch(path):
+def row_pitch(path, cols=False):
     """The fundamental row period of an image as a fraction of its height (luminance row means, autocorrelation): the
     SHORTEST lag whose peak reaches half the strongest peak. The strongest peak alone is not the pitch: boards that
     alternate in tone, or a bond, put more energy into the 2-course harmonic (PHWeatheredPlankSiding: 0.52 at one
-    board, 0.64 at two; the pilot drew its siding at half the intended board width)."""
+    board, 0.64 at two; the pilot drew its siding at half the intended board width). cols=True: the column period (a
+    scan the pass turns a quarter, control "rot": its file columns become the swatch rows)."""
     im = bpy.data.images.load(path, check_existing=False)
     im.colorspace_settings.name = "Non-Color"
     w, h = im.size
     a = np.empty(w * h * 4, np.float32)
     im.pixels.foreach_get(a)
     bpy.data.images.remove(im)
-    prof = (a.reshape(h, w, 4)[..., :3] @ TS.LUMA).mean(1)
+    lum = a.reshape(h, w, 4)[..., :3] @ TS.LUMA
+    if cols:
+        lum = lum.T
+        h = w
+    prof = lum.mean(1)
     p = prof - prof.mean()
     ac = np.fft.irfft(np.abs(np.fft.rfft(p, 2 * h)) ** 2)[:h]
     lo = int(h * 0.01) + 2
@@ -359,7 +364,8 @@ def check_scale():
             lo, hi = TS.TEXPASS_PITCH[k]
             size = float(src[s["set"]]["size_m"])
             p = cs2_bake.find_set_map(os.path.join(cs2_bake.TEXTURE_ROOT, s["set"]), "Color")
-            world = row_pitch(p) * s["tile_m"][1]          # courses run along the image v (rows)
+            # courses run along the image v (rows); an odd "rot" turns the file's columns into the swatch rows
+            world = row_pitch(p, cols=int(s.get("rot", 0)) % 2 == 1) * s["tile_m"][1]
             assert lo <= world <= hi, f"{v} {k}: {s['set']} courses {world * 100:.1f} cm at {s['tile_m'][1]} m " \
                                       f"(scan {size} m), real-world {lo * 100:.0f}-{hi * 100:.0f} cm"
             rows.append(f"{k} {world * 100:.1f} cm (x {s['tile_m'][1] / size:.2f})")

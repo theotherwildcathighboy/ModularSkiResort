@@ -395,7 +395,7 @@ TEXPASS = {
         "lux_glulam_s2": {"set": "Wood077", "tile_m": (0.77, 0.77), "repeat": 4},
         # lux_vboard_red (L5 clock tower): same scan, battens at 0.35 m = every second 17.5 cm board seam, 8 per 2.8 m
         # tile (K.BATTEN's 0.30 m beat against the boards every 2.1 m and broke at every tile edge: 9.33 per tile)
-        "lux_vboard_red": {"detail_seams_m": 0.35},
+        "lux_vboard_red": {"detail": {"seams_m": 0.35}},
         # timber_shake is wall shingles on every building that draws it (gable walls of L2 / L3 / L5 and the welcome
         # sign; no roof draws it). WoodSiding013 (a 1.4 m shingle-siding scan) was drawn at 1.8 m: 22.5 cm courses that
         # read as boards. Poly Haven roof_slates_02 (split larch shingles despite the name, 26 courses per 3.0 m) at the
@@ -420,13 +420,19 @@ TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.0
 # member faces, and detail-only keys that keep the flag-off scan
 TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red")
 # Swatch controls a pass key may carry (texpass_apply runs them in this order on the sheet swatch and on the far source);
-# the color ones move the swatch mean, which the target_srgb tint then restores
+# the color ones move the swatch mean, which the target_srgb tint then restores. "rot" = quarter turns of the square
+# scan tile before everything else: a scan whose boards run VERTICAL in the file (PHWoodPlanksGray) under a uv_rot 90 key
+# (timber_vboard stores its boards along the swatch rows). The key's BldgMat, tile and UVs do not change, so the cut grid
+# and the far layout hold; only the pixels turn. "nflatten_m" = flatten_m for the relief: the normal map's slope
+# blurred at that sigma (m) is taken out, so a scan's board warp and cupping along the board, which repeats with the
+# tile, stops drawing light / dark bands across a wall at 20 m (PHWoodPlanksGray at tile 1.2: one band every 1.2 m);
+# relief finer than about 3 x sigma (board seams, grain, battens drawn later by the key's detail spec) stays
 # normal_lean (u, v deg, after normal_gain): a lapped / shingled scan's normal map does not average to the face
 # normal (each face leans one way, its butt step is a few texels wide), so the sun shades the whole surface as if it
 # faced elsewhere; the control turns the swatch's mean normal to the stated lean. The value is the DE-TILTED swatch's
 # lean (its mean slope subtracted in slope space, then renormalized; P13), never a lean borrowed from another scan:
 # that copies the other scan's normal-map artifact. u is 0 (a course is symmetric across u)
-TEXPASS_CONTROLS = ("chroma", "flatten_m", "contrast", "normal_gain", "normal_lean")
+TEXPASS_CONTROLS = ("rot", "chroma", "flatten_m", "contrast", "nflatten_m", "normal_gain", "normal_lean")
 # Tilt gate (test_texpass P13): the mean height slope (mean of -n.x / n.z, -n.y / n.z) of a relief that tiles is 0, so
 # a nonzero mean slope is a tilt baked into the normal map (the bake plane), not relief. Every pass key's sheet swatch
 # (after normal_gain and normal_lean) stays under this in u and v (PHGrayRoofTiles02 at gain 1.3: +9.2 / +7.8)
@@ -456,16 +462,19 @@ def texpass_specs(version):
 
 
 def _texpass_mat(m, s):
-    """The pass BldgMat: set / tile_m / target_srgb from the spec (a spec without "set" keeps the key's scan and tile),
-    detail_seams_m retunes the key's DetailSpec rib pitch (the depth and width stay)."""
+    """The pass BldgMat: set / tile_m / target_srgb from the spec (a spec without "set" keeps the key's scan and tile).
+    "detail": the key's rib detail under the pass: None = no ribs, a dict = DetailSpec fields over the key's own spec
+    (e.g. {"seams_m": 0.35} retunes the rib pitch, depth and width stay). A NEGATIVE seam_depth_m is a RAISED rib (a
+    batten over each board joint). It lives on the BldgMat, so the sheet swatch (_ribs_height) and the far bake
+    (cs2_compose.detail_height) draw the same ribs."""
     from dataclasses import replace as _rp
     kw = {"set": s.get("set", m.set), "tile_m": tuple(s.get("tile_m", m.tile_m))}
     if "target_srgb" in s:
         kw["target_srgb"] = tuple(s["target_srgb"])
-    if "detail_seams_m" in s:
-        if m.detail is None:
-            raise ValueError(f"texpass: detail_seams_m on a key without a DetailSpec ({m.set})")
-        kw["detail"] = _rp(m.detail, seams_m=float(s["detail_seams_m"]))
+    if "detail" in s:
+        if s["detail"] is not None and m.detail is None:
+            raise ValueError(f"texpass: detail fields on a key without a DetailSpec ({m.set})")
+        kw["detail"] = None if s["detail"] is None else _rp(m.detail, **s["detail"])
     return _rp(m, **kw)
 
 
@@ -596,6 +605,32 @@ def _normal_lean(nrm, lean):
     return n * 0.5 + 0.5
 
 
+def _normal_flatten(nrm, sigma_px):
+    """0..1-encoded tangent normals of one seamless tile with the low-frequency slope taken out: the slope field
+    (x / z, y / z = the height gradient) minus its periodic blur at sigma_px plus its mean, renormalized. High-passing
+    the gradient high-passes the height field, so the fine relief keeps its shape."""
+    n = nrm * 2.0 - 1.0
+    z = np.maximum(n[..., 2:3], 0.05)
+    s = n[..., :2] / z
+    s = s - blur_periodic(s, sigma_px) + s.reshape(-1, 2).mean(0)
+    v = np.concatenate([s, np.ones(s.shape[:2] + (1,))], -1)
+    v /= np.linalg.norm(v, axis=-1, keepdims=True)
+    return v * 0.5 + 0.5
+
+
+def rot_tile(lin, nrm, rough, k):
+    """k quarter turns of one square tile (rows bottom-up, u = columns). np.rot90 moves a feature at (u, v) to
+    (v, 1 - u), so a tangent vector (x, y) becomes (y, -x): the normals turn with the image (the turned normal map of
+    a height field equals the normal map of the turned height field)."""
+    for _ in range(int(k) % 4):
+        if lin.shape[0] != lin.shape[1]:
+            raise ValueError(f"texpass rot needs a square tile, got {lin.shape[:2]}")
+        lin, rough = np.rot90(lin), np.rot90(rough)
+        n = np.rot90(nrm) * 2.0 - 1.0
+        nrm = np.stack([n[..., 1], -n[..., 0], n[..., 2]], -1) * 0.5 + 0.5
+    return np.ascontiguousarray(lin), np.ascontiguousarray(nrm), np.ascontiguousarray(rough)
+
+
 def blur_periodic(img, sigma_px):
     """Gaussian blur of a seamless (N, N[, C]) tile with wrap-around (FFT), sigma in px."""
     n0, n1 = img.shape[:2]
@@ -618,6 +653,8 @@ def texpass_apply(tps, lin, nrm, rough, ppm):
     (texpass_swatch) in TEXPASS_CONTROLS order. flatten and contrast keep every channel's mean exactly."""
     def keep_mean(new, old):
         return new * (old.reshape(-1, 3).mean(0) / np.maximum(new.reshape(-1, 3).mean(0), 1e-9))
+    if "rot" in tps:
+        lin, nrm, rough = rot_tile(lin, nrm, rough, int(round(tps["rot"])))
     if "chroma" in tps:
         lum = (lin @ LUMA)[..., None]
         lin = lum + (lin - lum) * tps["chroma"]
@@ -630,6 +667,8 @@ def texpass_apply(tps, lin, nrm, rough, ppm):
         lum = lin @ LUMA
         m = lum.mean()
         lin = keep_mean(lin * ((m + (lum - m) * tps["contrast"]) / np.maximum(lum, 1e-6))[..., None], lin)
+    if "nflatten_m" in tps:
+        nrm = _normal_flatten(nrm, tps["nflatten_m"] * ppm)
     if "normal_gain" in tps:
         nrm = _normal_gain(nrm, tps["normal_gain"])
     if "normal_lean" in tps:
@@ -971,7 +1010,13 @@ def _ribs_height(C, tile_m, spec, along_u):
     d = float(getattr(spec, "seam_depth_m", 0.004) or 0.004)
     ph = np.mod(s, pitch)
     dist = np.minimum(ph, pitch - ph)
-    prof = np.where(dist < w / 2.0, -d * 0.5 * (1.0 + np.cos(np.pi * dist / (w / 2.0))), 0.0)
+    if d < 0:                           # raised rib (batten): flat top `w` wide, 8 mm linear shoulders
+        n = tile_m / pitch
+        if abs(n - round(n)) > 1e-6:
+            raise ValueError(f"raised ribs: pitch {pitch} m does not divide the {tile_m} m swatch period")
+        prof = -d * np.clip((w / 2.0 - dist) / 0.008 + 0.5, 0.0, 1.0)
+    else:
+        prof = np.where(dist < w / 2.0, -d * 0.5 * (1.0 + np.cos(np.pi * dist / (w / 2.0))), 0.0)
     if along_u:
         return np.broadcast_to(prof[None, :], (C, C)).copy()
     return np.broadcast_to(prof[:, None], (C, C)).copy()
