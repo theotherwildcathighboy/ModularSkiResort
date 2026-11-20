@@ -17,7 +17,8 @@ test_terminal_fg_rig.py - T256 (r4 lift motion): the RIGGED fixed-grip stations 
   overlaps the half beam and the bogie bar).
 - R2b round 2 (critic pass 1): S2 / C6 the entry sheave hangers (the top's outboard posts, the cheek gussets) clear the
   turning wheel's envelope, the chair body sweep and the lane band under the rope; S3 the yellow spoke on the Bullwheel
-  bone (in R1); C1 the knuckle on each lane end; C2 the nose braces under 60 tris, into boom and beam.
+  bone (in R1); C1 the knuckle on each lane end; C2 the nose braces under 60 tris, into boom and beam. Round 2b (critic
+  pass 2): the top posts r 0.09 with the black wrap, the braces >= 25 deg to their booms.
 - R6 the shipped letters' flags (SHIPPED_FLAGS): the O base without --thin-rope and the O top with --rig stop naming the
   flag; the shipped set (preview / review flags included) passes; --allow-flag-drift builds and reports.
 - R5 every generation-M contract (M1-M21, M3 with the real chair) on both rigged stations, and the budgets (LOD0 caps,
@@ -250,7 +251,9 @@ def r2_round2(kind, t, table, co, tris, names):
       chair half width) is at or below the rope's top. The top has no hub post and two outboard posts.
     - C1: ropechord_knuckle_<side> is centered on the lane end on the chord axis (1 mm), r RIG_KNUCKLE, the cap on the line
       side only, on Root.
-    - C2 (base): holdbrace_<tag> under 60 tris for both lanes, into its boom and the front portal beam, on Root."""
+    - C2 (base): holdbrace_<tag> under 60 tris for both lanes, into its boom and the front portal beam, on Root.
+    Round 2b (critic pass 2): P2-S1 the top posts at RIG_TOP_POST r with the stakes' black wrap (rubber, its band over the
+    crest, 16 tris); P2-S4 each brace meets its boom at >= 25 deg (principal axes)."""
     print(f"R2b round 2 {kind}")
     spec = LT.M_SPECS[kind]
     wx, _wy, wz = spec.wheel
@@ -296,6 +299,21 @@ def r2_round2(kind, t, table, co, tris, names):
         check(ok, "R2b return S2 two outboard posts at RIG_TOP_POST, no hub post", f"({hp})")
         check("maze_post_crest_1" not in set(names) and "maze_post_crest_0" in set(names),
               "R2b return S2 the +y post stands in place of the crest maze's middle post")
+        # round 2b (critic pass 2, P2-S1): post r 0.09 and the crest stakes' black wrap on its lower part
+        wo, wz0, wz1 = P["wrap"]
+        cz = LT.M_TOP["crest_z"]
+        for s, tag in ((-1.0, "n"), (1.0, "p")):
+            _s, pv = _part(co, tris, names, lambda n, tag=tag: n == f"entrypost_{tag}")
+            wt, wv = _part(co, tris, names, lambda n, tag=tag: n == f"entrypost_{tag}_wrap")
+            pr = np.hypot(pv[:, 0] - P["x"], pv[:, 1] - s * P["y"]).max() if len(pv) else 0.0
+            wr = np.hypot(wv[:, 0] - P["x"], wv[:, 1] - s * P["y"]) if len(wv) else np.zeros(1)
+            ok = (len(wt) == 2 * P["segs"] and LAST_MATS.get(f"entrypost_{tag}_wrap") == "rubber"
+                  and abs(pr - P["r"]) < 1e-3 and float(np.abs(wr - (P["r"] + wo)).max()) < 1e-3
+                  and abs(float(wv[:, 2].min()) - (cz + wz0)) < 1e-3 and abs(float(wv[:, 2].max()) - (cz + wz1)) < 1e-3)
+            check(ok, f"R2b return P2-S1 entrypost_{tag} r {P['r']} with the stakes' black wrap",
+                  f"(post r {pr:.4f}, wrap r {wr.min():.4f}..{wr.max():.4f}, z {wv[:, 2].min() - cz if len(wv) else 0:.3f}.."
+                  f"{wv[:, 2].max() - cz if len(wv) else 0:.3f} over the crest, {len(wt)} tris, "
+                  f"{LAST_MATS.get(f'entrypost_{tag}_wrap')})")
     gus = [n for n in hp if n.endswith("_gusset") and n.startswith("entryarm_")]
     check(len(gus) == 2, f"R2b {kind} C6 a gusset hangs each cheek from its arm", f"({gus})")
     # C1
@@ -335,6 +353,14 @@ def r2_round2(kind, t, table, co, tris, names):
         ok = bb is not None and len(boom) and len(beam) and bb.overlap(LT._bvh(co, boom)) and bb.overlap(LT._bvh(co, beam))
         check(bool(ok) and nm not in pb, f"R2b drive C2 {nm} into its boom and the front portal beam, Root",
               f"({len(bt)} tris)")
+        # round 2b (critic pass 2, P2-S4): the brace opens a triangle with the boom (it read as a second boom at 12.9 deg)
+        ang = 0.0
+        if len(bt) and len(boom):
+            def axis(t_):
+                v = co[np.unique(t_)]
+                return np.linalg.svd(v - v.mean(axis=0))[2][0]
+            ang = math.degrees(math.acos(min(1.0, abs(float(axis(bt) @ axis(boom))))))
+        check(ang >= 25.0, f"R2b drive P2-S4 {nm} meets its boom at >= 25 deg", f"({ang:.1f} deg)")
     check(0 < n_tris < 60, f"R2b drive C2 the nose braces {n_tris} tris < 60 for both lanes")
 
 

@@ -1922,6 +1922,8 @@ M_NOSE = dict(rim_gap=0.02,          # m along x: the outer rim's line-side edge
 #   C1: a 6-gon knuckle collar on each lane end of the station rope (RIG_KNUCKLE). C2: a knee brace under each nose boom
 #   (RIG_NOSE_BRACE). S1 (support wheels under the outer half): not built, lead decision 2026-11-20 (the chair's in-plane
 #   stem would pass through a support roller's axle; art-fg-build-2.md "S1 finding").
+# - round 2b (critic pass 2): the top entry posts r 0.09 with the crest stakes' black wrap (P2-S1); the nose brace's top
+#   moved toward the boom root, 30 deg to the boom (P2-S4).
 # False = every shipped station byte for byte (no expression below runs).
 M_RIG = False
 RIG_ROPE_R = 0.060            # m, the line cable's circumscribed radius (tune after an in-game side-by-side photo)
@@ -1948,11 +1950,18 @@ RIG_WHEEL = dict(spokes=8, spoke=(0.10, 0.16), spoke_r=(0.30, 1.52), cap_r=0.24,
                  mark_spoke=0)      # round 2 (S3): this spoke is safety_yellow (the turn's mark; round 1: a galv rim plate)
 RIG_KNUCKLE = dict(r=0.066, length=0.08)   # round 2 (C1): the rope collar on each lane end (hides the V of a kinked line).
 # First try r 0.068 x 0.12: its line-side half sat 9 mm from the chair stem at NoseTrain +20 deg (RIG-nose, M3 machine >= 0.01)
-RIG_NOSE_BRACE = dict(r=0.045, segs=6, a_top=1.55, foot_z=0.15, foot_in=0.03)   # round 2 (C2): the knee brace under
-# each nose boom: from the boom's axis at chord-frame a = a_top (0.37 m past the inner bogie's rims) down to the front portal
-# beam's line-side face, foot_z over its bottom (clear of the rail clamp saddle_f_<side>, top 0.05 over the beam bottom) and
-# foot_in inside it. 6-gon, open ends (both buried): 12 tris a lane
-RIG_TOP_POST = dict(x=0.10, y=3.05, r=0.065, segs=8, plate=(0.24, 0.03), gusset=0.22)   # round 2 (S2): top entry posts
+RIG_NOSE_BRACE = dict(r=0.045, segs=6, a_top=2.75, foot_z=0.15, foot_in=0.03)   # round 2 (C2): the knee brace under
+# each nose boom: from the boom's axis at chord-frame a = a_top down to the front portal beam's line-side face, foot_z over its
+# bottom (clear of the rail clamp saddle_f_<side>, top 0.05 over the beam bottom) and foot_in inside it. 6-gon, open ends
+# (both buried): 12 tris a lane. Round 2b (critic pass 2, P2-S4): a_top 1.55 -> 2.75 opens the brace / boom angle from
+# 12.9 to 30.0 deg (it read as a second boom). With the foot fixed on the beam face, a top point nearer the boom tip makes
+# the brace MORE parallel to the boom; only a top nearer the root opens the triangle (about 0.77 m out from the saddle)
+RIG_TOP_POST = dict(x=0.10, y=3.05, r=0.09, segs=8, plate=(0.24, 0.03), gusset=0.22,   # round 2 (S2): top entry posts
+                    wrap=(0.02, 0.10, 1.60))
+# Round 2b (critic pass 2, P2-S1: the load-bearing post was the slimmest on the crest, bare steel among wrapped stakes):
+# r 0.065 -> 0.09, and the crest stakes' black wrap (rubber, 0.02 off the post, crest + 0.10 .. crest + 1.60, open ends:
+# 16 tris a post). The chair body comes to 0.316 m (+y) / 0.321 m (-y) of the post axes at crest + 0.35, so the wrap keeps
+# 0.206 / 0.211 >= M_CLEAR_STRUCT
 RIG_LOD2_DELETE = ("holdbrace_",)     # round 2: the C2 brace goes with the boom (holdboom_, M_LOD2_DELETE) at LOD2
 RIG_GRIP_OK = ("sheave_entry",)       # the chair grip passes under the entry sheaves (as under the nose train)
 RIG_LOD1_DELETE = ("sheave_entry", "entryarm", "entrypost")   # with the nose train (sheave_hold): gone at LOD1
@@ -1961,7 +1970,8 @@ RIG_CONTACTS = {   # declared contacts of the rig's own parts (contact_kinds_m a
     "T256 entry sheaves: the axle stub through the wheel hub and its cheek plate, the cheek and its gusset on its arm, the "
     "arm out of the tension carriage's saddle (base) or the outboard post (top)":
         "entryarm:entryarm entryarm:sheave carr:entryarm entryarm:entrypost",
-    "T256 round 2 (S2) top: each outboard entry post on its base plate on the crest, with its arm gusset; the crest "
+    "T256 round 2 (S2) top: each outboard entry post on its base plate on the crest, with its arm gusset and its black "
+    "wrap (round 2b); the crest "
     "maze's ropes tie into the +y post (it stands in place of the maze's middle post)":
         "crest:entrypost entrypost:entrypost entrypost:maze",
     "T256 bullwheel: the hub cap on the hub (the turning boss)": "wheelhub:wheelhub",
@@ -2684,7 +2694,8 @@ def entry_sheaves_rig_m(kind):
     (entryarm_<side>), the cheek braced to the arm by a gusset (entryarm_<side>_gusset, round 2 C6: a load-bearing hanger).
     Base: the arm comes out of the tension carriage's saddle (carr_saddle_<side>) above the rope; the gusset sits in the
     arm / cheek corner on the inboard side. Top (round 2, critic S2; round 1 hung both arms from a post on the hub with a
-    T-bar over the wheel): each arm runs in from an outboard post (entrypost_<side>, its base plate and its arm gusset) that
+    T-bar over the wheel): each arm runs in from an outboard post (entrypost_<side>, its base plate, its arm gusset and,
+    round 2b, the crest stakes' black wrap entrypost_<side>_wrap) that
     stands on the crest at RIG_TOP_POST (x, +-y): outside the chairs' swept body (r <= 2.76 about the wheel axis + 0.20) and
     nowhere over the wheel or across a lane below the rope. The +y post takes the place of the crest maze's middle post
     (_dress_top_m). The arm, 1 cm above the sheave crest by ~0.3 m, is a few degrees off square (the post stands on the maze
@@ -2727,6 +2738,10 @@ def entry_sheaves_rig_m(kind):
             ztop = M_TOP["crest_z"]
             out.append((_mcyl(f"entrypost_{tag}", (px, py, ztop - 0.01), (px, py, za1 + 0.02), pr, P["segs"], "top"),
                         "paint1"))
+            # round 2b (P2-S1): the crest stakes' black wrap on the post's lower part (stakewrap_: rubber, 0.02 off, open ends)
+            wo, wz0, wz1 = P["wrap"]
+            out.append((_mcyl(f"entrypost_{tag}_wrap", (px, py, ztop + wz0), (px, py, ztop + wz1), pr + wo, P["segs"],
+                              "none"), "rubber"))
             pw, pt = P["plate"]
             out.append((_mbox(f"entrypost_{tag}_plate", px - pw / 2.0, px + pw / 2.0, py - pw / 2.0, py + pw / 2.0,
                               ztop - 0.005, ztop + pt, drop=("-Z",)), "paint1"))
