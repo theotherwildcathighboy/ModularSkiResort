@@ -471,6 +471,14 @@ TEXPASS_LF_SIGMA_M = 0.2
 TEXPASS_LF_RATIO = 1.25
 TEXPASS_LF_FLOOR = 0.03
 _TEXPASS_STATE = {"version": None, "saved": {}}
+# Roles: an asset OFF the family sheet (the welcome sign bakes its own atlas from the family swatches) asks for "the family's
+# key for this role" instead of naming a key, so a key split or a rename reaches it without an edit in its generator.
+TEXPASS_ROLES = {"gate_roof": "timber_shake"}       # the welcome sign's roof slabs: the one roof use of the shingle key
+
+
+def texpass_role(role, default=None):
+    """The material key the family assigns to `role` (TEXPASS_ROLES), else `default`."""
+    return TEXPASS_ROLES.get(role, default)
 
 
 def texpass_version():
@@ -1207,12 +1215,19 @@ def _streaks(C, seed, width_px, vertical_cols):
     return s if vertical_cols else s.T
 
 
-def weather_overlay(key, base, nrm, metal, sm, seed):
+def swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="rollout"):
+    """One key's swatch content as the sheet draws it (linear base, normal, metal, smoothness, slot, info): the registered
+    pass's scan, tile, tint, controls, rib relief and smoothness target. The public reader for an asset that bakes its own
+    atlas from the family's materials (welcome_sign.tp_swatch_source), so it draws the lodges' material by construction."""
+    return _swatch_maps(key, C, cache_dir, repeat=repeat, layout_name=layout_name)
+
+
+def weather_overlay(key, base, nrm, metal, sm, seed, cls=None):
     """(base, metal, sm) of the "~w" variant: the clean tile with a PARTIAL overlay (never a uniform tone shift, so a clean
     / weathered boundary reads as the edge of a stain, and the overlay stays sparse). Classes (W_CLASS): stone damp +
     lichen, timber silver-graying + water marks, paint dirt, metal-roof streaks, slate moss, concrete drip stains, deck
     / paver scuff. Linear albedo. Deterministic per key."""
-    cls = _bt(W_CLASS, base_key(key))
+    cls = cls or _bt(W_CLASS, base_key(key))    # `cls`: a key off the sheet names its class itself (the gate's plank, rock)
     m = K.BLDG_MATERIALS[base_key(key)]
     C = base.shape[0]
     vertical_cols = (int(m.uv_rot) % 180 == 0)          # box / planar: world-vertical = v
