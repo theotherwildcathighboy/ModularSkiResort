@@ -257,6 +257,9 @@ def tiled_keys():
 
 
 def smooth_of(key):
+    f = texpass_flat(key)
+    if "smooth" in f:
+        return float(f["smooth"])
     k = base_key(key)
     k = V2_BASE.get(k, k)
     if k in TRIM_SMOOTH:
@@ -266,6 +269,9 @@ def smooth_of(key):
 
 
 def metal_of(key, layout_name="rollout"):
+    f = texpass_flat(key)
+    if "metal" in f:
+        return float(f["metal"])
     k = base_key(key)
     k = V2_BASE.get(k, k)
     if layout_name == "rollout" and k in METAL_ROLLOUT:
@@ -356,8 +362,11 @@ TEXPASS = {
         # normal_gain 1.6: the scan's seams read flatter than the old set's. Its mean slope is -3.8 deg along v raw (-7.3
         # at gain 1.6, P13): the butt steps are too shallow to close the course. A tilt of the bake plane is likely but
         # unproven (u is 0.0); normal_lean (0, +1.8) is the de-tilted swatch's lean (it was +8.7)
-        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (2.4, 2.4), "normal_gain": 1.6,
-                       "normal_lean": (0.0, 1.8)},
+        # row_shuffle 14: every board row of the tile takes its own u offset (wrap), so the scan's butt joints and
+        # knots stop lining up in columns every 2.4 m (L1's gable is 17 x 6 tiles); contrast 0.7: the two-tone
+        # boards and knots repeat as a pattern at 20-45 m (luminance CoV 0.284 -> 0.199, shipped 0.123)
+        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (2.4, 2.4), "contrast": 0.7, "row_shuffle": 14,
+                       "normal_gain": 1.6, "normal_lean": (0.0, 1.8)},
         # 1.5 m scan at 1.6 m (x 1.07): 20 x 14.5 cm slates (RoofingTiles003 drew 40 cm slates with scratch streaks).
         # Its normal map carries a bake tilt: mean slope (+7.1, +6.4) deg raw where a relief that tiles has 0 (no
         # course explains a u tilt, and its faces rise up the slope where a lapped course's fall; the butts face down-
@@ -432,11 +441,28 @@ TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red")
 # faced elsewhere; the control turns the swatch's mean normal to the stated lean. The value is the DE-TILTED swatch's
 # lean (its mean slope subtracted in slope space, then renormalized; P13), never a lean borrowed from another scan:
 # that copies the other scan's normal-map artifact. u is 0 (a course is symmetric across u)
-TEXPASS_CONTROLS = ("rot", "chroma", "flatten_m", "contrast", "nflatten_m", "normal_gain", "normal_lean")
+# row_shuffle n = a horizontal-board tile cut into n board rows, each shifted by its own u offset (wrap): butt joints
+# and knots stop lining up in columns every tile
+TEXPASS_CONTROLS = ("rot", "chroma", "flatten_m", "contrast", "row_shuffle", "nflatten_m", "normal_gain", "normal_lean")
 # Tilt gate (test_texpass P13): the mean height slope (mean of -n.x / n.z, -n.y / n.z) of a relief that tiles is 0, so
 # a nonzero mean slope is a tilt baked into the normal map (the bake plane), not relief. Every pass key's sheet swatch
 # (after normal_gain and normal_lean) stays under this in u and v (PHGrayRoofTiles02 at gain 1.3: +9.2 / +7.8)
 TEXPASS_MAX_MEAN_SLOPE_DEG = 2.0
+# Flat (procedural) keys a pass re-draws, by EXACT key (no V2_BASE fallback: metal_roof_dk and metal_roof_s1 derive
+# from metal_roof but have their own proposers). metal_roof_lt (the fixed light roof, slots v2) is a COATED
+# standing-seam panel (PVDF, 20-35 gloss units at 60 degrees: satin), not bare metal: METAL_ROLLOUT 1.0 made it a
+# mid-gray mirror that reads dark slate from the play views away from the sun (release shot 2026-11-10) and navy at
+# dusk (the chimney cap and the stove pipes left metal 1.0 for the same reason, T95 / T91). ribs = RAISED seams per
+# 3.0 m tile (7 = 0.43 m, real panels 0.30-0.46 m; the rollout drew 6 grooves at 0.50 m), rib_m = (half top, half base,
+# height) of the trapezoid in the normal map, ao = the contact shade beside a rib in the albedo (the MaskMap has no AO
+# channel), smooth_streak = sd of a faint down-slope wash in the smoothness. light_w = the light roof takes the
+# orphaned "metal_roof~w" cell as "metal_roof_lt~w" (no building has sampled that cell since slots v2: L1's 1,841 m2
+# roof drew no roof-eave band and no valley pieces), drawn as a dirt wash without rust (paint = True). The renamed
+# cell's ControlMask follows metal_roof_lt (slot 0): the old cell carried the recolor roof's slot-3 mask.
+TEXPASS_FLAT = {
+    "v1": {"metal_roof_lt": {"metal": 0.0, "smooth": 0.40, "ribs": 7, "rib_m": (0.007, 0.020, 0.014), "ao": 0.12,
+                             "smooth_streak": 0.012, "light_w": True, "paint": True}},
+}
 TEXPASS_COLOR_CONTROLS = ("chroma", "flatten_m", "contrast")
 # Low-frequency gate (test_texpass P10): a tile repeats every tile_m, so blotches above the board / course scale read as
 # a grid. Luminance CoV after a periodic Gaussian of TEXPASS_LF_SIGMA_M may not exceed max(TEXPASS_LF_RATIO x the
@@ -449,6 +475,15 @@ _TEXPASS_STATE = {"version": None, "saved": {}}
 
 def texpass_version():
     return _TEXPASS_STATE["version"]
+
+
+def texpass_flat(key):
+    """The active pass's flat-key spec for `key` (its weathered "~w" twin included; exact key, no V2_BASE fallback),
+    {} when off."""
+    v = _TEXPASS_STATE["version"]
+    if not v:
+        return {}
+    return dict(TEXPASS_FLAT.get(v, {}).get(base_key(key), {}))
 
 
 def texpass_specs(version):
@@ -648,6 +683,27 @@ def lf_cov(lin, ppm, sigma_m=TEXPASS_LF_SIGMA_M):
     return float(blur_periodic(lum, sigma_m * ppm).std() / max(float(lum.mean()), 1e-9))
 
 
+def _row_shuffle(n_rows, lin, nrm, rough):
+    """Horizontal-board tile: shift each of its n_rows board rows by its own u offset (wrap-around). The rows are cut on
+    the lap seams (the darkest phase of the row-mean luminance folded at the board pitch), so no cut shows; the
+    offsets are fractions of the tile (one fixed seed), so the sheet swatch and the far source shift alike."""
+    N = lin.shape[0]
+    pitch = N / float(n_rows)
+    prof = (lin[..., :3] @ LUMA).mean(1)
+    idx = np.floor(np.mod(np.arange(N), pitch)).astype(int)
+    fold = np.bincount(idx, weights=prof) / np.maximum(np.bincount(idx), 1)
+    phase = float(np.argmin(fold)) + 0.5
+    edges = np.rint(phase + np.arange(n_rows + 1) * pitch).astype(int)
+    rng = np.random.default_rng(20261119)
+    out = [lin.copy(), nrm.copy(), rough.copy()]
+    for i in range(n_rows):
+        sh = int(round(float(rng.random()) * lin.shape[1]))
+        rows = np.arange(edges[i], edges[i + 1]) % N
+        for a, o in zip((lin, nrm, rough), out):
+            o[rows] = np.roll(a[rows], sh, axis=1)
+    return out
+
+
 def texpass_apply(tps, lin, nrm, rough, ppm):
     """One seamless scan tile (linear RGB, 0..1 normals, roughness; ppm px per meter) through a pass key's controls
     (texpass_swatch) in TEXPASS_CONTROLS order. flatten and contrast keep every channel's mean exactly."""
@@ -667,6 +723,8 @@ def texpass_apply(tps, lin, nrm, rough, ppm):
         lum = lin @ LUMA
         m = lum.mean()
         lin = keep_mean(lin * ((m + (lum - m) * tps["contrast"]) / np.maximum(lum, 1e-6))[..., None], lin)
+    if "row_shuffle" in tps:
+        lin, nrm, rough = _row_shuffle(int(tps["row_shuffle"]), lin, nrm, rough)
     if "nflatten_m" in tps:
         nrm = _normal_flatten(nrm, tps["nflatten_m"] * ppm)
     if "normal_gain" in tps:
@@ -901,6 +959,8 @@ def sheet_layout(A=SHEET_A, layout="rollout", repeats=None, trim=False, slots=Fa
         tiles_spec.update(SLOTS_V2_TILES)
         for a, b in slots_v2_rename().items():
             tiles_spec[b] = tiles_spec.pop(a)
+        if texpass_flat("metal_roof_lt").get("light_w"):   # texture pass only: flag off keeps the orphaned key
+            tiles_spec["metal_roof_lt" + W_SUFFIX] = tiles_spec.pop("metal_roof" + W_SUFFIX)
     for k, (c, r, span) in tiles_spec.items():
         sw = span * cell
         pad = max(8, sw // 32)
@@ -993,6 +1053,7 @@ def layout_hash(layout):
     if _TEXPASS_STATE["version"]:       # texture pass: the flag-off blob keeps its key set
         d["v"] += TEXPASS_VERSION
         d["texpass"] = {_TEXPASS_STATE["version"]: texpass_specs(_TEXPASS_STATE["version"])}
+        d["texpass_flat"] = TEXPASS_FLAT.get(_TEXPASS_STATE["version"], {})
     blob = json.dumps(d, sort_keys=True, default=str)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
 
@@ -1020,6 +1081,18 @@ def _ribs_height(C, tile_m, spec, along_u):
     if along_u:
         return np.broadcast_to(prof[None, :], (C, C)).copy()
     return np.broadcast_to(prof[:, None], (C, C)).copy()
+
+
+def _rib_height(C, tile_m, n_ribs, rib_m):
+    """Raised trapezoid seams (meters): n_ribs per tile, one centered on the tile edge (the phase of _ribs_height).
+    Returns (height profile, distance to the nearest seam center)."""
+    half_top, half_base, height = (float(x) for x in rib_m)
+    s = (np.arange(C) + 0.5) / C * tile_m
+    pitch = tile_m / int(n_ribs)
+    ph = np.mod(s, pitch)
+    d = np.minimum(ph, pitch - ph)
+    t = np.clip((half_base - d) / max(half_base - half_top, 1e-9), 0.0, 1.0)
+    return height * (t * t * (3.0 - 2.0 * t)), d
 
 
 def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
@@ -1067,7 +1140,23 @@ def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
         k = float(K.srgb_to_linear(cs2_asset.RECOLOR_ALBEDO)) / max(float(lum.mean()), 1e-6)
         base = np.repeat(np.clip(lum * k, 0, 1)[..., None], 3, -1)
         info["recolor_scale"] = round(k, 4)
-    if m.detail is not None and getattr(m.detail, "seam_axes", None) == "ribs" and m.detail.seams_m:
+    tpf = texpass_flat(key) if not m.set else {}
+    if tpf.get("ribs"):
+        rot = int(m.uv_rot) % 180
+        along_u = (rot == 0)
+        prof, dist = _rib_height(C, tile * r, tpf["ribs"] * r, tpf["rib_m"])
+        h = (np.broadcast_to(prof[None, :], (C, C)) if along_u else np.broadcast_to(prof[:, None], (C, C))).copy()
+        det = cs2_compose.height_to_normal(h.astype(np.float32), C / (tile * r))
+        nrm = cs2_compose.blend_rnm(nrm.astype(np.float32), det)
+        if tpf.get("ao"):
+            line = 1.0 - float(tpf["ao"]) * np.exp(-0.5 * (dist / 0.0175) ** 2)
+            base = base * (line[None, :, None] if along_u else line[:, None, None])
+        if tpf.get("smooth_streak"):
+            aniso = (1.0, 0.04) if along_u else (0.04, 1.0)
+            sm = sm + float(tpf["smooth_streak"]) * _pnoise(C, 0.08 * C / (tile * r), 11, beta=1.6, aniso=aniso)
+        info["detail"] = f"raised ribs {tile / tpf['ribs']:.4f} m, {'columns' if along_u else 'rows'}"
+        info["texpass_flat"] = dict(tpf)
+    elif m.detail is not None and getattr(m.detail, "seam_axes", None) == "ribs" and m.detail.seams_m:
         rot = int(m.uv_rot) % 180
         along_u = (rot == 0)            # planar / box: u is the horizontal in-plane axis
         h = _ribs_height(C, tile * r, m.detail, along_u)
@@ -1075,7 +1164,7 @@ def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
         nrm = cs2_compose.blend_rnm(nrm.astype(np.float32), det)
         info["detail"] = f"ribs {m.detail.seams_m} m, {'columns' if along_u else 'rows'}"
     src_mean = float(sm.mean())
-    tgt = SMOOTH_TARGET.get(V2_BASE.get(key, key), src_mean)
+    tgt = float(tpf["smooth"]) if "smooth" in tpf else SMOOTH_TARGET.get(V2_BASE.get(key, key), src_mean)
     sm = np.clip(tgt + (sm - src_mean) * SMOOTH_GAIN, 0.0, 1.0)
     info["smooth_src_mean"] = round(src_mean, 3)
     info["smooth_mean"] = round(float(sm.mean()), 3)
@@ -1152,6 +1241,11 @@ def weather_overlay(key, base, nrm, metal, sm, seed):
         dirt = np.clip(0.6 * d + 0.7 * st, 0, 1)
         b = b * (1.0 - 0.20 * dirt[..., None])
         s = s - 0.06 * dirt
+    elif cls == "metal_roof" and texpass_flat(key).get("paint"):
+        st = _streaks(C, seed + 3, C / 50.0, True)            # a coated panel rusts only at cut edges: dirt wash
+        dirt = np.clip(0.75 * st + 0.25 * _smooth(_pnoise(C, C / 2.2, seed, 2.2), -0.2, 1.3), 0.0, 1.0)
+        b = b * (1.0 - 0.30 * dirt[..., None]) + np.array((0.060, 0.052, 0.042)) * 0.30 * dirt[..., None]
+        s = s - 0.07 * dirt
     elif cls == "metal_roof":
         st = _streaks(C, seed + 3, C / 50.0, True)            # planar roofs: v runs up the slope
         rust = st * _smooth(_pnoise(C, C / 6.0, seed + 5, 1.8), 0.3, 1.2)
