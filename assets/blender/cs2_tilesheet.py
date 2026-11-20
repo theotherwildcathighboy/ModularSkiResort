@@ -361,14 +361,21 @@ TEXPASS = {
         # Tile 2.4 x 1 is the key's old period, so the cut grid and the far-set units are the flag-off ones.
         # normal_gain 1.6: the scan's seams read flatter than the old set's. Its mean slope is -3.8 deg along v raw (-7.3
         # at gain 1.6, P13): the butt steps are too shallow to close the course. A tilt of the bake plane is likely but
-        # unproven (u is 0.0); normal_lean (0, +1.8) is the de-tilted swatch's lean (it was +8.7)
+        # unproven (u is 0.0); the de-tilted swatch's lean is (0, +1.8) (it was +8.7), a mean slope of +1.3 deg. The
+        # key leans it further, to (0, +4.14) = a mean slope of -1.7 deg (P13 limit 2.0; 0.3 left for the 8-bit
+        # rounding and a later control), ON PURPOSE: the shipped WoodSiding009 swatch has a mean slope of -2.86 deg,
+        # and the sun shades a wall about 1 % per degree, so the de-tilted wall rendered 3.3-4.7 % darker than shipped
+        # at 7-68 m. A -1.9 lean recovered about three quarters of that (-0.9 to -1.4 % at 20-68 m) on the same mesh,
+        # cameras and albedo; -1.7 gives up about 0.2 % of it. The one exception to the de-tilted rule (the
+        # normal_lean note below): it keeps part of the shipped look's tilt, so the family's biggest wall does not
+        # darken under the pass
         # row_shuffle 14: every board row of the tile takes its own u offset (wrap), so the scan's butt joints and
         # knots stop lining up in columns every 2.4 m (L1's gable is 17 x 6 tiles); contrast 0.6: the two-tone
         # boards and knots repeat as a pattern at 20-45 m (luminance CoV 0.284 -> 0.170, shipped 0.123); row_level 1.0:
         # the scan's darker / redder board rows recur every 2.4 m up a 15 m gable (row-level CoV on a wall at 20 m
         # 0.053, shipped 0.029); each row scaled to the tile mean: 0.026, the boards and their grain stay
         "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (2.4, 2.4), "contrast": 0.6, "row_shuffle": 14,
-                       "row_level": 1.0, "normal_gain": 1.6, "normal_lean": (0.0, 1.8)},
+                       "row_level": 1.0, "normal_gain": 1.6, "normal_lean": (0.0, 4.14)},
         # 1.5 m scan at 1.6 m (x 1.07): 20 x 14.5 cm slates (RoofingTiles003 drew 40 cm slates with scratch streaks).
         # Its normal map carries a bake tilt: mean slope (+7.1, +6.4) deg raw where a relief that tiles has 0 (no
         # course explains a u tilt, and its faces rise up the slope where a lapped course's fall; the butts face down-
@@ -450,10 +457,13 @@ TEXPASS = {
         # at 0.55 / 1.4 its pixel-scale speckle was +55 % over the shipped WoodSiding013; at 0.40 / 1.2 +37 %, the
         # courses still read (tilt rms 18.8 -> 16.7 deg, luminance CoV 0.195 -> 0.142). contrast 0.30: +32 %, the
         # courses still read at 7 m and the mean is kept (luminance CoV 0.142 -> 0.106); the normal map carries most
-        # of the speckle, so a lower contrast buys little more
+        # of the speckle, so a lower contrast buys little more. De-tilted, the sunlit shingle walls read 5-9 % darker
+        # than the shipped WoodSiding013, whose normals lean up the wall (P13 v slope -3.63): normal_lean
+        # (0, +1.54) gives a P13 v slope of -1.7, the gate's 2.0 with a 0.3 margin (a lean to -1.9 won back
+        # about 40 % of the gap); +v runs up every timber_shake wall of the family (UV-v check, 2026-11-20)
         "timber_shake": {"set": "PHRoofSlates02", "tile_m": (1.8, 1.8), "target_srgb": (0.406, 0.352, 0.275),
                          "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.30, "normal_gain": 1.2,
-                         "normal_lean": (0.0, 0.0)},
+                         "normal_lean": (0.0, 1.54)},
         # siding_paint (the ski school only; slot-1 recolor, so a LIGHT neutral swatch: the player's color multiplies).
         # WoodSiding009 turned 90 deg drew a lap profile stood upright (15 cm "boards", grooves) and its butt-joint column
         # as one horizontal line through every board every 2.4 m. Poly Haven wood_planks_grey (1.5 m, 5 vertical boards)
