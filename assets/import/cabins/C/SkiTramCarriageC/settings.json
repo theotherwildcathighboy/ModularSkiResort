@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiTramCarriageC_LOD1_BaseColor.png": "SkiTramCarriageC_BaseColor.png",
+    "SkiTramCarriageC_LOD1_ControlMask.png": "SkiTramCarriageC_ControlMask.png",
+    "SkiTramCarriageC_LOD1_MaskMap.png": "SkiTramCarriageC_MaskMap.png",
+    "SkiTramCarriageC_LOD1_Normal.png": "SkiTramCarriageC_Normal.png",
+    "SkiTramCarriageC_LOD2_BaseColor.png": "SkiTramCarriageC_BaseColor.png",
+    "SkiTramCarriageC_LOD2_ControlMask.png": "SkiTramCarriageC_ControlMask.png",
+    "SkiTramCarriageC_LOD2_MaskMap.png": "SkiTramCarriageC_MaskMap.png",
+    "SkiTramCarriageC_LOD2_Normal.png": "SkiTramCarriageC_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}
