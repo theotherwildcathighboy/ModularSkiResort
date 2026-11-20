@@ -2399,17 +2399,21 @@ def texpass_weather(W, recipe, tp):
     plinth's design grade in the AUTHORING frame (z = -s (a - x), falling toward -X), turned into the tiled frame
     (orient_for_net maps (x, y) -> (y, -x): z = -s a - s y) and capped 5 cm under the lowest band top so no cut
     reaches the plinth's z-0 contract band; "eave_h" = one under-eave band height for every side (0 = none);
-    "band_skip" = part-name prefixes that take no base band (TileWeather.band_skip)."""
+    "band_skip" = part-name prefixes that take no base band (TileWeather.band_skip); "base_h" {"front", "side",
+    "back"} = the recipe's own base band heights in meters (a low building: the rollout's 0.5 / 0.8 / 1.1 m bands are
+    21 / 34 / 47 % of a 2.35 m wall), never above the ladder step's (a step that dropped a band keeps it dropped)."""
     from dataclasses import replace as _rp
     if W is None:
         return None
     kw = {}
+    if tp.get("base_h"):
+        kw["base_h"] = {k: min(float(tp["base_h"].get(k, v)), float(v)) for k, v in W.base_h.items()}
     g = tp.get("grade")
     if g:
         if abs(float(getattr(recipe, "yaw_deg", 0.0) or 0.0)) > 1e-9:
             raise ValueError(f"{recipe.key}: texpass grade is written for yaw 0")
         s, a = float(g["slope"]), float(g["anchor_x"])
-        kw["grade"] = (-s * a, 0.0, -s, -(max(W.base_h.values()) + 0.05))
+        kw["grade"] = (-s * a, 0.0, -s, -(max(kw.get("base_h", W.base_h).values()) + 0.05))
     if "eave_h" in tp:
         kw["eave_h"] = {k: float(tp["eave_h"]) for k in W.eave_h}
     if tp.get("band_skip"):
@@ -2534,6 +2538,8 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
     tm_kw = dict(label_prefixes=tuple(p for p, _pa, _kw in recipe.labels),
                  ground_prefixes=tuple(recipe.ground_prefixes) if recipe.base_mode == "engine" else (),
                  label_ppm=TS.LABEL_PPM * SA / 4096.0,
+                 # recipe.texpass["label_w"] (--texpass only; tp is {} when off): per-label density weights
+                 label_weights=dict(tp.get("label_w") or {}) or None,
                  flat_prefixes=TS.flat_detail_prefixes(trim) + tuple(getattr(recipe, "tiled_flat", ()) or ())
                  # kit v2: the window parts draw their material's mean color (no tile cuts)
                  + ((K.KIT2_PARTS + WINDOW_FLAT_EXTRA.get(recipe.key, ()))

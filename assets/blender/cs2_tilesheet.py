@@ -459,10 +459,21 @@ TEXPASS_MAX_MEAN_SLOPE_DEG = 2.0
 # orphaned "metal_roof~w" cell as "metal_roof_lt~w" (no building has sampled that cell since slots v2: L1's 1,841 m2
 # roof drew no roof-eave band and no valley pieces), drawn as a dirt wash without rust (paint = True). The renamed
 # cell's ControlMask follows metal_roof_lt (slot 0): the old cell carried the recolor roof's slot-3 mask.
+# metal_roof_s1 (the P1 recolor roof, 33 m2) keeps the recolor model of vanilla's barn roof (metal 1.0, light neutral
+# albedo, the slot tint multiplies), so its character comes from the normal and the smoothness: panel = an
+# exposed-fastener ribbed panel, the common utility-shack roof (the shipped 3 cm grooves at 0.50 m read as a flat
+# painted slab past 20 m). 26 mm trapezoid major ribs (28 mm top, 96 mm base) at 0.30 m (PBR / R-panel: 1-1/4 in ribs 12 in on
+# center), 10 per 3.0 m tile, two 3 mm minor ribs per pan, a sheet = 3 pans (36 in coverage).
+# can_mm = the oil-canning bow of a pan; panel = sheet-to-sheet albedo shade; streak / sm_streak = soft down-slope
+# run-off 6-12 cm wide (darker / rougher); rib tops +0.05 smoothness; albedo features >= 5 cm. Same cell, 0 tris, 0 MB.
 TEXPASS_FLAT = {
     "v1": {"metal_roof_lt": {"metal": 0.0, "smooth": 0.40, "ribs": 7, "rib_m": (0.007, 0.020, 0.014), "ao": 0.12,
-                             "smooth_streak": 0.012, "light_w": True, "paint": True}},
+                             "smooth_streak": 0.012, "light_w": True, "paint": True},
+           "metal_roof_s1": {"panel": {"name": "rib30w", "profile": "rib", "pitch_m": 0.30, "rib_top": 0.028, "rib_base": 0.096,
+                                       "rib_h": 0.026, "can_mm": 0.3, "panel": 0.008, "streak": 0.0,
+                                       "sm_streak": 0.030, "sheet_ribs": 3}}},
 }
+PANEL_SS = 4                    # a panel swatch is box-filtered from PANEL_SS x its content size
 TEXPASS_COLOR_CONTROLS = ("chroma", "flatten_m", "contrast")
 # Low-frequency gate (test_texpass P10): a tile repeats every tile_m, so blotches above the board / course scale read as
 # a grid. Luminance CoV after a periodic Gaussian of TEXPASS_LF_SIGMA_M may not exceed max(TEXPASS_LF_RATIO x the
@@ -1119,6 +1130,89 @@ def _rib_height(C, tile_m, n_ribs, rib_m):
     return height * (t * t * (3.0 - 2.0 * t)), d
 
 
+def _panel_profile(u, spec):
+    """Height (m) across a panel's ribs at u (m, periodic in the pitch): "rib" = a trapezoid major rib (rib_h high,
+    rib_top / rib_base wide; default 19 mm, 20 / 64 mm) + two 3 mm minor ribs per pan; "seam" = a raised 16 mm
+    standing seam (10 mm top, 32 mm base)."""
+    p = float(spec["pitch_m"])
+    ph = np.mod(u, p)
+    d = np.minimum(ph, p - ph)                       # distance to the nearest rib center
+    if spec["profile"] == "seam":
+        t = np.clip((d - 0.005) / (0.016 - 0.005), 0.0, 1.0)
+        return 0.016 * 0.5 * (1.0 + np.cos(np.pi * t))
+    if spec["profile"] == "rib":
+        a, b = float(spec.get("rib_top", 0.020)) / 2, float(spec.get("rib_base", 0.064)) / 2
+        t = np.clip((d - a) / (b - a), 0.0, 1.0)
+        major = float(spec.get("rib_h", 0.019)) * 0.5 * (1.0 + np.cos(np.pi * t))
+        minor = np.zeros_like(u)
+        for k in (1, 2):
+            dm = np.abs(ph - p * k / 3.0)
+            minor += np.where(dm < 0.014, 0.003 * 0.5 * (1.0 + np.cos(np.pi * dm / 0.014)), 0.0)
+        return major + minor
+    raise KeyError(spec["profile"])
+
+
+def _panel_box(a, f):
+    s = a.shape
+    return a.reshape(s[0] // f, f, s[1] // f, f, *s[2:]).mean((1, 3))
+
+
+def _panel_maps(key, C, tile_m, spec, smooth_mean, along_u=True):
+    """(luminance factor (C, C) mean 1, normal 0..1 (C, C, 3), smoothness (C, C) mean smooth_mean) of a TEXPASS_FLAT
+    "panel" spec. The ribs are columns (constant u, v up the slope; rows when not along_u), everything periodic in the
+    tile; built at PANEL_SS x and box-filtered (the normals as vectors). Deterministic per key and spec name."""
+    f = PANEL_SS
+    n = C * f
+    ppm = n / tile_m
+    u = (np.arange(n) + 0.5) / n * tile_m
+    pitch = float(spec["pitch_m"])
+    npan = int(round(tile_m / pitch))
+    if abs(npan * pitch - tile_m) > 1e-9:
+        raise ValueError(f"texpass panel {key}: pitch {pitch} does not divide the {tile_m} m tile")
+    prof = _panel_profile(u, spec)
+    h = np.broadcast_to(prof[None, :], (n, n)).copy()
+    sd = int(hashlib.sha1(f"{key}:{spec['name']}".encode()).hexdigest()[:8], 16)
+    rng = np.random.default_rng(sd)
+    pan = np.floor(np.mod(u + pitch / 2, tile_m) / pitch).astype(int) % npan   # pan index per column
+    # oil canning: each pan bows a little across its width, the bow drifting up the slope
+    can = float(spec["can_mm"]) * 1e-3
+    ph = np.mod(u, pitch) / pitch
+    bow = np.sin(np.pi * ph) ** 2
+    amp = _pnoise(n, n / 3.0, sd + 1, beta=2.4, aniso=(0.0001, 1.0))[:, :1]
+    per_pan = rng.uniform(-1.0, 1.0, npan)[pan]
+    drift = _pnoise(n, n / 3.0, sd + 2, beta=2.2)
+    h += can * bow[None, :] * (0.6 * per_pan[None, :] + 0.25 * amp + 0.35 * drift)
+    # albedo: sheet-to-sheet shade, then the run-off streaks (6-12 cm wide, >= 5 cm)
+    k = int(spec.get("sheet_ribs", 1))
+    nsheet = max(1, npan // k)
+    shade = rng.uniform(-1.0, 1.0, nsheet)
+    shade -= shade.mean()
+    sheet_of = (pan // k) % nsheet
+    lum = 1.0 + float(spec["panel"]) * shade[sheet_of][None, :] * np.ones((n, 1))
+    st = blur_periodic(_streaks(n, sd + 3, 0.09 * ppm, True), 0.02 * ppm)
+    st = st / max(st.max(), 1e-9)
+    lum *= 1.0 - float(spec["streak"]) * 2.0 * st
+    # smoothness: rib tops burnished, streaks rougher, sheets differ a little, a fine grain
+    top = prof / max(prof.max(), 1e-9)
+    sm = smooth_mean + 0.05 * np.clip(top, 0, 1)[None, :] - float(spec["sm_streak"]) * 2.0 * st \
+        + 0.012 * shade[sheet_of][None, :] + 0.008 * _pnoise(n, 6.0, sd + 5, beta=1.0)
+    gx = (np.roll(h, -1, 1) - np.roll(h, 1, 1)) * 0.5 * ppm
+    gy = (np.roll(h, -1, 0) - np.roll(h, 1, 0)) * 0.5 * ppm
+    nv = np.stack([-gx, -gy, np.ones_like(h)], -1)
+    nv /= np.linalg.norm(nv, axis=-1, keepdims=True)
+    nv = _panel_box(nv, f)
+    nv /= np.maximum(np.linalg.norm(nv, axis=-1, keepdims=True), 1e-9)
+    lum = _panel_box(lum, f)
+    lum = lum / lum.mean()                                    # recolor rule: the mean luminance holds
+    sm = _panel_box(sm, f)
+    sm = np.clip(smooth_mean + (sm - sm.mean()), 0.0, 1.0)
+    nrm = nv * 0.5 + 0.5
+    if not along_u:
+        lum, sm = lum.T.copy(), sm.T.copy()
+        nrm = np.stack([nrm[..., 1].T, nrm[..., 0].T, nrm[..., 2].T], -1)
+    return lum, nrm, sm
+
+
 def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
     """Linear base (C,C,3), normal 0..1 (C,C,3), metal, smooth (C,C), slot, info. With repeat
     r the content holds r x r copies of the material tile (prefiltered at C / r)."""
@@ -1165,7 +1259,14 @@ def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
         base = np.repeat(np.clip(lum * k, 0, 1)[..., None], 3, -1)
         info["recolor_scale"] = round(k, 4)
     tpf = texpass_flat(key) if not m.set else {}
-    if tpf.get("ribs"):
+    if tpf.get("panel"):
+        along_u = (int(m.uv_rot) % 180 == 0)
+        tgt0 = float(tpf["smooth"]) if "smooth" in tpf else SMOOTH_TARGET.get(V2_BASE.get(key, key), float(sm.mean()))
+        lumf, nrm, panel_sm = _panel_maps(key, C, tile * r, tpf["panel"], tgt0, along_u)
+        base = base * lumf[..., None]
+        info["detail"] = f"panel {tpf['panel']['name']}, {'columns' if along_u else 'rows'}"
+        info["texpass_flat"] = dict(tpf)
+    elif tpf.get("ribs"):
         rot = int(m.uv_rot) % 180
         along_u = (rot == 0)
         prof, dist = _rib_height(C, tile * r, tpf["ribs"] * r, tpf["rib_m"])
@@ -1190,6 +1291,8 @@ def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
     src_mean = float(sm.mean())
     tgt = float(tpf["smooth"]) if "smooth" in tpf else SMOOTH_TARGET.get(V2_BASE.get(key, key), src_mean)
     sm = np.clip(tgt + (sm - src_mean) * SMOOTH_GAIN, 0.0, 1.0)
+    if tpf.get("panel"):
+        sm = panel_sm                                   # a flat key's smoothness is the constant tgt: the panel's replaces it
     info["smooth_src_mean"] = round(src_mean, 3)
     info["smooth_mean"] = round(float(sm.mean()), 3)
     metal = metal_of(key, layout_name)
@@ -2197,7 +2300,7 @@ def _strip_frames(Vw, tris, fpart, part_name, is_strip, skey, layout, seg_m=None
 
 def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM, max_cells=4096,
               ground_prefixes=(), ground_band=0.011, weather=None, patch_shift=True, flat_prefixes=(),
-              grid_offset=0.0, strip_prefixes=(), strip_seg_m=None):
+              grid_offset=0.0, strip_prefixes=(), strip_seg_m=None, label_weights=None):
     """
     Re-mesh `obj` for the sheet (module doc). `uvtile`: (n_loops, 2) UVTile coordinates of obj's CURRENT loops (tiles).
     `keys`: sorted material keys (material_index -> key). `weather`: TileWeather or None (no weathering). Returns a
@@ -2301,6 +2404,9 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
         else:
             pkey.append(keys[int(fmat[i])])
     # -- label rects (shelf-packed in the building's label rect, one ppm that fits all) ---
+    # label_weights {prefix: factor} (recipe.texpass["label_w"], --texpass only): a label draws at ppm x factor, so a
+    # small sign seen close (the P1 door disc, 0.7 m at 3-6 m) takes the rect's spare width beside the big one that
+    # sets the ppm (the 1.5 m roof cross). None = one ppm for all (flag off: byte-identical)
     LX, LY, LW, LH = (layout["label_rect"] + [layout["label_rect"][2]])[:4] \
         if len(layout["label_rect"]) == 3 else layout["label_rect"]
     ext = {}
@@ -2318,13 +2424,14 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
     def _pack(ppm):
         res, cx, cy, shelf = {}, LX + gut, LY + gut, 0
         for pre, (lo, hi, kk) in ext.items():
-            w_px = int(math.ceil((hi[0] - lo[0]) * ppm)) + 1
-            h_px = int(math.ceil((hi[1] - lo[1]) * ppm)) + 1
+            p = ppm * float(label_weights.get(pre, 1.0)) if label_weights else ppm
+            w_px = int(math.ceil((hi[0] - lo[0]) * p)) + 1
+            h_px = int(math.ceil((hi[1] - lo[1]) * p)) + 1
             if cx + w_px > LX + LW - gut:
                 cx, cy, shelf = LX + gut, cy + shelf + gut, 0
             if cy + h_px > LY + LH - gut or cx + w_px > LX + LW - gut:
                 return None
-            res[pre] = dict(origin=(cx, cy), lo=lo, ppm=ppm, size=(w_px, h_px), key=kk)
+            res[pre] = dict(origin=(cx, cy), lo=lo, ppm=p, size=(w_px, h_px), key=kk)
             cx += w_px + gut
             shelf = max(shelf, h_px)
         return res
