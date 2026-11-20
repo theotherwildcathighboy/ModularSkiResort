@@ -645,6 +645,7 @@ namespace ResortBatch
             T09SkiableBar(check);
             T09GunOpens(check);
             T222PackStep(check);
+            T269Seed(check);
             T09Ledger(check);
         }
 
@@ -765,6 +766,106 @@ namespace ResortBatch
             check(RunSnowRules.PackGunsMaking(p, RunSnowRules.PackGun.Running, 3.3f, true) && !RunSnowRules.PackGunsMaking(p, RunSnowRules.PackGun.Running, 3.4f, true) &&
                   !RunSnowRules.PackGunsMaking(p, RunSnowRules.PackGun.Stopped, -5f, true) && !RunSnowRules.PackGunsMaking(p, RunSnowRules.PackGun.Running, -5f, false),
                   W, "PackGunsMaking: running, available and at or under the gate");
+        }
+
+        /// <summary>T269: the seed. The first gun raise of a bare texel above freezing writes the threshold d* plus one window of build, so the
+        /// pack grows where the build beats the melt (measured in game: thin made snow above 0 C was gone within one window).</summary>
+        private static void T269Seed(Func<bool, string, string, bool> check)
+        {
+            const string W = "snow T269 seed";
+            RunSnowRules.PackParams p = RunSnowRules.PackParams.Default;   // freezing 0, margin 3.3
+            float rate = RunSnowRules.MeanRampRate;
+            float window = 1f / RunSnowRules.WindowsPerGameHour;
+            // the build by hand: 0.004 m x rate x (0.35 + 1.65 x chill) per window, chill = (3.3 - air) / 4
+            Func<double, double> build = air => 0.004 * 1.125 * (0.35 + 1.65 * Math.Min(1.0, Math.Max(0.0, (3.3 - air) / 4.0))) * RunSnowRules.WindowsPerGameHour;
+            double[] airs = { 0.7, 2.0, 2.8 };
+            double[] seeds = { 0.0336, 0.1289, 0.2811 };   // d* + one window at the mean rate, by hand (PLAN table)
+            for (int k = 0; k < airs.Length; k++)
+            {
+                float air = (float)airs[k];
+                double b = build(air);
+                double dStar = 0.0425 * air / b;
+                float t = RunSnowRules.PackSeedThresholdM(p, air, rate);
+                check(Near(t, dStar, 1e-4), W, "the threshold d* = coef x above / B at +" + air + " C (" + t + " vs " + dStar.ToString("0.0000") + ")");
+                float seeded = RunSnowRules.PackStep(p, 0f, air, true, RunSnowRules.PackGun.Running, window, rate, false).DepthM;
+                check(Near(seeded, dStar + b * window, 1e-4) && Near(seeded, seeds[k], 5e-4), W,
+                      "a bare texel at +" + air + " C seeds to d* plus one window (" + seeded + " m, by hand " + seeds[k] + ")");
+                float run = RunSnowRules.PackRaiseTexelM(0f, 2f, (3.3f - air) / RunSnowRules.RampChillSpanC, rate, 1f, 3.3f);
+                check(Near(run, seeded, 1e-5), W, "the run path (PackRaiseTexelM with the margin) seeds the same at +" + air + " C (" + run + ")");
+                check(RunSnowRules.PackRaiseTexelM(0f, 2f, (3.3f - air) / RunSnowRules.RampChillSpanC, rate, 1f) < 0.01f, W,
+                      "margin 0 (a groomed run, the default) never seeds at +" + air + " C");
+                float thin = RunSnowRules.PackStep(p, 0.01f, air, true, RunSnowRules.PackGun.Running, window, rate, false).DepthM;
+                check(Near(thin, seeded, 1e-5), W, "a thin texel under d* lifts to the same seed at +" + air + " C");
+                float deep = RunSnowRules.PackStep(p, 0.5f, air, true, RunSnowRules.PackGun.Running, window, rate, false).DepthM;
+                check(Near(deep, 0.5 + b * window, 1e-5), W, "a texel deeper than d* only gets its build at +" + air + " C");
+                check(RunSnowRules.PackStep(p, 0f, air, true, RunSnowRules.PackGun.Stopped, window, rate, false).DepthM == 0f &&
+                      RunSnowRules.PackStep(p, 0f, air, false, RunSnowRules.PackGun.Running, window, rate, false).DepthM == 0f, W,
+                      "stopped guns or no guns: no seed at +" + air + " C");
+            }
+            // past +3.1 C the build never beats the melt floor: no seed, the step is the plain build
+            foreach (float air in new[] { 3.1f, 3.2f, 3.3f, 3.5f, 10f })
+            {
+                float d = RunSnowRules.PackStep(p, 0f, air, true, RunSnowRules.PackGun.Running, window, rate, false).DepthM;
+                check(RunSnowRules.PackSeedThresholdM(p, air, rate) == 0f && Near(d, air <= 3.3f ? build(air) * window : 0.0, 1e-6), W,
+                      "no seed at +" + air + " C (" + d + " m)");
+            }
+            // at or below freezing: no change, the step is the plain build
+            foreach (float air in new[] { 0f, -0.5f, -2f, -10f, float.NaN })
+            {
+                float d = RunSnowRules.PackStep(p, 0f, air, true, RunSnowRules.PackGun.Running, window, rate, false).DepthM;
+                check(RunSnowRules.PackSeedThresholdM(p, air, rate) == 0f && (float.IsNaN(air) ? d == 0f : Near(d, build(air) * window, 1e-6)), W,
+                      "no seed at " + air + " C (" + d + " m)");
+                float run = RunSnowRules.PackRaiseTexelM(0f, 2f, (3.3f - (float.IsNaN(air) ? 0f : air)) / RunSnowRules.RampChillSpanC, rate, 1f, 3.3f);
+                if (!float.IsNaN(air))
+                    check(Near(run, build(air) * window, 1e-6), W, "the run path at " + air + " C: the plain build, the chill above 1 clamped (" + run + ")");
+            }
+            // the bound (critic): the seed peaks just under the floor line, and d* < coef x margin / floor for every margin and rate
+            double worst = 0.0;
+            bool zeroAtMarginZero = true;
+            for (float margin = 0f; margin <= RunSnowRules.MaxSnowmakingMarginC + 1e-3f; margin += 0.25f)
+            {
+                RunSnowRules.PackParams pm = RunSnowRules.PackParams.With(RunSnowRules.GunStopDepthM, margin);
+                double bound = RunSnowRules.MeltDepthCoef * margin / RunSnowRules.MeltFloorPerHourM;
+                for (float r = 0.1f; r <= 4f; r += 0.05f)
+                    for (float air = 0f; air <= margin + 0.5f; air += 0.01f)
+                    {
+                        float t = RunSnowRules.PackSeedThresholdM(pm, air, r);
+                        if (margin == 0f && t != 0f)
+                            zeroAtMarginZero = false;
+                        if (t - bound > worst)
+                            worst = t - bound;
+                    }
+            }
+            float peak = RunSnowRules.PackSeedThresholdM(p, 3.09f, rate);
+            check(zeroAtMarginZero && worst <= 1e-6 && RunSnowRules.MeltDepthCoef * RunSnowRules.MaxSnowmakingMarginC / RunSnowRules.MeltFloorPerHourM < 0.8, W,
+                  "the seed is 0 at margin 0 and under coef x margin / floor at every margin and rate (0.77 m at margin 6)");
+            check(peak > 0.38f && peak < 0.40f && RunSnowRules.PackSeedThresholdM(p, 3.11f, rate) == 0f, W,
+                  "at margin 3.3 the seed peaks just under the floor line: " + peak.ToString("0.000") + " m at +3.09 C, 0 at +3.11 C");
+            // the seed never passes the texel's own target
+            check(Near(RunSnowRules.PackRaiseTexelM(0f, 0.05f, (3.3f - 2.8f) / RunSnowRules.RampChillSpanC, rate, 1f, 3.3f), 0.05, 1e-6), W,
+                  "the seed stops at the texel's own target (a fringe partial)");
+            // The point of it: game melt every 4 frames, a raise every 64. Bare at +1 C and +2 C, the seeded texel grows; without it, it stays bare.
+            foreach (float air in new[] { 1f, 2f })
+            {
+                float chill = (3.3f - air) / RunSnowRules.RampChillSpanC;
+                float with = 0f, without = 0f;
+                float sub = RunSnowRules.SnowUpdateIntervalFrames / RunSnowRules.FramesPerGameHour;
+                int windows = (int)RunSnowRules.WindowsPerGameHour;   // one game hour
+                for (int w = 0; w < windows; w++)
+                {
+                    with = RunSnowRules.PackRaiseTexelM(with, 2f, chill, rate, 1f, 3.3f);
+                    without = RunSnowRules.PackRaiseTexelM(without, 2f, chill, rate, 1f);
+                    for (int s = 0; s < RunSnowRules.TopupIntervalFrames / RunSnowRules.SnowUpdateIntervalFrames; s++)
+                    {
+                        with = Math.Max(0f, with - RunSnowRules.PackMeltM(p, with, air, sub));
+                        without = Math.Max(0f, without - RunSnowRules.PackMeltM(p, without, air, sub));
+                    }
+                }
+                float seed = RunSnowRules.PackSeedThresholdM(p, air, rate) + (float)build(air) * window;
+                Console.WriteLine($"INFO  T269 seed: one game hour of guns on bare snow at +{air} C: {with:F3} m seeded (seed {seed:F3} m), {without:F3} m without");
+                check(with > seed && without < 0.01f, W, "one game hour of guns on bare snow at +" + air + " C: seeded " + with.ToString("0.000") +
+                      " m (seed " + seed.ToString("0.000") + "), without the seed " + without.ToString("0.000") + " m");
+            }
         }
 
         private static void T09Ledger(Func<bool, string, string, bool> check)
