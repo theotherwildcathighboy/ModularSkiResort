@@ -402,9 +402,15 @@ TEXPASS = {
         # lux_glulam_s2 (L4 + L5): seam-free sawn timber at 0.77 m x 4 (Planks021 drew deck planking, a seam every
         # 14 cm along every post and truss); square tile 1.54 -> 0.77: tile factor 2
         "lux_glulam_s2": {"set": "Wood077", "tile_m": (0.77, 0.77), "repeat": 4},
-        # lux_vboard_red (L5 clock tower): same scan, battens at 0.35 m = every second 17.5 cm board seam, 8 per 2.8 m
+        # lux_siding_red / lux_vboard_red (L5 low floors, clock tower): the porch gables' cedar (recipe TG_LIN
+        # (0.30, 0.135, 0.060), lux_tg, the same WoodSiding009 scan) instead of SIDING_RED_LIN, which renders mauve under
+        # the sky light (blue = green) and matches the structural timber's value, so the posts in front did not separate.
+        # Light cedar low, walnut high: the two-tone of the references (One Ski Hill Place, Peak 7). The clock tower
+        # wears the same cedar (the Peak 7 tower wears its walls' siding); its TRIM_WOOD corner trim stays dark.
+        "lux_siding_red": {"target_srgb": (0.5838, 0.403, 0.2717)},
+        # lux_vboard_red: battens at 0.35 m = every second 17.5 cm board seam, 8 per 2.8 m
         # tile (K.BATTEN's 0.30 m beat against the boards every 2.1 m and broke at every tile edge: 9.33 per tile)
-        "lux_vboard_red": {"detail": {"seams_m": 0.35}},
+        "lux_vboard_red": {"detail": {"seams_m": 0.35}, "target_srgb": (0.5838, 0.403, 0.2717)},
         # timber_shake is wall shingles on every building that draws it (gable walls of L2 / L3 / L5 and the welcome
         # sign; no roof draws it). WoodSiding013 (a 1.4 m shingle-siding scan) was drawn at 1.8 m: 22.5 cm courses that
         # read as boards. Poly Haven roof_slates_02 (split larch shingles despite the name, 26 courses per 3.0 m) at the
@@ -426,8 +432,8 @@ TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.0
                  # squared fieldstone courses 15-50 cm; unit pavers 8-15 cm courses
                  "lux_stone_tan": (0.15, 0.50), "lux_paver": (0.08, 0.15)}
 # Pass keys with no course or board pitch to measure (P6 skips them; the grain scale is judged on renders): seam-free
-# member faces, and detail-only keys that keep the flag-off scan
-TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red")
+# member faces, and detail- or color-only keys that keep the flag-off scan
+TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red", "lux_siding_red")
 # Swatch controls a pass key may carry (texpass_apply runs them in this order on the sheet swatch and on the far source);
 # the color ones move the swatch mean, which the target_srgb tint then restores. "rot" = quarter turns of the square
 # scan tile before everything else: a scan whose boards run VERTICAL in the file (PHWoodPlanksGray) under a uv_rot 90 key
