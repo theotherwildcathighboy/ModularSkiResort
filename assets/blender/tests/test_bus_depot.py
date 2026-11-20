@@ -45,8 +45,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import ski_bus_depot as D   # noqa: E402
 
 QUICK = "--quick" in sys.argv
-LOD0_TRIS = None            # set by the r4/tex audit of the shipped FBX (see FLAG_OFF below)
-FLAG_OFF_PREBAKE = None
+# pinned by the r4/tex audit (2026-11-20): the shipped LOD0 has 1624 tris, and a flag-off rebuild equals the shipped
+# LOD0 / LOD1 / LOD2 FBX by content, so this blockout hash is the released mesh
+LOD0_TRIS = 1624
+FLAG_OFF_PREBAKE = "9cfabfc7e8da"
 FAILS = []
 
 
