@@ -1,4 +1,4 @@
-// src/base.module.scss - styles of the always-mounted parts (error notice). Written for this repo (MIT).
+// src/base.module.scss - styles of the always-mounted parts (error notice). Written for this repo (all rights reserved, see LICENSE).
 //
 // LOAD-BEARING: src/index.tsx imports this file so that SkiResortMod.css ALWAYS exists. The bundle exports `hasCSS = true`.
 // The game then waits for SkiResortMod.css with no error path and no timeout (index.js@2306554). No .css = blank UI for

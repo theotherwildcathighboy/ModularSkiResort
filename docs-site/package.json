@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Player docs and the making-of storyline for the Modular Ski Resort mod (Astro Starlight, GitHub Pages).",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "astro dev",
     "lock:check": "node tools/docs-lock-check.js",
