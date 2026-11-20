@@ -263,6 +263,7 @@ type Game.Objects.Elevation struct f5c16c458c m_Elevation:float m_Flags:Elevatio
 type Game.Objects.ElevationFlags enum 3d54325640 Stacked=1 OnGround=2 Lowered=4 OnAttachedParent=8
 type Game.Objects.GeometryFlags enum 18c095a485 None=0 Circular=1 Overridable=2 Marker=4 ExclusiveGround=8 DeleteOverridden=16 Physical=32 WalkThrough=64 Standing=128 CircularLeg=256 OverrideZone=512 OccupyZone=1024 CanSubmerge=2048 BaseCollision=4096 IgnoreSecondaryCollision=8192 OptionalAttach=16384 Brushable=32768 Stampable=65536 LowCollisionPriority=131072 IgnoreBottomCollision=262144 HasBase=524288 HasLot=1048576 IgnoreLegCollision=2097152 Builtin=4194304 ReadOnly=8388608 IgnoreElevatedGround=16777216
 type Game.Objects.Object struct 53a15dc08a
+type Game.Objects.ObjectGeometry struct 22a342b769
 type Game.Objects.ObjectUtils class c5d0ec0461
 type Game.Objects.OutsideConnection struct 5a01b05ba8 burst:r:SkiDaySystem
 type Game.Objects.OverrideSystem class 328db584f8
@@ -461,6 +462,7 @@ type Game.Rendering.BatchDataHelpers class ffe493cbbd
 type Game.Rendering.BatchDataSystem class 23d333f248
 type Game.Rendering.BatchInstanceSystem class 7fec9048e3
 type Game.Rendering.Bone struct 8577b30561 burst:w:BullwheelBoneSystem,TrainBoneSystem m_Position:float3 m_Rotation:quaternion m_Scale:float3
+type Game.Rendering.BoneHistory struct 5fdafef2a5 m_Matrix:float4x4
 type Game.Rendering.CameraUpdateSystem class edf1128610
 type Game.Rendering.CullingInfo struct c3c14133b2 burst:w:SkiGroomerSystem m_Bounds:Bounds3 m_Radius:float m_CullingIndex:int m_Mask:BoundsMask m_MinLod:byte m_PassedCulling:byte
 type Game.Rendering.EffectRangeRenderSystem class 0b2f5d0a9f
@@ -725,6 +727,7 @@ type Game.Zones.AreaType enum 0020e2eadd None=0 Residential=1 Commercial=2 Indus
 type Game.Zones.RaycastJobs class 7e0eac0191
 type Game.Zones.SearchSystem class 8b4292c96c
 type Game.Zones.ZoneType struct b246568eca m_Index:ushort
+anchor BoneRetrofitSystem after Game.Serialization.RequiredComponentSystem Deserialize
 anchor BullwheelBoneSystem after Game.Rendering.InitializeBonesSystem Rendering
 anchor CatTrackGradeTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
 anchor LiftLineIconSystem after Game.Net.ConnectionWarningSystem ModificationEnd

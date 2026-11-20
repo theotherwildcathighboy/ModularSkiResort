@@ -419,6 +419,12 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<BullwheelSpinSystem, ChairPinSystem>(SystemUpdatePhase.Modification4B);
             updateSystem.UpdateAfter<BullwheelBoneSystem, Game.Rendering.InitializeBonesSystem>(SystemUpdatePhase.Rendering);
 
+            // Old saves (T256 F1): a station placed before its mesh had bones loads without a skeleton (the archetype comes from the
+            // save). The retrofit adds Skeleton + Bone + BoneHistory once per load, in Deserialize right AFTER vanilla's
+            // RequiredComponentSystem (which adds only BoneHistory) and before the culling / batch post-deserialize steps
+            // (SystemOrder.cs:803, :865, :891). It must stay in the load: a structural add in a running city exited the game.
+            updateSystem.UpdateAfter<BoneRetrofitSystem, Game.Serialization.RequiredComponentSystem>(SystemUpdatePhase.Deserialize);
+
             // Low spans (hub row LiftLowSpan). AFTER the census at 4B for the same reason as the trains: the rope lanes LaneSystem built at
             // Modification4 are this frame's. The phase must stay Modification4B or the anchor is skipped.
             updateSystem.UpdateAfter<LiftClearanceSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);

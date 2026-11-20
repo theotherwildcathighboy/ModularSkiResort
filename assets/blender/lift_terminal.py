@@ -1192,9 +1192,11 @@ FG_HANG = 2.400                  # carriers tr hang_m (grip top = the code lane 
 FG_GRIP_ABOVE = 0.080            # carriers tr grip_top_above_rope_m (only the rope-point pin uses it)
 M_ROPE_R_SHIPPED = 0.055         # the shipped stations' modeled rope
 # art-601 #10 (owner hand-test note 10, "really jarring"): the modeled station rope (ropechord_ / wheelrope, 0.11 m across)
-# read 2-3x the line's vanilla cable beside it. --thin-rope builds with THIN_ROPE_R, the 0.048 m rope of the chair contract
-# (carriers tr / dq: the grip's rope; the line cable draws at r 0.060, rope-width-check.md). The shipped letter O uses it
-# (SHIPPED_FLAGS). Every consumer of the radius (the axle of
+# read 2-3x the line's vanilla cable beside it. --thin-rope builds with THIN_ROPE_R, 0.048 m across. The shipped letter O uses
+# it (SHIPPED_FLAGS). The line cable's MESH is r 0.060 (rope-width-check.md), but the game draws it about 0.040 m across
+# (hexagon r 0.020 = SkiRopeStillLVA Mesh m_MinSize 0.04, a dilated curve mesh; P1 2026-11-20 measured 3.03x for a 0.060 station
+# rope and 1.24x for O's 0.024, critic-oc3; the shader is not decompiled). A station rope draws at its mesh width. The rig
+# (RIG_ROPE_R) uses THIN_ROPE_R too. No chair or train contract depends on 0.048: every consumer of the radius (the axle of
 # the hold trains on the rope's top, the rope parts, the checks) follows the one global. The manifest records the radius of
 # the build (rope_r_m), and the seams tests read it per asset. LOD caveat: vanilla cables keep a minimum screen width at
 # distance, but a modeled 0.048 m rope does not (judge the far preview).
@@ -2106,8 +2108,9 @@ M_NOSE = dict(rim_gap=0.02,          # m along x: the outer rim's line-side edge
 #   LiftLoopCache.AppendTerminalTurn) instead of the sub-lane's inboard end: M_SPECS anchor_in := anchor_out, so the chord,
 #   the train frame, M2 / M3 / M21 and the previews all follow one datum. The prefab's sub-lanes do not move (M1 reads
 #   M_SPECS_SHIPPED).
-# - the rope is a hexagon (one vertex on the horizontal) of RIG_ROPE_R: the line's cable (SkiRopeStillLVA = vanilla LV cable,
-#   r 0.060, rope-width-check 2026-11-19). The half torus has RIG_TORUS_MAJORS segments (ring centers on the code arc, chord
+# - the rope is a hexagon (one vertex on the horizontal) of RIG_ROPE_R: as drawn in game by the line's cable (SkiRopeStillLVA
+#   = vanilla LV cable; its mesh is r 0.060, rope-width-check 2026-11-19, but P1 measured about 0.04 m on screen), so r 0.024,
+#   the chair grip's rope. The half torus has RIG_TORUS_MAJORS segments (ring centers on the code arc, chord
 #   sagitta reported). LOD1 keeps the rope faces un-decimated (RigLodFixed).
 # - the 8-spoke bullwheel (box spokes, hub cap, one safety_yellow spoke: the turn reads at play distance).
 # - an entry (hold-down) sheave at each of the wheel's two tangent points, its rim on the rope where the chord meets the
@@ -2128,8 +2131,12 @@ M_NOSE = dict(rim_gap=0.02,          # m along x: the outer rim's line-side edge
 #   moved toward the boom root, 30 deg to the boom (P2-S4).
 # False = every shipped station byte for byte (no expression below runs).
 M_RIG = False
-RIG_ROPE_R = 0.060            # m, the line cable's circumscribed radius (tune after an in-game side-by-side photo)
-RIG_ROPE_SIDES = 6            # hexagon, one vertex on the horizontal (the cable's 0.120 m lateral / 0.104 m vertical)
+RIG_ROPE_R = THIN_ROPE_R      # m (0.024). P1 field test 2026-11-20 (lift-motion REPORT "P1 results" F2, OC-3): at r 0.060 the
+                              # station rope read 3.03x the line cable at the base nose joint (same lane, same depth, 10 m:
+                              # 33.4 px vs 11.0 px), so the cable draws about 0.04 m (m_MinSize), not its mesh width. 0.024 =
+                              # every shipped FG station and tower seat (O measured 1.24x the cable); one prefab float
+                              # (the cable's m_MinSize) can later make it exact kit-wide
+RIG_ROPE_SIDES = 6            # hexagon, one vertex on the horizontal
 RIG_TORUS_MAJORS = 24         # half torus segments (7.5 deg each): chord sagitta R (1 - cos 3.75 deg) = 3.9 mm at R 1.80
 RIG_BONES = {"drive": ("Root", "Bullwheel", "NoseTrain"), "return": ("Root", "Bullwheel")}
 RIG_BULL_PARTS = ("sheave_bull", "spoke_", "wheelhub")      # Bullwheel (wheelhub_cap included; spoke_00 the yellow mark)
@@ -2150,8 +2157,11 @@ RIG_HOSTED_X = -5.025         # top: the skinned hosted end tower's pivot on the
 RIG_HOSTED_DIR = None         # top: folder holding the skinned hosted tower's FBXs (M5 / previews), CLI --rig-hosted
 RIG_WHEEL = dict(spokes=8, spoke=(0.10, 0.16), spoke_r=(0.30, 1.52), cap_r=0.24, cap_h=0.06,
                  mark_spoke=0)      # round 2 (S3): this spoke is safety_yellow (the turn's mark; round 1: a galv rim plate)
-RIG_KNUCKLE = dict(r=0.066, length=0.08)   # round 2 (C1): the rope collar on each lane end (hides the V of a kinked line).
-# First try r 0.068 x 0.12: its line-side half sat 9 mm from the chair stem at NoseTrain +20 deg (RIG-nose, M3 machine >= 0.01)
+RIG_KNUCKLE = dict(proud=0.006, length=0.08)   # round 2 (C1): the rope collar on each lane end (hides the V of a kinked
+# line). r = RIG_ROPE_R + proud (rig_knuckle_r_m): 0.030 at the r 0.024 rope (OC-3), 0.066 at round 2's 0.060.
+# First try r 0.068 x 0.12: its line-side half sat 9 mm from the chair stem at NoseTrain +20 deg (RIG-nose, M3 machine >= 0.01).
+# The drawn line cable (hexagon r 0.020, SkiRopeStillLVA m_MinSize 0.04) leaves through the cap face up to a kink of about
+# 8 deg; past that its silhouette crosses the collar's side (the V stays hidden; critic-oc3, the P1 joint showed 13.3 deg)
 RIG_NOSE_BRACE = dict(r=0.045, segs=6, a_top=2.75, foot_z=0.15, foot_in=0.03)   # round 2 (C2): the knee brace under
 # each nose boom: from the boom's axis at chord-frame a = a_top down to the front portal beam's line-side face, foot_z over its
 # bottom (clear of the rail clamp saddle_f_<side>, top 0.05 over the beam bottom) and foot_in inside it. 6-gon, open ends
@@ -2164,9 +2174,14 @@ RIG_TOP_POST = dict(x=0.10, y=3.05, r=0.09, segs=8, plate=(0.24, 0.03), gusset=0
 # r 0.065 -> 0.09, and the crest stakes' black wrap (rubber, 0.02 off the post, crest + 0.10 .. crest + 1.60, open ends:
 # 16 tris a post). The chair body comes to 0.316 m (+y) / 0.321 m (-y) of the post axes at crest + 0.35, so the wrap keeps
 # 0.206 / 0.211 >= M_CLEAR_STRUCT
-RIG_LOD2_DELETE = ("holdbrace_",)     # round 2: the C2 brace goes with the boom (holdboom_, M_LOD2_DELETE) at LOD2
+RIG_LOD2_DELETE = ("holdbrace_", "entrypost")   # round 2: the C2 brace goes with the boom (holdboom_, M_LOD2_DELETE) at
+                                                # LOD2; P2-C1: the top's entry posts (kept at LOD1) go at LOD2
 RIG_GRIP_OK = ("sheave_entry",)       # the chair grip passes under the entry sheaves (as under the nose train)
-RIG_LOD1_DELETE = ("sheave_entry", "entryarm", "entrypost")   # with the nose train (sheave_hold): gone at LOD1
+RIG_LOD1_DELETE = ("sheave_entry", "entryarm", "entrypost_n_gusset", "entrypost_p_gusset", "entrypost_n_plate",
+                   "entrypost_p_plate")   # with the nose train (sheave_hold): gone at LOD1. P2-C1 (critic pass 2, bundled
+# with the OC-3 rope re-export): the top's two 2.6 m entry posts and their wrap stay at LOD1, so they do not pop at the LOD0 /
+# LOD1 switch; the arm gussets go with the arms, the base plates (20 tris, unseen at that range) go too. About 76 tris before
+# decimation; the LOD1 target is a ratio, so the decimation takes them back elsewhere
 RIG_ROPE_PARTS = ("wheelrope", "ropechord_")                 # kept out of the LOD1 decimation (RigLodFixed)
 RIG_CONTACTS = {   # declared contacts of the rig's own parts (contact_kinds_m adds them under M_RIG only)
     "T256 entry sheaves: the axle stub through the wheel hub and its cheek plate, the cheek and its gusset on its arm, the "
@@ -2812,6 +2827,11 @@ def _hex_collar_m(name, p_cap, p_open, r, sides=RIG_ROPE_SIDES):
     return _mbm_obj(name, bm)
 
 
+def rig_knuckle_r_m():
+    """OC-3 (critic-oc3 change 5): the knuckle collar's radius follows the station rope (RIG_KNUCKLE proud over M_ROPE_R)."""
+    return M_ROPE_R + RIG_KNUCKLE["proud"]
+
+
 def _wheel_rig_m(cx, cz):
     """T256: the bullwheel of the rigged stations. The O rim (the groove profile, outer 1.74, paint1) on RIG_WHEEL["spokes"]
     box spokes (0.10 wide x 0.16 deep, galv, from inside the hub to inside the rim), the O hub (galv) with a hub cap
@@ -2820,6 +2840,10 @@ def _wheel_rig_m(cx, cz):
     galv plate on the rim top (spoke_mark, the same tone as the rim: too faint). Every part rides the Bullwheel bone
     (RIG_BULL_PARTS)."""
     W = RIG_WHEEL
+    # OC-3 (critic-oc3 change 3, accepted as on O): at r 0.024 the rope ring's inner edge is 1.776, 36 mm outside this 1.74 rim
+    # lip (P at r 0.060 sat on it). A rim at 1.776 failed the rig test: the entry sheaves cut the turning wheel's envelope by
+    # 21-26 mm and the chair body cleared the rim by 1-6 mm (M3 wants 10). Shipped O has the same gap on a still wheel; a seated
+    # rope needs the entry sheaves and the chair path moved (an art item, not this re-export)
     parts = _kit_m(cs2_kit.sheave("bull", M_RIM_OUT, 0.40, (cx, 0.0, cz), "Z", segs=32, hub=False,
                                   groove=0.04, r_hub=1.50), "paint1")
     r0, r1 = W["spoke_r"]
@@ -2855,7 +2879,7 @@ def _rope_and_wheel_rig_m(spec):
         # round 2 (C1): the knuckle, a rope collar centered on the lane end on the chord axis, capped on the line side
         # (it hides the V and the open tube end where the line rope kinks at the lane end); RIG_ROPE_PARTS by its prefix
         e = _V((ax, s * FG_LANE, az))
-        parts.append((_hex_collar_m(f"ropechord_knuckle_{side}", e - u * h, e + u * h, RIG_KNUCKLE["r"]), "rope"))
+        parts.append((_hex_collar_m(f"ropechord_knuckle_{side}", e - u * h, e + u * h, rig_knuckle_r_m()), "rope"))
     return parts
 
 
@@ -4203,11 +4227,61 @@ def hosted_row_m(kind, frozen=None):
     return rows[0] if rows else None
 
 
+def _mesh_folder_by_cid_m(cid_ref, prefixes):
+    """The gamedata-mirror mesh folder (under c030ee3ff256df91) whose LOD0 '<name> Mesh_*.Prefab.cid' holds the CID in
+    cid_ref (a '$fstrref:"CID:<32 hex>"' value), among the folders whose name starts with one of prefixes. None when absent."""
+    m = _re.search(r"[0-9a-f]{32}", str(cid_ref))
+    root = os.path.join(GAMEDATA_M, "c030ee3ff256df91")
+    if not m or not os.path.isdir(root):
+        return None
+    for name in sorted(os.listdir(root)):
+        # the folder also holds loose asset cids ('<name>_<hash>.Geometry.cid', '.Texture.cid'): folders only
+        if not name.startswith(prefixes) or not os.path.isdir(os.path.join(root, name)):
+            continue
+        for f in os.listdir(os.path.join(root, name)):
+            if f.startswith(name + " Mesh_") and f.endswith(".Prefab.cid"):
+                with open(os.path.join(root, name, f), "r", encoding="utf-8") as fh:
+                    if fh.read().strip() == m.group(0):
+                        return name
+    return None
+
+
+def hosted_expected_m(kind, old_mesh=None):
+    """T256 (r4-tex, 2026-11-20): the hosted tower row the deployed building should carry. The rig generation (the mesh the
+    building draws has a manifest with a "rig" block: P on) moves the top's row to RIG_HOSTED_X and its tower prefab to the
+    rig's hosted tower (ET62Q); every earlier generation keeps spec.tower_x / spec.tower. Returns (x, tower mesh name,
+    the deployed station mesh name or None, rig bool). The M1 / MANIFESTSHA contract follows the DEPLOYED generation, so a
+    re-freeze after the rig repoint passes, and the M manifest records which generation it was frozen against."""
+    spec = M_SPECS[kind]
+    if old_mesh is None:
+        old_mesh = frozen_block_m(kind)[1]
+    st = _mesh_folder_by_cid_m(old_mesh, ("SkiLiftBaseStation", "SkiLiftTopStation"))
+    rig = False
+    if st:
+        for prefix in ("SkiLiftBaseStation", "SkiLiftTopStation"):
+            if st.startswith(prefix):
+                letter = st[len(prefix):]
+                mp = os.path.join(IMPORT_M, "stations", "fixedgrip", letter, st, st + ".manifest.json")
+                if os.path.isfile(mp):
+                    with open(mp, "r", encoding="utf-8") as fh:
+                        rig = bool(json.load(fh).get("rig"))
+    if not rig:
+        return spec.tower_x, spec.tower, st, False
+    tower = spec.tower
+    tp = os.path.join(GAMEDATA_M, spec.tower_prefab, spec.tower_prefab + ".Prefab")
+    if os.path.isfile(tp):
+        tm = _re.search(r'"m_Mesh"\s*:\s*([^,\n]+)', open(tp, "r", encoding="utf-8").read())
+        tower = (_mesh_folder_by_cid_m(tm.group(1), ("SkiLiftTowerET",)) if tm else None) or spec.tower
+    return RIG_HOSTED_X, tower, st, True
+
+
 def m1_frozen(kind):
     """M1: the datums of the generator agree with SkiCatalog.cs, carriers.json and the deployed K prefab. Returns the
-    prefab_contract block of the manifest."""
+    prefab_contract block of the manifest. The hosted tower row is checked against the DEPLOYED generation
+    (hosted_expected_m: RIG_HOSTED_X once the building draws the rig mesh)."""
     spec = M_SPECS[kind]
     frozen, old_mesh, sha, path = frozen_block_m(kind)
+    hx, htower, hstation, hrig = hosted_expected_m(kind, old_mesh)
     bad = []
     # SkiCatalog.cs: the FG station rows (WheelLocal, stub tip)
     with open(SKICATALOG_CS, "r", encoding="utf-8") as fh:
@@ -4258,9 +4332,10 @@ def m1_frozen(kind):
             bad.append(f"no hosted {spec.tower_prefab} row in {spec.building} (the top keeps its ET62)")
     else:
         pos, rot = tw["m_Position"], tw["m_Rotation"]["value"]
-        if (pos["x"], pos["y"], pos["z"]) != (0, 0, spec.tower_x) or \
+        if (pos["x"], pos["y"], pos["z"]) != (0, 0, hx) or \
                 (rot["x"], rot["y"], rot["z"], rot["w"]) != (0, 1, 0, 0):
-            bad.append(f"hosted tower pose {pos} / {rot} != generator (0, 0, {spec.tower_x}) rot 180")
+            bad.append(f"hosted tower pose {pos} / {rot} != generator (0, 0, {hx}) rot 180"
+                       f"{' (rig generation ' + str(hstation) + ')' if hrig else ''}")
     if bad:
         _m_fail("M1", "; ".join(bad))
     out = {
@@ -4274,9 +4349,11 @@ def m1_frozen(kind):
         "frozen_sha256": _hashlib.sha256(json.dumps(frozen, sort_keys=True).encode("utf-8")).hexdigest(),
         "code": {"WheelLocal_game": list(wl), "StubTipLocalZ": tip, "SkiCatalog": "SkiCatalog.cs " + nm},
         "carrier_tr": {k: tr[k] for k in ("hang_m", "grip_top_above_rope_m", "lane_x_m", "seats", "axle_m")},
-        "hosted_tower": None if tw is None else {
+        "hosted_tower": None if tw is None else dict({
             "prefab": spec.tower_prefab, "mesh_after_M6_M7": spec.tower,
-            "position": [0.0, 0.0, spec.tower_x], "rotation_quat": [0.0, 1.0, 0.0, 0.0]},
+            "position": [0.0, 0.0, hx], "rotation_quat": [0.0, 1.0, 0.0, 0.0]},
+            **({"deployed_generation": hstation, "deployed_mesh": htower,
+                "why": "T256: the building draws the rig generation; its row sits at RIG_HOSTED_X"} if hrig else {})),
         "utility_object": None,
         "colour_slots_lod0": [[0.25, 0.26, 0.275, 1.0], [0.85, 0.25, 0.10, 1.0], [1.0, 1.0, 1.0, 1.0]],
     }
@@ -4286,7 +4363,8 @@ def m1_frozen(kind):
 
 
 def m2_rope(co, tris, names, spec):
-    """M2: the rope torus center = WheelLocal +- 0.002. Its radius is 1.80 +- 0.005. The rim outer is <= 1.745. Every ropechord_
+    """M2: the rope torus center = WheelLocal +- 0.002. Its radius is 1.80 +- 0.005. The rim outer is <= 1.745 (also under M_RIG: OC-3
+    keeps the O rim, _wheel_rig_m). Every ropechord_
     vertex is within 0.06 of the analytic chord."""
     wx, _wy, wz = spec.wheel
 
@@ -4318,7 +4396,8 @@ def m2_rope(co, tris, names, spec):
         bad.append(f"torus R {R_fit:.4f} / z {z_fit:.4f} vs {M_TORUS_R} / {wz}")
     if rim_out > 1.745:
         bad.append(f"rim outer {rim_out:.4f} > 1.745")
-    if worst > (M_ROPE_R + 0.001 if M_RIG else 0.06):     # T256: the 0.060 hexagon sits ON the old 0.06 line
+    if worst > (M_ROPE_R + 0.001 if M_RIG else 0.06):     # T256: the rig's rope hexagon (r M_ROPE_R) sits on the code chord;
+                                                          # flag-off keeps the shipped 0.06 tolerance
         bad.append(f"chord vertex {worst:.3f} off the code chord")
     if bad:
         _m_fail("M2", "; ".join(bad))

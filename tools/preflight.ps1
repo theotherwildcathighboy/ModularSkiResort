@@ -37,6 +37,9 @@
 #                  Each loop lift type's piece, towers and stations reference one own haul-rope lane (vanilla LV mesh, its type's sag).
 #                  LADDER: the tower placeholders' member tops unique by >= 0.1 m, twin E within the line's elevation range, twin
 #                  anchors = the support member's, the twins imported together.
+#  12b3. ARCHSWAP - tools/check-archetype-swap.js: no released prefab's mesh rows point to meshes that need archetype components
+#                  (MeshColor, Stack, Skeleton, Momentum, PlaybackLayer, Emissive, Animated) its meshes did not need at a release
+#                  tag; old saves never get them (T256 F1). Bones on Ski prefabs are covered by BoneRetrofitSystem. Needs the tags.
 #  12e. GAMESURFACE - tools/game-surface-check.js: the code, prefabs and vanilla references against tools/game-surface.lock.
 #                  It also checks the lock against the decompile of its game version, when that tree is beside the repo (patch readiness).
 #  15. LODGEPARK - every lodge tier and the Welcome Sign carry Game.Prefabs.Park (tools/check-lodge-park.ps1).
@@ -827,6 +830,20 @@ elseif (($maOut | Select-Object -Last 1) -notmatch 'PASS$') {
     if ($maOut.Count -le 1) { $rows.Add("FAIL  MANIFESTARGS $($maOut -join ' ')"); $failures++ }
 } else {
     $rows.Add("OK    MANIFESTARGS $(($maOut | Select-Object -Last 1)) | $(($maSelf | Select-Object -Last 1))")
+}
+
+# ---- 12b3. ARCHSWAP: a released prefab's mesh swap must not need archetype components old saves never get (T256 F1, 2026-11-20) ---
+# P1: the fixed-grip stations' new meshes had bones, but a loaded entity keeps the archetype of its save (no Skeleton, wheels
+# stood). Mesh components that add archetype components: ColorProperties, StackProperties, ProceduralAnimationProperties,
+# EmissiveProperties, an animated CharacterProperties (ObjectGeometryPrefab.cs:88-179). Bones on Ski prefabs: BoneRetrofitSystem.
+$asSelf = @(Invoke-Node (Join-Path $PSScriptRoot "check-archetype-swap.js") --self-test)
+if ($LASTEXITCODE -ne 0) { $rows.Add("FAIL  ARCHSWAP self-test $($asSelf -join ' ')"); $failures++ }
+$asOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-archetype-swap.js") --root $ImportedData)
+if ($LASTEXITCODE -ne 0) {
+    foreach ($l in ($asOut | Where-Object { "$_" -like "FAIL*" })) { $rows.Add("FAIL  ARCHSWAP $($l -replace '^FAIL\s+', '')"); $failures++ }
+    if (-not ($asOut | Where-Object { "$_" -like "FAIL*" })) { $rows.Add("FAIL  ARCHSWAP $($asOut -join ' ')"); $failures++ }
+} else {
+    $rows.Add("OK    ARCHSWAP $(($asOut | Select-Object -Last 1)) | $(($asSelf | Select-Object -Last 1))")
 }
 
 # ---- 12c. LATEDELETE: no Deleted tag from a phase after ModificationSystem (native crash, field test 2026-10-31) -----
