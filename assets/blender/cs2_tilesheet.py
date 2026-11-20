@@ -442,9 +442,11 @@ TEXPASS = {
         # Its mean slope is +1.6 deg at gain 1.4 (under the P13 limit); normal_lean (0, 0) is the de-tilted swatch's
         # lean (it was (+0.9, -1.4)). contrast 0.40 / normal_gain 1.2 for the one eye-level wall (L3's kiosk at 7 m):
         # at 0.55 / 1.4 its pixel-scale speckle was +55 % over the shipped WoodSiding013; at 0.40 / 1.2 +37 %, the
-        # courses still read (tilt rms 18.8 -> 16.7 deg, luminance CoV 0.195 -> 0.142)
+        # courses still read (tilt rms 18.8 -> 16.7 deg, luminance CoV 0.195 -> 0.142). contrast 0.30: +32 %, the
+        # courses still read at 7 m and the mean is kept (luminance CoV 0.142 -> 0.106); the normal map carries most
+        # of the speckle, so a lower contrast buys little more
         "timber_shake": {"set": "PHRoofSlates02", "tile_m": (1.8, 1.8), "target_srgb": (0.406, 0.352, 0.275),
-                         "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.40, "normal_gain": 1.2,
+                         "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.30, "normal_gain": 1.2,
                          "normal_lean": (0.0, 0.0)},
         # siding_paint (the ski school only; slot-1 recolor, so a LIGHT neutral swatch: the player's color multiplies).
         # WoodSiding009 turned 90 deg drew a lap profile stood upright (15 cm "boards", grooves) and its butt-joint column
