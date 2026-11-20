@@ -528,6 +528,10 @@ namespace SkiResortMod
             // Reversed-station refusal line (FIX-LIST 54(b)). Anchor is load-bearing like the power-line join line's.
             updateSystem.UpdateAfter<StationFacingTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
 
+            // Lodge parking ring line (T263): says what the blue ring around a lodge being placed is. Anchor is load-bearing like the other
+            // placement lines: after TempCostTooltipSystem. It reads SkiAreaRingOverlaySystem.ParkingMode (Rendering, one frame of lag).
+            updateSystem.UpdateAfter<SkiParkingRingTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
+
             // Closes the Electricity infoview the lift LINE tool opens. It uses UpdateBefore ONLY (an UpdateAt as well runs it twice per
             // frame, UpdateSystem.cs:158-176). It runs BEFORE InfoviewsUISystem (UIUpdate), so the vanilla binding reflects our close in
             // the same frame.

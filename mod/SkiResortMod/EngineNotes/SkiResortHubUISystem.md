@@ -508,6 +508,12 @@ Appended fields and bindings by contract:
   They count the people of game-sent tourist parties that walked away at the ticket price. -1 means unknown. The counts are ledger
   Entry fields, not the saved month, so they restart at a load. The Guests view's "Turned away by price" row shows them. No trigger
   was added.
+- 59 (1.0.4, T266 / T267, r5/polish): `ResortLive` appends `passesSoldMonth` after `schoolOffSeason`. It is the ledger's count of passes sold
+  this month (-1 unknown). It is the count behind the Net's pass row (`passIncomeMonth`). That money also holds destination day fees.
+  The meaning of `priceTolerance` changes. It now comes from `SkiDaySystem.TryPriceToleranceOf`. The ski days and the destination pass
+  use that value: the area's best passing lodge. A closed lodge no longer zeroes it in the off-season. It is -1 (unknown) before the area's
+  first ski-day pass after a load, and with ski days off. Before, it came from the score (active lodges only, 0 without a result).
+  The Finances demand word shows "–" while it is -1. The destination line shows "–" for its share. No trigger was added.
 - 42: the runs-first plans (Resort Planner round, task R2-b). `QuickRunsState` loses `mix`, `liftsKnob` and `home`. `QuickRunsLift` loses
   `wantedKey` and gains `flagged`, `waits`, `overLimitTowers`. `QuickRunsPlan` loses `pods` and gains `trackKm`. `QuickRunsState` gains `tracks`
   and `QuickRunsPod` gains `tracks`. `runs`, `enabled`, `count` and `variety` count pistes only. `QuickRunsSheetRow` gains `flagged`, `waits`,
