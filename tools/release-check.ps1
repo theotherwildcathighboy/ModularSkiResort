@@ -24,9 +24,9 @@
 #   surface     node tools\game-surface-check.js --require-decompile passes. The code, the prefabs, the vanilla references and the
 #               tested-version strings all match tools\game-surface.lock. The lock matches the decompile of the game it names
 #               (docs/PIPELINE.md section 7)
-#   version     the release number is the same in all three places (T227): FileVersion in mod/SkiResortMod/SkiResortMod.csproj equals
-#               ModVersion in Properties/PublishConfiguration.xml plus ".0" (1.0.2 and 1.0.2.0), the built SkiResortMod.dll carries that
-#               FileVersion, and AssemblyVersion is still the pinned 1.0.0.0 (it never moves: saves name the assembly)
+#   version     one release number (T255): the built SkiResortMod.dll carries AssemblyVersion and FileVersion = ModVersion in
+#               Properties/PublishConfiguration.xml plus ".0" (1.0.3 and 1.0.3.0). The csproj derives both from ModVersion; old saves
+#               resolve our types through the [FormerlySerializedAs] self-aliases (tests/SaveBatch SL-A), so the version may move
 #   ci          CI is green on this commit (DECISIONS 664): the "ci.yml" run for the HEAD commit finished with success (gh, read-only; needs
 #               the commit pushed and a clean tracked tree: a dirty tree builds code CI never saw). -SkipCi leaves the check out for an
 #               offline dry run. Never skip it for a real upload
@@ -219,22 +219,19 @@ try {
     Add-Result "surface" "FAIL" ("node tools\game-surface-check.js did not run: {0}" -f $_.Exception.Message)
 }
 
-# version (T227): csproj FileVersion == ModVersion + ".0", the DLL carries it, AssemblyVersion stays pinned
+# version (T255): the DLL's AssemblyVersion and FileVersion == ModVersion + ".0"
 try {
-    $csprojText = [System.IO.File]::ReadAllText((Join-Path $root "mod\SkiResortMod\SkiResortMod.csproj"))
-    $fileVer = [regex]::Match($csprojText, "<FileVersion>([^<]+)</FileVersion>").Groups[1].Value
-    $asmVer = [regex]::Match($csprojText, "<AssemblyVersion>([^<]+)</AssemblyVersion>").Groups[1].Value
     $pubText = [System.IO.File]::ReadAllText((Join-Path $root "mod\SkiResortMod\Properties\PublishConfiguration.xml"))
     $modVer = [regex]::Match($pubText, '<ModVersion\s+Value="([^"]+)"').Groups[1].Value
     $dllVer = if (Test-Path -LiteralPath $dllPath) { [System.Diagnostics.FileVersionInfo]::GetVersionInfo($dllPath).FileVersion } else { "(no dll)" }
+    $asmVer = if (Test-Path -LiteralPath $dllPath) { [System.Reflection.AssemblyName]::GetAssemblyName($dllPath).Version.ToString() } else { "(no dll)" }
     $problems = @()
-    if (-not $fileVer -or -not $modVer) { $problems += "could not read FileVersion ($fileVer) or ModVersion ($modVer)" }
+    if (-not $modVer) { $problems += "could not read ModVersion in PublishConfiguration.xml" }
     else {
-        if ($fileVer -ne "$modVer.0") { $problems += "FileVersion $fileVer in SkiResortMod.csproj is not ModVersion $modVer + .0 (PublishConfiguration.xml)" }
         if ($dllVer -ne "$modVer.0") { $problems += "the DLL carries FileVersion $dllVer, expected $modVer.0 (rebuild after the bump)" }
+        if ($asmVer -ne "$modVer.0") { $problems += "the DLL carries AssemblyVersion $asmVer, expected $modVer.0 (rebuild after the bump)" }
     }
-    if ($asmVer -ne "1.0.0.0") { $problems += "AssemblyVersion is $asmVer, it must stay 1.0.0.0" }
-    if ($problems.Count -eq 0) { Add-Result "version" "PASS" ("ModVersion {0}, FileVersion {1} in the csproj and the DLL, AssemblyVersion {2} pinned" -f $modVer, $fileVer, $asmVer) }
+    if ($problems.Count -eq 0) { Add-Result "version" "PASS" ("ModVersion {0}; the DLL carries AssemblyVersion {1} and FileVersion {2}" -f $modVer, $asmVer, $dllVer) }
     else { Add-Result "version" "FAIL" ($problems -join "; ") }
 } catch {
     Add-Result "version" "FAIL" ("could not check the versions: {0}" -f $_.Exception.Message)

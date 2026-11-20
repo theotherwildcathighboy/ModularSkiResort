@@ -861,6 +861,82 @@ export function passFullPrice(ticketPrice: number): number {
   return PASS_FULL_AT * Math.max(0, ticketPrice);
 }
 
+/** 1.0.3 R3-B: a pass price as C# stores it (SkiMoneyRules.ClampPassPrice): snapped to PASS_PRICE_STEP (half up), clamped to MIN..MAX. */
+export function clampPassPrice(v: number): number {
+  const p = Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
+  return Math.min(PASS_PRICE_MAX, Math.max(PASS_PRICE_MIN, Math.floor((p + PASS_PRICE_STEP / 2) / PASS_PRICE_STEP) * PASS_PRICE_STEP));
+}
+
+/** 1.0.3 R3-B: the destination pass of tourist parties (C# SkiPassRules). The day fee per person is a quarter of the pass price (DEST_VISITS =
+ *  PASS_FULL_AT, the residents' break-even), half up, at least 1, never above the ticket. 0 with tickets off. */
+export const DEST_VISITS = PASS_FULL_AT;
+export function destFee(passPrice: number, ticketPrice: number): number {
+  if (!Number.isFinite(ticketPrice) || ticketPrice <= 0) return 0;
+  const quarter = Math.floor((clampPassPrice(passPrice) + Math.floor(DEST_VISITS / 2)) / DEST_VISITS);
+  return Math.min(ticketPrice, Math.max(1, quarter));
+}
+
+/** The share of tourist parties on a destination pass, 0..1 (C# SkiPassRules.DestShare with SkiDayRules.PriceFactor(fee, tolerance)):
+ *  share/100 × passFactor(pass, ticket) × priceFactor(fee, tolerance). 0 with passes off, tickets off or no demand. -1 unknown input. */
+export function destShare(sharePct: number, passPrice: number, ticketPrice: number, tolerance = 0): number {
+  if (!Number.isFinite(sharePct) || !Number.isFinite(passPrice) || !Number.isFinite(ticketPrice)) return -1;
+  const share = Math.min(100, Math.max(0, Math.round(sharePct)));
+  if (share <= 0 || ticketPrice <= 0) return 0;
+  const fee = priceFactor(destFee(passPrice, ticketPrice), tolerance);
+  const demand = passFactor(clampPassPrice(passPrice), ticketPrice);
+  if (!(fee > 0) || !(demand > 0)) return 0;
+  return Math.min(1, share / 100 * demand * Math.min(1, fee));
+}
+/** destShare as a whole percent for the hub, -1 unknown. */
+export function destSharePct(sharePct: number, passPrice: number, ticketPrice: number, tolerance = 0): number {
+  const s = destShare(sharePct, passPrice, ticketPrice, tolerance);
+  return s < 0 ? -1 : Math.round(s * 100);
+}
+
+/** 1.0.3 R3-B: the residents' pass sale window (C# SkiPassRules). Season months, 0 = the season's first month: 0 before, 1-2 opening at the
+ *  slider price, 3-4 stepped (+SALE_STEP_PCT %, snapped to the 20 step), 5-11 closed (the winter: first arrivals pay day tickets). */
+export const SALE_FIRST_MONTH = 1;
+export const SALE_MONTHS = 4;
+export const SALE_STEP_MONTH = 3;
+export const SALE_STEP_PCT = 15;
+export type SalePhase = "before" | "opening" | "stepped" | "closed";
+
+/** The stepped pass price (C# SkiPassRules.SteppedPrice): clampPassPrice(p) × (100 + SALE_STEP_PCT) / 100, half up, then clampPassPrice. */
+export function steppedPassPrice(passPrice: number): number {
+  return clampPassPrice(Math.floor((clampPassPrice(passPrice) * (100 + SALE_STEP_PCT) + 50) / 100));
+}
+
+/** The season month 0..11 of a calendar month index 0..11 (CityStats.month) for a season starting in seasonFirstMonth 1..12
+ *  (CityStats.seasonFirstMonth). -1 when either is not known. */
+export function seasonMonthOf(month: number, seasonFirstMonth: number): number {
+  if (!Number.isInteger(month) || month < 0 || month > 11) return -1;
+  if (!Number.isInteger(seasonFirstMonth) || seasonFirstMonth < 1 || seasonFirstMonth > 12) return -1;
+  return (month - (seasonFirstMonth - 1) + 12) % 12;
+}
+
+/** The sale phase of a season month (C# SkiPassRules.PhaseOf of its floor). null unknown (negative). */
+export function salePhaseOf(seasonMonth: number): SalePhase | null {
+  if (!Number.isInteger(seasonMonth) || seasonMonth < 0) return null;
+  if (seasonMonth < SALE_FIRST_MONTH) return "before";
+  if (seasonMonth < SALE_STEP_MONTH) return "opening";
+  if (seasonMonth < SALE_FIRST_MONTH + SALE_MONTHS) return "stepped";
+  return "closed";
+}
+
+/** The Money view's sale line: the phase now and the calendar month indexes 0..11 it names: `open` the window's first month, `stepAt` the
+ *  last month at the opening price, `last` the last month of sales. Prices: `price` the opening (slider) price, `stepped` the stepped price.
+ *  null while the month or the season is not known. */
+export interface SaleWindow { phase: SalePhase; open: number; stepAt: number; last: number; price: number; stepped: number; }
+export function saleWindow(month: number, seasonFirstMonth: number, passPrice: number): SaleWindow | null {
+  const phase = salePhaseOf(seasonMonthOf(month, seasonFirstMonth));
+  if (!phase) return null;
+  const cal = (m0: number): number => (seasonFirstMonth - 1 + m0) % 12;
+  return {
+    phase, open: cal(SALE_FIRST_MONTH), stepAt: cal(SALE_STEP_MONTH - 1), last: cal(SALE_FIRST_MONTH + SALE_MONTHS - 1),
+    price: clampPassPrice(passPrice), stepped: steppedPassPrice(passPrice),
+  };
+}
+
 /** r3/sliders: where a value sits on a slider track, 0..1, for stops in screen order (evenly spaced). A value on a stop sits on it. A
  *  value between two neighbor stops (a kind's default such as 90 m between 100 and 80) sits in between, by its value: the tightest pair
  *  that holds it (on the spacing list 90 also lies between Off and 200 m). −1 = not on the track (unknown). */
@@ -906,6 +982,24 @@ export function passesShown(l: ResortLive | null, city: CityStats): boolean {
  *  this month or last. A working ski school and the Options share above 0 make a lesson happen. */
 export function lessonsShown(l: ResortLive | null): boolean {
   return !!l && (l.lessonsThisMonth > 0 || l.lessonsLastMonth > 0);
+}
+
+/** 1.0.3 T258: the "Turned away by price" row once a game-sent party walked away this month or last. */
+export function priceTurnedShown(l: ResortLive | null): boolean {
+  return !!l && (l.priceTurnedThisMonth > 0 || l.priceTurnedLastMonth > 0);
+}
+
+/** 1.0.3 T258: the party price check's full-demand price (C# SkiDayRules.PartyPriceFullAt − PriceSpan + tolerance): the default ticket
+ *  100 plus the best lodge's tolerance. */
+export const PARTY_PRICE_FULL_AT = 300;
+export function partyPriceFullWith(tolerance: number): number {
+  return PARTY_PRICE_FULL_AT - PRICE_SPAN + Math.max(0, tolerance);
+}
+
+/** 1.0.3 T258: the share of game-sent parties that pay instead of walking away, 0..1 (C# SkiDayRules.PartyPriceFactor). */
+export function partyPriceFactor(price: number, tolerance = 0): number {
+  if (!(price >= 0)) return -1;
+  return Math.min(1, Math.max(0, (PARTY_PRICE_FULL_AT + Math.max(0, tolerance) - Math.min(PRICE_MAX, price)) / PRICE_SPAN));
 }
 
 /** The "sold before the season" pass row is drawn under the season's pass row once the pre-season sale sold a pass. */

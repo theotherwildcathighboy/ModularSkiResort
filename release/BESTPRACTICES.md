@@ -62,7 +62,7 @@ Lifts are power-line networks, so they follow power-line rules.
 - Lifts, runs, lodges, the Ski School and staff cost money all year. Income comes with snow.
 - Default lift ticket price is 100. Above 40 it lowers the number of ski days. The Guests view shows what limits them.
 - Off-season, lodges and the Ski School drop to half staff on their own after 12 game hours with no open run. Building upkeep keeps running, so consider switching idle lodges off in their info panel.
-- Season passes sell to residents once per season. Tourists never buy one.
+- Season passes sell to residents in the four months before the winter, at a higher price in the last two. Some tourists ski on a destination pass: a day fee of a quarter of the pass price, never more than the ticket.
 - The game's Economy panel has no ski resort line. The game books resort income as Public Transport Fees. The full picture is in the panel's **Finances** view.
 
 ## Playing nice

@@ -33,6 +33,8 @@ namespace SkiTestBridge
             updateSystem.UpdateAt<U1ProbeM4BSystem>(SystemUpdatePhase.Modification4B);
             // Right after vanilla AttractionSystem on the same tick, as SkiResortAttractivenessSystem is (mprobe trace).
             updateSystem.UpdateAfter<TestBridgeMergeProbeSystem, Game.Simulation.AttractionSystem>(SystemUpdatePhase.GameSimulation);
+            // Zone spawn probe (TestBridgeSystem.SpawnProbe.cs): reads ZoneSpawnSystem's definitions before GenerateObjectsSystem consumes them.
+            updateSystem.UpdateBefore<TestBridgeSpawnProbeSystem, Game.Tools.GenerateObjectsSystem>(SystemUpdatePhase.Modification1);
             Log.Info("Active: commands on engine.call(\"skitest.cmd\", json).");
         }
 

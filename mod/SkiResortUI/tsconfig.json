@@ -1,4 +1,4 @@
-// TypeScript settings for the Ski Resort UI module (mod/SkiResortUI). Written for this repo (MIT).
+// TypeScript settings for the Ski Resort UI module (mod/SkiResortUI). Written for this repo (all rights reserved, see LICENSE).
 // Derived from: docs/research/resort-hub-understand.md section 2.A.2/2.A.3 item 3, which lists
 // the settings the official Colossal Order template (game install, .ModdingToolchain/
 // npx-create-csii-ui-mod/template/tsconfig.json) needs and why. Required ones:
