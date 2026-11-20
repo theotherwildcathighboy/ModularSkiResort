@@ -33,8 +33,10 @@ namespace SkiResortMod.Systems
     public sealed partial class LvServiceBackfillSystem : GameSystemBase
     {
         /// <summary>Part 2 (the one-time station Updated) is on. Off = the wire backfill only, and stations placed before 1.0.4 show the
-        /// pole and box without the riser (the P1 fallback, lv-connect PLAN §3b).</summary>
-        internal static readonly bool RiserBackfill = true;
+        /// pole and box without the riser (the P1 fallback, lv-connect PLAN §3b). OFF since probe P1 (2026-11-20, a 1.0.3 save copy): the
+        /// station Updated had no side effect, but it did not build the riser either (0 utility lanes owned by any base station after
+        /// it). A tag with no result is not shipped. The cause is not proven.</summary>
+        internal static readonly bool RiserBackfill = false;
 
         /// <summary>The service anchors are the single-point LV wire rows with these node indexes (gate LV-7).</summary>
         internal const int FirstAnchorIndex = 10, LastAnchorIndex = 12;

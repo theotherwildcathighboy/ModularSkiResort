@@ -50,3 +50,9 @@ production precedent.
 
 Probe P1 (lv-connect PLAN §6) checks the path on a save copy. It compares sub-objects, sub-nets, stub nodes, valves, wires, power and
 errors before and after a station Updated. If P1 shows a side effect, `RiserBackfill` changes to false. The wire backfill stays.
+
+P1 result (2026-11-20, a copy of the 1.0.3 baseline save, 8 base stations): the log line said "8 riser backfill(s) ... 8 entities tagged
+Updated". Sub-objects, sub-nets, stub nodes, valves (42) and errors did not change. But no station got the riser: a dump of all 21456
+UtilityLane entities found none with a base station as owner. So `RiserBackfill` is false: a tag with no result is not shipped. The
+cause is not proven. Stations placed before 1.0.4 show the pole and the box without the riser. Open check: does a NEW placement get
+the riser lane? If it does not either, the riser row has no effect anywhere.
