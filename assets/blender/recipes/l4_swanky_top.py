@@ -389,8 +389,13 @@ def build_l4(recipe, opts):
         P += K.downspout(f"u{k}", U_X1 + 0.06, y, U_EAVE - 1.2 - 0.12, nrm, wall_gap=1.15,
                          z_bottom=Z_ARRIVAL + 0.05)
     ufront, uback = WallRef("+X", U_X1), WallRef("-X", U_X0)
-    # GF front windows 1.6 x 2.0 (Y -13, -9.5, +4, +7.5), entry glazed double door + sidelights
-    for j, y in enumerate((-13.0, -9.5, 4.0, 7.5)):
+    # GF front windows 1.6 x 2.0 (Y -13, -9.5, +4, +7.5), entry glazed double door + sidelights. Under --texpass
+    # (opts["texpass"]) ug3 moves to Y +7.0, under the F1 window uf4: at +7.5 (glass 6.7..8.3) the U corner quoins' long
+    # legs (Y 8.1..9.0, every odd course) stood 0.2 m in front of its glass from 1.0.3 on, and the pass's lighter
+    # quoins showed it. At +7.0 the bay is 6.0..8.0, 0.1 m clear of the legs (cs2_fittings.audit_glass, GLASS_PROUD).
+    # Flag off keeps +7.5 (the shipped mesh)
+    ug_y = (-13.0, -9.5, 4.0, 7.0 if opts.get("texpass", "off") != "off" else 7.5)
+    for j, y in enumerate(ug_y):
         P += K.window_bay(f"ug{j}", ufront, y - 1.0, y + 1.0, WinSpec(1.6, 2.0, Z_ARRIVAL + 0.9,
                                                                        lights=2),
                           room=f"ugf{j % 2}{j // 2}")
@@ -413,8 +418,13 @@ def build_l4(recipe, opts):
                                                                        lights=2), room="ulow")
         P += K.window_bay(f"ub{j}", uback, -y - 1.0, -y + 1.0, WinSpec(1.6, 2.0, Z_ARRIVAL + 0.9,
                                                                        lights=2), room="ubgf")
+    # The balcony door ubf1: its glass started at Z_LOUNGE + 0.12, under the top of the belt trim_ubelt (+ 0.20), whose
+    # 0.10 m proud face crossed the glass's bottom 8 cm (cs2_fittings.audit_glass, GLASS_PROUD). Under --texpass the door
+    # stands on the belt (glass from Z_LOUNGE + 0.20, head kept). Flag off keeps the shipped door
+    ubf1 = ((4.5, 1.0, 2.22, Z_LOUNGE + 0.20) if opts.get("texpass", "off") != "off"
+            else (4.5, 1.0, 2.3, Z_LOUNGE + 0.12))
     for j, (y, w, h, sill) in enumerate(((2.5, 1.4, 1.5, Z_LOUNGE + 0.85),
-                                         (4.5, 1.0, 2.3, Z_LOUNGE + 0.12),
+                                         ubf1,
                                          (6.5, 1.4, 1.5, Z_LOUNGE + 0.85))):
         P += K.window_bay(f"ubf{j}", uback, -y - w / 2 - 0.25, -y + w / 2 + 0.25,
                           WinSpec(w, h, sill, lights=1 if w < 1.2 else 2), room="ubf1")
@@ -906,9 +916,16 @@ RECIPE = FineRecipe(
     # course over the rock band). No under-eave band: it put the walnut siding on its 86 px/m cell and the sheltered wall
     # tops under the deck and the dining slab on the weathered stone (-271 tris). The stair, its lower walkway and the dining
     # slab edge take no band (the grade clipped slivers of 0.2-0.5 m2 out of them, 17 tris). weather_level 0 = the flag-off
-    # level the pass must keep (lodge.assert_texpass_level). LOD0 13,023 (flag off 13,115).
+    # level the pass must keep (lodge.assert_texpass_level). LOD0 13,023 (flag off 13,115). "mat": the U-corner
+    # quoins (0.40 m blocks, 0.05 m proud) draw concrete under the pass. On the D2 fieldstone a block held 5-6 small
+    # stones and read as more rubble; concrete is a calm neutral gray (sRGB 0.565, luminance CoV 0.060), one step
+    # lighter than the wall (0.43), the way dressed quoins sit on rubble, and L5's pier-cap key. Flag off keeps
+    # stone_rubble (lodge.texpass_rules is {} there). drip_skip: the balcony door ubf1 hangs no sill-drip strip. Under
+    # the pass its sill stands on the belt, so the strip took the walnut and ran 0.55 m down onto the stone: a walnut
+    # rectangle under the balcony slab (cs2_tilesheet.audit_strips, r4/tex 2026-11-20; LOD0 13,015 -> 13,013)
     texpass={"grade": {"slope": S_DESIGN, "anchor_x": HX}, "eave_h": 0.0,
-             "band_skip": ("deck_s", "deck_dslab", "stair_"), "weather_level": 0},
+             "band_skip": ("deck_s", "deck_dslab", "stair_"), "drip_skip": ("sill_ubf1",), "weather_level": 0,
+             "mat": {"trim_uquoins": "concrete"}},
     massing="custom", builder=build_l4,
     rooms="auto", interior="CommercialLow",
     # VariationSet A (contract 6): graphite / red / zinc

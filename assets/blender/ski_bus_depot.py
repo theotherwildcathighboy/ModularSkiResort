@@ -177,20 +177,25 @@ SCAN_BOARDS = {"Planks021": 11, "PHWeatheredBrownPlanks": 13}
 # 18 corrugations per rafter bay: stacked roof cells stay in phase. 74.1 mm (the real 7/8 in profile is 68-76 mm; flag-off
 # draws 110 mm, and its stacked cells meet 0.24 of a period out of phase).
 CORR_PITCH_V1 = (RAFTER_Y[1] - RAFTER_Y[0]) / 18.0
-CORR_V1 = cs2_compose.DetailSpec(corrugation_m=CORR_PITCH_V1, corr_depth_m=0.009)
+# depth 8 mm: the shipped relief slope (2 pi depth / pitch = 0.69); 9 mm (0.76) striped the roof darker at 16 m
+CORR_V1 = cs2_compose.DetailSpec(corrugation_m=CORR_PITCH_V1, corr_depth_m=0.008)
 ROOF_SCAN_CORR = 15                     # corrugations across PHCorrugatedIron (1.12 m real: 74.7 mm)
 ROOF_SCAN_TILE = ROOF_SCAN_CORR * CORR_PITCH_V1     # 1.111 m, 0.992 x the scan's real size
 
 TEXPASS = {"v1": {
     # one key = one real thing, every scan at (or one board per plank near) its real-world size
     "mats": {
-        # satin enamel on rolled steel (the reference is glossier still). Metal032 is featureless: the paint is the look
-        "steel_ox": K.BldgMat("Metal032", (1.5, 1.5), (0.365, 0.175, 0.105), smooth=0.58),
+        # steel_ox keeps the shipped satin oxblood (smooth 0.44): a glossier 0.58 mirrored the sky on shaded faces and
+        # split the frame into near-black posts and red mullions (critic, 2026-11-20)
         # ambientCG states 1.1 x 0.55 m for Concrete034. Flag-off draws it at 3.0 x 1.5 m (2.7 x)
         "pad_concrete": K.BldgMat("Concrete034", (1.1, 0.55), (0.70, 0.69, 0.66), proj="inplane"),
     },
+    # on top of the flag-off CONTROLS (a key not listed here keeps its flag-off control, e.g. steel_ox)
     "controls": {
-        "pad_concrete": {"chroma": 0.4, "flatten_m": 0.25, "contrast": 0.8},
+        # contrast 0.55: at the real 1.1 m tile the scan's pores read as a fine grid at 14 m; the relief carries them
+        "pad_concrete": {"chroma": 0.4, "flatten_m": 0.25, "contrast": 0.55},
+        # the planter gravel read as static at play distance
+        "bed_rock": {"contrast": 0.75},
     },
     # look variants, one pick per group. The first entry of "default" is the recommended look
     "variants": {
@@ -204,10 +209,13 @@ TEXPASS = {"v1": {
                              "cedar_ceil": {"chroma": 0.35, "flatten_m": 0.15, "contrast": 0.6, "normal_gain": 1.6}}},
             # the flag-off look (fresh orange stain on Planks021) with the board count fixed and the soffit at 14 cm
             "honey": {
-                "wall_set": "Planks021", "ceil_tile": 1.54,
+                # board 10 (scan rows 2063-2214 of 2048, wrapping, bottom-up) carries pale paint tabs: 1.47 % pale texels
+                # in 39 % of its columns (STAGE bd_pale.py); they read as a repeating pattern at 20 m
+                "wall_set": "Planks021", "ceil_tile": 1.54, "skip_boards": (10,),
                 "mats": {"cedar": ((0.74, 0.42, 0.185), 0.32), "cedar_ceil": ((0.64, 0.35, 0.155), 0.28)},
-                "controls": {"cedar": {"contrast": 0.8, "normal_gain": 1.6},
-                             "cedar_ceil": {"contrast": 0.8, "normal_gain": 1.3}}},
+                # the flag-off controls: contrast 0.8 had erased the scan's small knots
+                "controls": {"cedar": {"normal_gain": 1.6},
+                             "cedar_ceil": {"contrast": 0.85, "normal_gain": 1.3}}},
             # the lodge family's wall brown (timber_lap's palette mean) on the same scan
             "family": {
                 "wall_set": "PHWeatheredBrownPlanks", "ceil_tile": 1.8,
@@ -220,9 +228,11 @@ TEXPASS = {"v1": {
             # (low-frequency CoV 0.221 -> 0.031) so the 6 m slab shows no repeat
             "umber": {"mat": K.BldgMat("PHRustCoarse01", (2.2, 2.2), (0.33, 0.20, 0.125)),
                       "controls": {"chroma": 0.8, "flatten_m": 0.15, "contrast": 0.6, "normal_gain": 1.5}},
-            # the same scan at its native orange-brown mean (younger patina)
-            "rust": {"mat": K.BldgMat("PHRustCoarse01", (2.2, 2.2), (0.396, 0.232, 0.130)),
-                     "controls": {"chroma": 0.8, "flatten_m": 0.15, "contrast": 0.6, "normal_gain": 1.5}},
+            # the same scan under the shipped corten tint (younger patina). The scan's native mean (0.396, 0.232, 0.130)
+            # moved the tower toward the cedar's hue; flatten_m 0.35 keeps its 15-35 cm mottling (the 0.5-1 m bands that
+            # would show the 2.2 m repeat stay flattened)
+            "rust": {"mat": K.BldgMat("PHRustCoarse01", (2.2, 2.2), (0.385, 0.200, 0.120)),
+                     "controls": {"chroma": 0.8, "flatten_m": 0.35, "contrast": 0.6, "normal_gain": 1.5}},
             # the flag-off source (Metal038, a gray plate) under the calm v1 paint
             "plate": {"mat": K.BldgMat("Metal038", (1.6, 1.6), (0.33, 0.20, 0.125), smooth=0.14),
                       "controls": {"chroma": 0.4, "contrast": 1.0, "normal_gain": 1.6}},
@@ -232,15 +242,22 @@ TEXPASS = {"v1": {
             "scan": {"mat": K.BldgMat("PHCorrugatedIron", (ROOF_SCAN_TILE, ROOF_SCAN_TILE), (0.60, 0.62, 0.61), metal=0.35,
                                       proj="inplane"),
                      "controls": {"chroma": 0.5, "contrast": 0.8}, "scan": True},
-            # the flag-off source with the painted corrugation at the real pitch
-            "proc": {"mat": K.BldgMat("Metal038", (1.6, 1.6), (0.60, 0.62, 0.61), smooth=0.40, metal=0.35, detail=CORR_V1,
+            # the flag-off source and tint with the painted corrugation at the real pitch (a bluer 0.60, 0.62, 0.61 raised
+            # the rendered saturation 0.12 -> 0.16)
+            "proc": {"mat": K.BldgMat("Metal038", (1.6, 1.6), (0.56, 0.56, 0.55), smooth=0.42, metal=0.35, detail=CORR_V1,
                                       proj="inplane"),
                      "controls": {"chroma": 0.3, "contrast": 0.8}, "scan": False},
         },
     },
-    "default": {"cedar": "stain", "corten": "umber", "roof": "scan"},
-    # density weights (flag-off DENSITY with these replaced): see docs note busdepot/NOTE.md "Picks"
-    "density": {},
+    # overnight calls r4/tex 2026-11-20 (renders, region means and the critic in the depot's tex note): honey keeps the
+    # shipped orange cedar (hue 24.9 vs 24.5); rust keeps the shipped tower tint on a real rust scan with calmer
+    # mottling; proc keeps the shipped roof value (scan reads 8 % lighter). stain, umber, scan and family stay selectable
+    # with --texvar
+    "default": {"cedar": "honey", "corten": "rust", "roof": "proc"},
+    # density weights (flag-off DENSITY with these replaced). Dry-pack sweep of five sets (r4/tex 2026-11-20): this one
+    # lifts the biggest seen surfaces most (pad 63 -> 87 px/m, soffit 97 -> 133, roof 83 -> 115, tower back 87 -> 115) and
+    # leaves no part under its flag-off density (wall planks 165 -> 173); atlas fill 0.369 -> 0.563
+    "density": {"plank_": 1.5, "ceil_": 1.15, "roof_": 1.0, "pad_": 0.75, "tower_b": 1.0},
 }}
 
 
@@ -257,7 +274,9 @@ def texpass_config(version, texvar=None):
         if g not in tp["variants"] or v not in tp["variants"][g]:
             raise ValueError(f"--texvar {item!r}: groups {({k: sorted(d) for k, d in tp['variants'].items()})}")
         pick[g] = v
-    mats, controls = dict(tp["mats"]), {k: dict(v) for k, v in tp["controls"].items()}
+    mats = dict(tp["mats"])
+    controls = {k: dict(v) for k, v in CONTROLS.items()}
+    controls.update({k: dict(v) for k, v in tp["controls"].items()})
     ced = tp["variants"]["cedar"][pick["cedar"]]
     boards = SCAN_BOARDS[ced["wall_set"]]
     wall_tile = boards * BOARD_H                    # one scan board per plank, isotropic
@@ -274,7 +293,8 @@ def texpass_config(version, texvar=None):
     density = dict(DENSITY)
     density.update(tp["density"])
     return dict(version=version, pick=pick, mats=mats, controls=controls, density=density, wall_set=ced["wall_set"],
-                wall_boards=boards, wall_tile=wall_tile, ceil_tile=ced["ceil_tile"], ceil_boards=boards,
+                wall_boards=boards, wall_skip=tuple(ced.get("skip_boards", ())), wall_tile=wall_tile,
+                ceil_tile=ced["ceil_tile"], ceil_boards=boards,
                 roof_scan=bool(roof["scan"]), roof_tile=ROOF_SCAN_TILE if roof["scan"] else None,
                 roof_detail=roof["mat"].detail, corten_scan=cor["mat"].smooth is None)
 
@@ -810,6 +830,17 @@ def set_board_uvs(obj, table, tp=None):
     for n in table:
         if n.startswith("ceil_"):
             ceil_phase.setdefault(share_key(n), (rng.random(), rng.randrange(ceil_steps) / float(ceil_steps)))
+    bay_phase = None
+    if tp:
+        # v1 (own RNG, so flag-off draws stay as they were): every canonical plank of a side gets its own scan board (a
+        # permutation, so no two neighbors ever share one), never a skipped board, and one phase per bay and side: the
+        # scan's nail columns then line up as stud lines instead of staggering into brickwork (renders 2026-11-20)
+        rng1 = random.Random(SEED + 11)
+        ok_rows = [i for i in range(len(rows)) if i not in tp.get("wall_skip", ())]
+        for side in "fb":
+            for c, ri in enumerate(rng1.sample(ok_rows, BOARD_N)):
+                assign[(c, side)] = (ri, 0.0)
+        bay_phase = {(b, s): rng1.random() * 5.0 for b in range(len(YS) - 1) for s in "fb"}
     roof_rng = random.Random(SEED + 9)
     roof_phase = {}
     for p in me.polygons:
@@ -819,6 +850,8 @@ def set_board_uvs(obj, table, tp=None):
             m = re.match(r"^plank_b(\d)_(\d+)$", n)
             bay = int(m[1])
             ri, phase = assign[(PLANK_CANON[(bay, int(m[2]))], side)]
+            if bay_phase:
+                phase = bay_phase[(bay, side)]
             v0, v1 = rows[ri]
             zs = [me.vertices[me.loops[li].vertex_index].co.z for li in range(p.loop_start, p.loop_start + p.loop_total)]
             za, zb = min(zs), max(zs)
@@ -1467,7 +1500,7 @@ def paint_weather_v1(me, A, table, base, msk, tp):
     """Texture pass v1 paint (returns the relief height in meters; changes base (linear) and msk in place). Same layers as
     paint_weather at about a third of the amplitude (vanilla albedo is near-flat, PIPELINE section 1), no painted knots or
     paint chips (the scans carry their own grain), and the placement of a snow town: a salt and dust haze on the steel
-    up to knee height, cedar that grays on the weather side and in the splash band, an even corten patina with fine
+    up to knee height, cedar that grays in the splash band, an even corten patina with fine
     vertical streaks, rust halos at the base plates, grit along the curb. Every feature is >= 5 cm with a soft edge."""
     P, N, part = world_fields(me, A)
     h = np.zeros((A, A), np.float32)
@@ -1495,7 +1528,8 @@ def paint_weather_v1(me, A, table, base, msk, tp):
     h[idx] += 0.002 * nz.fbm(x / 0.10 + 7, y / 0.10, z / 0.14)
     haze = 1.0 - smoothstep(0.12, 0.55, z + 0.16 * (nz(x / 0.3, y / 0.3, z / 0.3) - 0.5))
     dust = np.array((0.214, 0.178, 0.147), np.float32)
-    rgbv = rgbv * (1.0 - 0.25 * haze[..., None]) + dust * (0.25 * haze[..., None])
+    # 0.12: at 0.25 the dust turned the foot plates pale salmon, lighter than their posts (critic, 2026-11-20)
+    rgbv = rgbv * (1.0 - 0.12 * haze[..., None]) + dust * (0.12 * haze[..., None])
     rustline = np.exp(-((z - (PZ + PLATE_T + 0.02)) / 0.05) ** 2)
     rgbv = rgbv * (1.0 + rustline[..., None] * np.array((0.10, -0.08, -0.20), np.float32))
     base[idx[0], idx[1], :3] = rgbv
@@ -1537,7 +1571,7 @@ def paint_weather_v1(me, A, table, base, msk, tp):
     h[idx] += 0.005 * dome
     base[idx[0], idx[1], :3] = base[idx[0], idx[1], :3] * (1 - dome[..., None]) + np.array((0.24, 0.24, 0.23), np.float32) * dome[..., None]
     msk[idx[0], idx[1], 3] = np.clip(msk[idx[0], idx[1], 3] + 0.1 * dome, 0, 1)
-    # ---- cedar boards: a little board-to-board color, gray on the weather side and in the splash band, damp board ends
+    # ---- cedar boards: a little board-to-board color, gray in the splash band, damp board ends
     rng = np.random.default_rng(SEED + 3)
     plank_ids = sorted(i for i, n in names.items() if n.startswith("plank_"))
     per = np.ones((max(names) + 2, 3), np.float32)
@@ -1551,7 +1585,11 @@ def paint_weather_v1(me, A, table, base, msk, tp):
     rgbv = rgbv * (0.95 + 0.10 * nz.fbm(y / 0.9, z / 0.5, x * 2 + 9))[..., None]
     outside = (N[idx][..., 0] < -0.9).astype(np.float32)
     splash = 1.0 - smoothstep(0.16, 0.62, z + 0.10 * (nz(y / 0.4, z / 0.4, 1.0) - 0.5))
-    rgbv = desat(rgbv, np.clip(0.55 * splash + 0.30 * outside, 0.0, 0.75)) * (1.0 - 0.14 * splash - 0.06 * outside)[..., None]
+    # the weather side keeps its orange: graying it (0.30, then 0.06) took the sunlit outer face from the shipped hue 22 /
+    # sat 0.39 to salmon gray (hue 13, sat 0.20), then to a pale tan (sat 0.34; renders and critic 2026-11-20). At -0.12
+    # it renders hue 26.7 / sat 0.47, between the shipped face and the reference (24.7 / 0.70) and level with the shaded
+    # inside face (24.5 / 0.47). The splash band still grays
+    rgbv = desat(rgbv, np.clip(0.25 * splash - 0.12 * outside, -0.12, 0.35)) * (1.0 - 0.08 * splash - 0.05 * outside)[..., None]
     bay = YS[1] - YS[0]
     u = (y - YS[0]) % bay
     ends = 1.0 - smoothstep(0.0, 0.09, np.minimum(u, bay - u) - (POST / 2 - 0.005))
@@ -1572,9 +1610,10 @@ def paint_weather_v1(me, A, table, base, msk, tp):
     drift = nz.fbm(y / 0.9 + x, z / 1.8, 5.0 + x, 3)
     hue = smoothstep(0.35, 0.65, nz.fbm(y / 1.3 + 2 * x, z / 2.2, 27.0, 2))[..., None]
     c = c * (0.90 + 0.20 * drift)[..., None] * (np.array((0.96, 1.0, 1.04), np.float32) * (1 - hue) + np.array((1.06, 1.0, 0.92), np.float32) * hue)
-    streak = nz.fbm(y / 0.07 + 3 * x, z / 2.4, 11.0, 3)
-    streak2 = nz.fbm(y / 0.22 + 3 * x, z / 3.2, 17.0, 2)
-    c = c * (0.90 + 0.20 * (0.6 * streak + 0.4 * streak2))[..., None]
+    # 15 cm streaks at +-6 %: 7 cm at +-10 % read as wood veneer at 8 m and serrated the runs under the rails (critic)
+    streak = nz.fbm(y / 0.15 + 3 * x, z / 2.4, 11.0, 3)
+    streak2 = nz.fbm(y / 0.30 + 3 * x, z / 3.2, 17.0, 2)
+    c = c * (0.94 + 0.12 * (0.6 * streak + 0.4 * streak2))[..., None]
     runs = np.zeros_like(z)
     for zr, fade in [(r, 0.7) for r in TOWER_RAILS] + [(LED_Z[0], 0.9), (TOWER_TOP, 0.9)]:
         dz = zr - z
@@ -1587,7 +1626,7 @@ def paint_weather_v1(me, A, table, base, msk, tp):
     body = smoothstep(0.02, -0.04, z - ridge) * smoothstep(1.76, 1.92, z)
     snow = smoothstep(0.50, 0.62, nz.fbm(y / 0.16 + z / 0.3, z / 0.22, 31.0, 3)) * smoothstep(ridge - 0.72, ridge - 0.2, z)
     mtn = (body * tower)[..., None]
-    c = c * (1.0 - mtn * 0.18) * (1.0 + mtn * snow[..., None] * 0.34)
+    c = c * (1.0 - mtn * 0.28) * (1.0 + mtn * snow[..., None] * 0.40)     # 0.18 / 0.34 did not read at 8 m
     base[idx[0], idx[1], :3] = c
     if tp["corten_scan"]:      # the scan's own roughness, a little duller in the runs
         msk[idx[0], idx[1], 3] = np.clip(msk[idx[0], idx[1], 3] - 0.05 * runs - 0.04 * (drift - 0.5), 0.0, 1.0)
@@ -2150,6 +2189,14 @@ def _run(args, tp):
     if len(set(names)) != len(names) or any("." in n for n in names):
         raise RuntimeError(f"part names not unique: {names}")
     C.assert_lot_margin(parts, HALF_X, HALF_Y)
+    # r4/tex 2026-11-20: the glass gate of every lodge.py --structure v1 build (cs2_fittings.audit_glass: no structural
+    # part and no proud trim box over a pane; raises), on the depot's glass_ panes, in its authoring frame (yaw 90 = no
+    # turn). Read-only: nothing it does reaches the mesh or the manifest
+    import cs2_fittings
+    gl = cs2_fittings.audit_glass(types.SimpleNamespace(key="busdepot", yaw_deg=90.0), parts,
+                                  texpass=getattr(args, "texpass", "off"), pane_prefixes=("glass_",))
+    print(f"[depot] glass gate: {gl['panes']} panes, {gl['shells']} judged shells, {len(gl['violations'])} structural, "
+          f"{len(gl['proud'])} proud trim, {len(gl['allowed'])} allowed")
     keys = sorted({k for _o, k in parts})
     part_keys = {o.name: k for o, k in parts}
     axes = {o.name: tuple(o["prism_axis"]) for o, _k in parts if "prism_axis" in o}

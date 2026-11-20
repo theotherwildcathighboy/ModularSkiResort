@@ -650,10 +650,14 @@ RECIPE = FineRecipe(
     # the 1.2 m eaves, the shingle gables under the rakes, the balcony balustrades and the stone under the jetty and the
     # balconies. Timber grays where sun and rain reach it and stays brown under an eave, and sheltered stone stays dry,
     # so the band sat where real walls weather least (and its cut is the dearest rule here: 242 of the 408 weathered
-    # pieces at letter Z). Base bands, sill drips, the back roof-eave band and the valleys stay. weather_level 0 = the
-    # flag-off level the pass must keep (lodge.assert_texpass_level); the rule only removes cuts, so LOD0 tris fall
-    # (letter Z: 11,903 -> 11,600, the far set unchanged)
-    texpass={"eave_h": 0.0, "weather_level": 0},
+    # pieces at letter Z). Base bands, the back roof-eave band, the valleys and every sill drip but one (drip_skip)
+    # stay. weather_level 0 = the flag-off level the pass must keep (lodge.assert_texpass_level); the rule only removes
+    # cuts, so LOD0 tris fall (letter Z: 11,903 -> 11,600, the far set unchanged). drip_skip: Mass B's gable window
+    # (sill_bSa) hangs no sill-drip strip. Its 0.7 m strip ran 0.17 m past the shingle gable's foot onto the lap boards
+    # below (small light shingles over the first board: a hard tab under the window). The other sill drips stay: the
+    # timber ones end within 0.2 m of a band, and the four on the stone story (sill_aS0f to sill_aS3f, 1.05 m of wall
+    # below) are a damp patch under a sill that does not read on the stone (letter Z: LOD0 11,600 -> 11,596 tris)
+    texpass={"eave_h": 0.0, "drip_skip": ("sill_bSa",), "weather_level": 0},
     # post-orient Blender frame (authored (ax, ay) -> (ay, -ax)): terrace 3/4 from authored
     # (-1, +1) -> (1, 1)
     views=(("terrace", (0.9, 0.9, 0.45)),),

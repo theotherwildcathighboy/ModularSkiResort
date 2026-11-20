@@ -556,7 +556,9 @@ def build(recipe, parts, opts):
     out = {"version": VERSION, "rows": len(rows), "items": info, "shoes": bool(opts.get("fittings"))}
     if opts.get("structure"):                     # T58: the structure gate (raises in STRUCT_AUDIT_MODE "raise")
         st = audit_structure(recipe, list(parts) + list(new))
-        gl = audit_glass(recipe, list(parts) + list(new))     # round 2: nothing crosses glass (raises)
+        # round 2: nothing crosses glass (raises). The pass comes from the same opts the builders read (critic batch 6:
+        # the registered global alone let a direct lodge.run --texpass v1 match the "off" GLASS_ALLOW entries)
+        gl = audit_glass(recipe, list(parts) + list(new), texpass=opts.get("texpass", "off"))
         out["structure"] = {"version": STRUCT_VERSION, "parts": st["parts"], "shells": st["n_shells"],
                             "roles": st["roles"], "violations": len(st["violations"]),
                             "snaps": [m for m in sfix if m["fix"] != "none"],
@@ -2322,11 +2324,68 @@ GLASS_DECLARE = {
                                 "curtain (the hall's design idiom; recipe PANE_BLOCKERS note)")},
 }
 LAST_GLASS = {}
+# ---------------------------------------------------------------------------------------------------------------------
+# NOTHING PROUD CROSSES GLASS (r4/tex, 2026-11-20): L4's U-corner quoins stood 0.2 m in front of the GF window ug3's
+# glass from 1.0.3 on, unseen until the texture pass drew them lighter. A trim box standing proud of a wall plane (corner
+# boards, quoins, belts, bands, friezes: the kit and the recipes name them `trim_`, GLASS_PROUD) may not overlap a
+# window opening either. Same pane band (GLASS_BEHIND_M behind .. GLASS_REACH_M in front) and outline tolerance
+# (GLASS_TOL_M) as the structural parts above. A trim_ part that already has a glass role (trim_dposts "post",
+# trim_truss "member") keeps that role and its GLASS_DECLARE line. GLASS_PROUD_MODE "raise" (the default) fails the
+# build on any hit GLASS_ALLOW does not list; "report" prints each hit as a [glass] WARN line and goes on (the triage
+# run). GLASS_ALLOW holds the accepted overlaps, (building key, part prefix, pane prefix, one-line reason[, flag]); a
+# listed hit is reported under "allowed", never passed silently. The optional flag (GLASS_ALLOW_FLAGS, default "any")
+# is the texture-pass state the entry holds for: "off" for shipped geometry that the pass fixes, so the same clash in a
+# pass build still raises. audit_glass reads the pass from cs2_tilesheet.texpass_version() (lodge.py --texpass), or
+# from its texpass argument (a generator with its own pass, the bus depot). Another generator passes its pane prefixes
+# (pane_prefixes, the depot's glass_ quads).
+# ---------------------------------------------------------------------------------------------------------------------
+GLASS_PROUD = ("trim_",)
+GLASS_PROUD_MODE = "raise"
+GLASS_ALLOW_FLAGS = ("off", "v1", "any")
+GLASS_ALLOW = (
+    # (building key, part prefix, pane prefix, reason[, flag "off" | "v1" | "any" (default)])
+    ("L4", "trim_uquoins", "win_ugf11_ug3", "1.0.3 geometry; fixed under v1 by ug3-under-uf4", "off"),
+    ("L4", "trim_ubelt", "win_ubf1_ubf1", "shipped geometry; fixed under v1 by belt-doors-on-belt", "off"),
+    ("L5", "trim_belt", "win_f1d_meb0d2", "shipped geometry; fixed under v1 by belt-doors-on-belt", "off"),
+    ("L5", "trim_belt", "win_f1d_meb1d2", "shipped geometry; fixed under v1 by belt-doors-on-belt", "off"),
+    ("L5", "trim_belt", "win_f1d_mcb0d2", "shipped geometry; fixed under v1 by belt-doors-on-belt", "off"),
+    ("L5", "trim_belt", "win_f1b_mcb1d2", "shipped geometry; fixed under v1 by belt-doors-on-belt", "off"),
+    ("L5", "trim_belt", "win_f1a_websd2", "shipped geometry; fixed under v1 by belt-doors-on-belt", "off"),
+    ("L5", "trim_belt", "win_f1d_webnd2", "shipped geometry; fixed under v1 by belt-doors-on-belt", "off"),
+)
 
 
-def audit_glass(recipe, parts):
+def _glass_proud(name):
+    """True for a part the proud-trim check judges: a box standing proud of a wall plane (GLASS_PROUD)."""
+    return name.startswith(GLASS_PROUD)
+
+
+def _glass_allow(key, part, pane, texpass):
+    """The GLASS_ALLOW reason for this hit under texture pass `texpass` ("off" / "v1"), else None."""
+    for e in GLASS_ALLOW:
+        flag = e[4] if len(e) > 4 else "any"
+        if e[0] == key and part.startswith(e[1]) and pane.startswith(e[2]) and flag in ("any", texpass):
+            return e[3]
+    return None
+
+
+def audit_glass(recipe, parts, texpass=None, pane_prefixes=None):
     """The round-2 glass gate (see the block comment). Returns {"panes", "shells", "violations": [(part#shell,
-    pane, depth mm, final-frame center of the overlap)]}."""
+    pane, depth mm, final-frame center of the overlap)], "proud" / "allowed": [(part#shell, pane, depth mm, center,
+    m into the opening, [du, dv] m of the overlap in the pane plane) (+ the GLASS_ALLOW reason)], "texpass"}. The
+    proud-trim check (GLASS_PROUD) raises in GLASS_PROUD_MODE "raise" on a hit GLASS_ALLOW does not list for this
+    texture pass (`texpass`, default cs2_tilesheet.texpass_version()). `pane_prefixes`: default GLASS_PANES."""
+    bad = [e for e in GLASS_ALLOW if len(e) not in (4, 5) or (len(e) == 5 and e[4] not in GLASS_ALLOW_FLAGS)]
+    if bad:
+        raise ValueError(f"GLASS_ALLOW: entries need (building, part prefix, pane prefix, reason[, flag in "
+                         f"{GLASS_ALLOW_FLAGS}]): {bad}")
+    if texpass is None:
+        import cs2_tilesheet                     # the pass lodge.py registered (--texpass); None = off
+        texpass = cs2_tilesheet.texpass_version()
+    texpass = texpass or "off"
+    if isinstance(pane_prefixes, str):           # one prefix given bare must not explode into one-letter prefixes
+        pane_prefixes = (pane_prefixes,)
+    pane_pre = tuple(pane_prefixes) if pane_prefixes else GLASS_PANES
     bpy.context.view_layer.update()
     key = recipe.key
     panes, shells = [], []
@@ -2334,7 +2393,7 @@ def audit_glass(recipe, parts):
         if o.type != "MESH" or not len(o.data.polygons):
             continue
         nm = o.name
-        if nm.startswith(GLASS_PANES):
+        if nm.startswith(pane_pre):
             co, ps = _geo(o)
             p0 = co[list(ps[0])]
             n = np.cross(p0[1] - p0[0], p0[2] - p0[0])
@@ -2355,8 +2414,12 @@ def audit_glass(recipe, parts):
                           band.min(0), band.max(0)))
             continue
         role = struct_role(nm, key)
-        if role not in GLASS_ROLES or nm.startswith(GLASS_FREE):
+        if nm.startswith(GLASS_FREE):
             continue
+        if role not in GLASS_ROLES:
+            if not _glass_proud(nm):
+                continue
+            role = "trim"                     # the proud-trim check (GLASS_PROUD)
         co, ps = _geo(o)
         for k, sp in enumerate(_shells(co, ps)):
             vi = sorted({v for p in sp for v in p})
@@ -2364,7 +2427,7 @@ def audit_glass(recipe, parts):
             sc, sps = co[vi], [tuple(remap[v] for v in p) for p in sp]
             pts = np.vstack([_edge_pts(sc, sps, STRUCT_STEP), _face_pts(sc, sps, 0.04)])
             shells.append((f"{nm}#{k}", role, pts, pts.min(0), pts.max(0)))
-    viol, declared = [], []
+    viol, declared, proud, allowed = [], [], [], []
     decl = GLASS_DECLARE.get(key, {})
     for sn, role, pts, lo, hi in shells:
         for pn, n, e1, e2, uvlo, uvhi, d0, blo, bhi in panes:
@@ -2378,15 +2441,36 @@ def audit_glass(recipe, parts):
                 at = pts[m].mean(0)
                 rec = (sn, pn, round(float(dep[m].min()) * 1000, 1),
                        [round(x, 3) for x in auth_to_final(recipe, tuple(float(x) for x in at))])
+                if role == "trim":
+                    um, vm = u[m], v[m]
+                    into = float(np.minimum(np.minimum(um - uvlo[0], uvhi[0] - um),
+                                            np.minimum(vm - uvlo[1], uvhi[1] - vm)).max()) + GLASS_TOL_M
+                    rec = rec + (round(into, 3), [round(float(um.max() - um.min()), 3),
+                                                  round(float(vm.max() - vm.min()), 3)])
+                    why = _glass_allow(key, sn, pn, texpass)
+                    (allowed if why else proud).append(rec + (why,) if why else rec)
+                    continue
                 d = [pre for pre, (pp, _why) in decl.items() if sn.startswith(pre) and pn.startswith(pp)]
                 (declared if d else viol).append(rec)
-    out = {"key": key, "panes": len(panes), "shells": len(shells), "violations": viol, "declared": declared}
+    out = {"key": key, "panes": len(panes), "shells": len(shells), "violations": viol, "declared": declared,
+           "proud": proud, "allowed": allowed, "texpass": texpass}
     LAST_GLASS.clear()
     LAST_GLASS.update(out)
     if viol and STRUCT_AUDIT_MODE == "raise":
         lines = "; ".join(f"{s_} over {p_} ({d_} mm off the pane) at {a_}" for s_, p_, d_, a_ in viol[:12])
         raise RuntimeError(f"glass {key}: {len(viol)} structural part(s) over a window opening (round-2 gate, "
                            f"cs2_fittings.audit_glass): {lines}")
+    for s_, p_, d_, a_, i_, w_, why in allowed:
+        print(f"[glass] allowed {key} (texpass {texpass}): {s_} over {p_}, {i_} m into the opening ({why})")
+    if proud and GLASS_PROUD_MODE == "raise":
+        lines = "; ".join(f"{s_} over {p_} ({i_} m into the opening, {w_[0]} x {w_[1]} m) at {a_}"
+                          for s_, p_, d_, a_, i_, w_ in proud[:12])
+        raise RuntimeError(f"glass {key} (texpass {texpass}): {len(proud)} proud trim box(es) over a window opening "
+                           f"(cs2_fittings.audit_glass GLASS_PROUD; an accepted one goes in GLASS_ALLOW with its reason "
+                           f"and pass flag): {lines}")
+    for s_, p_, d_, a_, i_, w_ in proud:
+        print(f"[glass] WARN {key} (texpass {texpass}): {s_} over {p_}, {i_} m into the opening ({w_[0]} x {w_[1]} m), "
+              f"{d_} mm off the pane, at {a_}")
     return out
 
 

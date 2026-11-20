@@ -328,6 +328,10 @@ P1_PITCH = 14.0
 P1_OVER, P1_RAKE_OVER, P1_SLAB, P1_FASCIA = 0.35, 0.34, 0.10, 0.17
 P1_RIDGE_CAP = (0.30, 0.08)
 P1_POST_R, P1_POST_TOP = 0.10, 2.40
+# texture pass v1 (--texpass v1 only; the flag-off mesh keeps 2.40): at 2.40 the outer half of each corner post pokes
+# up to 2.3 cm through the 14 deg roof slab (slab top 2.377 m at x = +-2.1). 2.35 ends inside the slab (its underside
+# is 2.27-2.32 m over the post). Same parts, 0 tris
+P1_POST_TOP_TP = 2.35
 P1_PLATE_R, P1_PLATE_Z = 0.09, 2.21
 P1_DOOR = (-1.30, 0.85, 1.97)        # y center, w, h (head meets the log plate)
 P1_STEP = (2.0, 2.6, -1.8, -0.8, 0.15)
@@ -424,8 +428,10 @@ def build_p1(recipe, opts):
     P += K.gable_roof("p1", spec, fascia=P1_FASCIA, rake=P1_FASCIA, ridge_cap=P1_RIDGE_CAP,
                       walls=True, wall_mat="timber_vboard", ext=0.12)
     # log corner posts (ground, open bottom) and the front / back log plates
+    import cs2_tilesheet as TS
+    post_top = P1_POST_TOP_TP if TS.texpass_version() else P1_POST_TOP     # texture pass only (constant above)
     for k, (px, py) in enumerate((x, y) for x in (x0, x1) for y in (y0, y1)):
-        P += C.cyl_part(f"logpost_{k}", (px, py, 0.0), (px, py, P1_POST_TOP), P1_POST_R,
+        P += C.cyl_part(f"logpost_{k}", (px, py, 0.0), (px, py, post_top), P1_POST_R,
                         "timber_heavy", segs=lsegs, cap0=False)
     for tag, px in (("front", x1 + 0.05), ("back", x0 - 0.05)):
         P += C.cyl_part(f"logplate_{tag}", (px, y0 + P1_POST_R, P1_PLATE_Z),
@@ -593,11 +599,14 @@ P1 = FineRecipe(
         ("pole_", {"role": "timber"}), ("tobrack_", {"role": "galv"}), ("gear_", {"role": "pad"}),
         ("mast_", {"role": "galv"}), ("logpost_", {"role": "timber", "edge": 1.2}))},
     # texture pass v1 (--texpass v1 only, docs/PIPELINE.md 1b): the rollout bands are sized for lodges. On this 2.35 m
-    # wall the under-eave band (0.4 / 0.6 m) plus the base band made 47 % of the boards draw the weathered cell (back
-    # wall 72 %); the under-eave strip stands in the eave's shadow anyway. eave_h 0 = no under-eave band. A lower base
-    # band per side needs a "base_h" rule in lodge.texpass_weather (proposed; not in lodge.py yet).
-    # weather_level 0 = the flag-off ladder level the pass must keep (lodge.assert_texpass_level)
-    texpass={"eave_h": 0.0, "weather_level": 0},
+    # wall the under-eave band (0.4 / 0.6 m) plus the base band (0.5 / 0.8 / 1.1 m) made 47 % of the boards draw the
+    # weathered cell (back wall 72 %); the under-eave strip stands in the eave's shadow anyway. eave_h 0 = no under-eave
+    # band; base_h = a low splash band (0.35-0.45 m, a real shack's 30-45 cm; lodge.texpass_weather "base_h").
+    # label_w: the 0.7 m door disc draws at 2x the label rect's ppm (143 px/m, the spare width beside the roof cross
+    # that sets the ppm; same rect, 0 MB; cs2_tilesheet.tile_mesh label_weights). weather_level 0 = the flag-off
+    # ladder level the pass must keep (lodge.assert_texpass_level)
+    texpass={"eave_h": 0.0, "base_h": {"front": 0.35, "side": 0.35, "back": 0.45},
+             "label_w": {"emblem_p1_face": 2.0}, "weather_level": 0},
     sub_objects=P1_ROWS_LEGACY + P1_ROWS_FINE,
     kit_colour_set=KIT_COLOUR_SET,
     notes="civic-sign contract 3 (P1) + skeptic M1/M2/M3; detail pass 1 (design 3.3 + skeptic); "

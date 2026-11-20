@@ -361,41 +361,71 @@ TEXPASS = {
         # Tile 2.4 x 1 is the key's old period, so the cut grid and the far-set units are the flag-off ones.
         # normal_gain 1.6: the scan's seams read flatter than the old set's. Its mean slope is -3.8 deg along v raw (-7.3
         # at gain 1.6, P13): the butt steps are too shallow to close the course. A tilt of the bake plane is likely but
-        # unproven (u is 0.0); normal_lean (0, +1.8) is the de-tilted swatch's lean (it was +8.7)
+        # unproven (u is 0.0); the de-tilted swatch's lean is (0, +1.8) (it was +8.7), a mean slope of +1.3 deg. The
+        # key leans it further, to (0, +4.14) = a mean slope of -1.7 deg (P13 limit 2.0; 0.3 left for the 8-bit
+        # rounding and a later control), ON PURPOSE: the shipped WoodSiding009 swatch has a mean slope of -2.86 deg,
+        # and the sun shades a wall about 1 % per degree, so the de-tilted wall rendered 3.3-4.7 % darker than shipped
+        # at 7-68 m. A -1.9 lean recovered about three quarters of that (-0.9 to -1.4 % at 20-68 m) on the same mesh,
+        # cameras and albedo; -1.7 gives up about 0.2 % of it. The one exception to the de-tilted rule (the
+        # normal_lean note below): it keeps part of the shipped look's tilt, so the family's biggest wall does not
+        # darken under the pass
         # row_shuffle 14: every board row of the tile takes its own u offset (wrap), so the scan's butt joints and
-        # knots stop lining up in columns every 2.4 m (L1's gable is 17 x 6 tiles); contrast 0.7: the two-tone
-        # boards and knots repeat as a pattern at 20-45 m (luminance CoV 0.284 -> 0.199, shipped 0.123)
-        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (2.4, 2.4), "contrast": 0.7, "row_shuffle": 14,
-                       "normal_gain": 1.6, "normal_lean": (0.0, 1.8)},
+        # knots stop lining up in columns every 2.4 m (L1's gable is 17 x 6 tiles); contrast 0.6: the two-tone
+        # boards and knots repeat as a pattern at 20-45 m (luminance CoV 0.284 -> 0.170, shipped 0.123); row_level 1.0:
+        # the scan's darker / redder board rows recur every 2.4 m up a 15 m gable (row-level CoV on a wall at 20 m
+        # 0.053, shipped 0.029); each row scaled to the tile mean: 0.026, the boards and their grain stay
+        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (2.4, 2.4), "contrast": 0.6, "row_shuffle": 14,
+                       "row_level": 1.0, "normal_gain": 1.6, "normal_lean": (0.0, 4.14)},
         # 1.5 m scan at 1.6 m (x 1.07): 20 x 14.5 cm slates (RoofingTiles003 drew 40 cm slates with scratch streaks).
         # Its normal map carries a bake tilt: mean slope (+7.1, +6.4) deg raw where a relief that tiles has 0 (no
         # course explains a u tilt, and its faces rise up the slope where a lapped course's fall; the butts face down-
         # slope, so it is not laid upside down). At gain 1.3 it leaned (-9.0, -7.2) and the shaded roof slope rendered
-        # 23 % darker than flag-off; normal_lean (0, +0.5) is the de-tilted swatch's lean. The scan's moss and tone
+        # 23 % darker than flag-off. De-tilted (normal_lean (0, +0.5)) the roof slopes that face away from the sun read
+        # 15 % darker than the shipped slate at 45 / 68 m: the shipped scan kept a +10.6 deg kick toward the ridge (real
+        # butts, lauze-deep). normal_lean (0, +10) puts the kick back (TEXPASS_ROOF_KICK_MAX_DEG, P13; v runs up the
+        # slope on every slate roof top: tests/test_roof_uvv.py). The scan's moss and tone
         # patches (0.3-0.8 m) repeat every 1.6 m and read as a mottle on L3's 936 m2 of roof from the lift: chroma 0.5
         # halves the moss green, flatten_m 0.25 divides out the patches above the slate size (low-frequency CoV 0.064 ->
-        # 0.026; slate-to-slate tone and the course seams stay)
+        # 0.026; slate-to-slate tone and the course seams stay; without it the 1.6 m repeat returns as eave-parallel bands)
         "slate": {"set": "PHGrayRoofTiles02", "tile_m": (1.6, 1.6), "repeat": 2,
                   "target_srgb": (0.214, 0.224, 0.215), "chroma": 0.5, "flatten_m": 0.25, "normal_gain": 1.3,
-                  "normal_lean": (0.0, 0.5)},
+                  "normal_lean": (0.0, 10.0)},
         # 1.8 m scan at 1.54 m (x 0.86): 12 cm weathered deck boards; the recipes' repeat 2 stays. On L3's 15 m deck
         # the scan repeated as a grid: its ~0.5 m water stains (flatten_m 0.15: low-frequency CoV 0.089 -> 0.012, was
         # 0.021) and its rust specks (chroma 0.25, contrast 0.6: luminance CoV 0.287 -> 0.172, was 0.151); normal_gain
-        # 1.6 keeps the board seams legible once the albedo is calm
-        "deck": {"set": "PHWeatheredBrownPlanks", "tile_m": (1.54, 1.54), "chroma": 0.25, "flatten_m": 0.15,
-                 "contrast": 0.6, "normal_gain": 1.6},
+        # 1.6 keeps the board seams legible once the albedo is calm. flatten_m 0.08 (was 0.15): the scan's 5-15 cm
+        # stains passed the 0.15 m sigma and read as a regular mottle on L4's 511 m2 terrace at 14 m (off-seam blotch
+        # CoV 0.029 flag-off, 0.048 at 0.15, 0.028 at 0.08; the board seam profile holds, 0.088 -> 0.087). row_shuffle
+        # 13: the knot and stain clusters that span several boards lined up into diagonal rows on a large deck (L3's
+        # terrace from 8-14 m); each board row takes its own u offset, the cuts land on the board seams (no new
+        # in-board break) and the stain correlation across boards halves (0.056 -> 0.025). Both: blotch 0.031,
+        # luminance CoV 0.162, low-frequency CoV 0.007
+        "deck": {"set": "PHWeatheredBrownPlanks", "tile_m": (1.54, 1.54), "chroma": 0.25, "flatten_m": 0.08,
+                 "contrast": 0.6, "row_shuffle": 13, "normal_gain": 1.6},
         # Sawn heavy timber (posts, beams, knee braces, sign backs, L3's opaque balustrades, P1's log posts): Planks021
         # drew 14 cm floor planks, so every 20-24 cm member face carried 1-2 plank seams and nail-hole pairs along it.
         # Wood060 is a seam-free face; at 0.77 m x 4 (the key's 3.08 m period, tile factor 2 like slate) it reads as
-        # one solid member at 6-8 m (luminance CoV 0.184, low-frequency CoV 0.009, tilt 8.3 deg); the key's tint keeps
-        # its color. No course to measure, so P6 skips it (TEXPASS_SOLID)
-        "timber_heavy": {"set": "Wood060", "tile_m": (0.77, 0.77), "repeat": 4, "normal_gain": 1.6},
+        # one solid member at 6-8 m (luminance CoV 0.184, low-frequency CoV 0.009); the key's tint keeps its color.
+        # normal_gain 1.0 (as lux_glulam_s2's Wood077), not 1.6: at 1.6 the scan's pore relief (tilt 8.3 deg on the lodge
+        # sheet) drew a fine speckle on every member face (L3's 8 m balustrade: pixel-scale luma sd +21 % over the
+        # shipped Planks021; the sign's denser swatch read as cork / granite). At 1.0 (tilt 5.3, Planks021 5.9) it is
+        # 12 % under the shipped faces and the grain still reads. No course to measure, so P6 skips it (TEXPASS_SOLID)
+        "timber_heavy": {"set": "Wood060", "tile_m": (0.77, 0.77), "repeat": 4, "normal_gain": 1.0},
         # L5 (l5 NOTE section 3, render set PD). lux_stone_tan: 1.52 m Poly Haven squared fieldstone at 2.4 m (x 1.58):
         # 33 cm courses (P6), buff stones in gray mortar (Bricks096 drew gray rubble in salmon mortar, the same scan as
         # the plaza); chroma 0.7 / contrast 0.8 calm its rust stones (loud on the chimneys at 22 m), normal_gain 0.85
         # brings the tilt rms 28.6 -> about 24 deg (walls 15-25)
         "lux_stone_tan": {"set": "PHRusticStoneWall", "tile_m": (2.4, 2.4), "chroma": 0.7, "contrast": 0.8,
                           "normal_gain": 0.85},
+        # stone_rubble (L1-L4 plinths, piers and chimneys; the welcome sign's piers and plinths): Poly Haven stone_wall
+        # (2.0 m random fieldstone) at 3.2 m (x 1.6): 20-50 cm stones in tight joints, the fieldstone of the reference
+        # lodges. Bricks096 drew slobbered farm rubble from a 2:1 image stacked twice: its ring stone and lichen spots
+        # came back every 1.6 m up a wall (a ladder on L1's chimney) and its 0.5 m blotches read as a grid at 20-45 m
+        # (low-frequency CoV 0.083 -> 0.022, luminance CoV 0.40 -> 0.30). 3.2 m is the key's period, so the cut grid and
+        # the far units are the flag-off ones; flatten_m 0.2 calms the scan's stained patches. Its mean slope is -3.8
+        # deg along v raw (P13); normal_lean (0, -0.8) is the de-tilted swatch's lean (-0.9 on the 960 px hero cut,
+        # where -0.8 leaves the smaller residual: +1.4 deg against +1.6)
+        "stone_rubble": {"set": "PHStoneWall", "tile_m": (3.2, 3.2), "flatten_m": 0.2, "normal_lean": (0.0, -0.8)},
         # lux_paver: interlocking concrete unit pavers at 1.6 m (9 cm courses: 0.8 x a 22.5 x 11.25 cm unit; the cut
         # grid allows only x 2 steps) instead of a rubble wall laid flat; normal_gain 1.6: the joints read at 30 m
         "lux_paver": {"set": "PavingStones135", "tile_m": (1.6, 1.6), "normal_gain": 1.6},
@@ -411,6 +441,14 @@ TEXPASS = {
         # lux_vboard_red: battens at 0.35 m = every second 17.5 cm board seam, 8 per 2.8 m
         # tile (K.BATTEN's 0.30 m beat against the boards every 2.1 m and broke at every tile edge: 9.33 per tile)
         "lux_vboard_red": {"detail": {"seams_m": 0.35}, "target_srgb": (0.5838, 0.403, 0.2717)},
+        # timber_vboard (the patrol HQ's and the patrol hut's walls and gables): the flag-off scan and tile
+        # (WoodSiding009, 15 cm boards) with RAISED battens, 19 x 50 mm, every 0.30 m = on every second board seam,
+        # 8 per 2.4 m tile (the flag-off BATTEN drew 10 mm grooves at the same pitch: a faint line at 6 m, a plain
+        # wall at 18 m; real patrol board-and-batten carries a raised strip every 24-30 cm under one dark stain).
+        # The scan's cell carries a baked tilt (mean slope v -4.1 deg on the shipped sheet, -4.9 with the battens):
+        # normal_lean (0, 0) de-tilts it (P13) (p2 NOTE 2.1)
+        "timber_vboard": {"normal_lean": (0.0, 0.0),
+                          "detail": {"seams_m": 0.30, "seam_width_m": 0.05, "seam_depth_m": -0.019}},
         # timber_shake is wall shingles (gable walls of L2 / L3 / L5, L3's kiosk walls). The one roof that draws the key
         # is the welcome sign's (TEXPASS_ROLES["gate_roof"]); 6.9 cm is too fine for a roof, so the sign picks its own
         # roof scale (welcome_sign.py --texpass-roof: true size or slate, never the key as is). WoodSiding013 (a 1.4 m shingle-siding scan) was drawn at 1.8 m: 22.5 cm courses that
@@ -418,10 +456,17 @@ TEXPASS = {
         # key's 1.8 m: 6.9 cm courses, the alpine wall-shingle scale. Its light / dark blotches repeat every 1.8 m
         # (flatten_m), single light shingles repeat as dots (contrast 0.55); normal_gain 1.4 carries the courses.
         # Its mean slope is +1.6 deg at gain 1.4 (under the P13 limit); normal_lean (0, 0) is the de-tilted swatch's
-        # lean (it was (+0.9, -1.4))
+        # lean (it was (+0.9, -1.4)). contrast 0.40 / normal_gain 1.2 for the one eye-level wall (L3's kiosk at 7 m):
+        # at 0.55 / 1.4 its pixel-scale speckle was +55 % over the shipped WoodSiding013; at 0.40 / 1.2 +37 %, the
+        # courses still read (tilt rms 18.8 -> 16.7 deg, luminance CoV 0.195 -> 0.142). contrast 0.30: +32 %, the
+        # courses still read at 7 m and the mean is kept (luminance CoV 0.142 -> 0.106); the normal map carries most
+        # of the speckle, so a lower contrast buys little more. De-tilted, the sunlit shingle walls read 5-9 % darker
+        # than the shipped WoodSiding013, whose normals lean up the wall (P13 v slope -3.63): normal_lean
+        # (0, +1.54) gives a P13 v slope of -1.7, the gate's 2.0 with a 0.3 margin (a lean to -1.9 won back
+        # about 40 % of the gap); +v runs up every timber_shake wall of the family (UV-v check, 2026-11-20)
         "timber_shake": {"set": "PHRoofSlates02", "tile_m": (1.8, 1.8), "target_srgb": (0.406, 0.352, 0.275),
-                         "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.55, "normal_gain": 1.4,
-                         "normal_lean": (0.0, 0.0)},
+                         "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.30, "normal_gain": 1.2,
+                         "normal_lean": (0.0, 1.54)},
         # siding_paint (the ski school only; slot-1 recolor, so a LIGHT neutral swatch: the player's color multiplies).
         # WoodSiding009 turned 90 deg drew a lap profile stood upright (15 cm "boards", grooves) and its butt-joint column
         # as one horizontal line through every board every 2.4 m. Poly Haven wood_planks_grey (1.5 m, 5 vertical boards)
@@ -443,11 +488,14 @@ TEXPASS = {
 TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.06, 0.19),
                  # squared fieldstone courses 15-50 cm; unit pavers 8-15 cm courses
                  "lux_stone_tan": (0.15, 0.50), "lux_paver": (0.08, 0.15),
+                 # random fieldstone has no course: P6 reads its stone-height rhythm (stone_wall at 3.2 m: 13.8 cm);
+                 # rubble stones 10-50 cm high (a 1.6 m tile, 6.9 cm, fails it: the scan drawn under its true size)
+                 "stone_rubble": (0.10, 0.50),
                  # board-and-batten boards 20-30 cm on center (1x8 .. 1x12; the reference school 0.20-0.23 m)
                  "siding_paint": (0.20, 0.30)}
 # Pass keys with no course or board pitch to measure (P6 skips them; the grain scale is judged on renders): seam-free
 # member faces, and detail- or color-only keys that keep the flag-off scan
-TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red", "lux_siding_red")
+TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red", "lux_siding_red", "timber_vboard")
 # Swatch controls a pass key may carry (texpass_apply runs them in this order on the sheet swatch and on the far source);
 # the color ones move the swatch mean, which the target_srgb tint then restores. "rot" = quarter turns of the square
 # scan tile before everything else: a scan whose boards run VERTICAL in the file (PHWoodPlanksGray) under a uv_rot 90 key
@@ -463,11 +511,23 @@ TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red", "lux_siding_
 # that copies the other scan's normal-map artifact. u is 0 (a course is symmetric across u)
 # row_shuffle n = a horizontal-board tile cut into n board rows, each shifted by its own u offset (wrap): butt joints
 # and knots stop lining up in columns every tile
-TEXPASS_CONTROLS = ("rot", "chroma", "flatten_m", "contrast", "row_shuffle", "nflatten_m", "normal_gain", "normal_lean")
+# row_level k (0..1, needs row_shuffle: the same n rows) = each board row's luminance scaled toward the tile mean by
+# k (in log space; 1.0 = every row at the mean): darker / lighter rows of the scan stop recurring every tile up a wall;
+# the grain and the seams inside a row stay
+TEXPASS_CONTROLS = ("rot", "chroma", "flatten_m", "contrast", "row_shuffle", "row_level", "nflatten_m", "normal_gain",
+                    "normal_lean")
 # Tilt gate (test_texpass P13): the mean height slope (mean of -n.x / n.z, -n.y / n.z) of a relief that tiles is 0, so
 # a nonzero mean slope is a tilt baked into the normal map (the bake plane), not relief. Every pass key's sheet swatch
 # (after normal_gain and normal_lean) stays under this in u and v (PHGrayRoofTiles02 at gain 1.3: +9.2 / +7.8)
 TEXPASS_MAX_MEAN_SLOPE_DEG = 2.0
+# Roof kick (the one P13 exception): a lapped roof unit rests on the course below, so its face pitches flatter than the
+# roof and its mean normal leans up the slope. That lean is real, not a bake tilt: the shipped RoofingTiles003 slate
+# carried +10.6 deg (sawtooth rows at a 20 cm pitch, butt steps at +38 deg), and the de-tilted v1 slate read 15 %
+# darker than it looking toward the sun (lean +10 brings it to -0.1 %). A key listed here may keep a mean v slope down
+# to -limit, i.e. a normal leaning toward +v, which is up the slope only where every roof face that draws the key
+# runs its UV v toward the ridge (tests/test_roof_uvv.py, on the export). u stays under TEXPASS_MAX_MEAN_SLOPE_DEG, and a
+# lean toward -v (down the slope) is never allowed. lux_slate draws slate's cell (alias), so it shares the kick
+TEXPASS_ROOF_KICK_MAX_DEG = {"slate": 11.0}
 # Flat (procedural) keys a pass re-draws, by EXACT key (no V2_BASE fallback: metal_roof_dk and metal_roof_s1 derive
 # from metal_roof but have their own proposers). metal_roof_lt (the fixed light roof, slots v2) is a COATED
 # standing-seam panel (PVDF, 20-35 gloss units at 60 degrees: satin), not bare metal: METAL_ROLLOUT 1.0 made it a
@@ -491,10 +551,16 @@ TEXPASS_FLAT = {
                              "smooth_streak": 0.012, "light_w": True, "paint": True},
            "metal_roof_s1": {"panel": {"name": "rib30w", "profile": "rib", "pitch_m": 0.30, "rib_top": 0.028, "rib_base": 0.096,
                                        "rib_h": 0.026, "can_mm": 0.3, "panel": 0.008, "streak": 0.0,
-                                       "sm_streak": 0.030, "sheet_ribs": 3}}},
+                                       "sm_streak": 0.030, "sheet_ribs": 3}},
+           # metal_roof_dk (L4's dining roof and fascias, L5's porte-cochere roof, the school's tower and lantern roof):
+           # the light roof's raised seam (7 per 3.0 m tile = 0.43 m, the same trapezoid) on the shipped dark metal
+           # (metal 1.0; albedo and smoothness unchanged). The rollout's 0.50 m grooves did not read at 14 m: a flat
+           # black slab. It stays bare metal: metal_roof_lt's coated model lifted L4's dining roof above the slate
+           # beside it at 14 m (luminance 0.13 -> 0.27, slate 0.21) and would lighten L5's and the school's roofs too
+           "metal_roof_dk": {"ribs": 7, "rib_m": (0.007, 0.020, 0.014)}},
 }
-PANEL_SS = 4                    # a panel swatch is box-filtered from PANEL_SS x its content size
-TEXPASS_COLOR_CONTROLS = ("chroma", "flatten_m", "contrast")
+PANEL_SS = 4                   # a panel swatch is box-filtered from PANEL_SS x its content size
+TEXPASS_COLOR_CONTROLS = ("chroma", "flatten_m", "contrast", "row_level")
 # Low-frequency gate (test_texpass P10): a tile repeats every tile_m, so blotches above the board / course scale read as
 # a grid. Luminance CoV after a periodic Gaussian of TEXPASS_LF_SIGMA_M may not exceed max(TEXPASS_LF_RATIO x the
 # pre-pass swatch, TEXPASS_LF_FLOOR) (measured: shipped deck 0.021 clean, v1 deck 0.089 a visible grid)
@@ -758,6 +824,28 @@ def _row_shuffle(n_rows, lin, nrm, rough):
     return out
 
 
+def _row_level(n_rows, k, lin):
+    """Horizontal-board tile: scale each of its n_rows board rows (cut as _row_shuffle cuts them; a u shift does not
+    move a row's mean, so the cut is the same before and after the shuffle) by (tile mean / row mean) ** k of the
+    luminance. The rows' tone steps that recur every tile up a wall go; the grain and seams inside a row stay."""
+    if n_rows < 2:
+        raise ValueError("texpass: row_level needs row_shuffle (the board rows)")
+    N = lin.shape[0]
+    pitch = N / float(n_rows)
+    lum = lin[..., :3] @ LUMA
+    prof = lum.mean(1)
+    idx = np.floor(np.mod(np.arange(N), pitch)).astype(int)
+    fold = np.bincount(idx, weights=prof) / np.maximum(np.bincount(idx), 1)
+    phase = float(np.argmin(fold)) + 0.5
+    edges = np.rint(phase + np.arange(n_rows + 1) * pitch).astype(int)
+    m = float(lum.mean())
+    out = lin.copy()
+    for i in range(n_rows):
+        rows = np.arange(edges[i], edges[i + 1]) % N
+        out[rows] = lin[rows] * (m / max(float(lum[rows].mean()), 1e-9)) ** float(k)
+    return out
+
+
 def texpass_apply(tps, lin, nrm, rough, ppm):
     """One seamless scan tile (linear RGB, 0..1 normals, roughness; ppm px per meter) through a pass key's controls
     (texpass_swatch) in TEXPASS_CONTROLS order. flatten and contrast keep every channel's mean exactly."""
@@ -779,6 +867,8 @@ def texpass_apply(tps, lin, nrm, rough, ppm):
         lin = keep_mean(lin * ((m + (lum - m) * tps["contrast"]) / np.maximum(lum, 1e-6))[..., None], lin)
     if "row_shuffle" in tps:
         lin, nrm, rough = _row_shuffle(int(tps["row_shuffle"]), lin, nrm, rough)
+    if "row_level" in tps:
+        lin = keep_mean(_row_level(int(tps.get("row_shuffle", 0)), tps["row_level"], lin), lin)
     if "nflatten_m" in tps:
         nrm = _normal_flatten(nrm, tps["nflatten_m"] * ppm)
     if "normal_gain" in tps:
@@ -1825,6 +1915,10 @@ class TileWeather:
     # texture pass (recipe.texpass["band_skip"]): part-name prefixes whose faces take no base band (no cut, clean):
     # slender posts, whose concrete footings take the splash; under the grade every post foot meets the band
     band_skip: tuple = ()
+    # texture pass (recipe.texpass["drip_skip"]): sill part-name prefixes whose window hangs no sill-drip strip. Under
+    # an upper window the 0.7 m strip ends mid-wall and reads as a hard gray rectangle hanging from the sill; under a
+    # ground-floor window it reaches the base band or the plinth and reads as run-off
+    drip_skip: tuple = ()
 
 
 def weather_level(level):
@@ -2636,8 +2730,15 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
                     edge_pts.setdefault((ea, eb), {})[round(tt, 7)] = vi_
     # -- decal strips (sill drips, door thresholds): separate quads, never welded ---------
     strips = []
+    LAST_STRIPS["plan"] = []
     if wctx is not None:
         strips = _plan_strips(wctx, Vw, tris, fpart, part_name, weather, ground_band)
+        # r4/tex 2026-11-20: the plan the strip gate judges (audit_strips, on the punched mesh after the ladder)
+        names = getattr(strips, "names", None)
+        names = names if names is not None and len(names) == len(strips) else [None] * len(strips)
+        LAST_STRIPS["plan"] = [{"rule": rule, "part": nm, "host": part_name(int(fpart[ti_h])), "wkey": wctx.wkey[ti_h],
+                                "quad": np.array(q, np.float64), "n": np.array(wctx.n[ti_h], np.float64),
+                                "offset": float(weather.strip_offset)} for (q, ti_h, rule), nm in zip(strips, names)]
         Minv = np.linalg.inv(Mw)
         for sid, (Pw4, ti_h, rule) in enumerate(strips):
             Ph = Vw[list(tris[ti_h])]
@@ -2775,10 +2876,11 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
 def _plan_strips(wctx, Vw, tris, fpart, part_name, R, ground_band):
     """[(world quad (4,3) CCW seen from outside, host tri index, rule)] for sill drips and
     door thresholds. A strip is kept only when every corner has its host plane right behind
-    (below) it, so it never overhangs an edge."""
+    (below) it, so it never overhangs an edge. The list's .names holds each strip's sill part (None for a threshold),
+    for the strip gate (audit_strips)."""
     from mathutils import Vector
     bvh = wctx.bvh
-    out = []
+    out = _Strips()
     by_part = {}
     for i, p in enumerate(fpart):
         by_part.setdefault(int(p), []).append(i)
@@ -2801,9 +2903,10 @@ def _plan_strips(wctx, Vw, tris, fpart, part_name, R, ground_band):
         return np.array(loc), idx
 
     if R.sill_drips:
+        skip = tuple(getattr(R, "drip_skip", ()) or ())
         for p, idx in sorted(by_part.items()):
             nm = part_name(p)
-            if not nm.startswith("sill_"):
+            if not nm.startswith("sill_") or (skip and nm.startswith(skip)):
                 continue
             P = pts_of(idx)
             L, T = frame(P)
@@ -2844,6 +2947,7 @@ def _plan_strips(wctx, Vw, tris, fpart, part_name, R, ground_band):
             if float(np.dot(np.cross(quad[1] - quad[0], quad[2] - quad[0]), out_dir)) < 0:
                 quad = quad[::-1]
             out.append((quad, ti_h, "sill_drip"))
+            out.names.append(nm)
     if R.thresholds:
         doors = [(p, idx) for p, idx in sorted(by_part.items()) if part_name(p).startswith("door_")]
         groups = []
@@ -2893,6 +2997,172 @@ def _plan_strips(wctx, Vw, tris, fpart, part_name, R, ground_band):
             if np.cross(quad[1] - quad[0], quad[2] - quad[0])[2] < 0:
                 quad = quad[::-1]
             out.append((quad, ti_h, "threshold"))
+            out.names.append(None)
+    return out
+
+
+class _Strips(list):
+    """_plan_strips' result: [(quad, host tri, rule)] with .names, each strip's source part (the sill; None for a
+    threshold)."""
+
+    def __init__(self):
+        super().__init__()
+        self.names = []
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# A DRIP STRIP LIES ON ITS WALL (r4/tex, 2026-11-20). _plan_strips checks a strip's four corners only; between them L3's
+# Mass B gable strip ran off the shingle gable onto the boards below (critic batch 5; drip_skip since cc860caf).
+# audit_strips judges every sill-drip strip of the accepted weather level on the built LOD0 (tile_mesh's output with the
+# window holes punched; the strips themselves are no wall): rays on a grid over the strip (rows STRIP_STEP_M apart over
+# its full height, columns at most STRIP_COL_M apart, the end ones 2 cm in) look STRIP_REACH_M behind its face for the
+# host wall: a face parallel to the host (|cos| >= 0.99), on the host's swatch (swatch_key "~w", aliases resolved), at
+# the host plane (strip_offset +- STRIP_PLANE_TOL_M). Nothing there is "air" (the strip floats: a window hole, a wall
+# that ends, a recess); anything else is an overrun (another key, another plane, a face at an angle). A strip fails when
+# one column has more than STRIP_TOL_M of either. A strip that ends mid-wall is NOT judged here (that is drip_skip's
+# call, by frame). STRIP_AUDIT_MODE "raise" (the default) fails the build on a failing strip STRIP_ALLOW does not list;
+# "report" prints each as a [strips] WARN line and goes on (the triage run). STRIP_ALLOW holds the accepted ones,
+# (building key, sill part prefix, one-line reason[, flag]); a listed strip is reported under "allowed", never passed
+# silently. The flag (STRIP_ALLOW_FLAGS, default "any") is the texture-pass state the entry holds for: "off" for shipped
+# geometry the pass fixes (recipe.texpass drip_skip), so the same strip in a pass build still raises. lodge.py runs it
+# after the weather ladder with the pass from its args (a direct lodge.run does not register it; texpass_version() is
+# the fallback).
+# ---------------------------------------------------------------------------------------------------------------------
+STRIP_AUDIT_MODE = "raise"
+STRIP_ALLOW_FLAGS = ("off", "v1", "any")
+STRIP_ALLOW = (
+    # (building key, sill part prefix, reason[, flag "off" | "v1" | "any" (default)])
+    ("L1", "sill_ParkC", "hidden: x 0..0.9 runs inside the entry canopy's metal roof where it meets the wall"),
+    ("L2", "sill_aE", "shipped geometry; fixed under v1 by drip_skip (off the shake gable onto the boards)", "off"),
+    ("L2", "sill_aW", "shipped geometry; fixed under v1 by drip_skip (off the shake gable onto the boards)", "off"),
+    ("L3", "sill_bSa", "shipped geometry; fixed under v1 by drip_skip (off the shake gable onto the boards)", "off"),
+    ("L4", "sill_ubf1", "hidden: its top 0.07 m on the walnut lies inside the belt trim_ubelt (0.10 m proud)", "off"),
+    ("P2", "sill_hqw", "hidden: its bottom 0.1 m on the floor edge lies in and under the porch deck"),
+)
+STRIP_STEP_M = 0.025         # sample rows over the strip's height
+STRIP_COL_M = 0.10           # widest gap between sample columns
+STRIP_REACH_M = 0.04         # how far behind the strip's face a ray looks (the host plane sits strip_offset behind)
+STRIP_PLANE_TOL_M = 0.01     # the host plane's depth tolerance
+STRIP_TOL_M = 0.0            # off-wall length one sample column may have
+LAST_STRIPS = {"plan": []}   # tile_mesh's last strip plan (audit_strips' default input)
+LAST_STRIP_AUDIT = {}
+
+
+def _strip_allow(building, part, texpass):
+    """The STRIP_ALLOW reason for this sill's strip under texture pass `texpass` ("off" / "v1"), else None."""
+    for e in STRIP_ALLOW:
+        flag = e[3] if len(e) > 3 else "any"
+        if e[0] == building and part and part.startswith(e[1]) and flag in ("any", texpass):
+            return e[2]
+    return None
+
+
+def audit_strips(obj, keys, layout, building, texpass=None, plan=None):
+    """The strip gate (see the block comment) on `obj`, the built LOD0, for the sill-drip strips of `plan` (default
+    LAST_STRIPS["plan"], the last tile_mesh call's; `keys` its sorted keys, `layout` its sheet layout). Returns
+    {"building", "texpass", "strips", "judged", "hits", "allowed" (+ "reason")}, one row per strip: {"part" (the sill),
+    "host", "wkey", "z", "width_m", "center", "air_m", "over_m" (the worst column's), "behind" {what: samples},
+    "cols_off", "off_at_m"}. Raises in STRIP_AUDIT_MODE "raise" on a hit STRIP_ALLOW does not list for this pass
+    (`texpass`, default texpass_version())."""
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    bad = [e for e in STRIP_ALLOW if len(e) not in (3, 4) or (len(e) == 4 and e[3] not in STRIP_ALLOW_FLAGS)]
+    if bad:
+        raise ValueError(f"STRIP_ALLOW: entries need (building, sill prefix, reason[, flag in {STRIP_ALLOW_FLAGS}]): "
+                         f"{bad}")
+    texpass = (texpass_version() if texpass is None else texpass) or "off"
+    rows = [r for r in (LAST_STRIPS["plan"] if plan is None else plan) if r["rule"] == "sill_drip"]
+    judged, hits, allowed = [], [], []
+    if rows:
+        me = obj.data
+        n = len(me.polygons)
+        co = np.zeros(len(me.vertices) * 3); me.vertices.foreach_get("co", co)
+        M = np.array(obj.matrix_world)
+        V = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+        lt = np.zeros(n, np.int32); me.polygons.foreach_get("loop_total", lt)
+        ls = np.zeros(n, np.int32); me.polygons.foreach_get("loop_start", ls)
+        lv = np.zeros(len(me.loops), np.int32); me.loops.foreach_get("vertex_index", lv)
+        mi = np.zeros(n, np.int32); me.attributes["cs2ts_mat"].data.foreach_get("value", mi)
+        wf = np.zeros(n, np.int32); me.attributes["cs2ts_w"].data.foreach_get("value", wf)
+        keep = np.flatnonzero(wf != 2)                  # the strips themselves are no wall
+        polys = [[int(v) for v in lv[ls[i]: ls[i] + lt[i]]] for i in keep]
+        bvh = BVHTree.FromPolygons([tuple(v) for v in V], polys, all_triangles=False)
+        nrm = np.zeros((len(polys), 3))
+        for j, pv in enumerate(polys):
+            P = V[pv]
+            s = np.zeros(3)
+            for k in range(1, len(P) - 1):
+                s += np.cross(P[k] - P[0], P[k + 1] - P[0])
+            L = np.linalg.norm(s)
+            if L > 1e-12:
+                nrm[j] = s / L
+        sw = [swatch_key(layout, keys[int(mi[i])], weathered=True) for i in keep]
+        for r in rows:
+            q = np.asarray(r["quad"], np.float64)
+            nh = np.asarray(r["n"], np.float64)
+            z0, z1 = float(q[:, 2].min()), float(q[:, 2].max())
+            lo, hi = q[q[:, 2] < 0.5 * (z0 + z1)], q[q[:, 2] >= 0.5 * (z0 + z1)]
+            if float(np.dot(hi[1] - hi[0], lo[1] - lo[0])) < 0:
+                hi = hi[::-1]
+            wid, hgt = float(np.linalg.norm(lo[1] - lo[0])), z1 - z0
+            nr = max(1, int(round(hgt / STRIP_STEP_M)))
+            nc = max(3, int(math.ceil(max(wid - 0.04, 0.0) / STRIP_COL_M)) + 1)
+            e = min(0.02 / wid, 0.5) if wid > 1e-6 else 0.5
+            depth = 0.004 + float(r.get("offset", 0.012))
+            air, over, behind = np.zeros(nc), np.zeros(nc), {}
+            us = np.linspace(e, 1.0 - e, nc)
+            ax = (lo[1] - lo[0]) / max(wid, 1e-9)
+            jit = (np.zeros(3), 0.001 * ax + (0.0, 0.0, 0.0007), -0.001 * ax - (0.0, 0.0, 0.0007))
+            for ci, u in enumerate(us):
+                b, t = lo[0] + (lo[1] - lo[0]) * u, hi[0] + (hi[1] - hi[0]) * u
+                for v in (np.arange(nr) + 0.5) / nr:
+                    p = b + (t - b) * v + nh * 0.004
+                    for dp in jit:                  # a ray on a cut line can slip between two faces: retry 1 mm off
+                        _loc, _n, j, d = bvh.ray_cast(Vector(tuple(p + dp)), Vector(tuple(-nh)), 0.004 + STRIP_REACH_M)
+                        if j is not None:
+                            break
+                    if j is None:
+                        what = "air"
+                    elif abs(float(np.dot(nrm[j], nh))) < 0.99:
+                        what = f"angle:{sw[j]}"
+                    elif sw[j] != r["wkey"]:
+                        what = str(sw[j])
+                    elif abs(d - depth) > STRIP_PLANE_TOL_M:
+                        what = f"plane:{sw[j]}"
+                    else:
+                        continue
+                    behind[what] = behind.get(what, 0) + 1
+                    (air if what == "air" else over)[ci] += hgt / nr
+            rec = {"part": r.get("part"), "host": r.get("host"), "wkey": r["wkey"], "z": [round(z0, 3), round(z1, 3)],
+                   "width_m": round(wid, 3), "center": [round(float(x), 3) for x in q.mean(0)],
+                   "air_m": round(float(air.max()), 3), "over_m": round(float(over.max()), 3),
+                   "behind": dict(sorted(behind.items())), "cols_off": f"{int(((air + over) > 1e-9).sum())}/{nc}",
+                   "off_at_m": [round(float(us[k] * wid), 3) for k in np.flatnonzero((air + over) > 1e-9)]}
+            judged.append(rec)
+            if float((air + over).max()) <= STRIP_TOL_M + 1e-9:
+                continue
+            why = _strip_allow(building, rec["part"], texpass)
+            (allowed if why else hits).append(dict(rec, reason=why) if why else rec)
+    out = {"building": building, "texpass": texpass, "strips": len(rows), "judged": judged, "hits": hits,
+           "allowed": allowed}
+    LAST_STRIP_AUDIT.clear()
+    LAST_STRIP_AUDIT.update(out)
+
+    def line(h):
+        return (f"{h['part']} on {h['host']} ({h['wkey']}): {h['air_m']} m in the air, {h['over_m']} m over "
+                f"{', '.join(k for k in h['behind'] if k != 'air') or '-'} ({h['cols_off']} columns), z {h['z'][0]}.."
+                f"{h['z'][1]}, at {h['center']}")
+    for a in allowed:
+        print(f"[strips] allowed {building} (texpass {texpass}): {line(a)} ({a['reason']})")
+    if hits and STRIP_AUDIT_MODE == "raise":
+        raise RuntimeError(f"strips {building} (texpass {texpass}): {len(hits)} sill-drip strip(s) off their host wall "
+                           f"(cs2_tilesheet.audit_strips; skip it with recipe.texpass drip_skip, or list an accepted "
+                           f"one in STRIP_ALLOW with its reason and pass flag): "
+                           + "; ".join(line(h) for h in hits[:12]))
+    for h in hits:
+        print(f"[strips] WARN {building} (texpass {texpass}): {line(h)}")
+    print(f"[strips] gate {building} (texpass {texpass}): {len(rows)} sill drips, {len(hits)} off their wall, "
+          f"{len(allowed)} allowed")
     return out
 
 

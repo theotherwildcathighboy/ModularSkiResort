@@ -5,7 +5,8 @@ test_texpass - texture pass v1 (`lodge.py --texpass v1`, docs/PIPELINE.md "Textu
 
 Gates (the pilot's lessons, made mechanical):
   P1  provenance: every set a pass names (alias followers included) has an assets/texture-sources.json entry (CC0, a
-      page, an https url and an md5 per map); a set folder that is present matches those md5s byte for byte;
+      page, an https url and an md5 per map); a set folder that is present matches those md5s byte for byte; every
+      Poly Haven scan a pass draws is named in release/CREDITS.md with its authors;
   P2  same cut grid: per swapped key, the square tile x the sheet repeat it draws with == the flag-off product, so
       no building's LOD0 cut grid (and so no tri count) moves; no tile rect or palette rect moves;
   P3  flag off untouched: register v1 then unregister restores every BldgMat and the off layout (hash included);
@@ -17,8 +18,18 @@ Gates (the pilot's lessons, made mechanical):
       the timber), and no cut vertex lands above the cap (the plinth's z-0 contract band stays free);
   P4c band_skip: a 0.20 m post beside that plinth is banded and cut under the grade; with band_skip ("col_",) it is
       clean and uncut while every other face keeps its state (the hut's posts: 192 tris and a weather level);
+  P4d drip_skip: a wall with two window sills (sill_a, sill_b) through tile_mesh: sill drips hang a strip under each;
+      with drip_skip ("sill_b",) sill_a's strip stays as it was, sill_b's goes, and every other face keeps its state;
+      no ladder step sets it (a flag-off build hangs every strip it did); lodge.texpass_drip_skip returns the matched
+      sills and raises on a prefix that is not a sill_ or matches no part; _write_manifest copies its result key
+      (texpass_drip_skip, as P15's texpass_mat); each recipe that opts in names its real
+      sills (L1's loft pair, a 0.7 m strip that ends mid-gable; the hut's attic pairs and L3's Mass B gable window,
+      a strip that runs off the shingle gable onto the boards below: each read as a hard rectangle under the window; the
+      strip gate's find, P16: L4's balcony door ubf1, whose strip ran from the walnut 0.55 m down onto the stone under
+      the balcony slab);
   P5  lodge.texpass_weather: the hut recipe's grade in the tiled frame matches the authoring grade through
-      cs2_asset.orient_for_net; eave_h overrides every side; band_skip carried; a yawed recipe raises; None stays None;
+      cs2_asset.orient_for_net; eave_h overrides every side; band_skip and drip_skip carried; a yawed recipe raises;
+      None stays None;
   P6  real-world scale: every pass key has a TEXPASS_PITCH range and its scan's course / board pitch (the fundamental of
       the Color map's row autocorrelation at the set's size_m) times tile_m / size_m lies in it (the 0.6 x shake scan
       failed this; the strongest peak passed the siding at half its intended board width); a key in
@@ -33,9 +44,21 @@ Gates (the pilot's lessons, made mechanical):
   P13 no baked tilt: every pass key's sheet swatch (after normal_gain and normal_lean, as the sheet draws it) has a mean
       height slope under TEXPASS_MAX_MEAN_SLOPE_DEG in u and v (a relief that tiles averages 0; PHGrayRoofTiles02
       carries a bake tilt of +9.2 / +7.8 deg at gain 1.3, which turned its lean and darkened the shaded roof slope by
-      23 %); slate without its normal_lean fails it;
-  P8  weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
+      23 %); slate without its normal_lean fails it; the one exception is a roof kick (TEXPASS_ROOF_KICK_MAX_DEG): such
+      a key may lean its v slope toward +v (up the slope) down to -limit, never the other way (a mirrored kick fails);
+      that +v is up the slope is the export's property: tests/test_roof_uvv.py checks it per asset;
+  P8 weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
       a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise;
+  P14 ridge key: recipe.texpass ridge_key is L1's alone (metal_roof_lt); lodge.texpass_ridge moves the galv ridge_
+      parts onto it and nothing else, and raises on a key outside TEXPASS_RIDGE_KEYS, a roof slab on another key, or
+      no ridge; lodge.texpass_ridge_prefixes is trim v1's pair without a ridge_key (pass off: flag-off byte for
+      byte) and draws ridge_ flat (no strip) with one; every ridge key has a v1 tile + "~f" cell and is coated;
+  P15 mat rule: lodge.py reads recipe.texpass in one place (texpass_rules), which is {} for every recipe with the flag
+      off, so no flag-off build sees a "mat" rule; lodge.texpass_mat moves only the parts a prefix names (the
+      longest prefix wins; other parts keep key and object), raises on an unknown key and on a prefix that matches no
+      part; no live user needed: L3's real parts under a synthetic copy of its recipe that names the two balustrades
+      move exactly those two timber_heavy -> timber_lap under v1 and nothing with the flag off, and a prefix one
+      character off a real part name raises;
   P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate, timber_heavy, lux_glulam_s2, siding_paint: 2} (off: {}); a plinth + lap
       wall + slate roof through lodge's prep: the pass's UVTile is exactly 2 x the flag-off one on the pass keys'
       faces (meters / square tile); after lodge.texpass_far_units + align_islands + split_poor_islands the UVTile and
@@ -44,11 +67,18 @@ Gates (the pilot's lessons, made mechanical):
       every far FBX was repacked and L1 lost 11 % of its far px/m);
   P10 low frequency: every pass key's sheet swatch keeps its luminance CoV after a periodic 0.2 m Gaussian (the
       blotches that read as a grid when the tile repeats) at or under max(1.25 x the pre-pass swatch, 0.03); the deck
-      without flatten_m fails it (v1's first family round: 0.021 -> 0.089, a blotch grid on L3's 15 m deck);
+      without flatten_m fails it (v1's first family round: 0.021 -> 0.089, a blotch grid on L3's 15 m deck; the
+      mutation drops row_shuffle too, which alone breaks the 0.2 m stain grid: 0.053 -> 0.028);
   P11 far sources: texpass_far_specs runs the same controls on the prefiltered far sources (the far bake drew the raw
       scan): the deck's low frequency halves at least and its mean x tint stays on the palette, the normal-only keys
       keep their color bytes and tint, lux_slate takes slate's controls, a key outside the pass and the off state are
-      untouched.
+      untouched;
+  P16 strip gate: cs2_tilesheet.audit_strips on P4d's wall after tile_mesh (the plan from LAST_STRIPS, each strip
+      named by its sill): both strips lie on the timber wall over their full height and pass in RAISE mode; a planted
+      strip moved 1.1 m down (its bottom 0.3 m on the stone plinth: an overrun) and one moved 2.5 m along the wall
+      (0.64 m past its end: in the air) are reported with those lengths and RAISE; "report" mode only reports; a
+      STRIP_ALLOW line makes a strip "allowed" (flag "off": only with the pass off, the same strip under v1 raises; a
+      bad flag fails); lodge.py runs the gate after the weather ladder.
 Exit 1 on the first failure; one PASS line otherwise.
 """
 
@@ -124,7 +154,20 @@ def check_provenance():
                     with open(p, "rb") as fh:
                         assert hashlib.md5(fh.read()).hexdigest() == mp["md5"], f"{p}: md5 differs from the source"
                     hashed += 1
-    ok(f"P1 provenance: every pass set listed (CC0, page, url + md5 per map); {hashed} local maps match their md5")
+    # Credits: every Poly Haven scan a pass draws is named in release/CREDITS.md with its authors (1.0.4: three
+    # pass scans shipped in the table before their credit line; CC0 does not require the line, but the listing and
+    # the docs site copy it).
+    with open(os.path.join(os.path.dirname(os.path.dirname(HERE)), "release", "CREDITS.md"), encoding="utf-8") as fh:
+        credits = fh.read()
+    ph = sorted({s["set"] for v in TS.TEXPASS for s in TS.texpass_specs(v).values()
+                 if "set" in s and src[s["set"]]["source"] == "Poly Haven"})
+    for name in ph:
+        e = src[name]
+        assert f"`{e['id']}`" in credits, f"{name}: release/CREDITS.md does not name `{e['id']}`"
+        for a in e["authors"]:
+            assert a in credits, f"{name}: release/CREDITS.md does not name {a} ({e['id']})"
+    ok(f"P1 provenance: every pass set listed (CC0, page, url + md5 per map); {hashed} local maps match their md5; "
+       f"{len(ph)} Poly Haven scans credited")
 
 
 def check_cut_grid_and_round_trip():
@@ -172,15 +215,19 @@ def check_cut_grid_and_round_trip():
     ok("P3 register + unregister: every BldgMat and the off layout (hash included) restored; --texpass defaults off")
 
 
-def scene(post=False):
+def scene(post=False, sills=False):
     """(obj, uvtile, keys): a stone_rubble plinth (z -4..0) under a timber_lap box (z 0..3), 4 x 8 m, lodge prep;
-    post: plus a free-standing 0.20 m timber_heavy post `col_a` beside the plinth (x -0.6, y 4)."""
+    post: plus a free-standing 0.20 m timber_heavy post `col_a` beside the plinth (x -0.6, y 4); sills: plus two
+    1.2 m window sills `sill_a` (y 1.0..2.2) and `sill_b` (y 5.0..6.2) on the -X face, bottom at z 1.5."""
     clear()
     TS.ensure_materials()
     parts = K.box_part("plinth_a", (0.0, 0.0, -4.0), (4.0, 8.0, 0.0), "stone_rubble")
     parts += K.box_part("wall_a", (0.0, 0.0, 0.0), (4.0, 8.0, 3.0), "timber_lap")
     if post:
         parts += K.box_part("col_a", (-0.7, 3.9, -4.0), (-0.5, 4.1, 0.0), "timber_heavy")
+    if sills:
+        parts += K.box_part("sill_a", (-0.15, 1.0, 1.5), (0.0, 2.2, 1.6), "timber_heavy")
+        parts += K.box_part("sill_b", (-0.15, 5.0, 1.5), (0.0, 6.2, 1.6), "timber_heavy")
     keys = sorted({k for _o, k in parts})
     K.bevel_parts(parts)
     cs2_uv.set_density(parts, K.part_weights(parts))
@@ -203,9 +250,9 @@ def scene(post=False):
     return obj, cs2_uv.loop_uvs(obj.data.uv_layers[cs2_bake.TILE_LAYER]), keys
 
 
-def run(rules, post=False):
+def run(rules, post=False, sills=False):
     """Mesh facts of the scene through tile_mesh with `rules` (TileWeather or None)."""
-    obj, uvt, keys = scene(post)
+    obj, uvt, keys = scene(post, sills)
     TS.tile_mesh(obj, uvt, keys, layout(), weather=rules, flat_prefixes=TS.FLAT_DETAIL_PREFIXES)
     me = obj.data
     n = len(me.polygons)
@@ -297,6 +344,67 @@ def check_band_skip():
        f"({skip['tris']} tris); every other face unchanged")
 
 
+# recipe.texpass drip_skip: the sills each opted recipe skips (lodge.texpass_drip_skip on its real parts)
+DRIP_SKIP_SILLS = {"L1": ["sill_LoftN", "sill_LoftS"],
+                   "L2": ["sill_aE0", "sill_aE1", "sill_aW0", "sill_aW1"],
+                   "L3": ["sill_bSa"],
+                   "L4": ["sill_ubf1"]}
+
+
+def check_drip_skip():
+    assert TS.TileWeather().drip_skip == () and all(TS.weather_level(i).drip_skip == () for i in range(5)), \
+        "no ladder step may set drip_skip (the flag-off build hangs every strip)"
+    W = dataclasses.replace(bare(), sill_drips=True)
+    both = run(W, sills=True)
+    one = run(dataclasses.replace(W, drip_skip=("sill_b",)), sills=True)
+
+    def strip(r, y0, y1):
+        return sorted(tuple(np.round(r["V"][f], 5).ravel()) for i, f in enumerate(r["faces"])
+                      if r["wf"][i] == 2 and y0 <= r["V"][f][:, 1].mean() <= y1)
+    rest = lambda r: sorted((r["names"][i], int(r["wf"][i]), tuple(np.round(r["V"][f], 5).ravel()))
+                            for i, f in enumerate(r["faces"]) if r["wf"][i] != 2)
+    sa, sb = strip(both, 1.0, 2.2), strip(both, 5.0, 6.2)
+    assert sa and sb, "sill drips on: a strip under each sill"
+    assert strip(one, 1.0, 2.2) == sa, "drip_skip moved the strip it does not name"
+    assert not strip(one, 5.0, 6.2), "drip_skip: sill_b still hangs a strip"
+    assert rest(one) == rest(both), "drip_skip changed a face that is not a strip"
+    assert one["tris"] < both["tris"], (one["tris"], both["tris"])
+    # lodge: texpass_weather carries the rule; texpass_drip_skip names the sills and raises on a bad prefix
+    rc = lodge.select_recipe(lodge.parse_args(["--recipe", "L2"]))
+    assert lodge.texpass_weather(TS.TileWeather(), rc, {"drip_skip": ["sill_b"]}).drip_skip == ("sill_b",)
+    clear()
+    parts = (K.box_part("sill_a", (-0.15, 1.0, 1.5), (0.0, 2.2, 1.6), "timber_heavy")
+             + K.box_part("sill_b", (-0.15, 5.0, 1.5), (0.0, 6.2, 1.6), "timber_heavy")
+             + K.box_part("wall_a", (0.0, 0.0, 0.0), (4.0, 8.0, 3.0), "timber_lap"))
+    assert lodge.texpass_drip_skip(parts, rc, {"drip_skip": ("sill_b",)}) == ["sill_b"]
+    assert lodge.texpass_drip_skip(parts, rc, {}) == []
+    for pre, why in ((("wall_",), "a prefix that is not a sill_"), (("sill_zz",), "a dead prefix")):
+        try:
+            lodge.texpass_drip_skip(parts, rc, {"drip_skip": pre})
+        except ValueError:
+            continue
+        raise AssertionError(f"texpass drip_skip with {why} must raise")
+    # the recipes that opt in name real sills (flag off reads no rule at all: texpass_rules, P15)
+    want = {lodge.select_recipe(lodge.parse_args(["--recipe", k])).key: v for k, v in DRIP_SKIP_SILLS.items()}
+    got = {}
+    for key, r in sorted(lodge.R.load_recipes().items()):
+        tp = lodge.texpass_rules(r, lodge.parse_args(["--recipe", key, "--texpass", "v1"]))
+        if tp.get("drip_skip"):
+            clear()
+            got[r.key] = lodge.texpass_drip_skip(lodge.build_parts(r, {}), r, tp)
+    clear()
+    assert got == want, got
+    # the manifest writer copies only listed result keys: texpass_drip_skip must be one, or the record never lands
+    with open(lodge.__file__, encoding="utf-8") as fh:
+        src = fh.read()
+    mkeys = re.search(r'for k_ in \(([^)]*)\):', src[src.index("def _write_manifest"):]).group(1)
+    assert '"texpass_drip_skip"' in mkeys, "_write_manifest drops result['texpass_drip_skip']"
+    ok(f"P4d drip_skip: two sills hang a strip each ({both['tris']} tris); drip_skip (\"sill_b\",) keeps sill_a's "
+       f"strip and every other face ({one['tris']} tris); no ladder step sets it; a non-sill or dead prefix raises; "
+       f"manifest key texpass_drip_skip; opted "
+       f"{', '.join(f'{k} {len(v)} sill' + ('' if len(v) == 1 else 's') for k, v in sorted(got.items()))}")
+
+
 def check_texpass_weather():
     rc = lodge.select_recipe(lodge.parse_args(["--recipe", "L2"]))
     tp = rc.texpass
@@ -306,6 +414,7 @@ def check_texpass_weather():
     assert W.grade == (-s * a, 0.0, -s, -(1.1 + 0.05)), W.grade
     assert all(v == float(tp["eave_h"]) for v in W.eave_h.values()) and W.base_h == TS.TileWeather().base_h
     assert W.band_skip == tuple(tp.get("band_skip", ())), W.band_skip
+    assert W.drip_skip == tuple(tp.get("drip_skip", ())), W.drip_skip
     assert lodge.texpass_weather(None, rc, tp) is None
     # the tiled-frame grade == the authoring grade z = -s (a - x), moved through the real orient_for_net
     clear()
@@ -326,7 +435,7 @@ def check_texpass_weather():
     except ValueError:
         pass
     ok(f"P5 texpass_weather: hut grade {W.grade} == the authoring grade through orient_for_net; eave_h "
-       f"{tp['eave_h']} on every side; band_skip {W.band_skip}; yaw raises")
+       f"{tp['eave_h']} on every side; band_skip {W.band_skip}; drip_skip {W.drip_skip}; yaw raises")
 
 
 def row_pitch(path, cols=False):
@@ -387,7 +496,7 @@ def check_swatch_controls():
         tuned = TS._swatch_maps("deck", 480, repeat=2)
         saved = dict(spec)
         try:
-            for f in DECK_CONTROLS:
+            for f in TS.TEXPASS_CONTROLS:       # raw = the bare scan (row_shuffle and any later control too)
                 spec.pop(f, None)
             raw = TS._swatch_maps("deck", 480, repeat=2)
         finally:
@@ -415,7 +524,7 @@ def check_swatch_controls():
     assert chroma(tuned[0]) < 0.75 * chroma(raw[0]), (chroma(tuned[0]), chroma(raw[0]))
     assert lum_cov(tuned[0]) < 0.75 * lum_cov(raw[0]), (lum_cov(tuned[0]), lum_cov(raw[0]))
     assert tilt(tuned[1]) > 1.15 * tilt(raw[1]), (tilt(tuned[1]), tilt(raw[1]))
-    assert tuned[5].get("texpass") == {f: float(saved[f]) for f in DECK_CONTROLS if f in saved}, tuned[5]
+    assert tuned[5].get("texpass") == {f: float(saved[f]) for f in TS.TEXPASS_CONTROLS if f in saved}, tuned[5]
     assert "texpass" not in raw[5], raw[5]
     assert TS.texpass_swatch("lux_slate") == {}, "pass off: no alias control"
     ok(f"P7 swatch controls: deck mean held ({d:.4f} sRGB), chroma {chroma(raw[0]):.4f} -> {chroma(tuned[0]):.4f}, "
@@ -450,6 +559,7 @@ def check_low_frequency():
         saved = dict(spec)
         try:
             spec.pop("flatten_m")
+            spec.pop("row_shuffle", None)
             raw, _ = swatch_lf("deck", on)
         finally:
             spec.clear()
@@ -549,28 +659,42 @@ def check_mean_slope():
             C, r = t["rect_px"][2], t["repeat"]
             n = C // r
             return TS.mean_slope_deg(TS._swatch_maps(k, C, repeat=r, layout_name="rollout")[1][:n, :n])
+
+        def passes(k, su, sv):
+            kick = TS.TEXPASS_ROOF_KICK_MAX_DEG.get(k)
+            if kick is None:
+                return max(abs(su), abs(sv)) < lim
+            return abs(su) < lim and -kick <= sv < lim     # a roof kick leans toward +v (negative slope) only
+        assert set(TS.TEXPASS_ROOF_KICK_MAX_DEG) <= set(TS.TEXPASS["v1"]), TS.TEXPASS_ROOF_KICK_MAX_DEG
+        assert all(0 < v <= 12.0 for v in TS.TEXPASS_ROOF_KICK_MAX_DEG.values()), "a roof kick stays under 12 deg"
         for k in sorted(TS.TEXPASS["v1"]):
             su, sv = slope(k)
             if "set" not in TS.TEXPASS["v1"][k]:
                 # detail-only key: it keeps the flag-off scan, so any tilt is the shipped look, not the pass's (recorded)
                 rows.append(f"{k} ({su:+.1f}, {sv:+.1f}) flag-off scan, not gated")
                 continue
-            assert max(abs(su), abs(sv)) < lim, (f"{k}: mean slope ({su:+.2f}, {sv:+.2f}) deg >= {lim}: the normal map "
-                                                 f"carries a baked tilt (de-tilt it: normal_lean to the de-tilted lean)")
-            rows.append(f"{k} ({su:+.1f}, {sv:+.1f})")
+            assert passes(k, su, sv), (f"{k}: mean slope ({su:+.2f}, {sv:+.2f}) deg outside the gate (|u|, |v| < {lim}; "
+                                       f"a roof kick: v in [-{TS.TEXPASS_ROOF_KICK_MAX_DEG.get(k)}, {lim})): the "
+                                       f"normal map carries a baked tilt (de-tilt it: normal_lean to the de-tilted lean)")
+            rows.append(f"{k} ({su:+.1f}, {sv:+.1f})" + (" roof kick" if k in TS.TEXPASS_ROOF_KICK_MAX_DEG else ""))
         spec = TS.TEXPASS["v1"]["slate"]
         saved = dict(spec)
         try:
             spec.pop("normal_lean")
             raw = slope("slate")
+            # a mirrored kick (the lean toward -v, down the slope) must fail too
+            spec["normal_lean"] = (float(saved["normal_lean"][0]), -abs(float(saved["normal_lean"][1])) - 4.0)
+            mirror = slope("slate")
         finally:
             spec.clear()
             spec.update(saved)
-        assert max(abs(x) for x in raw) >= lim, f"mutation: slate without normal_lean ({raw}) must fail the gate"
+        assert not passes("slate", *raw), f"mutation: slate without normal_lean ({raw}) must fail the gate"
+        assert not passes("slate", *mirror), f"mutation: slate leaning down the slope ({mirror}) must fail the gate"
     finally:
         TS.unregister_texpass()
-    ok(f"P13 no baked tilt (|mean slope| < {lim} deg): " + ", ".join(rows) +
-       f"; slate without normal_lean ({raw[0]:+.1f}, {raw[1]:+.1f}) fails it")
+    ok(f"P13 no baked tilt (|mean slope| < {lim} deg, roof kick {TS.TEXPASS_ROOF_KICK_MAX_DEG}): " + ", ".join(rows) +
+       f"; slate without normal_lean ({raw[0]:+.1f}, {raw[1]:+.1f}) and leaning down the slope ({mirror[0]:+.1f}, "
+       f"{mirror[1]:+.1f}) fail it")
 
 
 def check_level_gate():
@@ -590,6 +714,104 @@ def check_level_gate():
             continue
         raise AssertionError(f"a pass build at weather level {lvl} under a level-0 recipe must raise")
     ok(f"P8 weather level: {', '.join(opted)} stated; a pass build below it raises, at or above it is quiet")
+
+
+def check_ridge_key():
+    named = {key: rc.texpass["ridge_key"] for key, rc in sorted(lodge.R.load_recipes().items())
+             if (getattr(rc, "texpass", None) or {}).get("ridge_key")}
+    assert named == {"L1": "metal_roof_lt"}, f"ridge_key is L1's alone (no other building's ridge changes): {named}"
+    rc = lodge.R.load_recipes()["L1"]
+    clear()
+    parts = K.box_part("roof_tA", (0.0, 0.0, 3.0), (4.0, 8.0, 3.2), "metal_roof_lt")
+    parts += K.box_part("ridge_t", (1.8, 0.0, 3.2), (2.2, 8.0, 3.3), "galv")
+    parts += K.box_part("gutter_t", (-0.2, 0.0, 2.9), (0.0, 8.0, 3.0), "galv")
+    same, none = lodge.texpass_ridge(parts, rc, {})
+    assert same is parts and none is None, "the pass off (tp {}) must leave the parts as they are"
+    out, moved = lodge.texpass_ridge(parts, rc, {"ridge_key": "metal_roof_lt"})
+    assert moved == {"ridge_t": ["galv", "metal_roof_lt"]}, moved
+    assert [k for _o, k in out] == ["metal_roof_lt", "metal_roof_lt", "galv"], [(o.name, k) for o, k in out]
+    dark = [(o, "metal_roof_dk" if o.name.startswith("roof_") else k) for o, k in parts]
+    bare = [(o, k) for o, k in parts if not o.name.startswith("ridge_")]
+    for tp, pp in (({"ridge_key": "galv"}, parts), ({"ridge_key": "metal_roof_dk"}, parts),
+                   ({"ridge_key": "metal_roof_lt"}, dark), ({"ridge_key": "metal_roof_lt"}, bare)):
+        try:
+            lodge.texpass_ridge(pp, rc, tp)
+        except ValueError:
+            continue
+        raise AssertionError(f"texpass_ridge must raise on {tp} with {[(o.name, k) for o, k in pp]}")
+    clear()
+    for trim in (False, True):
+        off = (TS.flat_detail_prefixes(trim), TS.STRIP_PREFIXES_OWN if trim else ())
+        assert lodge.texpass_ridge_prefixes(trim, {}) == off, f"trim {trim}: the off pair moved"
+        assert lodge.texpass_ridge_prefixes(trim, {"eave_h": 0.0}) == off, f"trim {trim}: a pass without ridge_key"
+        fl, st = lodge.texpass_ridge_prefixes(trim, {"ridge_key": "metal_roof_lt"})
+        assert st == () and "ridge_" in fl, f"trim {trim}: a ridge_key draws ridge_ flat ({fl}, {st})"
+    TS.register_texpass("v1")
+    try:
+        lay = layout()
+        for k in lodge.TEXPASS_RIDGE_KEYS:      # a ridge follows a coated (painted, metal < 0.5) roof key only
+            assert k in lay["tiles"] and (k + TS.F_SUFFIX) in lay["palette"], f"{k}: no tile / flat cell in v1"
+            assert float(TS.texpass_flat(k).get("metal", 1.0)) < 0.5, f"{k}: not a coated key under v1"
+    finally:
+        TS.unregister_texpass()
+    ok(f"P14 ridge key: {named} alone; the galv ridge moves, the gutter stays; a non-roof key, a dark key, a roof on "
+       f"another key and no ridge raise; the off pair is trim v1's; {list(lodge.TEXPASS_RIDGE_KEYS)} coated in v1")
+
+
+def check_mat_rule():
+    # flag off never reads a rule: lodge reads recipe.texpass in ONE place (texpass_rules), and that is {} when off
+    with open(lodge.__file__, encoding="utf-8") as fh:
+        src = fh.read()
+    reads = len(re.findall(r'getattr\(recipe, "texpass"', src))
+    assert reads == 1, f"lodge.py reads recipe.texpass in {reads} places; texpass_rules must be the only one"
+    # the manifest writer copies only listed result keys: texpass_mat must be one, or a build's moves never reach it
+    keys = re.search(r'for k_ in \(([^)]*)\):', src[src.index("def _write_manifest"):]).group(1)
+    assert '"texpass_mat"' in keys, "_write_manifest drops result['texpass_mat']"
+    off = lodge.parse_args(["--recipe", "L3"])
+    on = lodge.parse_args(["--recipe", "L3", "--texpass", "v1"])
+    opted = []
+    for key, rc in sorted(lodge.R.load_recipes().items()):
+        assert lodge.texpass_rules(rc, off) == {}, f"{key}: texpass_rules read a rule with the flag off"
+        if (getattr(rc, "texpass", None) or {}).get("mat"):
+            opted.append(key)
+    # the rule on probe parts: the longest prefix wins, other parts keep their key and object
+    clear()
+    rc = lodge.select_recipe(off)
+    parts = (K.box_part("balc_ASbal", (0, 0, 0), (1, 0.1, 1), "timber_heavy")
+             + K.box_part("balc_AS", (0, 0, -0.2), (1, 1, 0), "deck")
+             + K.box_part("col_probe", (2, 0, 0), (2.2, 0.2, 2), "timber_heavy"))
+    out, moved = lodge.texpass_mat(parts, rc, {"mat": {"balc_ASbal": "timber_lap", "balc_": "deck"}})
+    assert moved == {"balc_ASbal": ["timber_heavy", "timber_lap"]}, moved
+    assert [k for _o, k in out] == ["timber_lap", "deck", "timber_heavy"], out
+    assert all(a[0] is b[0] for a, b in zip(parts, out))
+    assert lodge.texpass_mat(parts, rc, {}) == (parts, {})
+    for rules, why in (({"balc_ASbal": "no_such_key"}, "an unknown key"), ({"balcony_": "timber_lap"}, "a dead prefix")):
+        try:
+            lodge.texpass_mat(parts, rc, {"mat": rules})
+        except ValueError:
+            continue
+        raise AssertionError(f"texpass mat with {why} must raise")
+    # real parts, no live user needed: L3's built parts under a synthetic copy of its recipe whose rule names the two
+    # balustrades (the registry is untouched); on = exactly those two move timber_heavy -> timber_lap, off = no rule,
+    # no move; a prefix one character off the real part name raises (a renamed part never drops a rule silently)
+    clear()
+    real = list(rc.builder(rc, {}))
+    syn_mat = {"balc_AWbal": "timber_lap", "balc_ASbal": "timber_lap"}
+    syn = dataclasses.replace(rc, texpass=dict(rc.texpass or {}, mat=syn_mat))
+    _o, moved = lodge.texpass_mat(real, syn, lodge.texpass_rules(syn, on))
+    want = {"balc_AWbal": ["timber_heavy", "timber_lap"], "balc_ASbal": ["timber_heavy", "timber_lap"]}
+    assert moved == want, moved
+    assert lodge.texpass_mat(real, syn, lodge.texpass_rules(syn, off))[1] == {}
+    try:
+        lodge.texpass_mat(real, syn, {"mat": dict(syn_mat, balc_AWbalX="timber_lap")})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("texpass mat with a dead prefix on real parts must raise")
+    clear()
+    ok(f"P15 mat rule: lodge reads recipe.texpass once (texpass_rules, {{}} with the flag off for every recipe); "
+       f"opted {', '.join(opted) or 'none'}; a synthetic L3 rule moves {sorted(moved)} to timber_lap on its real parts "
+       f"(manifest key texpass_mat); an unknown key or a dead prefix raises (probe and real parts)")
 
 
 def far_layout(tp):
@@ -660,20 +882,83 @@ def check_far_units():
        f"pack equal flag-off bit for bit; the sampling layer carries the pass's units")
 
 
+def check_strip_gate():
+    """r4/tex 2026-11-20: audit_strips on the P4d wall (timber_lap z 0..3 over a stone_rubble plinth, sills on the -X
+    face at y 1.0..2.2 and 5.0..6.2, bottom z 1.5: strips z 0.8..1.495)."""
+    mode, allow = TS.STRIP_AUDIT_MODE, TS.STRIP_ALLOW
+    try:
+        obj, uvt, keys = scene(sills=True)
+        lay = layout()
+        TS.tile_mesh(obj, uvt, keys, lay, weather=dataclasses.replace(bare(), sill_drips=True),
+                     flat_prefixes=TS.FLAT_DETAIL_PREFIXES)
+        plan = [dict(r) for r in TS.LAST_STRIPS["plan"]]
+        assert sorted(r["part"] for r in plan if r["rule"] == "sill_drip") == ["sill_a", "sill_b"], plan
+        TS.STRIP_ALLOW = ()
+        TS.STRIP_AUDIT_MODE = "raise"
+        a = TS.audit_strips(obj, keys, lay, "T", texpass="v1")
+        assert a["strips"] == 2 and len(a["judged"]) == 2 and not a["hits"], a
+        moved = {"sill_a": np.array((0.0, 0.0, -1.1)), "sill_b": np.array((0.0, 2.5, 0.0))}
+        bad = [dict(r, quad=r["quad"] + moved[r["part"]]) if r["part"] in moved else r for r in plan]
+
+        def audit(tp="v1"):
+            return TS.audit_strips(obj, keys, lay, "T", texpass=tp, plan=bad)
+
+        def raises(tp="v1", what=RuntimeError):
+            try:
+                audit(tp)
+            except what as e:
+                return str(e)
+            raise AssertionError(f"audit_strips did not raise {what.__name__} (texpass {tp})")
+        TS.STRIP_AUDIT_MODE = "report"
+        a = audit()
+        h = {r["part"]: r for r in a["hits"]}
+        assert sorted(h) == ["sill_a", "sill_b"], a
+        assert 0.28 <= h["sill_a"]["over_m"] <= 0.36 and h["sill_a"]["air_m"] == 0.0, h["sill_a"]
+        assert any(k.startswith("stone_rubble") for k in h["sill_a"]["behind"]), h["sill_a"]
+        assert 0.6 <= h["sill_b"]["air_m"] <= 0.7, h["sill_b"]
+        TS.STRIP_AUDIT_MODE = "raise"
+        msg = raises()
+        assert "2 sill-drip strip(s) off their host wall" in msg and "sill_a" in msg and "sill_b" in msg, msg
+        TS.STRIP_ALLOW = (("T", "sill_a", "test: an accepted overrun"),)                    # no flag: any pass
+        assert "sill_a" not in raises() and "1 sill-drip strip(s)" in raises()
+        TS.STRIP_ALLOW = (("T", "sill_", "test: shipped geometry the pass fixes", "off"),)
+        a = audit("off")
+        assert not a["hits"] and [r["part"] for r in a["allowed"]] == ["sill_a", "sill_b"], a
+        assert a["allowed"][0]["reason"] == "test: shipped geometry the pass fixes", a
+        assert "2 sill-drip strip(s)" in raises("v1")                # the same strips in a v1 build still raise
+        TS.STRIP_ALLOW = (("T", "sill_a", "test: a bad flag", "v9"),)
+        assert "STRIP_ALLOW" in raises(what=ValueError)
+    finally:
+        TS.STRIP_AUDIT_MODE, TS.STRIP_ALLOW = mode, allow
+        clear()
+    with open(lodge.__file__, encoding="utf-8") as fh:
+        src = fh.read()
+    call = 'TS.audit_strips(lod0, sorted(keys), layout, recipe.key, texpass=getattr(args, "texpass", "off"))'
+    assert call in src, "lodge.py does not run the strip gate with its pass"
+    ok(f"P16 strip gate: P4d's two strips pass in RAISE mode; planted, sill_a's runs {h['sill_a']['over_m']} m onto "
+       f"the stone plinth and sill_b's hangs {h['sill_b']['air_m']} m in the air past the wall's end: both reported, "
+       f"both RAISE; a STRIP_ALLOW line makes one \"allowed\" (flag \"off\": only with the pass off, v1 raises; a "
+       f"bad flag fails); lodge.py runs the gate after the ladder")
+
+
 def main():
     check_provenance()
     check_cut_grid_and_round_trip()
     check_grade_bands()
     check_band_skip()
+    check_drip_skip()
     check_texpass_weather()
     check_scale()
     check_swatch_controls()
     check_normal_lean()
     check_mean_slope()
     check_level_gate()
+    check_ridge_key()
+    check_mat_rule()
     check_far_units()
     check_low_frequency()
     check_far_sources()
+    check_strip_gate()
     print(f"PASS test_texpass: {len(CHECKS)} checks")
 
 

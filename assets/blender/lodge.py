@@ -1848,6 +1848,8 @@ def run(recipe, args):
     K.PATROL_GEAR["p1"] = getattr(args, "p1_gear", "rolls")
     if getattr(args, "step_base", "off") == "v1":      # r4/tex: recipes that know the option read it (the school)
         opts["step_base"] = "v1"
+    if getattr(args, "texpass", "off") != "off":       # r4/tex: recipe geometry that rides the pass (L4's ug3 window);
+        opts["texpass"] = args.texpass                 # absent with the flag off, so a flag-off build never reads it
     with K.ridge_kit(2 if getattr(args, "ridge", "off") == "v2" else 0), \
             K.flag_kit(2 if getattr(args, "flags", "v1") == "v2" else 1):
         parts = build_parts(recipe, opts)
@@ -1895,6 +1897,15 @@ def run(recipe, args):
             me = o.data
             bpy.data.objects.remove(o, do_unlink=True)
             bpy.data.meshes.remove(me)
+    # --texpass: recipe.texpass["mat"] moves named parts to another key BEFORE the trim / slot remaps, so they treat a
+    # moved part like any other part of its new key (texpass_rules is {} with the flag off: never read there)
+    mat_moved = None
+    tp_mat = texpass_rules(recipe, args)
+    if tp_mat.get("mat"):
+        parts, mat_moved = texpass_mat(parts, recipe, tp_mat)
+    # recipe.texpass["drip_skip"]: the sills named must exist (the strips themselves are skipped in tile_mesh, through
+    # texpass_weather's TileWeather.drip_skip)
+    drip_skipped = texpass_drip_skip(parts, recipe, tp_mat) if tp_mat.get("drip_skip") else None
     trim_moved = None
     if tc:                                  # T70 trim v1: the one remap by prefix (cs2_tilesheet.trim_remap)
         import cs2_tilesheet as TS
@@ -1911,6 +1922,8 @@ def run(recipe, args):
         import cs2_tilesheet as TS
         parts, slot_moved = TS.slots_v2_remap(parts, recipe.key, SLOTS_V2_ACCENT.get(recipe.key, "accent_orange"),
                                               no_frame=door2["flat"] if door2 else ())
+    # texpass ridge_key (--texpass only: {} when off): the galv ridge flashings take the coated roof's key
+    parts, _ridge_moved = texpass_ridge(parts, recipe, texpass_rules(recipe, args))
     plates = None
     if glass == "gls":                      # T85: a backing plate behind every light group
         import cs2_tilesheet as TS
@@ -2001,6 +2014,10 @@ def run(recipe, args):
                               "mesh": signset["spec"].mesh}
     if we_boards:
         result["we_boards"] = we_boards
+    if mat_moved is not None:                           # --texpass builds with a "mat" rule only
+        result["texpass_mat"] = {"moved": dict(sorted(mat_moved.items()))}
+    if drip_skipped is not None:                        # --texpass builds with a "drip_skip" rule only
+        result["texpass_drip_skip"] = {"sills": drip_skipped}
     if slot_moved is not None:
         result["slots_v2"] = {"moved": dict(sorted(slot_moved.items())),
                               "by_key": {f"{o}->{n}": sum(1 for v in slot_moved.values() if v == [o, n])
@@ -2394,14 +2411,73 @@ def finalize_family_sheet(args):
     return {"sheet": sname, "hash": lay["hash"], "owner_dir": odir, "files": files}
 
 
+def texpass_rules(recipe, args):
+    """recipe.texpass under --texpass, else {}: the one place a build reads a recipe's pass rules, so a flag-off build
+    never sees one (test_texpass P15)."""
+    return (getattr(recipe, "texpass", None) or {}) if getattr(args, "texpass", "off") != "off" else {}
+
+
+def texpass_mat(parts, recipe, tp):
+    """recipe.texpass["mat"] {part-name prefix: material key} (lodge.py --texpass only): every part whose name starts
+    with a prefix draws that key (the longest prefix wins). This is for a pass scan that suits one use of a key and not
+    another (e.g. a 1 m x 12 m board balustrade on timber_heavy, whose pass scan is a solid member, Wood060). It is
+    the one remap by prefix under the pass, beside cs2_tilesheet.trim_remap; test_texpass P15 proves it on a synthetic
+    copy of L3's recipe, so it needs no live user. Raises on a key that is not a building
+    material and on a prefix that matches no part (a renamed part must not drop the rule silently). Returns (parts,
+    {part name: [old key, new key]})."""
+    rules = dict(tp.get("mat") or {})
+    if not rules:
+        return parts, {}
+    bad = sorted(k for k in rules.values() if k not in K.BLDG_MATERIALS)
+    if bad:
+        raise ValueError(f"{recipe.key}: texpass mat names unknown material keys {bad}")
+    order = sorted(rules, key=len, reverse=True)
+    hits = dict.fromkeys(rules, 0)
+    out, moved = [], {}
+    for o, k in parts:
+        p = next((p for p in order if o.name.startswith(p)), None)
+        if p is None:
+            out.append((o, k))
+            continue
+        hits[p] += 1
+        if rules[p] != k:
+            moved[o.name] = [k, rules[p]]
+        out.append((o, rules[p]))
+    dead = sorted(p for p, n in hits.items() if n == 0)
+    if dead:
+        raise ValueError(f"{recipe.key}: texpass mat prefixes match no part: {dead}")
+    return out, moved
+
+
+def texpass_drip_skip(parts, recipe, tp):
+    """recipe.texpass["drip_skip"] (lodge.py --texpass only): sill part-name prefixes whose window hangs no sill-drip
+    strip (texpass_weather sets TileWeather.drip_skip; cs2_tilesheet._plan_strips skips those sills). A strip that ends
+    mid-wall under an upper window reads as a hard gray rectangle, not as run-off. Returns the sorted sill part names
+    the prefixes match. Raises on a prefix that does not start with "sill_" (a strip hangs from a sill part, nothing
+    else) and on one that matches no part (a renamed window must not drop the rule silently)."""
+    pre = tuple(tp.get("drip_skip") or ())
+    if not pre:
+        return []
+    bad = sorted(p for p in pre if not p.startswith("sill_"))
+    if bad:
+        raise ValueError(f"{recipe.key}: texpass drip_skip prefixes must start with sill_: {bad}")
+    names = [o.name for o, _k in parts]
+    dead = sorted(p for p in pre if not any(n.startswith(p) for n in names))
+    if dead:
+        raise ValueError(f"{recipe.key}: texpass drip_skip prefixes match no part: {dead}")
+    return sorted(n for n in names if n.startswith(pre))
+
+
 def texpass_weather(W, recipe, tp):
     """recipe.texpass rules on one weathering-ladder step (lodge.py --texpass): "grade" {"slope", "anchor_x"} = the
     plinth's design grade in the AUTHORING frame (z = -s (a - x), falling toward -X), turned into the tiled frame
     (orient_for_net maps (x, y) -> (y, -x): z = -s a - s y) and capped 5 cm under the lowest band top so no cut
     reaches the plinth's z-0 contract band; "eave_h" = one under-eave band height for every side (0 = none);
-    "band_skip" = part-name prefixes that take no base band (TileWeather.band_skip); "base_h" {"front", "side",
-    "back"} = the recipe's own base band heights in meters (a low building: the rollout's 0.5 / 0.8 / 1.1 m bands are
-    21 / 34 / 47 % of a 2.35 m wall), never above the ladder step's (a step that dropped a band keeps it dropped)."""
+    "band_skip" = part-name prefixes that take no base band (TileWeather.band_skip); "drip_skip" = sill part-name
+    prefixes whose window hangs no sill-drip strip (TileWeather.drip_skip; texpass_drip_skip checks them); "base_h"
+    {"front", "side", "back"} = the recipe's own base band heights in meters (a low building: the rollout's 0.5 / 0.8 /
+    1.1 m bands are 21 / 34 / 47 % of a 2.35 m wall), never above the ladder step's (a step that dropped a band keeps it
+    dropped)."""
     from dataclasses import replace as _rp
     if W is None:
         return None
@@ -2418,7 +2494,50 @@ def texpass_weather(W, recipe, tp):
         kw["eave_h"] = {k: float(tp["eave_h"]) for k in W.eave_h}
     if tp.get("band_skip"):
         kw["band_skip"] = tuple(tp["band_skip"])
+    if tp.get("drip_skip"):
+        kw["drip_skip"] = tuple(tp["drip_skip"])
     return _rp(W, **kw) if kw else W
+
+
+# recipe.texpass["ridge_key"]: a painted standing-seam roof takes its ridge cap from the same coil. On the coated light
+# roof (TEXPASS_FLAT metal_roof_lt: metal 0, smooth 0.40) the galv cap (metal 1.0) read as a dark line along the ridge
+# at 20-70 m. Only the coated roof keys may be named, and only by a recipe that opts in, so no other ridge changes
+TEXPASS_RIDGE_KEYS = ("metal_roof_lt",)
+
+
+def texpass_ridge(parts, recipe, tp):
+    """(parts, {part: [old, new]} | None): recipe.texpass["ridge_key"] (tp is {} with the pass off) moves the galv ridge
+    flashings (ridge_*) onto that roof key; texpass_ridge_prefixes then draws them flat (the key's "~f" cell: the
+    panel's mean color and mask, no cuts, no tris). Raises unless the key is in TEXPASS_RIDGE_KEYS, every roof slab
+    (roof_*) is on it (a ridge never takes a color its roof does not have) and a galv ridge_ part moved."""
+    rk = tp.get("ridge_key")
+    if not rk:
+        return parts, None
+    if rk not in TEXPASS_RIDGE_KEYS:
+        raise ValueError(f"{recipe.key}: texpass ridge_key {rk!r} is not a coated roof key {TEXPASS_RIDGE_KEYS}")
+    roofs = sorted({k for o, k in parts if o.name.startswith("roof_")})
+    if roofs != [rk]:
+        raise ValueError(f"{recipe.key}: texpass ridge_key {rk}: the roof slabs are on {roofs}")
+    out, moved = [], {}
+    for o, k in parts:
+        if o.name.startswith("ridge_") and k == "galv":
+            moved[o.name] = [k, rk]
+            out.append((o, rk))
+        else:
+            out.append((o, k))
+    if not moved:
+        raise ValueError(f"{recipe.key}: texpass ridge_key {rk}: no galv ridge_ part to move")
+    return out, moved
+
+
+def texpass_ridge_prefixes(trim, tp):
+    """(flat detail prefixes, strip prefixes) for tile_mesh. A ridge_key recipe draws ridge_* flat on its roof key's
+    "~f" cell (strip-mapped on the roof swatch it would show the panel ribs across the cap); otherwise trim v1's
+    split (ridge_ strip-mapped on its own galv swatch). With tp {} (pass off) this is the flag-off pair."""
+    import cs2_tilesheet as TS
+    if tp.get("ridge_key"):
+        return TS.flat_detail_prefixes(False), ()
+    return TS.flat_detail_prefixes(trim), (TS.STRIP_PREFIXES_OWN if trim else ())
 
 
 def assert_texpass_level(name, tp, level, tris, cap):
@@ -2528,19 +2647,21 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
         ladder = [TS.weather_level(int(wl))]
     else:
         ladder = [TS.weather_level(i) for i in range(6)]
-    tp = (getattr(recipe, "texpass", None) or {}) if getattr(args, "texpass", "off") != "off" else {}
+    tp = texpass_rules(recipe, args)
     if tp:
         ladder = [texpass_weather(W, recipe, tp) for W in ladder]
     cap = recipe.budget.lod0_cap
     pristine = lod0.data.copy()
     tm = None
     tried = []
+    # texpass ridge_key: ridge_* flat on the roof key's "~f" cell, not strip-mapped (flag off: trim v1's pair)
+    ridge_flat, ridge_strip = texpass_ridge_prefixes(trim, tp)
     tm_kw = dict(label_prefixes=tuple(p for p, _pa, _kw in recipe.labels),
                  ground_prefixes=tuple(recipe.ground_prefixes) if recipe.base_mode == "engine" else (),
                  label_ppm=TS.LABEL_PPM * SA / 4096.0,
                  # recipe.texpass["label_w"] (--texpass only; tp is {} when off): per-label density weights
                  label_weights=dict(tp.get("label_w") or {}) or None,
-                 flat_prefixes=TS.flat_detail_prefixes(trim) + tuple(getattr(recipe, "tiled_flat", ()) or ())
+                 flat_prefixes=ridge_flat + tuple(getattr(recipe, "tiled_flat", ()) or ())
                  # kit v2: the window parts draw their material's mean color (no tile cuts)
                  + ((K.KIT2_PARTS + WINDOW_FLAT_EXTRA.get(recipe.key, ()))
                     if getattr(args, "window_kit", "v1") == "v2" else ())
@@ -2550,7 +2671,7 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
                  + (FITTINGS_FLAT if "fittings" in result else ()),
                  grid_offset=0.5 if recipe.base_mode == "plinth" else 0.0,
                  # T70 trim v1: ridge caps strip-mapped on their own swatch (the strip keys need nothing)
-                 strip_prefixes=TS.STRIP_PREFIXES_OWN if trim else ())
+                 strip_prefixes=ridge_strip)
     for W in ladder:
         if tm is not None:                          # retry from the untouched copy
             old = lod0.data
@@ -2575,6 +2696,10 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
               f"(cap {cap})")
         if tm["tris_after"] <= cap:
             break
+    # r4/tex 2026-11-20: the strip gate (cs2_tilesheet.audit_strips): every sill-drip strip of the accepted weather
+    # level lies on its host wall over its full height, on the punched mesh; RAISES. Read-only: nothing it does reaches
+    # the mesh or the manifest
+    TS.audit_strips(lod0, sorted(keys), layout, recipe.key, texpass=getattr(args, "texpass", "off"))
     assert_texpass_level(name, tp, tried[-1]["level"], tm["tris_after"], cap)
     if tcfg and tcfg["seg_m"]:
         # T70 segment cuts (opt-in, A/B / --trim v2 only) pay tris. Measure them against the UNCUT strip map run through the
@@ -2838,7 +2963,8 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
     }
     if result.get("window_kit"):           # kit v2 builds only (older manifests keep their keys)
         data["window_kit"] = result["window_kit"]
-    for k_ in ("glass", "slots_v2", "budget_override", "ridge", "flags", "p1_gear", "step_base"):   # T85 / T89 / ridge v2 / T174 / T175 / step-base builds only
+    for k_ in ("glass", "slots_v2", "budget_override", "ridge", "flags", "p1_gear", "step_base",
+               "texpass_mat", "texpass_drip_skip"):   # T85 / T89 / ridge v2 / T174 / T175 / step-base / texpass rules
         if result.get(k_) is not None:
             data[k_] = result[k_]
     if result.get("door_kit"):             # door kit v2 builds only

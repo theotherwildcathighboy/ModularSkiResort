@@ -2151,16 +2151,22 @@ def balcony_posts(name, wall, u0, u1, floors, depth=1.4, h=1.05):
     return K.wall_boxes(f"balcpost_{name}", wall, boxes, "lux_glulam", drop=("bottom",))
 
 
-def balcony_stack(name, side, plane, s, floors, win_off=2.6):
+def balcony_stack(name, side, plane, s, floors, win_off=2.6, belt_door=False):
     """Peak 7 balcony column on a flat wall: per floor a 2-light balcony door 1.6 x 2.3 +
     a 3.4 x 1.4 balcony on the bay center `s` and a 2-light window either side at
-    s +- win_off."""
+    s +- win_off. `belt_door` (--texpass): the door on the belt floor Z_F[1] stands on the belt course."""
     from cs2_bldg import WallRef, WinSpec
     wall = WallRef(side, plane)
     P = []
     st = _struct()
     for fl, zf in floors:
-        P += window_at(f"{name}d{fl}", side, plane, s, WinSpec(1.6, 2.3, zf + 0.12, lights=2))
+        if belt_door and zf == Z_F[1]:
+            # the belt course (build_l5, Z_F[1] - 0.05 .. + 0.20, 0.10 m proud) crossed this door's glass from zf + 0.12
+            # (cs2_fittings.audit_glass, GLASS_PROUD): under the pass its glass starts on the belt's top, head kept
+            dspec = WinSpec(1.6, 2.22, zf + 0.20, lights=2)
+        else:
+            dspec = WinSpec(1.6, 2.3, zf + 0.12, lights=2)
+        P += window_at(f"{name}d{fl}", side, plane, s, dspec)
         u0, u1 = _u(side, s - 1.7, s + 1.7)
         P += balcony_lite(f"{name}{fl}", wall, u0, u1, zf + 0.10, struts=not st)
         for j, d in enumerate((-win_off, win_off)):
@@ -3166,6 +3172,7 @@ def build_l5(recipe, opts):
     from cs2_bldg import RoofSpec, WallRef, WinSpec
     register_materials()
     fine = bool(getattr(recipe, "fine_detail", False))
+    bd = opts.get("texpass", "off") != "off"     # r4/tex: the belt-floor balcony doors stand on the belt (balcony_stack)
     rows = SUB_OBJECT_ROWS + (FINE_ROWS if fine else ()) + (FIRE_ROWS if _struct() else ())
     GABLE_WINS.clear()
     STN, GLU = "lux_stone_tan", "lux_glulam"
@@ -3275,8 +3282,8 @@ def build_l5(recipe, opts):
         if k == 2:                      # revision 4: the terrace door bay (POOL_DOORS, below)
             continue
         P += curtain_at(f"mgc{k}", "-X", M_X0, s0, s1)
-    P += balcony_stack("mcb0", "-X", M_X0, -8.0, UPPER)
-    P += balcony_stack("mcb1", "-X", M_X0, 8.0, UPPER)
+    P += balcony_stack("mcb0", "-X", M_X0, -8.0, UPPER, belt_door=bd)
+    P += balcony_stack("mcb1", "-X", M_X0, 8.0, UPPER, belt_door=bd)
     for j, d in enumerate((-2.0, 2.0)):
         P += window_column(f"mc{j}", "-X", M_X0, d, UPPER, gf=False)
     for k, yc in enumerate(XG_COURT):
@@ -3289,7 +3296,7 @@ def build_l5(recipe, opts):
     for k, (side, plane) in enumerate((("-Y", M_Y0), ("+Y", M_Y1))):
         for j, x in enumerate((-5.5, 3.5)):
             P += window_column(f"me{k}{j}", side, plane, x, (), gf=True)
-        P += balcony_stack(f"meb{k}", side, plane, M_RIDGE_X, UPPER, win_off=3.4)
+        P += balcony_stack(f"meb{k}", side, plane, M_RIDGE_X, UPPER, win_off=3.4, belt_door=bd)
         P += gable_pair(f"meg{k}", side, plane, M_RIDGE_X)
 
     # ---------------- wings: courtyard faces, outer faces, slope gable ends ---------------
@@ -3317,7 +3324,7 @@ def build_l5(recipe, opts):
         yc = 0.5 * (y0 + y1)
         for j, d in enumerate((-3.6, 3.6)):
             P += window_column(f"we{tag}{j}", "-X", W_X0, yc + d, (), gf=True)
-        P += balcony_stack(f"web{tag}", "-X", W_X0, yc, UPPER, win_off=3.6)
+        P += balcony_stack(f"web{tag}", "-X", W_X0, yc, UPPER, win_off=3.6, belt_door=bd)
         P += gable_pair(f"weg{tag}", "-X", W_X0, yc)
 
     # ---------------- revision 4 (b): French terrace doors onto the pool terrace -----------------
