@@ -97,7 +97,7 @@ namespace SkiResortMod.Systems
         // default can be 3.3. The range stays 0..6.
         public const float DefaultSnowmakingMarginC = 3.3f;  // = SkiResortSettings.DefaultSnowmakingBonusCelsius
         public const float MinSnowmakingMarginC = 0f;       // = the slider's range (SkiResortSettings)
-        public const float MaxSnowmakingMarginC = 6f;
+        public const float MaxSnowmakingMarginC = 6f;       // T269: bounds the seed, d* < 0.1275 m per C of margin (0.77 m here)
         // Top-up cadence and skip limits
         public const int TopupIntervalFrames = 64;     // the injection's Tuning.TopupIntervalFrames points here
         // The raise steps on sim time like a cat track (StepTrackPack): a pass credits every sim frame since the last pass. The wall-clock
@@ -1086,7 +1086,10 @@ namespace SkiResortMod.Systems
                 ? PackBuildPerHourM(airC, p.FreezingC + p.MarginC, rateFactor) * dt : 0f;
             if (build > 0f && depth < p.StopDepthM)
             {
-                built = Math.Min(build, p.StopDepthM - depth);
+                // T269: under the seed threshold the step lifts the pack to it first, then adds its build, so a bare or thin cell above
+                // freezing keeps what the guns made (0 at or below freezing and where the build never beats the melt floor: no change).
+                float from = Math.Max(depth, PackSeedThresholdM(p, airC, rateFactor));
+                built = Math.Min(from + build, p.StopDepthM) - depth;
                 depth += built;
             }
             return new PackResult
@@ -1098,18 +1101,40 @@ namespace SkiResortMod.Systems
             };
         }
 
+        /// <summary>T269: the depth above which the guns' build beats the game's melt at <paramref name="airC"/> (the threshold d*). The
+        /// melt's depth term coef x above / d equals the build B at d* = coef x above / B. Under it, a gun step's snow melts before the next
+        /// window (measured in game: 7 mm and 2 cm at +0.7 C gone within one 64-frame window), so a bare pack above freezing never grows.
+        /// 0 at or below freezing, for NaN, and where B is not above the melt floor (no depth grows there: past +3.1 C at the mean rate and
+        /// the default margin). At the mean rate and margin 3.3: 2.7 cm at +0.7 C, 12.5 cm at +2 C, 27.9 cm at +2.8 C, and the most just under
+        /// the floor line (about 39 cm at +3.09 C). Bound: B > floor and above <= margin, so d* < coef x margin / floor = 0.1275 m per C of
+        /// margin (0.77 m at MaxSnowmakingMarginC 6, under every gun target; the test host sweeps it).</summary>
+        public static float PackSeedThresholdM(in PackParams p, float airC, float rateFactor)
+        {
+            float above = airC - p.FreezingC;
+            if (!(above > 0f))
+                return 0f;
+            float b = PackBuildPerHourM(airC, p.FreezingC + p.MarginC, rateFactor);
+            if (!(b > p.MeltFloorPerHourM))
+                return 0f;
+            return Math.Max(0f, p.MeltDepthCoef) * above / b;
+        }
+
         /// <summary>The gun state a cell starts a load with: NextPackGun from Unknown on its saved depth, so a load never needs the gun
         /// history (T223). A pack under the restart line resumes at once, one in the band waits, as a run does today.</summary>
         public static PackGun PackGunAfterLoad(in PackParams p, float savedDepthM) => NextPackGun(p, PackGun.Unknown, savedDepthM);
 
         /// <summary>The run path of the pack step for one texel (Burst-callable: the merge job). <paramref name="depthM"/>: the texel's
-        /// depth, <paramref name="targetM"/>: its own target (2.0 m for a gun texel, 0.96 m groomed), <paramref name="chill"/>: 0..1 below the
-        /// gate (the ramp mask), <paramref name="rateFactor"/>: the texel's noise rate, <paramref name="stepScale"/>: windows since the last
-        /// pass. The run's gun state was already applied (a Stopped run marks no texel), so the step runs as Running with no melt: the game
-        /// melts the texel. Returns the new depth (m).</summary>
-        public static float PackRaiseTexelM(float depthM, float targetM, float chill, float rateFactor, float stepScale)
+        /// depth, <paramref name="targetM"/>: its own target (2.0 m for a gun texel, 0.96 m groomed), <paramref name="chill"/>: 0 at the
+        /// gate, 1 at 4 C under it, more when colder (the ramp mask; the build clamps it at 1), <paramref name="rateFactor"/>: the
+        /// texel's noise rate, <paramref name="stepScale"/>: windows since the last pass. The run's gun state was already applied (a Stopped run marks no texel), so the step runs as Running with no melt: the game
+        /// melts the texel. <paramref name="marginC"/>: the owner run's gun margin (T269). The chill is then (margin - air above freezing)
+        /// / RampChillSpanC, not clamped, and the step seeds a texel under PackSeedThresholdM. 0 (a groomed run, the default) never seeds.
+        /// Returns the new depth (m).</summary>
+        public static float PackRaiseTexelM(float depthM, float targetM, float chill, float rateFactor, float stepScale, float marginC = 0f)
         {
-            var p = new PackParams { StopDepthM = targetM, RestartBandM = GunRestartBandM, MeltFloorPerHourM = MeltFloorPerHourM, MeltDepthCoef = MeltDepthCoef, FreezingC = 0f, MarginC = 0f };
+            // Freezing at -margin and the margin on top: the gate stays at 0 (the chill's origin), and air - freezing is the air above freezing.
+            float margin = marginC > 0f ? marginC : 0f;
+            var p = new PackParams { StopDepthM = targetM, RestartBandM = GunRestartBandM, MeltFloorPerHourM = MeltFloorPerHourM, MeltDepthCoef = MeltDepthCoef, FreezingC = -margin, MarginC = margin };
             return PackStep(p, depthM, -chill * RampChillSpanC, true, PackGun.Running, stepScale / WindowsPerGameHour, rateFactor, applyMelt: false).DepthM;
         }
 
