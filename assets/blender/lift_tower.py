@@ -1640,12 +1640,13 @@ TOWER_MATERIALS = {
 # twins that draw a member's maps (lift_head.HEAD_ATLAS, TWIN_ATLAS) need its UV islands unchanged, and get the pass's
 # pixels with no rebuild of their own.
 #   DQ galv: Metal032 is a flat blue-gray plate (mean sRGB 0.49 / 0.54 / 0.58, no spangle). Metal038 is a hot-dip sheet with
-#   spangle and handling scratches (mean 0.38 neutral), tinted to a light neutral zinc 0.57. metal 0.6: a weathered zinc
-#   skin, not the mirror the wheels already left (cs2_sheaves.WHEEL_MATERIAL)
+#   spangle and handling scratches (mean 0.38 neutral), tinted to a light neutral zinc 0.70 (critic pass 1: 0.57 still read
+#   mid blue-gray at 7 m; the reference hardware is near white in sun). Metal 1.0 at rough 0.65 = the DQ station's galv
+#   (lift_terminal_detach MATERIALS): one matte zinc for the family, and no half-metal (0.6 is not a physical value)
 TEXPASS = "off"                # this run's pass (main_v2 sets it from --texpass)
 TEXPASS_TOWER = {
     "v1": {"DQ": {"galv": dict(texture_set="Metal038", metres_per_tile=2.0, projection="box",
-                               tint=(2.40, 2.30, 2.25), metal=0.6)}},
+                               tint=(3.79, 3.63, 3.55), metal=1.0, rough=0.65)}},
 }
 
 

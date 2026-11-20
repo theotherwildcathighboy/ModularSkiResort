@@ -1008,11 +1008,17 @@ TEXPASS_DQ = {
             "siding": _MS(texture_set="PHWeatheredPlankSiding", metres_per_tile=1.2, tint=(0.963, 0.940, 0.872),
                           metal=0.0, rough=0.65, projection="planar"),
             # the soffit: sealed cedar boards (the timber ceiling of the Leitner-Poma terminals). Planks021 at the lodges'
-            # 1.54 m deck tile, tinted from its pine mean (sRGB 0.770 / 0.671 / 0.466) to cedar 0.66 / 0.47 / 0.29. It was a
-            # flat (0.60, 0.32, 0.12) with 14 cm procedural joints
-            "cedar": _MS(texture_set="Planks021", metres_per_tile=1.54, tint=(0.709, 0.458, 0.370), metal=0.0,
+            # 1.54 m deck tile, tinted from its pine mean (sRGB 0.770 / 0.671 / 0.466) to a honey cedar 0.74 / 0.55 / 0.35
+            # (critic pass 1: 0.66 / 0.47 / 0.29 read dark in the soffit's shade; the reference soffits glow). It was a
+            # flat (0.60, 0.32, 0.12) = sRGB 0.80 / 0.60 / 0.38 with 14 cm procedural joints
+            "cedar": _MS(texture_set="Planks021", metres_per_tile=1.54, tint=(0.911, 0.643, 0.542), metal=0.0,
                          rough=0.60),
         },
+        # albedo flattening of the board scans (critic pass 1): both scans carry their plank gaps and knots as dark dashes
+        # in the Color map, and at 7 m the hut read as brick. Each texel's deviation from the local mean (a box of
+        # radius_m, about two boards) is cut to `dark` below the mean and `light` above it; each part keeps its mean. The
+        # gaps stay in the scans' Normal maps (detail under 5 cm lives in the normal map)
+        "flatten": dict(prefixes=("cab_walls", "engroom_walls", "soffit_"), radius_m=0.25, dark=0.45, light=0.85),
         # part-name prefix -> material key (the part keeps its name, its geometry and its place in the part table)
         "remap": (("cab_walls", "siding"), ("engroom_walls", "siding")),
         "roles": {"siding": "timber"},          # cs2_weather role of each new key
@@ -7981,6 +7987,8 @@ def make_hook(t, table, p):
         relief_signbands(nrm, hook.stamps, p)
         if labels:
             hook.labels = stamp_labels(base, ctl, mesh, table, p)
+        if texpass_table(p):
+            hook.flatten = flatten_boards(base, mesh, table, p)
         if LIVERY == "belt" and texpass_table(p):
             hook.livery = stamp_livery(base, ctl, mesh, table, p)
         elif LIVERY == "timber" and texpass_table(p):
@@ -7990,11 +7998,77 @@ def make_hook(t, table, p):
 
     hook.inner = inner
     hook.livery = None
+    hook.flatten = None
     hook.stamps = None
     hook.labels = None
     hook.detail_stats = None
     hook.ctl_scaled = None
     return hook
+
+
+def _box_sum(a, r):
+    """Sum of a 2-D array over a (2r + 1)^2 window centered on each texel (zero outside), by an integral image."""
+    k = 2 * r + 1
+    c = np.pad(np.asarray(a, np.float64), ((r + 1, r), (r + 1, r))).cumsum(0).cumsum(1)
+    return c[k:, k:] - c[:-k, k:] - c[k:, :-k] + c[:-k, :-k]
+
+
+def flatten_boards(base, mesh, table, p):
+    """Texture pass: the board scans' albedo flattened (the pass table's "flatten"; critic pass 1). In the texels of the
+    listed parts (and of the band sides that the timber livery puts on the siding), each texel's luminance deviation from
+    the local mean (a box of radius_m over the same parts' texels only) is scaled by `dark` below the mean and `light`
+    above it, hue kept; then each part's mean luminance is restored. The texels round each island (3 px of its gutter)
+    follow, so mip levels do not pull the old gaps back in. Linear BaseColor, in place. Returns the measured contrast."""
+    F = (texpass_table(p) or {}).get("flatten")
+    if not F:
+        return None
+    A = base.shape[0]
+    pre = tuple(F["prefixes"]) + tuple(k for k, m in LIVERY_REMAP.get(LIVERY, ()) if m == "siding")
+    parts = cs2_compose.part_indices(mesh)
+    want = [n.startswith(pre) for n in table]
+    pid = np.zeros((A, A), np.int32)
+    ppms = []
+    for poly, sl, mask, X, Y, q, P, ppm in cs2_compose.iter_face_rasters(mesh, A, cs2_uv.UNIQUE_LAYER, 1.0):
+        pi = int(parts[poly.index])
+        if pi < 1 or pi > len(table) or not want[pi - 1]:
+            continue
+        pid[sl] = np.where(mask, pi, pid[sl])
+        ppms.append(ppm)
+    if not ppms:
+        raise ContractError(f"flatten boards: no texel of {pre}")
+    face = pid > 0
+    # the gutter: the nearest part id within 3 px (a gutter is 6 px, so 3 px stay on this island's side)
+    for _i in range(3):
+        grow = np.zeros_like(pid)
+        grow[1:, :] = np.maximum(grow[1:, :], pid[:-1, :])        # no wrap at the atlas edges
+        grow[:-1, :] = np.maximum(grow[:-1, :], pid[1:, :])
+        grow[:, 1:] = np.maximum(grow[:, 1:], pid[:, :-1])
+        grow[:, :-1] = np.maximum(grow[:, :-1], pid[:, 1:])
+        pid = np.where(pid > 0, pid, grow)
+    sel = pid > 0
+    lum = base[..., 0:3] @ np.array((0.2126, 0.7152, 0.0722), np.float32)
+    r = max(1, int(round(F["radius_m"] * float(np.median(ppms)))))
+    m_face = face.astype(np.float64)
+    den = _box_sum(m_face, r)
+    mean = np.where(den > 0.5, _box_sum(lum * m_face, r) / np.maximum(den, 1e-9), lum)
+    d = lum - mean
+    new = mean + np.where(d < 0.0, F["dark"], F["light"]) * d
+    ids = pid[face]
+    s0 = np.bincount(ids, weights=lum[face], minlength=len(table) + 1)
+    s1 = np.bincount(ids, weights=new[face], minlength=len(table) + 1)
+    keep = np.where(s1 > 1e-9, s0 / np.maximum(s1, 1e-9), 1.0)
+    new = new * keep[pid]
+    ratio = np.where(lum > 1e-5, new / np.maximum(lum, 1e-5), 1.0).astype(np.float32)
+    base[..., 0:3] = np.where(sel[..., None], base[..., 0:3] * ratio[..., None], base[..., 0:3])
+
+    def spread(v):
+        rel = v[face] / np.maximum(mean[face], 1e-6)
+        return [round(float(x), 3) for x in np.percentile(rel, (5, 50, 95))]
+    info = {"texels": int(face.sum()), "gutter_texels": int(sel.sum() - face.sum()), "radius_px": r,
+            "dark": F["dark"], "light": F["light"], "rel_p5_p50_p95_before": spread(lum),
+            "rel_p5_p50_p95_after": spread(new)}
+    print(f"[detach] flatten boards: {info}")
+    return info
 
 
 def stamp_livery(base, ctl, mesh, table, p):
@@ -9776,7 +9850,8 @@ def main(argv=None):
         # r4/tex: the pass this build ran (no key when off: the flag-off manifest keeps its keys)
         **({"texpass": {"version": TEXPASS, "livery": LIVERY,
                         "livery_stamp": (dq_hook.livery if dq_hook is not None else None),
-                        "remap": [list(r) for r in texpass_table(p).get("remap", ())],
+                        "flatten": (dq_hook.flatten if dq_hook is not None else None),
+                        "remap":[list(r) for r in texpass_table(p).get("remap", ())],
                         "density": texpass_table(p).get("density", {}),
                         "weather_steps": list(texpass_table(p).get("weather_steps", ())),
                         "weather_overrides": [[k, v] for k, v in texpass_table(p).get("weather", ())]}}
