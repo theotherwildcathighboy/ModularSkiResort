@@ -72,6 +72,9 @@
     <!-- lift alignment (G1 / G2): the rope-point drop and the train pitch math -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftAlignMath.cs" Link="LiftAlignMath.cs" />
     <Compile Include="AlignTests.cs" />
+    <!-- T256: turning bullwheels (BullwheelMath) and station nose trains (LiftAlignMath.StationNosePose) -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\BullwheelMath.cs" Link="BullwheelMath.cs" />
+    <Compile Include="WheelTests.cs" />
     <!-- the carrier grip round: the two-object carrier pose (grip + body), the swing and the pairing math (CP-1..CP-14) -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\CarrierPose.cs" Link="CarrierPose.cs" />
     <Compile Include="CarrierPoseTests.cs" />

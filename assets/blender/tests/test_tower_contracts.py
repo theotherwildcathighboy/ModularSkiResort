@@ -1346,8 +1346,9 @@ def review_case():
             with open(os.path.join(d, mf), encoding="utf-8") as fh:
                 m = json.load(fh)
             m.pop("written_utc", None)
+            m.pop("args", None)         # T256: the manifest records the parsed flags (they carry --review / --out)
             cores.append(m)
-        check(cores[0] == cores[1], "main_v2 FG8 --review: manifests equal without written_utc")
+        check(cores[0] == cores[1], "main_v2 FG8 --review: manifests equal without written_utc, args")
         check(os.path.isfile(os.path.join(pack, f"{name}.blend"))
               and not any(f.endswith(".blend") for f in os.listdir(b)),
               "main_v2 FG8 --review: pack written outside the asset folder")
