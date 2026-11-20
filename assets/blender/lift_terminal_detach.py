@@ -1042,20 +1042,27 @@ _GD_SCAN_MEAN = {}
 
 def _gd_scan_tint(set_name, target_srgb):
     """Linear tint that brings the mean of the set's Color map to `target_srgb` (encoded). The mean is taken in linear
-    over every 4th texel and cached per set."""
+    over every 4th texel and cached per set. A 16-bit PNG (the Poly Haven scans) loads as a float buffer whose pixels
+    Blender already converted to linear; an 8-bit one holds the encoded values. Linearizing a float buffer twice
+    made the mean far too dark and the tint 5-25x too bright (the blown-out plinth and soffits of 2026-11-20 04:01)."""
     if set_name not in _GD_SCAN_MEAN:
         path = cs2_bake.find_set_map(cs2_bake._set_dir(set_name), "Color")
         if path is None:
             raise FileNotFoundError(f"texture pass: set {set_name} has no Color map under assets/textures")
-        img = bpy.data.images.load(path)
+        img = bpy.data.images.load(path, check_existing=False)
         try:
+            img.colorspace_settings.name = "sRGB"
             w, h = img.size
             buf = np.empty(w * h * 4, dtype=np.float32)
             img.pixels.foreach_get(buf)
+            is_float = bool(img.is_float)
         finally:
             bpy.data.images.remove(img)
         px = buf.reshape(h, w, 4)[::4, ::4, :3].astype(np.float64)
-        _GD_SCAN_MEAN[set_name] = cs2_preview._srgb_to_linear(px).reshape(-1, 3).mean(axis=0)
+        lin = px if is_float else cs2_preview._srgb_to_linear(px)
+        _GD_SCAN_MEAN[set_name] = lin.reshape(-1, 3).mean(axis=0)
+        print(f"[texpass] {set_name}: mean linear {np.round(_GD_SCAN_MEAN[set_name], 4).tolist()} "
+              f"({'float' if is_float else 'byte'} buffer)")
     tgt = np.array(_lin(target_srgb), dtype=np.float64)
     return tuple(float(x) for x in tgt / np.maximum(_GD_SCAN_MEAN[set_name], 1e-6))
 
