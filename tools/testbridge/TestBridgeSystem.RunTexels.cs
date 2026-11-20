@@ -127,7 +127,7 @@ namespace SkiTestBridge
                                 t.Open++;
                             if (k == "full")
                             {
-                                t.Chill += ramp[idx];
+                                t.Chill += Math.Min(1f, ramp[idx]);   // the build chill: the plane holds more than 1 when colder (T269)
                                 fullDepths.Add(d);
                                 float hx = 0.5f * texel.x, hz = 0.5f * texel.y;
                                 float gx = (TerrainHeight(c.x + hx, c.y) - TerrainHeight(c.x - hx, c.y)) / texel.x;

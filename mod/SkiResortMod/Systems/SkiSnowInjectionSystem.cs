@@ -516,7 +516,8 @@ namespace SkiResortMod.Systems
                         Owner[idx] = Slot;   // the ledger credits the run whose target the texel is raised toward
                     }
 
-                    float chill = math.saturate((ThermalThresholdC - localT) / Tuning.RampChillSpanC);
+                    // T269: not clamped above 1, so the merge can rebuild the air above freezing from it (the build clamps the chill itself)
+                    float chill = math.max(0f, (ThermalThresholdC - localT) / Tuning.RampChillSpanC);
                     if (chill > RampMask[idx])
                         RampMask[idx] = chill;
                     return value;
@@ -638,6 +639,7 @@ namespace SkiResortMod.Systems
             public float StepScale;          // RunSnowRules.StepScale of the frames since the last evaluated pass
             [ReadOnly] public NativeArray<ushort> Owner;
             [ReadOnly] public NativeArray<float> SlotRateScale;   // per Owner slot: RunSnowRules.RunRateScale (index 0 and unknown slots: 1)
+            [ReadOnly] public NativeArray<float> SlotMarginC;     // T269: per Owner slot: the gun margin (a gun run), else 0 (no seed)
 
             public void Execute(int row)
             {
@@ -667,8 +669,9 @@ namespace SkiResortMod.Systems
                         // a narrow run on one or two slow 8 x 8 noise cells built up to 2x slower than a cat track beside it).
                         int owner = Owner[i];
                         float runScale = owner < SlotRateScale.Length ? SlotRateScale[owner] : 1f;
+                        float marginC = owner < SlotMarginC.Length ? SlotMarginC[owner] : 0f;
                         depth = RunSnowRules.PackRaiseTexelM(depth * SnowHeightScaleM, target * SnowHeightScaleM, RampMask[i],
-                            (Tuning.RampRateMin + Tuning.RampRateSpan * RampNoise01(tx, row)) * runScale, StepScale) / SnowHeightScaleM;
+                            (Tuning.RampRateMin + Tuning.RampRateSpan * RampNoise01(tx, row)) * runScale, StepScale, marginC) / SnowHeightScaleM;
                         p.Injected++;
                     }
                     Upload[i] = new float2(depth, raw.y * inv);
@@ -745,11 +748,13 @@ namespace SkiResortMod.Systems
         //   issued only after BuildMask's chains completed.
         private NativeArray<float> m_Mask;         // target depth (normalized /8 m) per texel
         private NativeArray<float> m_WarmMask;     // 1 on a run texel too warm for its gate (the game melts it)
-        private NativeArray<float> m_RampMask;     // chill factor 0..1 per texel (gun output)
+        private NativeArray<float> m_RampMask;     // chill factor per texel (gun output; 0..1 for the build, above 1 when colder: T269)
         // Owner = the run slot (1..N, schedule order) that claimed the texel for the ledger.
         private NativeArray<ushort> m_Owner;
         // Per Owner slot, this pass: the factor that brings the run's mean ramp noise rate to the mean rate (RunSnowRules.RunRateScale).
         private NativeArray<float> m_SlotRateScale;
+        // Per Owner slot, this pass: the gun margin of a gun run, 0 otherwise (T269: the merge seeds only a gun run's texels).
+        private NativeArray<float> m_SlotMarginC;
         private NativeArray<float> m_Scratch;      // per-run additive coverage accumulator
         private NativeArray<Ushort2> m_Readback;
         private NativeArray<Ushort2> m_MeasureReadback;   // the measure-only snapshot (4 MB)
@@ -1349,6 +1354,8 @@ namespace SkiResortMod.Systems
                 m_Owner.Dispose();
             if (m_SlotRateScale.IsCreated)
                 m_SlotRateScale.Dispose();
+            if (m_SlotMarginC.IsCreated)
+                m_SlotMarginC.Dispose();
             if (m_RampMask.IsCreated)
                 m_RampMask.Dispose();
             if (m_Scratch.IsCreated)
@@ -1560,7 +1567,7 @@ namespace SkiResortMod.Systems
                              $"{Tuning.GroomedTargetDepthM:F2} m where <= " +
                              $"freezing+{Tuning.GroomedMarginC:F1} C; ramp " +
                              $"+{Tuning.RampPerTopupM:F3} m/top-up x{Tuning.RampRateMin:F2}-" +
-                             $"{Tuning.RampRateMin + Tuning.RampRateSpan:F2} noisy (no pop-in); " +
+                             $"{Tuning.RampRateMin + Tuning.RampRateSpan:F2} noisy (no pop-in; a bare gun texel above freezing first seeds to the depth that outgrows the melt, T269); " +
                              $"too-warm texels melt at the game's rate (no hold, no managed melt, T222); top-up every " +
                              $"{Tuning.TopupIntervalFrames} sim frames + once on first sim tick, at most one per " +
                              $"{RunSnowRules.MinPassIntervalS:F2} s wall clock (ramp and decay scaled by elapsed " +
@@ -1858,6 +1865,8 @@ namespace SkiResortMod.Systems
                 for (int s = 0; s < m_SlotRateScale.Length; s++)
                     m_SlotRateScale[s] = 1f;
             }
+            if (!m_SlotMarginC.IsCreated)
+                m_SlotMarginC = new NativeArray<float>(64, Allocator.Persistent);   // no BuildMask yet: 0, no seed
             var mergePartials = new NativeArray<MergeRowPartial>(TexSize, Allocator.TempJob);
             try
             {
@@ -1872,6 +1881,7 @@ namespace SkiResortMod.Systems
                     StepScale = stepScale,
                     Owner = m_Owner,
                     SlotRateScale = m_SlotRateScale,
+                    SlotMarginC = m_SlotMarginC,
                 }.ScheduleParallel(TexSize, RowBatch, default).Complete();
 
                 for (int r = 0; r < TexSize; r++)
@@ -2706,7 +2716,7 @@ namespace SkiResortMod.Systems
                   .Append(l.MadeSeasonM3.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)).Append(" m3 made this season, ")
                   .Append(l.MadeTotalM3.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)).Append(" total");
             }
-            Mod.Log.Info($"Snow [made] {m_DayText}: {sb} (1 cm over one texel = {TexelAreaM2:F0} m3; since this load, not saved)");
+            Mod.Log.Info($"Snow [made] {m_DayText}: {sb} (1 cm over one texel = {TexelAreaM2:F0} m3; the T269 seeds included; since this load, not saved)");
         }
 
         /// <summary>The body of the open line: `run {Index}:{Version} ({kind}) {old} -> {new}: skiable ... % of ... texel(s), mean ...
@@ -3399,6 +3409,14 @@ namespace SkiResortMod.Systems
             }
             for (int s = 0; s < m_SlotRateScale.Length; s++)
                 m_SlotRateScale[s] = 1f;
+            if (!m_SlotMarginC.IsCreated || m_SlotMarginC.Length != m_SlotRateScale.Length)
+            {
+                if (m_SlotMarginC.IsCreated)
+                    m_SlotMarginC.Dispose();
+                m_SlotMarginC = new NativeArray<float>(m_SlotRateScale.Length, Allocator.Persistent);
+            }
+            for (int s = 0; s < m_SlotMarginC.Length; s++)
+                m_SlotMarginC[s] = 0f;
             for (int p = 0; p < pending.Count; p++)
             {
                 PendingRun run = pending[p];
@@ -3434,7 +3452,11 @@ namespace SkiResortMod.Systems
                     gunPackW += part.GunPackW;
                 }
                 if (run.Slot > 0 && run.Slot < m_SlotRateScale.Length)
+                {
                     m_SlotRateScale[run.Slot] = RunSnowRules.RunRateScale(noiseSum, noiseN);
+                    // T269: a gun run's texels seed at its margin; a groomed run (margin 0, never cold above freezing) never seeds
+                    m_SlotMarginC[run.Slot] = run.GunRun ? margin : 0f;
+                }
                 // A run with no measured texel but the noise-dropped ones (a spineless narrow run) keeps them: without, it would fall to the
                 // day-mean estimate and could open bare.
                 if (RunSnowRules.CountDroppedTexels(footprintW))
