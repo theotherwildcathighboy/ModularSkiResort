@@ -1907,21 +1907,28 @@ M_NOSE = dict(rim_gap=0.02,          # m along x: the outer rim's line-side edge
 # - the rope is a hexagon (one vertex on the horizontal) of RIG_ROPE_R: the line's cable (SkiRopeStillLVA = vanilla LV cable,
 #   r 0.060, rope-width-check 2026-11-19). The half torus has RIG_TORUS_MAJORS segments (ring centers on the code arc, chord
 #   sagitta reported). LOD1 keeps the rope faces un-decimated (RigLodFixed).
-# - the 8-spoke bullwheel (box spokes, hub cap, one painted mark on the rim top: the turn reads at play distance).
+# - the 8-spoke bullwheel (box spokes, hub cap, one safety_yellow spoke: the turn reads at play distance).
 # - an entry (hold-down) sheave at each of the wheel's two tangent points, its rim on the rope where the chord meets the
-#   level wheel plane (plan option W3), on a static arm (base: from the tension carriage, top: from a fixed post on the axle).
+#   level wheel plane (plan option W3), on a static arm (base: from the tension carriage, top: from an outboard post on the
+#   crest), the cheek braced to the arm by a gusset.
 # - base only: the nose train (fg_train_side_halves as the skinned towers' FG halves, mirrored to a hold-down: sheaves over
 #   the rope, the main pin ON the rope line at the lane end, the tree RIG_NOSE["inboard"] inboard of the wheels) on the slim
 #   tube boom of art-601, now out to the pin. The inner half is static, the outer half rides NoseTrain.
 # - round 2 (critic pass 1, S4): the nose train's bogie pins hang in straps (cs2_sheaves.fg_train_side_halves pin_links,
 #   FG_PIN_LINK) instead of floating between beam and bar; the shipped towers keep the floating pin (kit-wide fix = new letters).
+# - round 2 (critic pass 1, S2 / C6): the top's entry arms come in from two outboard posts on the crest (RIG_TOP_POST,
+#   outside the chairs' swept body), not from a post on the hub with a T-bar over the turning wheel; a gusset hangs each
+#   cheek from its arm on both stations. S3: spoke_00 is safety_yellow (round 1: a galv plate on the rim top, too faint).
+#   C1: a 6-gon knuckle collar on each lane end of the station rope (RIG_KNUCKLE). C2: a knee brace under each nose boom
+#   (RIG_NOSE_BRACE). S1 (support wheels under the outer half): not built, lead decision 2026-11-20 (the chair's in-plane
+#   stem would pass through a support roller's axle; art-fg-build-2.md "S1 finding").
 # False = every shipped station byte for byte (no expression below runs).
 M_RIG = False
 RIG_ROPE_R = 0.060            # m, the line cable's circumscribed radius (tune after an in-game side-by-side photo)
 RIG_ROPE_SIDES = 6            # hexagon, one vertex on the horizontal (the cable's 0.120 m lateral / 0.104 m vertical)
 RIG_TORUS_MAJORS = 24         # half torus segments (7.5 deg each): chord sagitta R (1 - cos 3.75 deg) = 3.9 mm at R 1.80
 RIG_BONES = {"drive": ("Root", "Bullwheel", "NoseTrain"), "return": ("Root", "Bullwheel")}
-RIG_BULL_PARTS = ("sheave_bull", "spoke_", "wheelhub")      # Bullwheel (wheelhub_cap, spoke_mark included)
+RIG_BULL_PARTS = ("sheave_bull", "spoke_", "wheelhub")      # Bullwheel (wheelhub_cap included; spoke_00 the yellow mark)
 RIG_NOSE = dict(inboard=0.20,     # the tree plane this far inboard of the wheels (lift_tower.FG_CROWN_INBOARD: S9-proven)
                 shift=0.12,       # bogies out along the train (towers 0.07): the sub rockers clear at a 40 deg fold
                 lap=-0.06,        # each half beam stops this short of the main pin (a folded bogie pin misses the beam)
@@ -1930,23 +1937,36 @@ RIG_NOSE = dict(inboard=0.20,     # the tree plane this far inboard of the wheel
                 clear=0.005,      # m, NoseTrain vs every static part at every pose (G6 rule)
                 chair_tmax=20.0)  # deg, the chair (M3 rules on the posed line) must clear within +-this; wider = reported
 RIG_NOSE_CHAIR_THETAS = (-40.0, -30.0, -20.0, -10.0, 0.0, 10.0, 20.0, 30.0, 40.0)
-RIG_ENTRY = dict(r=0.20, w=0.10, arm=(0.10, 0.10), cheek_t=0.02, stub_r=0.035, clear=0.005)
+RIG_ENTRY = dict(r=0.20, w=0.10, arm=(0.10, 0.10), cheek_t=0.03, stub_r=0.035, clear=0.005,
+                 gusset=(0.14, 0.02))     # round 2 (C6): cheek 0.02 -> 0.03 and an arm / cheek gusset (leg, thickness)
 RIG_LOD0_CAP = {"drive": 9450, "return": 3600}   # M15 under --rig: the base at the 5 % rule's ceiling over the 9,000
                                                  # design cap (lead, critic round 2). Round 1 finished 9,124 (rope 0.060 +
                                                  # wheel + entry sheaves + nose train); round 2 S4 pin straps +80 (est.)
 RIG_HOSTED_X = -5.025         # top: the skinned hosted end tower's pivot on the lane end (shipped row: -4.9)
 RIG_HOSTED_DIR = None         # top: folder holding the skinned hosted tower's FBXs (M5 / previews), CLI --rig-hosted
 RIG_WHEEL = dict(spokes=8, spoke=(0.10, 0.16), spoke_r=(0.30, 1.52), cap_r=0.24, cap_h=0.06,
-                 mark=(1.53, 1.71, 0.16))   # mark: radial in / out, tangential length (galv on the black rim top)
+                 mark_spoke=0)      # round 2 (S3): this spoke is safety_yellow (the turn's mark; round 1: a galv rim plate)
+RIG_KNUCKLE = dict(r=0.066, length=0.08)   # round 2 (C1): the rope collar on each lane end (hides the V of a kinked line).
+# First try r 0.068 x 0.12: its line-side half sat 9 mm from the chair stem at NoseTrain +20 deg (RIG-nose, M3 machine >= 0.01)
+RIG_NOSE_BRACE = dict(r=0.045, segs=6, a_top=1.55, foot_z=0.15, foot_in=0.03)   # round 2 (C2): the knee brace under
+# each nose boom: from the boom's axis at chord-frame a = a_top (0.37 m past the inner bogie's rims) down to the front portal
+# beam's line-side face, foot_z over its bottom (clear of the rail clamp saddle_f_<side>, top 0.05 over the beam bottom) and
+# foot_in inside it. 6-gon, open ends (both buried): 12 tris a lane
+RIG_TOP_POST = dict(x=0.10, y=3.05, r=0.065, segs=8, plate=(0.24, 0.03), gusset=0.22)   # round 2 (S2): top entry posts
+RIG_LOD2_DELETE = ("holdbrace_",)     # round 2: the C2 brace goes with the boom (holdboom_, M_LOD2_DELETE) at LOD2
 RIG_GRIP_OK = ("sheave_entry",)       # the chair grip passes under the entry sheaves (as under the nose train)
 RIG_LOD1_DELETE = ("sheave_entry", "entryarm", "entrypost")   # with the nose train (sheave_hold): gone at LOD1
 RIG_ROPE_PARTS = ("wheelrope", "ropechord_")                 # kept out of the LOD1 decimation (RigLodFixed)
 RIG_CONTACTS = {   # declared contacts of the rig's own parts (contact_kinds_m adds them under M_RIG only)
-    "T256 entry sheaves: the axle stub through the wheel hub and its cheek plate, the cheek on its arm, the arm out of the "
-    "tension carriage's saddle (base) or the fixed axle post (top)":
+    "T256 entry sheaves: the axle stub through the wheel hub and its cheek plate, the cheek and its gusset on its arm, the "
+    "arm out of the tension carriage's saddle (base) or the outboard post (top)":
         "entryarm:entryarm entryarm:sheave carr:entryarm entryarm:entrypost",
-    "T256 top: the fixed axle post rises out of the turning hub and its cap (coaxial)": "entrypost:wheelhub",
+    "T256 round 2 (S2) top: each outboard entry post on its base plate on the crest, with its arm gusset; the crest "
+    "maze's ropes tie into the +y post (it stands in place of the maze's middle post)":
+        "crest:entrypost entrypost:entrypost entrypost:maze",
     "T256 bullwheel: the hub cap on the hub (the turning boss)": "wheelhub:wheelhub",
+    "T256 round 2 (C1): the knuckle collar on the lane end of the station rope": "ropechord:ropechord",
+    "T256 round 2 (C2): the nose boom's knee brace, into the boom and the front portal beam": "beam:holdbrace holdboom:holdbrace",
 }
 _RIG_SAVED = {}
 
@@ -2549,11 +2569,44 @@ def _hex_tube_m(name, p0, p1, r, sides=RIG_ROPE_SIDES):
     return _mbm_obj(name, bm)
 
 
+def _hex_collar_m(name, p_cap, p_open, r, sides=RIG_ROPE_SIDES):
+    """T256 round 2 (C1): a short tube of `sides` sides from p_cap to p_open, the section of _hex_tube_m (one vertex on the
+    horizontal lateral), closed by one flat cap at p_cap only (the open end sits inside the station rope). 2 * sides + (sides
+    - 2) tris."""
+    a, b = _V(p_cap), _V(p_open)
+    d = (b - a).normalized()
+    e1 = _V((0.0, 1.0, 0.0))
+    e1 = (e1 - d * e1.dot(d)).normalized()
+    e2 = d.cross(e1)
+    if e2.z < 0.0:
+        e2 = -e2
+    bm = bmesh.new()
+    rings = [[bm.verts.new(c + e1 * (r * math.cos(2.0 * math.pi * k / sides))
+                           + e2 * (r * math.sin(2.0 * math.pi * k / sides))) for k in range(sides)] for c in (a, b)]
+    for k in range(sides):
+        k1 = (k + 1) % sides
+        f = bm.faces.new((rings[0][k], rings[0][k1], rings[1][k1], rings[1][k]))
+        f.normal_update()
+        cen = f.calc_center_median()
+        axis = a + d * (cen - a).dot(d)
+        if f.normal.dot(cen - axis) < 0.0:
+            f.normal_flip()
+    R0 = rings[0]
+    for k in range(1, sides - 1):                  # the cap as explicit triangles (no n-gon)
+        cap = bm.faces.new((R0[0], R0[k], R0[k + 1]))
+        cap.normal_update()
+        if cap.normal.dot(-d) < 0.0:
+            cap.normal_flip()
+    return _mbm_obj(name, bm)
+
+
 def _wheel_rig_m(cx, cz):
     """T256: the bullwheel of the rigged stations. The O rim (the groove profile, outer 1.74, paint1) on RIG_WHEEL["spokes"]
     box spokes (0.10 wide x 0.16 deep, galv, from inside the hub to inside the rim), the O hub (galv) with a hub cap
-    (wheelhub_cap, the boss on its top face) and ONE painted mark on the rim's top face (spoke_mark, galv on the black rim:
-    the symmetry breaker that lets the turn read at play distance). Every part rides the Bullwheel bone (RIG_BULL_PARTS)."""
+    (wheelhub_cap, the boss on its top face). Round 2 (critic S3): ONE spoke (RIG_WHEEL["mark_spoke"]) in the pedestal's
+    hazard yellow (safety_yellow) is the symmetry breaker that lets the turn read at play distance; it replaces round 1's
+    galv plate on the rim top (spoke_mark, the same tone as the rim: too faint). Every part rides the Bullwheel bone
+    (RIG_BULL_PARTS)."""
     W = RIG_WHEEL
     parts = _kit_m(cs2_kit.sheave("bull", M_RIM_OUT, 0.40, (cx, 0.0, cz), "Z", segs=32, hub=False,
                                   groove=0.04, r_hub=1.50), "paint1")
@@ -2564,16 +2617,11 @@ def _wheel_rig_m(cx, cz):
         a = k * 2.0 * math.pi / W["spokes"]
         sp = cs2_kit.add_box(f"spoke_{k:02d}", (L, sw, sd), (cx + rm * math.cos(a), rm * math.sin(a), cz),
                              rot=(0.0, 0.0, a))
-        parts.append((sp, "galv"))
+        parts.append((sp, "safety_yellow" if k == W["mark_spoke"] else "galv"))
     parts.append((cs2_kit.add_cyl("wheelhub", 0.34, 0.62, (cx, 0.0, cz), segments=12), "galv"))
     ch = W["cap_h"]
     parts.append((cs2_kit.add_cyl("wheelhub_cap", W["cap_r"], ch + 0.01, (cx, 0.0, cz + 0.31 + ch / 2.0 - 0.005),
                                   segments=12, caps="top"), "galv"))
-    m0, m1, ml = W["mark"]
-    zt = cz + 0.20 + 0.003                       # the rim's top face (sheave w 0.40 about the axle) + 3 mm
-    h = ml / 2.0
-    parts.append((_mquad("spoke_mark", [(cx + m0, -h, zt), (cx + m1, -h, zt), (cx + m1, h, zt), (cx + m0, h, zt)],
-                         (0.0, 0.0, 1.0)), "galv"))
     return parts
 
 
@@ -2587,9 +2635,15 @@ def _rope_and_wheel_rig_m(spec):
     parts.append((_half_torus("wheelrope", wx, wz, M_TORUS_R, M_ROPE_R, majors=RIG_TORUS_MAJORS,
                               minors=RIG_ROPE_SIDES), "rope"))
     ax, az = spec.anchor_in
+    u = _V((wx - ax, 0.0, wz - az)).normalized()
+    h = RIG_KNUCKLE["length"] / 2.0
     for side, s in (("n", -1.0), ("p", 1.0)):
         parts.append((_hex_tube_m(f"ropechord_{side}", (ax, s * FG_LANE, az), (wx, s * FG_LANE, wz), M_ROPE_R),
                       "rope"))
+        # round 2 (C1): the knuckle, a rope collar centered on the lane end on the chord axis, capped on the line side
+        # (it hides the V and the open tube end where the line rope kinks at the lane end); RIG_ROPE_PARTS by its prefix
+        e = _V((ax, s * FG_LANE, az))
+        parts.append((_hex_collar_m(f"ropechord_knuckle_{side}", e - u * h, e + u * h, RIG_KNUCKLE["r"]), "rope"))
     return parts
 
 
@@ -2608,13 +2662,33 @@ def entry_center_m(spec):
     return (round(wx + d * bx / L, 6), round(wz + d * bz / L, 6))
 
 
+def _tri_plate_m(name, pts, x0, x1):
+    """T256 round 2: a triangular gusset plate, the triangle `pts` [(y, z) x 3] extruded from x0 to x1 (a closed prism, 8
+    tris)."""
+    bm = bmesh.new()
+    vs = [[bm.verts.new((x, y, z)) for y, z in pts] for x in (x0, x1)]
+    bm.faces.new(vs[0])
+    bm.faces.new(vs[1][::-1])
+    for k in range(3):
+        k1 = (k + 1) % 3
+        bm.faces.new((vs[0][k], vs[1][k], vs[1][k1], vs[0][k1]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return _mbm_obj(name, bm)
+
+
 def entry_sheaves_rig_m(kind):
     """T256: an entry sheave per lane at the wheel's tangent point (cs2_sheaves.wheel r RIG_ENTRY["r"], w, named
     sheave_entry_<side>_rim / sheave_entry_liner_<side>), its rim on the rope where the chord meets the level wheel plane.
     It is held from OUTBOARD (the bullwheel rim is 1 cm inboard of its inner face, so only the outboard hub boss is built):
     an axle stub (sheave_entry_axle_<side>) through a cheek plate (entryarm_<side>_cheek) hung from a horizontal arm
-    (entryarm_<side>). Base: the arm comes out of the tension carriage's saddle (carr_saddle_<side>). Top: from a fixed post
-    on the wheel axle (entrypost). Every part is static (Root)."""
+    (entryarm_<side>), the cheek braced to the arm by a gusset (entryarm_<side>_gusset, round 2 C6: a load-bearing hanger).
+    Base: the arm comes out of the tension carriage's saddle (carr_saddle_<side>) above the rope; the gusset sits in the
+    arm / cheek corner on the inboard side. Top (round 2, critic S2; round 1 hung both arms from a post on the hub with a
+    T-bar over the wheel): each arm runs in from an outboard post (entrypost_<side>, its base plate and its arm gusset) that
+    stands on the crest at RIG_TOP_POST (x, +-y): outside the chairs' swept body (r <= 2.76 about the wheel axis + 0.20) and
+    nowhere over the wheel or across a lane below the rope. The +y post takes the place of the crest maze's middle post
+    (_dress_top_m). The arm, 1 cm above the sheave crest by ~0.3 m, is a few degrees off square (the post stands on the maze
+    line, x 0.10; the sheave plane is x cx). Every part is static (Root)."""
     import cs2_sheaves as S
     spec = M_SPECS[kind]
     E = RIG_ENTRY
@@ -2626,17 +2700,15 @@ def entry_sheaves_rig_m(kind):
     y_ch0 = boss_out + E["clear"]                           # the cheek's inner face
     y_ch1 = y_ch0 + E["cheek_t"]
     aw, ad = E["arm"]
+    g, gt = E["gusset"]
     if kind == "drive":
         B = m_base()
         za0 = 4.36                                          # 1 cm above the saddle bottom (4.35)
         y_root = B["rail_y"] + 0.30 - 0.01                  # 1 cm inside the saddle's outboard face (|y| 1.40)
     else:
         za0 = 4.50
-        y_root = 0.10                                       # inside the post (r 0.12)
     za1 = za0 + ad
     out = []
-    if kind == "return":
-        out.append((_mcyl("entrypost", (wx, 0.0, wz + 0.25), (wx, 0.0, za1), 0.12, 12, "top"), "paint1"))
     for tag, s in (("n", -1.0), ("p", 1.0)):
         y = s * FG_LANE
         wp = S.wheel(f"sheave_entry_{tag}_rim", f"sheave_entry_liner_{tag}", E["r"], E["w"], (cx, y, cz))
@@ -2644,11 +2716,41 @@ def entry_sheaves_rig_m(kind):
         out += [(o, M_HOLD_MAT[k]) for o, k in wp]
         out.append((_mcyl(f"sheave_entry_axle_{tag}", (cx, s * (FG_LANE + hw - 0.01), cz),
                           (cx, s * (y_ch1 + 0.005), cz), E["stub_r"], 6, "both"), "galv"))
-        ya, yb = sorted((s * y_root, s * y_ch1))
-        out.append((_mbox(f"entryarm_{tag}", cx - aw / 2.0, cx + aw / 2.0, ya, yb, za0, za1), "paint1"))
+        if kind == "drive":
+            ya, yb = sorted((s * y_root, s * y_ch1))
+            out.append((_mbox(f"entryarm_{tag}", cx - aw / 2.0, cx + aw / 2.0, ya, yb, za0, za1), "paint1"))
+            # the gusset in the arm / cheek corner, inboard of the cheek (above the sheave), 5 mm into both
+            gy = (s * (y_ch0 + 0.005), s * (y_ch0 - g), s * (y_ch0 + 0.005))
+        else:
+            P = RIG_TOP_POST
+            px, py, pr = P["x"], s * P["y"], P["r"]
+            ztop = M_TOP["crest_z"]
+            out.append((_mcyl(f"entrypost_{tag}", (px, py, ztop - 0.01), (px, py, za1 + 0.02), pr, P["segs"], "top"),
+                        "paint1"))
+            pw, pt = P["plate"]
+            out.append((_mbox(f"entrypost_{tag}_plate", px - pw / 2.0, px + pw / 2.0, py - pw / 2.0, py + pw / 2.0,
+                              ztop - 0.005, ztop + pt, drop=("-Z",)), "paint1"))
+            # the arm: from the post's axis to 5 mm inside the cheek's inner face, in plan a few degrees off square
+            a = _V((px, py, 0.0))
+            b = _V((cx, s * (y_ch0 + 0.005), 0.0))
+            d = b - a
+            mid = (a + b) / 2.0
+            out.append((cs2_kit.add_box(f"entryarm_{tag}", (d.length, aw, ad), (mid.x, mid.y, (za0 + za1) / 2.0),
+                                        rot=(0.0, 0.0, math.atan2(d.y, d.x))), "paint1"))
+            # the post / arm gusset in the post's plane (x px): along the arm's underside and down the post's inboard face
+            g2 = P["gusset"]
+            yi = abs(py) - pr * 0.8
+            out.append((_tri_plate_m(f"entrypost_{tag}_gusset",
+                                     [(s * yi, za0 + 0.005), (s * (yi - g2), za0 + 0.005), (s * yi, za0 - g2)],
+                                     px - gt / 2.0, px + gt / 2.0), "paint1"))
+            # the arm / cheek gusset, outboard of the cheek (the arm comes from outboard)
+            gy = (s * (y_ch1 - 0.005), s * (y_ch1 + g), s * (y_ch1 - 0.005))
         ya, yb = sorted((s * y_ch0, s * y_ch1))
         out.append((_mbox(f"entryarm_{tag}_cheek", cx - aw / 2.0, cx + aw / 2.0, ya, yb,
                           cz - E["stub_r"] - 0.035, za1), "paint1"))
+        out.append((_tri_plate_m(f"entryarm_{tag}_gusset", [(gy[0], za0 + 0.005), (gy[1], za0 + 0.005),
+                                                             (gy[2], za0 - g)], cx - gt / 2.0, cx + gt / 2.0),
+                    "paint1"))
     return out
 
 
@@ -2709,6 +2811,11 @@ def build_nose_rig_m(spec):
         out.append((_mbox(f"holdhang_{tag}", sx0, sx1, yh - H["saddle_w"] / 2.0, yh + H["saddle_w"] / 2.0,
                           bf[3] - 0.01, top), "paint1"))
         out += _nose_stay_m(tag, yh, M, u, nv, T, a1, bf)
+        # round 2 (critic C2: the slim boom read as an insect leg at play distance): a knee brace in the boom's plane, from
+        # the boom's axis down to the front portal beam's line-side face (a triangle with the boom and the beam). Static
+        NB = RIG_NOSE_BRACE
+        out.append((_mcyl(f"holdbrace_{tag}", M @ _V((NB["a_top"], yh, T["arm_c"])),
+                          (bf[0] + NB["foot_in"], yh, bf[2] + NB["foot_z"]), NB["r"], NB["segs"], "none"), "paint1"))
     return out
 
 
@@ -2971,7 +3078,20 @@ def _dress_top_m():
     out += board("ops", ((hx0 + hx1) / 2.0, hy1 + 0.023, cz + T["slab"] + 2.03), "+Y", 1.20, 0.35,
                  mount="wall", fine=fine)
     out += board("slow", (3.60, -3.80, 1.80), "-X", 1.20, 0.35, mount="post", post_z0=0.0, fine=fine)
-    out += LD.maze("crest", [[(-0.95, 3.05), (1.15, 3.05)]], z0=cz, fine=fine)
+    run = [(-0.95, 3.05), (1.15, 3.05)]
+    maze = LD.maze("crest", [run], z0=cz, fine=fine)
+    if M_RIG:
+        # T256 round 2 (S2): the +y entry post stands on the maze line in place of the maze's middle post (the ropes tie into
+        # it). The run is 2.10 m with posts at most 1.40 apart: maze_post_crest_1 stands at its midpoint
+        P = RIG_TOP_POST
+        if abs((run[0][0] + run[1][0]) / 2.0 - P["x"]) > 1e-6 or abs(run[0][1] - P["y"]) > 1e-6:
+            raise RuntimeError("_dress_top_m: RIG_TOP_POST is off the crest maze's middle post")
+        gone = [o for o, _k in maze if o.name == "maze_post_crest_1"]
+        if len(gone) != 1:
+            raise RuntimeError("_dress_top_m: no maze_post_crest_1 to replace")
+        maze = [(o, k) for o, k in maze if o is not gone[0]]
+        bpy.data.objects.remove(gone[0], do_unlink=True)
+    out += maze
     if not fine:
         out += LD.extinguisher("booth", (hx1, hy1 + T["ext"]), "+X", z=cz + T["slab"] + 0.60)
         tx, ty, tf = T["tools"]
@@ -5075,7 +5195,7 @@ def lod1_drop_m(table):
 
 
 def lod2_drop_m(table):
-    return lod1_drop_m(table) + tuple(M_LOD2_DELETE)
+    return lod1_drop_m(table) + tuple(M_LOD2_DELETE) + (RIG_LOD2_DELETE if M_RIG else ())
 
 
 def contracts_m(t, table, kind, sweep=True):
@@ -5200,7 +5320,7 @@ def rig_part_bones_m(table, kind):
     out = {n: "Bullwheel" for n in table if n.startswith(RIG_BULL_PARTS)}
     if kind == "drive":
         out.update({n: "NoseTrain" for n in rig_nose_parts_m(table)})
-    want = {"sheave_bull_rim", "wheelhub", "wheelhub_cap", "spoke_mark"} | {f"spoke_{k:02d}" for k in
+    want = {"sheave_bull_rim", "wheelhub", "wheelhub_cap"} | {f"spoke_{k:02d}" for k in
                                                                            range(RIG_WHEEL["spokes"])}
     miss = sorted(want - set(out))
     if miss:
@@ -5346,7 +5466,7 @@ def rig_entry_m(co, tris, names, spec, vb, kind):
     rmax = np.zeros(nb)
     np.maximum.at(rmax, np.clip(((zb - z0) / 0.005).astype(int), 0, nb - 1), rb)
     rmax = np.maximum(rmax, np.maximum(np.r_[0.0, rmax[:-1]], np.r_[rmax[1:], 0.0]))
-    coax = ("wheelshaft", "entrypost", "bearing")
+    coax = ("wheelshaft", "bearing")     # round 2 (S2): the top's hub post (entrypost) is gone
     stat_f = vb[tris[:, 0]] == 0
     tv = co[tris]
     rt = np.hypot(tv[:, :, 0] - wx, tv[:, :, 1]).min(axis=1)

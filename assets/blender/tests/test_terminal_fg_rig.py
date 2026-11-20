@@ -15,6 +15,9 @@ test_terminal_fg_rig.py - T256 (r4 lift motion): the RIGGED fixed-grip stations 
 - R4 nose train (contract c, base): the joint sweep +-40 deg clear by 5 mm, the chair on the posed line rope. Negative: a
   static box in the outer half's swept path. Round 2 (S4): every nose-train bogie pin hangs in its straps (its part
   overlaps the half beam and the bogie bar).
+- R2b round 2 (critic pass 1): S2 / C6 the entry sheave hangers (the top's outboard posts, the cheek gussets) clear the
+  turning wheel's envelope, the chair body sweep and the lane band under the rope; S3 the yellow spoke on the Bullwheel
+  bone (in R1); C1 the knuckle on each lane end; C2 the nose braces under 60 tris, into boom and beam.
 - R6 the shipped letters' flags (SHIPPED_FLAGS): the O base without --thin-rope and the O top with --rig stop naming the
   flag; the shipped set (preview / review flags included) passes; --allow-flag-drift builds and reports.
 - R5 every generation-M contract (M1-M21, M3 with the real chair) on both rigged stations, and the budgets (LOD0 caps,
@@ -88,6 +91,9 @@ def build_o(kind):
     return t, table
 
 
+LAST_MATS = {}      # {part: material key} of the last build_rig
+
+
 def build_rig(kind, mutate=None):
     S.set_wheels("v2")
     LT.FINE_DETAIL_M = True
@@ -98,6 +104,8 @@ def build_rig(kind, mutate=None):
     parts = LT.build_station_m(kind)
     if mutate:
         parts = mutate(parts)
+    LAST_MATS.clear()
+    LAST_MATS.update({o.name: k for o, k in parts})
     t, table, _src = LT.assemble_m(parts, False, kind)
     co, tris, names, _ = LT.m_arrays(t)
     return t, table, co, tris, names
@@ -130,7 +138,7 @@ def r0_flags_off():
     check(LT.M_GRIP_OK == ("wheelrope", "ropechord_", "sheave_bull", "sheave_hold_", "spoke_", "wheelhub"),
           "R0 M_GRIP_OK restored", f"({LT.M_GRIP_OK})")
     rigp = sorted(n for n in names0 if n.startswith(("entryarm", "entrypost", "sheave_entry", "spoke_mark",
-                                                     "wheelhub_cap")))
+                                                     "wheelhub_cap", "ropechord_knuckle", "holdbrace")))
     check(not rigp, "R0 no rig part without the flag", f"({rigp[:4]})")
     check(sum(1 for n in names0 if n.startswith("spoke_")) == 12, "R0 the O wheel keeps its 12 spokes")
 
@@ -146,9 +154,15 @@ def r1_bones(kind, t, table):
     check(all(abs(a - b) < 1e-6 for k, v in gw.items() for a, b in zip(game[k], v)), f"R1 {kind} heads game", f"({game})")
     pb = LT.rig_part_bones_m(table, kind)
     bw = sorted(p for p, b in pb.items() if b == "Bullwheel")
-    check(len([p for p in bw if p.startswith("spoke_") and p != "spoke_mark"]) == LT.RIG_WHEEL["spokes"]
-          and "sheave_bull_rim" in bw and "wheelhub_cap" in bw and "spoke_mark" in bw,
-          f"R1 {kind} Bullwheel = rim + {LT.RIG_WHEEL['spokes']} spokes + hub + cap + mark", f"({len(bw)} parts)")
+    check(len([p for p in bw if p.startswith("spoke_")]) == LT.RIG_WHEEL["spokes"]
+          and "sheave_bull_rim" in bw and "wheelhub_cap" in bw and "spoke_mark" not in bw,
+          f"R1 {kind} Bullwheel = rim + {LT.RIG_WHEEL['spokes']} spokes + hub + cap", f"({len(bw)} parts)")
+    # S3 (round 2): ONE spoke is the yellow mark, on the Bullwheel bone; the rest are galv
+    mk = f"spoke_{LT.RIG_WHEEL['mark_spoke']:02d}"
+    spk = {p: LAST_MATS.get(p) for p in bw if p.startswith("spoke_")}
+    check(pb.get(mk) == "Bullwheel" and spk.get(mk) == "safety_yellow"
+          and all(m == "galv" for p, m in spk.items() if p != mk),
+          f"R1 {kind} S3 {mk} is safety_yellow on the Bullwheel bone, the other spokes galv", f"({spk})")
     if kind == "drive":
         nt = sorted(p for p, b in pb.items() if b == "NoseTrain")
         per = {s: [p for p in nt if f"_{s}_" in p or p.endswith(f"_{s}_b") or p.endswith(f"_{s}_0")] for s in "np"}
@@ -223,6 +237,107 @@ def r4_pin_links(co, tris, names):
           f"(failing {bad}, pin part tris {sizes})")
 
 
+def _part(co, tris, names, pred):
+    sel = tris[[pred(n) for n in names]]
+    return sel, (co[np.unique(sel)] if len(sel) else np.zeros((0, 3)))
+
+
+def r2_round2(kind, t, table, co, tris, names):
+    """Round 2 (critic pass 1):
+    - S2 / C6: the entry sheave hangers (entryarm_*, entrypost_*: arms, cheeks, gussets, the top's posts and plates) clear the
+      turning bullwheel's revolved envelope by RIG_ENTRY["clear"] (meridian-plane distance to the wheel's edge samples), the
+      chair body cloud of the M3 sweep by M_CLEAR_STRUCT, and no hanger point inside the chairs' lane band (|y| < lane + the
+      chair half width) is at or below the rope's top. The top has no hub post and two outboard posts.
+    - C1: ropechord_knuckle_<side> is centered on the lane end on the chord axis (1 mm), r RIG_KNUCKLE, the cap on the line
+      side only, on Root.
+    - C2 (base): holdbrace_<tag> under 60 tris for both lanes, into its boom and the front portal beam, on Root."""
+    print(f"R2b round 2 {kind}")
+    spec = LT.M_SPECS[kind]
+    wx, _wy, wz = spec.wheel
+    pb = LT.rig_part_bones_m(table, kind)
+    _n, _fb, vb, _b, _pb = LT._rig_bone_masks_m(t, table, kind)
+    hang = lambda n: n.startswith(("entryarm", "entrypost"))
+    htris, _hv = _part(co, tris, names, hang)
+    HP = LT._edge_points(co, htris, 0.01)
+    bw_t = tris[(vb[tris[:, 0]] == 1)]
+    BP = LT._edge_points(co, bw_t, 0.01)
+    rb, zb = np.hypot(BP[:, 0] - wx, BP[:, 1]), BP[:, 2]
+    rh, zh = np.hypot(HP[:, 0] - wx, HP[:, 1]), HP[:, 2]
+    dmin = 9.9
+    for i in range(0, len(HP), 2000):
+        d = np.hypot(rh[i:i + 2000, None] - rb[None, :], zh[i:i + 2000, None] - zb[None, :]).min(axis=1)
+        dmin = min(dmin, float(d.min()))
+    check(dmin >= LT.RIG_ENTRY["clear"], f"R2b {kind} S2 the hangers clear the turning wheel's envelope",
+          f"(min {dmin:.4f} m >= {LT.RIG_ENTRY['clear']})")
+    try:
+        rep = LT.chair_sweep_m(co, tris, names, spec, levels=(0,), collect=True)
+        cloud = rep.pop("_cloud")
+        lo, hi = HP.min(axis=0) - 0.5, HP.max(axis=0) + 0.5
+        cloud = cloud[np.all((cloud >= lo) & (cloud <= hi), axis=1)]
+        bvh = LT._bvh(co, htris)
+        cmin = min((bvh.find_nearest(tuple(p))[3] for p in cloud), default=9.9)
+        check(cmin >= LT.M_CLEAR_STRUCT, f"R2b {kind} S2 the hangers clear the chair body sweep",
+              f"(min {cmin:.3f} m >= {LT.M_CLEAR_STRUCT}, {len(cloud)} body samples near them)")
+    except LT.MContractError as e:
+        check(False, f"R2b {kind} S2 chair sweep", f"({e})")
+    band = LT.FG_LANE + 0.90
+    low = HP[(np.abs(HP[:, 1]) < band) & (HP[:, 2] <= wz + LT.M_ROPE_R)]
+    check(not len(low), f"R2b {kind} S2 no hanger below the rope's top inside the lane band |y| < {band:.2f}",
+          f"({len(low)} points{'' if not len(low) else ', e.g. ' + str(np.round(low[0], 3))})")
+    hp = sorted({n for n in names if hang(n)})
+    if kind == "return":
+        P = LT.RIG_TOP_POST
+        posts = [n for n in hp if n in ("entrypost_n", "entrypost_p")]
+        ok = len(posts) == 2 and "entrypost" not in hp
+        for s, tag in ((-1.0, "n"), (1.0, "p")):
+            _s, v = _part(co, tris, names, lambda n, tag=tag: n == f"entrypost_{tag}")
+            c = (v.min(axis=0) + v.max(axis=0)) / 2.0 if len(v) else np.zeros(3)
+            ok = ok and abs(c[0] - P["x"]) < 1e-3 and abs(c[1] - s * P["y"]) < 1e-3
+        check(ok, "R2b return S2 two outboard posts at RIG_TOP_POST, no hub post", f"({hp})")
+        check("maze_post_crest_1" not in set(names) and "maze_post_crest_0" in set(names),
+              "R2b return S2 the +y post stands in place of the crest maze's middle post")
+    gus = [n for n in hp if n.endswith("_gusset") and n.startswith("entryarm_")]
+    check(len(gus) == 2, f"R2b {kind} C6 a gusset hangs each cheek from its arm", f"({gus})")
+    # C1
+    ax, az = spec.anchor_in
+    u = np.array([wx - ax, 0.0, wz - az])
+    u /= np.linalg.norm(u)
+    K = LT.RIG_KNUCKLE
+    for s, side in ((-1.0, "n"), (1.0, "p")):
+        nm = f"ropechord_knuckle_{side}"
+        kt, kv = _part(co, tris, names, lambda n, nm=nm: n == nm)
+        e = np.array([ax, s * LT.FG_LANE, az])
+        if not len(kv):
+            check(False, f"R2b {kind} C1 {nm} exists")
+            continue
+        tt = (kv - e) @ u
+        rr = np.linalg.norm((kv - e) - np.outer(tt, u), axis=1)
+        vt = {int(i): float(((co[i] - e) @ u)) for i in np.unique(kt)}
+        caps = [tri for tri in kt if all(abs(vt[int(i)] + K["length"] / 2.0) < 1e-4 for i in tri)]
+        caps_far = [tri for tri in kt if all(abs(vt[int(i)] - K["length"] / 2.0) < 1e-4 for i in tri)]
+        ok = (abs(float(tt.min()) + K["length"] / 2.0) < 1e-3 and abs(float(tt.max()) - K["length"] / 2.0) < 1e-3
+              and float(np.abs(rr - K["r"]).max()) < 1e-3 and len(caps) == LT.RIG_ROPE_SIDES - 2 and not caps_far
+              and nm not in pb)
+        check(ok, f"R2b {kind} C1 {nm} on the lane end on the chord axis, capped on the line side, Root",
+              f"(t {tt.min():.4f}..{tt.max():.4f}, r {rr.min():.4f}..{rr.max():.4f}, caps {len(caps)} / far {len(caps_far)}, "
+              f"{len(kt)} tris, bone {pb.get(nm, 'Root')})")
+    if kind != "drive":
+        return
+    # C2
+    n_tris = 0
+    for tag in ("n", "p"):
+        nm = f"holdbrace_{tag}"
+        bt, _bv = _part(co, tris, names, lambda n, nm=nm: n == nm)
+        n_tris += len(bt)
+        boom, _ = _part(co, tris, names, lambda n, tag=tag: n == f"holdboom_{tag}")
+        beam, _ = _part(co, tris, names, lambda n: n == "beam_front")
+        bb = LT._bvh(co, bt) if len(bt) else None
+        ok = bb is not None and len(boom) and len(beam) and bb.overlap(LT._bvh(co, boom)) and bb.overlap(LT._bvh(co, beam))
+        check(bool(ok) and nm not in pb, f"R2b drive C2 {nm} into its boom and the front portal beam, Root",
+              f"({len(bt)} tris)")
+    check(0 < n_tris < 60, f"R2b drive C2 the nose braces {n_tris} tris < 60 for both lanes")
+
+
 def r6_shipped_flags():
     """The shipped letters build with their shipped flags (SHIPPED_FLAGS, orchestrator finding 2026-11-19): the O base without
     --thin-rope stops naming the flag, the O top with --rig stops, the shipped set passes, --allow-flag-drift passes."""
@@ -252,6 +367,7 @@ def run_kind(kind):
     t, table, co, tris, names = build_rig(kind)
     spec = LT.M_SPECS[kind]
     r1_bones(kind, t, table)
+    r2_round2(kind, t, table, co, tris, names)
     if kind == "drive":
         r4_pin_links(co, tris, names)
     try:
@@ -342,7 +458,8 @@ def main():
     if FAILS:
         print(f"FAIL test_terminal_fg_rig: {len(FAILS)} failed: {FAILS}")
         sys.exit(1)
-    print(f"PASS test_terminal_fg_rig: R0 flags off, R1 bones / weights / round trip / posed copies, R2 rope, R3 entry "
+    print(f"PASS test_terminal_fg_rig: R0 flags off, R1 bones / weights / round trip / posed copies, R2 rope, R2b round 2 "
+          f"(S2 / C6 hangers, S3 mark, C1 knuckle, C2 brace), R3 entry "
           f"sheaves, R4 nose joint + pin straps + chair sweep, R5 M1-M21 + budgets on both rigged stations, R6 shipped flags, "
           f"every negative raises "
           f"({N_OK[0]} ok, {dt:.0f} s)")
