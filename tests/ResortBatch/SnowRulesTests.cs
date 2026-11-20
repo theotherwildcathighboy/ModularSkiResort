@@ -39,6 +39,95 @@ namespace ResortBatch
             HourAlignedDateCases(check);
             DayMeanCases(check);
             T09Cases(check);
+            ContinuityCases(check);
+        }
+
+        // T268: the open rule by continuity (RunSnowRules ContinuityBand, WorstBandShare, ContinuityShare, OpenShare, Gap).
+        private static void ContinuityCases(Func<bool, string, string, bool> check)
+        {
+            const string W = "snow T268 continuity";
+            check(RunSnowRules.ContinuityBands == 8 && RunSnowRules.BandOpenShare == 0.5f && RunSnowRules.BandCloseShare == 0.25f &&
+                  RunSnowRules.ContinuityMinBandTexels == 4f && RunSnowRules.ContinuityMinBandShare == 0.05f, W,
+                "a T268 constant moved: the oracles below assume 8 bands, 50 / 25 %, a 4-texel and 5 % band floor");
+            // ContinuityBand: band 0 at the top, clamped, a flat or NaN run in band 0
+            int b;
+            b = RunSnowRules.ContinuityBand(1000f, 200f, 1000f); check(b == 0, W, "top -> " + b);
+            b = RunSnowRules.ContinuityBand(200f, 200f, 1000f);  check(b == 7, W, "bottom -> " + b);
+            b = RunSnowRules.ContinuityBand(150f, 200f, 1000f);  check(b == 7, W, "under the bottom node -> " + b);
+            b = RunSnowRules.ContinuityBand(1100f, 200f, 1000f); check(b == 0, W, "over the top node -> " + b);
+            b = RunSnowRules.ContinuityBand(899f, 200f, 1000f);  check(b == 1, W, "899 m of 200..1000 -> " + b);
+            b = RunSnowRules.ContinuityBand(500f, 500f, 500.5f); check(b == 0, W, "a 0.5 m vertical -> " + b);
+            b = RunSnowRules.ContinuityBand(float.NaN, 0f, 100f); check(b == 0, W, "NaN elevation -> " + b);
+            // ContinuityShare: 50 % -> 60 %, 25 % -> 40 %, clamps, NaN
+            float v;
+            v = RunSnowRules.ContinuityShare(0.5f);  check(Near(v, 0.6, 1e-6), W, "band 0.5 -> " + v);
+            v = RunSnowRules.ContinuityShare(0.25f); check(Near(v, 0.4, 1e-6), W, "band 0.25 -> " + v);
+            v = RunSnowRules.ContinuityShare(0f);    check(Near(v, 0.2, 1e-6), W, "band 0 -> " + v);
+            v = RunSnowRules.ContinuityShare(1f);    check(v == 1f, W, "band 1 -> " + v);
+            check(float.IsNaN(RunSnowRules.ContinuityShare(float.NaN)), W, "band NaN stays NaN");
+
+            var f = new double[8];
+            var k = new double[8];
+            bool bottom;
+            // Promenade: 8 even bands of 10 texels, the lower half bare, the upper half full -> worst 0 at the bottom
+            for (int i = 0; i < 8; i++) { f[i] = 10; k[i] = i < 4 ? 10 : 0; }
+            v = RunSnowRules.WorstBandShare(f, k, 0, out bottom);
+            check(v == 0f && bottom, W, "lower half bare: worst " + v + ", bottom " + bottom);
+            float area = 0.5f;
+            float open = RunSnowRules.OpenShare(area, v);
+            check(Near(open, 0.2, 1e-6) && RunSnowRules.NextState(RunSnowState.Open, open) == RunSnowState.Closed &&
+                  RunSnowRules.OpenMultiplier(open) == 0f, W, "a bare lower half closes an open run: open share " + open);
+            check(RunSnowRules.Gap(area, open, bottom) == RunSnowGap.Bottom, W, "the gap reads Bottom");
+            // the 1.0.3 shot: 63 % area, a bare lower quarter (bands 6-7) -> closed, gap at the bottom
+            for (int i = 0; i < 8; i++) { f[i] = 10; k[i] = i < 6 ? 8.4 : 0; }
+            v = RunSnowRules.WorstBandShare(f, k, 0, out bottom);
+            open = RunSnowRules.OpenShare(0.63f, v);
+            check(v == 0f && bottom && RunSnowRules.NextState(RunSnowState.Open, open) == RunSnowState.Closed, W,
+                "63 % with a bare lower quarter closes: worst " + v + ", open share " + open);
+            // uniform 70 % cover: the area rule decides (no change from 1.0.3)
+            for (int i = 0; i < 8; i++) { f[i] = 10; k[i] = 7; }
+            v = RunSnowRules.WorstBandShare(f, k, 0, out bottom);
+            open = RunSnowRules.OpenShare(0.7f, v);
+            check(Near(v, 0.7, 1e-6) && open == 0.7f, W, "uniform 70 %: worst " + v + ", open share " + open + " (= the area share)");
+            check(RunSnowRules.Gap(0.7f, open, bottom) == RunSnowGap.None, W, "uniform 70 %: no gap");
+            // a thin stretch partway down: 90 % everywhere, band 3 at 40 % -> Patchy, gap Partway
+            for (int i = 0; i < 8; i++) { f[i] = 10; k[i] = i == 3 ? 4 : 9; }
+            v = RunSnowRules.WorstBandShare(f, k, 0, out bottom);
+            open = RunSnowRules.OpenShare(0.86f, v);
+            float m = RunSnowRules.OpenMultiplier(open);
+            check(Near(v, 0.4, 1e-6) && !bottom && m > 0f && m < 1f, W, "a 40 % stretch partway: worst " + v + ", multiplier " + m);
+            check(RunSnowRules.Gap(0.86f, open, bottom) == RunSnowGap.Partway, W, "the gap reads Partway");
+            // the merge: a 2-texel bare run-out tip (band 7) joins band 6 and no longer closes the run alone
+            for (int i = 0; i < 8; i++) { f[i] = 20; k[i] = 20; }
+            f[7] = 2; k[7] = 0;
+            v = RunSnowRules.WorstBandShare(f, k, 0, out bottom);
+            check(Near(v, 20.0 / 22.0, 1e-5) && bottom, W, "a 2-texel bare tip merges into the band above: worst " + v);
+            // a small run: under 2 x 4 texels counted -> NaN (the area rule)
+            for (int i = 0; i < 8; i++) { f[i] = 0.9; k[i] = 0; }
+            v = RunSnowRules.WorstBandShare(f, k, 0, out bottom);
+            check(float.IsNaN(v) && RunSnowRules.OpenShare(0.65f, v) == 0.65f, W, "7.2 texels counted: no band rule, open share = area");
+            // a flat run (every texel in band 0) -> one group -> NaN
+            for (int i = 0; i < 8; i++) { f[i] = 0; k[i] = 0; }
+            f[0] = 60; k[0] = 30;
+            v = RunSnowRules.WorstBandShare(f, k, 0, out bottom);
+            check(float.IsNaN(v), W, "a flat run in one band: no band rule (" + v + ")");
+            // the rule off, NaN area
+            check(RunSnowRules.OpenShare(0.63f, 0f, false) == 0.63f, W, "Options off: the area share");
+            check(float.IsNaN(RunSnowRules.OpenShare(float.NaN, 0.5f)), W, "NaN area stays NaN");
+            // a fully open run has no gap even when the band rule lowers its share a little
+            check(RunSnowRules.Gap(0.95f, 0.8f, true) == RunSnowGap.None, W, "multiplier 1: no gap line");
+            // the hysteresis on the band scale: open at a 50 % band, stays open down to 25 %
+            for (int i = 0; i < 8; i++) { f[i] = 10; k[i] = 10; }
+            k[7] = 5;
+            open = RunSnowRules.OpenShare(0.95f, RunSnowRules.WorstBandShare(f, k, 0, out bottom));
+            check(RunSnowRules.NextState(RunSnowState.Closed, open) == RunSnowState.Open, W, "a 50 % run-out opens a closed run (" + open + ")");
+            k[7] = 2.6;
+            open = RunSnowRules.OpenShare(0.95f, RunSnowRules.WorstBandShare(f, k, 0, out bottom));
+            check(RunSnowRules.NextState(RunSnowState.Open, open) == RunSnowState.Open &&
+                  RunSnowRules.NextState(RunSnowState.Closed, open) == RunSnowState.Closed, W, "a 26 % run-out keeps an open run open, a closed one shut (" + open + ")");
+            k[7] = 2.4;
+            open = RunSnowRules.OpenShare(0.95f, RunSnowRules.WorstBandShare(f, k, 0, out bottom));
+            check(RunSnowRules.NextState(RunSnowState.Open, open) == RunSnowState.Closed, W, "a 24 % run-out closes an open run (" + open + ")");
         }
 
         private static bool Near(double a, double b, double eps)

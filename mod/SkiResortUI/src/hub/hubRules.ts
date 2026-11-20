@@ -667,16 +667,42 @@ export function footerOpen(stored: boolean, engaged: boolean, collapsible: boole
 }
 
 /** A tab click (T246 Design A, 2026-11-17): it shows that tab and never closes the strip. A closed strip opens on that tab.
- *  Only the chevron at the end of the tab row closes it (chevronClick). Before T246 a click on the open tab closed the strip, and
+ *  Only the chevron at the end of the tab row closes it (chevronClick; engaged, it cancels the tool first). Before T246 a click on the open tab closed the strip, and
  *  the view above re-fitted: the "tabs jump" of the Corwen playtest. */
 export function tabClick(clicked: BuildTab): { open: boolean; tab: BuildTab } {
   return { open: true, tab: clicked };
 }
 
-/** The chevron at the end of the tab row: it opens or closes the strip. While a mode the strip started is engaged, the strip stays
- *  open (footerOpen), so the chevron does nothing then (BuildStrip draws it disabled). */
+/** The chevron at the end of the tab row: it opens or closes the strip. While a mode the strip started is engaged it cancels that mode
+ *  (chevronCancel) and closes the strip (T262, 2026-11-20; before it, the chevron was dead then, T246). */
 export function chevronClick(open: boolean, engaged: boolean): boolean {
-  return engaged ? true : !open;
+  return engaged ? false : !open;
+}
+
+/** What is engaged right now, as the strip reads it. */
+export interface EngagedModes {
+  /** The id of the lit build tile (a build tool, the lift tool with a type, the cat track tool), or null. */
+  activeId: string | null;
+  tree: boolean;
+  quickRuns: boolean;
+  liftTool: boolean;
+  catDelete: boolean;
+  merge: boolean;
+}
+
+/** T262: the actions a chevron click sends to end every engaged mode: the lit tile's launch (it returns to the default tool), the tree
+ *  tool's and the Quick runs tool's toggles, and the merge overlay off. The lift tool lights its type's tile and the cat track tool lights the
+ *  Cat track tile (C# ActiveItemIndex), so their own toggles go only when no tile is lit: a toggle after the launch would open the tool again. */
+export type ChevronCancel = "launch" | "tree" | "quickRuns" | "liftTool" | "catDelete" | "merge";
+export function chevronCancel(m: EngagedModes): ChevronCancel[] {
+  const out: ChevronCancel[] = [];
+  if (m.activeId) out.push("launch");
+  if (m.tree) out.push("tree");
+  if (m.quickRuns) out.push("quickRuns");
+  if (!m.activeId && m.liftTool) out.push("liftTool");
+  if (!m.activeId && m.catDelete) out.push("catDelete");
+  if (m.merge) out.push("merge");
+  return out;
 }
 
 /** One tab's (or Buildings family's) tile row: its tile count and its tile group count. */
@@ -935,6 +961,19 @@ export function saleWindow(month: number, seasonFirstMonth: number, passPrice: n
     phase, open: cal(SALE_FIRST_MONTH), stepAt: cal(SALE_STEP_MONTH - 1), last: cal(SALE_FIRST_MONTH + SALE_MONTHS - 1),
     price: clampPassPrice(passPrice), stepped: steppedPassPrice(passPrice),
   };
+}
+
+/** T265: the rise of the stepped price over the early price in whole percent (the 20 step snap and the 2,000 cap make it differ from
+ *  SALE_STEP_PCT at most stops: 100 -> 120 is +20, 2,000 does not rise). 0 when it does not rise. */
+export function stepRisePct(win: SaleWindow): number {
+  return win.price > 0 && win.stepped > win.price ? Math.round(((win.stepped - win.price) * 100) / win.price) : 0;
+}
+
+/** T265: the pass price a resident pays NOW for a slider (early) price: the stepped price while the sale is in its stepped phase (C#
+ *  SkiPassRules.SalePrice), else the slider price itself (opening, and before / after the window, where the next sale opens at it). The
+ *  Demand word judges this price (the sale's own demand uses it: SkiLiftTicketSystem.TryStartSale). `win` null (season unknown) = the slider price. */
+export function passNowPrice(win: SaleWindow | null, price: number): number {
+  return win && win.phase === "stepped" ? steppedPassPrice(price) : clampPassPrice(price);
 }
 
 /** r3/sliders: where a value sits on a slider track, 0..1, for stops in screen order (evenly spaced). A value on a stop sits on it. A

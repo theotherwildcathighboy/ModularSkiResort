@@ -194,6 +194,13 @@ def r1_skin(kind, t, table):
     check(tris[2] <= LT.LOD2_TARGET_M[kind] * 1.10, f"R5 {kind} LOD2 {tris[2]} <= {LT.LOD2_TARGET_M[kind]} + 10 %")
     check(fx.report.get(1, {}).get("rope_tris") == rope, f"R5 {kind} LOD1 keeps the rope un-decimated",
           f"({fx.report.get(1)} vs LOD0 {rope})")
+    if kind == "return":   # P2-C1 (bundled with the OC-3 rope re-export): posts + wraps stay at LOD1; all go at LOD2
+        ep = sorted(n for n in table if n.startswith("entrypost"))
+        d1, d2 = LT.lod1_drop_m(table), LT.lod2_drop_m(table)
+        keep1 = [n for n in ep if not n.startswith(d1)]
+        check(keep1 == ["entrypost_n", "entrypost_n_wrap", "entrypost_p", "entrypost_p_wrap"]
+              and all(n.startswith(d2) for n in ep),
+              "R5 return P2-C1 entry posts + wraps kept at LOD1 (gussets, plates not), all gone at LOD2", f"({keep1})")
     arm, w = LT.rig_skin_m(t, lods, table, kind, name)
     check(all(sum(v.values()) > 0 for v in w.values()), f"R1 {kind} weights on every level", f"({w})")
     tmp = tempfile.mkdtemp(prefix="t256rig_")
@@ -249,7 +256,7 @@ def r2_round2(kind, t, table, co, tris, names):
       turning bullwheel's revolved envelope by RIG_ENTRY["clear"] (meridian-plane distance to the wheel's edge samples), the
       chair body cloud of the M3 sweep by M_CLEAR_STRUCT, and no hanger point inside the chairs' lane band (|y| < lane + the
       chair half width) is at or below the rope's top. The top has no hub post and two outboard posts.
-    - C1: ropechord_knuckle_<side> is centered on the lane end on the chord axis (1 mm), r RIG_KNUCKLE, the cap on the line
+    - C1: ropechord_knuckle_<side> is centered on the lane end on the chord axis (1 mm), r RIG_ROPE_R + RIG_KNUCKLE proud, the cap on the line
       side only, on Root.
     - C2 (base): holdbrace_<tag> under 60 tris for both lanes, into its boom and the front portal beam, on Root.
     Round 2b (critic pass 2): P2-S1 the top posts at RIG_TOP_POST r with the stakes' black wrap (rubber, its band over the
@@ -334,7 +341,8 @@ def r2_round2(kind, t, table, co, tris, names):
         caps = [tri for tri in kt if all(abs(vt[int(i)] + K["length"] / 2.0) < 1e-4 for i in tri)]
         caps_far = [tri for tri in kt if all(abs(vt[int(i)] - K["length"] / 2.0) < 1e-4 for i in tri)]
         ok = (abs(float(tt.min()) + K["length"] / 2.0) < 1e-3 and abs(float(tt.max()) - K["length"] / 2.0) < 1e-3
-              and float(np.abs(rr - K["r"]).max()) < 1e-3 and len(caps) == LT.RIG_ROPE_SIDES - 2 and not caps_far
+              and float(np.abs(rr - (LT.RIG_ROPE_R + K["proud"])).max()) < 1e-3 and len(caps) == LT.RIG_ROPE_SIDES - 2
+              and not caps_far
               and nm not in pb)
         check(ok, f"R2b {kind} C1 {nm} on the lane end on the chord axis, capped on the line side, Root",
               f"(t {tt.min():.4f}..{tt.max():.4f}, r {rr.min():.4f}..{rr.max():.4f}, caps {len(caps)} / far {len(caps_far)}, "

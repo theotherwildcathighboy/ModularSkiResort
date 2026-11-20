@@ -94,11 +94,13 @@ function BarHead({ m, swatch }: { m: Mix; swatch: string }): JSX.Element {
   );
 }
 
-/** The net as a line: "Net", its signed amount in the profit / loss color, and its share of income. */
-function NetLine({ net, income, t }: { net: number; income: number; t: Translate }): JSX.Element {
+/** The net as a line: "Net", its signed amount in the profit / loss color, and its share of income. T266: it has the tooltip of the
+ *  net's gap in the bars (a component takes the tip and wraps its own root, parts.tsx Tip). */
+function NetLine({ net, income, tip, t }: { net: number; income: number; tip: ReactNode; t: Translate }): JSX.Element {
   const loss = net < 0;
   const pct = income > 0 ? Math.round((net * 100) / income) : null;
   return (
+    <Tip tip={tip}>
     <div className={styles.revNet}>
       <div className={styles.revNetLabel}>{t(HUB_LOC.historyNet)}</div>
       <div className={styles.revNetValue} style={{ color: rgba(loss ? HISTORY_RGB.costs : HISTORY_RGB.income, 1) }}>
@@ -106,6 +108,7 @@ function NetLine({ net, income, t }: { net: number; income: number; t: Translate
       </div>
       <div className={styles.revNetPct}>{pct === null ? "–" : <SignedNum value={pct} unit={Unit.Percentage} />}</div>
     </div>
+    </Tip>
   );
 }
 
@@ -146,7 +149,7 @@ export function RevenueChart({ s, t }: { s: SeasonSoFar; t: Translate }): JSX.El
   const wI = scale > 0 ? (income.total / scale) * 100 : 0, wC = scale > 0 ? (costs.total / scale) * 100 : 0;
   const netTip = (
     <TipLines lines={[
-      t(HUB_LOC.historyNet),
+      t(HUB_LOC.historyNetTip),
       { label: t(HUB_LOC.historyIncome), value: money(income.total) },
       { label: t(HUB_LOC.historyCosts), value: <SignedNum value={-round(costs.total)} unit={Unit.Money} /> },
       { label: t(HUB_LOC.historyNet), value: <SignedNum value={round(net)} unit={Unit.Money} /> },
@@ -180,7 +183,7 @@ export function RevenueChart({ s, t }: { s: SeasonSoFar; t: Translate }): JSX.El
             <PartBar m={costs} widthPct={wC}>{gap("profit")}</PartBar>
             <PartLegend m={costs} />
           </div>
-          <NetLine net={net} income={income.total} t={t} />
+          <NetLine net={net} income={income.total} tip={netTip} t={t} />
         </>
       )}
       {passLine}

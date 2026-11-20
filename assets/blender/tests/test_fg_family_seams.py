@@ -195,8 +195,9 @@ def code_seams():
         if rep["hosted_tower"] is None:   # art-601: the drive base ships without its ET68 (the nose train holds the rope)
             check(kind == "drive", f"S1 {kind}: no hosted {et} in the deployed prefab (art-601 nose-train base)")
         else:
-            check(rep["hosted_tower"]["position"][2] == sp.tower_x, f"S1 {kind} hosted {et} at z {sp.tower_x} "
-                                                                      f"(deployed prefab, rot 180)")
+            hx, _tw, hst, hrig = LT.hosted_expected_m(kind)   # T256: the rig generation's row is RIG_HOSTED_X
+            check(rep["hosted_tower"]["position"][2] == hx, f"S1 {kind} hosted {et} at z {hx} "
+                                                             f"(deployed prefab, rot 180{', rig ' + str(hst) if hrig else ''})")
         check(close(rep["code"]["WheelLocal_game"][1], sp.wheel[2]) and close(rep["code"]["WheelLocal_game"][2],
                                                                                sp.wheel[0]),
               f"S1 {kind} WheelLocal {rep['code']['WheelLocal_game']} == the station rope datum")
@@ -220,8 +221,11 @@ def export_seams(tr):
         t = live_manifest(et)
         sp = LT.M_SPECS[kind]
         if t:
-            check(close(t["axle"], sp.anchor_out[1]) and close(t["gauge"], 2 * tr["lane_x_m"]),
-                  f"S1 live {et} axle {t['axle']} / gauge {t['gauge']} == the station")
+            # a crown tower (T27, every skinned tower: ET62Q) records the sheave axle; its rope line is axle + seat (lane_y_new)
+            roc = t.get("rope_on_crown")
+            lane = roc["lane_y_new"] if isinstance(roc, dict) and "lane_y_new" in roc else t["axle"]
+            check(close(lane, sp.anchor_out[1]) and close(t["gauge"], 2 * tr["lane_x_m"]),
+                  f"S1 live {et} rope line {lane} (axle {t['axle']}) / gauge {t['gauge']} == the station")
         st_m = {"drive": "SkiLiftBaseStationM", "return": "SkiLiftTopStationM"}[kind]
         m = manifest("stations/fixedgrip/M", st_m)
         if m:
@@ -239,6 +243,21 @@ def export_seams(tr):
             c2 = lm["contracts"]["M2"]
             check(close(c2["torus_z"], sp.wheel[2], 0.002) and close(c2["torus_R"], tr["lane_x_m"], 0.005),
                   f"H2 live {st} manifest torus {c2['torus_R']} at {c2['torus_z']}")
+
+
+def rig_hosted_tower(kind, td, level):
+    """T256 rig generation: the skinned hosted tower (FBXs in td) at the rig row with TrainBack pitched onto the station chord
+    as the code holds it: the generator's own M5 pose (LT.load_tower_m under M_RIG + RIG_HOSTED_DIR). Returns (co, tris,
+    TrainBack's inboard x max)."""
+    saved = (LT.M_RIG, LT.RIG_HOSTED_DIR)
+    LT.M_RIG, LT.RIG_HOSTED_DIR = True, td
+    LT._TOWER_CACHE.clear()
+    try:
+        tw = LT.load_tower_m(kind, 0 if level == "" else 1)
+    finally:
+        LT.M_RIG, LT.RIG_HOSTED_DIR = saved
+        LT._TOWER_CACHE.clear()
+    return tw["co"], tw["tris"], tw.get("train_back_x_max")
 
 
 def rope_faces(co, tris, spec, rope_r=None):
@@ -298,6 +317,9 @@ def geometry_stations(tr):
             NOTES.append(f"geometry {st} skipped")
             print(f"  skip {st} / {tw}: not exported")
             continue
+        if (live_manifest(st) or {}).get("rig"):
+            # T256 rig generation: the chord and everything that reads it start at the lane end (LT.set_m_rig)
+            sp = LT._dc.replace(sp, anchor_in=sp.anchor_out)
         co, tris = raw_mesh(os.path.join(d, f"{st}.fbx"))
         rr = (live_manifest(st) or {}).get("rope_r_m")         # per asset (art-601 --thin-rope)
         rf = rope_faces(co, tris, sp, rr)
@@ -322,13 +344,26 @@ def geometry_stations(tr):
         if LT.hosted_row_m(kind) is None:
             print(f"  S8 {st}: no hosted {tw} row in the deployed {sp.building}, skipped")
             continue
+        # T256 rig generation (the deployed station mesh has a "rig" manifest block): the skinned hosted tower stands at the
+        # rig row (RIG_HOSTED_X) with TrainBack pitched onto the station chord as the code holds it, and the station rope
+        # (with its lane-end knuckle collar, r + RIG_KNUCKLE proud) runs into TrainBack's sheaves: exempt as the generator's M5
+        hx, _htw, _hst, hrig = LT.hosted_expected_m(kind)
+        tbx = rig_hosted_tower(kind, td, "")[2] if hrig else None
         for sl in ("", "_LOD1"):
             sco, stris = raw_mesh(os.path.join(d, f"{st}{sl}.fbx"))
-            keep = stris[~rope_faces(sco, stris, sp, rr)]
+            drop = rope_faces(sco, stris, sp, rr)
+            if tbx is not None:
+                ex = max(LT.M_SEAM_ROPE_EXEMPT, tbx - sp.anchor_in[0] + 0.15)
+                near_end = np.all(np.abs(sco[stris][:, :, 0] - sp.anchor_in[0]) <= ex, axis=1)
+                drop |= rope_faces(sco, stris, sp, (rr or LT.M_ROPE_R) + LT.RIG_KNUCKLE["proud"]) & near_end
+            keep = stris[~drop]
             sb = BVHTree.FromPolygons(sco.tolist(), keep.tolist(), all_triangles=True)
             for tl in ("", "_LOD1"):
-                tco, ttris = raw_mesh(os.path.join(td, f"{tw}{tl}.fbx"))
-                tco = np.stack([-tco[:, 0] + sp.tower_x, -tco[:, 1], tco[:, 2]], axis=1)
+                if hrig:
+                    tco, ttris, _tbx = rig_hosted_tower(kind, td, tl)
+                else:
+                    tco, ttris = raw_mesh(os.path.join(td, f"{tw}{tl}.fbx"))
+                    tco = np.stack([-tco[:, 0] + hx, -tco[:, 1], tco[:, 2]], axis=1)
                 tb = BVHTree.FromPolygons(tco.tolist(), ttris.tolist(), all_triangles=True)
                 worst = 9.9
                 if sb.overlap(tb):

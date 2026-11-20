@@ -60,6 +60,8 @@ jobs:
         run: node tools/check-no-user-paths.js
       - name: Manifests record their build args
         run: node tools/check-manifest-args.js --self-test && node tools/check-manifest-args.js
+      - name: Archetype swap gate self-test (the full check needs the release tags, so it runs in preflight)
+        run: node tools/check-archetype-swap.js --self-test
       - name: No late-phase deletes
         run: node tools/check-ui-phase-deletes.js
       - name: Run prop placer rules
@@ -82,6 +84,10 @@ jobs:
         run: node tools/export-locale.js --check
       - name: Docs-site symbol table matches the hub icon table
         run: node tools/export-hub-symbols.js --check
+      - name: Demand-curve page matches the code constants
+        run: |
+          node docs-site/tools/demand-curves.js --self-test
+          node docs-site/tools/demand-curves.js --check
       - name: STE ratchet (player text and docs)
         run: node tools/check-ste.js
       - name: Hub rules, history rules, gate fixtures

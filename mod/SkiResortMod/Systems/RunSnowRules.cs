@@ -19,6 +19,9 @@ namespace SkiResortMod.Systems
     /// <summary>Display phase from the label and the multiplier (hub marks, overlay).</summary>
     public enum RunSnowPhase : byte { Closed = 0, Opening = 1, Open = 2, Closing = 3 }
 
+    /// <summary>T268: where a run's snow is too thin for it to open (the band rule binds). The hub's RunLive.snowGap.</summary>
+    public enum RunSnowGap : byte { None = 0, Bottom = 1, Partway = 2 }
+
     /// <summary>What the decal dress and the props' snow follow.</summary>
     public enum RunDressSource : byte { None = 0, Managed = 1, NaturalMeasured = 2 }
 
@@ -42,6 +45,12 @@ namespace SkiResortMod.Systems
         // over starts from these, so the made snow is never counted twice.
         public float SnowShare;
         public float SnowMeanDepthM;
+        // T268: the share the label and the multiplier read (Share lowered by the worst elevation band, RunSnowRules.OpenShare), the
+        // worst band (keep bar, NaN = the area rule), whether it is the lowest band, and the gap the hub names.
+        public float OpenShare;
+        public float WorstBand;
+        public bool WorstIsBottom;
+        public RunSnowGap Gap;
     }
 
     /// <summary>What the skip predicates need from a real pass. Runtime only. Never serialized (SkiSnowInjectionSystem implements no
@@ -165,6 +174,130 @@ namespace SkiResortMod.Systems
             if (state == RunSnowState.Open)
                 return multiplier >= 1f ? RunSnowPhase.Open : RunSnowPhase.Closing;
             return multiplier > 0f ? RunSnowPhase.Opening : RunSnowPhase.Closed;
+        }
+
+        // T268, the open rule by continuity: a run opens only when it is skiable top to bottom. The measurement splits a run's vertical
+        // (Geometry bounds BottomY..TopY, the node heights) into ContinuityBands equal elevation bands, band 0 at the top. Each counted
+        // texel (the texels the area share counts) adds its weight and, at the KEEP bar (1 ft, in every state), its skiable weight to its
+        // band. The reduction merges thin bands into their neighbor (WorstBandShare) until each holds max(ContinuityMinBandTexels, 5 % of
+        // the counted weight), so a tapered run-out tip or one low corner node cannot close a run on two texels. The worst merged band maps
+        // onto the run-share scale (ContinuityShare: BandOpenShare 50 % -> OpenAtShare 60 %, BandCloseShare 25 % -> CloseBelowShare 40 %),
+        // and the share the label and the multiplier read is the lower of the area share and that (OpenShare). So a run opens when 60 % of
+        // it has 3 ft AND every stretch is half covered with 1 ft, and stays open while 40 % has 1 ft and every stretch keeps a quarter. The
+        // keep bar makes the band share independent of the label (a carried-over measurement stays valid). The area share stays the
+        // displayed number. Elevation, not a fall-line path: every snow rule here is elevation driven (the lapse, the gun gate, the melt),
+        // so a bare stretch is an elevation band. Cat tracks and estimates keep the area rule. Options "Runs need snow top to bottom" off =
+        // the area rule.
+        public const int ContinuityBands = 8;
+        public const float ContinuityMinBandTexels = 4f;   // a merged band holds at least this much counted weight (texels)
+        public const float ContinuityMinBandShare = 0.05f; // ... and at least this share of the run's counted weight
+        public const float BandOpenShare = 0.50f;          // maps onto OpenAtShare
+        public const float BandCloseShare = 0.25f;         // maps onto CloseBelowShare
+
+        /// <summary>The band of a texel at <paramref name="elevation"/> on a run from <paramref name="bottomY"/> to <paramref name="topY"/>:
+        /// 0 at the top, ContinuityBands - 1 at the bottom, equal elevation spans, clamped (terrain inside the outline can sit above or below
+        /// its nodes). A vertical under 1 m, or NaN, gives band 0. Burst-called.</summary>
+        public static int ContinuityBand(float elevation, float bottomY, float topY)
+        {
+            float span = topY - bottomY;
+            if (!(span >= 1f) || float.IsNaN(elevation))
+                return 0;
+            float f = (topY - elevation) / span * ContinuityBands;
+            if (!(f > 0f))
+                return 0;
+            int b = (int)f;
+            return b >= ContinuityBands ? ContinuityBands - 1 : b;
+        }
+
+        /// <summary>The worst band of a run after the merge. <paramref name="footprintW"/> / <paramref name="skiableW"/> hold
+        /// ContinuityBands sums from <paramref name="offset"/> (band 0 at the top). Bands merge top down: a group closes once it holds the
+        /// minimum weight (max(ContinuityMinBandTexels, ContinuityMinBandShare x total)); a last group under it joins the group above. The
+        /// worst share is the lowest group share; a tie keeps the lower group (the run-out). <paramref name="worstIsBottom"/> = the worst
+        /// group is the lowest group. NaN when fewer than two groups form (a small or flat run: the area rule decides).</summary>
+        public static float WorstBandShare(double[] footprintW, double[] skiableW, int offset, out bool worstIsBottom)
+        {
+            worstIsBottom = false;
+            double total = 0.0;
+            for (int b = 0; b < ContinuityBands; b++)
+                total += footprintW[offset + b];
+            double min = Math.Max(ContinuityMinBandTexels, ContinuityMinBandShare * total);
+            if (!(total >= 2.0 * min))
+                return float.NaN;
+            // Pass 1: the group bounds. A group closes at the minimum weight; a short tail joins the last closed group.
+            int groups = 0;
+            double gf = 0.0;
+            int[] ends = s_GroupEnds;
+            for (int b = 0; b < ContinuityBands; b++)
+            {
+                gf += footprintW[offset + b];
+                if (gf >= min)
+                {
+                    ends[groups++] = b;
+                    gf = 0.0;
+                }
+            }
+            if (groups == 0)
+                return float.NaN;
+            ends[groups - 1] = ContinuityBands - 1;   // the tail (if any) joins the last group
+            if (groups < 2)
+                return float.NaN;
+            // Pass 2: the group shares.
+            double worst = double.MaxValue;
+            int worstGroup = -1;
+            int start = 0;
+            for (int g = 0; g < groups; g++)
+            {
+                double f = 0.0, sk = 0.0;
+                for (int b = start; b <= ends[g]; b++)
+                {
+                    f += footprintW[offset + b];
+                    sk += skiableW[offset + b];
+                }
+                start = ends[g] + 1;
+                double s = f > 0.0 ? sk / f : 0.0;
+                if (s <= worst)
+                {
+                    worst = s;
+                    worstGroup = g;
+                }
+            }
+            worstIsBottom = worstGroup == groups - 1;
+            return (float)(worst <= 0.0 ? 0.0 : worst >= 1.0 ? 1.0 : worst);
+        }
+
+        [ThreadStatic] private static int[] s_GroupEndsStore;
+        private static int[] s_GroupEnds => s_GroupEndsStore ?? (s_GroupEndsStore = new int[ContinuityBands]);
+
+        /// <summary>The worst band's share on the run-share scale: BandOpenShare maps to OpenAtShare and BandCloseShare to CloseBelowShare,
+        /// linear (0.2 + 0.8 x band share with today's constants), clamped 0..1. NaN stays NaN.</summary>
+        public static float ContinuityShare(float worstBandShare)
+        {
+            if (float.IsNaN(worstBandShare))
+                return float.NaN;
+            // in double, so the band thresholds land exactly on the run thresholds (0.5 -> 0.6f, 0.25 -> 0.4f)
+            double d = CloseBelowShare + (worstBandShare - (double)BandCloseShare) * ((double)OpenAtShare - CloseBelowShare) /
+                       ((double)BandOpenShare - BandCloseShare);
+            float s = (float)d;
+            return s <= 0f ? 0f : s >= 1f ? 1f : s;
+        }
+
+        /// <summary>The share the open label and the multiplier read: the lower of the area share and the continuity share. A NaN worst
+        /// band (fewer than two bands, or a run the band rule does not cover), or the rule off, gives the area share. NaN area stays NaN.</summary>
+        public static float OpenShare(float areaShare, float worstBandShare, bool ruleOn = true)
+        {
+            if (float.IsNaN(areaShare) || !ruleOn)
+                return areaShare;
+            float c = ContinuityShare(worstBandShare);
+            return float.IsNaN(c) || c >= areaShare ? areaShare : c;
+        }
+
+        /// <summary>Where the snow is too thin, for the hub: None when the band rule does not bind (the area share decides) or the run is
+        /// fully open; Bottom when the worst band is the lowest; Partway otherwise.</summary>
+        public static RunSnowGap Gap(float areaShare, float openShare, bool worstIsBottom)
+        {
+            if (float.IsNaN(areaShare) || float.IsNaN(openShare) || !(openShare < areaShare) || OpenMultiplier(openShare) >= 1f)
+                return RunSnowGap.None;
+            return worstIsBottom ? RunSnowGap.Bottom : RunSnowGap.Partway;
         }
 
         /// <summary>The temperature at or below which a run's texels hold snow, per kind, while its guns make snow. The values are the

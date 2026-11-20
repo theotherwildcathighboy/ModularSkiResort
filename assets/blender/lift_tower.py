@@ -1638,24 +1638,41 @@ TOWER_MATERIALS = {
     "rubber": dict(albedo=(0.035, 0.035, 0.038), metal=0.0, rough=0.80, projection="box"),
     "plate": dict(albedo=(0.69, 0.69, 0.69), metal=0.0, rough=0.45, projection="box"),
 }
-# Texture pass (--texpass v1, off = byte-identical; r4/tex, PIPELINE section 1b), keyed per family: material SOURCES only.
-# The tile size and the projection of a swapped key stay, so UVTile, the pack and every FBX stay as flag-off: the heads and
-# twins that draw a member's maps (lift_head.HEAD_ATLAS, TWIN_ATLAS) need its UV islands unchanged, and get the pass's
-# pixels with no rebuild of their own.
-#   DQ galv: Metal032 is a flat blue-gray plate (mean sRGB 0.49 / 0.54 / 0.58, no spangle). Metal038 is a hot-dip sheet with
-#   spangle and handling scratches (mean 0.38 neutral), tinted to a light neutral zinc 0.70 (critic pass 1: 0.57 still read
-#   mid blue-gray at 7 m; the reference hardware is near white in sun). Metal 1.0 at rough 0.65 = the DQ station's galv
-#   (lift_terminal_detach MATERIALS): one matte zinc for the family, and no half-metal (0.6 is not a physical value)
-TEXPASS = "off"                # this run's pass (main_v2 sets it from --texpass)
+# r4/tex texture pass (2026-11-19): `--texpass v1`, default off = every FBX and map byte for byte as before. Per FAMILY,
+# pixels only: the pack, the UV islands and every FBX stay as flag-off, so the twins and heads (lift_head.HEAD_ATLAS,
+# TWIN_ATLAS) keep drawing their member's maps with no re-run. Two forms, one per family branch (merged 2026-11-20):
+# - TEXPASS_MATERIALS (FG, r4/tex-fg): field overrides on a TOWER_MATERIALS key (tower_materials). FG line members + ET62 /
+#   ET68: the galvanized steel leaves Metal032's blue-gray (sRGB 0.50 / 0.53 / 0.565) for a light neutral zinc (0.70 / 0.715
+#   / 0.73), the paint goes satin.
+# - TEXPASS_TOWER (DQ, r4/tex-dq): whole material SOURCES that replace a key (texpass_materials; the tile size and the
+#   projection of a swapped key stay, so UVTile stays). DQ galv: Metal032 is a flat blue-gray plate (mean sRGB 0.49 / 0.54
+#   / 0.58, no spangle). Metal038 is a hot-dip sheet with spangle and handling scratches (mean 0.38 neutral), tinted to a
+#   light neutral zinc 0.70 (critic pass 1: 0.57 still read mid blue-gray at 7 m; the reference hardware is near white in
+#   sun). Metal 1.0 at rough 0.65 = the DQ station's galv (lift_terminal_detach MATERIALS): one matte zinc for the family,
+#   and no half-metal (0.6 is not a physical value)
+# A family uses one form only (FG has no TEXPASS_TOWER entry, DQ no TEXPASS_MATERIALS entry).
+TEXPASS = None                 # this run's pass (main_v2 sets it from --texpass; None = off)
+TEXPASS_CHOICES = ("off", "v1")
+TEXPASS_MATERIALS = {"v1": {"FG": {"galv": dict(tint=(2.09, 1.93, 1.76)), "paint": dict(rough=0.42)}}}
 TEXPASS_TOWER = {
     "v1": {"DQ": {"galv": dict(texture_set="Metal038", metres_per_tile=2.0, projection="box",
                                tint=(3.79, 3.63, 3.55), metal=1.0, rough=0.65)}},
 }
 
 
+def tower_materials(spec):
+    """TOWER_MATERIALS, with the pass's overrides for this variant's family under --texpass (the same dict object when
+    there is none)."""
+    over = TEXPASS_MATERIALS.get(TEXPASS, {}).get(spec.family, {}) if TEXPASS else {}
+    if not over:
+        return TOWER_MATERIALS
+    return {k: dict(v, **over.get(k, {})) for k, v in TOWER_MATERIALS.items()}
+
+
 def texpass_materials(spec):
-    """The pass's material sources for this variant's family ({} when off or the family has none)."""
-    return TEXPASS_TOWER.get(TEXPASS, {}).get(spec.family, {})
+    """The pass's whole material sources for this variant's family ({} when off or the family has none)."""
+    return TEXPASS_TOWER.get(TEXPASS, {}).get(spec.family, {}) if TEXPASS else {}
+
 
 DENSITY_V2 = {
     "pier": 0.25, "pad": 0.75, "ladder_": 0.75,
@@ -3912,7 +3929,7 @@ def build_tower_v2(spec, head=None, finish=True, kagelok=None, name=None):
         import cs2_bake
         bpy.context.view_layer.update()
         # T62 round 2: + the one wheel material (cs2_sheaves.WHEEL_MATERIAL) under v2. v1 = TOWER_MATERIALS as it was
-        sources = cs2_bake.material_sources({**TOWER_MATERIALS, **texpass_materials(spec),
+        sources = cs2_bake.material_sources({**tower_materials(spec), **texpass_materials(spec),
                                              **S.wheel_materials(dict)}, parts)
     bpy.ops.object.select_all(action="DESELECT")
     for o, _k in parts:
@@ -6769,7 +6786,8 @@ def twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weigh
                 half_shift_m=SKIN_HALF_SHIFT[spec.family], weights=weights, roundtrip=rt)
     man = {k: v for k, v in rep.items() if k not in ("frames", "seconds", "skin", "grip")}
     if args is not None:
-        man["args"] = manifest_args(args)      # T256: every parsed flag (defaults too): a letter's build is reproducible
+        from carrier_split import manifest_args    # r4/tex fg: repo-relative / %USERPROFILE% paths (as lift_chair)
+        man["args"] = manifest_args(args, _REPO)  # T256: every parsed flag (defaults too): a letter's build is reproducible
     man["skin"] = dict(skin_manifest_block(spec, skin), twin=rep["skin"])
     man["textures"] = {
         "shared_from": f"../{owner}/{owner}", "maps": list(TWIN_MAPS), "levels": list(range(len(lods) + 1)),
@@ -6961,33 +6979,13 @@ def parse_args_v2(argv):
     ap.add_argument("--skin-views", default=None,
                     help="with --skinned: folder for the round 2 views (skin_views: level, slope, crest, the 20 deg "
                          "limit, steep, dip), each half's rope drawn (needs the finish)")
-    ap.add_argument("--texpass", default="off", choices=("off",) + tuple(sorted(TEXPASS_TOWER)),
-                    help="texture pass (r4/tex): material sources per family (TEXPASS_TOWER), the FBX stays identical; "
-                         "off = the shipped set byte for byte")
+    ap.add_argument("--texpass", choices=TEXPASS_CHOICES, default="off",
+                    help="r4/tex: texture pass per family, pixels only (FG TEXPASS_MATERIALS, DQ TEXPASS_TOWER); the "
+                         "FBX stays identical; off = the shipped maps")
     ap.add_argument("--gd-sheaves", dest="gd_sheaves", type=int, choices=(8, 10, 12), default=None,
                     help="with --skinned: GD sheaves a side (SKIN_GD sheaves, default 8); 10 = the shipped count, each "
                          "half a 4-wheel bogie + its inner wheel on a 1-wheel rocker hung on a link")
     return ap.parse_args(argv)
-
-
-def manifest_args(args):
-    """vars(args) for a manifest that lands in the repo (T256 args): an absolute path under the repo becomes repo-relative
-    (forward slashes), any other one under the home folder starts with %USERPROFILE% (tools/check-no-user-paths.js: no
-    home paths in tracked files; the rule of carrier_split.manifest_args in the fixed-grip branch)."""
-    home = os.path.normcase(os.path.realpath(os.path.expanduser("~")))
-    repo = os.path.realpath(_REPO)
-    root = os.path.normcase(repo)
-    out = {}
-    for k, v in vars(args).items():
-        if isinstance(v, str) and v and os.path.isabs(v):
-            p = os.path.realpath(v)
-            pn = os.path.normcase(p)
-            if pn == root or pn.startswith(root + os.sep):
-                v = os.path.relpath(p, repo).replace(os.sep, "/")
-            elif pn == home or pn.startswith(home + os.sep):
-                v = "%USERPROFILE%" + p[len(home):].replace(os.sep, "/")
-        out[k] = v
-    return out
 
 
 def main_v2(argv):
@@ -6995,7 +6993,7 @@ def main_v2(argv):
     t0 = time.perf_counter()
     args = parse_args_v2(argv)
     global TEXPASS
-    TEXPASS = args.texpass             # r4/tex: every run follows its own args
+    TEXPASS = None if args.texpass == "off" else args.texpass      # every run follows its args
     S.set_wheels(args.wheels)          # T62: before any part is built
     # the wheel dress (materials + relief rings, 0 tris): on by default for skinned builds, unskinned stay as shipped
     S.set_wheel_dress(args.skinned if args.wheel_dress is None else args.wheel_dress)
@@ -7154,9 +7152,10 @@ def main_v2(argv):
         if spec.family == "GD":
             derived["mode"] = "traced proportions (the DQ rebuild head kit, stretched to the 6.0 m gauge)"
     density = compose.density if compose is not None else None
+    from carrier_split import manifest_args          # r4/tex fg: repo-relative / %USERPROFILE% paths (as lift_chair)
     manifest = {
         "generator": f"lift_tower.py@{cs2_review.git_sha()}",
-        "args": manifest_args(args),   # T256: every parsed flag (defaults too): a letter's build is reproducible
+        "args": manifest_args(args, _REPO),  # T256: every parsed flag (defaults too): a letter's build is reproducible
         "spec": "towers-v2 + skeptic" if spec.family != "GD" else
                 "towers-v2 + skeptic; Revision 1b GD (tram_tower.GD / lattice-towers D2 contract)",
         "variant": spec.key, "family": spec.family, "role": spec.role, "kind": spec.kind,
@@ -7191,6 +7190,9 @@ def main_v2(argv):
         manifest["texpass"] = {"version": TEXPASS, "materials": {k: dict(v) for k, v in texpass_materials(spec).items()}}
     if ROPE_ON_CROWN:
         manifest["rope_on_crown"] = rope_on_crown_block(spec)
+    if TEXPASS and not texpass_materials(spec):     # the FG form (a DQ variant wrote its own block above, key order kept)
+        manifest["texpass"] = {"version": TEXPASS, "materials": TEXPASS_MATERIALS.get(TEXPASS, {}).get(spec.family, {}),
+                               "uv": "flag-off pack (pixels only)", "tris_added": 0, "textures_added_mb": 0.0}
     if SKINNED:
         manifest["skin"] = skin_manifest_block(spec, info["skin"])
     if HOSTED_LANE is not None:

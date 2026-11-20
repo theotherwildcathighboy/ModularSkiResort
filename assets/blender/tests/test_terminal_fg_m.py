@@ -221,6 +221,13 @@ def m1_hv_lane_negatives():
         for n in ("SkiBaseStationBuilding", "SkiTopStationBuilding", LT.FG_ROPE_LANE,
                   LT.M_SPECS["drive"].tower_prefab, LT.M_SPECS["return"].tower_prefab):   # + the hosted rows' CIDs
             shutil.copytree(os.path.join(real, n), os.path.join(tmp, n))
+        # T256 (r4-tex 2026-11-20): hosted_expected_m resolves the deployed station and hosted tower meshes by CID under
+        # c030ee3ff256df91, so the copy carries those mesh folders too (a rig generation moves the top's hosted row)
+        mesh_root = os.path.join(real, "c030ee3ff256df91")
+        for d in sorted(os.listdir(mesh_root)) if os.path.isdir(mesh_root) else ():
+            if d.startswith(("SkiLiftBaseStation", "SkiLiftTopStation", "SkiLiftTowerET")) and \
+                    os.path.isdir(os.path.join(mesh_root, d)):
+                shutil.copytree(os.path.join(mesh_root, d), os.path.join(tmp, "c030ee3ff256df91", d))
         with open(os.path.join(tmp, LT.FG_ROPE_LANE, LT.FG_ROPE_LANE + ".Prefab.cid"), encoding="utf-8") as fh:
             cid = "CID:" + fh.read().strip()
         LT.GAMEDATA_M = tmp

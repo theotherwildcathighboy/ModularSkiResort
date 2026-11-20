@@ -211,6 +211,7 @@ namespace SkiTestBridge
                 case "wind":
                 case "fps":
                 case "overlay":
+                case "pointer":
                 case "terrain":
                     s.results.Add(new JObject { ["step"] = s.index, [op] = Run(op, step) });
                     Next(s, 0);

@@ -1192,9 +1192,11 @@ FG_HANG = 2.400                  # carriers tr hang_m (grip top = the code lane 
 FG_GRIP_ABOVE = 0.080            # carriers tr grip_top_above_rope_m (only the rope-point pin uses it)
 M_ROPE_R_SHIPPED = 0.055         # the shipped stations' modeled rope
 # art-601 #10 (owner hand-test note 10, "really jarring"): the modeled station rope (ropechord_ / wheelrope, 0.11 m across)
-# read 2-3x the line's vanilla cable beside it. --thin-rope builds with THIN_ROPE_R, the 0.048 m rope of the chair contract
-# (carriers tr / dq: the grip's rope; the line cable draws at r 0.060, rope-width-check.md). The shipped letter O uses it
-# (SHIPPED_FLAGS). Every consumer of the radius (the axle of
+# read 2-3x the line's vanilla cable beside it. --thin-rope builds with THIN_ROPE_R, 0.048 m across. The shipped letter O uses
+# it (SHIPPED_FLAGS). The line cable's MESH is r 0.060 (rope-width-check.md), but the game draws it about 0.040 m across
+# (hexagon r 0.020 = SkiRopeStillLVA Mesh m_MinSize 0.04, a dilated curve mesh; P1 2026-11-20 measured 3.03x for a 0.060 station
+# rope and 1.24x for O's 0.024, critic-oc3; the shader is not decompiled). A station rope draws at its mesh width. The rig
+# (RIG_ROPE_R) uses THIN_ROPE_R too. No chair or train contract depends on 0.048: every consumer of the radius (the axle of
 # the hold trains on the rope's top, the rope parts, the checks) follows the one global. The manifest records the radius of
 # the build (rope_r_m), and the seams tests read it per asset. LOD caveat: vanilla cables keep a minimum screen width at
 # distance, but a modeled 0.048 m rope does not (judge the far preview).
@@ -1351,6 +1353,8 @@ def materials_m():
     import cs2_bake
     MS = cs2_bake.MaterialSpec
     grey = _lin_m((0.80, 0.80, 0.80))
+    if TEXPASS_M:
+        return texpass_materials_m(MS, grey)
     return {
         "paint1": MS(albedo=grey, metal=0.10, rough=0.55, slot=1, recolor_albedo=True,
                      projection="planar"),
@@ -1381,6 +1385,8 @@ def materials_for_m(parts):
 def mat_roles_m():
     import cs2_liftdress as LD
     import cs2_sheaves as S
+    if TEXPASS_M:
+        return {**LD.DQ_MAT_ROLES, "timber": "timber", **TP1_ROLES, **S.wheel_roles()}
     return {**LD.DQ_MAT_ROLES, "timber": "timber", **S.wheel_roles()}
 
 
@@ -1437,7 +1443,205 @@ def detail_specs_m():
         "signband_": D(), "scale_": D(), "badge": D(), "label_": D(), "board_": D(),
         "stripe_": D(), "chev_": D(), "carpet_": D(), "doorlite_": D(), "winframe_": D(),
         "plate_cap": D(),
+        **(texpass_detail_specs_m(D) if TEXPASS_M else {}),
     }
+
+
+# ---------------------------------------------------------------- texture pass v1 ---------
+# r4/tex (2026-11-19): `--texpass v1`, default off = every FBX and map byte for byte as before (the tables below are read
+# only under the flag). The pass changes pixels, UV density weights and material response. It moves no vertex, renames no
+# part and adds no triangle. What it does, per audit finding (docs: r4-fleet/tex/fg/NOTE.md):
+# - TP1_TONE: the towers' detail-pass-1 tone layer (cs2_compose.detail_tone: paint mottle + chalk on up-facing paint, galv
+#   bloom) reaches the stations, plus a damp-patch mottle on the concrete and a board tone on the timber. The stations
+#   shipped flat paint, a featureless galv (Metal032 is one blue-gray tone) and a clean scan on 121 m2 of pad.
+# - TP1_CAVITY: relief deeper than 2.5 mm darkens and dulls (grating holes, plank gaps, slab joints). Flag-off relief is
+#   normal-map only, which does not read at play distance.
+# - texpass_detail_specs_m: slab joints on the pad (3.85 m panels), standing seams on the two sheet roofs.
+# - texpass_materials_m: satin structural paint (rough 0.55 -> 0.42); the galvanized steel leaves Metal032's blue-gray for
+#   the light neutral zinc of the pass's towers (lift_tower.TEXPASS_MATERIALS, one galv in the family); the concrete takes
+#   the towers' warm tint and roughness (the hosted end tower's pier stands on this pad).
+# - TP1_DENSITY: texels move from the fat painted tubes to the surfaces the game camera sees from above (pad, roofs,
+#   grating, load deck).
+# IDENTITY_M ("shack", `--identity shack`, needs the pass): the station-identity proposal. The operator hut is clad in the
+# lodges' stained plank siding (key hutclad, the lodge timber_lap scan at the lodges' 2.4 m tile = 17 cm boards; the scan
+# holds 14 boards, so the 1.2 m tile of the first draft drew 8.6 cm boards, cs2_tilesheet.TEXPASS r4/tex a2f5552d) and the
+# machine house leaves the structure's recolor slot for slot 2 (key hood, satin), so the machine carries the lift's own
+# color. Material keys only.
+TEXPASS_M = None            # None | "v1" (main_m sets it from the args before a part is built)
+IDENTITY_M = None           # None | "shack"
+TEXPASS_CHOICES = ("off", "v1")
+IDENTITY_CHOICES = ("off", "shack")
+TP1_ROUGH_PAINT = 0.42
+TP1_ROUGH_HOOD = 0.32
+TP1_GALV_TINT = (2.09, 1.93, 1.76)          # = lift_tower.TEXPASS_MATERIALS v1 FG galv: sRGB 0.70 / 0.715 / 0.73
+TP1_CONCRETE = dict(tint=(0.661, 0.625, 0.547), rough=0.76)     # = lift_tower.TOWER_MATERIALS concrete
+TP1_HUTCLAD = dict(texture_set="PHWeatheredPlankSiding", metres_per_tile=2.4, metal=0.0)
+TP1_ROLES = {"hood": "paint_metal", "hutclad": "timber"}
+TP1_REKEY = {"shack": {"hut": "hutclad", "house": "hood", "door_house_leaf": "hood"}}
+# density weights (longest prefix wins) laid over M_DENSITY
+TP1_DENSITY = {
+    "pad": 1.0, "houseroof": 1.2, "hutroof": 1.2, "grate_": 0.9, "loaddeck": 1.2, "loadramp": 1.2,
+    "hutbase": 0.8, "cwfoot": 0.7, "crest": 0.8, "rampup": 0.8, "rampdown": 0.8,
+    "leg_": 1.15, "beam_": 1.15, "rail_n": 1.15, "rail_p": 1.15, "column": 1.2,
+}
+# detail_tone specs per MATERIAL key (cs2_compose.DetailSpec tone fields). paint / galv = lift_tower.DP1_TONE within 20 %
+TP1_TONE = {
+    "paint1": dict(mottle_m=0.60, mottle_amp=0.04, mottle_smooth=0.08, chalk_amp=0.05, chalk_smooth=0.10),
+    "hood": dict(mottle_m=0.90, mottle_amp=0.03, mottle_smooth=0.06, chalk_amp=0.04, chalk_smooth=0.08),
+    "galv": dict(mottle_m=0.15, mottle_stretch=2.5, mottle_amp=0.06, mottle_smooth=0.10),
+    "concrete": dict(mottle_m=1.50, mottle_amp=0.07, mottle_smooth=0.04),
+    "timber": dict(mottle_m=0.35, mottle_stretch=4.0, mottle_amp=0.07, mottle_smooth=0.04),
+}
+TP1_TONE_FLOOR_TEXELS = 4.4     # mottle cell >= this many texels (lift_tower.DP1_TONE_FLOOR_TEXELS)
+TP1_CAVITY = dict(from_m=0.0025, span_m=0.0075, dark=0.40, dull=0.15)
+TP1_JOINT_M = 3.85              # slab panel = the pad's half width: joints on the center line and at the edges
+# weather overrides laid BEFORE FG_WEATHER (first match wins on an equal prefix), and two lower ladder steps: the pass moves
+# texels to the walked pad, so the texel-weighted vanilla budget (VL1 / VL2) can WARN at the shipped first step 0.40
+TP1_WEATHER = ()
+TP1_WEATHER_STEPS = (0.30, 0.35)
+TP1_SEAM_M = 0.45               # standing-seam pitch of the sheet roofs
+
+
+def texpass_materials_m(MS, grey):
+    """materials_m under --texpass v1: the flag-off table with satin structural paint, and under IDENTITY_M the two keys of
+    the proposal (hood = slot 2, hutclad = the lodges' plank siding). galv keeps its set and tile
+    (cs2_liftdress.merge_materials: one galv on every station)."""
+    table = {
+        "paint1": MS(albedo=grey, metal=0.10, rough=TP1_ROUGH_PAINT, slot=1, recolor_albedo=True,
+                     projection="planar"),
+        "signband": MS(albedo=grey, metal=0.10, rough=0.50, slot=1, recolor_albedo=True),
+        "concrete": MS(texture_set="Concrete034", metres_per_tile=3.0, metal=0.0, **TP1_CONCRETE),
+        "darksteel": MS(albedo=cs2_asset.STEEL_DEFAULT_RGB, metal=0.2, rough=0.60),
+        "galv": MS(texture_set="Metal032", metres_per_tile=2.0, metal=1.0, rough=0.65, tint=TP1_GALV_TINT),
+        "glass": MS(albedo=(0.07, 0.09, 0.11), metal=0.0, rough=0.08),
+        "rope": MS(**cs2_asset.ROPE_MATERIAL),
+        "rubber": MS(albedo=(0.04, 0.04, 0.045), metal=0.0, rough=0.70),
+        "timber": MS(albedo=_lin_m((0.50, 0.40, 0.29)), metal=0.0, rough=0.78),
+    }
+    if IDENTITY_M == "shack":
+        table["hood"] = MS(albedo=grey, metal=0.0, rough=TP1_ROUGH_HOOD, slot=2, recolor_albedo=True,
+                           projection="planar")
+        table["hutclad"] = MS(**TP1_HUTCLAD)
+    return table
+
+
+def identity_rekey_m(parts):
+    """IDENTITY_M: the proposal's material keys on the named parts (TP1_REKEY). Objects, names and order are unchanged."""
+    table = TP1_REKEY[IDENTITY_M]
+    hit = sorted(o.name for o, _m in parts if o.name in table)
+    if not hit:
+        raise RuntimeError(f"identity {IDENTITY_M}: none of {sorted(table)} in this station")
+    return [(o, table.get(o.name, m)) for o, m in parts]
+
+
+def set_texpass_m(texpass="off", identity="off"):
+    """main_m: the pass and the identity proposal of this run ("off" / None = the shipped build). Tests call it too."""
+    global TEXPASS_M, IDENTITY_M
+    tp = None if texpass in (None, "off") else texpass
+    idn = None if identity in (None, "off") else identity
+    if tp not in (None,) + TEXPASS_CHOICES[1:] or idn not in (None,) + IDENTITY_CHOICES[1:]:
+        raise ValueError(f"texpass {texpass!r} / identity {identity!r}: choices {TEXPASS_CHOICES} / {IDENTITY_CHOICES}")
+    if idn and not tp:
+        raise SystemExit("--identity needs --texpass v1")
+    TEXPASS_M, IDENTITY_M = tp, idn
+
+
+def texpass_block_m(hook, part_material):
+    """The manifest's `texpass` block (written only under the flag)."""
+    keys = sorted(set(part_material.values()))
+    return {"version": TEXPASS_M, "identity": IDENTITY_M or "off",
+            "rough": {"paint1": TP1_ROUGH_PAINT, **({"hood": TP1_ROUGH_HOOD} if IDENTITY_M else {})},
+            "galv_tint": list(TP1_GALV_TINT), "concrete": {k: list(v) if isinstance(v, tuple) else v
+                                                           for k, v in TP1_CONCRETE.items()},
+            "density": dict(TP1_DENSITY), "tone": {k: dict(v) for k, v in TP1_TONE.items() if k in keys},
+            "tone_stats": hook.inner.tone, "cavity": hook.inner.cavity,
+            "relief": {"pad_joint_m": TP1_JOINT_M, "roof_seam_m": TP1_SEAM_M},
+            "rekey": dict(TP1_REKEY[IDENTITY_M]) if IDENTITY_M else {},
+            "weather": [list(map(str, r)) for r in TP1_WEATHER],
+            "tris_added": 0, "textures_added_mb": 0.0}
+
+
+def density_m():
+    """The density weights of this build: M_DENSITY, with TP1_DENSITY over it under --texpass v1."""
+    return {**M_DENSITY, **TP1_DENSITY} if TEXPASS_M else M_DENSITY
+
+
+def texpass_detail_specs_m(D):
+    """Relief the pass adds to detail_specs_m: slab joints on the pad, raised standing seams across the two sheet roofs
+    ("rings" on a horizontal face = lines at constant travel x, across the short side). Under IDENTITY_M the hut loses the
+    corrugation: its boards come from the scan's own normal map."""
+    out = {
+        "pad": D(seams_m=TP1_JOINT_M, seam_width_m=0.03, seam_depth_m=0.008),
+        "houseroof": D(seams_m=TP1_SEAM_M, seam_axes="rings", seam_width_m=0.03, seam_depth_m=-0.012),
+        "hutroof": D(seams_m=TP1_SEAM_M, seam_axes="rings", seam_width_m=0.03, seam_depth_m=-0.012),
+    }
+    if IDENTITY_M == "shack":
+        out["hut"] = D()
+    return out
+
+
+def tone_specs_tp1(table, part_material, ppm_of):
+    """detail_tone specs keyed by FULL part name (every part gets a key, so a short name never lends its tone to a longer one):
+    TP1_TONE by material key, a galv bloom cell never below TP1_TONE_FLOOR_TEXELS texels."""
+    D = cs2_compose.DetailSpec
+    out = {}
+    for i, nm in enumerate(table, start=1):
+        key = part_material.get(nm)
+        tone = TP1_TONE.get(key)
+        if tone is None or nm.startswith(("signband", "signboard", "scale_", "badge", "label_", "plate_cap")):
+            out[nm] = D()
+            continue
+        g = dict(tone)
+        ppm = ppm_of.get(i, 0.0)
+        if key == "galv" and ppm > 0:
+            g["mottle_m"] = max(g["mottle_m"], TP1_TONE_FLOOR_TEXELS / ppm)
+        out[nm] = D(**g)
+    return out
+
+
+def make_post_compose_tp1(obj, reserved, part_material):
+    """--texpass v1 twin of make_post_compose (same steps, same order): the relief of detail_specs_m, then the tone layer
+    (tone_specs_tp1) and the cavity term (TP1_CAVITY) go through compose_maps' tone_l / tone_s. Records hook.tone and
+    hook.cavity for the manifest."""
+    def hook(base, nrm, msk, ctl, ao, mesh, A):
+        hook.density = cs2_uv.density_report(obj, A, reserved_rects=reserved)
+        part_map, ppm_map = cs2_compose.rasterise_face_fields(mesh, A)
+        h = cs2_compose.detail_height(mesh, A, detail_specs_m())
+        hook.height_range = (float(h.min()), float(h.max()))
+        table = cs2_compose.read_part_table(mesh)
+        flat_p, flat_d = part_map.ravel(), ppm_map.ravel()
+        order = np.argsort(flat_p, kind="stable")
+        cuts = np.flatnonzero(np.diff(flat_p[order])) + 1
+        ppm_of = {}
+        for seg in np.split(order, cuts):
+            p = int(flat_p[seg[0]])
+            if p > 0:
+                ppm_of[p] = float(np.median(flat_d[seg]))
+        dl, ds = cs2_compose.detail_tone(mesh, A, tone_specs_tp1(table, part_material, ppm_of))
+        hook.tone = {k: dict(v) for k, v in cs2_compose.LAST_TONE_STATS.items()}
+        c = TP1_CAVITY
+        cav = np.clip((-h - c["from_m"]) / c["span_m"], 0.0, 1.0).astype(np.float32)
+        hook.cavity = {"texels": int((cav > 0).sum()), "mean": round(float(cav[cav > 0].mean()), 4) if (cav > 0).any()
+                       else 0.0, **c}
+        dl = dl - c["dark"] * cav
+        ds = ds - c["dull"] * cav
+        uncovered = nrm[..., 0:3].max(axis=-1) < 1e-3       # EMIT bake left them black
+        base, nrm, msk, ctl = cs2_compose.compose_maps(
+            base, nrm, msk, ctl, None, h, ppm_map,
+            {"reserved": reserved, "part_map": part_map, "seed": 0, "tone_l": dl, "tone_s": ds})
+        n = nrm[..., 0:3] * 2.0 - 1.0
+        n[..., 2] = np.maximum(n[..., 2], 0.05)
+        n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-6)
+        nrm[..., 0:3] = n * 0.5 + 0.5
+        nrm[uncovered, 0:3] = (0.5, 0.5, 1.0)
+        nrm[..., 3] = 1.0
+        print(f"[terminal] compose tp1: relief height {h.min():+.4f} .. {h.max():+.4f} m, tone {hook.tone}, cavity "
+              f"{hook.cavity['texels']} texels, {int((~uncovered).sum())} covered texels @ {A}")
+        return base, nrm, msk, ctl
+    hook.density = None
+    hook.height_range = None
+    hook.tone = hook.cavity = None
+    return hook
 
 
 # not walkable by design (C15-FG / tram C15 N2 rule: every standable top is walkable or listed)
@@ -1904,8 +2108,9 @@ M_NOSE = dict(rim_gap=0.02,          # m along x: the outer rim's line-side edge
 #   LiftLoopCache.AppendTerminalTurn) instead of the sub-lane's inboard end: M_SPECS anchor_in := anchor_out, so the chord,
 #   the train frame, M2 / M3 / M21 and the previews all follow one datum. The prefab's sub-lanes do not move (M1 reads
 #   M_SPECS_SHIPPED).
-# - the rope is a hexagon (one vertex on the horizontal) of RIG_ROPE_R: the line's cable (SkiRopeStillLVA = vanilla LV cable,
-#   r 0.060, rope-width-check 2026-11-19). The half torus has RIG_TORUS_MAJORS segments (ring centers on the code arc, chord
+# - the rope is a hexagon (one vertex on the horizontal) of RIG_ROPE_R: as drawn in game by the line's cable (SkiRopeStillLVA
+#   = vanilla LV cable; its mesh is r 0.060, rope-width-check 2026-11-19, but P1 measured about 0.04 m on screen), so r 0.024,
+#   the chair grip's rope. The half torus has RIG_TORUS_MAJORS segments (ring centers on the code arc, chord
 #   sagitta reported). LOD1 keeps the rope faces un-decimated (RigLodFixed).
 # - the 8-spoke bullwheel (box spokes, hub cap, one safety_yellow spoke: the turn reads at play distance).
 # - an entry (hold-down) sheave at each of the wheel's two tangent points, its rim on the rope where the chord meets the
@@ -1926,8 +2131,12 @@ M_NOSE = dict(rim_gap=0.02,          # m along x: the outer rim's line-side edge
 #   moved toward the boom root, 30 deg to the boom (P2-S4).
 # False = every shipped station byte for byte (no expression below runs).
 M_RIG = False
-RIG_ROPE_R = 0.060            # m, the line cable's circumscribed radius (tune after an in-game side-by-side photo)
-RIG_ROPE_SIDES = 6            # hexagon, one vertex on the horizontal (the cable's 0.120 m lateral / 0.104 m vertical)
+RIG_ROPE_R = THIN_ROPE_R      # m (0.024). P1 field test 2026-11-20 (lift-motion REPORT "P1 results" F2, OC-3): at r 0.060 the
+                              # station rope read 3.03x the line cable at the base nose joint (same lane, same depth, 10 m:
+                              # 33.4 px vs 11.0 px), so the cable draws about 0.04 m (m_MinSize), not its mesh width. 0.024 =
+                              # every shipped FG station and tower seat (O measured 1.24x the cable); one prefab float
+                              # (the cable's m_MinSize) can later make it exact kit-wide
+RIG_ROPE_SIDES = 6            # hexagon, one vertex on the horizontal
 RIG_TORUS_MAJORS = 24         # half torus segments (7.5 deg each): chord sagitta R (1 - cos 3.75 deg) = 3.9 mm at R 1.80
 RIG_BONES = {"drive": ("Root", "Bullwheel", "NoseTrain"), "return": ("Root", "Bullwheel")}
 RIG_BULL_PARTS = ("sheave_bull", "spoke_", "wheelhub")      # Bullwheel (wheelhub_cap included; spoke_00 the yellow mark)
@@ -1948,8 +2157,11 @@ RIG_HOSTED_X = -5.025         # top: the skinned hosted end tower's pivot on the
 RIG_HOSTED_DIR = None         # top: folder holding the skinned hosted tower's FBXs (M5 / previews), CLI --rig-hosted
 RIG_WHEEL = dict(spokes=8, spoke=(0.10, 0.16), spoke_r=(0.30, 1.52), cap_r=0.24, cap_h=0.06,
                  mark_spoke=0)      # round 2 (S3): this spoke is safety_yellow (the turn's mark; round 1: a galv rim plate)
-RIG_KNUCKLE = dict(r=0.066, length=0.08)   # round 2 (C1): the rope collar on each lane end (hides the V of a kinked line).
-# First try r 0.068 x 0.12: its line-side half sat 9 mm from the chair stem at NoseTrain +20 deg (RIG-nose, M3 machine >= 0.01)
+RIG_KNUCKLE = dict(proud=0.006, length=0.08)   # round 2 (C1): the rope collar on each lane end (hides the V of a kinked
+# line). r = RIG_ROPE_R + proud (rig_knuckle_r_m): 0.030 at the r 0.024 rope (OC-3), 0.066 at round 2's 0.060.
+# First try r 0.068 x 0.12: its line-side half sat 9 mm from the chair stem at NoseTrain +20 deg (RIG-nose, M3 machine >= 0.01).
+# The drawn line cable (hexagon r 0.020, SkiRopeStillLVA m_MinSize 0.04) leaves through the cap face up to a kink of about
+# 8 deg; past that its silhouette crosses the collar's side (the V stays hidden; critic-oc3, the P1 joint showed 13.3 deg)
 RIG_NOSE_BRACE = dict(r=0.045, segs=6, a_top=2.75, foot_z=0.15, foot_in=0.03)   # round 2 (C2): the knee brace under
 # each nose boom: from the boom's axis at chord-frame a = a_top down to the front portal beam's line-side face, foot_z over its
 # bottom (clear of the rail clamp saddle_f_<side>, top 0.05 over the beam bottom) and foot_in inside it. 6-gon, open ends
@@ -1962,9 +2174,14 @@ RIG_TOP_POST = dict(x=0.10, y=3.05, r=0.09, segs=8, plate=(0.24, 0.03), gusset=0
 # r 0.065 -> 0.09, and the crest stakes' black wrap (rubber, 0.02 off the post, crest + 0.10 .. crest + 1.60, open ends:
 # 16 tris a post). The chair body comes to 0.316 m (+y) / 0.321 m (-y) of the post axes at crest + 0.35, so the wrap keeps
 # 0.206 / 0.211 >= M_CLEAR_STRUCT
-RIG_LOD2_DELETE = ("holdbrace_",)     # round 2: the C2 brace goes with the boom (holdboom_, M_LOD2_DELETE) at LOD2
+RIG_LOD2_DELETE = ("holdbrace_", "entrypost")   # round 2: the C2 brace goes with the boom (holdboom_, M_LOD2_DELETE) at
+                                                # LOD2; P2-C1: the top's entry posts (kept at LOD1) go at LOD2
 RIG_GRIP_OK = ("sheave_entry",)       # the chair grip passes under the entry sheaves (as under the nose train)
-RIG_LOD1_DELETE = ("sheave_entry", "entryarm", "entrypost")   # with the nose train (sheave_hold): gone at LOD1
+RIG_LOD1_DELETE = ("sheave_entry", "entryarm", "entrypost_n_gusset", "entrypost_p_gusset", "entrypost_n_plate",
+                   "entrypost_p_plate")   # with the nose train (sheave_hold): gone at LOD1. P2-C1 (critic pass 2, bundled
+# with the OC-3 rope re-export): the top's two 2.6 m entry posts and their wrap stay at LOD1, so they do not pop at the LOD0 /
+# LOD1 switch; the arm gussets go with the arms, the base plates (20 tris, unseen at that range) go too. About 76 tris before
+# decimation; the LOD1 target is a ratio, so the decimation takes them back elsewhere
 RIG_ROPE_PARTS = ("wheelrope", "ropechord_")                 # kept out of the LOD1 decimation (RigLodFixed)
 RIG_CONTACTS = {   # declared contacts of the rig's own parts (contact_kinds_m adds them under M_RIG only)
     "T256 entry sheaves: the axle stub through the wheel hub and its cheek plate, the cheek and its gusset on its arm, the "
@@ -2610,6 +2827,11 @@ def _hex_collar_m(name, p_cap, p_open, r, sides=RIG_ROPE_SIDES):
     return _mbm_obj(name, bm)
 
 
+def rig_knuckle_r_m():
+    """OC-3 (critic-oc3 change 5): the knuckle collar's radius follows the station rope (RIG_KNUCKLE proud over M_ROPE_R)."""
+    return M_ROPE_R + RIG_KNUCKLE["proud"]
+
+
 def _wheel_rig_m(cx, cz):
     """T256: the bullwheel of the rigged stations. The O rim (the groove profile, outer 1.74, paint1) on RIG_WHEEL["spokes"]
     box spokes (0.10 wide x 0.16 deep, galv, from inside the hub to inside the rim), the O hub (galv) with a hub cap
@@ -2618,6 +2840,10 @@ def _wheel_rig_m(cx, cz):
     galv plate on the rim top (spoke_mark, the same tone as the rim: too faint). Every part rides the Bullwheel bone
     (RIG_BULL_PARTS)."""
     W = RIG_WHEEL
+    # OC-3 (critic-oc3 change 3, accepted as on O): at r 0.024 the rope ring's inner edge is 1.776, 36 mm outside this 1.74 rim
+    # lip (P at r 0.060 sat on it). A rim at 1.776 failed the rig test: the entry sheaves cut the turning wheel's envelope by
+    # 21-26 mm and the chair body cleared the rim by 1-6 mm (M3 wants 10). Shipped O has the same gap on a still wheel; a seated
+    # rope needs the entry sheaves and the chair path moved (an art item, not this re-export)
     parts = _kit_m(cs2_kit.sheave("bull", M_RIM_OUT, 0.40, (cx, 0.0, cz), "Z", segs=32, hub=False,
                                   groove=0.04, r_hub=1.50), "paint1")
     r0, r1 = W["spoke_r"]
@@ -2653,7 +2879,7 @@ def _rope_and_wheel_rig_m(spec):
         # round 2 (C1): the knuckle, a rope collar centered on the lane end on the chord axis, capped on the line side
         # (it hides the V and the open tube end where the line rope kinks at the lane end); RIG_ROPE_PARTS by its prefix
         e = _V((ax, s * FG_LANE, az))
-        parts.append((_hex_collar_m(f"ropechord_knuckle_{side}", e - u * h, e + u * h, RIG_KNUCKLE["r"]), "rope"))
+        parts.append((_hex_collar_m(f"ropechord_knuckle_{side}", e - u * h, e + u * h, rig_knuckle_r_m()), "rope"))
     return parts
 
 
@@ -3351,6 +3577,8 @@ def build_station_m(kind):
     if bad or len(set(names)) != len(names):
         dup = sorted({n for n in names if names.count(n) > 1})
         raise RuntimeError(f"M part names collided: renamed {bad[:8]}, duplicates {dup[:8]}")
+    if TEXPASS_M and IDENTITY_M:
+        parts = identity_rekey_m(parts)       # r4/tex identity proposal: material keys only
     missing = sorted({m for _o, m in parts} - set(materials_for_m(parts)))
     if missing:
         raise RuntimeError(f"M parts use undefined materials {missing}")
@@ -3401,7 +3629,7 @@ def assemble_m(parts, finish, kind):
         me = obj.data
         while me.uv_layers:
             me.uv_layers.remove(me.uv_layers[0])
-    cs2_uv.set_density(parts, {**LD.DRESS_DENSITY, **M_DENSITY})
+    cs2_uv.set_density(parts, {**LD.DRESS_DENSITY, **density_m()})
     table = cs2_asset.tag_parts(parts)
     bpy.context.view_layer.update()
     seed_parts_m(parts, kind)
@@ -3999,11 +4227,61 @@ def hosted_row_m(kind, frozen=None):
     return rows[0] if rows else None
 
 
+def _mesh_folder_by_cid_m(cid_ref, prefixes):
+    """The gamedata-mirror mesh folder (under c030ee3ff256df91) whose LOD0 '<name> Mesh_*.Prefab.cid' holds the CID in
+    cid_ref (a '$fstrref:"CID:<32 hex>"' value), among the folders whose name starts with one of prefixes. None when absent."""
+    m = _re.search(r"[0-9a-f]{32}", str(cid_ref))
+    root = os.path.join(GAMEDATA_M, "c030ee3ff256df91")
+    if not m or not os.path.isdir(root):
+        return None
+    for name in sorted(os.listdir(root)):
+        # the folder also holds loose asset cids ('<name>_<hash>.Geometry.cid', '.Texture.cid'): folders only
+        if not name.startswith(prefixes) or not os.path.isdir(os.path.join(root, name)):
+            continue
+        for f in os.listdir(os.path.join(root, name)):
+            if f.startswith(name + " Mesh_") and f.endswith(".Prefab.cid"):
+                with open(os.path.join(root, name, f), "r", encoding="utf-8") as fh:
+                    if fh.read().strip() == m.group(0):
+                        return name
+    return None
+
+
+def hosted_expected_m(kind, old_mesh=None):
+    """T256 (r4-tex, 2026-11-20): the hosted tower row the deployed building should carry. The rig generation (the mesh the
+    building draws has a manifest with a "rig" block: P on) moves the top's row to RIG_HOSTED_X and its tower prefab to the
+    rig's hosted tower (ET62Q); every earlier generation keeps spec.tower_x / spec.tower. Returns (x, tower mesh name,
+    the deployed station mesh name or None, rig bool). The M1 / MANIFESTSHA contract follows the DEPLOYED generation, so a
+    re-freeze after the rig repoint passes, and the M manifest records which generation it was frozen against."""
+    spec = M_SPECS[kind]
+    if old_mesh is None:
+        old_mesh = frozen_block_m(kind)[1]
+    st = _mesh_folder_by_cid_m(old_mesh, ("SkiLiftBaseStation", "SkiLiftTopStation"))
+    rig = False
+    if st:
+        for prefix in ("SkiLiftBaseStation", "SkiLiftTopStation"):
+            if st.startswith(prefix):
+                letter = st[len(prefix):]
+                mp = os.path.join(IMPORT_M, "stations", "fixedgrip", letter, st, st + ".manifest.json")
+                if os.path.isfile(mp):
+                    with open(mp, "r", encoding="utf-8") as fh:
+                        rig = bool(json.load(fh).get("rig"))
+    if not rig:
+        return spec.tower_x, spec.tower, st, False
+    tower = spec.tower
+    tp = os.path.join(GAMEDATA_M, spec.tower_prefab, spec.tower_prefab + ".Prefab")
+    if os.path.isfile(tp):
+        tm = _re.search(r'"m_Mesh"\s*:\s*([^,\n]+)', open(tp, "r", encoding="utf-8").read())
+        tower = (_mesh_folder_by_cid_m(tm.group(1), ("SkiLiftTowerET",)) if tm else None) or spec.tower
+    return RIG_HOSTED_X, tower, st, True
+
+
 def m1_frozen(kind):
     """M1: the datums of the generator agree with SkiCatalog.cs, carriers.json and the deployed K prefab. Returns the
-    prefab_contract block of the manifest."""
+    prefab_contract block of the manifest. The hosted tower row is checked against the DEPLOYED generation
+    (hosted_expected_m: RIG_HOSTED_X once the building draws the rig mesh)."""
     spec = M_SPECS[kind]
     frozen, old_mesh, sha, path = frozen_block_m(kind)
+    hx, htower, hstation, hrig = hosted_expected_m(kind, old_mesh)
     bad = []
     # SkiCatalog.cs: the FG station rows (WheelLocal, stub tip)
     with open(SKICATALOG_CS, "r", encoding="utf-8") as fh:
@@ -4054,9 +4332,10 @@ def m1_frozen(kind):
             bad.append(f"no hosted {spec.tower_prefab} row in {spec.building} (the top keeps its ET62)")
     else:
         pos, rot = tw["m_Position"], tw["m_Rotation"]["value"]
-        if (pos["x"], pos["y"], pos["z"]) != (0, 0, spec.tower_x) or \
+        if (pos["x"], pos["y"], pos["z"]) != (0, 0, hx) or \
                 (rot["x"], rot["y"], rot["z"], rot["w"]) != (0, 1, 0, 0):
-            bad.append(f"hosted tower pose {pos} / {rot} != generator (0, 0, {spec.tower_x}) rot 180")
+            bad.append(f"hosted tower pose {pos} / {rot} != generator (0, 0, {hx}) rot 180"
+                       f"{' (rig generation ' + str(hstation) + ')' if hrig else ''}")
     if bad:
         _m_fail("M1", "; ".join(bad))
     out = {
@@ -4070,9 +4349,11 @@ def m1_frozen(kind):
         "frozen_sha256": _hashlib.sha256(json.dumps(frozen, sort_keys=True).encode("utf-8")).hexdigest(),
         "code": {"WheelLocal_game": list(wl), "StubTipLocalZ": tip, "SkiCatalog": "SkiCatalog.cs " + nm},
         "carrier_tr": {k: tr[k] for k in ("hang_m", "grip_top_above_rope_m", "lane_x_m", "seats", "axle_m")},
-        "hosted_tower": None if tw is None else {
+        "hosted_tower": None if tw is None else dict({
             "prefab": spec.tower_prefab, "mesh_after_M6_M7": spec.tower,
-            "position": [0.0, 0.0, spec.tower_x], "rotation_quat": [0.0, 1.0, 0.0, 0.0]},
+            "position": [0.0, 0.0, hx], "rotation_quat": [0.0, 1.0, 0.0, 0.0]},
+            **({"deployed_generation": hstation, "deployed_mesh": htower,
+                "why": "T256: the building draws the rig generation; its row sits at RIG_HOSTED_X"} if hrig else {})),
         "utility_object": None,
         "colour_slots_lod0": [[0.25, 0.26, 0.275, 1.0], [0.85, 0.25, 0.10, 1.0], [1.0, 1.0, 1.0, 1.0]],
     }
@@ -4082,7 +4363,8 @@ def m1_frozen(kind):
 
 
 def m2_rope(co, tris, names, spec):
-    """M2: the rope torus center = WheelLocal +- 0.002. Its radius is 1.80 +- 0.005. The rim outer is <= 1.745. Every ropechord_
+    """M2: the rope torus center = WheelLocal +- 0.002. Its radius is 1.80 +- 0.005. The rim outer is <= 1.745 (also under M_RIG: OC-3
+    keeps the O rim, _wheel_rig_m). Every ropechord_
     vertex is within 0.06 of the analytic chord."""
     wx, _wy, wz = spec.wheel
 
@@ -4114,7 +4396,8 @@ def m2_rope(co, tris, names, spec):
         bad.append(f"torus R {R_fit:.4f} / z {z_fit:.4f} vs {M_TORUS_R} / {wz}")
     if rim_out > 1.745:
         bad.append(f"rim outer {rim_out:.4f} > 1.745")
-    if worst > (M_ROPE_R + 0.001 if M_RIG else 0.06):     # T256: the 0.060 hexagon sits ON the old 0.06 line
+    if worst > (M_ROPE_R + 0.001 if M_RIG else 0.06):     # T256: the rig's rope hexagon (r M_ROPE_R) sits on the code chord;
+                                                          # flag-off keeps the shipped 0.06 tolerance
         bad.append(f"chord vertex {worst:.3f} off the code chord")
     if bad:
         _m_fail("M2", "; ".join(bad))
@@ -4945,14 +5228,19 @@ def stamp_scale_m(base, ctl, me, table):
     return info
 
 
-def make_hook_m(t, table, kind):
+def make_hook_m(t, table, kind, part_material=None):
     """post_compose = make_post_compose (density report, relief with detail_specs_m, compose_maps, normal renormalize, the
     reserved rects keep their baked texels), then the sign + badge, the labels, the tension scale and the 8-bit ControlMask
     exclusivity guard."""
     import cs2_liftdress as LD
     LTD = _LTD()
     rects = list(reserved_rects_m(kind).values())
-    inner = make_post_compose(t, rects, specs=detail_specs_m)
+    if TEXPASS_M:
+        if part_material is None:
+            raise ValueError("make_hook_m: --texpass needs part_material ({part name: material key})")
+        inner = make_post_compose_tp1(t, rects, part_material)
+    else:
+        inner = make_post_compose(t, rects, specs=detail_specs_m)
     LTD.digit_triangles(sign_layout_m())
     LD.stem_ratio()
     if kind == "drive":
@@ -4998,12 +5286,13 @@ def weather_spec_m(name, kind, intensity):
     FG_WEATHER (+ FG_WEATHER_TOP on the top) before DRESS_WEATHER_OVERRIDES of the dressing. ground = the pad top (base) /
     grade (top)."""
     import cs2_liftdress as LD
+    tp = tuple(TP1_WEATHER) if TEXPASS_M else ()
     if kind == "drive":
         return LD.station_weather_spec(name, ground="grade", ground_z=M_BASE["pad_h"],
-                                       overrides=FG_WEATHER + tuple(LD.DRESS_WEATHER_OVERRIDES),
+                                       overrides=tp + FG_WEATHER + tuple(LD.DRESS_WEATHER_OVERRIDES),
                                        traffic_extra=FG_TRAFFIC, intensity=intensity)
     return LD.station_weather_spec(name, ground="grade", ground_z=0.0,
-                                   overrides=FG_WEATHER_TOP + FG_WEATHER + tuple(LD.DRESS_WEATHER_OVERRIDES),
+                                   overrides=tp + FG_WEATHER_TOP + FG_WEATHER + tuple(LD.DRESS_WEATHER_OVERRIDES),
                                    traffic_extra=tuple(p for p in FG_TRAFFIC if p not in
                                                        ("crest", "liftiebay", "rampup", "rampdown")),
                                    intensity=intensity)
@@ -5802,7 +6091,10 @@ def rig_manifest_m(kind, block):
            "submesh_win": "the _Win glass sub-mesh stays an unskinned sub-object of a skinned building (UNVERIFIED in "
                           "game, PLAN P0 c)"}
     if kind == "return":
-        out["hosted_tower"] = {"folder": RIG_HOSTED_DIR, "row_position_game": [0.0, 0.0, RIG_HOSTED_X],
+        hf = RIG_HOSTED_DIR and os.path.abspath(RIG_HOSTED_DIR)      # repo-relative in the manifest (no home paths)
+        if hf and os.path.normcase(hf).startswith(os.path.normcase(REPO_M + os.sep)):
+            hf = os.path.relpath(hf, REPO_M).replace(os.sep, "/")
+        out["hosted_tower"] = {"folder": hf, "row_position_game": [0.0, 0.0, RIG_HOSTED_X],
                                "shipped_row_z": spec.tower_x, "rotation_quat": [0, 1, 0, 0],
                                "note": "the skinned ET62's pivot (crown at 5.24 = the lane end) on the lane end"}
     return out
@@ -5875,6 +6167,7 @@ def main_m(args):
     if getattr(args, "rope_on_crown", False):
         set_m_rope_on_crown(True)          # T27 preview flag: the anchors on the ET crown (surgery in M1)
     FINE_DETAIL_M = not bool(getattr(args, "no_fine", False))     # fine-detail step 3c: every run follows its args
+    set_texpass_m(getattr(args, "texpass", "off"), getattr(args, "identity", "off"))   # every run follows its args
     kind = args.kind
     M_NOSE_TRAIN = bool(getattr(args, "no_hosted_tower", False))
     M_ROPE_R = THIN_ROPE_R if getattr(args, "thin_rope", False) else M_ROPE_R_SHIPPED   # every run follows its args
@@ -5897,6 +6190,7 @@ def main_m(args):
           f"hosted {spec.tower} at x {spec.tower_x} -> {asset_dir}")
     clear_scene()
     parts = build_station_m(kind)
+    part_material = {o.name: str(m) for o, m in parts}
     dress = LD.lod_split([(o, m) for o, m in parts if o.name.startswith(
         ("maze_", "gate_", "board_", "label_", "stripe_", "chev_", "carpet_", "ext_", "tool_", "skirack_",
          "ski_", "estop_", "gauge_"))])
@@ -5940,11 +6234,12 @@ def main_m(args):
     A = args.atlas if args.finish else M_SMOKE_ATLAS
     ao = args.ao_samples if args.finish else 0
     rects = list(reserved_rects_m(kind).values())
-    hook0 = make_hook_m(t, table, kind)
+    hook0 = make_hook_m(t, table, kind, part_material=part_material)
     hook = hook0
     if args.weather == "on":
         roles = LD.lift_mat_roles(t.data, mat_roles_m())
-        hook = LTD.SteppedWeather(hook0, lambda s: weather_spec_m(name, kind, s), LD.INTENSITY_STEPS,
+        steps = (TP1_WEATHER_STEPS + tuple(LD.INTENSITY_STEPS)) if TEXPASS_M else LD.INTENSITY_STEPS
+        hook = LTD.SteppedWeather(hook0, lambda s: weather_spec_m(name, kind, s), steps,
                                   mat_roles=roles, detail_specs=detail_specs_m(), reserved=rects,
                                   compose_contact=False)
     margin = max(2, int(round(M_PACK_MARGIN_PX * A / float(M_ATLAS))))
@@ -6059,8 +6354,11 @@ def main_m(args):
             raise RuntimeError(f"validate_asset_folder: {n_err} errors")
     pc = contracts.pop("M1")
     fine_block = fine_detail_block_m(kind, contracts)          # fine-detail step 3c (None when off)
+    from carrier_split import manifest_args
     cs2_validate.write_manifest(asset_dir, name, {
-        "args": vars(args),            # T256: every parsed flag (defaults too): a letter's build is reproducible
+        # T256: every parsed flag (defaults too): a letter's build is reproducible. r4/tex fg (2026-11-20): paths
+        # repo-relative / %USERPROFILE% (manifest_args, as lift_chair), the first export into assets/import leaked them
+        "args": manifest_args(args, REPO_M),
         "generator": GEN_M, "kind": kind, "generation": "M", "rope_r_m": M_ROPE_R,
         "spec": "design/fg-stations-m.md + fg-stations-m-skeptic.md MUST-CHANGE 1-6 (build/fg-stations-m.md)",
         "finish": "shipping" if args.finish else "blockout", "atlas_px": A, "ao_samples": ao,
@@ -6075,6 +6373,7 @@ def main_m(args):
         "sign_band": hook0.stamps, "labels": hook0.labels, "tension_scale": hook0.scale,
         "detail_stats": hook0.detail_stats, "ctl_seam_texels_scaled": hook0.ctl_scaled,
         "dressing_lod": {k: list(v) for k, v in dress.items()},
+        **({"texpass": texpass_block_m(hook0, part_material)} if TEXPASS_M else {}),
         "sub_objects": subobject_rows_m(kind),
         **({"fine_detail": fine_block} if fine_block else {}),
         "prefab_contract": pc,
@@ -6198,6 +6497,12 @@ def build_parser():
     ap.add_argument("--wheels", choices=["v1", "v2"], default="v2",
                     help="M, T62: sheave wheel generation (v2 default = cs2_sheaves.wheel on the hold-down train and the "
                          "counterweight sheaves: the round-3 wheel (16 segments, groove, seen hub bosses); v1 = the pre-T62 wheels byte for byte).")
+    ap.add_argument("--texpass", choices=list(TEXPASS_CHOICES), default="off",
+                    help="M, r4/tex: texture pass (v1 = TP1_* tables: tone layer, cavity term, slab joints, roof seams, "
+                         "satin paint, density toward the pad / roofs). off = the shipped maps byte for byte.")
+    ap.add_argument("--identity", choices=list(IDENTITY_CHOICES), default="off",
+                    help="M, r4/tex proposal, needs --texpass v1: shack = plank-siding operator hut + the machine house "
+                         "on recolor slot 2. off = the pass alone.")
     ap.add_argument("--rig", action="store_true",
                     help="M, T256 (M_RIG): the rigged fixed-grip station (letter P): skinned (Root, Bullwheel, base "
                          "NoseTrain), the 8-spoke wheel, entry sheaves, the cable-width rope from the lane end; drive implies "

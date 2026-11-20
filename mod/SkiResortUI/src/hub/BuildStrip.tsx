@@ -3,7 +3,8 @@
  * Closed, it is the tab row (Lifts | Runs | Buildings), the chevron and the one dot. A tab click opens it on that tab and never
  * closes it. Only the chevron closes it (T246 Design A, 2026-11-17). It stays open while anything it started is engaged (a build
  * tool, the tree tool, the planner, the lift generator, cat track delete, the merge overlay). It closes when that ends
- * (hubRules.footerOpen / tabClick / chevronClick).
+ * (hubRules.footerOpen / tabClick / chevronClick). T262: a chevron click while one is engaged cancels it (hubRules.chevronCancel), and the
+ * strip then closes by itself.
  * Open, every tab is the same three rows: a family row of chips, ONE tile row, ONE status line. So the tab row and the tiles never
  * move when the tab changes (DECISIONS 612). T246: every tab's tile row has the same slot count and gap count (hubRules.stripSlots,
  * empty slots padded at the end), so a tile has one width on every tab. The layout check asserts it (tile width, slots, strip height). The Buildings tab shows one family at a time (Lodges: the sign and the lodge tiers.
@@ -21,7 +22,7 @@ import { bindLocalValue, useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { build$, catTrackDeleteMode$, follow$, glade$, hubTriggers, liftLine$, mergeOverlay$, problems$, quickRuns$, resortLive$, resorts$, selectedResort$ } from "../bindings";
+import { GRADE_SCHEME, build$, catTrackDeleteMode$, follow$, glade$, gradeScheme$, hubTriggers, liftLine$, mergeOverlay$, problems$, quickRuns$, resortLive$, resorts$, selectedResort$, slopeOverlay$ } from "../bindings";
 import type { BuildItem, BuildItemId, MergeOverlayState, RunKind } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
@@ -31,7 +32,7 @@ import {
 import type { OrderedBuildItem, TerrainFit } from "./buildItems";
 import {
   NO_PICK, buildingFamily, dotItem, dotTarget, drawnTabs, effectiveSelection, effectiveTab, footerOpen, footerState, line1Variant, liveOf,
-  chevronClick, nextVariant, optionOf, pickerSets, priceFullWith, stripSlots, tabClick, tabOfDot, tabOfItem, tabOfNext, visibleIds,
+  chevronCancel, chevronClick, nextVariant, optionOf, pickerSets, priceFullWith, stripSlots, tabClick, tabOfDot, tabOfItem, tabOfNext, visibleIds,
 } from "./hubRules";
 import type { BuildTab, BuildingFamily, DotTarget, NextVariant, PickerSelection, PickerSet, StripRowShape } from "./hubRules";
 import { buildFamily$, buildOpen$, buildTab$, footerShape$ } from "./hubState";
@@ -69,12 +70,16 @@ export interface FooterInfo {
    * (tree tool, planner, lift generator, cat track delete, merge overlay). The strip stays open while one is. */
   collapsible?: boolean;
   engaged?: boolean;
+  /* T262: which of the non-tile modes is on (the ok panel reads them), so the chevron can cancel it. */
+  modes?: { tree: boolean; quickRuns: boolean; liftTool: boolean; catDelete: boolean };
 }
 
 
 export const MISMATCH_FOOTER: FooterInfo = { dot: null, next: "done", followName: null };
 
 export const FOLLOW_NOTICE_MS = 6000;
+/** T262: after a chevron click that cancels a tool, the next chevron click is ignored for this long (a double click must not reopen it). */
+const CANCEL_GUARD_MS = 700;
 
 /* The chevron glyphs: the folds' own (fit.tsx), so open / closed reads as a fold does. */
 const GLYPH_STRIP_OPEN = "Media/Glyphs/ThickStrokeArrowDown.svg";
@@ -276,7 +281,7 @@ function labelEntry(id: BuildItemId): LocEntry {
 function TabBarView({ tabs, tab, dotTab, t, onTab, chevron }: {
   tabs: readonly BuildTab[]; tab: string; dotTab: BuildTab | null; t: Translate; onTab: (id: BuildTab) => void;
   /* T246: the strip's own open / close control at the end of the row (collapsible footers only). */
-  chevron?: { open: boolean; engaged: boolean; onClick: () => void };
+  chevron?: { open: boolean; onClick: () => void };
 }): JSX.Element {
   return (
     <div className={styles.tabRow}>
@@ -301,7 +306,6 @@ function TabBarView({ tabs, tab, dotTab, t, onTab, chevron }: {
         <div className={styles.tabChevronCell}>
           <Button
             focusKey={FOCUS_DISABLED}
-            disabled={chevron.engaged}
             theme={{ button: styles.tabChevron }}
             onSelect={chevron.onClick}
           >
@@ -407,13 +411,38 @@ function TreeToolSet({ t, quick }: { t: Translate; quick: boolean }): JSX.Elemen
           </Tip>
         </div>
       </div>
-      {/* T202 mockup: four equal chips (Tree tool was 2 of 5, so Resort Planner and Delete cat tracks shrank) */}
-      <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 3 }}>
+      {/* T202 mockup: four equal chips (Tree tool was 2 of 5, so Resort Planner and Delete cat tracks shrank). T253: Slope colors is the fifth. */}
+      <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: quick ? 4 : 3 }}>
         {quick && <QuickRunsChip t={t} />}
         {quick && <CatTrackDeleteChip t={t} />}
         {quick && <CatTrackSkiWayChip t={t} />}
+        {quick && <SlopeOverlayChip t={t} />}
       </div>
     </>
+  );
+}
+
+/*
+ * Contract 60 (T253): the Runs tab's Slope colors chip, the last of the row. It shows the ShowSlopeOverlay option (slopeOverlay$, C# owns it:
+ * the toggle key (unbound by default) and the Options page change it too, and it is saved). The tip gives the band limits of the run grading in use.
+ * Always drawn on the ok panel; focusKey={FOCUS_DISABLED} (R15).
+ */
+function SlopeOverlayChip({ t }: { t: Translate }): JSX.Element {
+  const on = !!useValue(slopeOverlay$);
+  const eu = useValue(gradeScheme$) === GRADE_SCHEME.European;
+  return (
+    <div className={cx(styles.pickerCell, styles.pickerCellNext)}>
+      <Tip tip={t(eu ? HUB_LOC.slopeOverlayTipEu : HUB_LOC.slopeOverlayTip)}>
+        <Button
+          focusKey={FOCUS_DISABLED}
+          theme={{ button: cx(styles.pickerChip, on && styles.pickerChipOn) }}
+          selected={on}
+          onSelect={() => hubTriggers.setSlopeOverlay(!on)}
+        >
+          <div className={styles.pickerLabel}>{t(HUB_LOC.slopeOverlay)}</div>
+        </Button>
+      </Tip>
+    </div>
   );
 }
 
@@ -564,8 +593,26 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     buildTab$.update(next.tab);
     buildOpen$.update(next.open);
   };
+  // A cancel is a toggle on C#'s side and the bindings lag a frame or two: a second click inside this window would open the tool again
+  const lastCancel = useRef(0);
   const onChevron = (): void => {
     setLockedClick(null);
+    if (engaged) {
+      const at = Date.now();
+      if (at - lastCancel.current < CANCEL_GUARD_MS) return;
+      lastCancel.current = at;
+      // T262: cancel what is engaged, then close. The effect above closes it too once the bindings say it ended; this closes it now.
+      const modes = info.modes;
+      for (const act of chevronCancel({ activeId, tree: !!modes?.tree, quickRuns: !!modes?.quickRuns, liftTool: !!modes?.liftTool,
+        catDelete: !!modes?.catDelete, merge: mergeOn })) {
+        if (act === "launch" && activeId) hubTriggers.launch(activeId);
+        else if (act === "tree") hubTriggers.gladeToggle();
+        else if (act === "quickRuns") hubTriggers.quickRunsToggle();
+        else if (act === "liftTool") hubTriggers.liftLineToggle();
+        else if (act === "catDelete") hubTriggers.setCatTrackDeleteMode(false);
+        else if (act === "merge") hubTriggers.armMergeOverlay(false);
+      }
+    }
     buildOpen$.update(chevronClick(open, engaged));
   };
   const onFamily = (f: BuildingFamily): void => {
@@ -577,7 +624,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     <div className={styles.buildFooter}>
       {tabs.length > 0 && (
         <TabBarView tabs={tabs} tab={open ? tab : ""} dotTab={dotTab} t={t} onTab={onTab}
-          chevron={info.collapsible ? { open, engaged, onClick: onChevron } : undefined} />
+          chevron={info.collapsible ? { open, onClick: onChevron } : undefined} />
       )}
       {open && (
         <div className={styles.pickerRow}>
@@ -675,6 +722,7 @@ export function OkFooter(): JSX.Element {
     mergeOverlay,
     collapsible: true,
     engaged: !!glade?.active || !!quick?.active || !!liftLine?.active || !!catDelete,
+    modes: { tree: !!glade?.active, quickRuns: !!quick?.active, liftTool: !!liftLine?.active, catDelete: !!catDelete },
   };
   return <BuildStrip info={info} />;
 }

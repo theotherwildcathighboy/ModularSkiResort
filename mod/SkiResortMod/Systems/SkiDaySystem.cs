@@ -316,6 +316,19 @@ namespace SkiResortMod.Systems
         internal int PriceToleranceOf(Entity sign)
             => IsArmed && m_State.TryGetValue(sign, out AreaMemory mem) && mem.HasPass ? mem.PriceTolerance : 0;
 
+        /// <summary>T266: the same tolerance, and whether it is known: false for an unarmed or unknown sign, or before the area's first
+        /// pass (PriceToleranceOf answers 0 then). The hub shows "–" while it is unknown. Main thread, no job sync.</summary>
+        internal bool TryPriceToleranceOf(Entity sign, out int tolerance)
+        {
+            if (IsArmed && m_State.TryGetValue(sign, out AreaMemory mem) && mem.HasPass)
+            {
+                tolerance = mem.PriceTolerance;
+                return true;
+            }
+            tolerance = -1;
+            return false;
+        }
+
         /// <summary>The last pass's view of the sign. Main thread, no job sync. Returns false for an unarmed or unknown sign.</summary>
         internal bool TryGetArea(Entity sign, out SkiDayAreaView view)
         {

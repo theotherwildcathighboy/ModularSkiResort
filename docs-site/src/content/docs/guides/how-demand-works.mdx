@@ -1,0 +1,137 @@
+---
+title: How Demand Works
+description: The curves behind ticket price, season pass, destination pass, tourist parties and lodge spend, drawn from the mod's own numbers.
+---
+
+import DemandChart from '../../../components/DemandChart.astro'
+
+Every price in the mod answers to one of five curves. The graphs and tables here are generated from the mod's code, so they
+show the numbers of the version you run. Where the options live: [Passes and Lessons](/guides/passes-and-lessons/). Where the
+money lands: [Economy](/guides/economy-panel/).
+
+## Ski-Day Guests and the Lift Ticket
+
+Residents and hotel tourists on a ski day check the lift ticket price before they come. The best lodge in the ski area decides
+how much price they accept. The curve multiplies the chance that a guest goes. Snow, distance and attraction come on top.
+
+<DemandChart name="ticket-demand" caption="Ski-day guests who still come, by lift ticket price, for each lodge tier. The dotted line marks the default ticket." />
+
+{/* DEMAND:begin ticket-demand */}
+**Equation:** the share of ski-day guests who still come is (240 + tolerance - ticket price) / 200, held between 0 and 1.
+The tolerance comes from the best lodge in the ski area. It is **0** for Hut or A-frame, **20** for Chalet Lodge, **40** for Swanky Summit or Grand Lodge.
+
+Up to a ticket of **40** plus the tolerance, everyone comes. Above that, each ticket point costs **0.5 %** of the guests. The price counts up to **200**.
+
+| Ticket price | Hut or A-frame | Chalet | Summit or Grand |
+| --- | ---: | ---: | ---: |
+| 40 | 100 % | 100 % | 100 % |
+| 60 | 90 % | 100 % | 100 % |
+| 80 | 80 % | 90 % | 100 % |
+| 100 | 70 % | 80 % | 90 % |
+| 120 | 60 % | 70 % | 80 % |
+| 140 | 50 % | 60 % | 70 % |
+| 160 | 40 % | 50 % | 60 % |
+| 180 | 30 % | 40 % | 50 % |
+| 200 | 20 % | 30 % | 40 % |
+{/* DEMAND:end ticket-demand */}
+
+- **Season pass holders:** skip this curve. They already paid.
+- **Merged lodges:** count as their tier.
+- To keep every ski-day guest, set the ticket at or below the full-demand point of your best lodge tier.
+
+## Season Pass
+
+A resident household buys a season pass when it would ski there, can pay, and the pass looks cheap next to day tickets. The
+price is judged against the lift ticket, so the same pass price sells better when the ticket is high.
+
+<DemandChart name="season-pass" caption="Would-be buyers who buy a season pass, by pass price as a multiple of the lift ticket." />
+
+{/* DEMAND:begin season-pass */}
+**Equation:** the share of would-be buyers who buy is (12 × ticket - pass price) / (8 × ticket), held between 0 and 1. Everyone buys up to **4 ×** the ticket price. Nobody buys from **12 ×**. The pass price is judged against the ticket price, so raising the ticket moves the whole curve right.
+
+| Pass price | Households that still buy |
+| --- | ---: |
+| 4 × the ticket | 100 % |
+| 6 × the ticket | 75 % |
+| 8 × the ticket | 50 % |
+| 10 × the ticket | 25 % |
+| 12 × the ticket | 0 % |
+{/* DEMAND:end season-pass */}
+
+- To sell passes to every would-be buyer, set the pass price at or below the full-demand point in the table.
+- The *Season pass share* option sets how many households are would-be buyers in the first place.
+
+## Destination Pass
+
+A tourist party can hold a destination pass for the season. The pass price is the same one as the residents' pass. Holders pay
+the daily fee instead of the lift ticket, and they ignore the ticket price at the gate.
+
+<DemandChart name="destination-pass" caption="Tourist parties on a destination pass, by pass price, for the lowest and highest lodge tier." />
+
+{/* DEMAND:begin destination-pass */}
+**Equations:** the daily fee a pass holder pays is the pass price / 4, rounded, never above the lift ticket and never below 1. The share of tourist parties on a pass is *Season pass share* × the season pass demand above × the ski-day curve above. The curve is applied to the **fee**, not to the ticket. The share cannot pass 100 %.
+
+The table is for a lift ticket of **100** and the default *Season pass share* of **50 %**.
+
+| Pass price | Daily fee | Parties on a pass, Hut or A-frame | Parties on a pass, Summit or Grand |
+| --- | ---: | ---: | ---: |
+| 200 | 50 | 48 % | 50 % |
+| 400 | 100 | 35 % | 45 % |
+| 600 | 100 | 26 % | 34 % |
+| 800 | 100 | 18 % | 23 % |
+| 1000 | 100 | 9 % | 11 % |
+| 1200 | 100 | 0 % | 0 % |
+{/* DEMAND:end destination-pass */}
+
+- The fee follows the pass price, so a cheap pass means a cheap day for the holder. The fee never goes above the ticket.
+- To get more parties on passes, lower the pass price or raise the lodge tier.
+
+## Game-Sent Tourist Parties
+
+The game sends some tourist parties to the ski area on its own, as attraction outings. They pay the lift ticket at the gate.
+Their curve is gentler than the one for ski-day guests, because the ticket is a small part of a trip with travel and a hotel.
+
+<DemandChart name="tourist-party" caption="Share of game-sent tourist parties that pay at the gate, against the ski-day curve." />
+
+{/* DEMAND:begin tourist-party */}
+**Equation:** the share of game-sent tourist parties that pay at the gate is (300 + tolerance - ticket price) / 200, held between 0 and 1. It is the ski-day curve moved **60** to the right, with the same slope.
+
+Up to a ticket of **100** plus the tolerance, every party pays (the default ticket is **100**). At **200** it is **50 %**, or **70 %** with a Swanky Summit or Grand Lodge. A party that does not pay walks away: no ticket, no lesson, no lodge spend. Holders of a destination pass never walk away.
+
+| Ticket price | Ski-day guests, Hut or A-frame | Tourist parties, Hut or A-frame | Tourist parties, Chalet | Tourist parties, Summit or Grand |
+| --- | ---: | ---: | ---: | ---: |
+| 100 | 70 % | 100 % | 100 % | 100 % |
+| 120 | 60 % | 90 % | 100 % | 100 % |
+| 140 | 50 % | 80 % | 90 % | 100 % |
+| 160 | 40 % | 70 % | 80 % | 90 % |
+| 180 | 30 % | 60 % | 70 % | 80 % |
+| 200 | 20 % | 50 % | 60 % | 70 % |
+{/* DEMAND:end tourist-party */}
+
+- At the default ticket, nothing changes for these parties.
+- To keep every game-sent party, keep the ticket at or below the default, plus the lodge tier's tolerance.
+
+## Lodge Spend
+
+Each paying ski guest spends at the arrival lodge. The *Lodge spend* option is the spend at the default ticket. A higher ticket
+raises it, but slower than the ticket itself.
+
+<DemandChart name="lodge-spend" caption="Lodge spend per paying guest, by lift ticket price, for each lodge tier." />
+
+{/* DEMAND:begin lodge-spend */}
+**Equation:** spend per paying guest = *Lodge spend* setting × tier multiplier × square root of (ticket price / 100), rounded to a whole number. The multiplier is **1** for Hut or A-frame, **1.5** for Chalet Lodge, **3** for Swanky Summit or Grand Lodge. At a ticket of **100** the root is 1, so the table reads as the setting alone.
+
+The table is for the default setting of **15**. With tickets off there is no gate and no spend.
+
+| Ticket price | Hut or A-frame | Chalet Lodge | Swanky Summit or Grand Lodge |
+| --- | ---: | ---: | ---: |
+| 25 | 8 | 11 | 23 |
+| 50 | 11 | 16 | 32 |
+| 80 | 13 | 20 | 40 |
+| 100 | 15 | 23 | 45 |
+| 150 | 18 | 28 | 55 |
+| 200 | 21 | 32 | 64 |
+{/* DEMAND:end lodge-spend */}
+
+- To lift spend per guest without touching the ticket, build a higher lodge tier.
+- A guest who cannot pay the ticket and the spend together pays the ticket first. The spend is limited to what is left in the household.
