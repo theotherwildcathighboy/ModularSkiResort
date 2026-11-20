@@ -1,0 +1,207 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiLiftBaseStationP_LOD1 Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.ProceduralAnimationProperties, Game",
+                "name": "ProceduralAnimationProperties",
+                "active": true,
+                "m_Bones": {
+                    "$id": 3,
+                    "$type": "3|Game.Prefabs.ProceduralAnimationProperties+BoneInfo[], Game",
+                    "$rlength": 3,
+                    "$rcontent": [
+                        {
+                            "$id": 4,
+                            "$type": "4|Game.Prefabs.ProceduralAnimationProperties+BoneInfo, Game",
+                            "name": "Root",
+                            "position": {
+                                "$type": "5|UnityEngine.Vector3, UnityEngine.CoreModule",
+                                0,
+                                0,
+                                0
+                            },
+                            "rotation": {
+                                "$type": "6|UnityEngine.Quaternion, UnityEngine.CoreModule",
+                                0,
+                                0,
+                                0,
+                                1
+                            },
+                            "scale": {
+                                "$type": 5,
+                                1,
+                                1,
+                                1
+                            },
+                            "bindPose": {
+                                "$type": "7|UnityEngine.Matrix4x4, UnityEngine.CoreModule",
+                                "m00": 1,
+                                "m10": 0,
+                                "m20": 0,
+                                "m30": 0,
+                                "m01": 0,
+                                "m11": 1,
+                                "m21": 4.371139E-08,
+                                "m31": 0,
+                                "m02": 0,
+                                "m12": -4.371139E-08,
+                                "m22": 1,
+                                "m32": 0,
+                                "m03": 0,
+                                "m13": 0,
+                                "m23": 0,
+                                "m33": 1
+                            },
+                            "parentId": -1,
+                            "m_Type": 0,
+                            "m_Speed": 0,
+                            "m_Acceleration": 0,
+                            "m_ConnectionID": 0,
+                            "m_SourceID": 0
+                        },
+                        {
+                            "$id": 5,
+                            "$type": 4,
+                            "name": "Bullwheel",
+                            "position": {
+                                "$type": 5,
+                                0,
+                                3.55,
+                                0.200000018
+                            },
+                            "rotation": {
+                                "$type": 6,
+                                -3.814697E-08,
+                                0,
+                                0,
+                                1
+                            },
+                            "scale": {
+                                "$type": 5,
+                                1,
+                                1,
+                                1
+                            },
+                            "bindPose": {
+                                "$type": 7,
+                                "m00": 1,
+                                "m10": 0,
+                                "m20": 0,
+                                "m30": 0,
+                                "m01": 0,
+                                "m11": 1,
+                                "m21": 1.20005325E-07,
+                                "m31": 0,
+                                "m02": 0,
+                                "m12": -1.20005325E-07,
+                                "m22": 1,
+                                "m32": 0,
+                                "m03": 0,
+                                "m13": -3.55,
+                                "m23": -0.200000286,
+                                "m33": 1
+                            },
+                            "parentId": 0,
+                            "m_Type": 0,
+                            "m_Speed": 0,
+                            "m_Acceleration": 0,
+                            "m_ConnectionID": 0,
+                            "m_SourceID": 0
+                        },
+                        {
+                            "$id": 6,
+                            "$type": 4,
+                            "name": "NoseTrain",
+                            "position": {
+                                "$type": 5,
+                                0,
+                                5.84,
+                                -7.025
+                            },
+                            "rotation": {
+                                "$type": 6,
+                                0,
+                                0,
+                                0,
+                                1
+                            },
+                            "scale": {
+                                "$type": 5,
+                                1,
+                                1,
+                                1
+                            },
+                            "bindPose": {
+                                "$type": 7,
+                                "m00": 1,
+                                "m10": 0,
+                                "m20": 0,
+                                "m30": 0,
+                                "m01": 0,
+                                "m11": 1,
+                                "m21": 4.371139E-08,
+                                "m31": 0,
+                                "m02": 0,
+                                "m12": -4.371139E-08,
+                                "m22": 1,
+                                "m32": 0,
+                                "m03": 0,
+                                "m13": -5.839999,
+                                "m23": 7.02499962,
+                                "m33": 1
+                            },
+                            "parentId": 0,
+                            "m_Type": 0,
+                            "m_Speed": 0,
+                            "m_Acceleration": 0,
+                            "m_ConnectionID": 0,
+                            "m_SourceID": 0
+                        }
+                    ]
+                },
+                "m_Animations": null
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:9eee7e90afa42fcac2892685bfed8778",
+    "m_SurfaceAssets": {
+        "$id": 7,
+        "$type": "8|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 2,
+        "$rcontent": [
+            $fstrref:"CID:762534aa696b264ab3ab573322b50211",
+            $fstrref:"CID:21fbfdd3d6d2488e10568347d09ae7ef"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "9|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "10|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -6.2,
+            "y": 0,
+            "z": -7.0804
+        },
+        "max": {
+            "$type": 10,
+            "x": 4.05,
+            "y": 8.71,
+            "z": 11.5500011
+        }
+    },
+    "m_SurfaceArea": 564.9961,
+    "m_IndexCount": 12576,
+    "m_VertexCount": 5177,
+    "m_MeshCount": 2,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

@@ -91,6 +91,10 @@ test checks them INDEPENDENTLY of the generator's own asserts.
    to fill (FG8 only F3b: its 16 platerim slivers. ET68 has no defect, so neither). Wrong builds: the fill disabled (DQ18, >=
    20 flagged) and ONLY the F3 pass running (DQ20: the long fall-arrest channel slivers stay black, flagged by the
    generator's gate and the counter).
+10. Blender 5.3 (2026-11-20): the version is printed first. Items 8b / 9 no longer expect a fill count per variant (5.3
+   fills 0 on every real tower: nothing samples black). They keep the contract (0 black triangles at every LOD), print the
+   counts, and test the fill passes and both wrong builds on a SYNTHETIC defect planted into FG8 (a speck under 1 texel2
+   on a texel corner, a 40 x 0.3 texel strip on a texel edge). The bake channel rule is four labeled checks.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_tower_contracts.py
 """
@@ -113,6 +117,9 @@ import cs2_asset  # noqa: E402
 import cs2_compose  # noqa: E402
 import cs2_validate  # noqa: E402
 import lift_tower as LT  # noqa: E402
+
+print(f"[contracts] Blender {bpy.app.version_string} (hash {bpy.app.build_hash.decode()}, built "
+      f"{bpy.app.build_date.decode()} {bpy.app.build_time.decode()}); the shipped tower manifests were written on 5.2.2 LTS")
 
 TOPS = {"FG8": 9.014, "FG12": 13.014, "FG16": 17.014, "FG20": 21.014, "ET62": 7.214, "ET68": 7.814,
         "DQ10": 9.950, "DQ12": 11.950, "DQ14": 13.950, "DQ16": 15.950, "ETDQ": 5.650,
@@ -1109,9 +1116,18 @@ def bake_case():
             base = cs2_validate.load_png_pixels(os.path.join(d, f"{name}_BaseColor.png"))
             msk = cs2_validate.load_png_pixels(os.path.join(d, f"{name}_MaskMap.png"))
             ctl = cs2_validate.load_png_pixels(os.path.join(d, f"{name}_ControlMask.png"))
-            check(base[..., 3].min() > 0.999 and msk[..., 2].max() < 1e-6 and ctl[..., 3].max() < 1e-6
-                  and (ctl[..., 0] + ctl[..., 1]).max() <= 1.0 + 1e-3,
-                  f"{tag}: BaseColor A 255, MaskMap B 0, ControlMask A 0, R + G <= 1")
+            base_a, msk_b = float(base[..., 3].min()), float(msk[..., 2].max())
+            ctl_a, ctl_rg = float(ctl[..., 3].max()), float((ctl[..., 0] + ctl[..., 1]).max())
+            check(base_a > 0.999, f"{tag}: BaseColor A min {base_a:.6f} > 0.999 (A 255)")
+            check(msk_b < 1e-6, f"{tag}: MaskMap B max {msk_b:.3g} < 1e-6 (B 0)")
+            check(ctl_a < 1e-6, f"{tag}: ControlMask A max {ctl_a:.3g} < 1e-6 (A 0)")
+            # the validator's own byte rule (cs2_validate.validate_texture_set: 1e-3 + 2 x 0.5 / 255): two channels at
+            # 0.5 each (a blended texel on a recolor / metal edge, Blender 5.3 bakes ~800 of them on FG8) write as 128 +
+            # 128 = 256 / 255
+            ctl_lim = 1.0 + 1e-3 + 1.0 / 255.0
+            n_rg = int(((ctl[..., 0] + ctl[..., 1]) > 1.0 + 1e-3).sum())
+            check(ctl_rg <= ctl_lim, f"{tag}: ControlMask R + G max {ctl_rg:.6f} <= {ctl_lim:.6f} (1e-3 + one byte; "
+                                     f"{n_rg} texels above 1.001 from byte rounding of blended texels)")
             lum = base[..., 0:3].mean(axis=-1)
             sel = ctl[..., 0] > 0.5
             med, p95 = float(np.median(lum[sel])), float(np.percentile(lum[sel], 95))
@@ -1221,25 +1237,113 @@ def fbx_black_tris(asset_dir, name, lod=0):
     return out, n_tri
 
 
-# F3 / F3b cases: (variant, F3 footprint pass fills something, F3b any-area pass fills something). The 18:01-18:10
-# exports had black triangles on DQ18 (24 small + 2 slivers), GD16 (32 + 22), DQ20 (new, 2 slivers after the F3 pass).
-# FG8 has only the 16 platerim slivers (their centers sit ON an edge, so the part mean of its covered texels is black).
-# ET68 has no defect at all and must stay untouched. T62 round 3: the round-3 wheel's UV layout moved DQ18's long slivers
-# away (its F3b pass now has nothing to fill)
-F3_CASES = (("DQ18", True, False), ("GD16", True, True), ("DQ20", True, True), ("FG8", False, True),
-            ("ET68", False, False))
+# F3 / F3b cases: the variants baked WITH the LOD chain. The contract is the real one: no triangle of any UV area has a black
+# sample. The fill counts depend on how the Blender version packs the UVs and samples the bake (the 2026-10-11 manifests
+# made on 5.2.2 LTS filled 5-26 triangles per variant, the same builds on 5.3.0 fill 0: nothing samples black), so the test
+# PRINTS them and never expects a number. The fill passes themselves are exercised on a synthetic defect (below).
+F3_CASES = ("DQ18", "GD16", "DQ20", "FG8", "ET68")
+
+# synthetic-defect parts: never a stamp / decal host (their texels are repainted after the fill)
+SYN_SKIP = ("plate", "platerim", "crashpad", "mast", "sheave", "liner")
+SYN_SLIVER_LEN, SYN_SLIVER_H, SYN_POINT = 40.0, 0.3, 0.5     # texels
+
+
+def synthetic_defect(kind):
+    """Returns a replacement for lift_tower.fill_subtexel_faces that FIRST plants a defect, then calls `.inner` (set it on
+    the returned function: the real fill, or a no-op for a wrong build). The defect is the one the fill exists for, on
+    ANY Blender version: it picks one polygon of a paint / steel part (>= 3 polygons, UV area >= 100 texel2, both
+    extents >= 3 texels), turns it into
+      - kind "point": a triangle-sized speck (0.5 texel across, under 1 texel2), centered on a texel CORNER (no texel
+        center inside: the F3 class),
+      - kind "sliver": a strip 40 texels long and 0.3 texel high on a texel EDGE (about 6 texel2 per triangle, so the F3
+        footprint pass skips it: the F3b class),
+    and blacks out its old footprint in the three maps and the part map (what a bake leaves where nothing samples). The
+    planted polygon is recorded in `.planted`."""
+    planted = {}
+
+    def plant(base, msk, ctl, mesh, A, part_map, table, part_material, uv_layer="UVUnique"):
+        layer = mesh.uv_layers[uv_layer].data
+        pid = cs2_compose.part_indices(mesh)
+        npoly = collections.Counter(int(k) for k in pid)
+        best = None
+        for p in mesh.polygons:
+            name = table[int(pid[p.index]) - 1]
+            if name.startswith(SYN_SKIP) or npoly[int(pid[p.index])] < 3:
+                continue
+            q = np.array([layer[li].uv[:] for li in range(p.loop_start, p.loop_start + p.loop_total)]) * A
+            ext = q.max(axis=0) - q.min(axis=0)
+            area = 0.5 * abs(float(np.dot(q[:, 0], np.roll(q[:, 1], -1)) - np.dot(q[:, 1], np.roll(q[:, 0], -1))))
+            if area >= 100.0 and ext.min() >= 3.0 and (best is None or area < best[0]):
+                best = (area, p.index, name, q)
+        assert best is not None, "synthetic defect: no polygon to plant it on"
+        area, pi, name, q = best
+        mesh.calc_loop_triangles()
+        x0, x1 = int(np.floor(q[:, 0].min())) - 1, int(np.ceil(q[:, 0].max())) + 1
+        y0, y1 = int(np.floor(q[:, 1].min())) - 1, int(np.ceil(q[:, 1].max())) + 1
+        X, Y = np.meshgrid(np.arange(x0, x1) + 0.5, np.arange(y0, y1) + 0.5)
+        old = np.zeros(X.shape, dtype=bool)
+        for lt in mesh.loop_triangles:
+            if lt.polygon_index == pi:
+                old |= cs2_compose._poly_mask(np.array([layer[li].uv[:] for li in lt.loops]) * A, X, Y, 0.0)
+        sl = (slice(y0, y1), slice(x0, x1))
+        n_old = int(old.sum())
+        assert n_old >= 4, f"synthetic defect: the old footprint of {name} holds {n_old} texels"
+        pm = part_map[sl]
+        pm[old] = 0
+        for arr in (base, msk, ctl):
+            sub = arr[sl]
+            sub[old, 0:3] = 0.0
+        lo, hi = q.min(axis=0), q.max(axis=0)
+        cx = float(np.clip(round(float(q[:, 0].mean())), 24, A - 24))
+        cy = float(np.clip(round(float(q[:, 1].mean())), 24, A - 24))
+        u, v = (q[:, 0] - lo[0]) / (hi[0] - lo[0]) - 0.5, (q[:, 1] - lo[1]) / (hi[1] - lo[1]) - 0.5
+        if kind == "point":
+            new = np.stack([cx + u * SYN_POINT, cy + v * SYN_POINT], axis=1)
+        else:
+            new = np.stack([cx + u * SYN_SLIVER_LEN, cy + v * SYN_SLIVER_H], axis=1)
+        p = mesh.polygons[pi]
+        for k, li in enumerate(range(p.loop_start, p.loop_start + p.loop_total)):
+            layer[li].uv = (float(new[k, 0] / A), float(new[k, 1] / A))
+        planted.update(part=name, old_uv_area_texel2=round(area, 1), old_footprint_texels=n_old, new_center=(cx, cy))
+        print(f"[contracts] synthetic {kind} planted on {name} (polygon {pi}, UV area {area:.0f} texel2, {n_old} texels "
+              f"blacked out, now at ({cx:.0f}, {cy:.0f}) texels)")
+
+    def fill(*args, **kw):
+        plant(*args, **kw)
+        return fill.inner(*args, **kw)
+    fill.planted = planted
+    fill.inner = LT.fill_subtexel_faces
+    return fill
 
 
 def f3_case():
-    """Follow-up 2026-10-11, findings F3 + F3b (black-sampled faces): DQ18, GD16, DQ20, FG8 and ET68 are baked at the
-    shipping atlas WITH the LOD chain. No triangle of the written LOD0 / LOD1 / LOD2 FBX, of ANY UV area, has a black
-    sample among 400 on the written BaseColor (independent count). The generator reports the same (black_after 0 at LOD0
-    / 1 / 2, nothing unfillable). Each fill pass ran exactly where there was something to fill (ET68, no defect, fills
-    nothing). Wrong builds: the fill replaced by a no-op (DQ18) and only the F3b pass disabled (DQ20 keeps the pre-F3b
-    long slivers). Both must show: the generator's DT-F3 gate raises and the independent counter flags the triangles."""
+    """Follow-up 2026-10-11, findings F3 + F3b (black-sampled faces), rewritten 2026-11-20 (Blender 5.3 filled nothing on
+    any real tower: the old exact "this pass ran here" expectations were tied to 5.2.2's UV pack and bake).
+    (1) The real contract: DQ18, GD16, DQ20, FG8 and ET68 are baked at the shipping atlas WITH the LOD chain. No
+        triangle of the written LOD0 / LOD1 / LOD2 FBX, of ANY UV area, has a black sample among 400 on the written
+        BaseColor (independent count), the generator says the same (black_after 0 at LOD0 / 1 / 2, nothing unfillable).
+        The fill counts are printed as information.
+    (2) The fill passes work, on any Blender: a synthetic defect (a speck under 1 texel2 on a texel corner, then a 40 x
+        0.3 texel strip on a texel edge) is planted into FG8 right before the fill, in the written maps and UVs. The real
+        fill must repair it (F3 pass for the speck, F3b pass for the strip) and the independent counter must find 0.
+    (3) Wrong builds, on the same synthetic defects: the fill replaced by a no-op (the speck stays black) and the F3
+        pass only (the strip stays black, SUBTEXEL_FILL_LIN 0). Both must show: the generator's DT-F3 gate raises and the
+        independent counter flags triangles."""
     work = tempfile.mkdtemp(prefix="tower_f3_")
+    orig_fill, orig_assert, orig_lin = LT.fill_subtexel_faces, LT.assert_detail_pass, LT.SUBTEXEL_FILL_LIN
+    seen = []
+
+    def recording_assert(spec, rep, **kw):
+        try:
+            orig_assert(spec, rep, **kw)
+        except LT.TowerContractError as e:
+            seen.append(str(e))
+
+    def no_fill(*_a, **_k):
+        return {"faces": 0, "texels": 0, "by_class": {}, "f3b_faces": 0, "f3b_texels": 0, "f3b_by_class": {},
+                "slivers_unfilled": {}}
     try:
-        for key, f3_fills, f3b_fills in F3_CASES:
+        for key in F3_CASES:
             d, m, obj, name = _bake_variant(key, os.path.join(work, key), lods=True)
             sf = m["detail_pass_1"]["subtexel_fill"]
             res = {lod: fbx_black_tris(d, name, lod) for lod in (0, 1, 2)}
@@ -1248,56 +1352,59 @@ def f3_case():
                   and not any(sf["black_after_lods"].values()) and not sf["slivers_unfilled"],
                   f"F3/F3b {key}: 0 of {n_tri} / {res[1][1]} / {res[2][1]} written LOD0 / 1 / 2 triangles have a black "
                   f"sample among 400 at any UV area (independent count {[len(r[0]) for r in res.values()]}, generator "
-                  f"black_after {sf['black_after']} / LODs {sf['black_after_lods']}); F3 filled {sf['faces']} triangles / "
-                  f"{sf['texels']} texels {sf['by_class']}; F3b filled {sf['f3b_faces']} / {sf['f3b_texels']} texels "
-                  f"{sf['f3b_by_class']}; unfillable {sf['slivers_unfilled']}")
-            check((sf["faces"] > 0) == f3_fills and (sf["f3b_faces"] > 0) == f3b_fills,
-                  f"F3/F3b {key}: the F3 pass {'ran on' if f3_fills else 'stayed out of'} the variant ({sf['faces']}), the "
-                  f"F3b pass {'ran on' if f3b_fills else 'stayed out of'} it ({sf['f3b_faces']})")
+                  f"black_after {sf['black_after']} / LODs {sf['black_after_lods']}); unfillable {sf['slivers_unfilled']}")
+            print(f"[contracts] info F3/F3b {key}: F3 filled {sf['faces']} triangles / {sf['texels']} texels "
+                  f"{sf['by_class']}; F3b filled {sf['f3b_faces']} / {sf['f3b_texels']} texels {sf['f3b_by_class']} "
+                  f"(Blender {bpy.app.version_string}; the 5.2.2 shipped manifests filled more)")
             LT.clear_scene()
-        orig_fill, orig_assert, orig_lin = LT.fill_subtexel_faces, LT.assert_detail_pass, LT.SUBTEXEL_FILL_LIN
-        seen = []
-
-        def no_fill(*_a, **_k):
-            return {"faces": 0, "texels": 0, "by_class": {}, "f3b_faces": 0, "f3b_texels": 0, "f3b_by_class": {},
-                    "slivers_unfilled": {}}
-
-        def recording_assert(spec, rep, **kw):
+        # (2) the real fill repairs the synthetic defects
+        for kind, key_pass in (("point", "faces"), ("sliver", "f3b_faces")):
+            fill = synthetic_defect(kind)
+            LT.fill_subtexel_faces = fill
             try:
-                orig_assert(spec, rep, **kw)
-            except LT.TowerContractError as e:
-                seen.append(str(e))
-        # wrong build 1: no fill at all (the test records the generator's gate instead of aborting the export)
-        LT.fill_subtexel_faces, LT.assert_detail_pass = no_fill, recording_assert
+                d, m, obj, name = _bake_variant("FG8", os.path.join(work, f"syn_{kind}"))
+            finally:
+                LT.fill_subtexel_faces = orig_fill
+            sf = m["detail_pass_1"]["subtexel_fill"]
+            bad, _n = fbx_black_tris(d, name)
+            check(sf[key_pass] >= 1 and sf["black_after"] == 0 and not bad and not sf["slivers_unfilled"],
+                  f"F3/F3b synthetic {kind} on FG8 ({fill.planted.get('part')}): the real fill repairs it "
+                  f"({'F3' if kind == 'point' else 'F3b'} filled {sf[key_pass]} triangles; generator black_after "
+                  f"{sf['black_after']}, independent counter {len(bad)})")
+            LT.clear_scene()
+        # (3) wrong builds
+        fill = synthetic_defect("point")
+        fill.inner = no_fill
+        LT.fill_subtexel_faces, LT.assert_detail_pass = fill, recording_assert
         try:
-            d, m, obj, name = _bake_variant("DQ18", os.path.join(work, "nofill"))
+            d, m, obj, name = _bake_variant("FG8", os.path.join(work, "nofill"))
         finally:
             LT.fill_subtexel_faces, LT.assert_detail_pass = orig_fill, orig_assert
         bad, _n = fbx_black_tris(d, name)
-        WRONG.append("F3: the sub-texel fill disabled on DQ18")
-        check(any("DT-F3" in e for e in seen) and len(bad) >= 20 and m["detail_pass_1"]["subtexel_fill"]["black_after"] >= 20,
-              f"wrong build fails: DQ18 without the fill -> the generator's DT-F3 gate raises ({len(seen)}), the "
+        WRONG.append("F3: the sub-texel fill disabled (synthetic speck on FG8)")
+        check(any("DT-F3" in e for e in seen) and len(bad) >= 1 and m["detail_pass_1"]["subtexel_fill"]["black_after"] >= 1,
+              f"wrong build fails: FG8 speck without the fill -> the generator's DT-F3 gate raises ({len(seen)}), the "
               f"independent counter flags {len(bad)} black triangles (generator "
               f"{m['detail_pass_1']['subtexel_fill']['black_after']})")
         LT.clear_scene()
-        # wrong build 2: the F3 pass runs, the F3b pass is inert (no texel counts as black for it). The long one-texel
-        # slivers stay black, as in the 18:01-21:00 exports (DQ20: the fall-arrest channel walls)
         seen.clear()
-        LT.assert_detail_pass, LT.SUBTEXEL_FILL_LIN = recording_assert, 0.0
+        fill = synthetic_defect("sliver")                 # inner = the real fill, F3b made inert below
+        LT.fill_subtexel_faces, LT.assert_detail_pass, LT.SUBTEXEL_FILL_LIN = fill, recording_assert, 0.0
         try:
-            d, m, obj, name = _bake_variant("DQ20", os.path.join(work, "nof3b"))
+            d, m, obj, name = _bake_variant("FG8", os.path.join(work, "nof3b"))
         finally:
-            LT.assert_detail_pass, LT.SUBTEXEL_FILL_LIN = orig_assert, orig_lin
+            LT.fill_subtexel_faces, LT.assert_detail_pass, LT.SUBTEXEL_FILL_LIN = orig_fill, orig_assert, orig_lin
         bad, _n = fbx_black_tris(d, name)
         sf = m["detail_pass_1"]["subtexel_fill"]
-        WRONG.append("F3b: only the F3 footprint pass (long slivers left black) on DQ20")
-        check(any("DT-F3" in e for e in seen) and len(bad) >= 2 and sf["black_after"] >= 2 and sf["f3b_faces"] == 0
+        WRONG.append("F3b: only the F3 footprint pass (long sliver left black), synthetic strip on FG8")
+        check(any("DT-F3" in e for e in seen) and len(bad) >= 1 and sf["black_after"] >= 1 and sf["f3b_faces"] == 0
               and all(a >= LT.SUBTEXEL_TEXEL2 for _i, a, _k in bad),
-              f"wrong build fails: DQ20 with the F3 pass only -> the generator's DT-F3 gate raises ({len(seen)}), the "
+              f"wrong build fails: FG8 strip with the F3 pass only -> the generator's DT-F3 gate raises ({len(seen)}), the "
               f"independent counter flags {len(bad)} black long slivers (UV area {[a for _i, a, _k in bad]} texel2; "
               f"generator {sf['black_after']})")
         LT.clear_scene()
     finally:
+        LT.fill_subtexel_faces, LT.assert_detail_pass, LT.SUBTEXEL_FILL_LIN = orig_fill, orig_assert, orig_lin
         shutil.rmtree(work, ignore_errors=True)
 
 
@@ -1346,8 +1453,9 @@ def review_case():
             with open(os.path.join(d, mf), encoding="utf-8") as fh:
                 m = json.load(fh)
             m.pop("written_utc", None)
+            m.pop("args", None)         # T256: the manifest records the parsed flags (they carry --review / --out)
             cores.append(m)
-        check(cores[0] == cores[1], "main_v2 FG8 --review: manifests equal without written_utc")
+        check(cores[0] == cores[1], "main_v2 FG8 --review: manifests equal without written_utc, args")
         check(os.path.isfile(os.path.join(pack, f"{name}.blend"))
               and not any(f.endswith(".blend") for f in os.listdir(b)),
               "main_v2 FG8 --review: pack written outside the asset folder")

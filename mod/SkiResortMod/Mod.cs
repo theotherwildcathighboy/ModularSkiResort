@@ -178,6 +178,12 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<LiftReconnectSystem, Game.Net.LaneSystem>(
                 SystemUpdatePhase.Modification4);
 
+            // LV service backfill (1.0.4): once per load, tags old LV wires and riser-less base stations Updated. Load-bearing slot: directly
+            // AFTER LiftReconnectSystem (so still before LaneSystem, UpdateSystem.AddSystemUpdate nests it there). LaneSystem rebuilds the
+            // tagged lanes the same frame, and LiftReconnectSystem never sees the station tag as a station event.
+            updateSystem.UpdateAfter<LvServiceBackfillSystem, LiftReconnectSystem>(
+                SystemUpdatePhase.Modification4);
+
             // Mast lean (DECISIONS 600). It runs AFTER Game.Objects.AlignSystem in Modification4. AlignSystem re-derives a node tower's
             // Transform yaw-only on every Updated (AlignSystem.cs:153-160). This also puts it before LaneSystem (SystemOrder.cs:153, :155),
             // which hangs the ropes from the leaned anchors in the same frame. Any other slot shows a plumb frame or ropes on the old
@@ -357,6 +363,15 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<SkiRunDrawFeedbackSystem, Game.Rendering.OverlayRenderSystem>(
                 SystemUpdatePhase.Rendering);
 
+            // T253 slope overlay around the cursor. Anchored AFTER the heat-map, which itself runs before OverlayRenderSystem: an UpdateAfter
+            // child is added right after its parent inside the parent's slot (UpdateSystem.cs:382-412, 1.6.4f1), so this also runs before
+            // OverlayRenderSystem (load-bearing: the renderer completes its writers and clears the lists, :740-790) and reads the heat-map's
+            // PaintedGrid of the same frame. ONE anchor only (each call adds an entry). Gated by ShowSlopeOverlay inside. Game mode only.
+            updateSystem.UpdateAfter<SkiSlopeOverlaySystem, SkiRunDrawFeedbackSystem>(SystemUpdatePhase.Rendering);
+            // Its toggle key is polled at UIUpdate like every hotkey poller of the mod (the input phase the others are proven in). The
+            // press is applied in the overlay's next OnUpdate.
+            updateSystem.UpdateAt<SkiSlopeOverlayKeySystem>(SystemUpdatePhase.UIUpdate);
+
             // Grade tooltip. Anchor is load-bearing: TooltipUISystem clears the mouse group each frame (TooltipUISystem.cs:48-55). Running
             // after the vanilla area-tool tooltip keeps our lines with it (a plain UpdateAt sorts after all vanilla UITooltip systems).
             updateSystem.UpdateAfter<SkiRunTooltipSystem, Game.UI.Tooltip.AreaToolTooltipSystem>(
@@ -412,6 +427,20 @@ namespace SkiResortMod
             // (SystemOrder.cs:653, :689).
             updateSystem.UpdateAfter<TrainPitchSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
             updateSystem.UpdateAfter<TrainBoneSystem, Game.Rendering.InitializeBonesSystem>(SystemUpdatePhase.Rendering);
+
+            // Turning bullwheels (T256). AFTER ChairPinSystem at 4B: it reads the loop cache of this frame (the wheels of each loop, the
+            // rope speed, the hold state) and advances the wheel angles on the mover's clock. The phase must stay Modification4B or the
+            // anchor is skipped. The bone writer runs at Rendering right AFTER InitializeBonesSystem, like the train bones.
+            updateSystem.UpdateAfter<BullwheelSpinSystem, ChairPinSystem>(SystemUpdatePhase.Modification4B);
+            updateSystem.UpdateAfter<BullwheelBoneSystem, Game.Rendering.InitializeBonesSystem>(SystemUpdatePhase.Rendering);
+
+            // Old saves (T256 F1): a station placed before its mesh had bones loads without a skeleton (the archetype comes from the
+            // save). The retrofit adds Skeleton + Bone + BoneHistory once per load, in Deserialize right AFTER vanilla's
+            // RequiredComponentSystem (which adds only BoneHistory) and before the culling / batch post-deserialize steps
+            // (SystemOrder.cs:803, :865, :891). It must stay in the load: a structural add in a running city exited the game.
+            // Its check (no anchor, Modification1 of the main loop, asleep unless a load armed it) logs one OK or WARN line.
+            updateSystem.UpdateAfter<BoneRetrofitSystem, Game.Serialization.RequiredComponentSystem>(SystemUpdatePhase.Deserialize);
+            updateSystem.UpdateAt<BoneRetrofitVerifySystem>(SystemUpdatePhase.Modification1);
 
             // Low spans (hub row LiftLowSpan). AFTER the census at 4B for the same reason as the trains: the rope lanes LaneSystem built at
             // Modification4 are this frame's. The phase must stay Modification4B or the anchor is skipped.
@@ -521,6 +550,10 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<PowerJoinTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
             // Reversed-station refusal line (FIX-LIST 54(b)). Anchor is load-bearing like the power-line join line's.
             updateSystem.UpdateAfter<StationFacingTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
+
+            // Lodge parking ring line (T263): says what the blue ring around a lodge being placed is. Anchor is load-bearing like the other
+            // placement lines: after TempCostTooltipSystem. It reads SkiAreaRingOverlaySystem.ParkingMode (Rendering, one frame of lag).
+            updateSystem.UpdateAfter<SkiParkingRingTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
 
             // Closes the Electricity infoview the lift LINE tool opens. It uses UpdateBefore ONLY (an UpdateAt as well runs it twice per
             // frame, UpdateSystem.cs:158-176). It runs BEFORE InfoviewsUISystem (UIUpdate), so the vanilla binding reflects our close in

@@ -31,6 +31,7 @@ namespace SkiResortMod.Settings
     [SettingsUIKeyboardAction(ActCatTrackDeleteMode)]
     [SettingsUIKeyboardAction(ActCatTrackSkiWay)]
     [SettingsUIKeyboardAction(ActToggleQuickRuns)]
+    [SettingsUIKeyboardAction(ActToggleSlopeOverlay)]
     public sealed class SkiResortSettings : ModSetting
     {
         public const string SectionMain = "Main";
@@ -60,14 +61,17 @@ namespace SkiResortMod.Settings
         public const string ActCatTrackDeleteMode = "CatTrackDeleteMode";
         public const string ActCatTrackSkiWay = "CatTrackSkiWay";
         public const string ActToggleQuickRuns = "ToggleQuickRunsTool";
+        public const string ActToggleSlopeOverlay = "ToggleSlopeOverlay";
 
         public const int DefaultAttractivenessScaleK = 4;
         public const int DefaultBackcountryValuePercent = 40;
         public const bool DefaultEnableSnowGating = true;
+        public const bool DefaultTopToBottomRule = true;   // T268 (1.0.4): runs open only with snow top to bottom
         public const bool DefaultSnowGunPlumes = true;
         public const bool DefaultGroomers = true;
         public const bool DefaultDiagnosticMeasurements = false;
         public const bool DefaultAnimatedLiftCarriers = true;
+        public const bool DefaultLiftStationRetrofit = true;   // T256 F1: the old-save skeleton retrofit (BoneRetrofitSystem)
         public const bool DefaultQuickRunsEnabled = true;   // T193: the Resort Planner is on by default (DECISIONS 659)
         public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;
         public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;
@@ -289,6 +293,12 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupSnow)]
         public float SnowmakingBonusCelsius { get; set; }
 
+        /// <summary>T268 (1.0.4): on = a run opens only when every stretch of its vertical has snow (RunSnowRules.OpenShare, elevation
+        /// bands at the keep bar); off = the 1.0.3 area rule (60 % open, 40 % close). Read by SkiSnowInjectionSystem.RefreshRunSnow through
+        /// SnowLineSystem.IsTopToBottomRuleEnabled (the one read). A mod setting, not save data: an options file without it gets the default.</summary>
+        [SettingsUISection(SectionMain, GroupSnow)]
+        public bool EnableTopToBottomRule { get; set; }
+
 
         // Runs: read live every frame by the consuming systems, so a change takes effect at once
 
@@ -319,6 +329,12 @@ namespace SkiResortMod.Settings
         /// Read live every frame. Default on.</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool ShowSkiAreaRadius { get; set; }
+
+        /// <summary>T253: the slope overlay. The ground within SkiSlopeOverlaySystem.RadiusM of the cursor shows each cell's slope band in the
+        /// run colors (SkiSlopeOverlaySystem). Also the hub's Slope colors chip and the ToggleSlopeOverlay key; both save the settings.
+        /// Default off. A settings file from 1.0.2 or older has no key and loads the default.</summary>
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public bool ShowSlopeOverlay { get; set; }
 
         /// <summary>Write each ski run's name flat on the ground at the run's center, in the piste-map color of its difficulty, while the
         /// camera is at piste-map distance (SkiRunLabelSystem). Read live every frame. Default on.</summary>
@@ -412,6 +428,16 @@ namespace SkiResortMod.Settings
         /// <summary>Null-tolerant read for the movers</summary>
         public static bool AnimatedLiftCarriersOn => Mod.Settings?.AnimatedLiftCarriers ?? DefaultAnimatedLiftCarriers;
 
+        /// <summary>T256 F1: at each load, BoneRetrofitSystem gives fixed-grip stations placed before their mesh had bones the skeleton
+        /// their turning bullwheel needs. Off: those stations keep a still bullwheel (the changelog's known-issue fallback); stations
+        /// placed since then turn either way. Read once per load by BoneRetrofitSystem (it takes effect at the next load). Outside the
+        /// save on purpose: a city resaved with the markers loads the same with it off.</summary>
+        [SettingsUISection(SectionMain, GroupLifts)]
+        public bool LiftStationRetrofit { get; set; }
+
+        /// <summary>Null-tolerant read for BoneRetrofitSystem</summary>
+        public static bool LiftStationRetrofitOn => Mod.Settings?.LiftStationRetrofit ?? DefaultLiftStationRetrofit;
+
 
         /// <summary>Measurement scaffolding for field tests, off by default and for every player. It covers the midday measurement re-arm
         /// and the measure-only ResidentAI pass in SkiDaySystem / SkiGuestCounterSystem / SkiLodgeParkingSystem (they force main-thread
@@ -496,6 +522,15 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding ToggleQuickRunsToolBinding { get; set; }
 
+        /// <summary>Toggles the slope overlay (ShowSlopeOverlay). No default key: the player binds one in Options. The hub chip and the
+        /// ShowSlopeOverlay option are the default ways in. The attribute without a key gives an empty control path, an unbound action
+        /// (SettingsUIKeyboardBindingAttribute.cs:18-20, :138; ModSetting.cs:82). Polled by SkiSlopeOverlayKeySystem in a loaded city.
+        /// Why no default: the first default, Ctrl+Shift+O, never reached the game on the test machine (another program held it
+        /// system-wide), and O is out under the default-chord rule (EngineNotes/SkiSlopeOverlaySystem.md, Toggle and settings).</summary>
+        [SettingsUIKeyboardBinding(ActToggleSlopeOverlay)]
+        [SettingsUISection(SectionMain, GroupKeybindings)]
+        public ProxyBinding ToggleSlopeOverlayBinding { get; set; }
+
         /// <summary>Write-only button with the game's confirmation dialog (message: GetOptionWarningLocaleID,
         /// AutomaticSettings.cs:1146-1166). Same pattern as GeneralSettings.resetSettings (GeneralSettings.cs:138-146). Restores every
         /// option and the key bindings to their defaults, then saves.</summary>
@@ -553,12 +588,14 @@ namespace SkiResortMod.Settings
             SkiDayReachKm = DefaultSkiDayReachKm;
             SkiDayPowderPct = DefaultSkiDayPowderPct;
             EnableSnowGating = DefaultEnableSnowGating;
+            EnableTopToBottomRule = DefaultTopToBottomRule;
             SnowmakingBonusCelsius = DefaultSnowmakingBonusCelsius;
             EnableBindOnDraw = true;
             ShowRunGradeWhileDrawing = true;
             ContourLinesWhileDrawingRuns = true;
             ShowSnowLineWhilePlacing = true;
             ShowSkiAreaRadius = true;
+            ShowSlopeOverlay = false;
             ShowRunNamesOnTheHill = true;
             RunOutlineSize = DefaultRunOutlineSize;
             SnowGunPlumes = DefaultSnowGunPlumes;
@@ -579,6 +616,7 @@ namespace SkiResortMod.Settings
             LiftBuildAids = true;
             LiftTowerPlanner = true;
             AnimatedLiftCarriers = DefaultAnimatedLiftCarriers;
+            LiftStationRetrofit = DefaultLiftStationRetrofit;
             DiagnosticMeasurements = DefaultDiagnosticMeasurements;
             // Key bindings are deliberately absent: the base constructor generated them (ModSetting.cs:43, 56-64) before this runs
         }

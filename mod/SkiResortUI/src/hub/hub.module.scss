@@ -1331,14 +1331,16 @@
   background-color: var(--hoverColorNormal);
 }
 
-// T246: the strip's open / close chevron at the end of the tab row. A square of the tab height; the fold glyphs (fit.tsx).
+// T246: the strip's open / close chevron at the end of the tab row; the fold glyphs (fit.tsx). T262 (2026-11-20): a 20 rem square,
+// centered in the 24 rem tab row (it was 24 and read a few px too big beside the tabs), glyph 8 rem. Live while a mode is engaged: it cancels it.
 .tabChevronCell {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  justify-content: center;
   flex-grow: 0;
   flex-shrink: 0;
-  width: calc(24rem * var(--fontScale));
+  width: calc(20rem * var(--fontScale));
   margin-left: 2rem;
 }
 
@@ -1348,7 +1350,7 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  height: calc(24rem * var(--fontScale));
+  height: calc(20rem * var(--fontScale));
   padding: 0rem;
   background-color: var(--sectionBackgroundColor);
   border-radius: 3rem;
@@ -1362,13 +1364,9 @@
   background-color: var(--activeColorNormal);
 }
 
-.tabChevron[disabled] {
-  opacity: 0.4;
-}
-
 .tabChevronGlyph {
-  width: calc(10rem * var(--fontScale));
-  height: calc(10rem * var(--fontScale));
+  width: calc(8rem * var(--fontScale));
+  height: calc(8rem * var(--fontScale));
   background-color: var(--hubTextDim);
 }
 
@@ -3694,6 +3692,20 @@
   width: 0.75em;
   height: 0.75em;
   background-color: var(--accentColorNormal);
+}
+
+.pagerGlyphNext {
+  background-color: var(--normalTextColor);
+}
+
+// T264: the "More" hint before the next arrow (accent color). The slot keeps its width on the last page (empty there) and an empty slot
+// of the same width stands before the page text, so the text stays centered and paging never moves the row.
+.pagerMore {
+  min-width: 2.6em;
+  margin-right: 4rem;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--accentColorNormal);
 }
 
 .pagerText {

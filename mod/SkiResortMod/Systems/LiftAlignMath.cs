@@ -580,6 +580,48 @@ namespace SkiResortMod.Systems
             return over;
         }
 
+        /// <summary>Where the in-station rope from a rope anchor meets the bullwheel, in the station's frame (T256): the wheel's tangent
+        /// point on the anchor's side. The wheel's rope radius is half the rope gauge, so the point has the anchor's x, at the wheel's
+        /// rope height and z (<paramref name="wheelLocal"/> = the catalog's WheelLocal). The modeled station rope and the carriers' path
+        /// (LiftLoopCache.AppendTerminalTurn) both run straight from the anchor to this point.</summary>
+        public static float3 StationTangentPoint(float3 anchorLocal, float3 wheelLocal)
+        {
+            return new float3(anchorLocal.x, wheelLocal.y, wheelLocal.z);
+        }
+
+        /// <summary>The outer half of a station's nose sheave train (T256): the half on the line side of the rope's corner at the station
+        /// anchor. The inner half is part of the station and stays on the in-station rope, pitch <paramref name="fixedPitch"/> (nose
+        /// up along the station's +z, as LaneEndPitch of the modeled rope from the anchor to the bullwheel's tangent point).
+        /// <paramref name="meanLine"/> / <paramref name="nLine"/> are the line ropes' mean lane-end pitch on the station's anchors and
+        /// their count. The outer half follows the line rope under the tower-train limits: within <paramref name="maxPitch"/> (TrainLimits),
+        /// at most twice <paramref name="maxHalfBreak"/> away from the inner half (the tower rule's half-break on each side of the mean),
+        /// and within the carrier-clearance limit <paramref name="worldMax"/> (+infinity = none). No line rope: it stays in line with the
+        /// inner half. Returns the degrees the rope asks past what the half follows (0 = it follows). <paramref name="clamped"/> = a
+        /// limit held it.</summary>
+        public static float StationNosePose(float fixedPitch, float meanLine, int nLine, float maxPitch, float maxHalfBreak, float worldMax,
+            out float line, out bool clamped)
+        {
+            line = fixedPitch;
+            clamped = false;
+            if (nLine == 0)
+                return 0f;
+            float lo = math.max(-maxPitch, fixedPitch - 2f * maxHalfBreak), hi = math.min(maxPitch, fixedPitch + 2f * maxHalfBreak);
+            if (math.isfinite(worldMax))
+            {
+                lo = math.max(lo, -worldMax);
+                hi = math.min(hi, worldMax);
+            }
+            if (lo > hi)
+            {
+                // The inner half itself is past a limit (never with the shipped stations): the outer half stays in line with it
+                clamped = math.abs(meanLine - fixedPitch) > 1e-6f;
+                return math.degrees(math.abs(meanLine - fixedPitch));
+            }
+            line = math.clamp(meanLine, lo, hi);
+            clamped = line != meanLine;
+            return math.degrees(math.abs(meanLine - line));
+        }
+
         // ── Tram pedestals (DECISIONS 600 a, call c, critique SHOULD-2, art tower_lean.py foundation table) ─────────────────────
         // The tram tower stands on four concrete columns at its base corners (tram_tower.build_footings: a 1.5 m pedestal over a 12 m pier,
         // 1.4 m square, at +-B/2, B = 10 / 11 / 12 m for the 30 / 45 / 60 m tower). A lean turns them about the foot (the Transform

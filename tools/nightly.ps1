@@ -114,9 +114,9 @@ try {
     if ($r.code -ne 0) { throw 'the overlay failed' }
 
     $r = Run 'stage the baseline' { & $PS -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'loadcheck.ps1') -StageOnly -Save $Save }
-    $env:SteamAppId = '949230'; $env:SteamGameId = '949230'; $env:SteamOverlayGameId = '949230'
-    $g = 'C:\Program Files (x86)\Steam\steamapps\common\Cities Skylines II'
-    Start-Process -FilePath "$g\Cities2.exe" -WorkingDirectory $g -ArgumentList '--developerMode', '--uiDeveloperMode' | Out-Null
+    # start-game.ps1 archives the previous start's logs first (every start overwrites them), then starts the game
+    $r = Run 'start the game' { & $PS -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'start-game.ps1') -Label "nightly $sha" }
+    if ($r.code -ne 0) { throw 'start-game failed' }
     $r = Run 'wait for READY' { & $PS -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'testbridge\wait-ready.ps1') -TimeoutSec 900 }
     Part 'game-start' ($r.code -eq 0) "wait-ready exit $($r.code)"
     if ($r.code -ne 0) { throw 'the game did not become READY' }
