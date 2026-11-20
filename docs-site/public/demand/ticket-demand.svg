@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="dc" viewBox="0 0 640 360" width="640" height="360" role="img" aria-labelledby="dc-ticket-demand-t dc-ticket-demand-d" style="width:100%;height:auto;max-width:640px">
+<title id="dc-ticket-demand-t">Ski-day guests who still come, by lift ticket price</title><desc id="dc-ticket-demand-d">Three falling lines, one per lodge tier. Each is 100 percent up to a ticket price of 40 plus the tier's tolerance, then falls by 0.5 percentage points per ticket point. At the maximum ticket of 200 the shares are 20 %, 30 %, 40 %.</desc>
+<style>.dc{--bg:none;--tx:#1d2b44;--mu:#566a8a;--gr:#cbd8e5;--s1:#2e7d32;--s2:#2a63b8;--s3:#0e0e12;--s4:#b35a00;--ref:#8a9bb3}
+@media (prefers-color-scheme:dark){.dc{--tx:#f0fbff;--mu:#b9c9d8;--gr:#2a3753;--s1:#6fcf74;--s2:#6aa8ff;--s3:#d5dde6;--s4:#ffa42d;--ref:#56698a}}
+:root[data-theme='light'] .dc{--tx:#1d2b44;--mu:#566a8a;--gr:#cbd8e5;--s1:#2e7d32;--s2:#2a63b8;--s3:#0e0e12;--s4:#b35a00;--ref:#8a9bb3}
+:root[data-theme='dark'] .dc{--tx:#f0fbff;--mu:#b9c9d8;--gr:#2a3753;--s1:#6fcf74;--s2:#6aa8ff;--s3:#d5dde6;--s4:#ffa42d;--ref:#56698a}
+.dc text{fill:var(--tx);font:13px ui-sans-serif,system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+.dc .mu{fill:var(--mu)}.dc .gr{stroke:var(--gr);stroke-width:1;fill:none}.dc .ax{stroke:var(--mu);stroke-width:1.5;fill:none}
+.dc .ref{stroke:var(--ref);stroke-width:1.5;stroke-dasharray:2 4;fill:none}
+.dc .ln{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.dc .s1{stroke:var(--s1)}.dc .s2{stroke:var(--s2)}.dc .s3{stroke:var(--s3)}.dc .s4{stroke:var(--s4)}
+.dc .d2{stroke-dasharray:10 5}.dc .d3{stroke-dasharray:2 5}</style>
+<path class="gr" d="M58 306H620"/><text class="mu" x="50" y="310" text-anchor="end">0 %</text>
+<path class="gr" d="M58 244H620"/><text class="mu" x="50" y="248" text-anchor="end">25 %</text>
+<path class="gr" d="M58 182H620"/><text class="mu" x="50" y="186" text-anchor="end">50 %</text>
+<path class="gr" d="M58 120H620"/><text class="mu" x="50" y="124" text-anchor="end">75 %</text>
+<path class="gr" d="M58 58H620"/><text class="mu" x="50" y="62" text-anchor="end">100 %</text>
+<path class="gr" d="M58 58V306"/><text class="mu" x="58" y="324" text-anchor="middle">0</text>
+<path class="gr" d="M170.4 58V306"/><text class="mu" x="170.4" y="324" text-anchor="middle">40</text>
+<path class="gr" d="M282.8 58V306"/><text class="mu" x="282.8" y="324" text-anchor="middle">80</text>
+<path class="gr" d="M395.2 58V306"/><text class="mu" x="395.2" y="324" text-anchor="middle">120</text>
+<path class="gr" d="M507.6 58V306"/><text class="mu" x="507.6" y="324" text-anchor="middle">160</text>
+<path class="gr" d="M620 58V306"/><text class="mu" x="620" y="324" text-anchor="middle">200</text>
+<path class="ax" d="M58 58V306H620"/>
+<path class="ref" d="M339 58V306"/><text class="mu" x="344" y="298">default 100</text>
+<path class="ln s1" d="M58 58L72.1 58L86.1 58L100.2 58L114.2 58L128.3 58L142.3 58L156.4 58L170.4 58L184.5 64.2L198.5 70.4L212.6 76.6L226.6 82.8L240.7 89L254.7 95.2L268.8 101.4L282.8 107.6L296.9 113.8L310.9 120L325 126.2L339 132.4L353.1 138.6L367.1 144.8L381.2 151L395.2 157.2L409.3 163.4L423.3 169.6L437.4 175.8L451.4 182L465.5 188.2L479.5 194.4L493.6 200.6L507.6 206.8L521.7 213L535.7 219.2L549.8 225.4L563.8 231.6L577.9 237.8L591.9 244L605.9 250.2L620 256.4"/>
+<path class="ln s2 d2" d="M58 58L72.1 58L86.1 58L100.2 58L114.2 58L128.3 58L142.3 58L156.4 58L170.4 58L184.5 58L198.5 58L212.6 58L226.6 58L240.7 64.2L254.7 70.4L268.8 76.6L282.8 82.8L296.9 89L310.9 95.2L325 101.4L339 107.6L353.1 113.8L367.1 120L381.2 126.2L395.2 132.4L409.3 138.6L423.3 144.8L437.4 151L451.4 157.2L465.5 163.4L479.5 169.6L493.6 175.8L507.6 182L521.7 188.2L535.7 194.4L549.8 200.6L563.8 206.8L577.9 213L591.9 219.2L605.9 225.4L620 231.6"/>
+<path class="ln s3 d3" d="M58 58L72.1 58L86.1 58L100.2 58L114.2 58L128.3 58L142.3 58L156.4 58L170.4 58L184.5 58L198.5 58L212.6 58L226.6 58L240.7 58L254.7 58L268.8 58L282.8 58L296.9 64.2L310.9 70.4L325 76.6L339 82.8L353.1 89L367.1 95.2L381.2 101.4L395.2 107.6L409.3 113.8L423.3 120L437.4 126.2L451.4 132.4L465.5 138.6L479.5 144.8L493.6 151L507.6 157.2L521.7 163.4L535.7 169.6L549.8 175.8L563.8 182L577.9 188.2L591.9 194.4L605.9 200.6L620 206.8"/>
+<text class="mu" x="339" y="350" text-anchor="middle">Lift ticket price</text>
+<text class="mu" transform="translate(14 182) rotate(-90)" text-anchor="middle">Ski-day guests who come</text>
+<path class="ln s1" d="M58 10h34"/><text x="100" y="14">Hut or A-frame (tolerance 0)</text>
+<path class="ln s2 d2" d="M58 26h34"/><text x="100" y="30">Chalet Lodge (tolerance 20)</text>
+<path class="ln s3 d3" d="M58 42h34"/><text x="100" y="46">Swanky Summit or Grand Lodge (tolerance 40)</text>
+</svg>

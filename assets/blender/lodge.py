@@ -250,6 +250,11 @@ def parse_args(argv=None):
     ap.add_argument("--p1-gear", default="rolls", choices=("rolls", "none", "firewood"),
                     help="patrol hut P1 front gear: rolls = the six red fence rolls (letter Y), none = no rolls, "
                          "firewood = no rolls + a vanilla FirewoodPileRandom01 row on the lot")
+    # texture pass v1 (2026-10-29, docs/PIPELINE.md "Texture pass"): CC0 scans on three family swatches
+    # (cs2_tilesheet.TEXPASS, same cut grid) + each recipe's opt-in rules (recipe.texpass). A family-sheet
+    # change: build all eight and --finalize with the same flag. off = every build byte-identical.
+    ap.add_argument("--texpass", default="off", choices=("off", "v1"),
+                    help="v1 = texture pass v1 (scanned swatches + recipe.texpass rules; off = byte-identical)")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -2035,8 +2040,11 @@ def run(recipe, args):
             print("[lodge] tiled: R18 4096 escalation off (the far set is a LOD1/LOD2 set)")
     if args.finish:
         # pack-friendly UVTile islands (cs2_uv packs axis-aligned boxes, no rotation)
+        tp_far = texpass_far_units(obj, keys)       # --texpass: islands and pack in the flag-off units ({} when off)
         result["aligned"] = K.align_islands(obj)
         result["split_islands"] = K.split_poor_islands(obj)
+        if tp_far:
+            texpass_sample_layer(obj, tp_far)
         prebake = None
         if recipe.allow_4096 and args.tex == "auto" and not tiled:
             prebake = obj.copy()
@@ -2061,7 +2069,13 @@ def run(recipe, args):
                 import cs2_tilesheet as TS
                 specs = {k: replace(s, rough=1.0 - TS.smooth_of(k), metal=TS.metal_of(k))
                          for k, s in specs.items()}
+            if getattr(args, "texpass", "off") != "off":
+                # --texpass: the pass's swatch controls on the far sources too (the far set draws what LOD0 draws)
+                import cs2_tilesheet as TS
+                specs = TS.texpass_far_specs(specs, mat_info)
             sources = _final_sources(specs, keys)
+            if tp_far:
+                sources = {i: replace(s, uv=TEXPASS_UV) for i, s in sources.items()}
             world = bpy.context.scene.world or bpy.data.worlds.new("World")
             bpy.context.scene.world = world
             world.light_settings.distance = AO_DISTANCE_M
@@ -2367,6 +2381,89 @@ def finalize_family_sheet(args):
     return {"sheet": sname, "hash": lay["hash"], "owner_dir": odir, "files": files}
 
 
+def texpass_weather(W, recipe, tp):
+    """recipe.texpass rules on one weathering-ladder step (lodge.py --texpass): "grade" {"slope", "anchor_x"} = the
+    plinth's design grade in the AUTHORING frame (z = -s (a - x), falling toward -X), turned into the tiled frame
+    (orient_for_net maps (x, y) -> (y, -x): z = -s a - s y) and capped 5 cm under the lowest band top so no cut
+    reaches the plinth's z-0 contract band; "eave_h" = one under-eave band height for every side (0 = none);
+    "band_skip" = part-name prefixes that take no base band (TileWeather.band_skip)."""
+    from dataclasses import replace as _rp
+    if W is None:
+        return None
+    kw = {}
+    g = tp.get("grade")
+    if g:
+        if abs(float(getattr(recipe, "yaw_deg", 0.0) or 0.0)) > 1e-9:
+            raise ValueError(f"{recipe.key}: texpass grade is written for yaw 0")
+        s, a = float(g["slope"]), float(g["anchor_x"])
+        kw["grade"] = (-s * a, 0.0, -s, -(max(W.base_h.values()) + 0.05))
+    if "eave_h" in tp:
+        kw["eave_h"] = {k: float(tp["eave_h"]) for k in W.eave_h}
+    if tp.get("band_skip"):
+        kw["band_skip"] = tuple(tp["band_skip"])
+    return _rp(W, **kw) if kw else W
+
+
+def assert_texpass_level(name, tp, level, tris, cap):
+    """PIPELINE gate 316 under --texpass: the pass may not buy its look with weathering. recipe.texpass["weather_level"]
+    is the ladder level the flag-off build keeps; a pass build that falls below it raises (cut detail or raise the
+    cap in the ledger, never drop a level silently)."""
+    want = tp.get("weather_level") if tp else None
+    if want is None:
+        return
+    if level is None or int(level) > int(want):
+        raise RuntimeError(f"{name}: --texpass fell to weather level {level} (recipe.texpass weather_level {want}; "
+                           f"LOD0 {tris} tris, cap {cap})")
+
+
+TEXPASS_UV = "UVTileTex"
+
+
+def _scale_tile_faces(me, layer, idx, invert):
+    """Multiply (invert: divide) the loops of every face whose material index is in `idx` by idx[index] on `layer`."""
+    if not idx:
+        return
+    mi = np.zeros(len(me.polygons), np.int32)
+    me.polygons.foreach_get("material_index", mi)
+    f = np.ones(len(me.polygons))
+    for i, s in idx.items():
+        f[mi == i] = 1.0 / s if invert else s
+    start, total = cs2_uv.face_loop_table(me)
+    order = np.concatenate([np.arange(s, s + c) for s, c in zip(start, total)])
+    lay = me.uv_layers[layer]
+    uv = cs2_uv.loop_uvs(lay)
+    uv[order] *= np.repeat(f, total)[:, None]
+    cs2_uv.set_loop_uvs(lay, uv)
+
+
+def texpass_far_units(obj, keys):
+    """--texpass on the far set (LOD1 / LOD2): divide each pass key's UVTile by its tile factor
+    (cs2_tilesheet.texpass_tile_factors, a power of two: exact) so align_islands, split_poor_islands (min_box in
+    tile^2) and the unique pack see the flag-off units and the far layout stays the flag-off one. Split in the pass's
+    units, every far FBX was repacked and L1 lost 11 % of its far px/m. Returns {mat_index: f} ({} when off)."""
+    import cs2_tilesheet as TS
+    fac = TS.texpass_tile_factors()
+    idx = {i: fac[k] for i, k in enumerate(sorted(keys)) if k in fac}
+    _scale_tile_faces(obj.data, cs2_bake.TILE_LAYER, idx, invert=True)
+    return idx
+
+
+def texpass_sample_layer(obj, idx):
+    """The far bake's sampling layer under --texpass: UVTile after the island ops with the pass keys back in the pass's
+    units, so the bake draws the scans at their tile (rotations and whole-tile shifts carried over) while the pack
+    reads the flag-off layout. bake_unique ships UVUnique only (its step 6 drops this layer)."""
+    me = obj.data
+    src = cs2_uv.loop_uvs(me.uv_layers[cs2_bake.TILE_LAYER])
+    act = me.uv_layers.active.name if me.uv_layers.active else None
+    if me.uv_layers.get(TEXPASS_UV) is None:
+        me.uv_layers.new(name=TEXPASS_UV, do_init=False)
+    if act is not None:
+        me.uv_layers.active = me.uv_layers[act]
+    cs2_uv.set_loop_uvs(me.uv_layers[TEXPASS_UV], src)
+    _scale_tile_faces(me, TEXPASS_UV, idx, invert=False)
+    return TEXPASS_UV
+
+
 def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far):
     """Rollout (docs/research/art/texture-parity-rollout-2026-10-16.md):
     - rename the far bake's maps to <name>_LOD1_* (emissive dropped: LOD0-only engine-side, DECISIONS 77)
@@ -2414,6 +2511,9 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
         ladder = [TS.weather_level(int(wl))]
     else:
         ladder = [TS.weather_level(i) for i in range(6)]
+    tp = (getattr(recipe, "texpass", None) or {}) if getattr(args, "texpass", "off") != "off" else {}
+    if tp:
+        ladder = [texpass_weather(W, recipe, tp) for W in ladder]
     cap = recipe.budget.lod0_cap
     pristine = lod0.data.copy()
     tm = None
@@ -2456,6 +2556,7 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
               f"(cap {cap})")
         if tm["tris_after"] <= cap:
             break
+    assert_texpass_level(name, tp, tried[-1]["level"], tm["tris_after"], cap)
     if tcfg and tcfg["seg_m"]:
         # T70 segment cuts (opt-in, A/B / --trim v2 only) pay tris. Measure them against the UNCUT strip map run through the
         # same ladder. Refuse cuts that would only fit by dropping weathering. Leave the cap to assert_budget below (the gate
@@ -2554,6 +2655,8 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
         "tile_mesh": tm, "weather_ladder": tried, "ppm_by_material": ppm, "smooth_by_material": smooth,
         "weather_by_material": wstats, "lod0_tris": tris0, "seconds": round(time.perf_counter() - t0, 1),
     }
+    if tp:                                          # --texpass only (flag off: no key, the manifest is unchanged)
+        result["tiled"]["texpass"] = {"version": args.texpass, "rules": json.loads(json.dumps(tp))}
     if slots:
         result["tiled"]["slots_v2"] = slots_v2_report(recipe, layout, lod0, sdir, sname, keys, ctl_rgb)
     if trim:
@@ -2843,6 +2946,10 @@ def validate(asset_dir, name, recipe, obj, win, A, max_texture=None, subsfx="Win
 
 def main():
     args = parse_args()
+    if getattr(args, "texpass", "off") != "off":
+        # before any material is read: the far bake, the sheet layout and its hash all see the scanned sets
+        import cs2_tilesheet as TS
+        TS.register_texpass(args.texpass)
     if args.finalize:
         finalize_family_sheet(args)
         return

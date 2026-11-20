@@ -53,7 +53,10 @@ the generators in `assets/blender/`.
 - **"Ski gongola and lift station detailed drafts" by Wilin_Amaurea** —
   https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db —
   reference for the gondola cabin, hanger, carriage and station layout.
-- Tiling materials: CC0 sets from ambientCG (https://ambientcg.com), no attribution required.
+- Tiling materials: CC0 sets from ambientCG (https://ambientcg.com) and Poly Haven (https://polyhaven.com), no
+  attribution required. The Poly Haven photo scans on the buildings: `weathered_plank_siding` by Dimitrios Savva;
+  `grey_roof_tiles_02` by Rob Tuytel; `weathered_brown_planks` by Dimitrios Savva (photography)
+  and Rico Cilliers (processing). Download links and checksums: assets/texture-sources.json.
 
 ## Trailer music
 

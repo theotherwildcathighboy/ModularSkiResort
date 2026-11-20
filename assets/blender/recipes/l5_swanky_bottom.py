@@ -218,7 +218,8 @@ def register_materials():
     """Add the swanky materials to cs2_bldg.BLDG_MATERIALS (idempotent). Raises if a key already exists with a different
     definition. The builders call it. It never runs at import."""
     K = _kit()
-    for k, m in sorted(swanky_materials().items()):
+    import cs2_tilesheet as _TS          # lodge.py --texpass: lux_slate follows slate's scan (identity when off)
+    for k, m in sorted(_TS.texpass_overlay(swanky_materials()).items()):
         cur = K.BLDG_MATERIALS.get(k)
         if cur is not None and cur != m:
             raise RuntimeError(f"material {k!r} already registered differently")

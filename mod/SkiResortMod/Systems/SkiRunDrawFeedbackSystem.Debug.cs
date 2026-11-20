@@ -78,7 +78,8 @@ namespace SkiResortMod.Systems
                 $"{ThrottleWindowMs:F0} / {ThrottleRemainingMs:F0}"));
             list.Add(Val("Throttled move frames", () => ThrottledFrames));
             list.Add(Val("Pre-warm ms", () => PrewarmMs.ToString("F2")));
-            list.Add(Val("Strips (drawn / built, cap hit, black edges)", () => $"{StripsDrawn} / {StripsBuilt}, {StripCapHit}, {BlackEdgeStrips}"));
+            list.Add(Val("Strips (drawn / built, cap hit)", () => $"{StripsDrawn} / {StripsBuilt}, {StripCapHit}"));
+            list.Add(Val("Contours (fill / curves, build ms)", () => $"{ContourStrips} / {ContourCurves}, {ContourBuildMs:0.0}"));
             list.Add(Val("Row stride", () => RowStride));
             list.Add(Val("Draw ms, schedule only (last / peak)", () => $"{LastDrawMs:F3} / {PeakDrawMs:F3}"));
             list.Add(Val("First draw ms of the process (excluded from peak)", () => FirstDrawMs.ToString("F3")));

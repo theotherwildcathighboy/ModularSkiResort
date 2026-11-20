@@ -3216,6 +3216,10 @@ def parse_args(argv=None):
                     choices=sorted(THIN_JAW_SPECS),
                     help="with --envelope, style tr: the thin jaw (THIN_JAW_SPECS, art-601) as that grip letter "
                          "(default " + THIN_JAW_LETTER + "); the O body is unchanged and not written")
+    ap.add_argument("--texpass", choices=TEXPASS_CHOICES, default="off",
+                    help="r4/tex, --style tr --split: texture pass (v1 = the family's light zinc on the galvanized quad)")
+    ap.add_argument("--bail", choices=("paint", "galv"), default="paint",
+                    help="r4/tex variant, needs --texpass v1: galv = the bail on the galvanized quad (BAIL_PARTS)")
     ap.add_argument("--remap-from", default=None,
                     help="--envelope: the shipped split letter folder (default assets/import/chairs/"
                          + SPLIT_LETTER + ")")
@@ -3237,6 +3241,13 @@ def _resolve(args):
         raise ValueError(f"carrier {st.carrier!r} seats {row['seats']} != style {st.seats}")
     if args.split and st.key not in SPLIT_PLAN:
         raise ValueError(f"--split: style {st.key!r} has no split (tr / dq)")
+    global TEXPASS, BAIL_GALV
+    TEXPASS = None if getattr(args, "texpass", "off") == "off" else args.texpass      # every run follows its args
+    BAIL_GALV = getattr(args, "bail", "paint") == "galv"
+    if (TEXPASS or BAIL_GALV) and not (args.split and st.key == "tr"):
+        raise ValueError("--texpass / --bail apply to --style tr --split only")
+    if BAIL_GALV and not TEXPASS:
+        raise ValueError("--bail galv needs --texpass v1")
     if getattr(args, "envelope", False):
         if not args.split:
             raise ValueError("--envelope needs --split")
@@ -3536,6 +3547,17 @@ SPLIT_PLAN = {
 # Topology is unchanged part for part, so the shipped atlas maps on loop for loop (split_shipped_uvs: no bake, 0 MB
 # added). Only vertex positions move. LOD2 adds a jaw proxy (C3 holds the rope point in grip part + jaw: ENVELOPE_JAW).
 # --------------------------------------------------------------------------------------
+# r4/tex (2026-11-19), style tr with --split only, default off = every FBX and map byte for byte as before:
+# --texpass v1: the galvanized quad takes the FG family's light zinc (lift_tower.TEXPASS_MATERIALS v1 FG galv), pixels only.
+# --bail galv (an owner-choice variant, needs the pass): the bail (stem, knuckle, back rail and bars, arm rests) leaves
+#   recolor slot 1 for the galvanized quad, as on every chair of the reference photos. Seat pan, back rest and plate rim
+#   stay on slot 1. It moves those parts' UV islands, so N is re-baked and O / P are re-run on it (3 builds, 0 MB).
+TEXPASS = None
+TEXPASS_CHOICES = ("off", "v1")
+TEXPASS_GALV_TINT = (1.40, 1.35, 1.29)      # on the atlas quad's DISPLAY values (cs2_asset.make_texture_set_atlas): Metal032's
+#                                           sRGB 0.50 / 0.53 / 0.565 -> 0.70 / 0.715 / 0.73 (the towers' linear 2.09 / 1.93 / 1.76)
+BAIL_GALV = False
+BAIL_PARTS = ("tube_stem", "knuckle", "backrail", "backbar_", "armrest_", "armpost_")
 ENVELOPE = False                    # --envelope (split only)
 ENVELOPE_LETTER = "O"
 ENVELOPE_Z = 0.06                   # m: the jaw band about the rope center the wheels may roll over
@@ -4140,6 +4162,9 @@ def build_split_parts(style, row, hanger_offset=HANGER_OFFSET):
                   "r_x": J["r_x"], "z_shift": -z_lo, "axis_dir": [round(float(v), 5) for v in d],
                   "knuckle_r": R, "gap_c": c, "cheek_inner": y_in, "cheek_outer": y_out,
                   "cheek_r": rc})
+    if BAIL_GALV and style.key == "tr":
+        body = [(o, QUAD_GALV if o.name.startswith(BAIL_PARTS) else q) for o, q in body]
+        grip = [(o, QUAD_GALV if o.name.startswith(BAIL_PARTS) else q) for o, q in grip]
     return body, grip, old, joint
 
 
@@ -4578,6 +4603,9 @@ def _main_split(args, st, row, letter):
         import cs2_validate
         tex_root = os.path.join(HERE, "..", "textures")
         quad_sets, control_quads = cs2_asset.lift_atlas_quads(tex_root)
+        if TEXPASS and st.key == "tr":
+            quad_sets = dict(quad_sets)
+            quad_sets[QUAD_GALV] = {"set": quad_sets[QUAD_GALV], "tint": TEXPASS_GALV_TINT}
         for role, m in meshes.items():
             obj, name = m["obj"], m["name"]
             asset_dir = os.path.join(os.path.abspath(args.out), name)

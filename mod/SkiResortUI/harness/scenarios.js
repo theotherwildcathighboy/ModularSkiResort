@@ -107,6 +107,8 @@
     hotelGuests: 1240, hotelRented: 482, hotelRooms: 1029,
     // Contract 53 (T237 / T238): nothing closed for the off-season.
     lodgesOffSeason: 0, schoolOffSeason: false,
+    // Contract 59 (T267)
+    passesSoldMonth: 0,
     // Contract 48 (T200): the snow report, a 760 m vertical, the summit below freezing, a storm in the last day.
     snowReport,
   };
@@ -163,7 +165,7 @@
   function moneyFrom(l, h) {
     const i = h.flags.length - 1;
     const rows = { ticketsThisMonth: h.ticketIncome[i], lodgeIncomeMonth: h.lodgeIncome[i], lessonIncomeMonth: h.lessonIncome[i],
-      passIncomeMonth: h.passIncome[i], passIncomePreMonth: 0, liftChargedMonth: h.liftCost[i], runCostMonth: h.runCost[i],
+      passIncomeMonth: h.passIncome[i], passesSoldMonth: Math.round(h.passIncome[i] / 1100), passIncomePreMonth: 0, liftChargedMonth: h.liftCost[i], runCostMonth: h.runCost[i],
       // One depot on the live area. The bill reads 0 booked, so its rows still add up to the month in History (no bus column there).
       busChargedMonth: 0, depots: 1, busGuestsMonth: 86, busBillMonth: 3600,
       buildingsSoFar: h.buildingsCost[i], wagesSoFar: h.wagesCost[i], monthShare: 0.45 };
@@ -345,7 +347,7 @@
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800, affordMask: 31 };
   const snowCardHidden = { shown: false, report: Object.assign({}, snowReport, { known: false }) };
-  const base = { hubOpen: false, contract: 59, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 61, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },

@@ -1,0 +1,28 @@
+---
+// A demand-curve graph from public/demand/<name>.svg, inlined so it follows the site's light and dark theme.
+// The SVG files are generated from the C# constants by tools/demand-curves.js (gate: --check). Never edit them by hand.
+interface Props {
+  name: string;
+  caption: string;
+}
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const { name, caption } = Astro.props;
+
+// The build runs in docs-site/ (the first path). A dev server started with --root runs elsewhere (the second path).
+const fromCwd = join(process.cwd(), 'public', 'demand', `${name}.svg`);
+const file = existsSync(fromCwd) ? fromCwd : fileURLToPath(new URL(`../../public/demand/${name}.svg`, import.meta.url));
+const svg = readFileSync(file, 'utf8');
+---
+
+<figure class="demand-chart">
+  <Fragment set:html={svg} />
+  <figcaption>{caption}</figcaption>
+</figure>
+
+<style>
+  .demand-chart { margin: 1.25rem 0; }
+  .demand-chart figcaption { font-size: var(--sl-text-sm); color: var(--sl-color-gray-3); margin-top: 0.25rem; }
+</style>

@@ -22,6 +22,12 @@
     <Compile Include="Program.cs" />
     <!-- The Plan → Fill → Classify path moved into SkiRunRater; RaterParity.cs proves it bit-identical. -->
     <Compile Include="RaterParity.cs" />
+    <!-- T253 slope overlay: tile cache parity with ClassifyRing, strip runs, verify, eviction. -->
+    <Compile Include="OverlayTiles.cs" />
+    <!-- T253 (1.0.4): smooth band outlines, their tests and the outline preview mode. -->
+    <Compile Include="Contours.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSlopeContours.cs" Link="SkiSlopeContours.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSlopeOverlayTiles.cs" Link="SkiSlopeOverlayTiles.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSlopeClassifier.cs" Link="SkiSlopeClassifier.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunRater.cs" Link="SkiRunRater.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\DisplayUnits.cs" Link="DisplayUnits.cs" />

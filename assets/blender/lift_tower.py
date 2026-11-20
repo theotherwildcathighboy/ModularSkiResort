@@ -1635,6 +1635,23 @@ TOWER_MATERIALS = {
     "rubber": dict(albedo=(0.035, 0.035, 0.038), metal=0.0, rough=0.80, projection="box"),
     "plate": dict(albedo=(0.69, 0.69, 0.69), metal=0.0, rough=0.45, projection="box"),
 }
+# r4/tex texture pass (2026-11-19): `--texpass v1`, default off = every FBX and map byte for byte as before. Per FAMILY
+# material overrides, pixels only: the pack, the UV islands and every FBX stay as flag-off, so the twins and heads keep
+# drawing their member's maps with no re-run. FG (line members + ET62 / ET68): the galvanized steel leaves Metal032's
+# blue-gray (sRGB 0.50 / 0.53 / 0.565) for a light neutral zinc (0.70 / 0.715 / 0.73), the paint goes satin.
+TEXPASS = None
+TEXPASS_CHOICES = ("off", "v1")
+TEXPASS_MATERIALS = {"v1": {"FG": {"galv": dict(tint=(2.09, 1.93, 1.76)), "paint": dict(rough=0.42)}}}
+
+
+def tower_materials(spec):
+    """TOWER_MATERIALS, with the pass's overrides for this variant's family under --texpass (the same dict object when
+    there is none)."""
+    over = TEXPASS_MATERIALS.get(TEXPASS, {}).get(spec.family, {}) if TEXPASS else {}
+    if not over:
+        return TOWER_MATERIALS
+    return {k: dict(v, **over.get(k, {})) for k, v in TOWER_MATERIALS.items()}
+
 
 DENSITY_V2 = {
     "pier": 0.25, "pad": 0.75, "ladder_": 0.75,
@@ -2719,6 +2736,39 @@ def set_skinned(on):
         set_rope_on_crown(True)
 
 
+HOSTED_LANE = None     # T256: {variant: crown height} set by set_hosted_lane (None = every mast as shipped)
+
+
+def set_hosted_lane(key, lane):
+    """T256 (the FG top's skinned hosted end tower): rebuild FG terminal variant `key` with the mast that puts its rope crown
+    (lane_y on the crown = the TrainFront / TrainBack pivot) at `lane` (m above the tower origin), so the pivot lands ON the
+    station's lane end with the hosted row at y 0. Axle = lane - crown_seat, mast = axle + 0.96. Only under SKINNED (the crown
+    datum); every other variant and every unskinned build stay as shipped."""
+    global HOSTED_LANE
+    if not SKINNED:
+        raise TowerContractError("set_hosted_lane: the crown datum needs SKINNED")
+    s0 = VARIANTS[key]
+    if s0.family != "FG" or s0.role != "terminal":
+        raise TowerContractError(f"set_hosted_lane: {key} is not an FG terminal head")
+    seat = crown_seat(s0)
+    mast = round(float(lane) - seat + (s0.tube_top - s0.axle), 6)
+    VARIANTS[key] = _fg_spec(key, mast, s0.role, s0.comm_y, s0.lod0)
+    got = lane_y(VARIANTS[key], True)
+    if abs(got - float(lane)) > 1e-4:
+        raise TowerContractError(f"set_hosted_lane: {key} crown {got} != {lane}")
+    HOSTED_LANE = {"variant": key, "lane_y": float(lane), "crown_seat": seat, "mast": mast,
+                   "axle": VARIANTS[key].axle, "shipped_mast": s0.tube_top}
+    print(f"[tower2] T256 hosted lane: {key} mast {s0.tube_top} -> {mast} (axle {VARIANTS[key].axle}, crown {got})")
+    return VARIANTS[key]
+
+
+def hosted_pin_links(spec):
+    """T256 S4: True on the hosted-lane build of `spec` (set_hosted_lane, the skinned ET62Q): its FG bogie pins hang in
+    straps (cs2_sheaves.fg_train_side_halves pin_links). Every other build, the shipped towers included: False. The kit-wide
+    fix (every FG tower) needs new letters: a follow-up."""
+    return HOSTED_LANE is not None and HOSTED_LANE["variant"] == spec.key
+
+
 def skin_spec(spec):
     """The spec a skinned build uses: GD at SKIN_GD["sheaves"] a side (10 default as shipped, --gd-sheaves). Otherwise `spec`."""
     if SKINNED and spec.family == "GD" and spec.sheaves != SKIN_GD["sheaves"]:
@@ -3211,7 +3261,9 @@ def fg_parts(spec):
             P += S.fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_span / 2.0,
                                         spec.sheave_r, spec.sheave_w, pin_z=lane_y(spec, True),
                                         inboard=FG_CROWN_INBOARD, shift=SKIN_HALF_SHIFT["FG"], arm_t=FG_ARM_T,
-                                        hanger=FG_HANGER, ins=ins, lap_gap=SKIN_LAP_GAP, **SKIN_FG)
+                                        hanger=FG_HANGER, ins=ins, lap_gap=SKIN_LAP_GAP, **SKIN_FG,
+                                        # T256 S4: the bogie pins in their straps on the hosted-lane build only (ET62Q)
+                                        pin_links=hosted_pin_links(spec))
             continue
         # the Yan rocker tree of this lane: cs2_sheaves.fg_train_side (this loop's body, moved verbatim)
         P += S.fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span,
@@ -3856,7 +3908,7 @@ def build_tower_v2(spec, head=None, finish=True, kagelok=None, name=None):
         import cs2_bake
         bpy.context.view_layer.update()
         # T62 round 2: + the one wheel material (cs2_sheaves.WHEEL_MATERIAL) under v2. v1 = TOWER_MATERIALS as it was
-        sources = cs2_bake.material_sources({**TOWER_MATERIALS, **S.wheel_materials(dict)}, parts)
+        sources = cs2_bake.material_sources({**tower_materials(spec), **S.wheel_materials(dict)}, parts)
     bpy.ops.object.select_all(action="DESELECT")
     for o, _k in parts:
         o.select_set(True)
@@ -6690,7 +6742,7 @@ def twin_settings(asset_dir, name, owner, levels):
     return path
 
 
-def twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weights):
+def twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weights, args=None):
     """--twin --export: the twin's import folder beside its member (TWIN_ATLAS): skinned LOD0 / 1 / 2 FBXs (every level
     weighted, as the members), settings.json on the member's maps (twin_settings), the skin round trip, the manifest
     (the twin report + skin_manifest_block + the texture note for the surgery), validate_asset_folder (0 errors)."""
@@ -6711,6 +6763,9 @@ def twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weigh
     skin = dict(info["skin"], rope_points_game=[[-spec.gauge / 2.0, zp, 0.0], [spec.gauge / 2.0, zp, 0.0]],
                 half_shift_m=SKIN_HALF_SHIFT[spec.family], weights=weights, roundtrip=rt)
     man = {k: v for k, v in rep.items() if k not in ("frames", "seconds", "skin", "grip")}
+    if args is not None:
+        from carrier_split import manifest_args    # r4/tex fg: repo-relative / %USERPROFILE% paths (as lift_chair)
+        man["args"] = manifest_args(args, _REPO)  # T256: every parsed flag (defaults too): a letter's build is reproducible
     man["skin"] = dict(skin_manifest_block(spec, skin), twin=rep["skin"])
     man["textures"] = {
         "shared_from": f"../{owner}/{owner}", "maps": list(TWIN_MAPS), "levels": list(range(len(lods) + 1)),
@@ -6835,7 +6890,7 @@ def main_twin(argv):
            "grip": grip and {k: v for k, v in grip.items() if k != "frames"},
            "frames": frames, "seconds": round(time.perf_counter() - t0, 1)}
     if args.export:
-        twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weights)
+        twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weights, args=args)
         print(f"[twin] exported {name}: LOD0/1/2 {bud['tris']} -> {asset_dir} ({time.perf_counter() - t0:.0f} s)")
         return 0
     with open(os.path.join(asset_dir, f"{name}.twin.json"), "w", encoding="utf-8", newline="\n") as f:
@@ -6896,9 +6951,14 @@ def parse_args_v2(argv):
                     help="lift alignment phase 2 (SKINNED): every LOD skinned to Root / TrainFront / TrainBack, two half "
                          "trains a lane hinged on the rope line; implies --rope-on-crown; FG Yan / DQ ingest / GD "
                          "rebuild heads only")
+    ap.add_argument("--hosted-lane", dest="hosted_lane", type=float, default=None,
+                    help="with --skinned, FG terminal heads (ET62 / ET68), T256: the mast set so the rope crown (the "
+                         "half bones' pivot) sits at this hosted height (the FG top's lane end 5.24); off = the shipped mast")
     ap.add_argument("--skin-views", default=None,
                     help="with --skinned: folder for the round 2 views (skin_views: level, slope, crest, the 20 deg "
                          "limit, steep, dip), each half's rope drawn (needs the finish)")
+    ap.add_argument("--texpass", choices=TEXPASS_CHOICES, default="off",
+                    help="r4/tex: texture pass (TEXPASS_MATERIALS, per family, pixels only); off = the shipped maps")
     ap.add_argument("--gd-sheaves", dest="gd_sheaves", type=int, choices=(8, 10, 12), default=None,
                     help="with --skinned: GD sheaves a side (SKIN_GD sheaves, default 8); 10 = the shipped count, each "
                          "half a 4-wheel bogie + its inner wheel on a 1-wheel rocker hung on a link")
@@ -6909,6 +6969,8 @@ def main_v2(argv):
     import time
     t0 = time.perf_counter()
     args = parse_args_v2(argv)
+    global TEXPASS
+    TEXPASS = None if args.texpass == "off" else args.texpass      # every run follows its args
     S.set_wheels(args.wheels)          # T62: before any part is built
     # the wheel dress (materials + relief rings, 0 tris): on by default for skinned builds, unskinned stay as shipped
     S.set_wheel_dress(args.skinned if args.wheel_dress is None else args.wheel_dress)
@@ -6920,6 +6982,10 @@ def main_v2(argv):
         raise SystemExit("--skin-views / --gd-sheaves need --skinned")
     if args.gd_sheaves:
         SKIN_GD["sheaves"] = args.gd_sheaves      # round 4: the GD 10-a-side option (the default stays 8)
+    if args.hosted_lane is not None:
+        if not args.skinned:
+            raise SystemExit("--hosted-lane needs --skinned")
+        set_hosted_lane(args.variant, args.hosted_lane)      # T256: the crown (pivot) on the station's lane end
     spec = skin_spec(VARIANTS[args.variant])      # SKINNED GD: SKIN_GD sheaves a side
     if args.head is not None and spec.family == "FG":
         raise SystemExit(f"--head applies to DQ variants only ({spec.key} is FG)")
@@ -7062,8 +7128,10 @@ def main_v2(argv):
         if spec.family == "GD":
             derived["mode"] = "traced proportions (the DQ rebuild head kit, stretched to the 6.0 m gauge)"
     density = compose.density if compose is not None else None
+    from carrier_split import manifest_args          # r4/tex fg: repo-relative / %USERPROFILE% paths (as lift_chair)
     manifest = {
         "generator": f"lift_tower.py@{cs2_review.git_sha()}",
+        "args": manifest_args(args, _REPO),  # T256: every parsed flag (defaults too): a letter's build is reproducible
         "spec": "towers-v2 + skeptic" if spec.family != "GD" else
                 "towers-v2 + skeptic; Revision 1b GD (tram_tower.GD / lattice-towers D2 contract)",
         "variant": spec.key, "family": spec.family, "role": spec.role, "kind": spec.kind,
@@ -7096,8 +7164,13 @@ def main_v2(argv):
     }
     if ROPE_ON_CROWN:
         manifest["rope_on_crown"] = rope_on_crown_block(spec)
+    if TEXPASS:
+        manifest["texpass"] = {"version": TEXPASS, "materials": TEXPASS_MATERIALS.get(TEXPASS, {}).get(spec.family, {}),
+                               "uv": "flag-off pack (pixels only)", "tris_added": 0, "textures_added_mb": 0.0}
     if SKINNED:
         manifest["skin"] = skin_manifest_block(spec, info["skin"])
+    if HOSTED_LANE is not None:
+        manifest["hosted_lane"] = dict(HOSTED_LANE)
     if spec.family == "DQ" and spec.role == "line":
         manifest["catalog_handoff"] = {"AimHeightM": DQ_AIM_HEIGHT_M, "piece_lanes": [2.6, 8.0],
                                        "piece_comm_lv_y": 9.2,
