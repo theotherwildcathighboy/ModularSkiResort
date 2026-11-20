@@ -267,7 +267,7 @@
             {
                 "$id": 14,
                 "$type": "17|Game.Prefabs.ObjectMeshInfo, Game",
-                "m_Mesh": $fstrref:"CID:cd2a578ed5b6dd7576ff291c24716cc3",
+                "m_Mesh": $fstrref:"CID:4656cc981a5b3cde6656ec7fda3a6aa1",
                 "m_Position": {
                     "$type": 3,
                     "x": 0,

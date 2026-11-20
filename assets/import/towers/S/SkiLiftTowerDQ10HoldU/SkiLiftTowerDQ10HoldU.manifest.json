@@ -2,6 +2,7 @@
   "name": "SkiLiftTowerDQ10HoldU",
   "written_utc": "2026-11-20T13:02:38Z",
   "blender": "5.3.0",
+  "args": ["lift_head.py", "--keys", "DQ10,DQ12,DQ14,DQ16,DQ18,DQ20,DQ10Hold,DQ10Combo,DQ12Hold,DQ12Combo,DQ16Hold,DQ20Hold", "--export", "--letter", "U", "--report", "assets/staging/tex/dq/log/heads_u.json"],
   "files": {
     "SkiLiftTowerDQ10HoldU.fbx": {
       "bytes": 318012,
