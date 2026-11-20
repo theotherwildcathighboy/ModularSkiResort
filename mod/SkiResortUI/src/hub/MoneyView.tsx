@@ -348,7 +348,7 @@ function PriceLine({ price, tolerance, passPrice, passShare, t }: { price: numbe
   // before must not be read for a frame (T266). The slider reports its value in an effect, one render late.
   const [sh, setSh] = useState({ v: price, base: price });
   const onShown = useCallback((v: number) => setSh((p) => (p.v === v && p.base === price ? p : { v, base: price })), [price]);
-  // The area's lodges' price tolerance (ResortLive.priceTolerance). -1 = unknown (no attraction result yet, e.g. just after a load): the
+  // The ski days' price tolerance of the area (ResortLive.priceTolerance). -1 = unknown (before its first ski-day pass after a load): the
   // demand word then shows "–", not the word of tolerance 0 (T266).
   const tolKnown = tolerance >= 0;
   const tol = tolerance > 0 ? tolerance : 0;
