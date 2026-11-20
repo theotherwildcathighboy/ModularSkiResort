@@ -1040,6 +1040,16 @@ TEXPASS_DQ = {
 # - timber: the two long band sides in the lodges' lap siding (the Leitner-Poma terminals with timber cladding, e.g. Falcon
 #   SuperChair). The nose and back ends, the sign panels and the roof stay recolor slots. band_p_ / band_n_ = the cut pieces
 #   of the long sides only (band_nose_* does not match)
+# The DQ stations' prefab color defaults with the pass (manifest contract color_defaults: the prefab surgery after the
+# import writes them as the VariationSet; the stored tuples, as the prefab holds them). Slot 3 = the lead's ruling of
+# 2026-11-20 for all 8 DQ and all 5 gondola station meshes: forest green (0.173, 0.420, 0.260), was (0.16, 0.30, 0.20),
+# which the game shows near black. Slots 1 and 2 as shipped
+DQ_COLOR_DEFAULTS = {
+    "slot1": {"rgb": [0.62, 0.64, 0.66], "what": "paint1: the barrel roof, the hut roofs, the roof lining (as shipped)"},
+    "slot2": {"rgb": [0.85, 0.25, 0.10], "what": "pad2: the pedestal pads (as shipped)"},
+    "slot3": {"rgb": [0.173, 0.420, 0.260], "what": "accent3 + signband: the housing band, its lining and the sign band "
+              "(forest green; shipped (0.16, 0.30, 0.20))"},
+}
 LIVERY_BELT = dict(z0=0.52, z1=0.70, srgb=(0.86, 0.86, 0.84), prefixes=("band_p", "band_n", "band_back", "band_nose"))
 LIVERY_REMAP = {"timber": (("band_p_", "siding"), ("band_n_", "siding"))}
 # timber: the painted frame round the siding panels, in the slot-3 color (ControlMask B 1 over a neutral light albedo): a
@@ -9308,6 +9318,8 @@ def prefab_numbers(p, bounds_authoring):
         nums["deck_top_y"] = DECK_H
         nums["floor_y"] = GD_FLOOR_Z
         nums["machinery_deck_y"] = GD_DECK_Z
+    if not p.gondola and texpass_table(p):
+        nums["color_defaults"] = DQ_COLOR_DEFAULTS     # the pass's prefab defaults (flag off: the contract as shipped)
     return nums
 
 
