@@ -1,5 +1,5 @@
 /*
- * tools/sync-listing.js - keeps the Paradox Mods listing text in step (release-prep, 2026-10-22). Written for this repo (MIT).
+ * tools/sync-listing.js - keeps the Paradox Mods listing text in step (release-prep, 2026-10-22). Written for this repo (all rights reserved, see LICENSE).
  *
  * release/DESCRIPTION.md is the source of the listing copy. mod/SkiResortMod/Properties/PublishConfiguration.xml carries the same text in
  * <ShortDescription Value="..."/> and <LongDescription>...</LongDescription>. If you copy by hand, the two drift, so this script copies it.

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Ski Resort hub: the Cities: Skylines II UI module of the Modular Ski Resort mod (see README.md).",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "engines": {
     "node": ">=18"
   },
