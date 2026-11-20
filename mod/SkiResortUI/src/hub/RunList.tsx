@@ -14,7 +14,7 @@ import type { MouseEvent } from "react";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { OPEN_STATE, RUN_GUN_WHY, RUN_KIND, gradeScheme$, hubTriggers } from "../bindings";
+import { OPEN_STATE, RUN_GUN_WHY, RUN_KIND, RUN_SNOW_GAP, gradeScheme$, hubTriggers } from "../bindings";
 import type { RunLive, RunRow } from "../bindings";
 import type { Translate } from "../l10n";
 import { isRunKind } from "./buildItems";
@@ -74,9 +74,17 @@ function runTip(p: RunLineProps, name: string, typeName: string, units: DisplayU
       : <LocText entry={HUB_FMT.snowDepth} args={{ DEPTH: numArg(cm, Unit.Integer) }} />;
     openLine = live.openState === 2 ? <LocText key="o" entry={HUB_FMT.runOpenOpen} args={{ PCT, KEEP: depthArg(SNOW_KEEP_CM) }} />
       : live.openState === 1 ? <LocText key="o" entry={HUB_FMT.runOpenPartly} args={{ PCT }} />
-        : live.openState === 0 ? <LocText key="o" entry={HUB_FMT.runOpenClosed} args={{ PCT, OPEN: depthArg(SNOW_OPEN_CM) }} />
+        : live.openState === 0
+          // T268: while the top-to-bottom rule keeps it shut, "It opens at 60 %" would be false: the gap line below says why
+          ? (live.snowGap
+            ? <LocText key="o" entry={HUB_FMT.runOpenClosedGap} args={{ PCT, OPEN: depthArg(SNOW_OPEN_CM) }} />
+            : <LocText key="o" entry={HUB_FMT.runOpenClosed} args={{ PCT, OPEN: depthArg(SNOW_OPEN_CM) }} />)
           : null;
   }
+  // T268: where the snow is too thin for the run to open (the top-to-bottom rule), measured runs only
+  const gapLine = !row.bound || !gating || !live ? null
+    : live.snowGap === RUN_SNOW_GAP.Bottom ? t(HUB_LOC.runGapBottom)
+      : live.snowGap === RUN_SNOW_GAP.Partway ? t(HUB_LOC.runGapPartway) : null;
   // Why it is open or closed (the measured mean depth) and, on a gun run, what its snow guns do now
   const depthLine = row.bound && gating && live && live.snowDepthCm >= 0
     ? (imperial
@@ -102,6 +110,7 @@ function runTip(p: RunLineProps, name: string, typeName: string, units: DisplayU
         name,
         `${typeName} · ${t(bandEntry(row.band, gradeScheme$.value, row.gradePct))}`,
         openLine,
+        gapLine,
         depthLine,
         gunLine,
         servedLine,

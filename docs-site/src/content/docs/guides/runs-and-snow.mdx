@@ -142,17 +142,18 @@ Snow is measured per run from the game's snow simulation. The same rule applies 
 
 | State | Snow on the run |
 |---|---|
-| Open | at least 91 cm on 60 % of the run |
+| Open | at least 91 cm on 60 % of the run, and snow from top to bottom |
 | Patchy | between open and closed. Counts part of its value. |
-| Closed | an open run closes once less than 30 cm covers 40 % of it. It opens again at 91 cm. |
+| Closed | an open run closes once less than 30 cm covers 40 % of it, or a stretch with too little snow. It opens again at 91 cm. |
 
 <Shot src="spring-melt.jpg" label="Spring melt: made snow lasts longest on the runs while the slopes around them turn green." />
 
+- **Top to bottom:** the run's height is split into stretches from top to bottom. A run opens only when half of every stretch has at least **30 cm**. An open run closes when a stretch falls under a quarter. The bottom is usually the warmest part. The run's tooltip says where the snow is too thin. Option *Runs need snow top to bottom* (default on) turns this off. Cat tracks do not use it.
 - **Snow guns:** work where the air is at most **3.3 °C** above freezing (option *Snowmaking margin*). Higher margin: longer season, higher snowmaking bill.
 - **Gun depth:** the guns build a **2 m** base, then stop, and start again when the snow falls under **1.95 m**. They do not run where the snow is already that deep, natural snow included. Made snow melts like natural snow: at least about **33 cm** a game hour while the air is above freezing, faster when it is thin. The deep base is what keeps a run open through a thaw.
 - **Gun season:** from **2 months before winter to 1 month after** (October 1 to April 1 for a December to February winter). No guns, bill or plume outside it. Where the game's own season reads Winter the guns run, where it reads Summer they do not, whatever the date.
 - **Spacing:** guns, hydrants and floodlights stand along a run's edge: Off or **20** to **200 m**, per run, set with a slider. A cat track starts with snow guns at **60 m** and lights Off. Off means no guns or lights and no upkeep for them. Snow already made stays until it melts. Each prop can be bulldozed and stays gone until the outline or a value changes.
-- **Cat tracks:** the same open and close depths as a run. Its made snow is not drawn but counts. It builds and melts by the run rule. So a cat track and a run over the same height open and close together, at any game speed.
+- **Cat tracks:** the same open and close depths as a run, without the top-to-bottom rule. Its made snow is not drawn but counts. It builds and melts by the run rule. So a cat track and a run over the same height open and close together, at any game speed.
 - **Groomers:** option *Snow groomers* (default on) sends one groomer to each open linked cat track, from dusk to dawn. They arrive one after another, nearest to the camera first, and leave at dawn. A groomer leaves a track whose snow cover falls under **80 %** and returns at **87.5 %**. On a short track it rests at each end. With the game's day/night cycle off, groomers work from 17:00 to 07:00. Look only: snow, rating and upkeep do not change.
 - **Powder day:** fresh snow in the last 24 hours. More locals go skiing. See [Passes and Lessons](/guides/passes-and-lessons/).
 - **Units:** the docs are metric. The hub shows snow depth and temperature in the units of option **Weather** (Auto follows the game's setting).

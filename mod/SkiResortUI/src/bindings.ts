@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 60;
+export const HUB_CONTRACT = 61;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -110,6 +110,9 @@ export const NEXT_STEP = { Done: 0, Lodge: 1, Lift: 2, Run: 3 } as const;
 export const LIFT_STATUS = { Running: 0, NoPower: 1, ChairsStopped: 2, SectionMissing: 3, Unfinished: 4, Closed: 5 } as const;  // Closed: a held lift, no open run
 
 /** RunLive.gunWhy. C# HubRules RunGunWhy. Held (contract 49): a cat track whose guns are off, too warm, while its made snow is held. */
+/** RunLive.snowGap. C# RunSnowRules RunSnowGap (T268). */
+export const RUN_SNOW_GAP = { None: 0, Bottom: 1, Partway: 2 } as const;
+
 export const RUN_GUN_WHY = { None: 0, Making: 1, DepthReached: 2, TooWarm: 3, OutOfSeason: 4, Waiting: 5, Held: 6 } as const;
 
 /** ResortLive.ticketGate. C# SkiMoneyRules.TicketGate (chapter 4). */
@@ -1032,6 +1035,8 @@ export interface RunLive {
   snowDepthCm: number;
   /** RUN_GUN_WHY, the snow guns of a snowmaking or night run or a cat track now (a track: its made-snow model, contract 49). */
   gunWhy: number;
+  /** RUN_SNOW_GAP: where the snow is too thin for the run to open (T268, the top-to-bottom rule). 0 none. */
+  snowGap: number;  // contract 61 (T268): RUN_SNOW_GAP
 }
 
 /** One lift (LiftCensus row). */

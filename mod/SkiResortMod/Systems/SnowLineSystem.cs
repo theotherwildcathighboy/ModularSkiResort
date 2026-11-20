@@ -150,6 +150,13 @@ namespace SkiResortMod.Systems
             return s == null || s.EnableSnowGating;
         }
 
+        /// <summary>T268: true when Options "Runs need snow top to bottom" is on, or settings are not loaded. The only read of the setting.</summary>
+        public bool IsTopToBottomRuleEnabled()
+        {
+            SkiResortSettings s = Mod.Settings;
+            return s == null || s.EnableTopToBottomRule;
+        }
+
         /// <summary>ClimateSystem.snowTemperatureHeightScale (C per m), 0 without a climate.</summary>
         public float GetLapsePerM()
         {

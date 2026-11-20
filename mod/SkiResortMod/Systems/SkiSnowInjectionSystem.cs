@@ -189,6 +189,10 @@ namespace SkiResortMod.Systems
             public double WhiteW, KeepW, FootprintW, DepthW, ExcludedW;   // White at the open bar, Keep at the keep bar (RunSnowRules.MeasuredShare)
             // the fold's texel counts (injected runs, 0 for a natural run): contained and those cold enough for the guns.
             public int Contained, Cold;
+            // T268: the worst elevation band's share at the keep bar (RunSnowRules.WorstBandShare), NaN = no band read; and whether it is
+            // the lowest band.
+            public float WorstBand;
+            public bool WorstIsBottom;
         }
 
         /// <summary>A bound natural run recorded during the chunk loop, pre-clipped and measured after the injected chain only when a
@@ -200,6 +204,7 @@ namespace SkiResortMod.Systems
             public float BarNorm;           // the skiable bar (31 cm when rated black or double black)
             public RunKind Kind;            // Natural, or CatTrack (measured the same way)
             public bool GunsOn;             // a cat track's gun switch. True for a natural run
+            public bool Bands;              // T268: measure the elevation bands (a natural run; a cat track keeps the area rule)
         }
 
         /// <summary>The snapshot a pass measures from.</summary>
@@ -226,6 +231,9 @@ namespace SkiResortMod.Systems
         /// <summary>Rows per work-stealing batch — coarse enough that scheduling overhead
         /// stays invisible, fine enough that a 100-row run still spreads across cores.</summary>
         private const int RowBatch = 8;
+
+        /// <summary>T268: floats per row in a run's band array (RunSnowRules.ContinuityBands x counted weight, weight at the keep bar).</summary>
+        private const int BandStride = RunSnowRules.ContinuityBands * 2;
 
         /// <summary>Triangle pre-clipped to texel space on the main thread. Jobs never
         /// touch ECS buffers.</summary>
@@ -359,6 +367,11 @@ namespace SkiResortMod.Systems
             // raise, no bill) and mark the ramp plane with StoppedMark instead. So the merge still counts them as run texels (the dress depth),
             // and the natural measurement still excludes them.
             public bool GunGate;
+            // T268: the per-row elevation-band sums (RunSnowRules.ContinuityBands x 2: counted weight, weight at the keep bar), row r at
+            // r x BandStride. Written only when BandsOn and Measure.
+            [NativeDisableParallelForRestriction] public NativeArray<float> Bands;
+            public bool BandsOn;
+            public float BandBottomY, BandTopY;
 
             public void Execute(int r)
             {
@@ -371,7 +384,7 @@ namespace SkiResortMod.Systems
                         continue; // containment: outside the polygon, emit nothing
                     partial.Contained++;
                     partial.FootprintHash = unchecked(partial.FootprintHash + RunSnowRules.Mix64((ulong)idx));
-                    float ownValue = RouteTexel(idx, tx, ty, ref partial, out bool cold);
+                    float ownValue = RouteTexel(idx, tx, ty, ref partial, out bool cold, out float elevation);
                     if (cold)
                         partial.Cold++;
                     if (ownValue >= TargetNorm)
@@ -404,8 +417,19 @@ namespace SkiResortMod.Systems
                             partial.DepthW += w * dn;
                             if (RunSnowRules.IsSkiable(dn, 0f, BarNorm))
                                 partial.WhiteW += w;
-                            if (RunSnowRules.IsSkiable(dn, 0f, RunSnowRules.KeepNorm))
+                            bool keep = RunSnowRules.IsSkiable(dn, 0f, RunSnowRules.KeepNorm);
+                            if (keep)
                                 partial.KeepW += w;
+                            if (BandsOn)
+                            {
+                                if (float.IsNaN(elevation))
+                                    elevation = TerrainUtils.SampleHeight(ref HeightData, new float3(PlayOffset.x + (tx + 0.5f) * TexelSize.x, 0f,
+                                        PlayOffset.y + (ty + 0.5f) * TexelSize.y));
+                                int bi = r * BandStride + RunSnowRules.ContinuityBand(elevation, BandBottomY, BandTopY) * 2;
+                                Bands[bi] += w;
+                                if (keep)
+                                    Bands[bi + 1] += w;
+                            }
                         }
                         // the pack measure over the texels the guns would raise (cold, with a target).
                         if (cold && ownValue > 0f)
@@ -420,11 +444,12 @@ namespace SkiResortMod.Systems
 
             /// <summary>The fold's routing (blur, thermal test, edge noise, spine, fringe cap, chill). Returns this run's own target for the
             /// texel. cold = the thermal test passed (set right after the warm branch, before the noise test).</summary>
-            private float RouteTexel(int idx, int tx, int ty, ref FoldRowPartial partial, out bool cold)
+            private float RouteTexel(int idx, int tx, int ty, ref FoldRowPartial partial, out bool cold, out float elevation)
             {
                 const int F = Tuning.EdgeFeatherTexels;
                 const float windowNorm = 1f / ((2 * F + 1) * (2 * F + 1));
                 cold = false;
+                elevation = float.NaN;   // sampled below once the texel is in the blur (the band sums reuse it, T268)
 
                     float sum = 0f;
                     float sumFine = 0f; // 3x3 spine window, gathered in-loop
@@ -451,7 +476,7 @@ namespace SkiResortMod.Systems
 
                     float wx = PlayOffset.x + (tx + 0.5f) * TexelSize.x;
                     float wz = PlayOffset.y + (ty + 0.5f) * TexelSize.y;
-                    float elevation = TerrainUtils.SampleHeight(ref HeightData,
+                    elevation = TerrainUtils.SampleHeight(ref HeightData,
                         new float3(wx, 0f, wz));
                     float localT = LapseAmbient - (elevation - LapseBaseHeight) * LapseScale;
                     if (localT > ThermalThresholdC)
@@ -536,6 +561,13 @@ namespace SkiResortMod.Systems
             public int RunY0, RunX0, RunX1;
             public bool Measure;
             public float BarNorm;   // the open bar, RunSnowRules.SkiableBarNorm: 0.91 m for every run (the expert natural bar is the same today)
+            // T268: the band sums, as in FoldRowsJob (a natural run; a cat track has BandsOn false). The texel elevation is sampled here.
+            [NativeDisableParallelForRestriction] public NativeArray<float> Bands;
+            public bool BandsOn;
+            public float BandBottomY, BandTopY;
+            [ReadOnly] public TerrainHeightData HeightData;   // read only when BandsOn
+            public float2 PlayOffset;
+            public float2 TexelSize;
 
             public void Execute(int r)
             {
@@ -561,8 +593,18 @@ namespace SkiResortMod.Systems
                     p.DepthW += w * dn;
                     if (RunSnowRules.IsSkiable(dn, 0f, BarNorm))
                         p.WhiteW += w;
-                    if (RunSnowRules.IsSkiable(dn, 0f, RunSnowRules.KeepNorm))
+                    bool keep = RunSnowRules.IsSkiable(dn, 0f, RunSnowRules.KeepNorm);
+                    if (keep)
                         p.KeepW += w;
+                    if (BandsOn)
+                    {
+                        float elevation = TerrainUtils.SampleHeight(ref HeightData, new float3(PlayOffset.x + (tx + 0.5f) * TexelSize.x, 0f,
+                            PlayOffset.y + (ty + 0.5f) * TexelSize.y));
+                        int bi = r * BandStride + RunSnowRules.ContinuityBand(elevation, BandBottomY, BandTopY) * 2;
+                        Bands[bi] += w;
+                        if (keep)
+                            Bands[bi + 1] += w;
+                    }
                 }
                 Partials[r] = p;
             }
@@ -1126,6 +1168,8 @@ namespace SkiResortMod.Systems
                     Source = RunSnowSource.Estimated,
                     State = RunSnowRules.NextState(previous, share),
                     Share = share,
+                    OpenShare = share,
+                    WorstBand = float.NaN,
                     Multiplier = RunSnowRules.OpenMultiplier(share),
                     MeanDepthM = float.NaN,
                     BottomY = bottomY,
@@ -2252,14 +2296,22 @@ namespace SkiResortMod.Systems
                 bool hasPrev = m_RunSnow.TryGetValue(input.Run, out RunSnow prev);
                 bool isTrack = input.Kind == RunKind.CatTrack;
                 // A track without a table entry (its first refresh of a load) starts from its saved open state (SkiTrackPack v2,
-                // TrackStateFromSave; Unknown without one). A run's label is not saved: Unknown.
-                RunSnowState prevState = hasPrev ? prev.State : isTrack ? SavedTrackState(input.Run) : RunSnowState.Unknown;
+                // TrackStateFromSave; Unknown without one). A run's label is not saved: Unknown. T268: a run whose previous entry was an
+                // ESTIMATE and that is measured now also starts from Unknown (the keep bar, the 50 % midpoint), as the first refresh of a load
+                // is meant to: the first refresh of a load is normally estimated, and its label (from the day-mean temperature) would pick the
+                // bar of the first measured pass.
+                RunSnowState prevState = hasPrev
+                    ? (!isTrack && input.Measured && prev.Source == RunSnowSource.Estimated ? RunSnowState.Unknown : prev.State)
+                    : isTrack ? SavedTrackState(input.Run) : RunSnowState.Unknown;
+                float worstBand = float.NaN;   // T268: this pass's worst elevation band (measured or carried over), NaN = the area rule
+                bool worstIsBottom = false;
                 var next = new RunSnow
                 {
                     Kind = input.Kind,
                     BottomY = input.BottomY,
                     TopY = input.TopY,
                     MeanDepthM = float.NaN,
+                    WorstBand = float.NaN,
                 };
                 float share = float.NaN;
                 if (input.Measured)
@@ -2269,6 +2321,8 @@ namespace SkiResortMod.Systems
                         RunSnowRules.ShareFromSums(input.WhiteW, input.FootprintW), RunSnowRules.ShareFromSums(input.KeepW, input.FootprintW));
                     if (!float.IsNaN(share))
                     {
+                        worstBand = input.WorstBand;
+                        worstIsBottom = input.WorstIsBottom;
                         next.Source = RunSnowSource.Measured;
                         next.MeanDepthM = (float)(input.DepthW / input.FootprintW * RunSnowRules.SnowHeightScaleM);
                         next.FootprintTexels = (float)input.FootprintW;
@@ -2284,6 +2338,8 @@ namespace SkiResortMod.Systems
                     // readback), within the age cap.
                     // A cat track carries over the snow under it (SnowShare), not its share with the made snow.
                     share = isTrack ? prev.SnowShare : prev.Share;
+                    worstBand = prev.WorstBand;   // the band share is counted at the keep bar in every state, so it carries over as is
+                    worstIsBottom = prev.WorstIsBottom;
                     next.Source = RunSnowSource.Measured;
                     next.MeanDepthM = isTrack ? prev.SnowMeanDepthM : prev.MeanDepthM;
                     next.FootprintTexels = prev.FootprintTexels;
@@ -2319,13 +2375,21 @@ namespace SkiResortMod.Systems
                 }
                 // The share guard's input. Measured runs only: an estimated share comes from the day-mean temperature, not from the snapshot, so a
                 // skip does not stale it.
-                if (next.Source == RunSnowSource.Measured && !RunSnowRules.IsCalmShare(share))
+                // T268: the label and the multiplier read the open share (the area share, lowered by the worst elevation band while
+                // Options "Runs need snow top to bottom" is on). Share stays the area share (the hub's "{PCT} of it", the resort cover).
+                // The share guard reads the open share too: it is what moves the label.
+                float openShare = isTrack ? share : RunSnowRules.OpenShare(share, worstBand, m_SnowLineSystem.IsTopToBottomRuleEnabled());
+                if (next.Source == RunSnowSource.Measured && !RunSnowRules.IsCalmShare(openShare))
                     uncalm++;
                 next.Share = share;
-                next.State = RunSnowRules.NextState(prevState, share);
+                next.WorstBand = worstBand;
+                next.WorstIsBottom = worstIsBottom;
+                next.OpenShare = openShare;
+                next.Gap = RunSnowRules.Gap(share, openShare, worstIsBottom);
+                next.State = RunSnowRules.NextState(prevState, openShare);
                 if (isTrack)
                     QueueTrackSave(input.Run, next.State);
-                float m = RunSnowRules.OpenMultiplier(share);
+                float m = RunSnowRules.OpenMultiplier(openShare);
                 next.Multiplier = hasPrev && !RunSnowRules.Republish(prev.Multiplier, m) ? prev.Multiplier : m;
                 if (!hasPrev || prev.State != next.State || prev.Multiplier != next.Multiplier ||
                     prev.Source != next.Source)
@@ -2656,8 +2720,11 @@ namespace SkiResortMod.Systems
             string source = s.Source == RunSnowSource.Measured
                 ? $"measured (snapshot {frame - s.SnapshotFrame} sim frames old)"
                 : $"estimated (day-mean {dayMean:F1} C)";
+            // T268: the worst elevation band at the keep bar and the open share the label read ("bands n/a" = the area rule)
+            string bands = float.IsNaN(s.WorstBand) ? "bands n/a"
+                : $"worst band {s.WorstBand * 100f:F0} %{(s.WorstIsBottom ? " (bottom)" : "")}, open share {s.OpenShare * 100f:F0} %";
             return $"run {ch.Run.Index}:{ch.Run.Version} ({KindName(s.Kind)}) {ch.Old} -> {s.State}: skiable " +
-                   $"{s.Share * 100f:F0} % of {s.FootprintTexels:F1} texel(s), mean {s.MeanDepthM:F3} m{excluded}, " +
+                   $"{s.Share * 100f:F0} % of {s.FootprintTexels:F1} texel(s), {bands}, mean {s.MeanDepthM:F3} m{excluded}, " +
                    $"{source}; city: {open}/{runs} open";
         }
 
@@ -3088,6 +3155,7 @@ namespace SkiResortMod.Systems
             public Entity Run; // the run entity, for the per-run active-texel map
             public NativeList<TriData> Tris;
             public NativeArray<FoldRowPartial> Partials;
+            public NativeArray<float> Bands;   // T268: rows x BandStride band sums (created for every run; unused for a cat track)
             // The public kind and the heights for RefreshRunSnow. Natural runs carry Natural = true and are skipped by the mask reduction
             // (never MaskTexels, WarmTexels, the active counts or m_RunTexels).
             public RunKind PublicKind;
@@ -3224,6 +3292,7 @@ namespace SkiResortMod.Systems
                                 BarNorm = naturalBar,
                                 Kind = track ? RunKind.CatTrack : RunKind.Natural,
                                 GunsOn = !track || m_RunProps.CatTrackGunsOn(ne),   // the measure-only read of the switch (check-run-props R2)
+                                Bands = !track,
                             });
                             naturalSig = unchecked(naturalSig +
                                 (RunSnowRules.Mix64(((ulong)(uint)ne.Index << 32) | (uint)ne.Version) ^
@@ -3383,12 +3452,16 @@ namespace SkiResortMod.Systems
                 stats.FootprintHash = unchecked(stats.FootprintHash + footprintHash);
                 if (snap.Usable)
                     stats.MeasuredTexels += contained;
+                // T268: the worst elevation band (NaN without a snapshot, or with fewer than two bands: the area rule decides).
+                float worstBand = snap.Usable ? ReduceBands(run.Bands, run.Partials.Length, out bool worstIsBottom) : NoBand(out worstIsBottom);
                 m_RunSnowInputs.Add(new RunSnowInput
                 {
                     Run = run.Run,
                     Kind = run.PublicKind,
                     BottomY = run.BottomY,
                     TopY = run.TopY,
+                    WorstBand = worstBand,
+                    WorstIsBottom = worstIsBottom,
                     Measured = snap.Usable,
                     // With no usable snapshot this pass (a failed blocking readback invalidates m_Readback, and an injected-only city keeps no measure-only
                     // copy), a run measured within MaxSnapshotAgeFrames keeps its last measurement, as a natural run does. It does not flip to the
@@ -3430,6 +3503,7 @@ namespace SkiResortMod.Systems
                     }
                 }
                 run.Partials.Dispose();
+                run.Bands.Dispose();
                 run.Tris.Dispose();
             }
             PublishRunTexels();
@@ -3474,6 +3548,7 @@ namespace SkiResortMod.Systems
 
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             NativeArray<Ushort2> snapshot = snap.FromMeasure ? m_MeasureReadback : m_Readback;
+            TerrainHeightData heightData = m_TerrainSystem.GetHeightData();   // T268: the natural band sums need the texel elevation
             List<PendingRun> pending = m_NaturalPending;   // reused, empty between passes
             pending.Clear();
             JobHandle chain = default;
@@ -3503,12 +3578,15 @@ namespace SkiResortMod.Systems
                     }
                     int rowCount = runY1 - runY0 + 1;
                     var partials = new NativeArray<FoldRowPartial>(rowCount, Allocator.TempJob);
+                    bool bandsOn = snap.Usable && nr.Bands;   // T268: cat tracks keep the area rule
+                    var bands = new NativeArray<float>(bandsOn ? rowCount * BandStride : 1, Allocator.TempJob);
                     pending.Add(new PendingRun
                     {
                         Kind = 3,
                         Run = nr.Run,
                         Tris = tris,
                         Partials = partials,
+                        Bands = bands,
                         PublicKind = nr.Kind,
                         GunsOn = nr.GunsOn,
                         Natural = true,
@@ -3538,6 +3616,13 @@ namespace SkiResortMod.Systems
                         RunX1 = runX1,
                         Measure = snap.Usable,
                         BarNorm = nr.BarNorm,   // the open bar, 0.91 m (RunSnowRules.SkiableBarNorm)
+                        Bands = bands,
+                        BandsOn = bandsOn,
+                        BandBottomY = nr.BottomY,
+                        BandTopY = nr.TopY,
+                        HeightData = heightData,
+                        PlayOffset = playOffset,
+                        TexelSize = texelSize,
                     }.ScheduleParallel(rowCount, RowBatch, chain);
 
                     chain = new ClearScratchRowsJob
@@ -3554,6 +3639,7 @@ namespace SkiResortMod.Systems
                 DrainPending(ref chain, pending);
                 throw;
             }
+            m_TerrainSystem.AddCPUHeightReader(chain);   // T268: MeasureRowsJob samples the CPU heights (the same contract as the fold)
             chain.Complete();
 
             // Reduce in schedule order (float per row, double per run). Natural runs never touch the mask
@@ -3575,6 +3661,8 @@ namespace SkiResortMod.Systems
                 }
                 stats.MeasuredTexels += contained;
                 stats.NaturalMeasured++;
+                // T268: a cat track's band array has one element (BandsOn false), so ReduceBands answers NaN (the area rule) for it.
+                float worstBand = ReduceBands(run.Bands, run.Partials.Length, out bool worstIsBottom);
                 m_RunSnowInputs.Add(new RunSnowInput
                 {
                     Run = run.Run,
@@ -3588,8 +3676,11 @@ namespace SkiResortMod.Systems
                     FootprintW = footprintW,
                     DepthW = depthW,
                     ExcludedW = excludedW,
+                    WorstBand = worstBand,
+                    WorstIsBottom = worstIsBottom,
                 });
                 run.Partials.Dispose();
+                run.Bands.Dispose();
                 run.Tris.Dispose();
             }
             pending.Clear();
@@ -3605,12 +3696,47 @@ namespace SkiResortMod.Systems
         /// the chain and free the per-run buffers. An interrupted run may have rasterized coverage whose scratch re-zero never got scheduled.
         /// m_Disabled is per load but m_Scratch is per session. So a dirty scratch plane would read as phantom polygon coverage after the
         /// next load: restore the scratch-is-zero invariant (the caller rethrows).</summary>
+        /// <summary>T268: sums a run's per-row band sums (float per row, double per band, schedule order) and gives its worst band
+        /// (RunSnowRules.WorstBandShare). Managed scratch, no allocation.</summary>
+        private float ReduceBands(NativeArray<float> bands, int rows, out bool worstIsBottom)
+        {
+            const int k = RunSnowRules.ContinuityBands;
+            for (int b = 0; b < k; b++)
+            {
+                m_BandFootprint[b] = 0.0;
+                m_BandKeep[b] = 0.0;
+            }
+            if (!bands.IsCreated || bands.Length < rows * BandStride)
+                return NoBand(out worstIsBottom);
+            for (int r = 0; r < rows; r++)
+            {
+                int o = r * BandStride;
+                for (int b = 0; b < k; b++)
+                {
+                    m_BandFootprint[b] += bands[o + 2 * b];
+                    m_BandKeep[b] += bands[o + 2 * b + 1];
+                }
+            }
+            return RunSnowRules.WorstBandShare(m_BandFootprint, m_BandKeep, 0, out worstIsBottom);
+        }
+
+        private static float NoBand(out bool worstIsBottom)
+        {
+            worstIsBottom = false;
+            return float.NaN;
+        }
+
+        private readonly double[] m_BandFootprint = new double[RunSnowRules.ContinuityBands];
+        private readonly double[] m_BandKeep = new double[RunSnowRules.ContinuityBands];
+
         private void DrainPending(ref JobHandle chain, List<PendingRun> pending)
         {
             chain.Complete();
             foreach (PendingRun run in pending)
             {
                 run.Partials.Dispose();
+                if (run.Bands.IsCreated)
+                    run.Bands.Dispose();
                 run.Tris.Dispose();
             }
             pending.Clear();
@@ -3677,6 +3803,7 @@ namespace SkiResortMod.Systems
 
             int rowCount = runY1 - runY0 + 1;
             var partials = new NativeArray<FoldRowPartial>(rowCount, Allocator.TempJob);
+            var bands = new NativeArray<float>(rowCount * BandStride, Allocator.TempJob);   // zeroed (NativeArrayOptions.ClearMemory)
             // Register for cleanup before scheduling, and reassign the caller's chain (by ref) after every ScheduleParallel: whatever throws
             // mid-way, BuildMask's catch-drain can always complete every scheduled job and dispose every buffer.
             ushort slot = (ushort)Math.Min(pending.Count + 1, ushort.MaxValue);   // the Owner plane value
@@ -3686,6 +3813,7 @@ namespace SkiResortMod.Systems
                 Run = run,
                 Tris = tris,
                 Partials = partials,
+                Bands = bands,
                 PublicKind = publicKind,
                 BottomY = bottomY,
                 TopY = topY,
@@ -3728,6 +3856,10 @@ namespace SkiResortMod.Systems
                 Slot = slot,
                 Owner = m_Owner,
                 GunGate = gunRun && !SnowGunPlumeRules.RaisesThisPass(gunState, m_PassGunSeason),   // the guns raise only in the gun season
+                Bands = bands,
+                BandsOn = measure,
+                BandBottomY = bottomY,
+                BandTopY = topY,
             }.ScheduleParallel(rowCount, RowBatch, chain);
 
             chain = new ClearScratchRowsJob

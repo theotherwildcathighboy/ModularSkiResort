@@ -109,7 +109,7 @@ export const HUB_LOC = {
   statusNoRuns: ["SkiResort.Hub.STATUS_NO_RUNS", "Closed"],
   statusUnlinked: ["SkiResort.Hub.STATUS_UNLINKED", "No Welcome Sign in range"],
   statusSettling: ["SkiResort.Hub.STATUS_SETTLING", "Resort numbers fill in once time runs"],
-  statusTipRule: ["SkiResort.Hub.STATUS_TIP_RULE", "<mark:open> Open: enough snow on 60 % of the run, then down to 40 % on thinner snow. <mark:patchy> Patchy: in between. <mark:closed> Closed: below 40 %."],
+  statusTipRule: ["SkiResort.Hub.STATUS_TIP_RULE", "<mark:open> Open: snow top to bottom and on 60 % of the run, then down to 40 %. <mark:patchy> Patchy: in between. <mark:closed> Closed: below 40 %."],
   statusTipEstimated: ["SkiResort.Hub.STATUS_TIP_ESTIMATED", "Some runs are estimated from the day's temperature until their snow can be measured."],
   statusTipGating: ["SkiResort.Hub.STATUS_TIP_GATING", "Snow & season gating is off in Options, so every run counts as open."],
   statusTipVisuals: ["SkiResort.Hub.STATUS_TIP_VISUALS", "Snow is hidden in your Gameplay settings. Runs still open and close on the snow the game keeps."],
@@ -332,6 +332,8 @@ export const HUB_LOC = {
   runOpenEstClosed: ["SkiResort.Hub.RUN_OPEN_EST[Closed]", "Closed, estimated from the day's temperature"],
   /* the run tooltip's snow-gun line by RUN_GUN_WHY (the depth line is HUB_FMT.runDepth) */
   runGunsMaking: ["SkiResort.Hub.RUN_GUNS[Making]", "Snow guns: making snow now"],
+  runGapBottom: ["SkiResort.Hub.RUN_GAP[Bottom]", "The snow is too thin at the bottom. A run opens only with snow top to bottom"],
+  runGapPartway: ["SkiResort.Hub.RUN_GAP[Partway]", "The snow is too thin partway down. A run opens only with snow top to bottom"],
   runGunsDepth: ["SkiResort.Hub.RUN_GUNS[DepthReached]", "Snow guns off: the snow is deep enough"],
   runGunsWarm: ["SkiResort.Hub.RUN_GUNS[TooWarm]", "Snow guns off: too warm"],
   runGunsSeason: ["SkiResort.Hub.RUN_GUNS[OutOfSeason]", "Snow guns off: they run from 2 months before winter to 1 month after"],
@@ -853,6 +855,7 @@ export const HUB_FMT = {
   runOpenOpen: ["SkiResort.Hub.RUN_OPEN[Open]", "Open: {PCT} of it has at least {KEEP} of snow"],
   runOpenPartly: ["SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: {PCT} of it has enough snow to ski"],
   runOpenClosed: ["SkiResort.Hub.RUN_OPEN[Closed]", "Closed: {PCT} of it has {OPEN} of snow. It opens at 60 %"],
+  runOpenClosedGap: ["SkiResort.Hub.RUN_OPEN[ClosedGap]", "Closed: {PCT} of it has {OPEN} of snow"],
   /* {DEPTH} = RunLive.snowDepthCm in cm, or whole inches under Options > Weather Imperial (parts.tsx useUnits / depthValue), like SNOW_DEPTH */
   runDepth: ["SkiResort.Hub.RUN_DEPTH", "Snow depth {DEPTH} cm"],
   runDepthIn: ["SkiResort.Hub.RUN_DEPTH_IN", "Snow depth {DEPTH} in"],
