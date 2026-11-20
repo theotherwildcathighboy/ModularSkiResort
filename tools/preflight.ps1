@@ -898,6 +898,17 @@ if ($LASTEXITCODE -ne 0) {
     $rows.Add("OK    SYMBOLS $(($symOut | Select-Object -Last 1))")
 }
 
+# ---- 12c2b. DEMAND: the demand-curve page matches the code constants (R3-D, 1.0.4) ------------------------------------------------
+# docs-site/tools/demand-curves.js --check recomputes the five curves from SkiDayRules / SkiMoneyRules / SkiPassRules / SkiCatalog and fails
+# when a committed SVG, a generated region of guides/how-demand-works.mdx, or a number in the older passes-and-lessons tables differs, or when
+# a C# formula no longer has the shape the script computes. Its --self-test plants a constant, a tolerance and a formula fault.
+$dcOut = @(Invoke-Node (Join-Path $PSScriptRoot "../docs-site/tools/demand-curves.js") --check)
+$dcCode = $LASTEXITCODE
+$dcSelf = @(Invoke-Node (Join-Path $PSScriptRoot "../docs-site/tools/demand-curves.js") --self-test)
+if ($LASTEXITCODE -ne 0) { $rows.Add("FAIL  DEMAND self-test: $(($dcSelf | Select-Object -Last 1))"); $failures++ }
+elseif ($dcCode -ne 0) { foreach ($l in $dcOut) { $rows.Add("FAIL  DEMAND $l") }; $failures++ }
+else { $rows.Add("OK    DEMAND $(($dcOut | Select-Object -Last 1))") }
+
 # ---- 12c3. NOVANILLAART: no copy of game art in the repo (round 622) -----------------------------------------------------------
 # The hub may reference an installed game icon by its Media/ path; a copy in the repo would be published with it. tools/check-no-vanilla-art.js
 # compares every repo image with the installed UI Media folder (byte copies, and SVG paths copied into our own files). No game: SKIP.
