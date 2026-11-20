@@ -21,7 +21,8 @@ Gates (the pilot's lessons, made mechanical):
       cs2_asset.orient_for_net; eave_h overrides every side; band_skip carried; a yawed recipe raises; None stays None;
   P6  real-world scale: every pass key has a TEXPASS_PITCH range and its scan's course / board pitch (the fundamental of
       the Color map's row autocorrelation at the set's size_m) times tile_m / size_m lies in it (the 0.6 x shake scan
-      failed this; the strongest peak passed the siding at half its intended board width);
+      failed this; the strongest peak passed the siding at half its intended board width); a key in
+      TEXPASS_SOLID (a seam-free member face) has no pitch and no range;
   P7  swatch controls: deck chroma + flatten_m + contrast keep the swatch mean within 0.01 sRGB (the palette) and cut
       the mean chroma and the luminance CoV, normal_gain raises the tilt rms; texpass_swatch is {} with the pass off
       (alias followers too);
@@ -35,7 +36,7 @@ Gates (the pilot's lessons, made mechanical):
       23 %); slate without its normal_lean fails it;
   P8  weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
       a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise;
-  P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate: 2} (off: {}); a plinth + lap
+  P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate, timber_heavy, lux_glulam_s2: 2} (off: {}); a plinth + lap
       wall + slate roof through lodge's prep: the pass's UVTile is exactly 2 x the flag-off one on the pass keys'
       faces (meters / square tile); after lodge.texpass_far_units + align_islands + split_poor_islands the UVTile and
       the dry pack's UVUnique equal the flag-off ones bit for bit, and the sampling layer is the flag-off UVTile x 2
@@ -109,6 +110,8 @@ def check_provenance():
     hashed = 0
     for v in TS.TEXPASS:
         for k, s in sorted(TS.texpass_specs(v).items()):
+            if "set" not in s:          # detail-only key (lux_vboard_red): no download
+                continue
             e = src.get(s["set"])
             assert e is not None, f"{v} {k}: {s['set']} has no texture-sources.json entry"
             assert e["license"] == "CC0" and e["page"].startswith("https://"), (s["set"], e["license"], e["page"])
@@ -348,6 +351,10 @@ def check_scale():
     rows = []
     for v in TS.TEXPASS:
         for k, s in sorted(TS.TEXPASS[v].items()):
+            if k in TS.TEXPASS_SOLID:
+                assert k not in TS.TEXPASS_PITCH, f"{v} {k}: a solid key has no pitch range"
+                rows.append(f"{k} solid")
+                continue
             assert k in TS.TEXPASS_PITCH, f"{v} {k}: no real-world pitch range in cs2_tilesheet.TEXPASS_PITCH"
             lo, hi = TS.TEXPASS_PITCH[k]
             size = float(src[s["set"]]["size_m"])
@@ -603,7 +610,7 @@ def check_far_units():
     TS.register_texpass("v1")
     try:
         fac = TS.texpass_tile_factors()
-        assert fac == {"lux_slate": 2.0, "slate": 2.0}, fac     # timber_lap keeps its 2.4 m square tile: no factor
+        assert fac == {"lux_glulam_s2": 2.0, "lux_slate": 2.0, "slate": 2.0, "timber_heavy": 2.0}, fac   # timber_lap: no factor
         on = far_layout(True)
     finally:
         TS.unregister_texpass()

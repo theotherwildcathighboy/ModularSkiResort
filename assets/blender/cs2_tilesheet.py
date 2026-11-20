@@ -362,15 +362,40 @@ TEXPASS = {
         # Its normal map carries a bake tilt: mean slope (+7.1, +6.4) deg raw where a relief that tiles has 0 (no
         # course explains a u tilt, and its faces rise up the slope where a lapped course's fall; the butts face down-
         # slope, so it is not laid upside down). At gain 1.3 it leaned (-9.0, -7.2) and the shaded roof slope rendered
-        # 23 % darker than flag-off; normal_lean (0, +0.5) is the de-tilted swatch's lean
+        # 23 % darker than flag-off; normal_lean (0, +0.5) is the de-tilted swatch's lean. The scan's moss and tone
+        # patches (0.3-0.8 m) repeat every 1.6 m and read as a mottle on L3's 936 m2 of roof from the lift: chroma 0.5
+        # halves the moss green, flatten_m 0.25 divides out the patches above the slate size (low-frequency CoV 0.064 ->
+        # 0.026; slate-to-slate tone and the course seams stay)
         "slate": {"set": "PHGrayRoofTiles02", "tile_m": (1.6, 1.6), "repeat": 2,
-                  "target_srgb": (0.214, 0.224, 0.215), "normal_gain": 1.3, "normal_lean": (0.0, 0.5)},
+                  "target_srgb": (0.214, 0.224, 0.215), "chroma": 0.5, "flatten_m": 0.25, "normal_gain": 1.3,
+                  "normal_lean": (0.0, 0.5)},
         # 1.8 m scan at 1.54 m (x 0.86): 12 cm weathered deck boards; the recipes' repeat 2 stays. On L3's 15 m deck
         # the scan repeated as a grid: its ~0.5 m water stains (flatten_m 0.15: low-frequency CoV 0.089 -> 0.012, was
         # 0.021) and its rust specks (chroma 0.25, contrast 0.6: luminance CoV 0.287 -> 0.172, was 0.151); normal_gain
         # 1.6 keeps the board seams legible once the albedo is calm
         "deck": {"set": "PHWeatheredBrownPlanks", "tile_m": (1.54, 1.54), "chroma": 0.25, "flatten_m": 0.15,
                  "contrast": 0.6, "normal_gain": 1.6},
+        # Sawn heavy timber (posts, beams, knee braces, sign backs, L3's opaque balustrades, P1's log posts): Planks021
+        # drew 14 cm floor planks, so every 20-24 cm member face carried 1-2 plank seams and nail-hole pairs along it.
+        # Wood060 is a seam-free face; at 0.77 m x 4 (the key's 3.08 m period, tile factor 2 like slate) it reads as
+        # one solid member at 6-8 m (luminance CoV 0.184, low-frequency CoV 0.009, tilt 8.3 deg); the key's tint keeps
+        # its color. No course to measure, so P6 skips it (TEXPASS_SOLID)
+        "timber_heavy": {"set": "Wood060", "tile_m": (0.77, 0.77), "repeat": 4, "normal_gain": 1.6},
+        # L5 (l5 NOTE section 3, render set PD). lux_stone_tan: 1.52 m Poly Haven squared fieldstone at 2.4 m (x 1.58):
+        # 33 cm courses (P6), buff stones in gray mortar (Bricks096 drew gray rubble in salmon mortar, the same scan as
+        # the plaza); chroma 0.7 / contrast 0.8 calm its rust stones (loud on the chimneys at 22 m), normal_gain 0.85
+        # brings the tilt rms 28.6 -> about 24 deg (walls 15-25)
+        "lux_stone_tan": {"set": "PHRusticStoneWall", "tile_m": (2.4, 2.4), "chroma": 0.7, "contrast": 0.8,
+                          "normal_gain": 0.85},
+        # lux_paver: interlocking concrete unit pavers at 1.6 m (9 cm courses: 0.8 x a 22.5 x 11.25 cm unit; the cut
+        # grid allows only x 2 steps) instead of a rubble wall laid flat; normal_gain 1.6: the joints read at 30 m
+        "lux_paver": {"set": "PavingStones135", "tile_m": (1.6, 1.6), "normal_gain": 1.6},
+        # lux_glulam_s2 (L4 + L5): seam-free sawn timber at 0.77 m x 4 (Planks021 drew deck planking, a seam every
+        # 14 cm along every post and truss); square tile 1.54 -> 0.77: tile factor 2
+        "lux_glulam_s2": {"set": "Wood077", "tile_m": (0.77, 0.77), "repeat": 4},
+        # lux_vboard_red (L5 clock tower): same scan, battens at 0.35 m = every second 17.5 cm board seam, 8 per 2.8 m
+        # tile (K.BATTEN's 0.30 m beat against the boards every 2.1 m and broke at every tile edge: 9.33 per tile)
+        "lux_vboard_red": {"detail_seams_m": 0.35},
         # timber_shake is wall shingles on every building that draws it (gable walls of L2 / L3 / L5 and the welcome
         # sign; no roof draws it). WoodSiding013 (a 1.4 m shingle-siding scan) was drawn at 1.8 m: 22.5 cm courses that
         # read as boards. Poly Haven roof_slates_02 (split larch shingles despite the name, 26 courses per 3.0 m) at the
@@ -388,7 +413,12 @@ TEXPASS = {
 # 12.5-19). test_texpass P6 measures each scan
 # (the FUNDAMENTAL of the Color map's row-profile autocorrelation at texture-sources.json size_m, times tile_m / size_m;
 # count the seams on the normal map when you pick a scan: a bond or a two-tone board pattern has a stronger harmonic).
-TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.06, 0.19)}
+TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.06, 0.19),
+                 # squared fieldstone courses 15-50 cm; unit pavers 8-15 cm courses
+                 "lux_stone_tan": (0.15, 0.50), "lux_paver": (0.08, 0.15)}
+# Pass keys with no course or board pitch to measure (P6 skips them; the grain scale is judged on renders): seam-free
+# member faces, and detail-only keys that keep the flag-off scan
+TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red")
 # Swatch controls a pass key may carry (texpass_apply runs them in this order on the sheet swatch and on the far source);
 # the color ones move the swatch mean, which the target_srgb tint then restores
 # normal_lean (u, v deg, after normal_gain): a lapped / shingled scan's normal map does not average to the face
@@ -426,10 +456,16 @@ def texpass_specs(version):
 
 
 def _texpass_mat(m, s):
+    """The pass BldgMat: set / tile_m / target_srgb from the spec (a spec without "set" keeps the key's scan and tile),
+    detail_seams_m retunes the key's DetailSpec rib pitch (the depth and width stay)."""
     from dataclasses import replace as _rp
-    kw = {"set": s["set"], "tile_m": tuple(s["tile_m"])}
+    kw = {"set": s.get("set", m.set), "tile_m": tuple(s.get("tile_m", m.tile_m))}
     if "target_srgb" in s:
         kw["target_srgb"] = tuple(s["target_srgb"])
+    if "detail_seams_m" in s:
+        if m.detail is None:
+            raise ValueError(f"texpass: detail_seams_m on a key without a DetailSpec ({m.set})")
+        kw["detail"] = _rp(m.detail, seams_m=float(s["detail_seams_m"]))
     return _rp(m, **kw)
 
 
@@ -457,6 +493,8 @@ def register_texpass(version):
     ensure_materials()                  # the lux_* followers exist (and are saved) before the swap
     specs = texpass_specs(version)
     for k, s in sorted(specs.items()):
+        if "set" not in s:              # detail-only key: its scan is the flag-off one
+            continue
         sdir = os.path.join(cs2_bake.TEXTURE_ROOT, s["set"])
         miss = [m for m in ("Color", "NormalGL", "Roughness")
                 if not os.path.isdir(sdir) or cs2_bake.find_set_map(sdir, m) is None]
@@ -477,9 +515,10 @@ def unregister_texpass():
 
 
 def texpass_repeats():
-    """{key: r} the active pass adds to the sheet's repeats ({} when off)."""
+    """{key: r} the active pass adds to the sheet's repeats ({} when off). Keyed like the sheet's repeats: a v2 key
+    (lux_glulam_s2) under its base key (lux_glulam), which sheet_layout reads for the v2 cell."""
     v = _TEXPASS_STATE["version"]
-    return {k: int(s["repeat"]) for k, s in TEXPASS[v].items() if "repeat" in s} if v else {}
+    return {V2_BASE.get(k, k): int(s["repeat"]) for k, s in TEXPASS[v].items() if "repeat" in s} if v else {}
 
 
 def texpass_tile_factors():

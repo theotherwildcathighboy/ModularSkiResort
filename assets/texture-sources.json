@@ -1,5 +1,5 @@
 {
-  "_about": "Provenance of the photo-scan texture sets that are not ambientCG IDs. assets/textures/ is git-ignored: download each map's url, check its md5, and save it as assets/textures/<set>/<set>_2K-PNG_<map>.png (the ambientCG naming cs2_bake.find_set_map reads). All CC0, no attribution required; credited in release/CREDITS.md and assets/LICENSE. cs2_tilesheet.TEXPASS names the sets; tests/test_texpass.py checks every name has an entry here.",
+  "_about": "Provenance of the photo-scan texture sets that are not ambientCG IDs, and of every ambientCG set the texture pass (cs2_tilesheet.TEXPASS) names (test_texpass P1 checks an entry and the md5 of each pass set; an ambientCG map's url is its set's 2K-PNG zip, the member is <set>_2K-PNG_<map>.png). assets/textures/ is git-ignored: download each map's url, check its md5, and save it as assets/textures/<set>/<set>_2K-PNG_<map>.png (the ambientCG naming cs2_bake.find_set_map reads). All CC0, no attribution required; credited in release/CREDITS.md and assets/LICENSE. cs2_tilesheet.TEXPASS names the sets; tests/test_texpass.py checks every name has an entry here.",
   "sets": {
     "PHWeatheredPlankSiding": {
       "source": "Poly Haven", "id": "weathered_plank_siding", "page": "https://polyhaven.com/a/weathered_plank_siding",
@@ -135,6 +135,33 @@
         "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/roof_slates_02/roof_slates_02_diff_2k.png", "md5": "9dfce62ccfd1ef34cf5a4f3593c1af8b"},
         "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/roof_slates_02/roof_slates_02_nor_gl_2k.png", "md5": "dd7a5ad674b3590c26abd25c6f8927ea"},
         "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/roof_slates_02/roof_slates_02_rough_2k.png", "md5": "35898a535ffd197016f4602d6ccd679c"}
+      }
+    },
+    "PavingStones135": {
+      "source": "ambientCG", "id": "PavingStones135", "page": "https://ambientcg.com/view?id=PavingStones135",
+      "license": "CC0", "size_m": 1.9,
+      "maps": {
+        "Color": {"url": "https://ambientcg.com/get?file=PavingStones135_2K-PNG.zip", "md5": "9a8754af62caa68d7d82356be2a70784"},
+        "NormalGL": {"url": "https://ambientcg.com/get?file=PavingStones135_2K-PNG.zip", "md5": "051932d34df01b11ca5e318f92f730ad"},
+        "Roughness": {"url": "https://ambientcg.com/get?file=PavingStones135_2K-PNG.zip", "md5": "4171f95aa9e28247ed280a5d5fbbb7f1"}
+      }
+    },
+    "Wood077": {
+      "source": "ambientCG", "id": "Wood077", "page": "https://ambientcg.com/view?id=Wood077",
+      "license": "CC0", "size_m": 0.7,
+      "maps": {
+        "Color": {"url": "https://ambientcg.com/get?file=Wood077_2K-PNG.zip", "md5": "1155cfd61a6e4e01c672b29b66ff8dc8"},
+        "NormalGL": {"url": "https://ambientcg.com/get?file=Wood077_2K-PNG.zip", "md5": "d326a613acb9d5a9d84bfa0c94f90776"},
+        "Roughness": {"url": "https://ambientcg.com/get?file=Wood077_2K-PNG.zip", "md5": "4333055568cae20497469403ba3942aa"}
+      }
+    },
+    "Wood060": {
+      "source": "ambientCG", "id": "Wood060", "page": "https://ambientcg.com/view?id=Wood060",
+      "license": "CC0", "size_m": null, "size_note": "real-world size not stated by the source; the timber_heavy key is a seam-free face (TEXPASS_SOLID), so no pitch is measured",
+      "maps": {
+        "Color": {"url": "https://ambientcg.com/get?file=Wood060_2K-PNG.zip", "md5": "f8765c7b358375d9245656e664df9540"},
+        "NormalGL": {"url": "https://ambientcg.com/get?file=Wood060_2K-PNG.zip", "md5": "006b209a2c25edcc68ff7e5db03ed073"},
+        "Roughness": {"url": "https://ambientcg.com/get?file=Wood060_2K-PNG.zip", "md5": "774582eb4f42f06b7d4f50d0004159b5"}
       }
     }
   }
