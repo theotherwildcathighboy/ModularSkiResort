@@ -6012,7 +6012,10 @@ def rig_manifest_m(kind, block):
            "submesh_win": "the _Win glass sub-mesh stays an unskinned sub-object of a skinned building (UNVERIFIED in "
                           "game, PLAN P0 c)"}
     if kind == "return":
-        out["hosted_tower"] = {"folder": RIG_HOSTED_DIR, "row_position_game": [0.0, 0.0, RIG_HOSTED_X],
+        hf = RIG_HOSTED_DIR and os.path.abspath(RIG_HOSTED_DIR)      # repo-relative in the manifest (no home paths)
+        if hf and os.path.normcase(hf).startswith(os.path.normcase(REPO_M + os.sep)):
+            hf = os.path.relpath(hf, REPO_M).replace(os.sep, "/")
+        out["hosted_tower"] = {"folder": hf, "row_position_game": [0.0, 0.0, RIG_HOSTED_X],
                                "shipped_row_z": spec.tower_x, "rotation_quat": [0, 1, 0, 0],
                                "note": "the skinned ET62's pivot (crown at 5.24 = the lane end) on the lane end"}
     return out
@@ -6272,8 +6275,11 @@ def main_m(args):
             raise RuntimeError(f"validate_asset_folder: {n_err} errors")
     pc = contracts.pop("M1")
     fine_block = fine_detail_block_m(kind, contracts)          # fine-detail step 3c (None when off)
+    from carrier_split import manifest_args
     cs2_validate.write_manifest(asset_dir, name, {
-        "args": vars(args),            # T256: every parsed flag (defaults too): a letter's build is reproducible
+        # T256: every parsed flag (defaults too): a letter's build is reproducible. r4/tex fg (2026-11-20): paths
+        # repo-relative / %USERPROFILE% (manifest_args, as lift_chair), the first export into assets/import leaked them
+        "args": manifest_args(args, REPO_M),
         "generator": GEN_M, "kind": kind, "generation": "M", "rope_r_m": M_ROPE_R,
         "spec": "design/fg-stations-m.md + fg-stations-m-skeptic.md MUST-CHANGE 1-6 (build/fg-stations-m.md)",
         "finish": "shipping" if args.finish else "blockout", "atlas_px": A, "ao_samples": ao,

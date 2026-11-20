@@ -6764,7 +6764,8 @@ def twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weigh
                 half_shift_m=SKIN_HALF_SHIFT[spec.family], weights=weights, roundtrip=rt)
     man = {k: v for k, v in rep.items() if k not in ("frames", "seconds", "skin", "grip")}
     if args is not None:
-        man["args"] = vars(args)      # T256: every parsed flag (defaults too): a letter's build is reproducible
+        from carrier_split import manifest_args    # r4/tex fg: repo-relative / %USERPROFILE% paths (as lift_chair)
+        man["args"] = manifest_args(args, _REPO)  # T256: every parsed flag (defaults too): a letter's build is reproducible
     man["skin"] = dict(skin_manifest_block(spec, skin), twin=rep["skin"])
     man["textures"] = {
         "shared_from": f"../{owner}/{owner}", "maps": list(TWIN_MAPS), "levels": list(range(len(lods) + 1)),
@@ -7127,9 +7128,10 @@ def main_v2(argv):
         if spec.family == "GD":
             derived["mode"] = "traced proportions (the DQ rebuild head kit, stretched to the 6.0 m gauge)"
     density = compose.density if compose is not None else None
+    from carrier_split import manifest_args          # r4/tex fg: repo-relative / %USERPROFILE% paths (as lift_chair)
     manifest = {
         "generator": f"lift_tower.py@{cs2_review.git_sha()}",
-        "args": vars(args),            # T256: every parsed flag (defaults too): a letter's build is reproducible
+        "args": manifest_args(args, _REPO),  # T256: every parsed flag (defaults too): a letter's build is reproducible
         "spec": "towers-v2 + skeptic" if spec.family != "GD" else
                 "towers-v2 + skeptic; Revision 1b GD (tram_tower.GD / lattice-towers D2 contract)",
         "variant": spec.key, "family": spec.family, "role": spec.role, "kind": spec.kind,
