@@ -29,6 +29,10 @@ Gates (the pilot's lessons, made mechanical):
       (u, v) lean within 0.5 deg (a lapped scan's mean normal leans: PHGrayRoofTiles02 at gain 1.3 leaned (-9.0,
       -7.2) deg against the shipped slate's (-0.3, +10.6): the sun shaded every slate roof as if it faced 20 deg
       elsewhere); the lean is the last control, so normal_gain cannot scale it again;
+  P13 no baked tilt: every pass key's sheet swatch (after normal_gain and normal_lean, as the sheet draws it) has a mean
+      height slope under TEXPASS_MAX_MEAN_SLOPE_DEG in u and v (a relief that tiles averages 0; PHGrayRoofTiles02
+      carries a bake tilt of +9.2 / +7.8 deg at gain 1.3, which turned its lean and darkened the shaded roof slope by
+      23 %); slate without its normal_lean fails it;
   P8  weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
       a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise;
   P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate: 2} (off: {}); a plinth + lap
@@ -500,6 +504,38 @@ def check_normal_lean():
     ok("P12 normal lean: " + (", ".join(rows) or "no key states one"))
 
 
+def check_mean_slope():
+    lim = TS.TEXPASS_MAX_MEAN_SLOPE_DEG
+    rows = []
+    TS.register_texpass("v1")
+    try:
+        on = layout()
+
+        def slope(k):
+            t = on["tiles"][k]
+            C, r = t["rect_px"][2], t["repeat"]
+            n = C // r
+            return TS.mean_slope_deg(TS._swatch_maps(k, C, repeat=r, layout_name="rollout")[1][:n, :n])
+        for k in sorted(TS.TEXPASS["v1"]):
+            su, sv = slope(k)
+            assert max(abs(su), abs(sv)) < lim, (f"{k}: mean slope ({su:+.2f}, {sv:+.2f}) deg >= {lim}: the normal map "
+                                                 f"carries a baked tilt (de-tilt it: normal_lean to the de-tilted lean)")
+            rows.append(f"{k} ({su:+.1f}, {sv:+.1f})")
+        spec = TS.TEXPASS["v1"]["slate"]
+        saved = dict(spec)
+        try:
+            spec.pop("normal_lean")
+            raw = slope("slate")
+        finally:
+            spec.clear()
+            spec.update(saved)
+        assert max(abs(x) for x in raw) >= lim, f"mutation: slate without normal_lean ({raw}) must fail the gate"
+    finally:
+        TS.unregister_texpass()
+    ok(f"P13 no baked tilt (|mean slope| < {lim} deg): " + ", ".join(rows) +
+       f"; slate without normal_lean ({raw[0]:+.1f}, {raw[1]:+.1f}) fails it")
+
+
 def check_level_gate():
     opted = []
     for key, rc in sorted(lodge.R.load_recipes().items()):
@@ -595,6 +631,7 @@ def main():
     check_scale()
     check_swatch_controls()
     check_normal_lean()
+    check_mean_slope()
     check_level_gate()
     check_far_units()
     check_low_frequency()

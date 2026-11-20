@@ -353,33 +353,54 @@ TEXPASS = {
         # The scan holds 14 boards (11.2 cm), not 7: the pilot's tile 1.2 x repeat 2 drew 8.6 cm boards, under the range
         # below (its gate measured the 2-board harmonic of the luminance autocorrelation: alternate boards differ in tone).
         # Tile 2.4 x 1 is the key's old period, so the cut grid and the far-set units are the flag-off ones.
-        # normal_gain 1.6: the scan's seams read flatter than the old set's
-        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (2.4, 2.4), "normal_gain": 1.6},
-        # 1.5 m scan at 1.6 m (x 1.07): 20 x 14.5 cm slates (RoofingTiles003 drew 40 cm slates with scratch streaks)
+        # normal_gain 1.6: the scan's seams read flatter than the old set's. Its mean slope is -3.8 deg along v raw (-7.3
+        # at gain 1.6, P13): the butt steps are too shallow to close the course. A tilt of the bake plane is likely but
+        # unproven (u is 0.0); normal_lean (0, +1.8) is the de-tilted swatch's lean (it was +8.7)
+        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (2.4, 2.4), "normal_gain": 1.6,
+                       "normal_lean": (0.0, 1.8)},
+        # 1.5 m scan at 1.6 m (x 1.07): 20 x 14.5 cm slates (RoofingTiles003 drew 40 cm slates with scratch streaks).
+        # Its normal map carries a bake tilt: mean slope (+7.1, +6.4) deg raw where a relief that tiles has 0 (no
+        # course explains a u tilt, and its faces rise up the slope where a lapped course's fall; the butts face down-
+        # slope, so it is not laid upside down). At gain 1.3 it leaned (-9.0, -7.2) and the shaded roof slope rendered
+        # 23 % darker than flag-off; normal_lean (0, +0.5) is the de-tilted swatch's lean
         "slate": {"set": "PHGrayRoofTiles02", "tile_m": (1.6, 1.6), "repeat": 2,
-                  "target_srgb": (0.214, 0.224, 0.215), "normal_gain": 1.3},
+                  "target_srgb": (0.214, 0.224, 0.215), "normal_gain": 1.3, "normal_lean": (0.0, 0.5)},
         # 1.8 m scan at 1.54 m (x 0.86): 12 cm weathered deck boards; the recipes' repeat 2 stays. On L3's 15 m deck
         # the scan repeated as a grid: its ~0.5 m water stains (flatten_m 0.15: low-frequency CoV 0.089 -> 0.012, was
         # 0.021) and its rust specks (chroma 0.25, contrast 0.6: luminance CoV 0.287 -> 0.172, was 0.151); normal_gain
         # 1.6 keeps the board seams legible once the albedo is calm
         "deck": {"set": "PHWeatheredBrownPlanks", "tile_m": (1.54, 1.54), "chroma": 0.25, "flatten_m": 0.15,
                  "contrast": 0.6, "normal_gain": 1.6},
-        # timber_shake stays WoodSiding013: it is roof shakes on L3 / L5 and wall shingles on L2, and the CC0 shake
-        # scan (Poly Haven roof_slates_02, 11 cm courses at 3.0 m) fits its 1.8 m cell only at x 0.6 (7 cm, P6 fails)
+        # timber_shake is wall shingles on every building that draws it (gable walls of L2 / L3 / L5 and the welcome
+        # sign; no roof draws it). WoodSiding013 (a 1.4 m shingle-siding scan) was drawn at 1.8 m: 22.5 cm courses that
+        # read as boards. Poly Haven roof_slates_02 (split larch shingles despite the name, 26 courses per 3.0 m) at the
+        # key's 1.8 m: 6.9 cm courses, the alpine wall-shingle scale. Its light / dark blotches repeat every 1.8 m
+        # (flatten_m), single light shingles repeat as dots (contrast 0.55); normal_gain 1.4 carries the courses.
+        # Its mean slope is +1.6 deg at gain 1.4 (under the P13 limit); normal_lean (0, 0) is the de-tilted swatch's
+        # lean (it was (+0.9, -1.4))
+        "timber_shake": {"set": "PHRoofSlates02", "tile_m": (1.8, 1.8), "target_srgb": (0.406, 0.352, 0.275),
+                         "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.55, "normal_gain": 1.4,
+                         "normal_lean": (0.0, 0.0)},
     },
 }
 # Real-world course / board pitch (m) a pass key must show at its tile size: lap siding exposure 10-20 cm, slate and
-# tile courses 10-25 cm, deck boards 9-16 cm on center, roof shakes 12-26 cm. test_texpass P6 measures each scan
+# tile courses 10-25 cm, deck boards 9-16 cm on center, wall shingles 6-19 cm (alpine larch 6-10, US cedar sidewall
+# 12.5-19). test_texpass P6 measures each scan
 # (the FUNDAMENTAL of the Color map's row-profile autocorrelation at texture-sources.json size_m, times tile_m / size_m;
 # count the seams on the normal map when you pick a scan: a bond or a two-tone board pattern has a stronger harmonic).
-TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.12, 0.26)}
+TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.06, 0.19)}
 # Swatch controls a pass key may carry (texpass_apply runs them in this order on the sheet swatch and on the far source);
 # the color ones move the swatch mean, which the target_srgb tint then restores
 # normal_lean (u, v deg, after normal_gain): a lapped / shingled scan's normal map does not average to the face
 # normal (each face leans one way, its butt step is a few texels wide), so the sun shades the whole surface as if it
-# faced elsewhere; the control turns the swatch's mean normal to the stated lean (the pre-pass key's, measured on the
-# rollout sheet, keeps the slope shading of today, as target_srgb keeps its color; (0, 0) is the face normal)
+# faced elsewhere; the control turns the swatch's mean normal to the stated lean. The value is the DE-TILTED swatch's
+# lean (its mean slope subtracted in slope space, then renormalized; P13), never a lean borrowed from another scan:
+# that copies the other scan's normal-map artifact. u is 0 (a course is symmetric across u)
 TEXPASS_CONTROLS = ("chroma", "flatten_m", "contrast", "normal_gain", "normal_lean")
+# Tilt gate (test_texpass P13): the mean height slope (mean of -n.x / n.z, -n.y / n.z) of a relief that tiles is 0, so
+# a nonzero mean slope is a tilt baked into the normal map (the bake plane), not relief. Every pass key's sheet swatch
+# (after normal_gain and normal_lean) stays under this in u and v (PHGrayRoofTiles02 at gain 1.3: +9.2 / +7.8)
+TEXPASS_MAX_MEAN_SLOPE_DEG = 2.0
 TEXPASS_COLOR_CONTROLS = ("chroma", "flatten_m", "contrast")
 # Low-frequency gate (test_texpass P10): a tile repeats every tile_m, so blotches above the board / course scale read as
 # a grid. Luminance CoV after a periodic Gaussian of TEXPASS_LF_SIGMA_M may not exceed max(TEXPASS_LF_RATIO x the
@@ -504,6 +525,16 @@ def normal_lean_deg(nrm):
     n = np.asarray(nrm, np.float64)[..., :3].reshape(-1, 3) * 2.0 - 1.0
     m = (n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-9)).mean(0)
     return float(np.degrees(np.arctan2(m[0], m[2]))), float(np.degrees(np.arctan2(m[1], m[2])))
+
+
+def mean_slope_deg(nrm):
+    """(u, v) degrees of the mean height slope of 0..1-encoded tangent normals: atan of mean(-x / z), mean(-y / z),
+    z clamped at 0.05 as _normal_lean clamps it. 0 for any relief that tiles; anything else is a baked tilt (P13)."""
+    n = np.asarray(nrm, np.float64)[..., :3].reshape(-1, 3) * 2.0 - 1.0
+    n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-9)
+    z = np.maximum(n[:, 2], 0.05)
+    return (float(np.degrees(np.arctan((-n[:, 0] / z).mean()))),
+            float(np.degrees(np.arctan((-n[:, 1] / z).mean()))))
 
 
 def _normal_lean(nrm, lean):
