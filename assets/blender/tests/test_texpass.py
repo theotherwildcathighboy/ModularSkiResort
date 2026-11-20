@@ -23,8 +23,8 @@ Gates (the pilot's lessons, made mechanical):
       no ladder step sets it (a flag-off build hangs every strip it did); lodge.texpass_drip_skip returns the matched
       sills and raises on a prefix that is not a sill_ or matches no part; _write_manifest copies its result key
       (texpass_drip_skip, as P15's texpass_mat); each recipe that opts in names its real
-      sills (L1's loft pair, a 0.7 m strip that ends mid-gable; the hut's attic pairs, a strip that runs off the
-      shingle gable onto the boards below: each read as a hard gray rectangle under the window);
+      sills (L1's loft pair, a 0.7 m strip that ends mid-gable; the hut's attic pairs and L3's Mass B gable window,
+      a strip that runs off the shingle gable onto the boards below: each read as a hard rectangle under the window);
   P5  lodge.texpass_weather: the hut recipe's grade in the tiled frame matches the authoring grade through
       cs2_asset.orient_for_net; eave_h overrides every side; band_skip and drip_skip carried; a yawed recipe raises;
       None stays None;
@@ -338,7 +338,8 @@ def check_band_skip():
 
 # recipe.texpass drip_skip: the sills each opted recipe skips (lodge.texpass_drip_skip on its real parts)
 DRIP_SKIP_SILLS = {"L1": ["sill_LoftN", "sill_LoftS"],
-                   "L2": ["sill_aE0", "sill_aE1", "sill_aW0", "sill_aW1"]}
+                   "L2": ["sill_aE0", "sill_aE1", "sill_aW0", "sill_aW1"],
+                   "L3": ["sill_bSa"]}
 
 
 def check_drip_skip():
