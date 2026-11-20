@@ -5236,6 +5236,22 @@ def tram_split_parts(parts, dims):
     return cab, car, old, joint
 
 
+# r4 texture pass v1, TRAM (--tram-texpass v1; off = the shipped carriers byte for byte). The split carriage bakes on its
+# own 1024 atlas (T["split_tex"]) with the 2048 cabin's margin (T["margin"] 32 px): 171 islands at 64 px spacing starve
+# the pack, which ships at 8.5-26.6 px/m (median 17) on about 1 % of the atlas (probe 2026-11-20, the same numbers as the
+# shipped manifest). v1 scales the margin with the atlas, 32 x 1024 / 2048 = 16 px: the cabin's own 1/64 of the atlas
+# (the same mip safety), median 81 px/m, 21 % of the atlas, 0 MB. UVs and pixels only; the cabin is untouched
+TRAM_TEXPASS_CHOICES = ("off", "v1")
+
+
+def tram_margin(role, tex, texpass="off"):
+    """Bake margin (px) of one tram asset: the shipped T["margin"], or under --tram-texpass v1 the split carriage's
+    margin scaled to its atlas (T["margin"] x tex / T["tex"])."""
+    if texpass == "v1" and role == "carriage":
+        return max(2, T["margin"] * int(tex) // T["tex"])
+    return T["margin"]
+
+
 def run_tram(args):
     dims = tram_dims(args.hang)
     if args.split:
@@ -5358,7 +5374,8 @@ def run_tram(args):
                 return make_lod(o, nm, level, target, dele, prot)
             return tram_lod1(o, nm, dims, dele, prot, target)
 
-        cfg = dict(lod1=lod1, kind="tram", role=role, name=name, tex=tex, ao=T["ao"], margin=T["margin"],
+        cfg = dict(lod1=lod1, kind="tram", role=role, name=name, tex=tex, ao=T["ao"],
+                   margin=tram_margin(role, tex, getattr(args, "tram_texpass", "off")),
                    contracts=contracts, lod2=lod2, lod1_ratio_target=0.46,
                    lod1_delete=T["lod1_delete"], lod1_protect=T["lod1_protect"],
                    z_range=z_range,
@@ -5475,6 +5492,9 @@ def parse_args(argv):
     ap.add_argument("--hang", type=float, default=CARRIERS["tram"]["hang_m"])
     ap.add_argument("--split", action="store_true",
                     help="carrier split (2026-11-03): body + grip meshes, letter B (both kinds)")
+    ap.add_argument("--tram-texpass", choices=TRAM_TEXPASS_CHOICES, default="off",
+                    help="r4 texture pass, TRAM only: v1 = the split carriage packs with its atlas-scaled margin "
+                         "(UVs and pixels only); off = the shipped carriers byte for byte")
     ap.add_argument("--envelope", action="store_true",
                     help="with --split (gondola): the B2 v2 grip passage (GD_ENVELOPE): grip letter C, "
                          "the shipped B atlas remapped, no bake")
@@ -5495,6 +5515,8 @@ def parse_args(argv):
         ap.error("--outboard / --lod2 are gondola options (the tram is symmetric, R29)")
     if args.envelope and (args.kind != "gondola" or not args.split):
         ap.error("--envelope is a gondola --split option")
+    if args.tram_texpass != "off" and (args.kind != "tram" or not args.split):
+        ap.error("--tram-texpass is a tram --split option (it changes the split carriage only)")
     return args
 
 
