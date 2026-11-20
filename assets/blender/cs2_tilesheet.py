@@ -554,9 +554,24 @@ def register_texpass(version):
             raise FileNotFoundError(f"texpass {version}: {s['set']} lacks {miss} under {sdir} "
                                     f"(assets/texture-sources.json lists the downloads)")
     for k, s in sorted(specs.items()):
+        if k not in K.BLDG_MATERIALS:   # a --slots v2 key (lux_glulam_s2): register_slot_materials adopts it later
+            continue
         _TEXPASS_STATE["saved"][k] = K.BLDG_MATERIALS[k]
         K.BLDG_MATERIALS[k] = _texpass_mat(K.BLDG_MATERIALS[k], s)
     _TEXPASS_STATE["version"] = version
+
+
+def texpass_adopt():
+    """Swap the active pass's keys that were registered AFTER register_texpass (lodge.main registers the pass before
+    any material is read; the --slots v2 keys such as lux_glulam_s2 come later, from register_slot_materials). The
+    pre-pass material is saved, so unregister_texpass restores it. No-op when the pass is off."""
+    v = _TEXPASS_STATE["version"]
+    if not v:
+        return
+    for k, s in sorted(texpass_specs(v).items()):
+        if k not in _TEXPASS_STATE["saved"] and k in K.BLDG_MATERIALS:
+            _TEXPASS_STATE["saved"][k] = K.BLDG_MATERIALS[k]
+            K.BLDG_MATERIALS[k] = _texpass_mat(K.BLDG_MATERIALS[k], s)
 
 
 def unregister_texpass():
@@ -861,6 +876,7 @@ def register_slot_materials():
     K.WEATHER_ROLES_EXTRA.setdefault(FRAME_KEY, "paint")
     for k in ACCENT_FIXED:
         K.WEATHER_ROLES_EXTRA.setdefault(k, roles.get("accent", "paint"))
+    texpass_adopt()                             # the pass's slots-v2 keys (lux_glulam_s2) exist only from here
 
 
 def register_glass_materials():

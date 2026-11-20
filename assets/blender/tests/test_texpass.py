@@ -136,9 +136,14 @@ def check_cut_grid_and_round_trip():
         try:
             on = layout()
             assert on["hash"] != off0["hash"], "the pass must change the sheet hash"
+            # the one cell a pass may RENAME (same rect): the orphaned metal_roof~w taken by the coated light roof
+            ren = {}
+            if TS.TEXPASS_FLAT.get(v, {}).get("metal_roof_lt", {}).get("light_w"):
+                ren["metal_roof" + TS.W_SUFFIX] = "metal_roof_lt" + TS.W_SUFFIX
             for k, t in off0["tiles"].items():
-                assert on["tiles"][k]["rect_px"] == t["rect_px"], (k, t["rect_px"], on["tiles"][k]["rect_px"])
-            assert set(on["tiles"]) == set(off0["tiles"]) and on["palette"] == off0["palette"]
+                kn = ren.get(k, k)
+                assert on["tiles"][kn]["rect_px"] == t["rect_px"], (k, t["rect_px"], on["tiles"][kn]["rect_px"])
+            assert set(on["tiles"]) == {ren.get(k, k) for k in off0["tiles"]} and on["palette"] == off0["palette"]
             specs = TS.texpass_specs(v)
             for k in sorted(specs):
                 sk = TS.swatch_key(on, k)
@@ -531,6 +536,10 @@ def check_mean_slope():
             return TS.mean_slope_deg(TS._swatch_maps(k, C, repeat=r, layout_name="rollout")[1][:n, :n])
         for k in sorted(TS.TEXPASS["v1"]):
             su, sv = slope(k)
+            if "set" not in TS.TEXPASS["v1"][k]:
+                # detail-only key: it keeps the flag-off scan, so any tilt is the shipped look, not the pass's (recorded)
+                rows.append(f"{k} ({su:+.1f}, {sv:+.1f}) flag-off scan, not gated")
+                continue
             assert max(abs(su), abs(sv)) < lim, (f"{k}: mean slope ({su:+.2f}, {sv:+.2f}) deg >= {lim}: the normal map "
                                                  f"carries a baked tilt (de-tilt it: normal_lean to the de-tilted lean)")
             rows.append(f"{k} ({su:+.1f}, {sv:+.1f})")
