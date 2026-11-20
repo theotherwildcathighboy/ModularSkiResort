@@ -95,6 +95,8 @@ $KnownVanilla = @{
     "9cbf401c04ad63b44a36c0dc0db26e67" = "Low-voltage Ground Cable (m_UndergroundPrefab of the vanilla LV line; used by SkiLiftMarker/LV)"
     "3e47e765f44f210409edf4e6229fd0df" = "Grass Surface 01 unlock requirement (verified: vanilla Grass 01 ships same ref)"
     "ec48568022d46c1448c6620d95f993c1" = "ParkSign placeholder (vanilla CityPark01/02/04 host it; resolves ParkSign01-03). Relabelled 2026-10-13: SkiResortGate no longer references it (S1 sign surgery replaced its ParkSign row, build/s1-finish.md); no owned prefab does. Kept, never dropped"
+    "3880b17eed0efbd448e640f6353a7f7b" = "PowerLinePole8m01 mesh (LV service pole, an m_Meshes row on the 4 base stations, 1.0.4; dump-verified: PowerLinePole8m01.Prefab m_Meshes[0])"
+    "12633b57802d4a84a8e8c08bbef9091d" = "ElectricalBox02 mesh (LV service box, an m_Meshes row on the 4 base stations, 1.0.4; dump-verified: ElectricalBox02.Prefab m_Meshes[0])"
     "4010d5851d69dbb418c62e6bd4d19759" = "PowerLinePole01 placeholder (verified: Low-voltage Line NetSubObjects m_Object + PowerLinePole8m01 SpawnableObject back-ref; resolves PowerLinePole 8/13/18m)"
     # Vanilla sub-object placeholders of the shipped manifests' rows (fine-detail step 3d, 2026-10-12: every
     # sub_objects / detail1 / detail row GUID of assets/import/**/*.manifest.json, archive excluded). Each is the

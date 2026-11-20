@@ -39,6 +39,7 @@ namespace LiftBatch
             Ei52();
             Ei48Gate();
             Lv6Gate();
+            Lv7Gate();
             Ei48Tram2();
             Ei48Front();
             Ei49();
@@ -274,6 +275,128 @@ namespace LiftBatch
             Check(voltage == 0, w, "SkiLiftMarkerLV's ElectricityConnection m_Voltage is " + voltage + ", want 0 (Low)");
             Check(bases == 4 && tops == 4, w, "4 base and 4 top stations checked; got " + bases + " / " + tops);
         }
+
+        // LV-7 constants. The vanilla PowerLinePole8m01 mesh, its 3 insulators (mesh-local x, y, z; the vanilla dump) and the vanilla
+        // ElectricalBox02 mesh. The comm wire's seed height at the HV stub tip per base station (the line's comm anchor at its first
+        // tower, the FindAnchors seed). The LV seeds sit about 9 m up at the LV stub tip.
+        private const string PoleMesh = "UnityGUID:3880b17eed0efbd448e640f6353a7f7b";
+        private const string BoxMesh = "UnityGUID:12633b57802d4a84a8e8c08bbef9091d";
+        private const string LvWireLane = "UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b";
+        private static readonly float3[] PoleInsulators = { new float3(1.18f, 8.02f, 0.16f), new float3(0.20f, 8.02f, 0.16f), new float3(-1.19f, 8.02f, 0.16f) };
+        private static readonly Dictionary<string, float> CommSeedY = new Dictionary<string, float>
+        {
+            ["SkiBaseStationBuilding"] = 8.15f, ["SkiDQBaseStationBuilding"] = 9.2f, ["SkiGondolaBaseStationBuilding"] = 11.2f,
+        };
+        private const float LvSeedY = 9f, Lv7MinMargin = 0.5f;
+
+        /// <summary>LV-7: the LV service on every base station (vanilla pole + ElectricalBox02 mesh rows, 3 single-point LV wire anchors
+        /// at the pole's insulators with node indexes 10-12, a two-point riser 13-14 down the pole face) and none on the tops. Then a
+        /// LaneSystem.FindAnchors cut at nominal seeds (order x 10000 + distance to the seed mean, single-point rows are order 2, two-point
+        /// ends order 3): the comm wire keeps the station's comm anchor (the nose) and all 3 LV wires land on the insulators, each by at
+        /// least Lv7MinMargin.</summary>
+        private static void Lv7Gate()
+        {
+            const string w = "lv-service/LV-7";
+            int bases = 0;
+            foreach (StationDef st in SkiCatalog.Stations)
+            {
+                JsonElement? root = MirrorJson(st.Prefab, w);
+                if (root == null)
+                    continue;
+                string who = st.Prefab + " (" + st.LiftTypeId + " " + st.Role + ")";
+                var poles = new List<(float3 p, quaternion q)>();
+                int boxes = 0;
+                foreach (JsonElement m in root.Value.GetProperty("m_Meshes").GetProperty("$rcontent").EnumerateArray())
+                {
+                    string mesh = m.GetProperty("m_Mesh").GetString();
+                    JsonElement r = m.GetProperty("m_Rotation").GetProperty("value");
+                    var q = new quaternion(r.GetProperty("x").GetSingle(), r.GetProperty("y").GetSingle(), r.GetProperty("z").GetSingle(), r.GetProperty("w").GetSingle());
+                    if (mesh == PoleMesh)
+                        poles.Add((P(m, "m_Position"), q));
+                    else if (mesh == BoxMesh)
+                        boxes++;
+                }
+                var single = new List<(float3 a, int idx)>();
+                var riser = new List<(float3 a, float3 d, int2 idx)>();
+                var indexes = new HashSet<int>();
+                bool uniqueIdx = true;
+                foreach (JsonElement lane in Rows(root.Value, "m_SubLanes"))
+                {
+                    JsonElement ni = lane.GetProperty("m_NodeIndex");
+                    int2 idx = new int2(ni.GetProperty("x").GetInt32(), ni.GetProperty("y").GetInt32());
+                    if (!indexes.Add(idx.x) || (idx.y != idx.x && !indexes.Add(idx.y)))
+                        uniqueIdx = false;
+                    if (lane.GetProperty("m_LanePrefab").GetString() != LvWireLane)
+                        continue;
+                    JsonElement curve = lane.GetProperty("m_BezierCurve");
+                    if (idx.x == idx.y)
+                        single.Add((P(curve, "a"), idx.x));
+                    else
+                        riser.Add((P(curve, "a"), P(curve, "d"), idx));
+                }
+                if (st.Role == StationRole.Top)
+                {
+                    Check(poles.Count == 0 && boxes == 0 && riser.Count == 0, w, who + ": a top station has LV service rows (" + poles.Count +
+                          " pole, " + boxes + " box, " + riser.Count + " riser)");
+                    continue;
+                }
+                bases++;
+                if (!Check(poles.Count == 1, w, who + ": " + poles.Count + " PowerLinePole8m01 mesh rows, want 1") |
+                    !Check(boxes == 1, w, who + ": " + boxes + " ElectricalBox02 mesh rows, want 1") |
+                    !Check(riser.Count == 1, w, who + ": " + riser.Count + " two-point LV wire rows (the riser), want 1") |
+                    !Check(uniqueIdx, w, who + ": two sub-lane rows share a node index"))
+                    continue;
+                (float3 pole, quaternion pq) = poles[0];
+                var insulators = new float3[3];
+                bool anchorsOk = true;
+                for (int i = 0; i < 3; i++)
+                {
+                    insulators[i] = pole + math.mul(pq, PoleInsulators[i]);
+                    int found = single.FindIndex(s => s.idx == 10 + i);
+                    anchorsOk &= Check(found >= 0 && math.distance(single[found].a, insulators[i]) <= 0.01f, w, who + ": anchor idx " + (10 + i) +
+                                       (found < 0 ? " missing" : " at " + V(single[found].a)) + ", the pole's insulator is at " + V(insulators[i]));
+                }
+                var (ra, rd, ridx) = riser[0];
+                Check(ridx.x == 13 && ridx.y == 14 && math.abs(ra.y - 7.7f) <= 0.01f && math.abs(rd.y) <= 0.01f &&
+                      math.distance(ra.xz, rd.xz) <= 0.01f && math.distance(ra.xz, pole.xz) <= 0.25f, w,
+                      who + ": the riser is " + V(ra) + " -> " + V(rd) + " idx (" + ridx.x + ", " + ridx.y + "), want a vertical drop from y 7.7 to 0 " +
+                      "at the pole face, idx (13, 14)");
+                if (!anchorsOk)
+                    continue;
+
+                // The FindAnchors cut. Candidates of the LV wire lane: every single-point row (order 2) and both riser ends (order 3).
+                var others = single.FindAll(s => s.idx < 10 || s.idx > 12).ConvertAll(s => s.a);
+                float3 lvSeed = new float3(st.LvStubLocalB.x, LvSeedY, st.LvStubLocalB.z);
+                float far = math.max(math.distance(insulators[0], lvSeed), math.max(math.distance(insulators[1], lvSeed), math.distance(insulators[2], lvSeed)));
+                float nearOther = float.PositiveInfinity;
+                foreach (float3 o in others)
+                    nearOther = math.min(nearOther, math.distance(o, lvSeed));
+                string line = "LV-7 " + who + ": pole " + V(pole) + (others.Count == 0 ? ", no other LV wire anchor" : ", LV margin +" + F(nearOther - far));
+                Check(nearOther - far >= Lv7MinMargin, w, who + ": an LV wire would land on another anchor: the farthest insulator is " + F(far) +
+                      " m from the LV seed, the nearest other single-point anchor " + F(nearOther) + " m (margin " + F(nearOther - far) + ", want >= " +
+                      F(Lv7MinMargin) + ")");
+                if (CommSeedY.TryGetValue(st.Prefab, out float commY))
+                {
+                    float3 commSeed = new float3(st.StubTipLocalX, commY, st.StubTipLocalZ);
+                    float nose = float.PositiveInfinity, ins = float.PositiveInfinity;
+                    foreach (float3 o in others)
+                        nose = math.min(nose, math.distance(o, commSeed));
+                    foreach (float3 i in insulators)
+                        ins = math.min(ins, math.distance(i, commSeed));
+                    line += ", comm margin +" + F(ins - nose);
+                    Check(ins - nose >= Lv7MinMargin, w, who + ": the comm wire would land on the pole: nearest insulator " + F(ins) + " m, the nose " +
+                          F(nose) + " m from the comm seed (margin " + F(ins - nose) + ", want >= " + F(Lv7MinMargin) + ")");
+                }
+                else
+                {
+                    Check(others.Count == 0, w, who + ": no comm seed height for this station but it has " + others.Count + " other single-point LV wire anchors");
+                }
+                s_Report.Add(line);
+            }
+            Check(bases == 4, w, "4 base stations checked; got " + bases);
+        }
+
+        private static string V(float3 v) => "(" + F(v.x) + ", " + F(v.y) + ", " + F(v.z) + ")";
 
         private static void Ei48Gate()
         {
