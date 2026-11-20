@@ -421,6 +421,17 @@ TEXPASS = {
         "timber_shake": {"set": "PHRoofSlates02", "tile_m": (1.8, 1.8), "target_srgb": (0.406, 0.352, 0.275),
                          "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.55, "normal_gain": 1.4,
                          "normal_lean": (0.0, 0.0)},
+        # siding_paint (the ski school only; slot-1 recolor, so a LIGHT neutral swatch: the player's color multiplies).
+        # WoodSiding009 turned 90 deg drew a lap profile stood upright (15 cm "boards", grooves) and its butt-joint column
+        # as one horizontal line through every board every 2.4 m. Poly Haven wood_planks_grey (1.5 m, 5 vertical boards)
+        # turned into the key's row frame at 1.2 m x 2 (the 2.4 m period: cut grid, tris, far units kept): 24 cm boards
+        # (a 1x10) with a raised 19 x 50 mm batten on every joint (the timber_vboard batten), the reference school's
+        # 0.20-0.23 m pitch. contrast 0.35: matte paint hides the grain (luminance CoV 0.125 shipped -> about 0.11);
+        # nflatten_m 0.10 takes out the scan's 1.2 m board-warp bands and keeps the board relief. Mean height slope
+        # (-0.15, +0.22) deg as drawn: P13 holds without a normal_lean
+        "siding_paint": {"set": "PHWoodPlanksGray", "tile_m": (1.2, 1.2), "repeat": 2, "rot": 1, "flatten_m": 0.15,
+                         "contrast": 0.35, "nflatten_m": 0.10, "normal_gain": 1.6,
+                         "detail": {"seams_m": 0.24, "seam_width_m": 0.05, "seam_depth_m": -0.019}},
     },
 }
 # Real-world course / board pitch (m) a pass key must show at its tile size: lap siding exposure 10-20 cm, slate and
@@ -430,7 +441,9 @@ TEXPASS = {
 # count the seams on the normal map when you pick a scan: a bond or a two-tone board pattern has a stronger harmonic).
 TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.06, 0.19),
                  # squared fieldstone courses 15-50 cm; unit pavers 8-15 cm courses
-                 "lux_stone_tan": (0.15, 0.50), "lux_paver": (0.08, 0.15)}
+                 "lux_stone_tan": (0.15, 0.50), "lux_paver": (0.08, 0.15),
+                 # board-and-batten boards 20-30 cm on center (1x8 .. 1x12; the reference school 0.20-0.23 m)
+                 "siding_paint": (0.20, 0.30)}
 # Pass keys with no course or board pitch to measure (P6 skips them; the grain scale is judged on renders): seam-free
 # member faces, and detail- or color-only keys that keep the flag-off scan
 TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red", "lux_siding_red")

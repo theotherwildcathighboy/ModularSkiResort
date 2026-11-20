@@ -36,7 +36,7 @@ Gates (the pilot's lessons, made mechanical):
       23 %); slate without its normal_lean fails it;
   P8  weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
       a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise;
-  P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate, timber_heavy, lux_glulam_s2: 2} (off: {}); a plinth + lap
+  P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate, timber_heavy, lux_glulam_s2, siding_paint: 2} (off: {}); a plinth + lap
       wall + slate roof through lodge's prep: the pass's UVTile is exactly 2 x the flag-off one on the pass keys'
       faces (meters / square tile); after lodge.texpass_far_units + align_islands + split_poor_islands the UVTile and
       the dry pack's UVUnique equal the flag-off ones bit for bit, and the sampling layer is the flag-off UVTile x 2
@@ -640,7 +640,8 @@ def check_far_units():
     TS.register_texpass("v1")
     try:
         fac = TS.texpass_tile_factors()
-        assert fac == {"lux_glulam_s2": 2.0, "lux_slate": 2.0, "slate": 2.0, "timber_heavy": 2.0}, fac   # timber_lap: no factor
+        assert fac == {"lux_glulam_s2": 2.0, "lux_slate": 2.0, "siding_paint": 2.0, "slate": 2.0,
+                       "timber_heavy": 2.0}, fac   # timber_lap: no factor
         on = far_layout(True)
     finally:
         TS.unregister_texpass()
