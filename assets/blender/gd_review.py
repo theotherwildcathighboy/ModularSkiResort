@@ -61,6 +61,8 @@ SHOTS = {
         ("play_d60", (0.75, 0.85, 0.70), 60.0, "center"),
         ("play_back_d60", (-0.8, -0.75, 0.70), 60.0, "center"),
         ("far_d150", (0.75, 0.85, 0.55), 150.0, "center"),
+        # the side sign plate (slot 3, z 4.10 of the 10.15 m bounds) from 8 m: the slot-3 color close up
+        ("sign_d8", (1.0, 0.0, 0.12), 8.0, "bbox:0.40"),
     ),
     "tower": (
         ("line_d30", (0.08, -1.0, 0.18), 30.0, "center"),
