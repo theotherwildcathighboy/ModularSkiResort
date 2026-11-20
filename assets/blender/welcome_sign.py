@@ -256,31 +256,20 @@ TEXPASS_CHOICES = ("off", "v1")
 # ships only what the family table says.
 TEXPASS_PICKS = {
     "family": {},
-    # the shingle key as the hut agent proposes it (r4-fleet/tex/l2/NOTE.md section 2, variant A): Poly Haven
-    # roof_slates_02 (real wooden shingles) at the key's 1.8 m period, 6.9 cm courses, the pre-pass palette mean held
-    "shingle": {"timber_shake": {"set": "PHRoofSlates02", "tile_m": (1.8, 1.8), "target_srgb": (0.406, 0.352, 0.275),
-                                 "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.7, "normal_gain": 1.2}},
-    # + the stone as the summit agent's no-download variant A1 (r4-fleet/tex/l4/NOTE.md): the same rubble scan, calmed
-    "proposed": {
-        "timber_shake": {"set": "PHRoofSlates02", "tile_m": (1.8, 1.8), "target_srgb": (0.406, 0.352, 0.275),
-                         "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.7, "normal_gain": 1.2},
-        "stone_rubble": {"set": "Bricks096", "tile_m": (3.2, 1.6), "flatten_m": 0.2, "contrast": 0.65,
-                         "normal_gain": 1.5}},
-    # + heavy timber on the rough-sawn siding scan (14 boards per image) at the key's full 3.08 m period: 22 cm boards on
-    # the 30-35 cm members, about twice the scan's true size (the pre-pass Planks021 draws 14 cm planed pine planks with
-    # knots). An exploration of the sign agent, not a family proposal on file
-    "proposed+timber": {
-        "timber_shake": {"set": "PHRoofSlates02", "tile_m": (1.8, 1.8), "target_srgb": (0.406, 0.352, 0.275),
-                         "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.7, "normal_gain": 1.2},
-        "stone_rubble": {"set": "Bricks096", "tile_m": (3.2, 1.6), "flatten_m": 0.2, "contrast": 0.65,
-                         "normal_gain": 1.5},
-        "timber_heavy": {"set": "PHWeatheredPlankSiding", "tile_m": (3.08, 3.08), "normal_gain": 1.3}},
+    # + the stone as the summit agent recommends it (r4-fleet/tex/l4/NOTE.md, variant D2): Poly Haven stone_wall at
+    # 3.2 m, 20-50 cm fieldstones (the pre-pass Bricks096 draws gray rubble in salmon mortar). The family table carries
+    # the shingle (timber_shake) and heavy timber (timber_heavy) keys, so the stone is the one stand-in left
+    "proposed": {"stone_rubble": {"set": "PHStoneWall", "tile_m": (3.2, 3.2), "flatten_m": 0.2}},
 }
 TP_ROOF_CHOICES = ("key", "true", "slate")
 TP_ROOF_ROLE = "gate_roof"            # cs2_tilesheet.texpass_role(TP_ROOF_ROLE) when the family table grows one
 TP_ROOF_KEY = "timber_shake"          # the key the shipped roof draws (the family draws it on gable walls only)
 TP_ROOF_SLATE = "slate"
 TP_TRUE_SIZE_M = {"PHRoofSlates02": 3.0, "WoodSiding013": 1.8}     # scan edge in the world (roof "true")
+# roof "true": pass controls over the family key's, the gate's roof only (the key's gable walls keep theirs).
+# contrast 0.40 (the key: 0.55): at 3.0 m the single light shingles read as speckle on the 12.8 m2 roof, not as
+# courses (the 2026-11-20 roof call, sign/NOTE.md)
+TP_ROOF_TRUE_CONTROLS = {"contrast": 0.40}
 TP_TRIM_KEY = "trim_grain"            # the family's painted trim (cs2_tilesheet.register_trim_materials, --trim v1)
 TP_TRIM_PREFIXES = ("beamhead_", "beamheadfront_", "barge_", "ridge_", "plankframe_", "emblemrim_")
 TP_UNDER_KEY = "timber_heavy"         # the roof slab's underside: boards, not the roof's own key
@@ -291,8 +280,10 @@ TP_PLANKS = {
     # the family's siding scan (timber_lap under v1: 14 boards per image, 17.1 cm at its 2.4 m tile) snapped to nine
     # boards on the 1.50 m plank (16.7 cm, 0.97 x the family scale); the shipped plank drew three 0.50 m boards of a
     # 15 cm siding scan stretched 3.3 x
+    # normal_lean: the scan's baked tilt (mean slope -6.3 deg along v at gain 1.3, the family's P13 limit is 2) de-tilted
+    # the family's way (scripts/p13_lean.py in the sign agent's stage: the de-tilted swatch leans +0.7, slope then +0.4)
     "lap9": dict(set="PHWeatheredPlankSiding", boards=14, board_m=PLANK_H / 9.0, seam_phase=0.516,
-                 controls={"contrast": 0.8, "normal_gain": 1.3}),
+                 controls={"contrast": 0.8, "normal_gain": 1.3, "normal_lean": (0.0, 0.7)}),
     # six 25 cm planed pine boards (Planks021, 11 per image): fewer lines behind the name, the scan about 1.6 x its size
     "pine6": dict(set="Planks021", boards=11, board_m=PLANK_H / 6.0, seam_phase=0.984,
                   controls={"chroma": 0.6, "contrast": 0.7, "normal_gain": 1.3}),
@@ -375,11 +366,13 @@ def parse_args(argv=None):
                     help="v1 = texture pass v1 (family swatch sources, own pack, weathering; off = byte-identical)")
     ap.add_argument("--texpass-picks", default="family", choices=tuple(sorted(TEXPASS_PICKS)),
                     help="preview stand-ins for family picks that cs2_tilesheet.TEXPASS lacks (family = none)")
-    ap.add_argument("--texpass-roof", default="key", choices=TP_ROOF_CHOICES,
-                    help="the roof under the pass: key = the family's shingle key as it stands, true = that scan at its "
-                         "true size, slate = the family's roof key")
-    ap.add_argument("--texpass-plank", default="lap9", choices=tuple(sorted(TP_PLANKS)),
-                    help="the name plank under the pass")
+    ap.add_argument("--texpass-roof", default="true", choices=TP_ROOF_CHOICES,
+                    help="the roof under the pass: true = the family's shingle scan at its true size (11.5 cm courses; "
+                         "the 2026-11-20 call), key = the key as it stands (6.9 cm wall courses), slate = the family's "
+                         "roof key")
+    ap.add_argument("--texpass-plank", default="pine6", choices=tuple(sorted(TP_PLANKS)),
+                    help="the name plank under the pass: pine6 = six 25 cm planed boards (the 2026-11-20 call), "
+                         "lap9 = nine rough-sawn boards of the family's siding scan")
     ap.add_argument("--texpass-weather", type=float, default=1.0, help="weathering strength under the pass (0 = none)")
     return ap.parse_args(argv)
 
@@ -1050,7 +1043,7 @@ def texpass_begin(args):
     tp = {"TS": TS, "version": version, "undo": [], "standins": {}, "weather": max(0.0, float(args.texpass_weather)),
           "work": tempfile.mkdtemp(prefix="sign_texpass_"), "roof": args.texpass_roof, "plank": args.texpass_plank}
     family = TS.TEXPASS[version]
-    merged = dict(family)
+    merged = dict(family)       # register_texpass skips a family key this build never registers (the lodges' slots v2)
     for k, s in sorted(TEXPASS_PICKS[args.texpass_picks].items()):
         if k not in family:                         # the family's own entry always wins
             merged[k] = dict(s)
@@ -1088,6 +1081,8 @@ def texpass_begin(args):
                 raise KeyError(f"--texpass-roof true: no true size on record for {m.set} (TP_TRUE_SIZE_M)")
             K.BLDG_MATERIALS[key] = replace(m, tile_m=(size, size))
             tp["undo"].append(lambda key=key, m=m: K.BLDG_MATERIALS.__setitem__(key, m))
+            if TP_ROOF_TRUE_CONTROLS:               # TS.TEXPASS[version] is this build's own merged dict
+                TS.TEXPASS[version][key] = {**TS.TEXPASS[version][key], **TP_ROOF_TRUE_CONTROLS}
         tp["roof_key"] = key
     except Exception:
         texpass_end(tp)
