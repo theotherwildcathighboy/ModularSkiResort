@@ -39,7 +39,7 @@ CLI (headless only):
         [--header "SKI AREA"] [--finish] [--lods] [--blockout] [--preview [DIR]]
         [--we-mock [TEXT]] [--review [DIR]] [--tex 1024] [--ao-samples 48] [--no-validate]
         [--texpass {off,v1}] [--texpass-picks NAME] [--texpass-roof {key,true,slate}] [--texpass-plank NAME]
-        [--texpass-weather 1.0]
+        [--texpass-heavy {lodge,key}] [--texpass-weather 1.0]
     Without --finish: blockout bake at A = 512, AO off (fast look). --blockout: geometry,
     band, contracts and the manifest only (no bake, no FBX). Exit 1 on any failure. The last line is
         PASS welcome_sign: <Name> LOD0 n, chain [n1, n2], engine base OK, tex A, ...
@@ -273,6 +273,14 @@ TP_ROOF_TRUE_CONTROLS = {"contrast": 0.40}
 TP_TRIM_KEY = "trim_grain"            # the family's painted trim (cs2_tilesheet.register_trim_materials, --trim v1)
 TP_TRIM_PREFIXES = ("beamhead_", "beamheadfront_", "barge_", "ridge_", "plankframe_", "emblemrim_")
 TP_UNDER_KEY = "timber_heavy"         # the roof slab's underside: boards, not the roof's own key
+# --texpass-heavy: the members' heavy timber (the family key, Wood060 at 0.77 m). lodge = its swatch at the lodge
+# sheet's density (N 128 = 166 px/m; L3 draws the key at 155.8 px/m), key = the swatch rule of every other key (3 x the
+# gate's 223.5 px/m: N 640). At N 640 the scan's pore relief survives the bake as per-texel normal noise: the beam at
+# 7 m read as cork, fine luma sd 9.77 at gain 1.0 against 2.00 shipped (normal tilt rms 15.8 deg). The box filter to
+# N 128 averages the pores the way the lodge cell does (sign/NOTE.md, 2026-11-20 06:20)
+TP_HEAVY_KEY = "timber_heavy"
+TP_HEAVY_CHOICES = ("lodge", "key")
+TP_HEAVY_LODGE_PPM = 166.0
 TP_PLANK_KEY = "sign_plank"
 # The name plank: boards per scan image, board width in the world (the tile = boards x width), the scan's seam phase
 # (periods from the image top, measured on the NormalGL row profile) so a seam sits on the plank's bottom edge.
@@ -373,6 +381,9 @@ def parse_args(argv=None):
     ap.add_argument("--texpass-plank", default="pine6", choices=tuple(sorted(TP_PLANKS)),
                     help="the name plank under the pass: pine6 = six 25 cm planed boards (the 2026-11-20 call), "
                          "lap9 = nine rough-sawn boards of the family's siding scan")
+    ap.add_argument("--texpass-heavy", default="lodge", choices=TP_HEAVY_CHOICES,
+                    help="the members' heavy timber under the pass: lodge = the family key's swatch at the lodge "
+                         "sheet's density (N 128, 166 px/m), key = at 3 x the gate's density like every other key")
     ap.add_argument("--texpass-weather", type=float, default=1.0, help="weathering strength under the pass (0 = none)")
     return ap.parse_args(argv)
 
@@ -1041,7 +1052,8 @@ def texpass_begin(args):
         raise ValueError("--texpass needs the fine build (drop --no-fine)")
     import cs2_tilesheet as TS
     tp = {"TS": TS, "version": version, "undo": [], "standins": {}, "weather": max(0.0, float(args.texpass_weather)),
-          "work": tempfile.mkdtemp(prefix="sign_texpass_"), "roof": args.texpass_roof, "plank": args.texpass_plank}
+          "work": tempfile.mkdtemp(prefix="sign_texpass_"), "roof": args.texpass_roof, "plank": args.texpass_plank,
+          "heavy": args.texpass_heavy}
     family = TS.TEXPASS[version]
     merged = dict(family)       # register_texpass skips a family key this build never registers (the lodges' slots v2)
     for k, s in sorted(TEXPASS_PICKS[args.texpass_picks].items()):
@@ -1088,7 +1100,8 @@ def texpass_begin(args):
         texpass_end(tp)
         raise
     print(f"[sign] texpass {version}: family keys {sorted(family)}, stand-ins {sorted(tp['standins'])}, roof "
-          f"{args.texpass_roof} -> {tp['roof_key']}, plank {args.texpass_plank}, weather {tp['weather']}")
+          f"{args.texpass_roof} -> {tp['roof_key']}, plank {args.texpass_plank}, heavy {args.texpass_heavy}, "
+          f"weather {tp['weather']}")
     return tp
 
 
@@ -1535,6 +1548,8 @@ def tp_swatch_source(key, ppm, tp):
     native = _tp_native_px(m)
     # in steps of 128 px, so two builds whose packs differ by a few px/m share one prefiltered tile (the cache key is N)
     N = int(max(16, min(128 * math.ceil(tile * K.PREFILTER_FACTOR * float(ppm) / 128.0), native)))
+    if key == TP_HEAVY_KEY and tp.get("heavy") == "lodge":    # the lodge sheet's density, in the same 128 px steps
+        N = int(min(128 * max(1, round(tile * TP_HEAVY_LODGE_PPM / 128.0)), native))
     swatch = getattr(TS, "swatch_maps", None) or TS._swatch_maps      # the public name once the family module has it
     base, nrm, metal, sm, slot, info = swatch(key, N, None, repeat=1, layout_name="rollout")
     if key in TS.TRIM_SMOOTH:                               # the strip keys' measured smoothness (not in SMOOTH_TARGET)
@@ -2003,7 +2018,7 @@ def _run(args, tp=None):
         covered = A * A - int(brep["uncovered_texels"])
         result["texpass"] = {
             "version": tp["version"], "picks": args.texpass_picks, "standins": tp["standins"],
-            "roof": [args.texpass_roof, tp["roof_key"]], "plank": args.texpass_plank,
+            "roof": [args.texpass_roof, tp["roof_key"]], "plank": args.texpass_plank, "heavy": args.texpass_heavy,
             "pack": dict(brep["pack"], covered_texels=covered, planned_fill_texels=int(plan["fill"] * A * A)),
             "share": {k: v for k, v in share.items() if k in ("pairs", "saved_m2", "parts", "uv_edits")},
             "weather": hook.weather, "key_ppm": {k: round(v, 1) for k, v in sorted(key_ppm.items())},
