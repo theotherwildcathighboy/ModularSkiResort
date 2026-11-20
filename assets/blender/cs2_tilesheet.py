@@ -411,8 +411,9 @@ TEXPASS = {
         # lux_vboard_red: battens at 0.35 m = every second 17.5 cm board seam, 8 per 2.8 m
         # tile (K.BATTEN's 0.30 m beat against the boards every 2.1 m and broke at every tile edge: 9.33 per tile)
         "lux_vboard_red": {"detail": {"seams_m": 0.35}, "target_srgb": (0.5838, 0.403, 0.2717)},
-        # timber_shake is wall shingles on every building that draws it (gable walls of L2 / L3 / L5 and the welcome
-        # sign; no roof draws it). WoodSiding013 (a 1.4 m shingle-siding scan) was drawn at 1.8 m: 22.5 cm courses that
+        # timber_shake is wall shingles (gable walls of L2 / L3 / L5, L3's kiosk walls). The one roof that draws the key
+        # is the welcome sign's (TEXPASS_ROLES["gate_roof"]); 6.9 cm is too fine for a roof, so the sign picks its own
+        # roof scale (welcome_sign.py --texpass-roof: true size or slate, never the key as is). WoodSiding013 (a 1.4 m shingle-siding scan) was drawn at 1.8 m: 22.5 cm courses that
         # read as boards. Poly Haven roof_slates_02 (split larch shingles despite the name, 26 courses per 3.0 m) at the
         # key's 1.8 m: 6.9 cm courses, the alpine wall-shingle scale. Its light / dark blotches repeat every 1.8 m
         # (flatten_m), single light shingles repeat as dots (contrast 0.55); normal_gain 1.4 carries the courses.
