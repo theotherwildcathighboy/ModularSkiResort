@@ -2064,6 +2064,9 @@ namespace SkiResortMod
                 // placed. {SNOW_LINE} and {GUN_LINE} are integer elevations in world meters (LocalizedNumber<int>, unit "integer");
                 // "≈" and "·" are on the UI glyph allowlist.
                 { "SkiResort.Tooltip.SNOW_LINE", "Winter snow line ≈ {SNOW_LINE} · guns work above ≈ {GUN_LINE}" },
+                // SkiParkingRingTooltipSystem (T263), the line under the cursor while a road lodge is placed. {RADIUS} is a length (m / yd, km / mi
+                // by the unit setting). SkiParkingRules.RadiusM is the radius.
+                { "SkiResort.Tooltip.PARKING_RING", "Parking radius {RADIUS}: only the car spaces inside the blue ring count for this lodge." },
                 // SkiSnowLineTooltipSystem, the cursor lines. HERE_ABOVE / HERE_BELOW: {HERE} the ground under the cursor, {DIFF} its
                 // distance to the snow line (both integer meters). AREA_SURVEY (only while the Welcome Sign is placed): the dry ground within
                 // the ski area radius of the cursor, {RADIUS} km (floatSingleFraction), {LOW} / {HIGH} / {VERT} integer meters, {PCT}

@@ -1031,7 +1031,7 @@ function run(srcDir) {
       // text buttons: one height
       actionButton: TEXT, segButton: TEXT, startButton: TEXT, treeToolButton: TEXT, areaName: TEXT,
       // icon buttons, tabs, chips, check rows
-      headerButton: "calc(24rem * var(--fontScale))", tabButton: "calc(24rem * var(--fontScale))", tabChevron: "calc(24rem * var(--fontScale))", rowPen: "calc(22rem * var(--fontScale))",
+      headerButton: "calc(24rem * var(--fontScale))", tabButton: "calc(24rem * var(--fontScale))", tabChevron: "calc(20rem * var(--fontScale))", rowPen: "calc(22rem * var(--fontScale))",
       pickerChip: "calc(22rem * var(--fontScale))", toggleAct: "calc(22rem * var(--fontScale))", pagerButton: "calc(20rem * var(--fontScale))",
       // tiles
       tile: "calc(33.1rem * var(--fontScale) + 36.315rem * var(--fontScaleChange) + 8.5rem)",
@@ -1527,7 +1527,13 @@ function run(srcDir) {
     eq("T246.2 tab click opens a closed strip on that tab", R.tabClick("runs"), { open: true, tab: "runs" });
     eq("T246.3 chevron closes an open strip", R.chevronClick(true, false), false);
     eq("T246.4 chevron opens a closed strip", R.chevronClick(false, false), true);
-    eq("T246.5 chevron while engaged keeps it open", R.chevronClick(true, true), true);
+    eq("T262.1 chevron while engaged closes the strip (it cancels the mode first)", R.chevronClick(true, true), false);
+    const none = { activeId: null, tree: false, quickRuns: false, liftTool: false, merge: false };
+    eq("T262.2 nothing engaged: nothing to cancel", R.chevronCancel(none), []);
+    eq("T262.3 a lit tile: its launch (the lift tool and the cat track tool light theirs)", R.chevronCancel({ ...none, activeId: "run0" }), ["launch"]);
+    eq("T262.4 a lit tile and the lift tool flag: launch only (a lift toggle would open it again)", R.chevronCancel({ ...none, activeId: "liftChair", liftTool: true }), ["launch"]);
+    eq("T262.5 tree / quick runs / lift tool without a tile", [R.chevronCancel({ ...none, tree: true }), R.chevronCancel({ ...none, quickRuns: true }), R.chevronCancel({ ...none, liftTool: true })], [["tree"], ["quickRuns"], ["liftTool"]]);
+    eq("T262.6 the merge overlay is switched off besides", R.chevronCancel({ ...none, tree: true, merge: true }), ["tree", "merge"]);
     eq("T246.6 strip slots: the most tiles and gaps", R.stripSlots([{ tiles: 3, groups: 1 }, { tiles: 3, groups: 2 }, { tiles: 6, groups: 2 }, { tiles: 4, groups: 3 }]), { slots: 6, gaps: 2 });
     eq("T246.7 strip slots: no rows", R.stripSlots([]), { slots: 1, gaps: 0 });
   }

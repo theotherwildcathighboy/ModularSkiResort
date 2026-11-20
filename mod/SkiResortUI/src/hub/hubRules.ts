@@ -667,16 +667,40 @@ export function footerOpen(stored: boolean, engaged: boolean, collapsible: boole
 }
 
 /** A tab click (T246 Design A, 2026-11-17): it shows that tab and never closes the strip. A closed strip opens on that tab.
- *  Only the chevron at the end of the tab row closes it (chevronClick). Before T246 a click on the open tab closed the strip, and
+ *  Only the chevron at the end of the tab row closes it (chevronClick; engaged, it cancels the tool first). Before T246 a click on the open tab closed the strip, and
  *  the view above re-fitted: the "tabs jump" of the Corwen playtest. */
 export function tabClick(clicked: BuildTab): { open: boolean; tab: BuildTab } {
   return { open: true, tab: clicked };
 }
 
-/** The chevron at the end of the tab row: it opens or closes the strip. While a mode the strip started is engaged, the strip stays
- *  open (footerOpen), so the chevron does nothing then (BuildStrip draws it disabled). */
+/** The chevron at the end of the tab row: it opens or closes the strip. While a mode the strip started is engaged it cancels that mode
+ *  (chevronCancel) and closes the strip (T262, 2026-11-20; before it, the chevron was dead then, T246). */
 export function chevronClick(open: boolean, engaged: boolean): boolean {
-  return engaged ? true : !open;
+  return engaged ? false : !open;
+}
+
+/** What is engaged right now, as the strip reads it. */
+export interface EngagedModes {
+  /** The id of the lit build tile (a build tool, the lift tool with a type, the cat track tool), or null. */
+  activeId: string | null;
+  tree: boolean;
+  quickRuns: boolean;
+  liftTool: boolean;
+  merge: boolean;
+}
+
+/** T262: the actions a chevron click sends to end every engaged mode. The tools are exclusive, so ONE of launch / tree / quickRuns / liftTool
+ *  is sent (a lit tile first: its launch returns to the default tool, and the lift tool and the cat track tool light their tile; the lift
+ *  tool's own toggle after it would open it again). The merge overlay is no tool, so it is switched off besides. */
+export type ChevronCancel = "launch" | "tree" | "quickRuns" | "liftTool" | "merge";
+export function chevronCancel(m: EngagedModes): ChevronCancel[] {
+  const out: ChevronCancel[] = [];
+  if (m.activeId) out.push("launch");
+  else if (m.tree) out.push("tree");
+  else if (m.quickRuns) out.push("quickRuns");
+  else if (m.liftTool) out.push("liftTool");
+  if (m.merge) out.push("merge");
+  return out;
 }
 
 /** One tab's (or Buildings family's) tile row: its tile count and its tile group count. */
