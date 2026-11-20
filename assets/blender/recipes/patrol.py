@@ -592,6 +592,12 @@ P1 = FineRecipe(
         ("akja_", {"role": "pad"}), ("roll_", {"role": "pad", "scale": 0.7}),
         ("pole_", {"role": "timber"}), ("tobrack_", {"role": "galv"}), ("gear_", {"role": "pad"}),
         ("mast_", {"role": "galv"}), ("logpost_", {"role": "timber", "edge": 1.2}))},
+    # texture pass v1 (--texpass v1 only, docs/PIPELINE.md 1b): the rollout bands are sized for lodges. On this 2.35 m
+    # wall the under-eave band (0.4 / 0.6 m) plus the base band made 47 % of the boards draw the weathered cell (back
+    # wall 72 %); the under-eave strip stands in the eave's shadow anyway. eave_h 0 = no under-eave band. A lower base
+    # band per side needs a "base_h" rule in lodge.texpass_weather (proposed; not in lodge.py yet).
+    # weather_level 0 = the flag-off ladder level the pass must keep (lodge.assert_texpass_level)
+    texpass={"eave_h": 0.0, "weather_level": 0},
     sub_objects=P1_ROWS_LEGACY + P1_ROWS_FINE,
     kit_colour_set=KIT_COLOUR_SET,
     notes="civic-sign contract 3 (P1) + skeptic M1/M2/M3; detail pass 1 (design 3.3 + skeptic); "
@@ -813,9 +819,13 @@ def build_p2(recipe, opts):
     sx, sfy, sty, sw, srm = P2_STAIR
     P += K.stair("hq", (sx, sfy, 0.0), (sx, sty, f1), w=sw, rise_max=srm,
                  ground=True, rail="none", tread_mat="deck", stringer_mat="deck")
+    # texture pass (lodge.py --texpass, off = the shipped key): the rail posts draw timber_heavy like the P1 log
+    # posts (grain along the post). timber_shake is the family's wall-shingle key: its courses ring a round post
+    import cs2_tilesheet as TS
+    post_mat = "timber_heavy" if TS.texpass_version() else "timber_shake"
     for k, py in enumerate(P2_POSTS_Y):
         P += C.cyl_part(f"logpost_{k}", (P2_POST_X, py, f1), (P2_POST_X, py, f1 + 1.30), 0.11,
-                        "timber_shake", segs=LOG_SEGS_FINE if fine else 6, cap0=False)
+                        post_mat, segs=LOG_SEGS_FINE if fine else 6, cap0=False)
     bars = []
     for zb in P2_BAR_Z:
         z = f1 + zb
@@ -954,6 +964,10 @@ P2 = FineRecipe(
     # (kit rows, sign set, fine geometry): 0.50 clean (VL1 0.047, VL2 0.065), 0.55 VL1 0.052 -> ships 0.50.
     # The legacy path keeps the approved 0.45
     weather={"intensity": 0.50, "overrides": P2_WEATHER_OVERRIDES},
+    # texture pass v1 (--texpass v1 only, docs/PIPELINE.md 1b): the 0.15 m stilts take no base band. The z-0 rule
+    # cut one stilt at three heights (0.5 / 0.8 / 1.1 m by facade side); their concrete footings take the splash, as
+    # on the L2 hut. weather_level 0 = the flag-off ladder level the pass must keep (lodge.assert_texpass_level)
+    texpass={"band_skip": ("stilt_",), "weather_level": 0},
     sub_objects=P2_ROWS_LEGACY + P2_ROWS_FINE,
     notes="civic-sign contract 3 (P2) + skeptic M3/M7; lot 2 x 2 (R22); detail pass 1 (design "
           "3.4 / 5.2 + skeptic); fine-detail step 3d (sign set, kit lean rows + hose reel, vanilla "

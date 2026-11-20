@@ -516,7 +516,9 @@ def detail_height(me, A, specs, uv_layer="UVUnique", part_table=None, matrix=Non
             if spec.seam_axes in ("both", "rings"):
                 f += _seam_lines(s_v, spec.seams_m, half_w, spec.seam_depth_m)
             if spec.seam_axes in ("both", "ribs"):
-                f = np.minimum(f, _seam_lines(s_h, spec.seams_m, half_w, spec.seam_depth_m))
+                ribs = _seam_lines(s_h, spec.seams_m, half_w, spec.seam_depth_m)
+                # a NEGATIVE depth is a raised rib (a batten); np.minimum dropped it
+                f = np.maximum(f, ribs) if spec.seam_depth_m < 0 else np.minimum(f, ribs)
             drawn["seams"] = drawn.get("seams", 0) + 1
 
         if spec.bolt_pitch_m and floor_ok(2.0 * spec.bolt_r_m, "bolts"):

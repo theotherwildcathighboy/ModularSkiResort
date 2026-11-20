@@ -900,6 +900,15 @@ RECIPE = FineRecipe(
     lot=(LOT_W, LOT_D), base_mode="plinth", plinth=(-Z_PLINTH, Z_LOUNGE), yaw_deg=0.0,
     tex=2048, allow_4096=True,       # R18 / R23: 4096 only if the shipped w=1 median < 25 px/m
     budget=Budget(16000, 18000, 7000, 480, 600),
+    # texture pass v1 (--texpass v1 only; cost probe in the r4 tex note, 2026-11-19): the splash band follows the 20 %
+    # design grade t_at(x) down the plinth. The z-0 rule weathered 61 % of the stone that stands above the design grade (at
+    # half density), with the U block's back wall up to 3.6 m over the terrace deck; the grade leaves 16 % (a 0.5-0.8 m
+    # course over the rock band). No under-eave band: it put the walnut siding on its 86 px/m cell and the sheltered wall
+    # tops under the deck and the dining slab on the weathered stone (-271 tris). The stair, its lower walkway and the dining
+    # slab edge take no band (the grade clipped slivers of 0.2-0.5 m2 out of them, 17 tris). weather_level 0 = the flag-off
+    # level the pass must keep (lodge.assert_texpass_level). LOD0 13,023 (flag off 13,115).
+    texpass={"grade": {"slope": S_DESIGN, "anchor_x": HX}, "eave_h": 0.0,
+             "band_skip": ("deck_s", "deck_dslab", "stair_"), "weather_level": 0},
     massing="custom", builder=build_l4,
     rooms="auto", interior="CommercialLow",
     # VariationSet A (contract 6): graphite / red / zinc

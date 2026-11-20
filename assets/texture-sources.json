@@ -1,5 +1,5 @@
 {
-  "_about": "Provenance of the photo-scan texture sets that are not ambientCG IDs. assets/textures/ is git-ignored: download each map's url, check its md5, and save it as assets/textures/<set>/<set>_2K-PNG_<map>.png (the ambientCG naming cs2_bake.find_set_map reads). All CC0, no attribution required; credited in release/CREDITS.md and assets/LICENSE. cs2_tilesheet.TEXPASS names the sets; tests/test_texpass.py checks every name has an entry here.",
+  "_about": "Provenance of the photo-scan texture sets that are not ambientCG IDs, and of every ambientCG set the texture pass (cs2_tilesheet.TEXPASS) names (test_texpass P1 checks an entry and the md5 of each pass set; an ambientCG map's url is its set's 2K-PNG zip, the member is <set>_2K-PNG_<map>.png). assets/textures/ is git-ignored: download each map's url, check its md5, and save it as assets/textures/<set>/<set>_2K-PNG_<map>.png (the ambientCG naming cs2_bake.find_set_map reads). All CC0, no attribution required; credited in release/CREDITS.md and assets/LICENSE. cs2_tilesheet.TEXPASS names the sets; tests/test_texpass.py checks every name has an entry here.",
   "sets": {
     "PHWeatheredPlankSiding": {
       "source": "Poly Haven", "id": "weathered_plank_siding", "page": "https://polyhaven.com/a/weathered_plank_siding",
@@ -26,6 +26,142 @@
         "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/weathered_brown_planks/weathered_brown_planks_diff_2k.png", "md5": "16a39f77380ac5ec40a08e8911a56821"},
         "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/weathered_brown_planks/weathered_brown_planks_nor_gl_2k.png", "md5": "b7fa266208d57c10c329349037744311"},
         "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/weathered_brown_planks/weathered_brown_planks_rough_2k.png", "md5": "275afa40d8167bf97fcbf68217a00e93"}
+      }
+    },
+    "PHConcreteWall008": {
+      "source": "Poly Haven", "id": "concrete_wall_008", "page": "https://polyhaven.com/a/concrete_wall_008",
+      "license": "CC0", "authors": {"Charlotte Baglioni": "Photography", "Dario Barresi": "Processing"}, "size_m": 2.71,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/concrete_wall_008/concrete_wall_008_diff_2k.png", "md5": "b33a28a2744ce12c7d309325c0529a20"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/concrete_wall_008/concrete_wall_008_nor_gl_2k.png", "md5": "c18dca9f78907c891c3e058aeea687d7"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/concrete_wall_008/concrete_wall_008_rough_2k.png", "md5": "49e9fee865f14a478762ffb80d2a3303"}
+      }
+    },
+    "PHWoodPlanksGray": {
+      "source": "Poly Haven", "id": "wood_planks_grey", "page": "https://polyhaven.com/a/wood_planks_grey",
+      "license": "CC0", "authors": {"Rob Tuytel": "All"}, "size_m": 1.5,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/wood_planks_grey/wood_planks_grey_diff_2k.png", "md5": "df56b569da7d50a195dbada81d908a59"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/wood_planks_grey/wood_planks_grey_nor_gl_2k.png", "md5": "b21bfa0d5511ed33d749ca66d3d11cbe"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/wood_planks_grey/wood_planks_grey_rough_2k.png", "md5": "3db8138b0173986c3b02d229102e4d62"}
+      }
+    },
+    "PHRusticStoneWall02": {
+      "source": "Poly Haven", "id": "rustic_stone_wall_02", "page": "https://polyhaven.com/a/rustic_stone_wall_02",
+      "license": "CC0", "authors": {"Amal Kumar": "All"}, "size_m": 1.5,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rustic_stone_wall_02/rustic_stone_wall_02_diff_2k.png", "md5": "8cb6634cb6bf4f0cb4af2f60060e1da8"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rustic_stone_wall_02/rustic_stone_wall_02_nor_gl_2k.png", "md5": "8abbc89048c64b2cd22009b6835ff79a"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rustic_stone_wall_02/rustic_stone_wall_02_rough_2k.png", "md5": "03ff45cb45592b7b08637cf10caf22d2"}
+      }
+    },
+    "PHCastleWallSlates": {
+      "source": "Poly Haven", "id": "castle_wall_slates", "page": "https://polyhaven.com/a/castle_wall_slates",
+      "license": "CC0", "authors": {"Rob Tuytel": "All"}, "size_m": 2.5,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/castle_wall_slates/castle_wall_slates_diff_2k.png", "md5": "c581ec93e7ecb561cb37618b0e06af3f"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/castle_wall_slates/castle_wall_slates_nor_gl_2k.png", "md5": "81608698d51d4868843b24f467d0be38"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/castle_wall_slates/castle_wall_slates_rough_2k.png", "md5": "f577d9e1fe47cee78e577a01f99e5203"}
+      }
+    },
+    "PHMarbleCliff01": {
+      "source": "Poly Haven", "id": "marble_cliff_01", "page": "https://polyhaven.com/a/marble_cliff_01",
+      "license": "CC0", "authors": {"Amal Kumar": "All"}, "size_m": 4.3,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/marble_cliff_01/marble_cliff_01_diff_2k.png", "md5": "efa058930e88a99a509261cce449a65f"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/marble_cliff_01/marble_cliff_01_nor_gl_2k.png", "md5": "f09c5b85da2980e966ebfdaf62bc6b13"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/marble_cliff_01/marble_cliff_01_rough_2k.png", "md5": "be050421062eae777ba944cc2dd45577"}
+      }
+    },
+    "PHRusticStoneWall": {
+      "source": "Poly Haven", "id": "rustic_stone_wall", "page": "https://polyhaven.com/a/rustic_stone_wall",
+      "license": "CC0", "authors": {"Dimitrios Savva": "All"}, "size_m": 1.52,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rustic_stone_wall/rustic_stone_wall_diff_2k.png", "md5": "411dc373f8ae33f049ea0618a38c3c16"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rustic_stone_wall/rustic_stone_wall_nor_gl_2k.png", "md5": "3095780d1fa037203f150d17c0ee9b9a"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rustic_stone_wall/rustic_stone_wall_rough_2k.png", "md5": "c8f873fa8f9f1c06eabaf1c2a1bcb059"}
+      }
+    },
+    "PHRockWall11": {
+      "source": "Poly Haven", "id": "rock_wall_11", "page": "https://polyhaven.com/a/rock_wall_11",
+      "license": "CC0", "authors": {"Dimitrios Savva": "All"}, "size_m": 1.91,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rock_wall_11/rock_wall_11_diff_2k.png", "md5": "cfe5f98147bb1f826b8e4e964b44d34c"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rock_wall_11/rock_wall_11_nor_gl_2k.png", "md5": "0338e9c32caf7ab34d2dffaf7b6063d4"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rock_wall_11/rock_wall_11_rough_2k.png", "md5": "962c19cecf3032fbc614402e7a74bc2a"}
+      }
+    },
+    "PHRedBrickPavers": {
+      "source": "Poly Haven", "id": "red_brick_pavers", "page": "https://polyhaven.com/a/red_brick_pavers",
+      "license": "CC0", "authors": {"Amal Kumar": "All"}, "size_m": 1.8,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/red_brick_pavers/red_brick_pavers_diff_2k.png", "md5": "8bb3d3e35c670bf38eaa27ca30416040"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/red_brick_pavers/red_brick_pavers_nor_gl_2k.png", "md5": "ebba4f8fa4832d56c47b20de916b3d42"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/red_brick_pavers/red_brick_pavers_rough_2k.png", "md5": "a5e128270b79bacec4f24821bd569121"}
+      }
+    },
+    "PHStoneWall": {
+      "source": "Poly Haven", "id": "stone_wall", "page": "https://polyhaven.com/a/stone_wall",
+      "license": "CC0", "authors": {"Charlotte Baglioni": "Photography", "Dario Barresi": "Processing"}, "size_m": 2.0,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/stone_wall/stone_wall_diff_2k.png", "md5": "17c16b9b9e2bc8cc82c63fa49bbfe1dc"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/stone_wall/stone_wall_nor_gl_2k.png", "md5": "fc69cf471874114bdbff2d418f075bde"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/stone_wall/stone_wall_rough_2k.png", "md5": "3d7859aca5d0cb1fbd86ab2cf6cec137"}
+      }
+    },
+    "PHRustCoarse01": {
+      "source": "Poly Haven", "id": "rust_coarse_01", "page": "https://polyhaven.com/a/rust_coarse_01",
+      "license": "CC0", "authors": {"Dimitrios Savva": "Photography", "Rico Cilliers": "Processing"}, "size_m": 2.2,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rust_coarse_01/rust_coarse_01_diff_2k.png", "md5": "ccfbc8f04be9a57c4bf4f57e13392ef2"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rust_coarse_01/rust_coarse_01_nor_gl_2k.png", "md5": "e1794a4830de6acde8b9d238104fa61f"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/rust_coarse_01/rust_coarse_01_rough_2k.png", "md5": "153d3c923bb12f4d0c1f0d0f67b480a9"}
+      }
+    },
+    "PHCorrugatedIron": {
+      "source": "Poly Haven", "id": "corrugated_iron", "page": "https://polyhaven.com/a/corrugated_iron",
+      "license": "CC0", "authors": {"Jenelle van Heerden": "Photography", "Dimitrios Savva": "Processing"}, "size_m": 1.12,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/corrugated_iron/corrugated_iron_diff_2k.png", "md5": "94457bfd1f8facd2f1da7c23a911d86d"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/corrugated_iron/corrugated_iron_nor_gl_2k.png", "md5": "c59cda425ee2fa541551d39e9d878d5a"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/corrugated_iron/corrugated_iron_rough_2k.png", "md5": "8a2258f4651f6050a227bae3095f0cbf"},
+        "Metalness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/corrugated_iron/corrugated_iron_metal_2k.png", "md5": "bd71a637d562c44c95556b757fdab24a"}
+      }
+    },
+    "PHRoofSlates02": {
+      "source": "Poly Haven", "id": "roof_slates_02", "page": "https://polyhaven.com/a/roof_slates_02",
+      "license": "CC0", "authors": {"Rob Tuytel": "All"}, "size_m": 3.0,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/roof_slates_02/roof_slates_02_diff_2k.png", "md5": "9dfce62ccfd1ef34cf5a4f3593c1af8b"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/roof_slates_02/roof_slates_02_nor_gl_2k.png", "md5": "dd7a5ad674b3590c26abd25c6f8927ea"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/roof_slates_02/roof_slates_02_rough_2k.png", "md5": "35898a535ffd197016f4602d6ccd679c"}
+      }
+    },
+    "PavingStones135": {
+      "source": "ambientCG", "id": "PavingStones135", "page": "https://ambientcg.com/view?id=PavingStones135",
+      "license": "CC0", "size_m": 1.9,
+      "maps": {
+        "Color": {"url": "https://ambientcg.com/get?file=PavingStones135_2K-PNG.zip", "md5": "9a8754af62caa68d7d82356be2a70784"},
+        "NormalGL": {"url": "https://ambientcg.com/get?file=PavingStones135_2K-PNG.zip", "md5": "051932d34df01b11ca5e318f92f730ad"},
+        "Roughness": {"url": "https://ambientcg.com/get?file=PavingStones135_2K-PNG.zip", "md5": "4171f95aa9e28247ed280a5d5fbbb7f1"}
+      }
+    },
+    "Wood077": {
+      "source": "ambientCG", "id": "Wood077", "page": "https://ambientcg.com/view?id=Wood077",
+      "license": "CC0", "size_m": 0.7,
+      "maps": {
+        "Color": {"url": "https://ambientcg.com/get?file=Wood077_2K-PNG.zip", "md5": "1155cfd61a6e4e01c672b29b66ff8dc8"},
+        "NormalGL": {"url": "https://ambientcg.com/get?file=Wood077_2K-PNG.zip", "md5": "d326a613acb9d5a9d84bfa0c94f90776"},
+        "Roughness": {"url": "https://ambientcg.com/get?file=Wood077_2K-PNG.zip", "md5": "4333055568cae20497469403ba3942aa"}
+      }
+    },
+    "Wood060": {
+      "source": "ambientCG", "id": "Wood060", "page": "https://ambientcg.com/view?id=Wood060",
+      "license": "CC0", "size_m": null, "size_note": "real-world size not stated by the source; the timber_heavy key is a seam-free face (TEXPASS_SOLID), so no pitch is measured",
+      "maps": {
+        "Color": {"url": "https://ambientcg.com/get?file=Wood060_2K-PNG.zip", "md5": "f8765c7b358375d9245656e664df9540"},
+        "NormalGL": {"url": "https://ambientcg.com/get?file=Wood060_2K-PNG.zip", "md5": "006b209a2c25edcc68ff7e5db03ed073"},
+        "Roughness": {"url": "https://ambientcg.com/get?file=Wood060_2K-PNG.zip", "md5": "774582eb4f42f06b7d4f50d0004159b5"}
       }
     }
   }

@@ -19,14 +19,24 @@ Gates (the pilot's lessons, made mechanical):
       clean and uncut while every other face keeps its state (the hut's posts: 192 tris and a weather level);
   P5  lodge.texpass_weather: the hut recipe's grade in the tiled frame matches the authoring grade through
       cs2_asset.orient_for_net; eave_h overrides every side; band_skip carried; a yawed recipe raises; None stays None;
-  P6  real-world scale: every pass key has a TEXPASS_PITCH range and its scan's course / board pitch (Color map row
-      autocorrelation at the set's size_m) times tile_m / size_m lies in it (the 0.6 x shake scan failed this);
+  P6  real-world scale: every pass key has a TEXPASS_PITCH range and its scan's course / board pitch (the fundamental of
+      the Color map's row autocorrelation at the set's size_m) times tile_m / size_m lies in it (the 0.6 x shake scan
+      failed this; the strongest peak passed the siding at half its intended board width); a key in
+      TEXPASS_SOLID (a seam-free member face) has no pitch and no range;
   P7  swatch controls: deck chroma + flatten_m + contrast keep the swatch mean within 0.01 sRGB (the palette) and cut
       the mean chroma and the luminance CoV, normal_gain raises the tilt rms; texpass_swatch is {} with the pass off
       (alias followers too);
+  P12 normal lean: every pass key with normal_lean draws a sheet swatch whose mean normal points at the stated
+      (u, v) lean within 0.5 deg (a lapped scan's mean normal leans: PHGrayRoofTiles02 at gain 1.3 leaned (-9.0,
+      -7.2) deg against the shipped slate's (-0.3, +10.6): the sun shaded every slate roof as if it faced 20 deg
+      elsewhere); the lean is the last control, so normal_gain cannot scale it again;
+  P13 no baked tilt: every pass key's sheet swatch (after normal_gain and normal_lean, as the sheet draws it) has a mean
+      height slope under TEXPASS_MAX_MEAN_SLOPE_DEG in u and v (a relief that tiles averages 0; PHGrayRoofTiles02
+      carries a bake tilt of +9.2 / +7.8 deg at gain 1.3, which turned its lean and darkened the shaded roof slope by
+      23 %); slate without its normal_lean fails it;
   P8  weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
       a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise;
-  P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate, timber_lap: 2} (off: {}); a plinth + lap
+  P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate, timber_heavy, lux_glulam_s2, siding_paint: 2} (off: {}); a plinth + lap
       wall + slate roof through lodge's prep: the pass's UVTile is exactly 2 x the flag-off one on the pass keys'
       faces (meters / square tile); after lodge.texpass_far_units + align_islands + split_poor_islands the UVTile and
       the dry pack's UVUnique equal the flag-off ones bit for bit, and the sampling layer is the flag-off UVTile x 2
@@ -100,6 +110,8 @@ def check_provenance():
     hashed = 0
     for v in TS.TEXPASS:
         for k, s in sorted(TS.texpass_specs(v).items()):
+            if "set" not in s:          # detail-only key (lux_vboard_red): no download
+                continue
             e = src.get(s["set"])
             assert e is not None, f"{v} {k}: {s['set']} has no texture-sources.json entry"
             assert e["license"] == "CC0" and e["page"].startswith("https://"), (s["set"], e["license"], e["page"])
@@ -124,9 +136,14 @@ def check_cut_grid_and_round_trip():
         try:
             on = layout()
             assert on["hash"] != off0["hash"], "the pass must change the sheet hash"
+            # the one cell a pass may RENAME (same rect): the orphaned metal_roof~w taken by the coated light roof
+            ren = {}
+            if TS.TEXPASS_FLAT.get(v, {}).get("metal_roof_lt", {}).get("light_w"):
+                ren["metal_roof" + TS.W_SUFFIX] = "metal_roof_lt" + TS.W_SUFFIX
             for k, t in off0["tiles"].items():
-                assert on["tiles"][k]["rect_px"] == t["rect_px"], (k, t["rect_px"], on["tiles"][k]["rect_px"])
-            assert set(on["tiles"]) == set(off0["tiles"]) and on["palette"] == off0["palette"]
+                kn = ren.get(k, k)
+                assert on["tiles"][kn]["rect_px"] == t["rect_px"], (k, t["rect_px"], on["tiles"][kn]["rect_px"])
+            assert set(on["tiles"]) == {ren.get(k, k) for k in off0["tiles"]} and on["palette"] == off0["palette"]
             specs = TS.texpass_specs(v)
             for k in sorted(specs):
                 sk = TS.swatch_key(on, k)
@@ -312,19 +329,30 @@ def check_texpass_weather():
        f"{tp['eave_h']} on every side; band_skip {W.band_skip}; yaw raises")
 
 
-def row_pitch(path):
-    """The dominant row period of an image as a fraction of its height (luminance row means, autocorrelation)."""
+def row_pitch(path, cols=False):
+    """The fundamental row period of an image as a fraction of its height (luminance row means, autocorrelation): the
+    SHORTEST lag whose peak reaches half the strongest peak. The strongest peak alone is not the pitch: boards that
+    alternate in tone, or a bond, put more energy into the 2-course harmonic (PHWeatheredPlankSiding: 0.52 at one
+    board, 0.64 at two; the pilot drew its siding at half the intended board width). cols=True: the column period (a
+    scan the pass turns a quarter, control "rot": its file columns become the swatch rows)."""
     im = bpy.data.images.load(path, check_existing=False)
     im.colorspace_settings.name = "Non-Color"
     w, h = im.size
     a = np.empty(w * h * 4, np.float32)
     im.pixels.foreach_get(a)
     bpy.data.images.remove(im)
-    prof = (a.reshape(h, w, 4)[..., :3] @ TS.LUMA).mean(1)
+    lum = a.reshape(h, w, 4)[..., :3] @ TS.LUMA
+    if cols:
+        lum = lum.T
+        h = w
+    prof = lum.mean(1)
     p = prof - prof.mean()
     ac = np.fft.irfft(np.abs(np.fft.rfft(p, 2 * h)) ** 2)[:h]
     lo = int(h * 0.01) + 2
-    return (lo + int(np.argmax(ac[lo:h // 3]))) / h
+    seg = ac[lo:h // 3]
+    peaks = [i for i in range(1, len(seg) - 1) if seg[i] > seg[i - 1] and seg[i] >= seg[i + 1]]
+    top = max(seg[i] for i in peaks)
+    return (lo + next(i for i in peaks if seg[i] >= 0.5 * top)) / h
 
 
 def check_scale():
@@ -333,11 +361,16 @@ def check_scale():
     rows = []
     for v in TS.TEXPASS:
         for k, s in sorted(TS.TEXPASS[v].items()):
+            if k in TS.TEXPASS_SOLID:
+                assert k not in TS.TEXPASS_PITCH, f"{v} {k}: a solid key has no pitch range"
+                rows.append(f"{k} solid")
+                continue
             assert k in TS.TEXPASS_PITCH, f"{v} {k}: no real-world pitch range in cs2_tilesheet.TEXPASS_PITCH"
             lo, hi = TS.TEXPASS_PITCH[k]
             size = float(src[s["set"]]["size_m"])
             p = cs2_bake.find_set_map(os.path.join(cs2_bake.TEXTURE_ROOT, s["set"]), "Color")
-            world = row_pitch(p) * s["tile_m"][1]          # courses run along the image v (rows)
+            # courses run along the image v (rows); an odd "rot" turns the file's columns into the swatch rows
+            world = row_pitch(p, cols=int(s.get("rot", 0)) % 2 == 1) * s["tile_m"][1]
             assert lo <= world <= hi, f"{v} {k}: {s['set']} courses {world * 100:.1f} cm at {s['tile_m'][1]} m " \
                                       f"(scan {size} m), real-world {lo * 100:.0f}-{hi * 100:.0f} cm"
             rows.append(f"{k} {world * 100:.1f} cm (x {s['tile_m'][1] / size:.2f})")
@@ -349,12 +382,13 @@ def check_swatch_controls():
     TS.register_texpass("v1")
     try:
         spec = TS.TEXPASS["v1"]["deck"]
-        assert all(f in spec for f in TS.TEXPASS_CONTROLS), spec
+        DECK_CONTROLS = ("chroma", "flatten_m", "contrast", "normal_gain")
+        assert all(f in spec for f in DECK_CONTROLS), spec
         tuned = TS._swatch_maps("deck", 480, repeat=2)
         saved = dict(spec)
         try:
-            for f in TS.TEXPASS_CONTROLS:
-                spec.pop(f)
+            for f in DECK_CONTROLS:
+                spec.pop(f, None)
             raw = TS._swatch_maps("deck", 480, repeat=2)
         finally:
             spec.clear()
@@ -381,7 +415,7 @@ def check_swatch_controls():
     assert chroma(tuned[0]) < 0.75 * chroma(raw[0]), (chroma(tuned[0]), chroma(raw[0]))
     assert lum_cov(tuned[0]) < 0.75 * lum_cov(raw[0]), (lum_cov(tuned[0]), lum_cov(raw[0]))
     assert tilt(tuned[1]) > 1.15 * tilt(raw[1]), (tilt(tuned[1]), tilt(raw[1]))
-    assert tuned[5].get("texpass") == {f: float(saved[f]) for f in TS.TEXPASS_CONTROLS}, tuned[5]
+    assert tuned[5].get("texpass") == {f: float(saved[f]) for f in DECK_CONTROLS if f in saved}, tuned[5]
     assert "texpass" not in raw[5], raw[5]
     assert TS.texpass_swatch("lux_slate") == {}, "pass off: no alias control"
     ok(f"P7 swatch controls: deck mean held ({d:.4f} sRGB), chroma {chroma(raw[0]):.4f} -> {chroma(tuned[0]):.4f}, "
@@ -449,9 +483,24 @@ def check_far_sources():
             for side, d in (("src", src), ("dst", dst)):
                 maps[k][side] = {m: TS._load(cs2_bake.find_set_map(d, m))[..., :3] for m in MAPS}
         for k in ("slate", "timber_lap", "lux_slate"):
-            assert np.array_equal(maps[k]["src"]["Color"], maps[k]["dst"]["Color"]), f"{k}: no color control"
-            assert far[k].tint == specs[k].tint, (k, far[k].tint, specs[k].tint)
-            assert not np.array_equal(maps[k]["src"]["NormalGL"], maps[k]["dst"]["NormalGL"]), f"{k}: normal_gain"
+            # what the far source must show follows the key's swatch controls (v1 gave slate chroma + flatten and
+            # timber_lap contrast + row_shuffle): a color control re-derives the tint onto the palette, a pixel move
+            # (rot, row_shuffle) changes the map but keeps the mean, no color-side control keeps the map bit for bit
+            tps = TS.texpass_swatch(k)
+            colctl = any(f in tps for f in TS.TEXPASS_COLOR_CONTROLS)
+            moved = colctl or any(f in tps for f in ("rot", "row_shuffle"))
+            same = np.array_equal(maps[k]["src"]["Color"], maps[k]["dst"]["Color"])
+            assert same != moved, f"{k}: far Color {'unchanged' if same else 'changed'} with controls {sorted(tps)}"
+            mat = K.BLDG_MATERIALS[k]
+            if not colctl or mat.tint is not None:
+                assert far[k].tint == specs[k].tint, (k, far[k].tint, specs[k].tint)
+            elif mat.target_srgb is not None:
+                got = K.srgb_to_linear(maps[k]["dst"]["Color"]).reshape(-1, 3).mean(0) * np.asarray(far[k].tint)
+                d = float(np.abs(np.asarray(K.linear_to_srgb(got)) -
+                                 np.asarray(K.linear_to_srgb(np.asarray(TS._lin(mat.target_srgb))))).max())
+                assert d < 0.01, f"{k} far mean x tint misses the palette by {d:.4f} sRGB"
+            if any(f in tps for f in ("nflatten_m", "normal_gain", "normal_lean")):
+                assert not np.array_equal(maps[k]["src"]["NormalGL"], maps[k]["dst"]["NormalGL"]), f"{k}: normal"
         assert TS.texpass_swatch("lux_slate") == TS.texpass_swatch("slate") != {}, \
             "lux_slate draws slate's cell: its far source takes slate's controls (at its own density)"
         dsrc, ddst = maps["deck"]["src"]["Color"], maps["deck"]["dst"]["Color"]
@@ -466,7 +515,62 @@ def check_far_sources():
     finally:
         TS.unregister_texpass()
     ok(f"P11 far sources: deck LF {lf_src:.3f} -> {lf_dst:.3f} at {ppm:.1f} px/m, mean x tint on the palette "
-       f"({d:.4f} sRGB); slate / lux_slate / timber_lap normals gained, colors untouched; off = unchanged")
+       f"({d:.4f} sRGB); slate / lux_slate / timber_lap far maps and tints follow their swatch controls; off = unchanged")
+
+
+def check_normal_lean():
+    assert TS.TEXPASS_CONTROLS[-1] == "normal_lean", TS.TEXPASS_CONTROLS
+    rows = []
+    TS.register_texpass("v1")
+    try:
+        for k, spec in sorted(TS.TEXPASS["v1"].items()):
+            if "normal_lean" not in spec:
+                continue
+            r = int(spec.get("repeat", 1))
+            maps = TS._swatch_maps(k, 480, repeat=r)
+            got = TS.normal_lean_deg(maps[1])
+            want = tuple(float(x) for x in spec["normal_lean"])
+            assert max(abs(g - w) for g, w in zip(got, want)) < 0.5, f"{k}: lean {got} != {want}"
+            rows.append(f"{k} ({got[0]:+.1f}, {got[1]:+.1f})")
+    finally:
+        TS.unregister_texpass()
+    ok("P12 normal lean: " + (", ".join(rows) or "no key states one"))
+
+
+def check_mean_slope():
+    lim = TS.TEXPASS_MAX_MEAN_SLOPE_DEG
+    rows = []
+    TS.register_texpass("v1")
+    try:
+        on = layout()
+
+        def slope(k):
+            t = on["tiles"][k]
+            C, r = t["rect_px"][2], t["repeat"]
+            n = C // r
+            return TS.mean_slope_deg(TS._swatch_maps(k, C, repeat=r, layout_name="rollout")[1][:n, :n])
+        for k in sorted(TS.TEXPASS["v1"]):
+            su, sv = slope(k)
+            if "set" not in TS.TEXPASS["v1"][k]:
+                # detail-only key: it keeps the flag-off scan, so any tilt is the shipped look, not the pass's (recorded)
+                rows.append(f"{k} ({su:+.1f}, {sv:+.1f}) flag-off scan, not gated")
+                continue
+            assert max(abs(su), abs(sv)) < lim, (f"{k}: mean slope ({su:+.2f}, {sv:+.2f}) deg >= {lim}: the normal map "
+                                                 f"carries a baked tilt (de-tilt it: normal_lean to the de-tilted lean)")
+            rows.append(f"{k} ({su:+.1f}, {sv:+.1f})")
+        spec = TS.TEXPASS["v1"]["slate"]
+        saved = dict(spec)
+        try:
+            spec.pop("normal_lean")
+            raw = slope("slate")
+        finally:
+            spec.clear()
+            spec.update(saved)
+        assert max(abs(x) for x in raw) >= lim, f"mutation: slate without normal_lean ({raw}) must fail the gate"
+    finally:
+        TS.unregister_texpass()
+    ok(f"P13 no baked tilt (|mean slope| < {lim} deg): " + ", ".join(rows) +
+       f"; slate without normal_lean ({raw[0]:+.1f}, {raw[1]:+.1f}) fails it")
 
 
 def check_level_gate():
@@ -536,7 +640,8 @@ def check_far_units():
     TS.register_texpass("v1")
     try:
         fac = TS.texpass_tile_factors()
-        assert fac == {"lux_slate": 2.0, "slate": 2.0, "timber_lap": 2.0}, fac
+        assert fac == {"lux_glulam_s2": 2.0, "lux_slate": 2.0, "siding_paint": 2.0, "slate": 2.0,
+                       "timber_heavy": 2.0}, fac   # timber_lap: no factor
         on = far_layout(True)
     finally:
         TS.unregister_texpass()
@@ -544,7 +649,7 @@ def check_far_units():
     f = np.ones(len(on["loop_mi"]))
     for i, s in on["idx"].items():
         f[on["loop_mi"] == i] = s
-    assert sorted(on["keys"][i] for i in on["idx"]) == ["slate", "timber_lap"], on["idx"]
+    assert sorted(on["keys"][i] for i in on["idx"]) == ["slate"], on["idx"]
     assert np.array_equal(on["raw"], off["raw"] * f[:, None]), "the pass's UVTile is not exactly f x the flag-off one"
     assert np.array_equal(on["tile"], off["tile"]), \
         f"far UVTile after the island ops differs from flag-off (max {np.abs(on['tile'] - off['tile']).max()})"
@@ -563,6 +668,8 @@ def main():
     check_texpass_weather()
     check_scale()
     check_swatch_controls()
+    check_normal_lean()
+    check_mean_slope()
     check_level_gate()
     check_far_units()
     check_low_frequency()
