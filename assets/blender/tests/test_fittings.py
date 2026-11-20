@@ -32,6 +32,11 @@ Asserts:
    kit bracket (straight or curved) over a pane, a beam through the window head and a post against the glass, and raises in
    RAISE mode. It passes the bracket on the solid wall beside the window, an outrigger pocketed over the head, a
    free-standing post 1.4 m out and a guard rail. Exit 1 on the first failure. One PASS line otherwise.
+10. NOTHING PROUD CROSSES GLASS (r4/tex 2026-11-20, L4's quoins over ug3): audit_glass's proud-trim check flags a quoin
+   block (trim_, 5 cm proud) reaching 0.2 m into a pane's outline, with the depth into the opening, and RAISES in
+   GLASS_PROUD_MODE "raise". It passes a quoin beside the window and a belt over the head. A GLASS_ALLOW line turns the
+   hit into "allowed": without a flag under any pass; with flag "off" only with the pass off (the same clash under v1
+   still raises). A bad flag fails. "report" mode only reports; pane_prefixes= judges glass_ panes (the bus depot).
 """
 
 import math
@@ -403,6 +408,59 @@ def check_glass_gate():
        "the head, a post 1.4 m out and a guard rail pass")
 
 
+def check_glass_proud():
+    """r4/tex 2026-11-20: proud trim boxes (GLASS_PROUD) over glass, on the check-9 scene (pane y 1.5..2.5, z 0.8..2.0,
+    5 cm proud of the wall face x 0)."""
+    smode, pmode, allow = FIT.STRUCT_AUDIT_MODE, FIT.GLASS_PROUD_MODE, FIT.GLASS_ALLOW
+    FIT.STRUCT_AUDIT_MODE = "report"
+    try:
+        def scene(*extra, tp="off", pane="win_t_g", panes=None):
+            clear()
+            P = _box("wall_g", (0.0, 0.0, 0.0), (0.3, 4.0, 3.0))
+            P += K.pane_quad(pane, K.WallRef("-X", 0.0), -2.5, -1.5, 0.8, 2.0)
+            for fn in extra:
+                P += fn()
+            return FIT.audit_glass(_R(90.0, "T"), P, texpass=tp, pane_prefixes=panes)
+
+        def raises(*extra, tp="off", what=RuntimeError):
+            try:
+                scene(*extra, tp=tp)
+            except what as e:
+                return str(e)
+            raise AssertionError(f"audit_glass did not raise {what.__name__} (texpass {tp})")
+
+        quoin = lambda: _box("trim_q", (-0.05, 2.3, 1.0), (0.0, 3.2, 1.4))         # 0.2 m into the outline
+        beside = lambda: _box("trim_qok", (-0.05, 2.6, 1.0), (0.0, 3.5, 1.4))      # 0.1 m clear of it
+        belt = lambda: _box("trim_belt", (-0.10, 0.0, 2.1), (0.0, 4.0, 2.35))      # over the head (z 2.0)
+        FIT.GLASS_ALLOW = ()
+        FIT.GLASS_PROUD_MODE = "report"
+        a = scene(quoin)
+        hit = [r for r in a["proud"] if r[0].startswith("trim_q#") and r[1] == "win_t_g"]
+        assert hit and abs(hit[0][4] - 0.2) < 0.02 and not a["violations"], a
+        a = scene(beside, belt)
+        assert not a["proud"] and not a["violations"], a
+        a = scene(quoin, pane="glass_t_g", panes=("glass_",))       # another generator's panes (the bus depot)
+        assert [r[1] for r in a["proud"]] == ["glass_t_g"], a
+        FIT.GLASS_PROUD_MODE = "raise"
+        assert "proud trim box" in raises(quoin)
+        FIT.GLASS_ALLOW = (("T", "trim_q", "win_t_g", "test: an accepted overlap"),)             # no flag: any pass
+        for tp in ("off", "v1"):
+            a = scene(quoin, tp=tp)
+            assert not a["proud"] and a["allowed"] and a["allowed"][0][-1] == "test: an accepted overlap", a
+        FIT.GLASS_ALLOW = (("T", "trim_q", "win_t_g", "test: shipped geometry the pass fixes", "off"),)
+        a = scene(quoin)
+        assert not a["proud"] and a["allowed"] and a["texpass"] == "off", a
+        assert "proud trim box" in raises(quoin, tp="v1")          # the same clash in a v1 build still raises
+        FIT.GLASS_ALLOW = (("T", "trim_q", "win_t_g", "test: a bad flag", "v9"),)
+        assert "GLASS_ALLOW" in raises(beside, what=ValueError)    # checked on every call, hit or not
+    finally:
+        FIT.STRUCT_AUDIT_MODE, FIT.GLASS_PROUD_MODE, FIT.GLASS_ALLOW = smode, pmode, allow
+    ok("proud-trim glass check: a quoin block 0.2 m into a pane's outline is reported with its depth into the opening "
+       "and raises in RAISE mode; a quoin 0.1 m clear and a belt over the head pass; a GLASS_ALLOW line makes it "
+       "\"allowed\" (flag \"off\": only with the pass off, the same clash under v1 raises; a bad flag fails); "
+       "pane_prefixes= judges glass_ panes")
+
+
 def check_structure_builds():
     """P2 and L2 through lodge.run with fittings v1 + structure v1, both audits in RAISE mode."""
     import lodge
@@ -440,6 +498,7 @@ def main():
     check_p2_build()
     check_structure_gate()
     check_glass_gate()
+    check_glass_proud()
     check_structure_builds()
     print(f"PASS test_fittings: {len(CHECKS)} checks ({time.perf_counter() - t0:.1f} s)")
 

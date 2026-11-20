@@ -2189,6 +2189,14 @@ def _run(args, tp):
     if len(set(names)) != len(names) or any("." in n for n in names):
         raise RuntimeError(f"part names not unique: {names}")
     C.assert_lot_margin(parts, HALF_X, HALF_Y)
+    # r4/tex 2026-11-20: the glass gate of every lodge.py --structure v1 build (cs2_fittings.audit_glass: no structural
+    # part and no proud trim box over a pane; raises), on the depot's glass_ panes, in its authoring frame (yaw 90 = no
+    # turn). Read-only: nothing it does reaches the mesh or the manifest
+    import cs2_fittings
+    gl = cs2_fittings.audit_glass(types.SimpleNamespace(key="busdepot", yaw_deg=90.0), parts,
+                                  texpass=getattr(args, "texpass", "off"), pane_prefixes=("glass_",))
+    print(f"[depot] glass gate: {gl['panes']} panes, {gl['shells']} judged shells, {len(gl['violations'])} structural, "
+          f"{len(gl['proud'])} proud trim, {len(gl['allowed'])} allowed")
     keys = sorted({k for _o, k in parts})
     part_keys = {o.name: k for o, k in parts}
     axes = {o.name: tuple(o["prism_axis"]) for o, _k in parts if "prism_axis" in o}

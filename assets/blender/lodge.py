@@ -1848,6 +1848,8 @@ def run(recipe, args):
     K.PATROL_GEAR["p1"] = getattr(args, "p1_gear", "rolls")
     if getattr(args, "step_base", "off") == "v1":      # r4/tex: recipes that know the option read it (the school)
         opts["step_base"] = "v1"
+    if getattr(args, "texpass", "off") != "off":       # r4/tex: recipe geometry that rides the pass (L4's ug3 window);
+        opts["texpass"] = args.texpass                 # absent with the flag off, so a flag-off build never reads it
     with K.ridge_kit(2 if getattr(args, "ridge", "off") == "v2" else 0), \
             K.flag_kit(2 if getattr(args, "flags", "v1") == "v2" else 1):
         parts = build_parts(recipe, opts)
