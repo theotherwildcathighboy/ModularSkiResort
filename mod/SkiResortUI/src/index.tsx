@@ -16,7 +16,7 @@ import { HubFloatingButton, HubLauncherSquare } from "./hub/HubLauncher";
 import { HubRoot } from "./hub/HubRoot";
 import { queueRegistrarError } from "./hub/report";
 
-/*! SkiResortMod UI module - Modular Ski Resort for Cities: Skylines II (MIT license). */
+/*! SkiResortMod UI module - Modular Ski Resort for Cities: Skylines II (all rights reserved, see LICENSE). */
 // The game's module loader reads this and fetches SkiResortMod.css (index.js@2306554).
 export const hasCSS = true;
 

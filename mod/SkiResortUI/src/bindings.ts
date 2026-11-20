@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 56;
+export const HUB_CONTRACT = 58;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -891,6 +891,11 @@ export interface ResortLive {
   passHoldersThisMonth: number;
   /** The same, last month. -1 until a month rolled since counting started. */
   passHoldersLastMonth: number;
+  /** 1.0.3 T258 (contract 58): people of game-sent tourist parties (vanilla outings) who walked away at the ticket price this month,
+   *  counted since the game was loaded. -1 unknown. */
+  priceTurnedThisMonth: number;
+  /** The same, last month. -1 until a month rolled since counting started. */
+  priceTurnedLastMonth: number;
   // Lessons and city income: appended in this order, as in C# ResortLiveStats.
   /** People who took a lesson at this area this month (one lesson each). -1 unknown. */
   lessonsThisMonth: number;
@@ -1146,6 +1151,9 @@ export interface CityStats {
   tourismBonusCapPct: number;
   /** Contract 50 (T225): the city's tourist count averaged over the last game day (-1 until 3 game hours are sampled after a load). */
   touristsDayMean: number;
+  /** Contract 57 (1.0.3 R3-B): the ski season's first calendar month 1..12 (C# SkiClimateCalendar.SeasonFirstMonth), for the pass
+   *  sale window (hubRules.saleWindow). 0 = not known. */
+  seasonFirstMonth: number;
 }
 
 /**
@@ -1342,7 +1350,7 @@ export const FALLBACK = {
     known: false, daysPerYear: 0, scaleK: 4, backcountryPct: 40, ticketPrice: 0, snowGating: true,
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
     tripPlanner: "", tripPlannerBlocksSkiDays: false, passShare: 50, passPrice: 400, month: -1,
-    tourismBonusPct: 0, tourismBonusSumPct: 0, tourismBonusCapPct: 10, touristsDayMean: -1,
+    tourismBonusPct: 0, tourismBonusSumPct: 0, tourismBonusCapPct: 10, touristsDayMean: -1, seasonFirstMonth: 0,
   } as CityStats,
   /** The piste map is on by default (C# owns the value). */
   pisteMap: true,

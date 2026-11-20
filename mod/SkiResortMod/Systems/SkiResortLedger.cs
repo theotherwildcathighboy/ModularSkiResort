@@ -47,6 +47,9 @@ namespace SkiResortMod.Systems
         {
             public EntityRef Sign; public Month This, Last; public int PassSeasonKey, PassSeasonSold; public long PassSeasonIncome;
             public int PassSeasonPre; public long PassSeasonPreIncome;
+            // 1.0.3 T258: the people of game-sent tourist parties that walked away at the ticket price, this month and last. Kept here, not
+            // in Month: Month is the saved SkiResortMonthInProgress layout (append only), so this count restarts at a load.
+            public int PriceTurnedThis, PriceTurnedLast;
         }
 
         public enum AdvanceResult : byte { None = 0, Started = 1, Rolled = 2, Jumped = 3 }
@@ -133,6 +136,8 @@ namespace SkiResortMod.Systems
                 Entry e = m_Entries[i];
                 e.Last = rolled ? e.This : default;
                 e.This = default;
+                e.PriceTurnedLast = rolled ? e.PriceTurnedThis : 0;
+                e.PriceTurnedThis = 0;
                 m_Entries[i] = e;
             }
             if (rolled)
@@ -416,6 +421,27 @@ namespace SkiResortMod.Systems
                 m_Index[m_Entries[i].Sign] = i;
             Revision++;
             return removed;
+        }
+
+        /// <summary>T258: PriceTurnedThis += people (people &lt;= 0 changes nothing).</summary>
+        public void AddPriceTurned(EntityRef sign, int people)
+        {
+            if (people <= 0)
+                return;
+            int i = IndexOf(sign);
+            Entry e = m_Entries[i];
+            e.PriceTurnedThis += people;
+            m_Entries[i] = e;
+            Revision++;
+        }
+
+        /// <summary>T258: the people turned away by price over every entry, this month or last.</summary>
+        public int TotalPriceTurned(bool last)
+        {
+            int t = 0;
+            for (int i = 0; i < m_Entries.Count; i++)
+                t += last ? m_Entries[i].PriceTurnedLast : m_Entries[i].PriceTurnedThis;
+            return t;
         }
 
         public Month Total(bool last)

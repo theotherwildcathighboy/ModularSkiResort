@@ -1,5 +1,5 @@
 /*
- * src/hub/Slider.tsx - the hub's value slider (r3/sliders). Written for this repo (MIT). It replaces the stepper buttons of the ticket
+ * src/hub/Slider.tsx - the hub's value slider (r3/sliders). Written for this repo (all rights reserved, see LICENSE). It replaces the stepper buttons of the ticket
  * price, the season pass, a run's snow gun and light spacing and the tree density.
  * The values are a list of stops in screen order, left to right, evenly spaced on the track. A list can be uneven in value (the
  * spacing ladder) or run high to low (spacing: Off, 200 m ... 20 m, so right is always "more").
