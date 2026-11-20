@@ -195,6 +195,38 @@ namespace SkiResortMod.Systems
             return true;
         }
 
+        /// <summary>T253 (1.0.4): the cell values and node heights of the lattice block i0 .. i0 + nx - 1, j0 .. j0 + nz - 1 into o and h
+        /// (index j * nx + i), for SkiSlopeContours. NaN where no valid tile holds the cell, or the cell has no band.</summary>
+        public void Gather(int i0, int j0, int nx, int nz, float[] o, float[] h)
+        {
+            for (int j = 0; j < nz; j++)
+            {
+                int wj = j0 + j, tj = FloorDiv(wj, TileCells), lj = wj - tj * TileCells;
+                int lastTi = int.MinValue;
+                Tile tile = null;
+                for (int i = 0; i < nx; i++)
+                {
+                    int wi = i0 + i, ti = FloorDiv(wi, TileCells);
+                    if (ti != lastTi)
+                    {
+                        lastTi = ti;
+                        tile = Find(ti, tj);
+                        if (tile != null && !tile.Valid)
+                            tile = null;
+                    }
+                    int q = j * nx + i;
+                    if (tile == null || m_Pad < 0)
+                    {
+                        o[q] = h[q] = float.NaN;
+                        continue;
+                    }
+                    int li = wi - ti * TileCells, c = lj * TileCells + li;
+                    o[q] = tile.Band[c] <= (byte)SlopeBand.DoubleBlack ? tile.Grade[c] : float.NaN;
+                    h[q] = tile.Heights[(lj + m_Pad) * m_Side + li + m_Pad];
+                }
+            }
+        }
+
         /// <summary>Lists the tiles a disk of `radius` around (cx, cz) touches, nearest first, marks them used at `frame`, and computes
         /// missing or invalid ones until `budgetMs` (wall clock, Stopwatch) is spent. At least one tile per call is computed. Returns the
         /// number of tiles still missing. Evicts above Capacity, never a tile of this disk.</summary>

@@ -1,4 +1,4 @@
-# SkiSlopeOverlaySystem: slope colors around the cursor (T253, 1.0.3)
+# SkiSlopeOverlaySystem: slope colors around the cursor (T253, 1.0.3, outlines 1.0.4)
 
 While the `ShowSlopeOverlay` option is on, the ground within 300 m of the cursor shows each 3.5 m cell's slope band in the run
 colors. North American: green, blue, black, double black. European: green, blue, red, black, ski route. Engine citations are
@@ -24,10 +24,13 @@ its full 20 m window and needs no neighbor tile. The tiles are pure C# (System a
   whose height differs bit for bit. Terraforming and the Editor brush then repaint within a few frames. No event from the terrain
   system is needed.
 - **Evict.** At `TileCapacity` (128) the least recently used tile goes.
-- **Runs.** `BuildRuns` turns the disk into same-key row runs, `MergeRows` stacks equal runs into rectangles. The outer `FadeM` (15 m) fades in `FadeLevels` (4) alpha steps. Over
-  `MaxStrips` (4,500) runs, rows are decimated with stride 2..3, the heat-map's rule.
+- **Gather (1.0.4).** `Gather` copies the grades and node heights of `R + BuildMarginM` (300 + 40 m) into two arrays for the
+  contour build (EngineNotes/SkiSlopeContours.md). Cells outside that circle and cells the heat-map paints are NaN. The outer
+  `FadeM` (15 m) fades in `FadeLevels` (4) alpha steps. 1.0.3's `BuildRuns` / `MergeRows` row runs stay for the tests only.
 
-## Smoothing of the shown colors
+## Smoothing of the shown colors (1.0.3, replaced in 1.0.4)
+
+1.0.4 replaces this filter with the blur and the outlines of EngineNotes/SkiSlopeContours.md. The text below is the 1.0.3 record.
 
 The shown color of a cell is the 3x3 mode of the cell keys around it (`SkiSlopeOverlayTiles.ModeFilter3`, on while
 `SmoothDisplay`). The cell keeps its own key unless another key has strictly more votes among its 3x3 neighbors. So a tie never
@@ -55,7 +58,10 @@ values that no rating ever reads (against the one source of truth), with about 4
 
 ## Renderer
 
-The run heat-map's path: `OverlayRenderSystem.Buffer.DrawLine` with `StyleFlags.Projected`, one strip per run, written by a
+1.0.4: both the overlay and the run heat-map draw through `ContourDrawJob` (EngineNotes/SkiSlopeContours.md): fill strips and
+`DrawCurve` outlines, each with a tight box. The 1.0.3 record follows. The box rules below still apply to every strip and curve.
+
+The 1.0.3 path: `OverlayRenderSystem.Buffer.DrawLine` with `StyleFlags.Projected`, one strip per run, written by a
 `[BurstCompile]` IJob registered with `AddBufferWriter` (OverlayRenderSystem.cs:207, 1.6.0f1). Vanilla's infoview heat map has no
 mod slot: `OverlayInfomodeSystem` builds its texture from vanilla infomode components only (OverlayInfomodeSystem.cs:735-1026).
 Inside the run being drawn, the heat-map paints the same cells. The overlay skips them (`SkiRunDrawFeedbackSystem.PaintedGrid`,
@@ -144,7 +150,8 @@ parent's slot (UpdateSystem.cs:382-412), so it also runs before OverlayRenderSys
 
 - `SlopeOverlay: ARMED` once per load, `SlopeOverlay: ON|off (<source>)` per toggle.
 - `[cost]` every `CostLogSeconds` (30 s) while on, with Measurement diagnostics only. It gives the mean and peak managed ms per
-  frame and the strip rebuilds. It also gives the strips and stride (CAP HIT when decimated), the tile counters and the heights verified.
+  frame and the rebuilds. It also gives the fill strips, the curves and the sub-rows used. CAP HIT shows when the builder fell
+  back below `SubRows` 4. Then come the mean and peak worker build ms, the tile counters and the heights verified.
 - One WARN per load when a warm frame (no tile missing) costs more than `SlowFrameWarnMs` (4 ms) of managed time.
 - A one-shot `!!!` on an exception disables the system until the next load.
 

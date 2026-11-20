@@ -1,13 +1,16 @@
 // T253 slope overlay: while the ShowSlopeOverlay option is on, the ground within RadiusM of the cursor shows each 3.5 m cell's slope band
 // in the run colors (green / blue / black / double black, or the European set). One source of truth: the cells are
-// SkiSlopeClassifier.CellValue on the rating's world lattice (SkiSlopeOverlayTiles, SlopeBatch parity with ClassifyRing). The renderer is
-// the run heat-map's: Projected row strips through OverlayRenderSystem (OverlayRenderSystem.cs:207 DrawLine, 1.6.0f1), written by a Burst
-// job registered with AddBufferWriter. Vanilla's infoview heat map has no mod slot (OverlayInfomodeSystem.cs:735-1026, 1.6.4f1).
+// SkiSlopeClassifier.CellValue on the rating's world lattice (SkiSlopeOverlayTiles, SlopeBatch parity with ClassifyRing). The look (1.0.4):
+// smooth band outlines over a fainter fill (SkiSlopeContours, built off the main thread by SkiSlopeContourBuilder, drawn by the Burst
+// ContourDrawJob through OverlayRenderSystem with AddBufferWriter; the run heat-map uses the same renderer). Vanilla's infoview heat map
+// has no mod slot (OverlayInfomodeSystem.cs:735-1026, 1.6.4f1).
 // Inside the run being drawn the heat-map paints the same cells, so the overlay leaves them to it (SkiRunDrawFeedbackSystem.PaintedGrid).
 // Cursor: our own terrain ray march along ToolRaycastSystem.CalculateRaycastLine (ToolRaycastSystem.cs:69-78), because the default tool
 // raycasts objects only in its default state (DefaultToolSystem.cs:794-796, 1.6.4f1). Hidden while the pointer is over the UI.
-// Per frame, main thread: ray march, Update (tiles nearest first under BudgetMs), Verify (VerifyNodesPerFrame stored heights, bit-exact),
-// strips rebuilt only when the cursor moved RebuildMoveM, a tile changed, the heat-map's grid or the grading scheme changed.
+// Per frame, main thread: ray march, Update (tiles nearest first under BudgetMs), Verify (VerifyNodesPerFrame stored heights, bit-exact).
+// A build covers RadiusM + BuildMarginM around the cursor. It restarts when the cursor moved RebuildMoveM from the last build's center, a
+// tile changed, the heat-map's grid or the grading scheme changed, and the builder is idle (the field is gathered on the main thread). The
+// draw job clips the last build to the disk around the current cursor every frame.
 // Toggle: the ToggleSlopeOverlay key (polled in UIUpdate by SkiSlopeOverlayKeySystem, like every hotkey poller of the mod) and the hub's
 // Slope colors chip (RequestSet). Both save the settings.
 // Phase: Rendering, UpdateBefore OverlayRenderSystem and UpdateAfter SkiRunDrawFeedbackSystem (Mod.cs, both load-bearing). Game mode only.
@@ -47,13 +50,11 @@ namespace SkiResortMod.Systems
             public const float BudgetMs = 1.5f;
             /// <summary>Stored heights re-sampled per frame (terrain change detection).</summary>
             public const int VerifyNodesPerFrame = 2048;
-            /// <summary>Strips are rebuilt when the cursor moved at least this far (m).</summary>
-            public const float RebuildMoveM = 1.5f;
-            /// <summary>Strip cap per frame. Above it the rows are decimated (stride 2..MaxRowStride, the heat-map's rule).</summary>
-            public const int MaxStrips = 4500;
-            /// <summary>Row runs gathered before MergeRows stacks them; the strip cap applies to the merged rectangles.</summary>
-            public const int RunCap = 4 * MaxStrips;
-            public const int MaxRowStride = 3;
+            /// <summary>A build covers RadiusM + BuildMarginM. A new one starts when the cursor moved RebuildMoveM from the last build's
+            /// center (m). The margin is twice the move, so the drawn disk stays inside the built area while the next build runs.</summary>
+            public const float BuildMarginM = 40f, RebuildMoveM = 20f;
+            /// <summary>Caps of one build: fill strips and outline curves. Over MaxFill the builder uses fewer sub-rows (4, 2, 1).</summary>
+            public const int MaxFill = 40000, MaxCurves = 8000;
             /// <summary>Tiles kept (a 600 m disk touches about 34-49; the rest is the recently visited ring).</summary>
             public const int TileCapacity = 128;
             /// <summary>Ray march: at most this many steps, then this many bisection steps.</summary>
@@ -62,14 +63,6 @@ namespace SkiResortMod.Systems
             public const float CostLogSeconds = 30f;
             /// <summary>Draw box margin below and above the node heights of a strip (m): the rendered terrain LOD and the ground cover.</summary>
             public const float BoxMarginM = 8f;
-        }
-
-        public struct Strip
-        {
-            public float3 A, B;
-            public float Width;
-            public float YLo, YHi;   // draw box bottom and top (m)
-            public UnityEngine.Color Color;
         }
 
         /// <summary>The same fields in the same order as OverlayRenderSystem.Buffer (OverlayRenderSystem.cs:106-131, 1.6.4f1; the
@@ -93,53 +86,6 @@ namespace SkiResortMod.Systems
         /// <summary>True when BufferView has the size of the vanilla Buffer (the tight boxes are safe). The run heat-map uses it too.</summary>
         internal static bool TightBoxesSupported =>
             UnsafeUtility.SizeOf<OverlayRenderSystem.Buffer>() == UnsafeUtility.SizeOf<BufferView>();
-
-        /// <summary>Writes the cached strips into the overlay buffer. Reads only our own NativeArray (no ECS data).</summary>
-        [BurstCompile]
-        private struct StripDrawJob : IJob
-        {
-            [ReadOnly] public NativeArray<Strip> Strips;
-            public int Count;
-            public bool TightBoxes;
-            public OverlayRenderSystem.Buffer Overlay;
-
-            public void Execute()
-            {
-                var flags = OverlayRenderSystem.StyleFlags.Projected;
-                var roundness = new float2(0f, 0f);
-                int n = Count < Strips.Length ? Count : Strips.Length;
-                if (!TightBoxes)
-                {
-                    for (int s = 0; s < n; s++)
-                    {
-                        Strip st = Strips[s];
-                        Overlay.DrawLine(st.Color, st.Color, 0f, flags, new Line3.Segment(st.A, st.B), st.Width, roundness);
-                    }
-                    return;
-                }
-                BufferView v = UnsafeUtility.As<OverlayRenderSystem.Buffer, BufferView>(ref Overlay);
-                float lo = float.MaxValue, hi = float.MinValue;
-                for (int s = 0; s < n; s++)
-                {
-                    Strip st = Strips[s];
-                    // FitBox: box bottom = positionY, height = scaleY (box mesh y 0..1, OverlayRenderSystem.cs:1086-1096).
-                    var b = new OverlayRenderSystem.Buffer(v.ProjectedCurves, v.AbsoluteCurves, v.CustomMeshes, v.TextMeshes, v.Bounds,
-                        st.YLo, st.YHi - st.YLo);
-                    b.DrawLine(st.Color, st.Color, 0f, flags, new Line3.Segment(st.A, st.B), st.Width, roundness);
-                    lo = math.min(lo, st.YLo);
-                    hi = math.max(hi, st.YHi);
-                }
-                // FitBox sets bounds.max.y = scaleY, the height and not the top. In vanilla both are the same, here they are not: add the
-                // real top so the bounds of the instanced draw (:865) hold every strip.
-                if (n > 0)
-                {
-                    OverlayRenderSystem.BoundsData bd = v.Bounds.value;
-                    bd.m_CurveBounds.min.y = math.min(bd.m_CurveBounds.min.y, lo);
-                    bd.m_CurveBounds.max.y = math.max(bd.m_CurveBounds.max.y, hi);
-                    v.Bounds.value = bd;
-                }
-            }
-        }
 
         /// <summary>Leaves the cells of the heat-map's painted grid to the heat-map (world lattice index -> its grid's Mask).</summary>
         private struct HeatMapSkip : ISlopeCellSkip
@@ -168,11 +114,12 @@ namespace SkiResortMod.Systems
         private SkiRunDrawFeedbackSystem m_HeatMap;
 
         private readonly SkiSlopeOverlayTiles m_Tiles = new SkiSlopeOverlayTiles { Capacity = Tuning.TileCapacity };
-        private readonly List<SlopeOverlayRun> m_Runs = new List<SlopeOverlayRun>();
-        private readonly List<SlopeOverlayRun> m_Rects = new List<SlopeOverlayRun>();
-        private readonly Strip[] m_Stage = new Strip[Tuning.MaxStrips];
-        private NativeArray<Strip> m_Strips;
-        private int m_StripCount;
+        private readonly SkiSlopeContourBuilder m_Builder = new SkiSlopeContourBuilder { MaxFill = Tuning.MaxFill, MaxCurves = Tuning.MaxCurves };
+        private NativeArray<ContourFill> m_Fill;
+        private NativeArray<ContourCurve> m_Curves;
+        private NativeArray<UnityEngine.Color> m_FillColors, m_LineColors;
+        private int m_FillCount, m_CurveCount, m_Gen;
+        private bool m_ColorsEu, m_ColorsSet;
         private JobHandle m_DrawHandle;
         private bool m_TightBoxes;
 
@@ -191,15 +138,18 @@ namespace SkiResortMod.Systems
 
         // Dev counters (the [cost] line, the dev tab).
         public bool Visible { get; private set; }
-        public int StripsDrawn => m_StripCount;
-        public int RowStride { get; private set; } = 1;
+        public int StripsDrawn => m_FillCount;
+        public int CurvesDrawn => m_CurveCount;
+        public int SubRows { get; private set; } = 4;
         public bool CapHit { get; private set; }
+        public double LastBuildMs { get; private set; }
+        public double PeakBuildMs { get; private set; }
         public int TilesCached => m_Tiles.Count;
         public int TilesComputed => m_Tiles.TilesComputed;
         public int TilesMissing { get; private set; }
         public float LastFrameMs { get; private set; }
         public float PeakFrameMs { get; private set; }
-        private double m_CostSum;
+        private double m_CostSum, m_CostBuildMs;
         private int m_CostFrames, m_CostRebuilds;
         private float m_CostPeak;
         private double m_CostSince;
@@ -214,7 +164,10 @@ namespace SkiResortMod.Systems
             m_Overlay = World.GetOrCreateSystemManaged<OverlayRenderSystem>();
             m_Camera = World.GetOrCreateSystemManaged<CameraUpdateSystem>();
             m_HeatMap = World.GetOrCreateSystemManaged<SkiRunDrawFeedbackSystem>();
-            m_Strips = new NativeArray<Strip>(Tuning.MaxStrips, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            m_Fill = new NativeArray<ContourFill>(Tuning.MaxFill, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            m_Curves = new NativeArray<ContourCurve>(Tuning.MaxCurves, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            m_FillColors = new NativeArray<UnityEngine.Color>(6, Allocator.Persistent);
+            m_LineColors = new NativeArray<UnityEngine.Color>(6, Allocator.Persistent);
             int vanilla = UnsafeUtility.SizeOf<OverlayRenderSystem.Buffer>(), view = UnsafeUtility.SizeOf<BufferView>();
             m_TightBoxes = vanilla == view;
             if (m_TightBoxes)
@@ -227,8 +180,14 @@ namespace SkiResortMod.Systems
         protected override void OnDestroy()
         {
             CompleteDraw();
-            if (m_Strips.IsCreated)
-                m_Strips.Dispose();
+            if (m_Fill.IsCreated)
+                m_Fill.Dispose();
+            if (m_Curves.IsCreated)
+                m_Curves.Dispose();
+            if (m_FillColors.IsCreated)
+                m_FillColors.Dispose();
+            if (m_LineColors.IsCreated)
+                m_LineColors.Dispose();
             base.OnDestroy();
         }
 
@@ -240,7 +199,8 @@ namespace SkiResortMod.Systems
             m_Disabled = m_ErrorLogged = m_SlowLogged = m_KeyProbeLogged = false;
             m_Armed = false;
             m_Tiles.Clear();
-            m_StripCount = 0;
+            m_FillCount = m_CurveCount = 0;
+            m_Gen++;   // a build still running for the old world is dropped when it lands
             m_BuiltAt = new double2(double.NaN, double.NaN);
             m_BuiltTilesComputed = m_BuiltTilesInvalidated = -1;
             m_BuiltSkipGrid = null;
@@ -265,7 +225,7 @@ namespace SkiResortMod.Systems
             m_WasOn = IsOn;
             Mod.Log.Info($"SlopeOverlay: ARMED — option ShowSlopeOverlay {(m_WasOn ? "ON" : "off")}; the ground within {Tuning.RadiusM:F0} m of the " +
                          $"cursor in the run colors (SkiSlopeClassifier.CellValue, {SkiSlopeOverlayTiles.TileCells}x{SkiSlopeOverlayTiles.TileCells}-cell tiles, " +
-                         $"budget {Tuning.BudgetMs} ms/frame, verify {Tuning.VerifyNodesPerFrame} heights/frame, cap {Tuning.MaxStrips} strips, " +
+                         $"budget {Tuning.BudgetMs} ms/frame, verify {Tuning.VerifyNodesPerFrame} heights/frame, outlines over a fainter fill, built off the main thread over {Tuning.RadiusM + Tuning.BuildMarginM:F0} m (caps {Tuning.MaxFill} strips, {Tuning.MaxCurves} curves), " +
                          $"{Tuning.FadeM:F0} m edge fade); key {SkiResortSettings.ActToggleSlopeOverlay}" +
                          (m_Toggle == null ? " NOT REGISTERED (RegisterKeyBindings missing or failed)" : "") + ", hub chip Slope colors");
         }
@@ -325,8 +285,8 @@ namespace SkiResortMod.Systems
                 if (ms > Tuning.SlowFrameWarnMs && !m_SlowLogged && m_Tiles.TilesComputed > 0 && TilesMissing == 0)
                 {
                     m_SlowLogged = true;
-                    Mod.Log.Warn($"SlopeOverlay: slow frame {ms:F2} ms with every tile cached ({m_Tiles.Count} tiles, {m_StripCount} strips, " +
-                                 $"stride {RowStride}) — logged once per load");
+                    Mod.Log.Warn($"SlopeOverlay: slow frame {ms:F2} ms with every tile cached ({m_Tiles.Count} tiles, {m_FillCount} strips, {m_CurveCount} curves, " +
+                                 $"{SubRows} sub-rows) — logged once per load");
                 }
                 LogCost(false);
             }
@@ -334,7 +294,7 @@ namespace SkiResortMod.Systems
             {
                 m_Disabled = true;
                 Visible = false;
-                m_StripCount = 0;
+                m_FillCount = m_CurveCount = 0;
                 if (!m_ErrorLogged)
                 {
                     m_ErrorLogged = true;
@@ -395,16 +355,15 @@ namespace SkiResortMod.Systems
             bool eu = DisplayState.Scheme == GradeScheme.European;
             SlopeGrid skipGrid = m_HeatMap.PaintedGrid;
             var at = new double2(hit.x, hit.z);
+            TakeBuild();
             bool moved = !(math.distancesq(at, m_BuiltAt) < (double)Tuning.RebuildMoveM * Tuning.RebuildMoveM);
-            if (moved || m_Tiles.TilesComputed != m_BuiltTilesComputed || m_Tiles.TilesInvalidated != m_BuiltTilesInvalidated ||
-                !ReferenceEquals(skipGrid, m_BuiltSkipGrid) || eu != m_BuiltEu)
-            {
-                Build(at, eu, skipGrid, origin, texel);
-                m_CostRebuilds++;
-            }
-            if (m_StripCount == 0)
+            if ((moved || m_Tiles.TilesComputed != m_BuiltTilesComputed || m_Tiles.TilesInvalidated != m_BuiltTilesInvalidated ||
+                 !ReferenceEquals(skipGrid, m_BuiltSkipGrid) || eu != m_BuiltEu) && m_Builder.Idle)
+                StartBuild(at, eu, skipGrid, origin, texel);
+            if (m_FillCount == 0 && m_CurveCount == 0)
                 return false;
-            Draw();
+            float camDist = math.distance(viewer.position, hit);
+            Draw(new float2(hit.x, hit.z), camDist, eu);
             return true;
         }
 
@@ -451,59 +410,105 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        private void Build(double2 at, bool eu, SlopeGrid skipGrid, double2 origin, float texel)
+        /// <summary>Gathers the field of RadiusM + BuildMarginM around `at` (the heat-map's painted cells NaN) and starts the builder.
+        /// Only while the builder is idle.</summary>
+        private void StartBuild(double2 at, bool eu, SlopeGrid skipGrid, double2 origin, float texel)
         {
             m_BuiltAt = at;
             m_BuiltTilesComputed = m_Tiles.TilesComputed;
             m_BuiltTilesInvalidated = m_Tiles.TilesInvalidated;
             m_BuiltSkipGrid = skipGrid;
             m_BuiltEu = eu;
+            double reach = Tuning.RadiusM + Tuning.BuildMarginM;
+            int i0 = m_Tiles.NodeOf(at.x - reach, origin.x), i1 = m_Tiles.NodeOf(at.x + reach, origin.x);
+            int j0 = m_Tiles.NodeOf(at.y - reach, origin.y), j1 = m_Tiles.NodeOf(at.y + reach, origin.y);
+            int nx = i1 - i0 + 1, nz = j1 - j0 + 1;
+            SkiSlopeContourBuilder b = m_Builder;
+            b.Ensure(nx * nz, 0);
+            m_Tiles.Gather(i0, j0, nx, nz, b.O, b.H);
+            double r2 = reach * reach;
             var skip = new HeatMapSkip { Grid = skipGrid, Origin = origin, Texel = texel };
-            int stride = 1;
-            bool fit;
-            while (true)
+            for (int j = 0; j < nz; j++)
             {
-                bool rowsFit = m_Tiles.BuildRuns(at.x, at.y, Tuning.RadiusM, Tuning.FadeM, eu, stride, Tuning.RunCap, ref skip, m_Runs);
-                m_Tiles.MergeRows(m_Runs, m_Rects);   // fewer strips, the same cells (the GPU cost grows with the strip count)
-                fit = rowsFit && m_Rects.Count <= Tuning.MaxStrips;
-                if (fit || stride >= Tuning.MaxRowStride)
-                    break;
-                stride++;
-            }
-            RowStride = stride;
-            CapHit = !fit;
-
-            UnityEngine.Color[] colors = eu ? SkiRunDrawFeedbackSystem.BandColorsEu : SkiRunDrawFeedbackSystem.BandColors;
-            double half = 0.5 * texel;
-            int n = 0;
-            for (int k = 0; k < m_Rects.Count && n < m_Stage.Length; k++)
-            {
-                SlopeOverlayRun r = m_Rects[k];
-                if (r.Key >= colors.Length)
-                    continue;
-                UnityEngine.Color c = colors[r.Key];
-                c.a *= (float)r.Fade / SkiSlopeOverlayTiles.FadeLevels;   // the alpha of the key: SkiRunDrawFeedbackSystem.Tuning.KeyAlpha
-                float wz = (float)(origin.y + 0.5 * (r.JLo + r.JHi) * texel);
-                m_Stage[n++] = new Strip
+                double dz = origin.y + (j0 + j) * (double)texel - at.y;
+                for (int i = 0; i < nx; i++)
                 {
-                    A = new float3((float)(origin.x + r.I0 * (double)texel - half), r.Y, wz),
-                    B = new float3((float)(origin.x + r.I1 * (double)texel + half), r.Y, wz),
-                    Width = (r.JHi - r.JLo + 1) * texel,
-                    YLo = r.YLo - Tuning.BoxMarginM,
-                    YHi = r.YHi + Tuning.BoxMarginM,
-                    Color = c,
-                };
+                    double dx = origin.x + (i0 + i) * (double)texel - at.x;
+                    if (dx * dx + dz * dz > r2 || (skipGrid != null && skip.Skip(i0 + i, j0 + j)))
+                        b.O[j * nx + i] = float.NaN;
+                }
             }
-            CompleteDraw();   // the only write to m_Strips, after the last job finished (heat-map OVERLAY safety (a))
-            if (n > 0)
-                NativeArray<Strip>.Copy(m_Stage, m_Strips, n);
-            m_StripCount = n;
+            b.Nx = nx;
+            b.Nz = nz;
+            b.Ox = origin.x + i0 * (double)texel;
+            b.Oz = origin.y + j0 * (double)texel;
+            b.Step = texel;
+            b.Eu = eu;
+            b.RingCount = 0;
+            b.Gen = m_Gen;
+            b.Start(true);
         }
 
-        private void Draw()
+        /// <summary>A finished build: its strips and curves into the NativeArrays the draw job reads (after the last draw job finished).
+        /// A build of an older world (m_Gen) is dropped.</summary>
+        private void TakeBuild()
         {
+            SkiSlopeContourBuilder b = m_Builder;
+            if (!b.Done)
+                return;
+            if (b.Error != null)
+            {
+                Exception e = b.Error;
+                b.Release();
+                throw new InvalidOperationException("contour build failed on the worker thread", e);
+            }
+            if (b.Gen == m_Gen)
+            {
+                CompleteDraw();   // the only write to m_Fill / m_Curves, after the last job finished (heat-map OVERLAY safety (a))
+                int nf = Math.Min(b.FillCount, m_Fill.Length), nc = Math.Min(b.CurveCount, m_Curves.Length);
+                if (nf > 0)
+                    NativeArray<ContourFill>.Copy(b.Fill, m_Fill, nf);
+                if (nc > 0)
+                    NativeArray<ContourCurve>.Copy(b.Curves, m_Curves, nc);
+                m_FillCount = nf;
+                m_CurveCount = nc;
+                SubRows = b.SubRowsUsed;
+                CapHit = b.Capped;
+                LastBuildMs = b.BuildMs;
+                if (b.BuildMs > PeakBuildMs)
+                    PeakBuildMs = b.BuildMs;
+                m_CostBuildMs += b.BuildMs;
+                m_CostRebuilds++;
+            }
+            b.Release();
+        }
+
+        private void Draw(float2 center, float cameraDistance, bool eu)
+        {
+            if (!m_ColorsSet || eu != m_ColorsEu)
+            {
+                CompleteDraw();
+                SkiSlopeContourLook.Colors(eu ? SkiRunDrawFeedbackSystem.BandColorsEu : SkiRunDrawFeedbackSystem.BandColors, m_FillColors, m_LineColors);
+                m_ColorsSet = true;
+                m_ColorsEu = eu;
+            }
             OverlayRenderSystem.Buffer buffer = m_Overlay.GetBuffer(out JobHandle deps);   // OverlayRenderSystem.cs:603-634
-            var job = new StripDrawJob { Strips = m_Strips, Count = m_StripCount, TightBoxes = m_TightBoxes, Overlay = buffer };
+            var job = new ContourDrawJob
+            {
+                Fill = m_Fill,
+                FillCount = m_FillCount,
+                Curves = m_Curves,
+                CurveCount = m_CurveCount,
+                FillColors = m_FillColors,
+                LineColors = m_LineColors,
+                LineWidth = SkiSlopeContourLook.LineWidth(cameraDistance),
+                Disk = true,
+                Center = center,
+                Radius = Tuning.RadiusM,
+                FadeM = Tuning.FadeM,
+                TightBoxes = m_TightBoxes,
+                Overlay = buffer,
+            };
             JobHandle handle = job.Schedule(deps);
             m_Overlay.AddBufferWriter(handle);   // :636-639, completed at OverlayRenderSystem :740
             m_DrawHandle = handle;
@@ -520,6 +525,7 @@ namespace SkiResortMod.Systems
             m_CostSum = 0.0;
             m_CostFrames = 0;
             m_CostRebuilds = 0;
+            m_CostBuildMs = 0.0;
             m_CostPeak = 0f;
             m_CostSince = UnityEngine.Time.realtimeSinceStartupAsDouble;
         }
@@ -532,7 +538,8 @@ namespace SkiResortMod.Systems
                 return;
             if (m_CostFrames > 0 && Mod.Settings != null && Mod.Settings.DiagnosticMeasurements)
                 Mod.Log.Info($"SlopeOverlay [cost]: {m_CostFrames} frames, managed mean {m_CostSum / m_CostFrames:F3} ms peak {m_CostPeak:F2} ms, " +
-                             $"{m_CostRebuilds} strip rebuilds, {m_StripCount} strips (stride {RowStride}{(CapHit ? ", CAP HIT" : "")}), " +
+                             $"{m_CostRebuilds} builds (worker mean {(m_CostRebuilds > 0 ? m_CostBuildMs / m_CostRebuilds : 0):F2} ms, peak " +
+                             $"{PeakBuildMs:F2} ms), {m_FillCount} strips, {m_CurveCount} curves ({SubRows} sub-rows{(CapHit ? ", CAP HIT" : "")}), " +
                              $"{m_Tiles.Count} tiles cached, {m_Tiles.TilesComputed} computed, {m_Tiles.TilesInvalidated} invalidated, " +
                              $"{m_Tiles.TilesEvicted} evicted, {m_Tiles.NodesVerified} heights verified");
             ResetCost();
