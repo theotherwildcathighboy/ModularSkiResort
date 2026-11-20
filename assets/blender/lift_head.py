@@ -10,6 +10,9 @@ Letters (HEAD_RANGES, --letter):
 - S = the 594 round (a plumb mast, the head to the planner max).
 - T = the tower-lean round (default). The mast leans up to 20 deg and the planner caps the rope pitch at 40, so the head
   turns +-20 and each half +-40 relative to the mast.
+- U = the r4/tex texture pass export (2026-11-20): T geometry and range. The DQ heads read the S members
+  (HEAD_ATLAS_BY_LETTER: the new DQ donors with the pass maps). The S heads were never deployed, and the S names now
+  belong to those members, so --export --letter S is refused.
 
 T is S's geometry with the cut-outs sized for that range: the swept envelope of the head (mast top, Hold grab extensions) at
 +-20, and the comm wedge (arrest rail, H1) at 40. G6 and the grip clearance sweep rel_grid.
@@ -80,7 +83,7 @@ HEAD_LETTER = "T"                       # the round's mesh letter (tower letters
 #     chords) at 40 (DQ, GD). So the head turns at most +-20 relative to the mast (40 - 20). Each half turns at most
 #     head +- the half-break (20) = +-40 relative to the mast. The comm wire spans the same nodes, so it too stays
 #     within 40.
-HEAD_RANGES = {"S": dict(head=None, halves=None), "T": dict(head=20.0, halves=40.0)}
+HEAD_RANGES = {"S": dict(head=None, halves=None), "T": dict(head=20.0, halves=40.0), "U": dict(head=20.0, halves=40.0)}
 HEAD_REL_MAX = HEAD_RANGES[HEAD_LETTER]["head"]
 HALF_REL_MAX = HEAD_RANGES[HEAD_LETTER]["halves"]
 HEAD_BONE = "Head"
@@ -93,6 +96,9 @@ HEAD_KEYS = HEAD_MEMBERS + HEAD_TWINS   # 9 + 8 = 17 meshes
 HEAD_ATLAS = {"DQ10": "Q/SkiLiftTowerDQ10Q", "DQ12": "R/SkiLiftTowerDQ12R", "DQ14": "Q/SkiLiftTowerDQ14Q",
               "DQ16": "Q/SkiLiftTowerDQ16Q", "DQ18": "Q/SkiLiftTowerDQ18Q", "DQ20": "Q/SkiLiftTowerDQ20Q",
               "GD12": "R/SkiLiftTowerGD12R", "GD16": "Q/SkiLiftTowerGD16Q", "GD20": "Q/SkiLiftTowerGD20Q"}
+HEAD_ATLAS_SHIPPED = dict(HEAD_ATLAS)
+# per letter: the donors that replace the shipped ones (use_letter). U: the DQ members of the r4/tex export (letter S)
+HEAD_ATLAS_BY_LETTER = {"U": {k: f"S/SkiLiftTowerDQ{k[2:]}S" for k in ("DQ10", "DQ12", "DQ14", "DQ16", "DQ18", "DQ20")}}
 # non-train parts on the head. Everything else that is not a train part stays on Root
 HEAD_PARTS = ("gantry_", "grate_deck", "kick_deck", "post_deck", "rail_deck", "endplate_", "hanger_", "plate_",
               "platerim_", "gusset_")
@@ -132,6 +138,9 @@ def use_letter(letter):
     HEAD_LETTER = letter
     HEAD_REL_MAX = HEAD_RANGES[letter]["head"]
     HALF_REL_MAX = HEAD_RANGES[letter]["halves"]
+    HEAD_ATLAS.clear()
+    HEAD_ATLAS.update(HEAD_ATLAS_SHIPPED)
+    HEAD_ATLAS.update(HEAD_ATLAS_BY_LETTER.get(letter, {}))
 
 
 def head_max(fam):
@@ -1125,6 +1134,9 @@ def main_cli():
     if args.export:
         if not any(a == "--letter" or a.startswith("--letter=") for a in argv):
             raise SystemExit("--export needs an explicit --letter (a new generation letter: never a deployed name)")
+        if args.letter == "S":
+            raise SystemExit("--export --letter S: the S names are the DQ members of the r4/tex export "
+                             "(HEAD_ATLAS_BY_LETTER)")
         if args.out or args.preview or args.lineup or args.masttop:
             raise SystemExit("--export writes the import folders only: no --out / --preview / --lineup / --masttop")
         root = os.path.abspath(args.import_root or os.path.join(LT._REPO, "assets", "import"))
