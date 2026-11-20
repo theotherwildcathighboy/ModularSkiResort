@@ -56,7 +56,8 @@ the generators in `assets/blender/`.
 - Tiling materials: CC0 sets from ambientCG (https://ambientcg.com) and Poly Haven (https://polyhaven.com), no
   attribution required. The Poly Haven photo scans on the buildings: `weathered_plank_siding` by Dimitrios Savva;
   `grey_roof_tiles_02` by Rob Tuytel; `weathered_brown_planks` by Dimitrios Savva (photography)
-  and Rico Cilliers (processing). Download links and checksums: assets/texture-sources.json.
+  and Rico Cilliers (processing); `wood_planks_grey` by Rob Tuytel; `roof_slates_02` by Rob Tuytel;
+  `rustic_stone_wall` by Dimitrios Savva. Download links and checksums: assets/texture-sources.json.
 
 ## Trailer music
 

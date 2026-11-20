@@ -5,7 +5,8 @@ test_texpass - texture pass v1 (`lodge.py --texpass v1`, docs/PIPELINE.md "Textu
 
 Gates (the pilot's lessons, made mechanical):
   P1  provenance: every set a pass names (alias followers included) has an assets/texture-sources.json entry (CC0, a
-      page, an https url and an md5 per map); a set folder that is present matches those md5s byte for byte;
+      page, an https url and an md5 per map); a set folder that is present matches those md5s byte for byte; every
+      Poly Haven scan a pass draws is named in release/CREDITS.md with its authors;
   P2  same cut grid: per swapped key, the square tile x the sheet repeat it draws with == the flag-off product, so
       no building's LOD0 cut grid (and so no tri count) moves; no tile rect or palette rect moves;
   P3  flag off untouched: register v1 then unregister restores every BldgMat and the off layout (hash included);
@@ -124,7 +125,20 @@ def check_provenance():
                     with open(p, "rb") as fh:
                         assert hashlib.md5(fh.read()).hexdigest() == mp["md5"], f"{p}: md5 differs from the source"
                     hashed += 1
-    ok(f"P1 provenance: every pass set listed (CC0, page, url + md5 per map); {hashed} local maps match their md5")
+    # Credits: every Poly Haven scan a pass draws is named in release/CREDITS.md with its authors (1.0.4: three
+    # pass scans shipped in the table before their credit line; CC0 does not require the line, but the listing and
+    # the docs site copy it).
+    with open(os.path.join(os.path.dirname(os.path.dirname(HERE)), "release", "CREDITS.md"), encoding="utf-8") as fh:
+        credits = fh.read()
+    ph = sorted({s["set"] for v in TS.TEXPASS for s in TS.texpass_specs(v).values()
+                 if "set" in s and src[s["set"]]["source"] == "Poly Haven"})
+    for name in ph:
+        e = src[name]
+        assert f"`{e['id']}`" in credits, f"{name}: release/CREDITS.md does not name `{e['id']}`"
+        for a in e["authors"]:
+            assert a in credits, f"{name}: release/CREDITS.md does not name {a} ({e['id']})"
+    ok(f"P1 provenance: every pass set listed (CC0, page, url + md5 per map); {hashed} local maps match their md5; "
+       f"{len(ph)} Poly Haven scans credited")
 
 
 def check_cut_grid_and_round_trip():
