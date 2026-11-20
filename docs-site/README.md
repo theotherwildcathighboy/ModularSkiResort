@@ -1,7 +1,7 @@
 # docs-site: the Modular Ski Resort docs
 
 Guides, reference, asset pipeline and timeline for the mod, built with
-[Astro Starlight](https://starlight.astro.build) and published to GitHub Pages. MIT, like the rest of the code.
+[Astro Starlight](https://starlight.astro.build) and published to GitHub Pages. All rights reserved, like the rest of the repository (see LICENSE).
 
 ## Run it
 

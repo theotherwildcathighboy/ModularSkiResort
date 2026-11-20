@@ -46,7 +46,9 @@
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
     tripPlanner: "", tripPlannerBlocksSkiDays: false, passShare: 50, passPrice: 260, month: 1,
     // Contract 50 (T226 / T225): Ash Flat's 2.9 % of a 10 % cap, a day mean of 2,430 tourists.
-    tourismBonusPct: 2.93, tourismBonusSumPct: 2.93, tourismBonusCapPct: 10, touristsDayMean: 2430 };
+    tourismBonusPct: 2.93, tourismBonusSumPct: 2.93, tourismBonusCapPct: 10, touristsDayMean: 2430,
+    // Contract 57 (1.0.3 R3-B): a December winter, its season starts in July (the pass sale window: August to November).
+    seasonFirstMonth: 7 };
 
   const SIGN = E(101), SIGN2 = E(102);
   const runs = [
@@ -94,7 +96,7 @@
     netMonth: 138600, netEstimated: false,
     skiDaysState: 6, skiDaysThisMonth: 2410, skiDaysLastMonth: 3300, skiDaysSent: 2600, skiDaysSentCar: 1900, skiDaysSentNoCar: 700, skiDaysNow: 310, skiDaysCap: 480, skiDaysLimit: 2, skiDaysPowderPct: 35,
     lodgeBest: "lodgeMid", lodgeExtra: 1, luxuryIgnored: 0, schoolValue: 12, patrolledRuns: 3, priceTolerance: 20, lodgeSpendMonth: 46000,
-    passesSoldSeason: 420, passIncomeSeason: 126000, passHoldersThisMonth: 390, passHoldersLastMonth: 410, lessonsThisMonth: 120, lessonsLastMonth: 160, lessonIncomeMonth: 9600,
+    passesSoldSeason: 420, passIncomeSeason: 126000, passHoldersThisMonth: 390, passHoldersLastMonth: 410, priceTurnedThisMonth: 14, priceTurnedLastMonth: 22, lessonsThisMonth: 120, lessonsLastMonth: 160, lessonIncomeMonth: 9600,
     passesPreSeason: 85, passIncomePreSeason: 25500, cityIncomeEst: 390000,
     // Contract 40 (icon scheme, DECISIONS 620): every VARIETY_BAND bit set, the vertical at the full bonus.
     varietyBands: 7, verticalShortM: 0,
@@ -174,6 +176,40 @@
   moneyFrom(live, history[0]);
   moneyFrom(live2, history[1]);
   const h8 = historyOf(SIGN, NOW_KEY - 95, 96, 1, { gap: [2026 * 12 + 2, 2026 * 12 + 3], partial: [2025 * 12 + 9] });   // 8 years
+
+  // R3-A (1.0.3, look): one whole ski season (Jul .. Jun, the last month in progress) built from season totals, so the revenue chart can be
+  // shown on real numbers. Totals spread over the months by the winter curve (passes by their sale months, buildings and wages flat); each
+  // total is exact. "Corwen year" = PASS-3 Part A (income 1.09M, costs 1.97M, a loss); "profit season" = an invented good year.
+  function spreadTotal(total, weights) {
+    const sum = weights.reduce((a, b) => a + b, 0), out = weights.map((w) => Math.floor((total * w) / sum));
+    out[out.length - 1] += total - out.reduce((a, b) => a + b, 0);
+    return out;
+  }
+  function seasonOf(sign, firstKey, inc, cost, guests) {
+    const h = { sign, firstMonthKey: firstKey, seasonFirstMonth0: 6, flags: [], tourists: [], residents: [], skiDays: [], ticketsPaid: [], ticketIncome: [], lodgeIncome: [],
+      passIncome: [], lessonIncome: [], liftCost: [], runCost: [], buildingsCost: [], wagesCost: [], attraction: [], snowPct: [], snowDepthCm: [] };
+    const months = Array.from({ length: 12 }, (_, i) => (firstKey + i) % 12);
+    const win = months.map((m) => WINTER[m]), pass = months.map((m) => ({ 8: 40, 9: 60, 10: 30, 11: 10 }[m] || 0)), flat = months.map(() => 1);
+    const col = {
+      tourists: spreadTotal(guests.tourists, win), residents: spreadTotal(guests.residents, win), ticketIncome: spreadTotal(inc.tickets, win),
+      lodgeIncome: spreadTotal(inc.lodge, win), lessonIncome: spreadTotal(inc.lessons, win), passIncome: spreadTotal(inc.passes, pass),
+      liftCost: spreadTotal(cost.lifts, win), runCost: spreadTotal(cost.runs, win), buildingsCost: spreadTotal(cost.buildings, flat), wagesCost: spreadTotal(cost.wages, flat),
+    };
+    for (let i = 0; i < 12; i++) {
+      const f = win[i];
+      h.flags.push((i === 0 ? 64 : 0) | (i === 11 ? 129 : 0));
+      for (const k of Object.keys(col)) h[k].push(col[k][i]);
+      h.skiDays.push(Math.round(col.tourists[i] * (f > 0.3 ? 0.9 : 0.5)));
+      h.ticketsPaid.push(Math.round(col.ticketIncome[i] / 65));
+      h.attraction.push(Math.round(40 + 14 * f)); h.snowPct.push(Math.round(f > 0.3 ? 70 + 25 * f : 5 + 40 * f)); h.snowDepthCm.push(Math.round(f > 0.3 ? 30 + 90 * f : 4 * f));
+    }
+    return h;
+  }
+  const JUL26 = 2026 * 12 + 6;
+  const hCorwen = seasonOf(SIGN, JUL26, { tickets: 460000, passes: 215000, lodge: 205000, lessons: 211000 },
+    { lifts: 427000, runs: 53000, buildings: 713000, wages: 776000 }, { tourists: 5237, residents: 1144 });
+  const hProfit = seasonOf(SIGN, JUL26, { tickets: 1050000, passes: 700000, lodge: 520000, lessons: 330000 },
+    { lifts: 360000, runs: 62000, buildings: 560000, wages: 610000 }, { tourists: 9200, residents: 2300 });
 
   const glade = { available: true, active: false, level: 4, treeLine: false, reason: "" };
 
@@ -309,7 +345,7 @@
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800, affordMask: 31 };
   const snowCardHidden = { shown: false, report: Object.assign({}, snowReport, { known: false }) };
-  const base = { hubOpen: false, contract: 56, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 58, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
@@ -375,6 +411,11 @@
     // 8 years of history, so "All" draws July-June seasons (over 60 months)
     "Ash Flat, 8 years of history": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [moneyFrom(Object.assign({}, live), h8), live2], selectedResort: SIGN,
       runs, runLive, lifts, problems, history: [h8, history[1]], build: buildItems({ built: ["school"] }) }),
+    // R3-A: a whole season from totals. The PASS-3 Corwen year (a loss) and an invented profit year, for the revenue chart.
+    "Corwen year (PASS-3, loss season)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [moneyFrom(Object.assign({}, live), hCorwen), live2], selectedResort: SIGN, mergeCard: Object.assign({}, mergeCard, { shown: false }),
+      runs, runLive, lifts, problems, history: [hCorwen, history[1]], build: buildItems({ built: ["school"] }) }),
+    "Profit season (revenue chart)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [moneyFrom(Object.assign({}, live), hProfit), live2], selectedResort: SIGN, mergeCard: Object.assign({}, mergeCard, { shown: false }),
+      runs, runLive, lifts, problems, history: [hProfit, history[1]], build: buildItems({ built: ["school"] }) }),
     // The status line's two other snow states: estimated snow ("≈ 41 cm · 72 %", season word in the tooltip) and a warning hint
     // that keeps the slot ("Thawing", the snow pair in the tooltip).
     "Ash Flat, snow estimated": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { snowEstimated: true, snowDepthCm: 41, snowPct: 72 }), live2],

@@ -631,6 +631,36 @@ namespace ResortBatch
                   "defaults sit on their slider steps (ticket 60 / 5, lodge spend 15 / 5)");
             check(SkiMoneyRules.ClampLodgeSpend(-5) == 0 && SkiMoneyRules.ClampLodgeSpend(25) == 25 && SkiMoneyRules.ClampLodgeSpend(55) == 50,
                   w, "ClampLodgeSpend(-5, 25, 55) = 0, 25, 50");
+            // 1.0.3 (r4/lodge-spend): the spend follows the day ticket on a damped curve (sqrt), the setting being the spend at the default ticket (100).
+            int dt = SkiMoneyRules.TicketPriceDefault;
+            check(dt == 100, w, "TicketPriceDefault = 100 (the lodge-spend anchor)");
+            check(SkiMoneyRules.LodgeSpendOf(15, 1.0f, dt) == 15 && SkiMoneyRules.LodgeSpendOf(15, 1.5f, dt) == 23 &&
+                  SkiMoneyRules.LodgeSpendOf(15, 3.0f, dt) == 45, w, "LodgeSpendOf(15, tier, 100) = 15 / 23 / 45: a default game is unchanged");
+            for (int t = 5; t <= SkiMoneyRules.TicketPriceMax; t += SkiMoneyRules.TicketPriceStep)
+                for (int sset = 5; sset <= SkiMoneyRules.LodgeSpendMax; sset += SkiMoneyRules.LodgeSpendStep)
+                    foreach (float mult in new[] { 1.0f, 1.5f, 3.0f })
+                    {
+                        int got3 = SkiMoneyRules.LodgeSpendOf(sset, mult, t);
+                        int want3 = (int)Math.Floor((double)sset * mult * Math.Sqrt(t / 100.0) + 0.5);
+                        if (got3 != want3 || (t == dt && got3 != SkiMoneyRules.LodgeSpendOf(sset, mult)))
+                            check(false, w, $"LodgeSpendOf({sset}, {mult}, {t}) {got3}, want {want3} (at 100: {SkiMoneyRules.LodgeSpendOf(sset, mult)})");
+                    }
+            check(SkiMoneyRules.LodgeSpendOf(15, 3.0f, 0) == 0 && SkiMoneyRules.LodgeSpendOf(15, 3.0f, -5) == 0, w, "ticket price <= 0: no spend (tickets off)");
+            check(SkiMoneyRules.LodgeSpendOf(0, 3.0f, 80) == 0 && SkiMoneyRules.LodgeSpendOf(15, 0f, 80) == 0 &&
+                  SkiMoneyRules.LodgeSpendOf(15, float.NaN, 80) == 0, w, "setting 0 / multiplier 0 or NaN: no spend at any ticket");
+            check(SkiMoneyRules.LodgeSpendOf(15, 3.0f, 80) == 40 && SkiMoneyRules.LodgeSpendOf(15, 1.5f, 80) == 20 &&
+                  SkiMoneyRules.LodgeSpendOf(15, 1.0f, 80) == 13, w, "PASS-3 ticket 80 (x0.894): 40 / 20 / 13 per guest");
+            check(SkiMoneyRules.LodgeSpendOf(15, 3.0f, 200) == 64 && SkiMoneyRules.LodgeSpendOf(15, 1.5f, 200) == 32 &&
+                  SkiMoneyRules.LodgeSpendOf(15, 1.0f, 200) == 21 && SkiMoneyRules.LodgeSpendOf(50, 3.0f, 200) == 212, w,
+                  "slider max 200 (x1.414): 64 / 32 / 21 at the default, 212 at setting 50 x3");
+            check(SkiMoneyRules.LodgeSpendOf(15, 1.0f, 5) == 3 && SkiMoneyRules.LodgeSpendOf(5, 1.0f, 5) == 1, w, "ticket 5 (x0.224): 15 x 1 -> 3, 5 x 1 -> 1");
+            check(SkiMoneyRules.LodgeSpendOf(15, 3.0f, 100000) == SkiMoneyRules.LodgeSpendOf(15, 3.0f, SkiMoneyRules.TicketPriceMax), w, "a ticket above the max reads as the max");
+            // Monotone in the ticket (a higher price never lowers the spend) and the factor is sqrt: 4x the ticket = 2x the spend (25 -> 100).
+            bool mono = true;
+            for (int t2 = 10; t2 <= SkiMoneyRules.TicketPriceMax; t2 += 5)
+                mono &= SkiMoneyRules.LodgeSpendOf(15, 3.0f, t2) >= SkiMoneyRules.LodgeSpendOf(15, 3.0f, t2 - 5);
+            check(mono, w, "LodgeSpendOf rises (never falls) with the ticket, Grand at the default setting");
+            check(SkiMoneyRules.LodgeSpendOf(20, 1.0f, 25) * 2 == SkiMoneyRules.LodgeSpendOf(20, 1.0f, 100), w, "sqrt: a quarter of the ticket halves the spend (setting 20 x1: 10 vs 20)");
             SpendOf(check, w, 10, 1.5f, 15);
             SpendOf(check, w, 5, 1.5f, 8);    // floor(7.5 + 0.5)
             SpendOf(check, w, 0, 3f, 0);

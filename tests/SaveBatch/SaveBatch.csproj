@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     Headless test host for the save format: every persisted
-    type's layout against the frozen table SaveLayouts.cs, the [FormerlySerializedAs] self-aliases and the pinned
-    AssemblyVersion of the BUILT mod DLL, and the release/CHANGELOG.md layout line. Run from the ModularSkiResort root:
+    type's layout against the frozen table SaveLayouts.cs, the [FormerlySerializedAs] self-aliases and the
+    AssemblyVersion (= ModVersion + .0) of the BUILT mod DLL, and the release/CHANGELOG.md layout line. Run from the ModularSkiResort root:
       see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
     Lives OUTSIDE mod/SkiResortMod on purpose (the mod csproj globs **/*.cs). The three component files are linked
     UNCHANGED against EngineShims.cs (same namespaces as Colossal.Core / Unity.Entities, scalar members only); the two

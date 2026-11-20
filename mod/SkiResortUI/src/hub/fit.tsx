@@ -264,14 +264,17 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
       }
       // Rows never drawn on a fresh frame (just added) count 0 until one is. The fresh pass two frames on corrects the split
       const heights = rows.map((r) => heightOf.current.get(r) ?? 0);
-      // A row with keepTailClass starts a block that runs to the last row. The block stays on one page while it fits a page alone
-      // (History's "This season so far": page 2 must not start at Net without its header). Too tall for a page: it splits like any rows.
-      const keepAt = keepTailClass ? rows.findIndex((r) => r.className.indexOf(keepTailClass) >= 0) : -1;
-      let keepFrom = -1;
-      if (keepAt >= 0) {
+      // A row with keepTailClass starts a block that runs to the next such row (or the last row). A block stays on one page while it
+      // fits a page alone (History: "This season so far" must not start page 2 at Net without its header, and the revenue chart under it
+      // keeps its own block). Too tall for a page: it splits like any rows.
+      const keepStarts: number[] = [];
+      if (keepTailClass) rows.forEach((r, i) => { if (r.className.indexOf(keepTailClass) >= 0) keepStarts.push(i); });
+      const keepBlockOf: number[] = rows.map(() => -1);   // row i -> the first row of its block when that block fits a page alone
+      for (let k = 0; k < keepStarts.length; k++) {
+        const from = keepStarts[k], to = k + 1 < keepStarts.length ? keepStarts[k + 1] : rows.length;
         let tail = 0;
-        for (let i = keepAt; i < rows.length; i++) tail += heights[i];
-        if (tail <= room) keepFrom = keepAt;
+        for (let i = from; i < to; i++) tail += heights[i];
+        if (tail <= room) for (let i = from; i < to; i++) keepBlockOf[i] = from;
       }
       const pageOf: number[] = [];
       let p = 0, acc = 0, start = 0;
@@ -279,7 +282,7 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
         if (acc + heights[i] > room && i > start) {
           // Rows moved to the next page with row i: the whole keep block when i is inside it, else a fold header (kept with its first row)
           let from = i;
-          if (keepFrom >= 0 && i > keepFrom && keepFrom > start) from = keepFrom;
+          if (keepBlockOf[i] >= 0 && i > keepBlockOf[i] && keepBlockOf[i] > start) from = keepBlockOf[i];
           else if (i - 1 > start && rows[i - 1].className.indexOf(foldRowClass) >= 0) from = i - 1;
           acc = 0;
           for (let j = from; j < i; j++) { pageOf[j] = p + 1; acc += heights[j]; }

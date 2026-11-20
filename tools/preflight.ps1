@@ -41,7 +41,7 @@
 #                  It also checks the lock against the decompile of its game version, when that tree is beside the repo (patch readiness).
 #  15. LODGEPARK - every lodge tier and the Welcome Sign carry Game.Prefabs.Park (tools/check-lodge-park.ps1).
 #                  The stats query requires Game.Buildings.Park.
-#  16. VERSION   - FileVersion in SkiResortMod.csproj = ModVersion in PublishConfiguration.xml + ".0"; AssemblyVersion stays 1.0.0.0 (T227).
+#  16. VERSION   - ModVersion in PublishConfiguration.xml is MAJOR.MINOR.PATCH and the csproj derives AssemblyVersion / FileVersion from it (T255).
 #
 # Ownership = directories named Ski* under ImportedData, Ski* prefabs inside the
 # Editor library folder (c030ee3ff256df91), plus legacy FixedGripChairLift (reported).
@@ -999,17 +999,17 @@ if ($LASTEXITCODE -ne 0) {
     $rows.Add("OK    LODGEPARK $(($lpOut | Select-Object -Last 1))")
 }
 
-# ---- 16. VERSION: FileVersion = ModVersion + ".0", AssemblyVersion pinned (T227, 2026-11-16) -----------------------------------
-# The same rule as the release-check gate "version" (which also reads the built DLL), run early so a ModVersion bump cannot be forgotten.
+# ---- 16. VERSION: one release number, ModVersion; the csproj derives AssemblyVersion / FileVersion = ModVersion + ".0" (T255) ----
+# The same rule as the release-check gate "version" (which also reads the built DLL). The 1.0.0.0 pin (T227) is retired: saves resolve
+# our types through the [FormerlySerializedAs] self-aliases (tests/SaveBatch SL-A), whatever the AssemblyVersion.
 $verRoot = Split-Path -Parent $PSScriptRoot
 $verCsproj = [IO.File]::ReadAllText((Join-Path $verRoot 'mod\SkiResortMod\SkiResortMod.csproj'))
 $verPub = [IO.File]::ReadAllText((Join-Path $verRoot 'mod\SkiResortMod\Properties\PublishConfiguration.xml'))
-$verFile = [regex]::Match($verCsproj, '<FileVersion>([^<]+)</FileVersion>').Groups[1].Value
-$verAsm = [regex]::Match($verCsproj, '<AssemblyVersion>([^<]+)</AssemblyVersion>').Groups[1].Value
+$verDerived = $verCsproj.Contains('<AssemblyVersion>$(ModVersion).0</AssemblyVersion>') -and $verCsproj.Contains('<FileVersion>$(ModVersion).0</FileVersion>') -and $verCsproj.Contains('<Version>$(ModVersion)</Version>')
 $verMod = [regex]::Match($verPub, '<ModVersion\s+Value="([^"]+)"').Groups[1].Value
-if ($verAsm -ne '1.0.0.0') { $rows.Add("FAIL  VERSION  AssemblyVersion is $verAsm in SkiResortMod.csproj: it stays 1.0.0.0 (saves name the assembly)"); $failures++ }
-elseif (-not $verFile -or -not $verMod -or $verFile -ne "$verMod.0") { $rows.Add("FAIL  VERSION  FileVersion '$verFile' in SkiResortMod.csproj must equal ModVersion '$verMod' + .0 in PublishConfiguration.xml (T227)"); $failures++ }
-else { $rows.Add("OK    VERSION  ModVersion $verMod = FileVersion $verFile, AssemblyVersion $verAsm pinned") }
+if ($verMod -notmatch '^\d+\.\d+\.\d+$') { $rows.Add("FAIL  VERSION  ModVersion '$verMod' in PublishConfiguration.xml is not MAJOR.MINOR.PATCH (the csproj derives the DLL versions from it, T255)"); $failures++ }
+elseif (-not $verDerived) { $rows.Add("FAIL  VERSION  SkiResortMod.csproj must derive Version / AssemblyVersion / FileVersion from `$(ModVersion) (T255): no hand-set version"); $failures++ }
+else { $rows.Add("OK    VERSION  ModVersion $verMod -> AssemblyVersion / FileVersion $verMod.0 (derived)") }
 
 # ---- summary -------------------------------------------------------------------------
 $rows | ForEach-Object { Write-Output $_ }

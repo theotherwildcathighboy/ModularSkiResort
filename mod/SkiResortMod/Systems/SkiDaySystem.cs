@@ -311,6 +311,11 @@ namespace SkiResortMod.Systems
         /// <summary>Last month is known but partial (since load, since a jump, or short). Its ski-day count is not whole.</summary>
         internal bool LastMonthPartial => m_Month.LastKnown && m_Month.LastSinceLoad;
 
+        /// <summary>1.0.3 destination pass: the area's ticket price tolerance at the last pass (the best passing lodge's, as the send's chance
+        /// reads it). 0 for an unarmed or unknown sign, or before the area's first pass. Main thread, no job sync.</summary>
+        internal int PriceToleranceOf(Entity sign)
+            => IsArmed && m_State.TryGetValue(sign, out AreaMemory mem) && mem.HasPass ? mem.PriceTolerance : 0;
+
         /// <summary>The last pass's view of the sign. Main thread, no job sync. Returns false for an unarmed or unknown sign.</summary>
         internal bool TryGetArea(Entity sign, out SkiDayAreaView view)
         {
@@ -3419,6 +3424,8 @@ namespace SkiResortMod.Systems
                     DayKey = SkiDayRules.DayKey(m_Time.year, m_Time.normalizedDate, m_Time.daysPerYear),
                     Knobs = m_Knobs,
                     Price = m_Price,
+                    PassShare = m_Ticket.PassShare,          // 1.0.3 destination pass (read live by the ticket system)
+                    PassPrice = m_Ticket.PassPriceSetting,
                     LeisureInterval = m_LeisureInterval,
                     BehaviorInterval = m_BehaviorInterval,
                     BehaviorOffset = m_BehaviorOffset,

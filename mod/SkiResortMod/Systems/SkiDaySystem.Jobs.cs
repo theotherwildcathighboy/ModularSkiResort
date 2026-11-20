@@ -1504,6 +1504,7 @@ namespace SkiResortMod.Systems
             [ReadOnly] public ComponentLookup<Game.Buildings.LeisureProvider> LeisureProviders;
             [ReadOnly] public ComponentLookup<SkiSeasonPass> SeasonPasses;   // a holder gets P = 1 (Candidate)
             public int SeasonKey;                                           // SkiMoneyRules.SeasonKeyOfDate at the schedule
+            public int PassShare, PassPrice;   // 1.0.3 destination pass (SkiPassRules): the clamped SeasonPassShare / SeasonPassPrice
 
             [ReadOnly] public NativeArray<AreaJob> Areas;
             [ReadOnly] public NativeArray<LodgeJob> Lodges;
@@ -1867,12 +1868,15 @@ namespace SkiResortMod.Systems
                     if (!SkiDayRules.ClaimFits(Now, ownDeadline, co.ClosingFrame, hours, TripKnobs.StayHours))
                     {
                         if (last)
-                            TooLate(a, cls, who, aj, d, hours, ownDeadline, co.ClosingFrame, t, passHolder);   // measure only
+                            TooLate(a, cls, who, aj, d, hours, ownDeadline, co.ClosingFrame, t,
+                                    passHolder || (tourist && DestPassAt(hh, co.PriceTolerance)));   // measure only
                         continue;
                     }
-                    // The area's price tolerance and school factor.
+                    // The area's price tolerance and school factor. A tourist party on a destination pass this season (SkiPassRules, the
+                    // area's tolerance prices its fee) gets P = 1 like a resident holder: the ticket price does not deter it.
+                    bool onPass = passHolder || (tourist && DestPassAt(hh, co.PriceTolerance));
                     double p = SkiDayRules.Chance(who, aj.Attraction, d / 1000.0, aj.OpenShare, aj.Powder, Price,
-                                                  co.PriceTolerance, aj.SchoolFactor, SkiDayRules.Confidence(cls, t), Knobs, passHolder);
+                                                  co.PriceTolerance, aj.SchoolFactor, SkiDayRules.Confidence(cls, t), Knobs, onPass);
                     if (!SkiDayRules.IsBetter(p, d, aj.SignRef, bestP, bestD, bestSign))
                         continue;
                     bestA = a;
@@ -2023,6 +2027,15 @@ namespace SkiResortMod.Systems
                     return vanilla;
                 float2 sleep = CitizenBehaviorSystem.GetSleepTime(e, z, ref Economy, isWorker, wk, isStudent, st);
                 return SkiDayRules.OffDayDeadline(vanilla, Now, TimeOfDay, sleep.x);
+            }
+
+            /// <summary>1.0.3 destination pass: the tourist household is on one this season at an area of this price tolerance
+            /// (SkiPassRules.OnDestPass, the same roll and share as the ticket gate).</summary>
+            private bool DestPassAt(Entity hh, int tolerance)
+            {
+                int fee = SkiPassRules.DestFee(PassPrice, Price);
+                double share = SkiPassRules.DestShare(PassShare, PassPrice, Price, SkiDayRules.PriceFactor(fee, tolerance));
+                return SkiPassRules.OnDestPass(hh.Index, hh.Version, SeasonKey, share);
             }
 
             private void TooLate(int a, SkiDayRules.TravelClass cls, SkiDayRules.GuestKind who, in AreaJob aj, float d, double hours,

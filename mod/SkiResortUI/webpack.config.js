@@ -1,7 +1,7 @@
 /*
  * webpack.config.js - builds the Ski Resort UI module (SkiResortMod.mjs + SkiResortMod.css).
  *
- * Written for this repo (MIT). Nothing is copied. It derives from the settings the game's module loader
+ * Written for this repo (all rights reserved, see LICENSE). Nothing is copied. It derives from the settings the game's module loader
  * REQUIRES, as listed with their evidence in docs/research/resort-hub-understand.md section
  * 2.A.2 (we read the official Colossal Order template in the game install,
  * .ModdingToolchain/npx-create-csii-ui-mod/template/webpack.config.js, as a reference):

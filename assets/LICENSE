@@ -1,44 +1,14 @@
-Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)
+Modular Ski Resort art assets
 
-Copyright (c) 2026 theotherwildcathighboy
+Copyright (c) 2026 theotherwildcathighboy. All rights reserved.
 
-The art assets in this directory and everything generated from it — meshes (FBX),
-textures, previews, the exported import folders and the in-game asset prefabs built
-from them — are licensed under the Creative Commons Attribution-NonCommercial-ShareAlike
-4.0 International license.
+The art assets in this directory and everything generated from them (meshes, textures,
+previews, the exported import folders and the in-game asset prefabs built from them)
+are covered by the all-rights-reserved notice in the repository root: see ../LICENSE.
+You may view them on GitHub. You may not copy, modify, redistribute or reuse them
+without prior written permission.
 
-You are free to share (copy and redistribute the material in any medium or format)
-and adapt (remix, transform, and build upon the material), under the following terms:
+Versions published before that notice were licensed under CC BY-NC-SA 4.0. Copies
+obtained under those versions keep those terms.
 
-  Attribution — You must give appropriate credit ("Modular Ski Resort by
-  theotherwildcathighboy"), provide a link to the license, and indicate if changes were
-  made. You may do so in any reasonable manner, but not in any way that suggests the licensor
-  endorses you or your use.
-
-  NonCommercial — You may not use the material for commercial purposes.
-
-  ShareAlike — If you remix, transform, or build upon the material, you must
-  distribute your contributions under the same license as the original.
-
-  No additional restrictions — You may not apply legal terms or technological
-  measures that legally restrict others from doing anything the license permits.
-
-No third-party geometry or textures are included. Two CC BY 4.0 models served only as
-visual references, and nothing derived from them ships (release/CREDITS.md):
-
-  "Chair Lift" by Kagelok
-  https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236
-
-  "Ski gongola and lift station detailed drafts" by Wilin_Amaurea
-  https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db
-
-Tiling materials from ambientCG (https://ambientcg.com) and Poly Haven (https://polyhaven.com)
-are CC0 and carry no attribution requirement. The Poly Haven photo scans: weathered_plank_siding
-by Dimitrios Savva; grey_roof_tiles_02 by Rob Tuytel; weathered_brown_planks
-by Dimitrios Savva and Rico Cilliers (download links: assets/texture-sources.json).
-
-Full legal code: https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
-Human-readable summary: https://creativecommons.org/licenses/by-nc-sa/4.0/
-
-The generators that produce these assets (assets/blender/*.py) and the code mod are code
-and are covered by the MIT license in the repository root, not by this file.
+Third-party material credited in release/CREDITS.md keeps its own license.

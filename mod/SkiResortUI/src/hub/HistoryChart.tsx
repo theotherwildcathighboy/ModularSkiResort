@@ -26,6 +26,9 @@ export const HISTORY_COLOR = {
   lastSeason: "#646c7e",
 } as const;
 
+/** The income and costs colors as "r, g, b": the revenue chart shades them per part (HISTORY_COLOR above has one fixed alpha). */
+export const HISTORY_RGB = { income: "65, 216, 128", costs: "223, 95, 127" } as const;
+
 /** Rem a top / bottom scale value needs from the zero line to stay legible (one XS line). */
 const LABEL_ROOM = 14;
 
