@@ -28,7 +28,15 @@ $env:SteamAppId="949230"; $env:SteamGameId="949230"; $env:SteamOverlayGameId="94
 ```
 
 Port 9444 opens after 1 to 2 minutes. The window then has no focus, so input does not reach it (WScript `AppActivate` returned False).
-To bring the window to the front, run:
+To bring the window to the front, run exactly this command (a permission rule allows it; exit 0 = in front, 1 = no game,
+2 = focus failed):
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/testbridge/focus-game.ps1
+```
+
+From a worktree, give the main checkout's script by its absolute path in the same form (the user-level rule names that path).
+Do not paste the inline recipe below: the auto-mode classifier refuses it. It is kept as the reference for what the script does.
 
 ```powershell
 Add-Type @"
@@ -573,7 +581,7 @@ Then poll `seqStatus` until `done`.
   same run and the same state, never against numbers from a focused run.
 
 - **Input needs focus.** Every input step checks that the game is the foreground window. If it is not, the step fails the sequence,
-  so input cannot land in another app. First bring the game to the front from outside, with the `SetForegroundWindow` recipe above.
+  so input cannot land in another app. First bring the game to the front from outside, with `tools/testbridge/focus-game.ps1` (above).
   Never use `open_application` from computer use: it starts a second game. The game loses focus whenever the Claude desktop app
   comes to the front. Check `status.focused`.
 - **A dead corner can swallow clicks.** In a large playset (83 code mods, 2026-11-07), synthetic clicks in the top-right corner
