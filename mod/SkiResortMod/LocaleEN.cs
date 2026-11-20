@@ -1550,6 +1550,8 @@ namespace SkiResortMod
                 // Season passes (hubText.ts holds the same texts, gate R4).
                 { "SkiResort.Hub.MONEY_ROW[Passes]", "Season passes sold · {N}" },
                 // The pre-season sale and lesson rows, the city-income estimate row, the lesson guests row.
+                // T267: the season pass row's tooltip line ({PRICE} = the season's pass money / passes sold).
+                { "SkiResort.Hub.MONEY_TIP[PassesAvg]", "Average price paid: {PRICE}. Each pass keeps the price of its sale, so earlier sales can cost less." },
                 { "SkiResort.Hub.MONEY_ROW[PassesPre]", "Pre-season passes · {N}" },
                 { "SkiResort.Hub.MONEY_ROW[Lessons]", "Lessons · {N}" },
                 { "SkiResort.Hub.MONEY_TIP[Lessons]", "Booked this month so far, one lesson per guest. Share and price: Options > Modular Ski Resort > Ski area balance." },

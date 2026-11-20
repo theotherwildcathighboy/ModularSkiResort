@@ -908,6 +908,8 @@ export const HUB_FMT = {
   moneyRowPassesSold: ["SkiResort.Hub.MONEY_ROW[PassesSold]", "Passes sold · {N}"],
   /* T265: {PCT} = SALE_STEP_PCT (Percentage), {MONTH} = the last month at the early price, {PRICE2} = the stepped price (Money) */
   moneySaleTipStep: ["SkiResort.Hub.MONEY_SALE_TIP[Step]", "The price rises by {PCT} after {MONTH}, to {PRICE2}."],
+  /* T267: the season pass row's tooltip: {PRICE} = passIncomeSeason / passesSoldSeason (Money). Each pass keeps its sale's price. */
+  moneyTipPassesAvg: ["SkiResort.Hub.MONEY_TIP[PassesAvg]", "Average price paid: {PRICE}. Each pass keeps the price of its sale, so earlier sales can cost less."],
   moneyPassLineDemand: ["SkiResort.Hub.MONEY_PASS_LINE[Demand]", "Season pass, early price {PRICE} · Demand: {WORD}"],
   /* 1.0.3 R3-B: {FEE} = hubRules.destFee (Money), {PCT} = hubRules.destSharePct (Percentage), {PRICE} / {PRICE2} = the opening /
    stepped pass price (Money), {MONTH} / {MONTH2} = month names (hubRules.saleWindow) */

@@ -1447,6 +1447,7 @@
   "SkiResort.Hub.MONEY_ROW[PassesMonth]": "Passes",
   "SkiResort.Hub.MONEY_ROW[PassesSold]": "Passes sold · {N}",
   "SkiResort.Hub.MONEY_ROW[Passes]": "Season passes sold · {N}",
+  "SkiResort.Hub.MONEY_TIP[PassesAvg]": "Average price paid: {PRICE}. Each pass keeps the price of its sale, so earlier sales can cost less.",
   "SkiResort.Hub.MONEY_ROW[PassesPre]": "Pre-season passes · {N}",
   "SkiResort.Hub.MONEY_ROW[Lessons]": "Lessons · {N}",
   "SkiResort.Hub.MONEY_TIP[Lessons]": "Booked this month so far, one lesson per guest. Share and price: Options > Modular Ski Resort > Ski area balance.",

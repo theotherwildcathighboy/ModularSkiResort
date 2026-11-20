@@ -244,7 +244,10 @@ function PassRows({ l, month, samples, t }: { l: ResortLive | null; month: strin
       <InfoLine
         label={<LocText entry={HUB_FMT.moneyRowPasses} args={{ N: numArg(sold, Unit.Integer) }} />}
         value={<Cell samples={samples}>{incomeValue(l ? l.passIncomeSeason : -1)}</Cell>}
-        tip={t(HUB_LOC.moneyTipPasses)}
+        tip={<TipLines lines={[
+          t(HUB_LOC.moneyTipPasses),
+          sold > 0 && l && l.passIncomeSeason >= 0 && <LocText key="a" entry={HUB_FMT.moneyTipPassesAvg} args={{ PRICE: numArg(Math.round(l.passIncomeSeason / sold), Unit.Money) }} />,
+        ]} />}
       />
       {presaleShown(l) && l && (
         <InfoLine
