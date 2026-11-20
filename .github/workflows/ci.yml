@@ -58,6 +58,8 @@ jobs:
         run: node tools/check-stats-hash.js
       - name: No user paths
         run: node tools/check-no-user-paths.js
+      - name: Manifests record their build args
+        run: node tools/check-manifest-args.js --self-test && node tools/check-manifest-args.js
       - name: No late-phase deletes
         run: node tools/check-ui-phase-deletes.js
       - name: Run prop placer rules

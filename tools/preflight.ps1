@@ -816,6 +816,19 @@ if ($LASTEXITCODE -ne 0) {
     $rows.Add("OK    USERPATHS $(($upOut | Select-Object -Last 1))")
 }
 
+# ---- 12b2. MANIFESTARGS: every generator manifest records the arguments that built it (T256, 2026-11-19) -----------------------
+# The shipped fixed-grip stations O were built with --thin-rope / --no-hosted-tower and no manifest said so. Manifests from before
+# the gate are on tools/manifest-args-baseline.json, which only shrinks (check-manifest-args.js --shrink).
+$maOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-manifest-args.js"))
+$maSelf = @(Invoke-Node (Join-Path $PSScriptRoot "check-manifest-args.js") --self-test)
+if ($LASTEXITCODE -ne 0) { $rows.Add("FAIL  MANIFESTARGS self-test $($maSelf -join ' ')"); $failures++ }
+elseif (($maOut | Select-Object -Last 1) -notmatch 'PASS$') {
+    foreach ($l in ($maOut | Select-Object -SkipLast 1)) { $rows.Add("FAIL  MANIFESTARGS $l"); $failures++ }
+    if ($maOut.Count -le 1) { $rows.Add("FAIL  MANIFESTARGS $($maOut -join ' ')"); $failures++ }
+} else {
+    $rows.Add("OK    MANIFESTARGS $(($maOut | Select-Object -Last 1)) | $(($maSelf | Select-Object -Last 1))")
+}
+
 # ---- 12c. LATEDELETE: no Deleted tag from a phase after ModificationSystem (native crash, field test 2026-10-31) -----
 $ldOut = @(Invoke-Node (Join-Path $PSScriptRoot "check-ui-phase-deletes.js"))
 if ($LASTEXITCODE -ne 0) {

@@ -1192,8 +1192,9 @@ FG_HANG = 2.400                  # carriers tr hang_m (grip top = the code lane 
 FG_GRIP_ABOVE = 0.080            # carriers tr grip_top_above_rope_m (only the rope-point pin uses it)
 M_ROPE_R_SHIPPED = 0.055         # the shipped stations' modeled rope
 # art-601 #10 (owner hand-test note 10, "really jarring"): the modeled station rope (ropechord_ / wheelrope, 0.11 m across)
-# read 2-3x the line's vanilla cable beside it. --thin-rope builds with THIN_ROPE_R, the 0.048 m rope that the lines and the
-# chair contract use (carriers tr / dq: the grip's rope), for a new station letter. Every consumer of the radius (the axle of
+# read 2-3x the line's vanilla cable beside it. --thin-rope builds with THIN_ROPE_R, the 0.048 m rope of the chair contract
+# (carriers tr / dq: the grip's rope; the line cable draws at r 0.060, rope-width-check.md). The shipped letter O uses it
+# (SHIPPED_FLAGS). Every consumer of the radius (the axle of
 # the hold trains on the rope's top, the rope parts, the checks) follows the one global. The manifest records the radius of
 # the build (rope_r_m), and the seams tests read it per asset. LOD caveat: vanilla cables keep a minimum screen width at
 # distance, but a modeled 0.048 m rope does not (judge the far preview).
@@ -1885,8 +1886,8 @@ M_HOLD = dict(xc=-4.60, n=4, prefix="sheave_hold_", boom_w=0.15, boom_rear=-0.30
 # tab stiffens the root. Two thin cheek plates clamp the tube onto the saddle. Round 1 read chunky with its 0.15 x 0.22 box,
 # 0.42 m haunch web and full root plate.
 #
-# Everything sits above the rope in the plane of the lane: the chairs pass under it as under the train. False = the deployed
-# station byte for byte.
+# Everything sits above the rope in the plane of the lane: the chairs pass under it as under the train. False = the pre-art-601
+# station; the shipped letter O base is built with it on (--no-hosted-tower, SHIPPED_FLAGS).
 M_NOSE_TRAIN = False
 M_NOSE = dict(rim_gap=0.02,          # m along x: the outer rim's line-side edge inboard of anchor_in
               tube_r=0.075, tube_segs=12,   # the boom tube (round 1: a 0.15 x 0.22 box)
@@ -1894,7 +1895,118 @@ M_NOSE = dict(rim_gap=0.02,          # m along x: the outer rim's line-side edge
               tab=(0.06, 0.015, 0.09),      # its lifting tab on top: half length, half thickness, height
               web_d=0.16, web_len=0.50, web_t=0.03,   # root gusset tab on the tube's top: root depth, length, thickness
               cheek_t=0.02, cheek_over=0.02, cheek_up=0.03)   # root cheeks: thickness, past the saddle, over the tube
-M_HOLD_MAT = {"paint": "paint1", "galv": "galv", "rubber": "rubber",   # tower key -> M key (Pali black steel)
+# -- T256 (r4 lift-motion, 2026-11-19): the RIGGED fixed-grip stations (CLI --rig, letter P) ----------------------------
+# M_RIG True (set_m_rig, main_m --rig): the station mesh is skinned (cs2_skin rig, every LOD):
+# - bone `Root` (static), `Bullwheel` (rim, spokes, hub, hub cap, the painted mark; head on the wheel center, the game turns
+#   it about its local Y = the vertical axle), and on the base `NoseTrain` (the OUTER half of an articulated hold-down train
+#   per lane, head on the line through both lane ends, game (0, 5.84, -7.025); the game pitches it about its local X).
+# - the modeled rope starts at the LANE END (the HV sub-lane's outboard end, anchor_out: the carriers' chain ends there,
+#   LiftLoopCache.AppendTerminalTurn) instead of the sub-lane's inboard end: M_SPECS anchor_in := anchor_out, so the chord,
+#   the train frame, M2 / M3 / M21 and the previews all follow one datum. The prefab's sub-lanes do not move (M1 reads
+#   M_SPECS_SHIPPED).
+# - the rope is a hexagon (one vertex on the horizontal) of RIG_ROPE_R: the line's cable (SkiRopeStillLVA = vanilla LV cable,
+#   r 0.060, rope-width-check 2026-11-19). The half torus has RIG_TORUS_MAJORS segments (ring centers on the code arc, chord
+#   sagitta reported). LOD1 keeps the rope faces un-decimated (RigLodFixed).
+# - the 8-spoke bullwheel (box spokes, hub cap, one safety_yellow spoke: the turn reads at play distance).
+# - an entry (hold-down) sheave at each of the wheel's two tangent points, its rim on the rope where the chord meets the
+#   level wheel plane (plan option W3), on a static arm (base: from the tension carriage, top: from an outboard post on the
+#   crest), the cheek braced to the arm by a gusset.
+# - base only: the nose train (fg_train_side_halves as the skinned towers' FG halves, mirrored to a hold-down: sheaves over
+#   the rope, the main pin ON the rope line at the lane end, the tree RIG_NOSE["inboard"] inboard of the wheels) on the slim
+#   tube boom of art-601, now out to the pin. The inner half is static, the outer half rides NoseTrain.
+# - round 2 (critic pass 1, S4): the nose train's bogie pins hang in straps (cs2_sheaves.fg_train_side_halves pin_links,
+#   FG_PIN_LINK) instead of floating between beam and bar; the shipped towers keep the floating pin (kit-wide fix = new letters).
+# - round 2 (critic pass 1, S2 / C6): the top's entry arms come in from two outboard posts on the crest (RIG_TOP_POST,
+#   outside the chairs' swept body), not from a post on the hub with a T-bar over the turning wheel; a gusset hangs each
+#   cheek from its arm on both stations. S3: spoke_00 is safety_yellow (round 1: a galv plate on the rim top, too faint).
+#   C1: a 6-gon knuckle collar on each lane end of the station rope (RIG_KNUCKLE). C2: a knee brace under each nose boom
+#   (RIG_NOSE_BRACE). S1 (support wheels under the outer half): not built, lead decision 2026-11-20 (the chair's in-plane
+#   stem would pass through a support roller's axle; art-fg-build-2.md "S1 finding").
+# - round 2b (critic pass 2): the top entry posts r 0.09 with the crest stakes' black wrap (P2-S1); the nose brace's top
+#   moved toward the boom root, 30 deg to the boom (P2-S4).
+# False = every shipped station byte for byte (no expression below runs).
+M_RIG = False
+RIG_ROPE_R = 0.060            # m, the line cable's circumscribed radius (tune after an in-game side-by-side photo)
+RIG_ROPE_SIDES = 6            # hexagon, one vertex on the horizontal (the cable's 0.120 m lateral / 0.104 m vertical)
+RIG_TORUS_MAJORS = 24         # half torus segments (7.5 deg each): chord sagitta R (1 - cos 3.75 deg) = 3.9 mm at R 1.80
+RIG_BONES = {"drive": ("Root", "Bullwheel", "NoseTrain"), "return": ("Root", "Bullwheel")}
+RIG_BULL_PARTS = ("sheave_bull", "spoke_", "wheelhub")      # Bullwheel (wheelhub_cap included; spoke_00 the yellow mark)
+RIG_NOSE = dict(inboard=0.20,     # the tree plane this far inboard of the wheels (lift_tower.FG_CROWN_INBOARD: S9-proven)
+                shift=0.12,       # bogies out along the train (towers 0.07): the sub rockers clear at a 40 deg fold
+                lap=-0.06,        # each half beam stops this short of the main pin (a folded bogie pin misses the beam)
+                boom_tip=-0.12,   # the boom tube's line-side end, chord-frame x (just past the hanger clamp)
+                tmax=40.0,        # deg, NoseTrain pitch range the art clears (the code's limit; most cases within 20)
+                clear=0.005,      # m, NoseTrain vs every static part at every pose (G6 rule)
+                chair_tmax=20.0)  # deg, the chair (M3 rules on the posed line) must clear within +-this; wider = reported
+RIG_NOSE_CHAIR_THETAS = (-40.0, -30.0, -20.0, -10.0, 0.0, 10.0, 20.0, 30.0, 40.0)
+RIG_ENTRY = dict(r=0.20, w=0.10, arm=(0.10, 0.10), cheek_t=0.03, stub_r=0.035, clear=0.005,
+                 gusset=(0.14, 0.02))     # round 2 (C6): cheek 0.02 -> 0.03 and an arm / cheek gusset (leg, thickness)
+RIG_LOD0_CAP = {"drive": 9450, "return": 3600}   # M15 under --rig: the base at the 5 % rule's ceiling over the 9,000
+                                                 # design cap (lead, critic round 2). Round 1 finished 9,124 (rope 0.060 +
+                                                 # wheel + entry sheaves + nose train); round 2 S4 pin straps +80 (est.)
+RIG_HOSTED_X = -5.025         # top: the skinned hosted end tower's pivot on the lane end (shipped row: -4.9)
+RIG_HOSTED_DIR = None         # top: folder holding the skinned hosted tower's FBXs (M5 / previews), CLI --rig-hosted
+RIG_WHEEL = dict(spokes=8, spoke=(0.10, 0.16), spoke_r=(0.30, 1.52), cap_r=0.24, cap_h=0.06,
+                 mark_spoke=0)      # round 2 (S3): this spoke is safety_yellow (the turn's mark; round 1: a galv rim plate)
+RIG_KNUCKLE = dict(r=0.066, length=0.08)   # round 2 (C1): the rope collar on each lane end (hides the V of a kinked line).
+# First try r 0.068 x 0.12: its line-side half sat 9 mm from the chair stem at NoseTrain +20 deg (RIG-nose, M3 machine >= 0.01)
+RIG_NOSE_BRACE = dict(r=0.045, segs=6, a_top=2.75, foot_z=0.15, foot_in=0.03)   # round 2 (C2): the knee brace under
+# each nose boom: from the boom's axis at chord-frame a = a_top down to the front portal beam's line-side face, foot_z over its
+# bottom (clear of the rail clamp saddle_f_<side>, top 0.05 over the beam bottom) and foot_in inside it. 6-gon, open ends
+# (both buried): 12 tris a lane. Round 2b (critic pass 2, P2-S4): a_top 1.55 -> 2.75 opens the brace / boom angle from
+# 12.9 to 30.0 deg (it read as a second boom). With the foot fixed on the beam face, a top point nearer the boom tip makes
+# the brace MORE parallel to the boom; only a top nearer the root opens the triangle (about 0.77 m out from the saddle)
+RIG_TOP_POST = dict(x=0.10, y=3.05, r=0.09, segs=8, plate=(0.24, 0.03), gusset=0.22,   # round 2 (S2): top entry posts
+                    wrap=(0.02, 0.10, 1.60))
+# Round 2b (critic pass 2, P2-S1: the load-bearing post was the slimmest on the crest, bare steel among wrapped stakes):
+# r 0.065 -> 0.09, and the crest stakes' black wrap (rubber, 0.02 off the post, crest + 0.10 .. crest + 1.60, open ends:
+# 16 tris a post). The chair body comes to 0.316 m (+y) / 0.321 m (-y) of the post axes at crest + 0.35, so the wrap keeps
+# 0.206 / 0.211 >= M_CLEAR_STRUCT
+RIG_LOD2_DELETE = ("holdbrace_",)     # round 2: the C2 brace goes with the boom (holdboom_, M_LOD2_DELETE) at LOD2
+RIG_GRIP_OK = ("sheave_entry",)       # the chair grip passes under the entry sheaves (as under the nose train)
+RIG_LOD1_DELETE = ("sheave_entry", "entryarm", "entrypost")   # with the nose train (sheave_hold): gone at LOD1
+RIG_ROPE_PARTS = ("wheelrope", "ropechord_")                 # kept out of the LOD1 decimation (RigLodFixed)
+RIG_CONTACTS = {   # declared contacts of the rig's own parts (contact_kinds_m adds them under M_RIG only)
+    "T256 entry sheaves: the axle stub through the wheel hub and its cheek plate, the cheek and its gusset on its arm, the "
+    "arm out of the tension carriage's saddle (base) or the outboard post (top)":
+        "entryarm:entryarm entryarm:sheave carr:entryarm entryarm:entrypost",
+    "T256 round 2 (S2) top: each outboard entry post on its base plate on the crest, with its arm gusset and its black "
+    "wrap (round 2b); the crest "
+    "maze's ropes tie into the +y post (it stands in place of the maze's middle post)":
+        "crest:entrypost entrypost:entrypost entrypost:maze",
+    "T256 bullwheel: the hub cap on the hub (the turning boss)": "wheelhub:wheelhub",
+    "T256 round 2 (C1): the knuckle collar on the lane end of the station rope": "ropechord:ropechord",
+    "T256 round 2 (C2): the nose boom's knee brace, into the boom and the front portal beam": "beam:holdbrace holdboom:holdbrace",
+}
+_RIG_SAVED = {}
+
+
+def set_m_rig(on, kind=None):
+    """T256: switch the rigged build on (main_m --rig) or back to the shipped tables. On: M_SPECS anchor_in := anchor_out
+    (the chord and everything that reads it start at the lane end), M_ROPE_R = RIG_ROPE_R, M_NOSE_TRAIN on the drive (the
+    base has no hosted end tower), the entry sheaves join the grip-OK and machine classes of M3. Off restores every table.
+    Idempotent."""
+    global M_RIG, M_ROPE_R, M_NOSE_TRAIN, M_GRIP_OK, M_MACHINE
+    if not _RIG_SAVED:
+        _RIG_SAVED.update(rope_r=M_ROPE_R, nose=M_NOSE_TRAIN, grip=M_GRIP_OK, machine=M_MACHINE)
+    M_RIG = bool(on)
+    if M_RIG:
+        if M_ROPE_ON_CROWN:
+            raise SystemExit("--rig and --rope-on-crown do not combine (the rig's datum is the shipped lane end)")
+        for k, s in M_SPECS_SHIPPED.items():
+            M_SPECS[k] = _dc.replace(s, anchor_in=s.anchor_out)
+        M_ROPE_R = RIG_ROPE_R
+        M_NOSE_TRAIN = kind == "drive"
+        M_GRIP_OK = tuple(_RIG_SAVED["grip"]) + RIG_GRIP_OK
+        M_MACHINE = tuple(_RIG_SAVED["machine"]) + RIG_GRIP_OK
+    else:
+        for k, s in M_SPECS_SHIPPED.items():
+            M_SPECS[k] = s
+        M_ROPE_R, M_NOSE_TRAIN = _RIG_SAVED["rope_r"], _RIG_SAVED["nose"]
+        M_GRIP_OK, M_MACHINE = _RIG_SAVED["grip"], _RIG_SAVED["machine"]
+
+
+M_HOLD_MAT ={"paint": "paint1", "galv": "galv", "rubber": "rubber",   # tower key -> M key (Pali black steel)
               "wheelsteel": "wheelsteel"}                                # T62 round 2: cs2_sheaves.WHEEL_KEY
 M_CW_SHEAVE_W = 0.10
 
@@ -1902,7 +2014,9 @@ M_CW_SHEAVE_W = 0.10
 def hold_xc_m(spec):
     """The center x of the hold-down train on the chord: M_HOLD["xc"], or with M_NOSE_TRAIN the x that puts the rim of the outer
     (line-side) sheave M_NOSE["rim_gap"] inboard of anchor_in (wheel center = O + u a + n axle_z, a = the outer wheel of the
-    outer sub)."""
+    outer sub). T256 (M_RIG): the main pin on the lane end, anchor_out x."""
+    if M_RIG:
+        return spec.anchor_out[0]
     if not M_NOSE_TRAIN:
         return M_HOLD["xc"]
     T = hold_train_layout_m(spec)
@@ -2059,6 +2173,19 @@ def hold_train_numbers_m(spec):
     centers (authoring) and the rope tangent."""
     T = hold_train_layout_m(spec)
     O, u, nv, M = hold_train_frame_m(spec, hold_xc_m(spec))
+    if M_RIG:       # T256: the half trains' bogies at +-(main_half + shift), the pin at local x 0 (the lane end)
+        sc = T["main_span"] / 2.0 + RIG_NOSE["shift"]
+        xs = [h * sc + d for h in (-1.0, 1.0) for d in (-T["sub_span"] / 2.0, T["sub_span"] / 2.0)]
+        cents = [tuple(round(v, 4) for v in (M @ _V((a, 0.0, T["axle_z"]))).xz) for a in xs]
+        return {"builder": "cs2_sheaves.fg_train_side_halves (the skinned towers' FG halves, beam + yoke straps) + "
+                           "finish_train", "head": "FG (FG8: r 0.20, w 0.13, pitch 0.52)", "per_lane": T["n"],
+                "lanes_y": [-FG_LANE, FG_LANE], "gauge_m": round(2.0 * FG_LANE, 3),
+                "frame": "the code chord from the lane end (x along the rope, z its normal)",
+                "chord_slope_deg": round(math.degrees(math.atan2(-u.z, u.x)), 3), "pin_x": hold_xc_m(spec),
+                "pin": "on the rope axis at the lane end", "bones": {"NoseTrain": "outer half (line side)",
+                                                                     "Root": "inner half, hanger, main pin"},
+                "rig_nose": dict(RIG_NOSE), "sheave_centres_xz": cents,
+                "contact": "sheave bottom on the rope's top (hold-down)"}
     xs = [(-T["main_span"] / 2.0 + i * (T["main_span"] / max(1, T["n_sub"] - 1)) if T["n_sub"] > 1 else 0.0) + d
           for i in range(T["n_sub"]) for d in (-T["sub_span"] / 2.0, T["sub_span"] / 2.0)]
     cents = [tuple(round(v, 4) for v in (M @ _V((a, 0.0, T["axle_z"]))).xz) for a in xs]
@@ -2184,17 +2311,22 @@ def build_base_m():
     parts.append((_mcyl("wheelshaft", (wx, 0.0, wz + 0.25), (wx, 0.0, 4.25), 0.17, 10, "none"), "paint1"))
 
     # -- the open spoked bullwheel on the code datum + the rope -------------------------------
-    parts += _wheel_m(wx, wz)
-    parts.append((_half_torus("wheelrope", wx, wz, M_TORUS_R, M_ROPE_R), "rope"))
-    for side, s in (("n", -1.0), ("p", 1.0)):
-        ax, az = spec.anchor_in
-        parts.append((_mcyl(f"ropechord_{side}", (ax, s * FG_LANE, az), (wx, s * FG_LANE, wz),
-                            M_ROPE_R, 8, "none"), "rope"))
+    if M_RIG:       # T256: the 8-spoke wheel, the cable-width hexagon rope from the lane end, the entry sheaves
+        parts += _rope_and_wheel_rig_m(spec) + entry_sheaves_rig_m("drive")
+    else:
+        parts += _wheel_m(wx, wz)
+        parts.append((_half_torus("wheelrope", wx, wz, M_TORUS_R, M_ROPE_R), "rope"))
+        for side, s in (("n", -1.0), ("p", 1.0)):
+            ax, az = spec.anchor_in
+            parts.append((_mcyl(f"ropechord_{side}", (ax, s * FG_LANE, az), (wx, s * FG_LANE, wz),
+                                M_ROPE_R, 8, "none"), "rope"))
 
     # -- hold-down sheaves on the chord (PAL-05 boom), hung from the front beam (X12) ---------
     # nitpick A (2026-10-13, S-2): the towers' Yan rocker tree (cs2_sheaves.fg_train_side, M_HOLD_TRAIN)
     # replaces the four plain cylinders: build_hold_train_m
-    if M_HOLD_TRAIN:
+    if M_RIG:       # T256: the articulated nose train, its pin on the lane end
+        parts += build_nose_rig_m(spec)
+    elif M_HOLD_TRAIN:
         parts += build_hold_train_m(spec)
     else:
         for side, s in (("n", -1.0), ("p", 1.0)):
@@ -2418,6 +2550,290 @@ def _wheel_m(cx, cz):
     return parts
 
 
+# ---------------------------------------------------------------- T256 rig geometry (M_RIG) ---
+
+def _hex_tube_m(name, p0, p1, r, sides=RIG_ROPE_SIDES):
+    """An open straight tube of `sides` sides from p0 to p1 (no caps): the cable section, one vertex on the HORIZONTAL
+    lateral (authoring y) and the flats on top / bottom (the vanilla LV cable's hexagon). The chord runs in an x-z plane, so
+    e1 = +y is perpendicular to it. 2 * sides tris."""
+    a, b = _V(p0), _V(p1)
+    d = (b - a).normalized()
+    e1 = _V((0.0, 1.0, 0.0))
+    e1 = (e1 - d * e1.dot(d)).normalized()
+    e2 = d.cross(e1)
+    if e2.z < 0.0:
+        e2 = -e2
+    bm = bmesh.new()
+    rings = []
+    for c in (a, b):
+        rings.append([bm.verts.new(c + e1 * (r * math.cos(2.0 * math.pi * k / sides))
+                                   + e2 * (r * math.sin(2.0 * math.pi * k / sides))) for k in range(sides)])
+    for k in range(sides):
+        k1 = (k + 1) % sides
+        f = bm.faces.new((rings[0][k], rings[0][k1], rings[1][k1], rings[1][k]))
+        f.normal_update()
+        cen = f.calc_center_median()
+        axis = a + d * (cen - a).dot(d)
+        if f.normal.dot(cen - axis) < 0.0:
+            f.normal_flip()
+    return _mbm_obj(name, bm)
+
+
+def _hex_collar_m(name, p_cap, p_open, r, sides=RIG_ROPE_SIDES):
+    """T256 round 2 (C1): a short tube of `sides` sides from p_cap to p_open, the section of _hex_tube_m (one vertex on the
+    horizontal lateral), closed by one flat cap at p_cap only (the open end sits inside the station rope). 2 * sides + (sides
+    - 2) tris."""
+    a, b = _V(p_cap), _V(p_open)
+    d = (b - a).normalized()
+    e1 = _V((0.0, 1.0, 0.0))
+    e1 = (e1 - d * e1.dot(d)).normalized()
+    e2 = d.cross(e1)
+    if e2.z < 0.0:
+        e2 = -e2
+    bm = bmesh.new()
+    rings = [[bm.verts.new(c + e1 * (r * math.cos(2.0 * math.pi * k / sides))
+                           + e2 * (r * math.sin(2.0 * math.pi * k / sides))) for k in range(sides)] for c in (a, b)]
+    for k in range(sides):
+        k1 = (k + 1) % sides
+        f = bm.faces.new((rings[0][k], rings[0][k1], rings[1][k1], rings[1][k]))
+        f.normal_update()
+        cen = f.calc_center_median()
+        axis = a + d * (cen - a).dot(d)
+        if f.normal.dot(cen - axis) < 0.0:
+            f.normal_flip()
+    R0 = rings[0]
+    for k in range(1, sides - 1):                  # the cap as explicit triangles (no n-gon)
+        cap = bm.faces.new((R0[0], R0[k], R0[k + 1]))
+        cap.normal_update()
+        if cap.normal.dot(-d) < 0.0:
+            cap.normal_flip()
+    return _mbm_obj(name, bm)
+
+
+def _wheel_rig_m(cx, cz):
+    """T256: the bullwheel of the rigged stations. The O rim (the groove profile, outer 1.74, paint1) on RIG_WHEEL["spokes"]
+    box spokes (0.10 wide x 0.16 deep, galv, from inside the hub to inside the rim), the O hub (galv) with a hub cap
+    (wheelhub_cap, the boss on its top face). Round 2 (critic S3): ONE spoke (RIG_WHEEL["mark_spoke"]) in the pedestal's
+    hazard yellow (safety_yellow) is the symmetry breaker that lets the turn read at play distance; it replaces round 1's
+    galv plate on the rim top (spoke_mark, the same tone as the rim: too faint). Every part rides the Bullwheel bone
+    (RIG_BULL_PARTS)."""
+    W = RIG_WHEEL
+    parts = _kit_m(cs2_kit.sheave("bull", M_RIM_OUT, 0.40, (cx, 0.0, cz), "Z", segs=32, hub=False,
+                                  groove=0.04, r_hub=1.50), "paint1")
+    r0, r1 = W["spoke_r"]
+    sw, sd = W["spoke"]
+    rm, L = (r0 + r1) / 2.0, r1 - r0
+    for k in range(W["spokes"]):
+        a = k * 2.0 * math.pi / W["spokes"]
+        sp = cs2_kit.add_box(f"spoke_{k:02d}", (L, sw, sd), (cx + rm * math.cos(a), rm * math.sin(a), cz),
+                             rot=(0.0, 0.0, a))
+        parts.append((sp, "safety_yellow" if k == W["mark_spoke"] else "galv"))
+    parts.append((cs2_kit.add_cyl("wheelhub", 0.34, 0.62, (cx, 0.0, cz), segments=12), "galv"))
+    ch = W["cap_h"]
+    parts.append((cs2_kit.add_cyl("wheelhub_cap", W["cap_r"], ch + 0.01, (cx, 0.0, cz + 0.31 + ch / 2.0 - 0.005),
+                                  segments=12, caps="top"), "galv"))
+    return parts
+
+
+def _rope_and_wheel_rig_m(spec):
+    """T256: the rigged wheel + the station rope on the carrier path: per lane the straight ropechord_<side> from the LANE END
+    (anchor_in = anchor_out under M_RIG) to the wheel tangent (wx, +-1.8, wz), and the level half torus `wheelrope` of
+    RIG_TORUS_MAJORS segments (ring centers on the code arc r M_TORUS_R about the wheel center). Both at M_ROPE_R (=
+    RIG_ROPE_R), RIG_ROPE_SIDES sides, one vertex on the horizontal, material "rope" (near-black, as O)."""
+    wx, _wy, wz = spec.wheel
+    parts = _wheel_rig_m(wx, wz)
+    parts.append((_half_torus("wheelrope", wx, wz, M_TORUS_R, M_ROPE_R, majors=RIG_TORUS_MAJORS,
+                              minors=RIG_ROPE_SIDES), "rope"))
+    ax, az = spec.anchor_in
+    u = _V((wx - ax, 0.0, wz - az)).normalized()
+    h = RIG_KNUCKLE["length"] / 2.0
+    for side, s in (("n", -1.0), ("p", 1.0)):
+        parts.append((_hex_tube_m(f"ropechord_{side}", (ax, s * FG_LANE, az), (wx, s * FG_LANE, wz), M_ROPE_R),
+                      "rope"))
+        # round 2 (C1): the knuckle, a rope collar centered on the lane end on the chord axis, capped on the line side
+        # (it hides the V and the open tube end where the line rope kinks at the lane end); RIG_ROPE_PARTS by its prefix
+        e = _V((ax, s * FG_LANE, az))
+        parts.append((_hex_collar_m(f"ropechord_knuckle_{side}", e - u * h, e + u * h, RIG_KNUCKLE["r"]), "rope"))
+    return parts
+
+
+def entry_center_m(spec):
+    """The entry (hold-down) sheave center (x, z) over the tangent point (wx, wz) of either lane: on the bisector of the chord
+    normal and the vertical, (r + rope) / cos(half the chord angle) out, so its rim touches BOTH the chord (lane end ->
+    tangent) and the level arc's start (plan option W3)."""
+    E = RIG_ENTRY
+    ax, az = spec.anchor_in
+    wx, _wy, wz = spec.wheel
+    beta = math.atan2(az - wz, wx - ax)          # the chord's fall toward the wheel
+    nv = (math.sin(beta), math.cos(beta))         # the chord's upward normal (x, z)
+    bx, bz = nv[0], nv[1] + 1.0
+    L = math.hypot(bx, bz)
+    d = (E["r"] + M_ROPE_R) / math.cos(beta / 2.0)
+    return (round(wx + d * bx / L, 6), round(wz + d * bz / L, 6))
+
+
+def _tri_plate_m(name, pts, x0, x1):
+    """T256 round 2: a triangular gusset plate, the triangle `pts` [(y, z) x 3] extruded from x0 to x1 (a closed prism, 8
+    tris)."""
+    bm = bmesh.new()
+    vs = [[bm.verts.new((x, y, z)) for y, z in pts] for x in (x0, x1)]
+    bm.faces.new(vs[0])
+    bm.faces.new(vs[1][::-1])
+    for k in range(3):
+        k1 = (k + 1) % 3
+        bm.faces.new((vs[0][k], vs[1][k], vs[1][k1], vs[0][k1]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return _mbm_obj(name, bm)
+
+
+def entry_sheaves_rig_m(kind):
+    """T256: an entry sheave per lane at the wheel's tangent point (cs2_sheaves.wheel r RIG_ENTRY["r"], w, named
+    sheave_entry_<side>_rim / sheave_entry_liner_<side>), its rim on the rope where the chord meets the level wheel plane.
+    It is held from OUTBOARD (the bullwheel rim is 1 cm inboard of its inner face, so only the outboard hub boss is built):
+    an axle stub (sheave_entry_axle_<side>) through a cheek plate (entryarm_<side>_cheek) hung from a horizontal arm
+    (entryarm_<side>), the cheek braced to the arm by a gusset (entryarm_<side>_gusset, round 2 C6: a load-bearing hanger).
+    Base: the arm comes out of the tension carriage's saddle (carr_saddle_<side>) above the rope; the gusset sits in the
+    arm / cheek corner on the inboard side. Top (round 2, critic S2; round 1 hung both arms from a post on the hub with a
+    T-bar over the wheel): each arm runs in from an outboard post (entrypost_<side>, its base plate, its arm gusset and,
+    round 2b, the crest stakes' black wrap entrypost_<side>_wrap) that
+    stands on the crest at RIG_TOP_POST (x, +-y): outside the chairs' swept body (r <= 2.76 about the wheel axis + 0.20) and
+    nowhere over the wheel or across a lane below the rope. The +y post takes the place of the crest maze's middle post
+    (_dress_top_m). The arm, 1 cm above the sheave crest by ~0.3 m, is a few degrees off square (the post stands on the maze
+    line, x 0.10; the sheave plane is x cx). Every part is static (Root)."""
+    import cs2_sheaves as S
+    spec = M_SPECS[kind]
+    E = RIG_ENTRY
+    wx, _wy, wz = spec.wheel
+    cx, cz = entry_center_m(spec)
+    hw = E["w"] / 2.0
+    p = S.wheel_profile(E["r"], E["w"])
+    boss_out = FG_LANE + hw + p["h"]                         # the outboard boss top |y|
+    y_ch0 = boss_out + E["clear"]                           # the cheek's inner face
+    y_ch1 = y_ch0 + E["cheek_t"]
+    aw, ad = E["arm"]
+    g, gt = E["gusset"]
+    if kind == "drive":
+        B = m_base()
+        za0 = 4.36                                          # 1 cm above the saddle bottom (4.35)
+        y_root = B["rail_y"] + 0.30 - 0.01                  # 1 cm inside the saddle's outboard face (|y| 1.40)
+    else:
+        za0 = 4.50
+    za1 = za0 + ad
+    out = []
+    for tag, s in (("n", -1.0), ("p", 1.0)):
+        y = s * FG_LANE
+        wp = S.wheel(f"sheave_entry_{tag}_rim", f"sheave_entry_liner_{tag}", E["r"], E["w"], (cx, y, cz))
+        wp[0][0]["cs2_wheel_bosses"] = "+" if s > 0 else "-"     # the outboard face only
+        out += [(o, M_HOLD_MAT[k]) for o, k in wp]
+        out.append((_mcyl(f"sheave_entry_axle_{tag}", (cx, s * (FG_LANE + hw - 0.01), cz),
+                          (cx, s * (y_ch1 + 0.005), cz), E["stub_r"], 6, "both"), "galv"))
+        if kind == "drive":
+            ya, yb = sorted((s * y_root, s * y_ch1))
+            out.append((_mbox(f"entryarm_{tag}", cx - aw / 2.0, cx + aw / 2.0, ya, yb, za0, za1), "paint1"))
+            # the gusset in the arm / cheek corner, inboard of the cheek (above the sheave), 5 mm into both
+            gy = (s * (y_ch0 + 0.005), s * (y_ch0 - g), s * (y_ch0 + 0.005))
+        else:
+            P = RIG_TOP_POST
+            px, py, pr = P["x"], s * P["y"], P["r"]
+            ztop = M_TOP["crest_z"]
+            out.append((_mcyl(f"entrypost_{tag}", (px, py, ztop - 0.01), (px, py, za1 + 0.02), pr, P["segs"], "top"),
+                        "paint1"))
+            # round 2b (P2-S1): the crest stakes' black wrap on the post's lower part (stakewrap_: rubber, 0.02 off, open ends)
+            wo, wz0, wz1 = P["wrap"]
+            out.append((_mcyl(f"entrypost_{tag}_wrap", (px, py, ztop + wz0), (px, py, ztop + wz1), pr + wo, P["segs"],
+                              "none"), "rubber"))
+            pw, pt = P["plate"]
+            out.append((_mbox(f"entrypost_{tag}_plate", px - pw / 2.0, px + pw / 2.0, py - pw / 2.0, py + pw / 2.0,
+                              ztop - 0.005, ztop + pt, drop=("-Z",)), "paint1"))
+            # the arm: from the post's axis to 5 mm inside the cheek's inner face, in plan a few degrees off square
+            a = _V((px, py, 0.0))
+            b = _V((cx, s * (y_ch0 + 0.005), 0.0))
+            d = b - a
+            mid = (a + b) / 2.0
+            out.append((cs2_kit.add_box(f"entryarm_{tag}", (d.length, aw, ad), (mid.x, mid.y, (za0 + za1) / 2.0),
+                                        rot=(0.0, 0.0, math.atan2(d.y, d.x))), "paint1"))
+            # the post / arm gusset in the post's plane (x px): along the arm's underside and down the post's inboard face
+            g2 = P["gusset"]
+            yi = abs(py) - pr * 0.8
+            out.append((_tri_plate_m(f"entrypost_{tag}_gusset",
+                                     [(s * yi, za0 + 0.005), (s * (yi - g2), za0 + 0.005), (s * yi, za0 - g2)],
+                                     px - gt / 2.0, px + gt / 2.0), "paint1"))
+            # the arm / cheek gusset, outboard of the cheek (the arm comes from outboard)
+            gy = (s * (y_ch1 - 0.005), s * (y_ch1 + g), s * (y_ch1 - 0.005))
+        ya, yb = sorted((s * y_ch0, s * y_ch1))
+        out.append((_mbox(f"entryarm_{tag}_cheek", cx - aw / 2.0, cx + aw / 2.0, ya, yb,
+                          cz - E["stub_r"] - 0.035, za1), "paint1"))
+        out.append((_tri_plate_m(f"entryarm_{tag}_gusset", [(gy[0], za0 + 0.005), (gy[1], za0 + 0.005),
+                                                             (gy[2], za0 - g)], cx - gt / 2.0, cx + gt / 2.0),
+                    "paint1"))
+    return out
+
+
+def rig_nose_parts_m(names):
+    """The NoseTrain parts among `names`: the OUTER (line-side, local x < 0 = fg_train_side_halves half "b", bogie index 0)
+    half of each lane's nose train. The hanger and the main pin stay on Root with the inner half."""
+    pre = M_HOLD["prefix"]
+    pat = _re.compile(rf"^{pre}(rocker_main_[np]_b|yoke_[np]_b|pivot_[np]_0$|rocker_sub_[np]_0$|sheave_arm_[np]_0_|"
+                      rf"sheave_[np]_0_|sheave_hub[np]_0_|liner_[np]_0_|axlecap_stub_[np]_0_)")
+    return sorted({n for n in names if pat.match(n)})
+
+
+def build_nose_rig_m(spec):
+    """T256: the base's articulated nose train. Per lane cs2_sheaves.fg_train_side_halves (the skinned towers' FG halves: two
+    2-wheel bogies on half beams with yoke straps, lapping on the main pin) in the chord frame with the main pin ON the rope
+    axis at the LANE END (local z 0 at x = anchor_out), the sheaves ABOVE the rope (bottoms on its top: a hold-down), the tree
+    RIG_NOSE["inboard"] inboard of the wheels. The outer half (line side) rides NoseTrain, the inner half, the hanger and the
+    pin are static. The hanger hangs from the art-601 slim tube boom (now out to the pin, at the hanger's |y|) with its clamp,
+    gusset and cheek plates on the saddle on the front portal beam. [(obj, M key)]."""
+    import cs2_sheaves as S
+    B, H, N, R = M_BASE, M_HOLD, M_NOSE, RIG_NOSE
+    T = hold_train_layout_m(spec)
+    piv_x = spec.anchor_out[0]
+    _O, u, nv, M = hold_train_frame_m(spec, piv_x)
+    pre = H["prefix"]
+    bf = B["beam_front"]
+    out = []
+    for tag, s in (("n", -1.0), ("p", 1.0)):
+        y = s * FG_LANE
+        raw = S.fg_train_side_halves(tag, s, y, T["main_z"], T["sub_z"], T["axle_z"], T["sub_span"],
+                                     T["main_span"] / 2.0, T["r"], T["w"], pin_z=0.0, inboard=R["inboard"],
+                                     shift=R["shift"], arm_t=S.FG_ARM_T, hanger=S.FG_HANGER, ins=S.FG_HANGER_INSET,
+                                     gap=0.015, poke=0.006, pin_r=0.05, lap_gap=0.010, beam=True, prefix=pre,
+                                     lap=R["lap"], pin_links=True)     # T256 S4: the bogie pins in their straps
+        S.finish_train(raw, "FG", prefix=pre)
+        hang = [o for o, _k in raw if o.name == f"{pre}hanger_{tag}"][0]
+        hv = [hang.matrix_world @ v.co for v in hang.data.vertices]
+        yh = 0.5 * (min(v.y for v in hv) + max(v.y for v in hv))
+        for o, k in raw:
+            o.data.transform(M)
+            o.data.update()
+            out.append((o, M_HOLD_MAT[k]))
+        a1 = (H["boom_front_x"] - M[0][3] - nv.x * T["arm_c"]) / u.x
+        boom = _mcyl(f"holdboom_{tag}", M @ _V((R["boom_tip"], yh, T["arm_c"])), M @ _V((a1, yh, T["arm_c"])),
+                     N["tube_r"], N["tube_segs"], "both")
+        boom.data.update()
+        out.append((boom, "paint1"))
+        sx0, sx1 = H["saddle_x"]
+        zb = T["arm_c"] - N["tube_r"]
+
+        def under(x):
+            a = (x - M[0][3] - nv.x * zb) / u.x
+            return M[2][3] + u.z * a + nv.z * zb
+        top = max(under(sx0), under(sx1)) + 0.02
+        if top < bf[3] + 0.01:
+            raise RuntimeError(f"build_nose_rig_m: the boom's underside {top - 0.02:.3f} is not over the front beam "
+                               f"{bf[3]} (the saddle would be inverted)")
+        out.append((_mbox(f"holdhang_{tag}", sx0, sx1, yh - H["saddle_w"] / 2.0, yh + H["saddle_w"] / 2.0,
+                          bf[3] - 0.01, top), "paint1"))
+        out += _nose_stay_m(tag, yh, M, u, nv, T, a1, bf)
+        # round 2 (critic C2: the slim boom read as an insect leg at play distance): a knee brace in the boom's plane, from
+        # the boom's axis down to the front portal beam's line-side face (a triangle with the boom and the beam). Static
+        NB = RIG_NOSE_BRACE
+        out.append((_mcyl(f"holdbrace_{tag}", M @ _V((NB["a_top"], yh, T["arm_c"])),
+                          (bf[0] + NB["foot_in"], yh, bf[2] + NB["foot_z"]), NB["r"], NB["segs"], "none"), "paint1"))
+    return out
+
+
 def _dress_base_m():
     """Base dressing (cs2_liftdress). The positions are the starting points of the design, moved per the skeptic: no flood masts
     (MC1, vanilla lamp post rows instead), SLOW on its own post."""
@@ -2559,12 +2975,15 @@ def build_top_m():
                              period=0.12, band=0.06)
 
     # -- wheel + rope ----------------------------------------------------------------------------
-    parts += _wheel_m(wx, wz)
-    parts.append((_half_torus("wheelrope", wx, wz, M_TORUS_R, M_ROPE_R), "rope"))
-    ax, az = spec.anchor_in
-    for side, s in (("n", -1.0), ("p", 1.0)):
-        parts.append((_mcyl(f"ropechord_{side}", (ax, s * FG_LANE, az), (wx, s * FG_LANE, wz),
-                            M_ROPE_R, 8, "none"), "rope"))
+    if M_RIG:       # T256: the 8-spoke wheel, the hexagon rope from the lane end, the entry sheaves on the axle post
+        parts += _rope_and_wheel_rig_m(spec) + entry_sheaves_rig_m("return")
+    else:
+        parts += _wheel_m(wx, wz)
+        parts.append((_half_torus("wheelrope", wx, wz, M_TORUS_R, M_ROPE_R), "rope"))
+        ax, az = spec.anchor_in
+        for side, s in (("n", -1.0), ("p", 1.0)):
+            parts.append((_mcyl(f"ropechord_{side}", (ax, s * FG_LANE, az), (wx, s * FG_LANE, wz),
+                                M_ROPE_R, 8, "none"), "rope"))
 
     # -- the liftie booth on the bay (glazed toward the unload, the line and the back, door +x) -
     hx0, hx1, hy0, hy1 = T["hut"]
@@ -2674,7 +3093,20 @@ def _dress_top_m():
     out += board("ops", ((hx0 + hx1) / 2.0, hy1 + 0.023, cz + T["slab"] + 2.03), "+Y", 1.20, 0.35,
                  mount="wall", fine=fine)
     out += board("slow", (3.60, -3.80, 1.80), "-X", 1.20, 0.35, mount="post", post_z0=0.0, fine=fine)
-    out += LD.maze("crest", [[(-0.95, 3.05), (1.15, 3.05)]], z0=cz, fine=fine)
+    run = [(-0.95, 3.05), (1.15, 3.05)]
+    maze = LD.maze("crest", [run], z0=cz, fine=fine)
+    if M_RIG:
+        # T256 round 2 (S2): the +y entry post stands on the maze line in place of the maze's middle post (the ropes tie into
+        # it). The run is 2.10 m with posts at most 1.40 apart: maze_post_crest_1 stands at its midpoint
+        P = RIG_TOP_POST
+        if abs((run[0][0] + run[1][0]) / 2.0 - P["x"]) > 1e-6 or abs(run[0][1] - P["y"]) > 1e-6:
+            raise RuntimeError("_dress_top_m: RIG_TOP_POST is off the crest maze's middle post")
+        gone = [o for o, _k in maze if o.name == "maze_post_crest_1"]
+        if len(gone) != 1:
+            raise RuntimeError("_dress_top_m: no maze_post_crest_1 to replace")
+        maze = [(o, k) for o, k in maze if o is not gone[0]]
+        bpy.data.objects.remove(gone[0], do_unlink=True)
+    out += maze
     if not fine:
         out += LD.extinguisher("booth", (hx1, hy1 + T["ext"]), "+X", z=cz + T["slab"] + 0.60)
         tx, ty, tf = T["tools"]
@@ -2860,7 +3292,7 @@ def check_kit_rows_m(co, tris, names, table, kind, cloud=None):
         keep = []                          # art-601: no hosted end tower on the nose-train base
     else:
         tw = load_tower_m(kind, 0)
-        keep = [(f"hosted {M_SPECS[kind].tower} (+{M_SEAM_CLEAR})", tw["co"].min(axis=0) - M_SEAM_CLEAR,
+        keep = [(f"hosted {os.path.splitext(os.path.basename(tw['path']))[0]} (+{M_SEAM_CLEAR})", tw["co"].min(axis=0) - M_SEAM_CLEAR,
                  tw["co"].max(axis=0) + M_SEAM_CLEAR)]
     hx, hy = M_LOT_HALF[0] - M_LOT_MARGIN, M_LOT_HALF[1] - M_LOT_MARGIN
     clouds = [("the swept 6M chair body (M3)", cloud, M_CLEAR_DRESS)] if cloud is not None and len(cloud) else []
@@ -3242,9 +3674,20 @@ def load_tower_m(kind, level=0):
     spec = M_SPECS[kind]
     suf = "" if level == 0 else f"_LOD{level}"
     path = os.path.join(IMPORT_M, "towers", "O", spec.tower, f"{spec.tower}{suf}.fbx")
+    tower_x = spec.tower_x
+    if M_RIG and kind == "return":      # T256: the skinned hosted end tower (lift_tower --skinned --hosted-lane), TrainBack posed
+        tower_x = RIG_HOSTED_X          # without --rig-hosted (F1's keep-out only): the shipped ET62O at the rig's row
+        if RIG_HOSTED_DIR:
+            nm = os.path.basename(os.path.normpath(RIG_HOSTED_DIR))
+            path = os.path.join(RIG_HOSTED_DIR, f"{nm}{suf}.fbx")
     objs = cs2_validate.import_fbx_temp(path)
+    back = None
     try:
         o = [x for x in objs if x.type == "MESH"][0]
+        if M_RIG and kind == "return" and RIG_HOSTED_DIR:
+            gi = {g.index: g.name for g in o.vertex_groups}
+            back = np.array([any(gi.get(g.group) == "TrainBack" and g.weight > 0.5 for g in v.groups)
+                             for v in o.data.vertices], dtype=bool)
         bm = bmesh.new()
         bm.from_mesh(o.data)
         bm.transform(o.matrix_world)
@@ -3255,10 +3698,29 @@ def load_tower_m(kind, level=0):
     finally:
         cs2_validate.remove_objects(objs)
     loc = np.stack([raw[:, 2], raw[:, 0], raw[:, 1]], axis=1)
-    co = np.stack([-loc[:, 0] + spec.tower_x, -loc[:, 1], loc[:, 2]], axis=1)
+    co = np.stack([-loc[:, 0] + tower_x, -loc[:, 1], loc[:, 2]], axis=1)
     out = {"co": co, "tris": tris, "path": path}
+    if back is not None:
+        # T256: TrainBack (the station-side half, inboard +x here) pitched onto the station chord, as the code holds it
+        if not back.any() or float(co[back, 0].mean()) <= tower_x:
+            raise MContractError(f"RIG-hosted: no inboard TrainBack group in {path}")
+        a = rig_hosted_pitch_m(spec)
+        pz = spec.anchor_out[1]
+        dx, dz = co[back, 0] - tower_x, co[back, 2] - pz
+        c, s_ = math.cos(math.radians(a)), math.sin(math.radians(a))
+        co[back, 0] = tower_x + c * dx + s_ * dz
+        co[back, 2] = pz - s_ * dx + c * dz
+        out["train_back_pitch_deg"] = round(a, 3)
+        out["train_back_x_max"] = float(co[back, 0].max())
     _TOWER_CACHE[key] = out
     return out
+
+
+def rig_hosted_pitch_m(spec):
+    """T256 top: the station chord's descent (deg) from the lane end to the wheel tangent, in the xz plane: the constant pitch
+    the code holds the hosted tower's TrainBack at (its inboard end down)."""
+    (lx, lz), (wx, _wy, wz) = spec.anchor_out, spec.wheel
+    return math.degrees(math.atan2(lz - wz, wx - lx))
 
 
 def sweep_poses_m(spec, step=0.10, dang=2.0, anchors=None):
@@ -3269,6 +3731,8 @@ def sweep_poses_m(spec, step=0.10, dang=2.0, anchors=None):
     anchors = anchors or [spec.anchor_in, spec.anchor_out]
     out = []
     for ai, (ax, az) in enumerate(anchors):
+        if any(tuple(anchors[j]) == (ax, az) for j in range(ai)):
+            continue        # T256 rig: anchor_in == anchor_out; the label index stays the list index (X7: a2+ = line-first)
         for s in (-1.0, 1.0):
             a = np.array([ax, s * FG_LANE, az])
             b = np.array([wx, s * FG_LANE, wz])
@@ -3317,12 +3781,15 @@ def _m_class(name):
 
 
 def chair_sweep_m(co, tris, names, spec, levels=(0, 1), step=0.10, dang=2.0, extra_anchors=(),
-                  collect=False):
+                  collect=False, poses=None):
     """M3 (C8-FG): the real 6M chair (LOD0 and LOD1) swept along the code path. The BODY (chair local z < 2.10) keeps these
     distances: to structure >= M_CLEAR_STRUCT, to dressing >= M_CLEAR_DRESS, and no overlap with anything but the rope
     machine (body <-> machine distance reported). The GRIP zone may touch only the rope machine (M_GRIP_OK). Distances =
     point-to-triangle both ways (vertices + edge samples every 0.03 m), so an edge-to-edge pass is resolved to ~1.5 cm.
-    Returns the report."""
+    Returns the report.
+
+    T256: `poses` (default None = the code path, sweep_poses_m) replaces the pose list (the nose train's posed line rope).
+    Under M_RIG anchor_in == anchor_out: sweep_poses_m sweeps a repeated anchor once (labels keep their list index)."""
     cls = np.array([_m_class(n) for n in names])
     groups = {c: tris[cls == c] for c in ("struct", "dress", "machine")}
     bvhs = {c: _bvh(co, t_) for c, t_ in groups.items()}
@@ -3340,7 +3807,7 @@ def chair_sweep_m(co, tris, names, spec, levels=(0, 1), step=0.10, dang=2.0, ext
         gtris = ch["tris"][~ch["body"]]
         bloc = _edge_points(ch["co"], btris, 0.03)
         gloc = _edge_points(ch["co"], gtris, 0.03)
-        for label, q, d, f in sweep_poses_m(spec, step, dang, anchors):
+        for label, q, d, f in (sweep_poses_m(spec, step, dang, anchors) if poses is None else poses):
             P = place_chair(ch, q, d)
             up = np.array([0.0, 0.0, 1.0])
             dd = d / np.linalg.norm(d)
@@ -3647,7 +4114,7 @@ def m2_rope(co, tris, names, spec):
         bad.append(f"torus R {R_fit:.4f} / z {z_fit:.4f} vs {M_TORUS_R} / {wz}")
     if rim_out > 1.745:
         bad.append(f"rim outer {rim_out:.4f} > 1.745")
-    if worst > 0.06:
+    if worst > (M_ROPE_R + 0.001 if M_RIG else 0.06):     # T256: the 0.060 hexagon sits ON the old 0.06 line
         bad.append(f"chord vertex {worst:.3f} off the code chord")
     if bad:
         _m_fail("M2", "; ".join(bad))
@@ -3663,6 +4130,8 @@ def seam_m(co, tris, names, kind, levels=((0, 0), (0, 1), (1, 0), (1, 1)), lod1_
     spec = M_SPECS[kind]
     if M_NOSE_TRAIN and kind == "drive":
         return {"skipped": "art-601 nose train: no hosted end tower (the import round drops the prefab's hosted row)"}
+    if M_RIG and kind == "return" and not RIG_HOSTED_DIR:
+        return {"skipped": "T256: no --rig-hosted folder (the skinned hosted end tower's FBXs) given"}
     ax = spec.anchor_in[0]
     drop1 = lod1_drop or ()
     rep = {}
@@ -3689,7 +4158,10 @@ def seam_m(co, tris, names, kind, levels=((0, 0), (0, 1), (1, 0), (1, 1)), lod1_
                 continue
             P = P[m]
             if n.startswith("ropechord_"):
-                P = P[np.abs(P[:, 0] - ax) > M_SEAM_ROPE_EXEMPT]
+                ex = M_SEAM_ROPE_EXEMPT
+                if "train_back_x_max" in tw:       # T256: the rope runs in the pitched TrainBack's sheaves to its inner end
+                    ex = max(ex, tw["train_back_x_max"] - ax + 0.15)
+                P = P[np.abs(P[:, 0] - ax) > ex]
                 if not len(P):
                     continue
             d, _i = _min_dist(tb, P, M_SEAM_CLEAR + 0.05)
@@ -3702,7 +4174,9 @@ def seam_m(co, tris, names, kind, levels=((0, 0), (0, 1), (1, 0), (1, 1)), lod1_
                 d = min(d, d2)
             if d < worst:
                 worst, wpart = d, n
-        rep[f"st{sl}_et{tl}"] = {"min_m": round(float(worst), 4), "part": wpart}
+        rep[f"st{sl}_et{tl}"] = {"min_m": round(float(worst), 4), "part": wpart,
+                                 **({"train_back_pitch_deg": tw["train_back_pitch_deg"]} if "train_back_pitch_deg" in tw
+                                    else {})}
         if worst < M_SEAM_CLEAR - 1e-6:
             _m_fail("M5", f"station LOD{sl} part {wpart} {worst:.3f} m from the hosted {spec.tower} "
                           f"LOD{tl} (< {M_SEAM_CLEAR})")
@@ -3784,6 +4258,10 @@ def contact_kinds_m():
     for why, toks in M_CONTACTS.items():
         for tok in toks.split():
             out[tuple(sorted(tok.split(":")))] = why
+    if M_RIG:       # T256: the rig's own contacts (none of these parts exist without --rig)
+        for why, toks in RIG_CONTACTS.items():
+            for tok in toks.split():
+                out[tuple(sorted(tok.split(":")))] = why
     return out
 
 
@@ -4567,7 +5045,23 @@ def chair_preview_poses_m(kind, spacing=2.2):
     return out
 
 
-def _standin_from_fbx(rig, path, name_prefix, mats, poses, frame):
+def _pose_hosted_raw_m(src, a_deg, pivot_y_cm):
+    """T256 previews: the skinned hosted tower's TrainBack (raw z < 0) pitched by a_deg, its outer (station-side) end down,
+    about its head (raw z 0, y pivot_y_cm), in the FBX raw (cm) mesh. Same pose as load_tower_m."""
+    gi = {g.index: g.name for g in src.vertex_groups}
+    c, s_ = math.cos(math.radians(a_deg)), math.sin(math.radians(a_deg))
+    n = 0
+    for v in src.data.vertices:
+        if any(gi.get(g.group) == "TrainBack" and g.weight > 0.5 for g in v.groups):
+            dx, dz = v.co.z, v.co.y - pivot_y_cm
+            v.co.z, v.co.y = c * dx - s_ * dz, pivot_y_cm + s_ * dx + c * dz
+            n += 1
+    if not n:
+        raise MContractError("RIG-hosted: no TrainBack vertices in the hosted tower FBX")
+    src.data.update()
+
+
+def _standin_from_fbx(rig, path, name_prefix, mats, poses, frame, prep=None):
     """Import an FBX once (cs2_validate.import_fbx_temp) and link render-only instances: each
     pose -> a 4x4 from the FBX raw (cm) frame to the post-orient preview frame. `frame` builds
     the authoring 3x3 + offset from a pose."""
@@ -4577,6 +5071,8 @@ def _standin_from_fbx(rig, path, name_prefix, mats, poses, frame):
     for o in objs:
         o.hide_render = True
         rig.track(o)
+    if prep is not None:
+        prep(src)
     src.data.materials.clear()
     for m in mats:
         src.data.materials.append(m)
@@ -4597,7 +5093,7 @@ def _standin_from_fbx(rig, path, name_prefix, mats, poses, frame):
     return out
 
 
-def render_closeups_m(t, asset_dir, name, out_dir, kind, win=None, chairs=True, shots=None):
+def render_closeups_m(t, asset_dir, name, out_dir, kind, win=None, chairs=True, shots=None, extras=None):
     """2600 x 2000 close-ups at noon with the REAL SkiLiftChair6M (its own textures) along the
     code path and the hosted end tower (ET68O / ET62O, its own textures) at its pose, the `_Win`
     panes as dark glass (render-only stand-ins, removed by the rig)."""
@@ -4610,6 +5106,15 @@ def render_closeups_m(t, asset_dir, name, out_dir, kind, win=None, chairs=True, 
         cs2_preview._make_world(rig, **cs2_preview.NOON)
         cs2_preview._make_ground(rig)
         cs2_preview._assign(t, cs2_preview._pbr_material(rig, asset_dir, name, M_TINT))
+        for eo, rgba in (extras or ()):        # T256: render-only helpers (the posed line rope), the caller removes them
+            em = rig.track_data(bpy.data.materials, bpy.data.materials.new(f"{eo.name}_PreviewM"))
+            em.use_nodes = True
+            eb = next(n for n in em.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+            eb.inputs["Base Color"].default_value = rgba
+            eb.inputs["Roughness"].default_value = 0.7
+            eo.data.materials.clear()
+            eo.data.materials.append(em)
+            eo.hide_render = False
         if win is not None:
             gm = rig.track_data(bpy.data.materials, bpy.data.materials.new("StandInGlassM"))
             gm.use_nodes = True
@@ -4624,15 +5129,25 @@ def render_closeups_m(t, asset_dir, name, out_dir, kind, win=None, chairs=True, 
             wo.hide_render = False
         # the hosted end tower (none on the art-601 nose-train base)
         tdir = os.path.join(IMPORT_M, "towers", "O", spec.tower)
+        tname, tx = spec.tower, spec.tower_x
         nose = M_NOSE_TRAIN and kind == "drive"
-        tm = cs2_preview._pbr_material(rig, tdir, spec.tower, M_TINT, mat_name=f"{spec.tower}_PreviewM")
+        if M_RIG and kind == "return":      # T256: the skinned hosted end tower at rest, when its folder is given
+            nose = not RIG_HOSTED_DIR
+            if RIG_HOSTED_DIR:
+                tdir = os.path.abspath(RIG_HOSTED_DIR)
+                tname, tx = os.path.basename(os.path.normpath(tdir)), RIG_HOSTED_X
+        tm = cs2_preview._pbr_material(rig, tdir, tname, M_TINT, mat_name=f"{tname}_PreviewM")
 
         def tower_frame(_pose):
             R = np.array([[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 1.0]])
-            return R, (spec.tower_x, 0.0, 0.0)
+            return R, (tx, 0.0, 0.0)
+        prep = None
+        if M_RIG and kind == "return" and RIG_HOSTED_DIR:
+            def prep(src):
+                _pose_hosted_raw_m(src, rig_hosted_pitch_m(spec), spec.anchor_out[1] * 100.0)
         if not nose:
-            _standin_from_fbx(rig, os.path.join(tdir, f"{spec.tower}.fbx"), "standin_tower_", [tm], [None],
-                              tower_frame)
+            _standin_from_fbx(rig, os.path.join(tdir, f"{tname}.fbx"), "standin_tower_", [tm], [None],
+                              tower_frame, prep=prep)
         if chairs:
             cm = cs2_preview._pbr_material(rig, CHAIR_M_DIR, "SkiLiftChair6M", M_TINT,
                                            mat_name="SkiLiftChair6M_PreviewM")
@@ -4691,11 +5206,11 @@ def lod1_drop_m(table):
     dress = [n for n in table if n.startswith(tuple(LD.DRESS_LOD1_DELETE) + tuple(LD.DRESS_LOD1_KEEP))
              and n.startswith(("maze_", "gate_", "board_", "label_", "stripe_", "chev_", "carpet_", "ext_",
                                "tool_", "skirack_", "ski_", "estop_", "gauge_", "hosereel_"))]
-    return tuple(M_LOD1_DELETE) + tuple(sorted(dress))
+    return tuple(M_LOD1_DELETE) + tuple(sorted(dress)) + (RIG_LOD1_DELETE if M_RIG else ())
 
 
 def lod2_drop_m(table):
-    return lod1_drop_m(table) + tuple(M_LOD2_DELETE)
+    return lod1_drop_m(table) + tuple(M_LOD2_DELETE) + (RIG_LOD2_DELETE if M_RIG else ())
 
 
 def contracts_m(t, table, kind, sweep=True):
@@ -4796,6 +5311,541 @@ def engine_ring_m(t, kind, label="LOD0"):
     return r
 
 
+# ---------------------------------------------------------------- T256 rig: bones, contracts, LOD, skin -
+
+def rig_net_m(a):
+    """Authoring -> net frame (cs2_asset.orient_for_net: (x, y, z) -> (y, -x, z))."""
+    return (float(a[1]), -float(a[0]), float(a[2]))
+
+
+def rig_heads_m(kind):
+    """{bone: net-frame head} in bone order (Root first): Bullwheel on the wheel center, NoseTrain (base) on the lane end
+    (the main pin's line, x 0). Game = (-x, z, -y) of net: base Bullwheel (0, 3.55, 0.20), NoseTrain (0, 5.84, -7.025), top
+    Bullwheel (0, 3.75, 0)."""
+    spec = M_SPECS[kind]
+    out = {"Root": (0.0, 0.0, 0.0), "Bullwheel": rig_net_m(spec.wheel)}
+    if kind == "drive":
+        px, pz = spec.anchor_out
+        out["NoseTrain"] = rig_net_m((px, 0.0, pz))
+    return {b: out[b] for b in RIG_BONES[kind]}
+
+
+def rig_part_bones_m(table, kind):
+    """{part: bone} of the rig (parts not listed ride Root). Raises when a bone gets no part or the bullwheel misses a part."""
+    out = {n: "Bullwheel" for n in table if n.startswith(RIG_BULL_PARTS)}
+    if kind == "drive":
+        out.update({n: "NoseTrain" for n in rig_nose_parts_m(table)})
+    want = {"sheave_bull_rim", "wheelhub", "wheelhub_cap"} | {f"spoke_{k:02d}" for k in
+                                                                           range(RIG_WHEEL["spokes"])}
+    miss = sorted(want - set(out))
+    if miss:
+        raise MContractError(f"RIG: bullwheel parts missing {miss}")
+    for b in RIG_BONES[kind][1:]:
+        if b not in out.values():
+            raise MContractError(f"RIG: bone {b} rides no part")
+    return out
+
+
+def _rig_bone_masks_m(t, table, kind):
+    """(names per face, face bone index, vertex bone index, bones) on a tagged mesh: cs2_skin.face_bones (raises when a
+    vertex is shared by two bones)."""
+    import cs2_skin
+    bones = list(RIG_BONES[kind])
+    pb = rig_part_bones_m(table, kind)
+    try:
+        names, fb, vb = cs2_skin.face_bones(t, table, pb, bones)
+    except cs2_skin.SkinError as e:
+        raise MContractError(f"RIG one bone per vertex: {e}") from None
+    return names, fb, vb, bones, pb
+
+
+def rig_pose_np_m(co, vb, bones, angles, heads, frame="net"):
+    """Coordinates with each bone's vertices turned: Bullwheel `angles["Bullwheel"]` deg about the vertical through its head
+    (the bone's local Y), NoseTrain `angles["NoseTrain"]` deg about the lateral through its head (the bone's local X = net X:
+    cs2_skin.rotate_x; + raises the line-side end). frame "net" (heads as given) or "authoring" (co authoring: the same turn
+    expressed there)."""
+    import cs2_skin
+    out = np.array(co, dtype=np.float64, copy=True)
+    for i, b in enumerate(bones):
+        a = float(angles.get(b, 0.0))
+        m = vb == i
+        if i == 0 or not a or not m.any():
+            continue
+        h = heads[b]
+        if frame == "authoring":             # net (y, -x, z): the head back in authoring
+            h = (-h[1], h[0], h[2])
+        if b == "NoseTrain":
+            if frame == "net":
+                out[m] = cs2_skin.rotate_x(co[m], a, (h[1], h[2]))
+            else:
+                c, s = math.cos(math.radians(a)), math.sin(math.radians(a))
+                x, z = co[m, 0] - h[0], co[m, 2] - h[2]
+                out[m, 0] = c * x + s * z + h[0]
+                out[m, 2] = -s * x + c * z + h[2]
+        else:
+            # net: +a about +Z (x -> y). Authoring (net y = ax, net x = -ay... ): the same physical turn
+            c, s = math.cos(math.radians(a)), math.sin(math.radians(a))
+            x, y = co[m, 0] - h[0], co[m, 1] - h[1]
+            out[m, 0] = c * x - s * y + h[0]
+            out[m, 1] = s * x + c * y + h[1]
+    return out
+
+
+def rig_rope_path_m(co, tris, names, spec):
+    """T256 contract (b): the modeled rope on the carrier path within 1 mm. Each ropechord_ vertex lies M_ROPE_R (+-1 mm) off
+    the straight lane end -> tangent (wx, +-1.8, wz), between its ends; each wheelrope ring (RIG_ROPE_SIDES vertices of one
+    major angle) is centered on the level arc r M_TORUS_R about the wheel center (1 mm), its vertices M_ROPE_R (1 mm) off
+    the ring center. Reports the hexagon's flats and the torus chord sagitta."""
+    wx, _wy, wz = spec.wheel
+    ax, az = spec.anchor_in
+    r = M_ROPE_R
+    rep = {"rope_r_m": r, "sides": RIG_ROPE_SIDES, "chord_from": "lane end (anchor_out)", "lane_end": [ax, az]}
+    worst_r, worst_end = 0.0, 0.0
+    for side, s in (("n", -1.0), ("p", 1.0)):
+        sel = np.unique(tris[[n == f"ropechord_{side}" for n in names]])
+        C = co[sel]
+        a = np.array([ax, s * FG_LANE, az])
+        b = np.array([wx, s * FG_LANE, wz])
+        L = np.linalg.norm(b - a)
+        u = (b - a) / L
+        v = C - a
+        t_ = v @ u
+        dist = np.linalg.norm(v - np.outer(t_, u), axis=1)
+        worst_r = max(worst_r, float(np.abs(dist - r).max()))
+        ends = [C[t_ < L / 2.0].mean(axis=0), C[t_ >= L / 2.0].mean(axis=0)]
+        worst_end = max(worst_end, float(np.linalg.norm(ends[0] - a)), float(np.linalg.norm(ends[1] - b)))
+        if len(C) != 2 * RIG_ROPE_SIDES:
+            _m_fail("RIG-rope", f"ropechord_{side}: {len(C)} vertices, want {2 * RIG_ROPE_SIDES}")
+    T = co[np.unique(tris[[n == "wheelrope" for n in names]])]
+    ang = np.degrees(np.arctan2(T[:, 1], T[:, 0] - wx))
+    step = 180.0 / RIG_TORUS_MAJORS
+    ring = np.round((ang + 90.0) / step).astype(int)
+    worst_c, worst_v = 0.0, 0.0
+    for i in range(RIG_TORUS_MAJORS + 1):
+        R_ = T[ring == i]
+        if len(R_) != RIG_ROPE_SIDES:
+            _m_fail("RIG-rope", f"wheelrope ring {i}: {len(R_)} vertices, want {RIG_ROPE_SIDES}")
+        c = R_.mean(axis=0)
+        a = math.radians(-90.0 + i * step)
+        want = np.array([wx + M_TORUS_R * math.cos(a), M_TORUS_R * math.sin(a), wz])
+        worst_c = max(worst_c, float(np.linalg.norm(c - want)))
+        worst_v = max(worst_v, float(np.abs(np.linalg.norm(R_ - c, axis=1) - r).max()))
+    rep.update(chord_radius_dev_m=round(worst_r, 5), chord_end_dev_m=round(worst_end, 5),
+               ring_center_dev_m=round(worst_c, 5), ring_radius_dev_m=round(worst_v, 5),
+               torus_segments=RIG_TORUS_MAJORS,
+               torus_sagitta_m=round(M_TORUS_R * (1.0 - math.cos(math.pi / (2.0 * RIG_TORUS_MAJORS))), 5),
+               hexagon_across_corners_m=round(2.0 * r, 4), hexagon_across_flats_m=round(2.0 * r * math.cos(math.pi / 6), 4))
+    bad = [k for k in ("chord_radius_dev_m", "chord_end_dev_m", "ring_center_dev_m", "ring_radius_dev_m")
+           if rep[k] > 0.001]
+    if bad:
+        _m_fail("RIG-rope", f"rope off the carrier path by more than 1 mm: {[(k, rep[k]) for k in bad]}")
+    rep["ok"] = True
+    return rep
+
+
+def rig_entry_m(co, tris, names, spec, vb, kind):
+    """T256 contract (d): each entry sheave's rim touches the rope at the tangent point: its center on entry_center_m (1 mm),
+    r + rope off BOTH the chord axis and the level arc's axis (1 mm), its lowest crest point on the rope's top (1 mm). And
+    the turning bullwheel (its revolved envelope: every angle at once) clears every static part around it by
+    RIG_ENTRY["clear"] (the coaxial shafts and the rope in the rim groove excepted, reported)."""
+    E = RIG_ENTRY
+    wx, _wy, wz = spec.wheel
+    ax, az = spec.anchor_in
+    cx, cz = entry_center_m(spec)
+    rep = {"center_xz": [cx, cz], "r": E["r"], "w": E["w"], "lanes": {}}
+    bad = []
+    u = np.array([wx - ax, 0.0, wz - az])
+    u /= np.linalg.norm(u)
+    for side, s in (("n", -1.0), ("p", 1.0)):
+        sel = np.unique(tris[[n == f"sheave_entry_liner_{side}" for n in names]])
+        L_ = co[sel]
+        c = (L_.min(axis=0) + L_.max(axis=0)) / 2.0
+        crest = co[np.unique(tris[[n == f"sheave_entry_{side}_rim" for n in names]])]
+        low = float(crest[:, 2].min())
+        T0 = np.array([wx, s * FG_LANE, wz])
+        v = c - T0
+        d_chord = float(np.linalg.norm(v - (v @ u) * u))
+        d_level = float(c[2] - wz)
+        row = {"center": [round(float(x), 4) for x in c], "to_chord_axis_m": round(d_chord, 4),
+               "to_level_axis_m": round(d_level, 4), "rim_low_over_rope_top_m": round(low - (wz + M_ROPE_R), 4)}
+        rep["lanes"][side] = row
+        want = E["r"] + M_ROPE_R
+        if (abs(c[0] - cx) > 1e-3 or abs(c[2] - cz) > 1e-3 or abs(c[1] - s * FG_LANE) > 1e-3
+                or abs(d_chord - want) > 1e-3 or abs(d_level - want) > 1e-3 or abs(low - (wz + M_ROPE_R)) > 1e-3):
+            bad.append(f"{side}: {row} (want r + rope {want:.3f})")
+    # the bullwheel's revolved envelope (z bins of 5 mm, the max radius of its vertices there and in both neighbors)
+    bw = co[vb == 1]
+    rb, zb = np.hypot(bw[:, 0] - wx, bw[:, 1]), bw[:, 2]
+    z0 = float(zb.min())
+    nb = int(math.ceil((float(zb.max()) - z0) / 0.005)) + 1
+    rmax = np.zeros(nb)
+    np.maximum.at(rmax, np.clip(((zb - z0) / 0.005).astype(int), 0, nb - 1), rb)
+    rmax = np.maximum(rmax, np.maximum(np.r_[0.0, rmax[:-1]], np.r_[rmax[1:], 0.0]))
+    coax = ("wheelshaft", "bearing")     # round 2 (S2): the top's hub post (entrypost) is gone
+    stat_f = vb[tris[:, 0]] == 0
+    tv = co[tris]
+    rt = np.hypot(tv[:, :, 0] - wx, tv[:, :, 1]).min(axis=1)
+    cand = stat_f & (rt < 2.0) & (tv[:, :, 2].max(axis=1) >= z0 - 0.05) & (tv[:, :, 2].min(axis=1) <= z0 + nb * 0.005 + 0.05)
+    by = {}
+    for i in np.nonzero(cand)[0]:
+        by.setdefault(names[i], []).append(i)
+    near = {}
+    for nm, idx in sorted(by.items()):
+        P = _edge_points(co, tris[idx], 0.02)
+        rp, zp = np.hypot(P[:, 0] - wx, P[:, 1]), P[:, 2]
+        inb = (zp >= z0) & (zp <= z0 + nb * 0.005)
+        if not inb.any():
+            continue
+        k = np.clip(((zp[inb] - z0) / 0.005).astype(int), 0, nb - 1)
+        gap = rp[inb] - rmax[k]
+        g = float(gap.min())
+        if g < 0.05:
+            near[nm] = round(g, 4)
+    rep["bullwheel_envelope_min_m"] = near
+    for nm, g in near.items():
+        if nm.startswith(coax) or nm.startswith(RIG_ROPE_PARTS):
+            continue
+        if g < E["clear"] - 1e-6:
+            bad.append(f"{nm} {g:.4f} m from the turning bullwheel's envelope (< {E['clear']})")
+    rep["exempt"] = "coaxial shafts (inside the hub, turn-invariant) and the rope in the rim groove"
+    if bad:
+        _m_fail("RIG-entry", "; ".join(bad))
+    rep["ok"] = True
+    return rep
+
+
+RIG_NOSE_GRID = (-40.0, -30.0, -20.0, -10.0, 10.0, 20.0, 30.0, 40.0)
+
+
+def rig_nose_sweep_m(co, tris, names, spec, vb, heads):
+    """T256 contract (c): the NoseTrain joint sweep (G6 rule): at every pitch of RIG_NOSE_GRID the outer half (its posed
+    vertices + edge samples every 2 cm, both ways) keeps RIG_NOSE["clear"] from every static part near the pin and overlaps
+    none (BVH). Exempt: the outer half's yoke straps vs the main pin they hang on (a lug round its pin). Then the chair
+    (LOD0) swept along the POSED line rope (lane end out 2.5 m at the pitch) and back along the in-station chord 1.5 m, at
+    RIG_NOSE_CHAIR_THETAS, both lanes and facings, holds M3's rules (body >= M_CLEAR_STRUCT / M_CLEAR_DRESS / 0.01 machine,
+    grip only on the rope machine) within +-RIG_NOSE["chair_tmax"]; wider pitches are reported (envelope_deg), not gated."""
+    px, pz = spec.anchor_out
+    mov_f = np.array([vb[t_[0]] == 2 for t_ in tris])
+    mov = tris[mov_f]
+    mov_names = [names[i] for i in np.nonzero(mov_f)[0]]
+    stat_idx = [i for i in np.nonzero(~mov_f)[0]]
+    box_lo, box_hi = np.array([px - 1.6, -2.1, pz - 0.8]), np.array([px + 1.6, 2.1, pz + 1.8])
+    tv = co[tris[stat_idx]]
+    inside = np.all((tv >= box_lo) & (tv <= box_hi), axis=2).any(axis=1)
+    keep = [stat_idx[k] for k in np.nonzero(inside)[0]]
+    st_all = tris[keep]
+    st_names = [names[i] for i in keep]
+    yoke = np.array([n.startswith(M_HOLD["prefix"] + "yoke_") for n in mov_names])
+    pin = np.array([n.startswith(M_HOLD["prefix"] + "pivot_main_") for n in st_names])
+    S_free = st_all[~pin]
+    S_pin = st_all[pin]
+    sb_free, sb_all = _bvh(co, S_free), _bvh(co, st_all)
+    sp_free, sp_all = _edge_points(co, S_free, 0.02), _edge_points(co, st_all, 0.02)
+    rows = []
+    worst = (9.9, None)
+    for th in RIG_NOSE_GRID:
+        pc = rig_pose_np_m(co, vb, ["Root", "Bullwheel", "NoseTrain"], {"NoseTrain": th}, heads, frame="authoring")
+        row = {"theta_deg": th}
+        for lab, M_, sb, sp in (("plates_vs_all_but_pin", mov[yoke], sb_free, sp_free),
+                                ("rest_vs_all", mov[~yoke], sb_all, sp_all)):
+            if not len(M_):
+                continue
+            mb = _bvh(pc, M_)
+            if mb.overlap(sb):
+                _m_fail("RIG-nose", f"NoseTrain {lab} overlaps a static part at {th:+.0f} deg")
+            d1, _i = _min_dist(sb, _edge_points(pc, M_, 0.02), 0.10)
+            lo, hi = pc[np.unique(M_)].min(axis=0) - 0.12, pc[np.unique(M_)].max(axis=0) + 0.12
+            m = np.all((sp >= lo) & (sp <= hi), axis=1)
+            d2 = _min_dist(mb, sp[m], 0.10)[0] if m.any() else 0.10
+            d = min(d1, d2)
+            row[lab] = round(float(d), 4)
+            if d < worst[0]:
+                worst = (d, f"{lab} at {th:+.0f} deg")
+        rows.append(row)
+    if worst[0] < RIG_NOSE["clear"] - 1e-6:
+        _m_fail("RIG-nose", f"NoseTrain {worst[0]:.4f} m from a static part ({worst[1]}) < {RIG_NOSE['clear']}")
+    # the chair along the posed line rope
+    wx, _wy, wz = spec.wheel
+    u = np.array([wx - px, wz - pz])
+    u /= np.linalg.norm(u)
+    chair = {}
+    for th in RIG_NOSE_CHAIR_THETAS:
+        pc = rig_pose_np_m(co, vb, ["Root", "Bullwheel", "NoseTrain"], {"NoseTrain": th}, heads, frame="authoring")
+        c, s_ = math.cos(math.radians(th)), math.sin(math.radians(th))
+        dx, dz = -u[0], -u[1]
+        lx, lz = c * dx + s_ * dz, -s_ * dx + c * dz          # the line rope's outward direction at this pitch
+        poses = []
+        for side in (-1.0, 1.0):
+            for k in range(-15, 26):
+                d = k * 0.10
+                if d < 0.0:
+                    q = np.array([px - d * u[0], side * FG_LANE, pz - d * u[1]])
+                else:
+                    q = np.array([px + d * lx, side * FG_LANE, pz + d * lz])
+                for f in (1.0, -1.0):
+                    poses.append((f"a0_nose_lane{int(side):+d}", q, np.array([f, 0.0, 0.0]), f))
+        rep = chair_sweep_m(pc, tris, names, spec, levels=(0,), poses=poses)
+        err = None
+        try:
+            assert_sweep_m(pc, tris, names, spec, rep)
+        except MContractError as e:
+            err = str(e)
+            if abs(th) <= RIG_NOSE["chair_tmax"] + 1e-9:
+                raise MContractError(f"RIG-nose chair at NoseTrain {th:+.0f} deg: {e}") from None
+        chair[f"{th:+.0f}"] = {"poses": rep["poses"], "min": rep["min"], "grip_min": rep["grip_min"],
+                               "ok": err is None, **({"fail": err[:240]} if err else {})}
+    env = [th for th in RIG_NOSE_CHAIR_THETAS if all(chair[f"{x:+.0f}"]["ok"]
+                                                     for x in RIG_NOSE_CHAIR_THETAS if min(0, th) <= x <= max(0, th))]
+    chair["envelope_deg"] = [min(env), max(env)] if env else None
+    chair["gated_deg"] = RIG_NOSE["chair_tmax"]
+    return {"grid_deg": list(RIG_NOSE_GRID), "clear_min_m": round(float(worst[0]), 4), "where": worst[1],
+            "rule": f">= {RIG_NOSE['clear']} m, no overlap; exempt: the outer yoke straps vs the main pin",
+            "rows": rows, "chair_on_posed_line": chair, "pitch_sign": "+ raises the line-side (outer) end",
+            "ok": True}
+
+
+def rig_contracts_m(t, table, kind):
+    """T256: the rig contracts on the joined AUTHORING-frame LOD0 (before orient_for_net). Returns the manifest block."""
+    spec = M_SPECS[kind]
+    co, tris, names, _tb = m_arrays(t)
+    fnames, fb, vb, bones, pb = _rig_bone_masks_m(t, table, kind)
+    heads = rig_heads_m(kind)
+    out = {"bones": bones, "heads_net": {b: [round(v, 4) for v in h] for b, h in heads.items()},
+           "heads_game": {b: [round(-h[0], 4), round(h[2], 4), round(-h[1], 4)] for b, h in heads.items()},
+           "parts": {b: sorted(p for p, bb in pb.items() if bb == b) for b in bones[1:]},
+           "verts_per_bone_lod0": {b: int((vb == i).sum()) for i, b in enumerate(bones)}}
+    # centroid sanity: NoseTrain parts on the line side of the pin, the other train parts on the station side
+    if kind == "drive":
+        px = spec.anchor_out[0]
+        wrong = []
+        for n in sorted({n for n in names if n.startswith(M_HOLD["prefix"])}):
+            c, _i = _part_centre_m(co, tris, names, n)
+            if n.startswith((M_HOLD["prefix"] + "hanger_", M_HOLD["prefix"] + "pivot_main_")):
+                continue
+            if (pb.get(n) == "NoseTrain") != (c[0] < px):
+                wrong.append((n, round(float(c[0]), 3), pb.get(n, "Root")))
+        if wrong:
+            _m_fail("RIG", f"nose train parts on the wrong side of the pin x {px}: {wrong[:6]}")
+    out["rope"] = rig_rope_path_m(co, tris, names, spec)
+    out["entry"] = rig_entry_m(co, tris, names, spec, vb, kind)
+    if kind == "drive":
+        out["nose_sweep"] = rig_nose_sweep_m(co, tris, names, spec, vb, heads)
+    out["bullwheel_turn"] = {"axis": "the bone's local Y = game up (the wheel axle)", "code_rate_rev_s": 0.22,
+                             "clearance": "revolved envelope (every angle), contract rig_entry_m"}
+    for k in ("rope", "entry", "nose_sweep"):
+        if k in out:
+            print(f"[contract M] RIG {k} ok: {json.dumps({kk: out[k][kk] for kk in list(out[k])[:6]}, default=str)[:300]}")
+    return out
+
+
+class RigLodFixed:
+    """make_lod_chain `fixed` hook under M_RIG: the wheels (cs2_sheaves.LodWheels, when v2) plus the station rope
+    (RIG_ROPE_PARTS), which never enters the decimation (LOD1 keeps its 6-sided width; LOD2 deletes it by prefix). apply
+    triangulates the surviving rope faces (the levels are tri-only)."""
+
+    def __init__(self, inner):
+        self.inner = inner
+        self.rope = set()
+        self.report = {}
+
+    def parts(self, table):
+        ids = set(self.inner.parts(table)) if self.inner is not None else set()
+        self.rope = {i for i, n in enumerate(table, start=1) if n.startswith(RIG_ROPE_PARTS)}
+        return ids | self.rope
+
+    def apply(self, obj, table, level):
+        n, tris = self.inner.apply(obj, table, level) if self.inner is not None else (0, 0)
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        lay = bm.faces.layers.int.get("part")
+        rf = [f for f in bm.faces if f[lay] in self.rope]
+        made = bmesh.ops.triangulate(bm, faces=rf)["faces"] if rf else []
+        bm.to_mesh(obj.data)
+        bm.free()
+        obj.data.update()
+        self.report[level] = {"rope_tris": len(made)}
+        return n + (1 if made else 0), tris + len(made)
+
+
+def rig_rope_tris_m(t, table):
+    """LOD0 tris of the rope parts (the LOD1 rest target gives them back: the level ratio stays O's)."""
+    me = t.data
+    part = np.zeros(len(me.polygons), dtype=np.int32)
+    me.attributes["part"].data.foreach_get("value", part)
+    rope = {i for i, n in enumerate(table, start=1) if n.startswith(RIG_ROPE_PARTS)}
+    return int(sum(len(p.vertices) - 2 for p, q in zip(me.polygons, part) if q in rope))
+
+
+def rig_skin_m(t, lods, table, kind, name):
+    """The rig in the net frame + the weights of every level (each vertex 1.0 on its part's bone). Returns (arm, weights)."""
+    import cs2_skin
+    if any(o.matrix_world != mathutils.Matrix.Identity(4) for o in [t] + list(lods)):
+        _m_fail("RIG", "a level carries an object transform; the rig assumes none")
+    try:
+        arm = cs2_skin.build_armature(name + "Rig", rig_heads_m(kind))
+    except cs2_skin.SkinError as e:
+        raise MContractError(f"RIG armature: {e}") from None
+    pb = rig_part_bones_m(table, kind)
+    weights = {}
+    for i, o in enumerate([t] + list(lods)):
+        try:
+            weights[str(i)] = cs2_skin.assign(o, table, pb, list(RIG_BONES[kind]))
+        except cs2_skin.SkinError as e:
+            raise MContractError(f"RIG weights LOD{i}: {e}") from None
+        cs2_asset.check_skin_weights(o, arm)
+    print(f"[terminal M] RIG skin: heads {rig_heads_m(kind)}, weights per level {weights}")
+    return arm, weights
+
+
+def rig_roundtrip_m(asset_dir, name, levels, kind):
+    """T256 contract (a): cs2_skin.roundtrip of every exported level (bones exactly, heads at the wheel center / lane end,
+    identity rests, one bone per vertex)."""
+    import cs2_skin
+
+    def check(ok, label, detail=""):
+        if not ok:
+            _m_fail("RIG-roundtrip", f"{label} {detail}")
+        print(f"[contract M] {label}")
+    return cs2_skin.roundtrip(asset_dir, name, levels, rig_heads_m(kind), check, f"FG M {kind}")
+
+
+def rig_posed_copy_m(t, arm, angles, kind, name):
+    """A posed copy of the skinned net-frame `t` (an Armature modifier, evaluated): Bullwheel `angles["Bullwheel"]` deg about
+    its local Y, NoseTrain `angles["NoseTrain"]` deg about its local X. Raises unless it equals rig_pose_np_m of the weights
+    to 0.1 mm (the pose the contracts measured)."""
+    import cs2_skin
+    for pbn in arm.pose.bones:
+        pbn.rotation_mode = "XYZ"
+        a = math.radians(float(angles.get(pbn.name, 0.0)))
+        pbn.rotation_euler = (a, 0.0, 0.0) if pbn.name == "NoseTrain" else (0.0, a, 0.0) if pbn.name == "Bullwheel" \
+            else (0.0, 0.0, 0.0)
+    bpy.context.view_layer.update()
+    tmp = t.copy()
+    bpy.context.collection.objects.link(tmp)
+    mod = tmp.modifiers.new("Armature", type="ARMATURE")
+    mod.object = arm
+    me = bpy.data.meshes.new_from_object(tmp.evaluated_get(bpy.context.evaluated_depsgraph_get()))
+    bpy.data.objects.remove(tmp, do_unlink=True)
+    for pbn in arm.pose.bones:
+        pbn.rotation_euler = (0.0, 0.0, 0.0)
+    bpy.context.view_layer.update()
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(ob)
+    table = json.loads(t.data[cs2_asset.PART_TABLE_PROP])
+    _n, _fb, vb, bones, _pb = _rig_bone_masks_m(t, table, kind)
+    co, got = cs2_skin.coords(t), cs2_skin.coords(ob)
+    want = rig_pose_np_m(co, vb, bones, angles, rig_heads_m(kind))
+    err = float(np.abs(got - want).max()) if len(got) == len(co) else 9.0
+    if err > 1e-4:
+        bpy.data.objects.remove(ob, do_unlink=True)
+        raise MContractError(f"RIG posed copy {angles}: the armature is not the contracts' pose (max {err:.5f} m)")
+    return ob
+
+
+def rig_line_rope_m(kind, theta, length=6.0, name="riglinerope"):
+    """A render-only tube (net frame): the line rope from each lane end outward at NoseTrain pitch `theta` (the in-station
+    chord's continuation turned theta about the pin), r M_ROPE_R."""
+    spec = M_SPECS[kind]
+    px, pz = spec.anchor_out
+    wx, _wy, wz = spec.wheel
+    u = np.array([wx - px, wz - pz])
+    u /= np.linalg.norm(u)
+    c, s_ = math.cos(math.radians(theta)), math.sin(math.radians(theta))
+    lx, lz = c * -u[0] + s_ * -u[1], -s_ * -u[0] + c * -u[1]
+    objs = []
+    for side in (-1.0, 1.0):
+        a = (px, side * FG_LANE, pz)
+        b = (px + length * lx, side * FG_LANE, pz + length * lz)
+        o = _hex_tube_m(f"{name}_{'n' if side < 0 else 'p'}", rig_net_m(a), rig_net_m(b), M_ROPE_R)
+        objs.append(o)
+    return objs
+
+
+def rig_shots_m(kind):
+    """(name, target, eye) authoring: the wheel + entry sheaves close-ups, the nose train (base), play distance (70 m at 35 deg
+    down) from the line side and the load side."""
+    spec = M_SPECS[kind]
+    wx, _wy, wz = spec.wheel
+    cx, cz = entry_center_m(spec)
+    d = 70.0
+    e = math.radians(35.0)
+    shots = [("rig_wheel_entry", (wx + 0.3, 1.2, wz + 0.1), (wx + 4.8, 5.6, wz + 3.4)),
+             ("rig_entry_close", (cx, FG_LANE, cz), (cx + 2.2, FG_LANE + 2.6, cz + 0.9)),
+             ("rig_wheel_above", (wx, 0.0, wz), (wx + 1.5, 0.8, wz + 7.5)),
+             ("rig_play_line", (wx - 3.0, 0.0, 3.0), (wx - 3.0 - d * math.cos(e) * 0.8, -d * math.cos(e) * 0.6,
+                                                       3.0 + d * math.sin(e))),
+             ("rig_play_side", (wx - 2.0, 0.0, 3.0), (wx - 2.0 + d * math.cos(e) * 0.3, d * math.cos(e) * 0.95,
+                                                       3.0 + d * math.sin(e)))]
+    if kind == "drive":
+        px, pz = spec.anchor_out
+        shots += [("rig_nose_side", (px + 0.2, FG_LANE, pz + 0.5), (px - 0.8, FG_LANE + 4.6, pz + 1.2)),
+                  ("rig_nose_front", (px + 0.4, 0.0, pz + 0.4), (px - 5.5, -2.5, pz + 1.8)),
+                  ("rig_nose_close", (px, FG_LANE, pz + 0.4), (px - 0.6, FG_LANE + 2.2, pz + 0.9))]
+    return shots
+
+
+def rig_manifest_m(kind, block):
+    """The manifest's `rig` block: what the code (BullwheelSpinSystem, TrainPitchSystem) and the import round need."""
+    spec = M_SPECS[kind]
+    out = {"bones": block["bones"], "heads_game": block["heads_game"],
+           "bone_rules": {"Root": "static (parentId -1: rotation (0,0,0,1), scale (1,1,1) after every import, gate BONEROOT)",
+                          "Bullwheel": "turn about its local Y (game up, the wheel axle); RIG_BULL_PARTS",
+                          **({"NoseTrain": "pitch about its local X through the lane end; + raises the line-side end; "
+                                           f"the art clears +-{RIG_NOSE['tmax']:.0f} deg (joint sweep)"}
+                             if kind == "drive" else {})},
+           "rest": "identity (every bone up, roll 0)", "weights": "every vertex 1.0 on one bone on every LOD",
+           "settings": "procedural_animation true", "rope_r_m": M_ROPE_R, "rope_sides": RIG_ROPE_SIDES,
+           "rope_from": {"lane_end_authoring_xz": list(spec.anchor_out),
+                         "lane_end_game": [round(s * FG_LANE, 3) for s in (-1, 1)] + [spec.anchor_out[1],
+                                                                                    spec.anchor_out[0]]},
+           "entry_sheave_center_xz": list(entry_center_m(spec)),
+           "submesh_win": "the _Win glass sub-mesh stays an unskinned sub-object of a skinned building (UNVERIFIED in "
+                          "game, PLAN P0 c)"}
+    if kind == "return":
+        out["hosted_tower"] = {"folder": RIG_HOSTED_DIR, "row_position_game": [0.0, 0.0, RIG_HOSTED_X],
+                               "shipped_row_z": spec.tower_x, "rotation_quat": [0, 1, 0, 0],
+                               "note": "the skinned ET62's pivot (crown at 5.24 = the lane end) on the lane end"}
+    return out
+
+
+def render_rig_views_m(t, arm, asset_dir, name, out_dir, kind, win=None):
+    """T256 posed previews (EEVEE, the baked maps, the real chair): the rig shots at rest, the bullwheel at 0 / 15 / 30 deg
+    (wheel + entry sheaves from above and the side), and on the base the NoseTrain at -20 / 0 / +20 / +40 / -40 deg with the
+    line rope drawn from the lane end at the matching pitch (side + close-up). Each posed frame is a posed copy checked
+    against the contracts' pose (rig_posed_copy_m)."""
+    written = []
+    written += render_closeups_m(t, asset_dir, name, out_dir, kind, win=win, shots=rig_shots_m(kind))
+    shots = {s[0]: s for s in rig_shots_m(kind)}
+    for a in (0.0, 15.0, 30.0):
+        ob = rig_posed_copy_m(t, arm, {"Bullwheel": a}, kind, f"{name}PoseW{int(a)}")
+        try:
+            for key in ("rig_wheel_above", "rig_wheel_entry"):
+                nm, tg, ey = shots[key]
+                written += render_closeups_m(ob, asset_dir, name, out_dir, kind, win=None, chairs=False,
+                                             shots=[(f"{nm}_bullwheel{int(a):02d}deg", tg, ey)])
+        finally:
+            me = ob.data
+            bpy.data.objects.remove(ob, do_unlink=True)
+            bpy.data.meshes.remove(me)
+    if kind == "drive":
+        for th in (-20.0, 0.0, 20.0, 40.0, -40.0):
+            ob = rig_posed_copy_m(t, arm, {"NoseTrain": th}, kind, f"{name}PoseN{int(th)}")
+            ropes = rig_line_rope_m(kind, th)
+            try:
+                for key in ("rig_nose_side", "rig_nose_close"):
+                    nm, tg, ey = shots[key]
+                    tag = f"{'p' if th >= 0 else 'm'}{abs(int(th)):02d}"
+                    written += render_closeups_m(ob, asset_dir, name, out_dir, kind, win=None, chairs=False,
+                                                 shots=[(f"{nm}_nose{tag}deg", tg, ey)],
+                                                 extras=[(r_, (0.02, 0.02, 0.02, 1.0)) for r_ in ropes])
+            finally:
+                for o in [ob] + ropes:
+                    me = o.data
+                    bpy.data.objects.remove(o, do_unlink=True)
+                    bpy.data.meshes.remove(me)
+    return written
+
+
 # ---------------------------------------------------------------- main (generation M) ------
 
 def main_m(args):
@@ -4814,7 +5864,7 @@ def main_m(args):
     11. Validation.
     12. Manifest.
     13. Review pack."""
-    global FINE_DETAIL_M, M_NOSE_TRAIN, M_ROPE_R
+    global FINE_DETAIL_M, M_NOSE_TRAIN, M_ROPE_R, RIG_HOSTED_DIR
     import cs2_bake
     import cs2_liftdress as LD
     LTD = _LTD()
@@ -4830,6 +5880,14 @@ def main_m(args):
     M_ROPE_R = THIN_ROPE_R if getattr(args, "thin_rope", False) else M_ROPE_R_SHIPPED   # every run follows its args
     if M_NOSE_TRAIN and kind != "drive":
         raise SystemExit("--no-hosted-tower is drive only (the return has no hold-down train: ET62 keeps the rope)")
+    rig = bool(getattr(args, "rig", False))
+    if rig:             # T256: the rigged station (letter P): every M_RIG table, after the flags above
+        if getattr(args, "wheels", "v2") != "v2":
+            raise SystemExit("--rig builds on the v2 wheels")
+        set_m_rig(True, kind)
+        RIG_HOSTED_DIR = getattr(args, "rig_hosted", None) if kind == "return" else None
+    elif getattr(args, "rig_hosted", None):
+        raise SystemExit("--rig-hosted needs --rig")
     spec = M_SPECS[kind]
     default = "SkiLiftBaseStation" if kind == "drive" else "SkiLiftTopStation"
     name = cs2_asset.validate_asset_name(args.name or default)
@@ -4848,6 +5906,9 @@ def main_m(args):
     contracts = contracts_m(t, table, kind, sweep=not getattr(args, "skip_sweep", False))
     co, tris, names, _tb = m_arrays(t)
     contracts["M10"] = windows_m(co, tris, names, kind)
+    if rig:
+        contracts["RIG"] = rig_contracts_m(t, table, kind)
+        rope_tris = rig_rope_tris_m(t, table)
     bb_lo, bb_hi = co.min(axis=0), co.max(axis=0)
     cs2_asset.orient_for_net(t)
 
@@ -4869,7 +5930,7 @@ def main_m(args):
     # after the bake on the shipped layout
     base_report = engine_ring_m(t, kind)
     n0 = cs2_asset.tri_count(t)
-    cap = LOD0_CAP_M[kind]
+    cap = (RIG_LOD0_CAP if M_RIG else LOD0_CAP_M)[kind]
     if n0 > cap:
         _m_fail("M15", f"LOD0 {n0} tris > cap {cap}")
     print(f"[contract M] M6 pre-bake ok: {base_report['verdict']}, {base_report['ok_edges']} OK edges; "
@@ -4893,25 +5954,45 @@ def main_m(args):
     # recount: the float32 shoelace of validate_mesh reads sub-texel faces as zero)
     import types as _types
     base_report = LTD.engine_base_gate(t, _types.SimpleNamespace(engine_base=M_ENGINE_BASE[kind]))
-    cs2_asset.export_fbx(t, os.path.join(asset_dir, f"{name}.fbx"))
+    if not rig:         # T256: the skinned LOD0 is written with the chain (rig_skin_m)
+        cs2_asset.export_fbx(t, os.path.join(asset_dir, f"{name}.fbx"))
     cs2_submesh.export_submeshes(win, name, "Win", asset_dir, lods=(1, 2) if args.lods else ())
 
     lods = []
     lod_base = {}
     if args.lods:
         import cs2_sheaves as S
-        lods = cs2_asset.make_lod_chain(t, name, targets=(int(round(LOD1_RATIO_M * n0)), LOD2_TARGET_M[kind]),
+        if rig:         # T256: the rope rides the fixed hook at LOD1 (its 6 sides kept); the rest target gives its tris back
+            fx = RigLodFixed(S.lod_fixed())
+            t1 = int(round(LOD1_RATIO_M * n0)) - rope_tris
+        else:
+            fx, t1 = S.lod_fixed(), int(round(LOD1_RATIO_M * n0))
+        lods = cs2_asset.make_lod_chain(t, name, targets=(t1, LOD2_TARGET_M[kind]),
                                         delete_prefixes=(lod1_drop_m(table), lod2_drop_m(table)),
-                                        shade_angle=M_SHADE, fixed=S.lod_fixed())   # T62 round 2: WHEEL_LOD
+                                        shade_angle=M_SHADE, fixed=fx)   # T62 round 2: WHEEL_LOD
         for i, lod in enumerate(lods, start=1):
-            cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{name}_LOD{i}.fbx"))
+            if not rig:
+                cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{name}_LOD{i}.fbx"))
             rl = cs2_validate.ground_ring_report(lod)
             miss = [p for p in M_ENGINE_BASE[kind] if p not in rl["ok_parts"]]
             if rl["verdict"] != "OK" or miss or rl["blocked_edges"] or rl["below_verts"]:
                 _m_fail("M6", f"engine base on LOD{i}: {rl['verdict']}, missing {miss}, "
                               f"{rl['blocked_edges']} blocked, offending {rl['offending_parts']}")
             lod_base[i] = {k: rl[k] for k in ("verdict", "ok_edges", "blocked_edges")}
-    cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)))
+    arm = None
+    if rig:             # T256: one rig for every level, each vertex 1.0 on its part's bone; skinned FBXs; round trip
+        arm, rig_w = rig_skin_m(t, lods, table, kind, name)
+        cs2_asset.export_fbx_skinned(t, arm, os.path.join(asset_dir, f"{name}.fbx"))
+        for i, lod in enumerate(lods, start=1):
+            cs2_asset.export_fbx_skinned(lod, arm, os.path.join(asset_dir, f"{name}_LOD{i}.fbx"))
+        cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)),
+                                 procedural_animation=True)
+        contracts["RIG"]["weights"] = rig_w
+        contracts["RIG"]["roundtrip"] = rig_roundtrip_m(asset_dir, name, len(lods), kind)
+        if lods:
+            contracts["RIG"]["lod_fixed"] = fx.report
+    else:
+        cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)))
     tris = {0: cs2_asset.tri_count(t)}
     tris.update({i: cs2_asset.tri_count(l) for i, l in enumerate(lods, start=1)})
     tris_win = cs2_asset.tri_count(win)
@@ -4952,6 +6033,8 @@ def main_m(args):
                                      lods=lods or None, prev_generation=ab, tint=M_TINT):
             written.append(f)
         written += render_closeups_m(t, asset_dir, name, os.path.join(prev, "closeups"), kind, win=win)
+        if rig:
+            written += render_rig_views_m(t, arm, asset_dir, name, os.path.join(prev, "rig"), kind, win=win)
         t.data.materials.clear()
 
     switch = None
@@ -4977,6 +6060,7 @@ def main_m(args):
     pc = contracts.pop("M1")
     fine_block = fine_detail_block_m(kind, contracts)          # fine-detail step 3c (None when off)
     cs2_validate.write_manifest(asset_dir, name, {
+        "args": vars(args),            # T256: every parsed flag (defaults too): a letter's build is reproducible
         "generator": GEN_M, "kind": kind, "generation": "M", "rope_r_m": M_ROPE_R,
         "spec": "design/fg-stations-m.md + fg-stations-m-skeptic.md MUST-CHANGE 1-6 (build/fg-stations-m.md)",
         "finish": "shipping" if args.finish else "blockout", "atlas_px": A, "ao_samples": ao,
@@ -5000,6 +6084,7 @@ def main_m(args):
         # nitpick A (2026-10-13, build/nitpick-a-stations.md): the layout around the up lane (M20) and the sheave trains of
         # the towers (M21), also under "contracts"
         "orientation": contracts.get("M20"), "sheave_trains": contracts.get("M21"),
+        **({"rig": rig_manifest_m(kind, contracts["RIG"])} if rig else {}),
         "contracts": contracts,
     })
     # kit color variants (2026-10-12): a shipping export stages the variants that its kit rows name
@@ -5039,9 +6124,54 @@ def main_m(args):
 #@@M-SECTION-END@@
 
 
+# T256 (orchestrator finding, 2026-11-19): the shipped letters' build flags. The O stations were built with --thin-rope (both)
+# and --no-hosted-tower (base), and no manifest recorded it (HEAD without them builds base O at 7,950 tris, shipped 8,166).
+# An entry lists the flags that differ from the parser defaults, checked against the shipped manifests in
+# assets/import/stations/fixedgrip/O/<name>/<name>.manifest.json: rope_r_m 0.024 (= THIN_ROPE_R, --thin-rope), the base's
+# nose_train block (--no-hosted-tower), finish "shipping" (--finish), tris "1" / "2" (--lods), kind. Every build's manifest now
+# records "args" (vars(args)). A build under a listed --name stops when a SHAPE_FLAGS value differs, unless
+# --allow-flag-drift (experiments).
+SHIPPED_FLAGS = {
+    "SkiLiftBaseStationO": dict(kind="drive", thin_rope=True, no_hosted_tower=True, finish=True, lods=True),
+    "SkiLiftTopStationO": dict(kind="return", thin_rope=True, finish=True, lods=True),
+}
+# the flags that change what a build exports (meshes, maps, settings). Output / preview / review / debugging flags (--out,
+# --preview, --review, --ab, --no-validate, --skip-sweep, --name) never count
+SHAPE_FLAGS = ("gen", "weather", "atlas", "ao_samples", "no_fine", "rope_on_crown", "thin_rope", "no_hosted_tower",
+               "wheels", "rig", "rig_hosted", "kind", "finish", "lods")
+
+
+def flag_drift(args, ap=None):
+    """{flag: (shipped, given)} of the SHAPE_FLAGS that differ from SHIPPED_FLAGS[args.name] (parser defaults for the flags an
+    entry leaves out). {} when the name is not a shipped letter."""
+    entry = SHIPPED_FLAGS.get(getattr(args, "name", None))
+    if entry is None:
+        return {}
+    ap = ap or build_parser()
+    want = {k: ap.get_default(k) for k in SHAPE_FLAGS}
+    want.update(entry)
+    return {k: (want[k], getattr(args, k, None)) for k in SHAPE_FLAGS if getattr(args, k, None) != want[k]}
+
+
+def check_shipped_flags(args, ap=None):
+    """SystemExit naming the differing flags when --name is a shipped letter and a shape flag differs (flag_drift), unless
+    --allow-flag-drift."""
+    drift = flag_drift(args, ap)
+    if drift and not getattr(args, "allow_flag_drift", False):
+        raise SystemExit(f"{args.name} is a shipped letter (SHIPPED_FLAGS) and these flags differ from its shipped build "
+                         f"(shipped, given): {drift}. Use the shipped flags, another --name, or --allow-flag-drift.")
+    if drift:
+        print(f"[terminal] --allow-flag-drift: {args.name} built with flags that differ from the shipped letter: {drift}")
+    return drift
+
+
 def parse_args():
     argv = sys.argv
     argv = argv[argv.index("--") + 1:] if "--" in argv else []
+    return build_parser().parse_args(argv)
+
+
+def build_parser():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument(
@@ -5062,14 +6192,19 @@ def parse_args():
                     help="M, T27 preview flag (M_ROPE_ON_CROWN): the HV anchors on the hosted end tower's sheave "
                          "crown; M1 reports the prefab surgery. Off = the shipped station byte for byte.")
     ap.add_argument("--thin-rope", action="store_true", dest="thin_rope",
-                    help="art-601 #10: the modeled station rope at THIN_ROPE_R (the lines' 0.048 m rope), a new letter; "
-                         "off = the shipped radius 0.055")
+                    help="art-601 #10: the station rope at THIN_ROPE_R (r 0.024, the chair grip's rope); the shipped letter O uses this flag.")
     ap.add_argument("--no-hosted-tower", action="store_true", dest="no_hosted_tower",
-                    help="M drive, art-601 (M_NOSE_TRAIN): the base without its hosted end tower; the hold-down train "
-                         "moves out to the sub-lane's inboard end and gets a king post + tie. Off = the shipped station.")
+                    help="M drive, art-601 (M_NOSE_TRAIN): the base without its hosted end tower; the shipped letter O uses this flag.")
     ap.add_argument("--wheels", choices=["v1", "v2"], default="v2",
                     help="M, T62: sheave wheel generation (v2 default = cs2_sheaves.wheel on the hold-down train and the "
                          "counterweight sheaves: the round-3 wheel (16 segments, groove, seen hub bosses); v1 = the pre-T62 wheels byte for byte).")
+    ap.add_argument("--rig", action="store_true",
+                    help="M, T256 (M_RIG): the rigged fixed-grip station (letter P): skinned (Root, Bullwheel, base "
+                         "NoseTrain), the 8-spoke wheel, entry sheaves, the cable-width rope from the lane end; drive implies "
+                         "--no-hosted-tower. Off = every shipped station byte for byte.")
+    ap.add_argument("--rig-hosted", default=None, dest="rig_hosted",
+                    help="M return + --rig: the folder of the skinned hosted end tower (lift_tower --skinned "
+                         "--hosted-lane 5.24); M5 and the previews use it at x RIG_HOSTED_X. Absent = M5 skipped.")
     ap.add_argument("--kind", choices=["drive", "return"], default="drive")
     ap.add_argument("--name", default=None)
     ap.add_argument("--preview", default=None)
@@ -5101,7 +6236,9 @@ def parse_args():
         help="also write the live-review pack <DIR>/<name>.blend (cs2_review.write_pack, "
              "duplicates only; exports, manifest and validation unchanged).",
     )
-    return ap.parse_args(argv)
+    ap.add_argument("--allow-flag-drift", action="store_true", dest="allow_flag_drift",
+                    help="build a shipped letter (SHIPPED_FLAGS) with other shape flags anyway (experiments only).")
+    return ap
 
 
 # Ground parts that must feed the engine base (cs2_validate.ground_ring_report ok_parts).
@@ -5172,6 +6309,7 @@ def main():
     """CLI entry (tests/test_review_side_effects.py 1b drives it through sys.argv): generation M
     by default, L with --gen L."""
     args = parse_args()
+    check_shipped_flags(args)          # T256: a shipped letter builds with its shipped flags (SHIPPED_FLAGS)
     if args.gen == "M":
         return main_m(args)
     return main_l(args)
