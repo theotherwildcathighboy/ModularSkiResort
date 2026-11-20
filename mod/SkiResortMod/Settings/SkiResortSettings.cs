@@ -64,6 +64,7 @@ namespace SkiResortMod.Settings
         public const int DefaultAttractivenessScaleK = 4;
         public const int DefaultBackcountryValuePercent = 40;
         public const bool DefaultEnableSnowGating = true;
+        public const bool DefaultTopToBottomRule = true;   // T268 (1.0.4): runs open only with snow top to bottom
         public const bool DefaultSnowGunPlumes = true;
         public const bool DefaultGroomers = true;
         public const bool DefaultDiagnosticMeasurements = false;
@@ -288,6 +289,12 @@ namespace SkiResortMod.Settings
         [SettingsUISlider(min = 0f, max = 6f, step = 0.1f, unit = "floatSingleFraction")]
         [SettingsUISection(SectionMain, GroupSnow)]
         public float SnowmakingBonusCelsius { get; set; }
+
+        /// <summary>T268 (1.0.4): on = a run opens only when every stretch of its vertical has snow (RunSnowRules.OpenShare, elevation
+        /// bands at the keep bar); off = the 1.0.3 area rule (60 % open, 40 % close). Read by SkiSnowInjectionSystem.RefreshRunSnow through
+        /// SnowLineSystem.IsTopToBottomRuleEnabled (the one read). A mod setting, not save data: an options file without it gets the default.</summary>
+        [SettingsUISection(SectionMain, GroupSnow)]
+        public bool EnableTopToBottomRule { get; set; }
 
 
         // Runs: read live every frame by the consuming systems, so a change takes effect at once
@@ -553,6 +560,7 @@ namespace SkiResortMod.Settings
             SkiDayReachKm = DefaultSkiDayReachKm;
             SkiDayPowderPct = DefaultSkiDayPowderPct;
             EnableSnowGating = DefaultEnableSnowGating;
+            EnableTopToBottomRule = DefaultTopToBottomRule;
             SnowmakingBonusCelsius = DefaultSnowmakingBonusCelsius;
             EnableBindOnDraw = true;
             ShowRunGradeWhileDrawing = true;

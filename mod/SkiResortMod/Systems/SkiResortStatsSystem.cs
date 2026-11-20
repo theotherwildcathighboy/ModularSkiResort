@@ -165,6 +165,7 @@ namespace SkiResortMod.Systems
         public float ValueNow; public int CostMonth;
         public int SnowDepthCm; // mean depth, cm. -1 not measured
         public int GunWhy;
+        public int SnowGap;     // T268: RunSnowGap (0 none, 1 bottom, 2 partway), only while the band rule keeps the run from opening
     }
 
     /// <summary>bindings.ts LiftRow: Entity = the census row id (base station, else top station, else the lowest-index line
@@ -1660,6 +1661,7 @@ namespace SkiResortMod.Systems
                     ValueNow = member ? (float)part.Value : 0f,
                     CostMonth = (int)Math.Round(cost, MidpointRounding.AwayFromZero),
                     SnowDepthCm = bound && snow.Source == RunSnowSource.Measured ? HubRules.DepthCm(snow.MeanDepthM) : -1,
+                    SnowGap = bound && snow.Source == RunSnowSource.Measured ? (int)snow.Gap : 0,   // GatingOff / Estimated: no gap line
                     GunWhy = catTrack   // a track set to Off is not a gun run: no gun line
                         ? (int)TrackGunWhyOf(row, bound && trackGunsOn)
                         : (int)GunWhyOf(row.Entity, bound && row.Features.Snowmaking),
@@ -3377,6 +3379,7 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.CostMonth);
                 h = Mix(h, (uint)r.SnowDepthCm);
                 h = Mix(h, (uint)r.GunWhy);
+                h = Mix(h, (uint)r.SnowGap);   // T268
             }
             return Mix(h, (uint)rows.Count);
         }

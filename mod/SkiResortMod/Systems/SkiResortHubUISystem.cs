@@ -43,7 +43,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 58;
+        public const int HubContract = 59;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -4027,6 +4027,8 @@ namespace SkiResortMod.Systems
                 writer.Write(r.SnowDepthCm);
                 writer.PropertyName("gunWhy");        // HubRules RunGunWhy
                 writer.Write(r.GunWhy);
+                writer.PropertyName("snowGap");       // T268 RunSnowGap
+                writer.Write(r.SnowGap);
                 writer.TypeEnd();
             }
             writer.ArrayEnd();

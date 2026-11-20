@@ -142,6 +142,7 @@ namespace SkiTestBridge
                 case "playset": return PlaysetCommand(args);
                 case "tourism": return TourismCommand(args);
                 case "meltprobe": return MeltProbeCommand(args);
+                case "vfxprobe": return VfxProbeCommand(args);
                 case "spawnprobe": return SpawnProbeCommand(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }

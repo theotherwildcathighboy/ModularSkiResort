@@ -291,6 +291,16 @@ namespace SkiResortMod.Settings
                     "or snow guns run, so on a warm map with gating off they cost no upkeep. Default on."
                 },
                 {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.EnableTopToBottomRule)),
+                    "Runs need snow top to bottom"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.EnableTopToBottomRule)),
+                    "On: a run opens only when it has snow from top to bottom. Every stretch of its vertical needs 30 cm (1 ft) of " +
+                    "snow on half of it. An open run closes when a stretch falls under a quarter. The 60 % and 40 % rules still apply. " +
+                    "Off: only the 60 % and 40 % rules count, so a run can open with a bare bottom. Default on."
+                },
+                {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SnowmakingBonusCelsius)),
                     "Snowmaking margin (°C)"
                 },
