@@ -71,13 +71,15 @@ export interface FooterInfo {
   collapsible?: boolean;
   engaged?: boolean;
   /* T262: which of the non-tile modes is on (the ok panel reads them), so the chevron can cancel it. */
-  modes?: { tree: boolean; quickRuns: boolean; liftTool: boolean };
+  modes?: { tree: boolean; quickRuns: boolean; liftTool: boolean; catDelete: boolean };
 }
 
 
 export const MISMATCH_FOOTER: FooterInfo = { dot: null, next: "done", followName: null };
 
 export const FOLLOW_NOTICE_MS = 6000;
+/** T262: after a chevron click that cancels a tool, the next chevron click is ignored for this long (a double click must not reopen it). */
+const CANCEL_GUARD_MS = 700;
 
 /* The chevron glyphs: the folds' own (fit.tsx), so open / closed reads as a fold does. */
 const GLYPH_STRIP_OPEN = "Media/Glyphs/ThickStrokeArrowDown.svg";
@@ -566,16 +568,23 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     buildTab$.update(next.tab);
     buildOpen$.update(next.open);
   };
+  // A cancel is a toggle on C#'s side and the bindings lag a frame or two: a second click inside this window would open the tool again
+  const lastCancel = useRef(0);
   const onChevron = (): void => {
     setLockedClick(null);
     if (engaged) {
+      const at = Date.now();
+      if (at - lastCancel.current < CANCEL_GUARD_MS) return;
+      lastCancel.current = at;
       // T262: cancel what is engaged, then close. The effect above closes it too once the bindings say it ended; this closes it now.
       const modes = info.modes;
-      for (const act of chevronCancel({ activeId, tree: !!modes?.tree, quickRuns: !!modes?.quickRuns, liftTool: !!modes?.liftTool, merge: mergeOn })) {
+      for (const act of chevronCancel({ activeId, tree: !!modes?.tree, quickRuns: !!modes?.quickRuns, liftTool: !!modes?.liftTool,
+        catDelete: !!modes?.catDelete, merge: mergeOn })) {
         if (act === "launch" && activeId) hubTriggers.launch(activeId);
         else if (act === "tree") hubTriggers.gladeToggle();
         else if (act === "quickRuns") hubTriggers.quickRunsToggle();
         else if (act === "liftTool") hubTriggers.liftLineToggle();
+        else if (act === "catDelete") hubTriggers.setCatTrackDeleteMode(false);
         else if (act === "merge") hubTriggers.armMergeOverlay(false);
       }
     }
@@ -688,7 +697,7 @@ export function OkFooter(): JSX.Element {
     mergeOverlay,
     collapsible: true,
     engaged: !!glade?.active || !!quick?.active || !!liftLine?.active || !!catDelete,
-    modes: { tree: !!glade?.active, quickRuns: !!quick?.active, liftTool: !!liftLine?.active },
+    modes: { tree: !!glade?.active, quickRuns: !!quick?.active, liftTool: !!liftLine?.active, catDelete: !!catDelete },
   };
   return <BuildStrip info={info} />;
 }

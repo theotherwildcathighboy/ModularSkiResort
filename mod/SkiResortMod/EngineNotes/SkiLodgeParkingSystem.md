@@ -173,3 +173,13 @@ written). A census on the arming tick is not measured. The line prints the vanil
 - OnGamePreload completes and discards the census in flight and flushes the fold (try/caught: GameSystemBase.cs:85-96 disables a system
   whose OnGamePreload throws).
 - OnDestroy completes, flushes and disposes.
+
+## The parking ring's tooltip (T263, 2026-11-20)
+
+The bright blue ring around a road lodge being placed (SkiAreaRingOverlaySystem, `ParkingRingMode.PlacingLodge`) is the parking radius
+`SkiParkingRules.RadiusM`. The 1.0.3 sanity pass found nothing said so. `SkiParkingRingTooltipSystem` adds one mouse tooltip line while
+that mode is on ("Guests who drive need car spaces inside the bright blue ring, {RADIUS} around this lodge", key
+`SkiResort.Tooltip.PARKING_RING`, a length in m / yd by the unit setting, rebuilt when `DisplayState.Packed` changes). A selected lodge
+shows its ring without the line (no cursor). The faint blue rings around the other road lodges are the same radius. Distance is measured
+to a lane's nearest point or a garage entrance, so a space just outside the ring can still count. DECISIONS 477 guessed the blue ring was
+the ski area ring: wrong, that one is amber (the Tether radius around Welcome Signs).

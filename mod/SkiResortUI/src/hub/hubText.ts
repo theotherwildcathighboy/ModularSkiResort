@@ -175,6 +175,8 @@ export const HUB_LOC = {
   problemTipSchoolNoGreenRun: ["SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while at least one <icon:green> run or cat track is <icon:openpatchy>."],
   pagePrev: ["SkiResort.Hub.PAGE_PREV", "Previous page"],
   pageNext: ["SkiResort.Hub.PAGE_NEXT", "Next page"],
+  /* T264: the hint beside the next arrow while a next page exists */
+  pageMore: ["SkiResort.Hub.PAGE_MORE", "More"],
   liftTool: ["SkiResort.Hub.LIFT_TOOL", "Lift tool"],
   liftToolTip: ["SkiResort.Hub.LIFT_TOOL_TIP", "Plan a lift line between two stations: Ctrl+Shift+L"],
   liftToolUnavailable: ["SkiResort.Hub.LIFT_TOOL_UNAVAILABLE", "Available once a city is loaded."],
@@ -373,6 +375,7 @@ export const HUB_LOC = {
   moneyDestTipShare: ["SkiResort.Hub.MONEY_DEST_TIP[Share]", "Fewer tourists hold one while the pass or its day fee is dear. The Options pass share sets both kinds of pass."],
   moneyDestTipRaise: ["SkiResort.Hub.MONEY_DEST_TIP[Raise]", "To raise destination fees, raise the pass price."],
   moneyDestTipFull: ["SkiResort.Hub.MONEY_DEST_TIP[Full]", "Destination guests pay the full lift ticket."],
+  moneySaleTipNow: ["SkiResort.Hub.MONEY_SALE_TIP[Now]", "The demand word judges the price paid now."],
   moneySaleTip: ["SkiResort.Hub.MONEY_SALE_TIP", "Each household buys at its own time, most of them early. After the sale, guests without a pass pay the lift ticket."],
   moneyPassTipLocked: ["SkiResort.Hub.MONEY_PASS_TIP[Locked]", "Price locked at the sale."],
   moneyPassTipResidents: ["SkiResort.Hub.MONEY_PASS_TIP[Residents]", "Residents buy it before the winter. Tourists on a destination pass pay a quarter of it a day."],
@@ -517,7 +520,7 @@ export const HUB_LOC = {
   moneyTipLodgeSpend: ["SkiResort.Hub.MONEY_TIP[LodgeSpend]", "Booked this month so far: what paying ski guests spend at the lodges. Per guest: Options > Modular Ski Resort > Ski area balance."],
   // rows drawn while passes are on or used (hubRules.passesShown)
   moneyTipPasses: ["SkiResort.Hub.MONEY_TIP[Passes]", "Sold before the winter. Holders ski free all season and come more often. Share and price: Options > Modular Ski Resort > Ski area balance."],
-  moneyTipPassHolders: ["SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a pass: a season pass pays nothing now, a destination pass pays its day fee."],
+  moneyTipPassHolders: ["SkiResort.Hub.MONEY_TIP[PassHolders]", "Visits by guests on a pass, not passes sold. A season pass pays nothing now, a destination pass pays its day fee."],
   guestsRowPassHolders: ["SkiResort.Hub.GUESTS_ROW[PassHolders]", "On a pass"],
   guestsTipPassHolders: ["SkiResort.Hub.GUESTS_TIP[PassHolders]", "Residents on a season pass, paid once for the season, and tourists on a destination pass, who pay a day fee instead of the ticket."],
   // lessons, the pre-season sale, the city-income estimate (shown under Tourism Overhaul too since 1.0.2)
@@ -585,6 +588,8 @@ export const HUB_LOC = {
   historyRuns: ["SkiResort.Hub.HISTORY[Runs]", "Runs"],
   historyStaff: ["SkiResort.Hub.HISTORY[Staff]", "Buildings and wages"],
   historyNet: ["SkiResort.Hub.HISTORY[Net]", "Net"],
+  /* T266: the revenue chart's Net row tooltip, its first line (the income, costs and net rows follow it) */
+  historyNetTip: ["SkiResort.Hub.HISTORY[NetTip]", "Income minus costs this season so far. The percent is the net as a share of income."],
   historyIncome: ["SkiResort.Hub.HISTORY[Income]", "Income"],
   historyCosts: ["SkiResort.Hub.HISTORY[Costs]", "Costs"],
   // T245 (1.0.2): the History view's "This season so far" block, lines without a placeholder
@@ -889,7 +894,7 @@ export const HUB_FMT = {
   moneyTipLiftsRate: ["SkiResort.Hub.MONEY_TIP[LiftsRate]", "Booked this month so far. At today's rate: {RATE} per month."],
   moneyTipSoFar: ["SkiResort.Hub.MONEY_TIP[SoFar]", "{RATE} per month at today's staff and budget. {SHARE} of the month so far. An estimate: it moves when staff or lodges change."],
   moneyRowPasses: ["SkiResort.Hub.MONEY_ROW[Passes]", "Season passes sold · {N}"],
-  moneyRowPassHolders: ["SkiResort.Hub.MONEY_ROW[PassHolders]", "Guests on a pass, {MONTH}"],
+  moneyRowPassHolders: ["SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holder visits, {MONTH}"],
   /* {N} = the pre-season sale's passes (Integer) / the lessons taken this month (Integer) */
   moneyRowPassesPre: ["SkiResort.Hub.MONEY_ROW[PassesPre]", "Pre-season passes · {N}"],
   moneyRowLessons: ["SkiResort.Hub.MONEY_ROW[Lessons]", "Lessons · {N}"],
@@ -897,13 +902,22 @@ export const HUB_FMT = {
   moneyTicketsPrice: ["SkiResort.Hub.MONEY_TICKETS_PRICE", "Lift ticket price now: {PRICE}"],
   /* r3/sliders (DECISIONS 677): {PRICE} = the slider price (Money), {WORD} = the demand word (DEMAND_WORD) */
   moneyPriceLine: ["SkiResort.Hub.MONEY_PRICE_LINE", "Ticket {PRICE} · Demand: {WORD}"],
-  moneyPassLine: ["SkiResort.Hub.MONEY_PASS_LINE", "Season pass {PRICE} · Demand: {WORD}"],
+  /* T265: the slider's line ({PRICE} = the early price, the slider's) and, while the sale months are not known, the same with the Demand word */
+  moneyPassLine: ["SkiResort.Hub.MONEY_PASS_LINE", "Season pass, early price {PRICE}"],
+  /* T267: the Net's pass row with its count: {N} = ResortLive.passesSoldMonth (Integer). The plain row above while the count is unknown. */
+  moneyRowPassesSold: ["SkiResort.Hub.MONEY_ROW[PassesSold]", "Passes sold · {N}"],
+  /* T265: {PCT} = SALE_STEP_PCT (Percentage), {MONTH} = the last month at the early price, {PRICE2} = the stepped price (Money) */
+  moneySaleTipStep: ["SkiResort.Hub.MONEY_SALE_TIP[Step]", "The price rises by {PCT} after {MONTH}, to {PRICE2}."],
+  moneyPassLineDemand: ["SkiResort.Hub.MONEY_PASS_LINE[Demand]", "Season pass, early price {PRICE} · Demand: {WORD}"],
   /* 1.0.3 R3-B: {FEE} = hubRules.destFee (Money), {PCT} = hubRules.destSharePct (Percentage), {PRICE} / {PRICE2} = the opening /
    stepped pass price (Money), {MONTH} / {MONTH2} = month names (hubRules.saleWindow) */
   moneyDestLine: ["SkiResort.Hub.MONEY_DEST_LINE", "Destination pass {FEE} a day · {PCT} of tourists"],
-  moneySaleOpening: ["SkiResort.Hub.MONEY_SALE_LINE[Opening]", "Pass sale: {PRICE} through {MONTH}, then {PRICE2} through {MONTH2}"],
-  moneySaleStepped: ["SkiResort.Hub.MONEY_SALE_LINE[Stepped]", "Pass sale: {PRICE2} through {MONTH2}"],
-  moneySaleClosed: ["SkiResort.Hub.MONEY_SALE_LINE[Closed]", "Pass sales open in {MONTH}"],
+  /* T265: the line under the pass slider: the price a household pays now and the word that judges it. {PRICE} = the early price,
+   {PRICE2} = the stepped price, {PCT} = hubRules.stepRisePct (Percentage), {WORD} = the demand word of the price paid now */
+  moneySaleOpening: ["SkiResort.Hub.MONEY_SALE_LINE[Opening]", "Now {PRICE} through {MONTH} · Demand: {WORD}"],
+  moneySaleStepped: ["SkiResort.Hub.MONEY_SALE_LINE[Stepped]", "Now {PRICE2} (+{PCT}) through {MONTH2} · Demand: {WORD}"],
+  moneySaleSteppedFlat: ["SkiResort.Hub.MONEY_SALE_LINE[SteppedFlat]", "Now {PRICE2} through {MONTH2} · Demand: {WORD}"],
+  moneySaleClosed: ["SkiResort.Hub.MONEY_SALE_LINE[Closed]", "Pass sales open in {MONTH} · Demand: {WORD}"],
   /* r3/sliders (DECISIONS 677): {FULL} = priceFullWith(area tolerance) or passFullPrice(ticket) (Money), {PRICE} = the slider price (Money),
    {PCT} = hubRules.fewerPct (Percentage, a multiple of 5), {N} = PASS_FULL_AT + PASS_SPAN, where demand reaches 0 (Integer) */
   moneyPriceTipAbove: ["SkiResort.Hub.MONEY_PRICE_TIP[Above]", "Above {FULL}, fewer guests choose a ski day."],

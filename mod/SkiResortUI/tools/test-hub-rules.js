@@ -664,8 +664,8 @@ function run(srcDir) {
   const csTuples = new Map();
   for (const m of locale.matchAll(/\{\s*"([^"]+)",\s*"((?:[^"\\]|\\.)*)"\s*\}/g)) csTuples.set(m[1], m[2]);
   const histKeys = [...tuples.keys()].filter((k) => /^SkiResort\.Hub\.(HISTORY|TILE\[History\]|TILE_TIP\[History\])/.test(k));
-  eq("T20.2 every HISTORY key of hubText.ts is in LocaleEN.cs with the same text (67 keys; Finances / Both went with the charts segment; T245 added 15; R3-A added 4)",
-    [histKeys.length, histKeys.filter((k) => csTuples.get(k) !== tuples.get(k))], [67, []]);
+  eq("T20.2 every HISTORY key of hubText.ts is in LocaleEN.cs with the same text (67 keys; Finances / Both went with the charts segment; T245 added 15; R3-A added 4; T266 added 1)",
+    [histKeys.length, histKeys.filter((k) => csTuples.get(k) !== tuples.get(k))], [68, []]);
   const viewSrc = read(path.join("hub", "HistoryView.tsx"));
   const H = HR;
   eq("T20.3 three range options (12 months, this season vs last, by season), each with a label and a tooltip in HistoryView",
@@ -1528,11 +1528,13 @@ function run(srcDir) {
     eq("T246.3 chevron closes an open strip", R.chevronClick(true, false), false);
     eq("T246.4 chevron opens a closed strip", R.chevronClick(false, false), true);
     eq("T262.1 chevron while engaged closes the strip (it cancels the mode first)", R.chevronClick(true, true), false);
-    const none = { activeId: null, tree: false, quickRuns: false, liftTool: false, merge: false };
+    const none = { activeId: null, tree: false, quickRuns: false, liftTool: false, catDelete: false, merge: false };
     eq("T262.2 nothing engaged: nothing to cancel", R.chevronCancel(none), []);
     eq("T262.3 a lit tile: its launch (the lift tool and the cat track tool light theirs)", R.chevronCancel({ ...none, activeId: "run0" }), ["launch"]);
     eq("T262.4 a lit tile and the lift tool flag: launch only (a lift toggle would open it again)", R.chevronCancel({ ...none, activeId: "liftChair", liftTool: true }), ["launch"]);
-    eq("T262.5 tree / quick runs / lift tool without a tile", [R.chevronCancel({ ...none, tree: true }), R.chevronCancel({ ...none, quickRuns: true }), R.chevronCancel({ ...none, liftTool: true })], [["tree"], ["quickRuns"], ["liftTool"]]);
+    eq("T262.5 tree / quick runs / lift tool / cat delete without a tile", [R.chevronCancel({ ...none, tree: true }), R.chevronCancel({ ...none, quickRuns: true }), R.chevronCancel({ ...none, liftTool: true }), R.chevronCancel({ ...none, catDelete: true })],
+      [["tree"], ["quickRuns"], ["liftTool"], ["catDelete"]]);
+    eq("T262.7 a lit tile beside the tree tool: both end", R.chevronCancel({ ...none, activeId: "run0", tree: true }), ["launch", "tree"]);
     eq("T262.6 the merge overlay is switched off besides", R.chevronCancel({ ...none, tree: true, merge: true }), ["tree", "merge"]);
     eq("T246.6 strip slots: the most tiles and gaps", R.stripSlots([{ tiles: 3, groups: 1 }, { tiles: 3, groups: 2 }, { tiles: 6, groups: 2 }, { tiles: 4, groups: 3 }]), { slots: 6, gaps: 2 });
     eq("T246.7 strip slots: no rows", R.stripSlots([]), { slots: 1, gaps: 0 });
@@ -1588,6 +1590,13 @@ function run(srcDir) {
       { phase: "opening", open: 7, stepAt: 8, last: 10, price: 320, stepped: 360 });
     eq("R3B.9 sale window, January season in December", R.saleWindow(11, 1, 400),
       { phase: "closed", open: 1, stepAt: 2, last: 4, price: 400, stepped: 460 });
+    // T265: the price a resident pays now = the stepped price in the stepped phase (C# SkiPassRules.SalePrice), else the slider price
+    eq("T265.1 paid now: opening, stepped, closed, unknown season", [R.saleWindow(7, 7, 320), R.saleWindow(9, 7, 320), R.saleWindow(11, 7, 320), null]
+      .map((w) => R.passNowPrice(w, 320)), [320, 360, 320, 320]);
+    eq("T265.2 the demand word follows the price paid now (ticket 40: full to 160, 8 x = 320 is half)", [R.saleWindow(7, 7, 400), R.saleWindow(9, 7, 400)]
+      .map((w) => R.passFactorPct(R.passNowPrice(w, 400), 40)), [R.passFactorPct(400, 40), R.passFactorPct(460, 40)]);
+    eq("T265.3 the step is 15 %", R.SALE_STEP_PCT, 15);
+    eq("T265.4 the rise shown is the real one (20 step snap, 2,000 cap)", [320, 100, 80, 2000, 20].map((p) => R.stepRisePct(R.saleWindow(7, 7, p))), [13, 20, 25, 0, 0]);
     // 1.0.3 T258: the party price check (C# tests/ResortBatch/PartyPriceTests.cs T258.1, same literals).
     eq("T258.1 party price factor %", [[0, 0], [80, 0], [100, 0], [120, 0], [150, 0], [200, 0], [260, 0], [120, 20], [200, 20], [140, 40], [200, 40], [200, -5]]
       .map(([p, t]) => Math.round(R.partyPriceFactor(p, t) * 100)), [100, 100, 100, 90, 75, 50, 50, 100, 60, 100, 70, 50]);

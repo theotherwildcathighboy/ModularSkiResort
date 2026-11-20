@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 58;
+export const HUB_CONTRACT = 59;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -968,6 +968,9 @@ export interface ResortLive {
    *  a lodge the player switched off is not counted), and whether its ski school is closed that way. */
   lodgesOffSeason: number;
   schoolOffSeason: boolean;
+  /** Contract 59 (T267): passes sold at this area this month, the ledger's count behind passIncomeMonth (whose money also holds the
+   *  destination passes' day fees). -1 unknown. */
+  passesSoldMonth: number;
 }
 
 /** One run of ours: identity, rating, service, value parts. */

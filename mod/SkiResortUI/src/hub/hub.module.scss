@@ -3694,6 +3694,20 @@
   background-color: var(--accentColorNormal);
 }
 
+.pagerGlyphNext {
+  background-color: var(--normalTextColor);
+}
+
+// T264: the "More" hint before the next arrow (accent color). The slot keeps its width on the last page (empty there) and an empty slot
+// of the same width stands before the page text, so the text stays centered and paging never moves the row.
+.pagerMore {
+  min-width: 2.6em;
+  margin-right: 4rem;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--accentColorNormal);
+}
+
 .pagerText {
   min-width: 3.4em;
   margin-left: 6rem;
