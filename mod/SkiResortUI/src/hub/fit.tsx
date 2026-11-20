@@ -97,10 +97,13 @@ function innerHeight(el: HTMLElement): number {
   return el.clientHeight - pad;
 }
 
-/** The pager row under a list: "‹ 2 / 3 ›", always drawn (empty on one page) so it never changes the view's height. */
+/** The pager row under a list: "‹ 2 / 3 More ›", always drawn (empty on one page) so it never changes the view's height.
+ *  T264 (2026-11-20): while a next page exists, its arrow glyph is bright and "More" stands before it. The label slot keeps its width on the
+ *  last page (empty) and an empty slot of the same width stands before the page text, so the text stays centered and the row never moves. */
 export function Pager({ fit }: { fit: FitPage }): JSX.Element {
   const t = useT();
   const many = fit.pages > 1;
+  const hasNext = fit.page < fit.pages - 1;
   return (
     <div className={styles.pagerRow}>
       {many && (
@@ -111,13 +114,15 @@ export function Pager({ fit }: { fit: FitPage }): JSX.Element {
               <Glyph src="Media/Glyphs/ThickStrokeArrowLeft.svg" className={styles.pagerGlyph} />
             </Button>
           </Tip>
+          <div className={styles.pagerMore} />
           <div className={styles.pagerText}>
             <LocText entry={HUB_FMT.pagePosition} args={{ N: numArg(fit.page + 1, Unit.Integer), COUNT: numArg(fit.pages, Unit.Integer) }} />
           </div>
+          <div className={styles.pagerMore}>{hasNext ? t(HUB_LOC.pageMore) : ""}</div>
           <Tip tip={t(HUB_LOC.pageNext)}>
-            <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pagerButton, fit.page >= fit.pages - 1 && styles.pagerButtonOff) }}
-              onSelect={() => { if (fit.page < fit.pages - 1) fit.setPage(fit.page + 1); }}>
-              <Glyph src="Media/Glyphs/ThickStrokeArrowRight.svg" className={styles.pagerGlyph} />
+            <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pagerButton, !hasNext && styles.pagerButtonOff) }}
+              onSelect={() => { if (hasNext) fit.setPage(fit.page + 1); }}>
+              <Glyph src="Media/Glyphs/ThickStrokeArrowRight.svg" className={cx(styles.pagerGlyph, hasNext && styles.pagerGlyphNext)} />
             </Button>
           </Tip>
         </>

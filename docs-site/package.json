@@ -9,9 +9,11 @@
     "dev": "astro dev",
     "lock:check": "node tools/docs-lock-check.js",
     "lock:relock": "node tools/docs-lock-check.js --relock",
-    "build": "npm run lock:check && astro build && node tools/check-base-links.js",
+    "build": "npm run lock:check && npm run demand:check && astro build && node tools/check-base-links.js",
     "preview": "astro preview",
     "astro": "astro",
+    "demand:write": "node tools/demand-curves.js --write",
+    "demand:check": "node tools/demand-curves.js --check",
     "links:check": "node tools/check-base-links.js"
   },
   "dependencies": {

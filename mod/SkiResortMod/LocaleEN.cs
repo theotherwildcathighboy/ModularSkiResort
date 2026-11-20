@@ -737,6 +737,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PAGE_POSITION", "{N} / {COUNT}" },
                 { "SkiResort.Hub.PAGE_PREV", "Previous page" },
                 { "SkiResort.Hub.PAGE_NEXT", "Next page" },
+                { "SkiResort.Hub.PAGE_MORE", "More" },
                 { "SkiResort.Hub.BUILD_GROUP[Lodges]", "Lodges" },
                 { "SkiResort.Hub.BUILD_GROUP[Services]", "Services" },
                 // The lift tool toggle on the Lifts tab.
@@ -759,6 +760,10 @@ namespace SkiResortMod
                 { "SkiResort.Hub.CAT_TRACK_DELETE_TIP", "Opens the cat track tool in delete mode. The ground stays graded, no refund. Ctrl+Shift+D in the tool." },
                 { "SkiResort.Hub.CAT_TRACK_SKI_WAY", "Ski way" },
                 { "SkiResort.Hub.CAT_TRACK_SKI_WAY_TIP", "Cat tracks become ski ways: 10 m wide, cut into the hillside with nothing filled below, for steep faces. Ctrl+Shift+J in the tool." },
+                // contract 59 (T253): the Runs tab's Slope colors chip
+                { "SkiResort.Hub.SLOPE_OVERLAY", "Slope colors" },
+                { "SkiResort.Hub.SLOPE_OVERLAY_TIP", "Each spot's slope within 300 m of the cursor: green under 25 %, blue to 40 %, black to 60 %, double black above." },
+                { "SkiResort.Hub.SLOPE_OVERLAY_TIP[European]", "Each spot's slope within 300 m of the cursor: green under 15 %, blue to 25 %, red to 40 %, black to 60 %, ski route above." },
                 { "SkiResort.Hub.QUICK_REASON[Off]", "Resort Planner is off. Its switch is in Options > Modular Ski Resort > Runs." },
                 { "SkiResort.Hub.QUICK_REASON[NotArmed]", "Available once a city is loaded." },
                 { "SkiResort.Hub.QUICK_REASON[Disabled]", "The Resort Planner hit an error and is off until the next load. Details are in the mod log." },
@@ -1144,7 +1149,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.STATUS_NO_RUNS", "Closed" },
                 { "SkiResort.Hub.STATUS_UNLINKED", "No Welcome Sign in range" },
                 { "SkiResort.Hub.STATUS_SETTLING", "Resort numbers fill in once time runs" },
-                { "SkiResort.Hub.STATUS_TIP_RULE", "<mark:open> Open: enough snow on 60 % of the run, then down to 40 % on thinner snow. <mark:patchy> Patchy: in between. <mark:closed> Closed: below 40 %." },
+                { "SkiResort.Hub.STATUS_TIP_RULE", "<mark:open> Open: snow top to bottom and on 60 % of the run, then down to 40 %. <mark:patchy> Patchy: in between. <mark:closed> Closed: below 40 %." },
                 { "SkiResort.Hub.STATUS_TIP_ESTIMATED", "Some runs are estimated from the day's temperature until their snow can be measured." },
                 { "SkiResort.Hub.STATUS_TIP_GATING", "Snow & season gating is off in Options, so every run counts as open." },
                 { "SkiResort.Hub.STATUS_TIP_VISUALS", "Snow is hidden in your Gameplay settings. Runs still open and close on the snow the game keeps." },
@@ -1544,9 +1549,13 @@ namespace SkiResortMod
                 // The Money view's lodge-spend income row (only while it earned money this month).
                 { "SkiResort.Hub.MONEY_ROW[LodgeSpend]", "Lodge spend" },
                 { "SkiResort.Hub.MONEY_ROW[PassesMonth]", "Passes" },
+                // T267: the Net's pass row with its count ({N} = this month's passes sold).
+                { "SkiResort.Hub.MONEY_ROW[PassesSold]", "Passes sold · {N}" },
                 // Season passes (hubText.ts holds the same texts, gate R4).
                 { "SkiResort.Hub.MONEY_ROW[Passes]", "Season passes sold · {N}" },
                 // The pre-season sale and lesson rows, the city-income estimate row, the lesson guests row.
+                // T267: the season pass row's tooltip line ({PRICE} = the season's pass money / passes sold).
+                { "SkiResort.Hub.MONEY_TIP[PassesAvg]", "Average price paid: {PRICE}. Each pass keeps the price of its sale, so earlier sales can cost less." },
                 { "SkiResort.Hub.MONEY_ROW[PassesPre]", "Pre-season passes · {N}" },
                 { "SkiResort.Hub.MONEY_ROW[Lessons]", "Lessons · {N}" },
                 { "SkiResort.Hub.MONEY_TIP[Lessons]", "Booked this month so far, one lesson per guest. Share and price: Options > Modular Ski Resort > Ski area balance." },
@@ -1559,8 +1568,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.GUESTS_TIP[PriceTurned]", "Tourist groups on an outing who left at the ticket price, paying nothing. To keep them, lower the ticket or build better lodges." },
                 { "SkiResort.Hub.GUESTS_TIP[Lessons]", "Guests who took a lesson, one each." },
                 { "SkiResort.Hub.MONEY_TIP[Passes]", "Sold before the winter. Holders ski free all season and come more often. Share and price: Options > Modular Ski Resort > Ski area balance." },
-                { "SkiResort.Hub.MONEY_ROW[PassHolders]", "Guests on a pass, {MONTH}" },
-                { "SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a pass: a season pass pays nothing now, a destination pass pays its day fee." },
+                { "SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holder visits, {MONTH}" },
+                { "SkiResort.Hub.MONEY_TIP[PassHolders]", "Visits by guests on a pass, not passes sold. A season pass pays nothing now, a destination pass pays its day fee." },
                 { "SkiResort.Hub.GUESTS_ROW[PassHolders]", "On a pass" },
                 { "SkiResort.Hub.GUESTS_TIP[PassHolders]", "Residents on a season pass, paid once for the season, and tourists on a destination pass, who pay a day fee instead of the ticket." },
                 { "SkiResort.Hub.MONEY_TIP[LodgeSpend]", "Booked this month so far: what paying ski guests spend at the lodges. Per guest: Options > Modular Ski Resort > Ski area balance." },
@@ -1720,6 +1729,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_OPEN[Open]", "Open: {PCT} of it has at least {KEEP} of snow" },
                 { "SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: {PCT} of it has enough snow to ski" },
                 { "SkiResort.Hub.RUN_OPEN[Closed]", "Closed: {PCT} of it has {OPEN} of snow. It opens at 60 %" },
+                { "SkiResort.Hub.RUN_OPEN[ClosedGap]", "Closed: {PCT} of it has {OPEN} of snow" },
+                { "SkiResort.Hub.RUN_GAP[Bottom]", "The snow is too thin at the bottom. A run opens only with snow top to bottom" },
+                { "SkiResort.Hub.RUN_GAP[Partway]", "The snow is too thin partway down. A run opens only with snow top to bottom" },
                 { "SkiResort.Hub.RUN_SERVED", "Served by {NAME}" },
                 { "SkiResort.Hub.RUN_NOT_SERVED", "No lift to its top: counts {PCT}" },
                 { "SkiResort.Hub.RUN_VALUE_OF", "{NOW} of {FULL}" },
@@ -1752,7 +1764,9 @@ namespace SkiResortMod
                 // r3/sliders (DECISIONS 677): the price line (PRICE = the slider price, WORD = a DEMAND_WORD).
                 { "SkiResort.Hub.MONEY_PRICE_LINE", "Ticket {PRICE} · Demand: {WORD}" },
                 // r3/sliders: the season pass line (PRICE = the pass price) and the price / pass tooltip lines (N = 4, the pass limit in tickets).
-                { "SkiResort.Hub.MONEY_PASS_LINE", "Season pass {PRICE} · Demand: {WORD}" },
+                // T265: PRICE = the early price (the slider's). The [Demand] variant is drawn while the sale months are not known.
+                { "SkiResort.Hub.MONEY_PASS_LINE", "Season pass, early price {PRICE}" },
+                { "SkiResort.Hub.MONEY_PASS_LINE[Demand]", "Season pass, early price {PRICE} · Demand: {WORD}" },
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Above]", "Above {FULL}, fewer guests choose a ski day." },
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Outings]", "Tourist groups on an outing put up with more: none turn away up to {FULL}." },
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Example]", "At {PRICE}, about {PCT} fewer guests ski than at {FULL}." },
@@ -1765,10 +1779,14 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_DEST_TIP[Raise]", "To raise destination fees, raise the pass price." },
                 { "SkiResort.Hub.MONEY_DEST_TIP[Full]", "Destination guests pay the full lift ticket." },
                 { "SkiResort.Hub.MONEY_SALE_TIP", "Each household buys at its own time, most of them early. After the sale, guests without a pass pay the lift ticket." },
+                { "SkiResort.Hub.MONEY_SALE_TIP[Step]", "The price rises by {PCT} after {MONTH}, to {PRICE2}." },
+                { "SkiResort.Hub.MONEY_SALE_TIP[Now]", "The demand word judges the price paid now." },
                 { "SkiResort.Hub.MONEY_DEST_LINE", "Destination pass {FEE} a day · {PCT} of tourists" },
-                { "SkiResort.Hub.MONEY_SALE_LINE[Opening]", "Pass sale: {PRICE} through {MONTH}, then {PRICE2} through {MONTH2}" },
-                { "SkiResort.Hub.MONEY_SALE_LINE[Stepped]", "Pass sale: {PRICE2} through {MONTH2}" },
-                { "SkiResort.Hub.MONEY_SALE_LINE[Closed]", "Pass sales open in {MONTH}" },
+                // T265: the line under the pass slider: the price a household pays now and the demand word of that price.
+                { "SkiResort.Hub.MONEY_SALE_LINE[Opening]", "Now {PRICE} through {MONTH} · Demand: {WORD}" },
+                { "SkiResort.Hub.MONEY_SALE_LINE[Stepped]", "Now {PRICE2} (+{PCT}) through {MONTH2} · Demand: {WORD}" },
+                { "SkiResort.Hub.MONEY_SALE_LINE[SteppedFlat]", "Now {PRICE2} through {MONTH2} · Demand: {WORD}" },
+                { "SkiResort.Hub.MONEY_SALE_LINE[Closed]", "Pass sales open in {MONTH} · Demand: {WORD}" },
                 { "SkiResort.Hub.MONEY_PASS_TIP[Limit]", "No household buys a pass at {N} times the lift ticket price or more." },
                 { "SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA}" },
                 // The runs row by feature (R3, DECISIONS 578; SkiRunUpkeepRates.PisteUpkeep).
@@ -1820,6 +1838,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.HISTORY[Runs]", "Runs" },
                 { "SkiResort.Hub.HISTORY[Staff]", "Buildings and wages" },
                 { "SkiResort.Hub.HISTORY[Net]", "Net" },
+                { "SkiResort.Hub.HISTORY[NetTip]", "Income minus costs this season so far. The percent is the net as a share of income." },
                 { "SkiResort.Hub.HISTORY[Income]", "Income" },
                 { "SkiResort.Hub.HISTORY[Costs]", "Costs" },
                 { "SkiResort.Hub.HISTORY[LastSeason]", "Last season" },
@@ -2064,6 +2083,9 @@ namespace SkiResortMod
                 // placed. {SNOW_LINE} and {GUN_LINE} are integer elevations in world meters (LocalizedNumber<int>, unit "integer");
                 // "≈" and "·" are on the UI glyph allowlist.
                 { "SkiResort.Tooltip.SNOW_LINE", "Winter snow line ≈ {SNOW_LINE} · guns work above ≈ {GUN_LINE}" },
+                // SkiParkingRingTooltipSystem (T263), the line under the cursor while a road lodge is placed. {RADIUS} is a length (m / yd, km / mi
+                // by the unit setting). SkiParkingRules.RadiusM is the radius.
+                { "SkiResort.Tooltip.PARKING_RING", "Guests who drive need car spaces inside the bright blue ring, {RADIUS} around this lodge." },
                 // SkiSnowLineTooltipSystem, the cursor lines. HERE_ABOVE / HERE_BELOW: {HERE} the ground under the cursor, {DIFF} its
                 // distance to the snow line (both integer meters). AREA_SURVEY (only while the Welcome Sign is placed): the dry ground within
                 // the ski area radius of the cursor, {RADIUS} km (floatSingleFraction), {LOW} / {HIGH} / {VERT} integer meters, {PCT}

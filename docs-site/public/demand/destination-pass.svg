@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="dc" viewBox="0 0 640 360" width="640" height="360" role="img" aria-labelledby="dc-destination-pass-t dc-destination-pass-d" style="width:100%;height:auto;max-width:640px">
+<title id="dc-destination-pass-t">Tourist parties on a destination pass, by pass price (ticket 100, pass share 50 %)</title><desc id="dc-destination-pass-d">Two lines for the lowest and highest lodge tolerance. The share is flat while the pass price is low, then falls as the daily fee of a quarter of the pass price passes the ticket-demand threshold and as the pass price passes 4 times the ticket. It reaches 0 at 1200.</desc>
+<style>.dc{--bg:none;--tx:#1d2b44;--mu:#566a8a;--gr:#cbd8e5;--s1:#2e7d32;--s2:#2a63b8;--s3:#0e0e12;--s4:#b35a00;--ref:#8a9bb3}
+@media (prefers-color-scheme:dark){.dc{--tx:#f0fbff;--mu:#b9c9d8;--gr:#2a3753;--s1:#6fcf74;--s2:#6aa8ff;--s3:#d5dde6;--s4:#ffa42d;--ref:#56698a}}
+:root[data-theme='light'] .dc{--tx:#1d2b44;--mu:#566a8a;--gr:#cbd8e5;--s1:#2e7d32;--s2:#2a63b8;--s3:#0e0e12;--s4:#b35a00;--ref:#8a9bb3}
+:root[data-theme='dark'] .dc{--tx:#f0fbff;--mu:#b9c9d8;--gr:#2a3753;--s1:#6fcf74;--s2:#6aa8ff;--s3:#d5dde6;--s4:#ffa42d;--ref:#56698a}
+.dc text{fill:var(--tx);font:13px ui-sans-serif,system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+.dc .mu{fill:var(--mu)}.dc .gr{stroke:var(--gr);stroke-width:1;fill:none}.dc .ax{stroke:var(--mu);stroke-width:1.5;fill:none}
+.dc .ref{stroke:var(--ref);stroke-width:1.5;stroke-dasharray:2 4;fill:none}
+.dc .ln{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.dc .s1{stroke:var(--s1)}.dc .s2{stroke:var(--s2)}.dc .s3{stroke:var(--s3)}.dc .s4{stroke:var(--s4)}
+.dc .d2{stroke-dasharray:10 5}.dc .d3{stroke-dasharray:2 5}</style>
+<path class="gr" d="M58 306H620"/><text class="mu" x="50" y="310" text-anchor="end">0 %</text>
+<path class="gr" d="M58 256.4H620"/><text class="mu" x="50" y="260.4" text-anchor="end">10 %</text>
+<path class="gr" d="M58 206.8H620"/><text class="mu" x="50" y="210.8" text-anchor="end">20 %</text>
+<path class="gr" d="M58 157.2H620"/><text class="mu" x="50" y="161.2" text-anchor="end">30 %</text>
+<path class="gr" d="M58 107.6H620"/><text class="mu" x="50" y="111.6" text-anchor="end">40 %</text>
+<path class="gr" d="M58 58H620"/><text class="mu" x="50" y="62" text-anchor="end">50 %</text>
+<path class="gr" d="M58 58V306"/><text class="mu" x="58" y="324" text-anchor="middle">0</text>
+<path class="gr" d="M138.3 58V306"/><text class="mu" x="138.3" y="324" text-anchor="middle">200</text>
+<path class="gr" d="M218.6 58V306"/><text class="mu" x="218.6" y="324" text-anchor="middle">400</text>
+<path class="gr" d="M298.9 58V306"/><text class="mu" x="298.9" y="324" text-anchor="middle">600</text>
+<path class="gr" d="M379.1 58V306"/><text class="mu" x="379.1" y="324" text-anchor="middle">800</text>
+<path class="gr" d="M459.4 58V306"/><text class="mu" x="459.4" y="324" text-anchor="middle">1000</text>
+<path class="gr" d="M539.7 58V306"/><text class="mu" x="539.7" y="324" text-anchor="middle">1200</text>
+<path class="gr" d="M620 58V306"/><text class="mu" x="620" y="324" text-anchor="middle">1400</text>
+<path class="ax" d="M58 58V306H620"/>
+<path class="ref" d="M218.6 58V306"/><text class="mu" x="223.6" y="298">default 400</text>
+<path class="ln s1" d="M58 58L66 58L74.1 58L82.1 58L90.1 58L98.1 58L106.2 58L114.2 58L122.2 58L130.3 64.2L138.3 70.4L146.3 76.6L154.3 82.8L162.4 89L170.4 95.2L178.4 101.4L186.5 107.6L194.5 113.8L202.5 120L210.5 126.2L218.6 132.4L226.6 136.7L234.6 141.1L242.7 145.4L250.7 149.8L258.7 154.1L266.7 158.4L274.8 162.8L282.8 167.1L290.8 171.5L298.9 175.8L306.9 180.1L314.9 184.5L322.9 188.8L331 193.2L339 197.5L347 201.8L355.1 206.2L363.1 210.5L371.1 214.9L379.1 219.2L387.2 223.5L395.2 227.9L403.2 232.2L411.3 236.6L419.3 240.9L427.3 245.2L435.3 249.6L443.4 253.9L451.4 258.3L459.4 262.6L467.5 266.9L475.5 271.3L483.5 275.6L491.5 280L499.6 284.3L507.6 288.6L515.6 293L523.7 297.3L531.7 301.7L539.7 306L547.7 306L555.8 306L563.8 306L571.8 306L579.9 306L587.9 306L595.9 306L603.9 306L612 306L620 306"/>
+<path class="ln s3 d3" d="M58 58L66 58L74.1 58L82.1 58L90.1 58L98.1 58L106.2 58L114.2 58L122.2 58L130.3 58L138.3 58L146.3 58L154.3 58L162.4 58L170.4 58L178.4 58L186.5 58L194.5 64.2L202.5 70.4L210.5 76.6L218.6 82.8L226.6 88.4L234.6 94L242.7 99.5L250.7 105.1L258.7 110.7L266.7 116.3L274.8 121.9L282.8 127.4L290.8 133L298.9 138.6L306.9 144.2L314.9 149.8L322.9 155.3L331 160.9L339 166.5L347 172.1L355.1 177.7L363.1 183.2L371.1 188.8L379.1 194.4L387.2 200L395.2 205.6L403.2 211.1L411.3 216.7L419.3 222.3L427.3 227.9L435.3 233.5L443.4 239L451.4 244.6L459.4 250.2L467.5 255.8L475.5 261.4L483.5 266.9L491.5 272.5L499.6 278.1L507.6 283.7L515.6 289.3L523.7 294.8L531.7 300.4L539.7 306L547.7 306L555.8 306L563.8 306L571.8 306L579.9 306L587.9 306L595.9 306L603.9 306L612 306L620 306"/>
+<text class="mu" x="339" y="350" text-anchor="middle">Pass price (lift ticket 100)</text>
+<text class="mu" transform="translate(14 182) rotate(-90)" text-anchor="middle">Tourist parties on a pass</text>
+<path class="ln s1" d="M58 10h34"/><text x="100" y="14">Hut or A-frame (tolerance 0)</text>
+<path class="ln s3 d3" d="M58 26h34"/><text x="100" y="30">Swanky Summit or Grand Lodge (tolerance 40)</text>
+</svg>

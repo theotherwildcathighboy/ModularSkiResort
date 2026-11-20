@@ -42,6 +42,12 @@
 //     GD support 55, GD Hold 45, DQ Hold 57.5. The head comes from the prefab name, LiftTowerPlanConstants.HeadOfTwin).
 //     The clamp is LiftAlignMath.PoseTrain: one rule for the system and LiftBatch PC-9. Therefore a built tower past the limit never
 //     renders the carrier through its train. Its excess joins the train limit (hub row LiftTrainLimit).
+//   Stations (T256): the line's end node at a station is owned by the station, and the first span's rope corners at the station's
+//     anchors. A station mesh with bones "NoseTrain*" (the outer half of its nose train: origin on the anchor, rest pose along the
+//     in-station rope) pitches that half to the line rope (LiftAlignMath.StationNosePose: the tower limits, the inner half is static
+//     on the in-station rope). A hosted end tower with train bones (the fixed-grip top's) takes the tower rule, with the in-station
+//     rope (anchor to the bullwheel's tangent point, from the catalog's WheelLocal) as the rope of its station side. An over-limit
+//     station is logged only: it is not in the hub row. A station-side entity that loses its line goes back to rest.
 // Never: Temp or Deleted towers (a preview stays level), towers whose prefab has no train bone (unskinned art: nothing changes), Editor.
 // Log discipline: one line per rigged tower prefab per load, one line per pass that posed a tower or changed the rope-less count (with
 // the towers whose break was clamped), a one-shot "!!!" catch.
@@ -82,6 +88,7 @@ namespace SkiResortMod.Systems
         public float m_Head;            // radians, nose up along +z, of the head (LiftAlignMath.HeadPitch)
         public float3 m_HeadPivot;      // the Head bone's origin in the prefab frame (ProceduralBone.m_ObjectPosition)
         public quaternion m_HeadFrame;  // its rest rotation in the prefab frame (ProceduralBone.m_ObjectRotation)
+        public float m_Nose;            // a station's NoseTrain bones: radians, nose up along +z, relative to their rest pose (T256)
     }
 
     /// <summary>One train bone's local rotation: rest turned by its half's pitch (LiftAlignMath.TrainBoneRotation).</summary>
@@ -103,7 +110,24 @@ namespace SkiResortMod.Systems
 
         internal const string FrontPrefix = "TrainFront", BackPrefix = "TrainBack", HeadPrefix = "Head";
 
-        private const int PartBack = 0, PartFront = 1, PartHead = 2;
+        /// <summary>A station mesh's nose train bones (T256): the outer half-train on the line side of the station anchor. The bone's
+        /// origin is that anchor, its rest pose lies along the in-station rope.</summary>
+        internal const string NosePrefix = "NoseTrain";
+
+        private const int PartBack = 0, PartFront = 1, PartHead = 2, PartNose = 3;
+
+        /// <summary>One pass's counters (the log line).</summary>
+        private struct PassStats
+        {
+            public int Towers, NoRope, Clamped, Headed, HeadsPosed, WorldHeld, Stations, StationsOver;
+            public float MaxDeg, MaxHalfBreakDeg, MaxHeadDeg, MaxLeanDeg, MaxWorldDeg, MaxNoseDeg, StationWorstOver;
+        }
+
+        /// <summary>A rope lane end on an anchor: the end point and the lane's next control point (LiftAlignMath.LaneEndPitch).</summary>
+        private struct RopeEnd
+        {
+            public float3 End, Inner;
+        }
 
         private struct RigBone
         {
@@ -132,6 +156,14 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_SeenNodes = new HashSet<Entity>();
         private readonly List<float3> m_Anchors = new List<float3>(8);
         private readonly List<Pending> m_Pending = new List<Pending>();
+        // The station visit (T256): the stations seen this pass, the line rope ends on the station's anchors, the in-station rope from
+        // each of those anchors to the bullwheel's tangent point, and the station-side entities (a station with nose bones, its hosted
+        // towers with train bones) posed by this and by the last pass (one that lost its line goes back to rest).
+        private readonly HashSet<Entity> m_SeenStations = new HashSet<Entity>();
+        private readonly List<RopeEnd> m_Ends = new List<RopeEnd>(8);
+        private readonly List<RopeEnd> m_Fixed = new List<RopeEnd>(4);
+        private HashSet<Entity> m_StationSide = new HashSet<Entity>();
+        private HashSet<Entity> m_StationSideNext = new HashSet<Entity>();
         private int m_Passes, m_LastNoRope;
         // Per line node, the degrees its tower's rope asks past the train limits (LiftAlignMath.TrainOverDeg over TrainWarnDeg), for every
         // line tower with anchors, rigged or not. LiftCensusSystem reads it into LiftCensus.Node.TrainOverDeg (the hub's LiftTrainLimit).
@@ -168,6 +200,8 @@ namespace SkiResortMod.Systems
             m_Passes = 0;
             m_LastNoRope = 0;
             m_Over.Clear();
+            m_StationSide.Clear();
+            m_StationSideNext.Clear();
         }
 
         /// <summary>Called by LiftCensusSystem after each build with its line edges (main thread, no ECS read here).</summary>
@@ -231,10 +265,11 @@ namespace SkiResortMod.Systems
             long t0 = Stopwatch.GetTimestamp();
             m_Passes++;
             m_SeenNodes.Clear();
+            m_SeenStations.Clear();
+            m_StationSideNext.Clear();
             m_Pending.Clear();
             m_OverNext.Clear();
-            int towers = 0, noRope = 0, clamped = 0, headed = 0, headsPosed = 0, worldHeld = 0;
-            float maxDeg = 0f, maxHalfBreakDeg = 0f, maxHeadDeg = 0f, maxLeanDeg = 0f, maxWorldDeg = 0f;
+            var st = default(PassStats);
             // Read everything first: the component adds below are structural changes, which would invalidate the node buffers read here.
             for (int i = 0; i < m_Edges.Count; i++)
             {
@@ -249,69 +284,41 @@ namespace SkiResortMod.Systems
                 for (int end = 0; end < 2; end++)
                 {
                     Entity node = end == 0 ? e.m_Start : e.m_End;
-                    if (!m_SeenNodes.Add(node) || !EntityManager.TryGetBuffer(node, true, out DynamicBuffer<SubObject> subs))
+                    if (!m_SeenNodes.Add(node))
                         continue;
-                    for (int s = 0; s < subs.Length; s++)
-                    {
-                        Entity tower = subs[s].m_SubObject;
-                        if (EntityManager.HasComponent<Temp>(tower) || EntityManager.HasComponent<Deleted>(tower) ||
-                            !EntityManager.TryGetComponent(tower, out PrefabRef pr) || !EntityManager.TryGetComponent(tower, out Transform t))
-                            continue;
-                        bool roped = RopeAt(node, pr.m_Prefab, t, out float meanF, out int nF, out float meanB, out int nB);
-                        // The bones are local to the mast: a leaned tower (TowerLeanSystem) takes its lean off the absolute rope pitches.
-                        float mast = LiftAlignMath.MastPitch(t.m_Rotation);
-                        meanF -= mast;
-                        meanB -= mast;
-                        maxLeanDeg = math.max(maxLeanDeg, math.degrees(math.abs(mast)));
-                        List<RigBone> rig = RigOf(pr.m_Prefab);
-                        int headBone = HeadOf(rig);
-                        LiftAlignMath.TrainLimits(slopeMax, rig != null && m_WideTram.Contains(pr.m_Prefab), out float maxPitch,
-                            out float maxHalfBreak);
-                        float front = 0f, back = 0f, head = 0f, over = 0f;
-                        bool wasClamped = false, worldClamped = false;
-                        if (roped)
-                            over = LiftAlignMath.PoseTrain(meanF, nF, meanB, nB, mast, headBone >= 0, headMax, maxPitch, maxHalfBreak,
-                                WorldMaxOf(pr.m_Prefab, typeId), out head, out front, out back, out wasClamped, out worldClamped);
-                        if (worldClamped && rig != null)
+                    if (EntityManager.TryGetBuffer(node, true, out DynamicBuffer<SubObject> subs))
+                        for (int s = 0; s < subs.Length; s++)
                         {
-                            worldHeld++;
-                            maxWorldDeg = math.max(maxWorldDeg, math.degrees(math.max(math.abs(front + mast), math.abs(back + mast))));
+                            Entity tower = subs[s].m_SubObject;
+                            if (EntityManager.HasComponent<Temp>(tower) || EntityManager.HasComponent<Deleted>(tower) ||
+                                !EntityManager.TryGetComponent(tower, out PrefabRef pr) || !EntityManager.TryGetComponent(tower, out Transform t))
+                                continue;
+                            bool roped = RopeAt(node, pr.m_Prefab, t, out float meanF, out int nF, out float meanB, out int nB);
+                            VisitTower(node, tower, pr.m_Prefab, t, roped, meanF, nF, meanB, nB, slopeMax, typeId, headMax, ref st);
                         }
-                        if (roped && over > LiftAlignMath.TrainWarnDeg)
-                            m_OverNext[node] = m_OverNext.TryGetValue(node, out float o) ? math.max(o, over) : over;
-                        if (rig == null)
-                            continue;
-                        towers++;
-                        if (headBone >= 0)
-                            headed++;
-                        if (!roped)
-                        {
-                            noRope++;
-                            continue;
-                        }
-                        if (wasClamped)
-                            clamped++;
-                        maxDeg = math.max(maxDeg, math.degrees(math.max(math.abs(front), math.abs(back))));
-                        maxHalfBreakDeg = math.max(maxHalfBreakDeg, math.degrees(math.abs(back - front) * 0.5f));
-                        maxHeadDeg = math.max(maxHeadDeg, math.degrees(math.abs(head)));
-                        var pitch = new TrainPitch { m_Front = front, m_Back = back, m_Clamped = wasClamped, m_HeadFrame = quaternion.identity };
-                        if (headBone >= 0)
-                        {
-                            pitch.m_Headed = true;
-                            pitch.m_Head = head;
-                            pitch.m_HeadPivot = rig[headBone].ObjectPosition;
-                            pitch.m_HeadFrame = rig[headBone].ObjectRotation;
-                        }
-                        bool add = !EntityManager.TryGetComponent(tower, out TrainPitch old);
-                        if (!add && math.abs(old.m_Front - front) < PitchEpsilon && math.abs(old.m_Back - back) < PitchEpsilon &&
-                            math.abs(old.m_Head - head) < PitchEpsilon && old.m_Headed == pitch.m_Headed)
-                            continue;
-                        if (pitch.m_Headed)
-                            headsPosed++;
-                        m_Pending.Add(new Pending { Tower = tower, Pitch = pitch, Rig = rig, Add = add });
-                    }
+                    // The line's end node at a station is owned by the station (its stub net): the station's nose train and its hosted
+                    // end tower follow the first span's rope (T256).
+                    if (EntityManager.TryGetComponent(node, out Owner owner))
+                        VisitStation(node, owner.m_Owner, slopeMax, typeId, headMax, ref st);
                 }
             }
+            // A station-side entity posed by the last pass that no line reaches any more goes back to its rest pose
+            foreach (Entity gone in m_StationSide)
+            {
+                if (m_StationSideNext.Contains(gone) || !EntityManager.Exists(gone) || EntityManager.HasComponent<Deleted>(gone) ||
+                    !EntityManager.TryGetComponent(gone, out TrainPitch old) || !EntityManager.TryGetComponent(gone, out PrefabRef gonePrefab))
+                    continue;
+                List<RigBone> rig = RigOf(gonePrefab.m_Prefab);
+                if (rig == null || (math.abs(old.m_Front) < PitchEpsilon && math.abs(old.m_Back) < PitchEpsilon &&
+                                    math.abs(old.m_Nose) < PitchEpsilon))
+                    continue;
+                m_Pending.Add(new Pending { Tower = gone, Pitch = new TrainPitch { m_HeadFrame = quaternion.identity }, Rig = rig, Add = false });
+            }
+            (m_StationSide, m_StationSideNext) = (m_StationSideNext, m_StationSide);
+            int towers = st.Towers, noRope = st.NoRope, clamped = st.Clamped, headed = st.Headed, headsPosed = st.HeadsPosed,
+                worldHeld = st.WorldHeld;
+            float maxDeg = st.MaxDeg, maxHalfBreakDeg = st.MaxHalfBreakDeg, maxHeadDeg = st.MaxHeadDeg, maxLeanDeg = st.MaxLeanDeg,
+                maxWorldDeg = st.MaxWorldDeg;
 
             int added = 0;
             for (int i = 0; i < m_Pending.Count; i++)
@@ -334,7 +341,8 @@ namespace SkiResortMod.Systems
                     poses.Add(new TrainBonePose
                     {
                         m_Rotation = LiftAlignMath.TrainBoneRotation(b.Rest,
-                            b.Part == PartHead ? p.Pitch.m_Head : b.Part == PartFront ? p.Pitch.m_Front : p.Pitch.m_Back),
+                            b.Part == PartHead ? p.Pitch.m_Head : b.Part == PartFront ? p.Pitch.m_Front
+                            : b.Part == PartNose ? p.Pitch.m_Nose : p.Pitch.m_Back),
                         m_SubMesh = b.SubMesh,
                         m_Bone = b.Bone,
                     });
@@ -354,7 +362,12 @@ namespace SkiResortMod.Systems
                                             $"saddles {LiftAlignMath.TramHalfBreakMaxDeg:F0}: the rope leaves the inner wheels or the saddle)" : string.Empty) +
                              (worldHeld > 0 ? $", {worldHeld} held at their carrier-clearance limit (a half at most {maxWorldDeg:F1} deg in " +
                                               "the world: the rope leaves the train, the carrier stays clear of it)" : string.Empty) +
-                             (noRope > 0 ? $", {noRope} without a rope lane on their anchors (level)" : string.Empty) + $"; {ms:F2} ms");
+                             (noRope > 0 ? $", {noRope} without a rope lane on their anchors (level)" : string.Empty) +
+                             (st.Stations > 0 ? $", station nose trains {st.Stations} (max {st.MaxNoseDeg:F1} deg off the station rope)"
+                                 : string.Empty) +
+                             (st.StationsOver > 0 ? $", {st.StationsOver} station train(s) whose first span goes past what the train " +
+                                                    $"follows (worst {st.StationWorstOver:F1} deg over; log only)" : string.Empty) +
+                             $"; {ms:F2} ms");
             }
             m_LastNoRope = noRope;
             m_Pending.Clear();
@@ -373,6 +386,168 @@ namespace SkiResortMod.Systems
                 m_Census?.RequestBuild("train limits");
             }
         }
+
+        /// <summary>One tower's read of a pass: its train pose from the mean lane-end pitches on its anchors (LiftAlignMath.PoseTrain), the
+        /// counters, and a Pending row when the pose changed. <paramref name="overNode"/> = the line node whose hub row takes the tower's
+        /// train limit, or Entity.Null for a station's hosted end tower (log only, T256).</summary>
+        private void VisitTower(Entity overNode, Entity tower, Entity prefab, Transform t, bool roped, float meanF, int nF, float meanB,
+            int nB, float slopeMax, string typeId, float headMax, ref PassStats st)
+        {
+            // The bones are local to the mast: a leaned tower (TowerLeanSystem) takes its lean off the absolute rope pitches.
+            float mast = LiftAlignMath.MastPitch(t.m_Rotation);
+            meanF -= mast;
+            meanB -= mast;
+            st.MaxLeanDeg = math.max(st.MaxLeanDeg, math.degrees(math.abs(mast)));
+            List<RigBone> rig = RigOf(prefab);
+            int headBone = HeadOf(rig);
+            LiftAlignMath.TrainLimits(slopeMax, rig != null && m_WideTram.Contains(prefab), out float maxPitch,
+                out float maxHalfBreak);
+            float front = 0f, back = 0f, head = 0f, over = 0f;
+            bool wasClamped = false, worldClamped = false;
+            if (roped)
+                over = LiftAlignMath.PoseTrain(meanF, nF, meanB, nB, mast, headBone >= 0, headMax, maxPitch, maxHalfBreak,
+                    WorldMaxOf(prefab, typeId), out head, out front, out back, out wasClamped, out worldClamped);
+            if (worldClamped && rig != null)
+            {
+                st.WorldHeld++;
+                st.MaxWorldDeg = math.max(st.MaxWorldDeg, math.degrees(math.max(math.abs(front + mast), math.abs(back + mast))));
+            }
+            if (roped && over > LiftAlignMath.TrainWarnDeg)
+            {
+                if (overNode != Entity.Null)
+                    m_OverNext[overNode] = m_OverNext.TryGetValue(overNode, out float o) ? math.max(o, over) : over;
+                else
+                {
+                    st.StationsOver++;
+                    st.StationWorstOver = math.max(st.StationWorstOver, over);
+                }
+            }
+            if (rig == null)
+                return;
+            st.Towers++;
+            if (headBone >= 0)
+                st.Headed++;
+            if (!roped)
+            {
+                st.NoRope++;
+                return;
+            }
+            if (wasClamped)
+                st.Clamped++;
+            st.MaxDeg = math.max(st.MaxDeg, math.degrees(math.max(math.abs(front), math.abs(back))));
+            st.MaxHalfBreakDeg = math.max(st.MaxHalfBreakDeg, math.degrees(math.abs(back - front) * 0.5f));
+            st.MaxHeadDeg = math.max(st.MaxHeadDeg, math.degrees(math.abs(head)));
+            var pitch = new TrainPitch { m_Front = front, m_Back = back, m_Clamped = wasClamped, m_HeadFrame = quaternion.identity };
+            if (headBone >= 0)
+            {
+                pitch.m_Headed = true;
+                pitch.m_Head = head;
+                pitch.m_HeadPivot = rig[headBone].ObjectPosition;
+                pitch.m_HeadFrame = rig[headBone].ObjectRotation;
+            }
+            bool add = !EntityManager.TryGetComponent(tower, out TrainPitch old);
+            if (!add && math.abs(old.m_Front - front) < PitchEpsilon && math.abs(old.m_Back - back) < PitchEpsilon &&
+                math.abs(old.m_Head - head) < PitchEpsilon && old.m_Headed == pitch.m_Headed)
+                return;
+            if (pitch.m_Headed)
+                st.HeadsPosed++;
+            m_Pending.Add(new Pending { Tower = tower, Pitch = pitch, Rig = rig, Add = add });
+        }
+
+        /// <summary>The station at a line's end node (T256). The first span's rope corners at the station's anchors. The station's nose
+        /// train (bones "NoseTrain*": the outer half, the inner half is static on the in-station rope) follows it by
+        /// LiftAlignMath.StationNosePose. A hosted end tower with train bones (the fixed-grip top's) takes the tower rule, with the
+        /// in-station rope from the anchor to the bullwheel's tangent point as the rope of its station side. A station without a wheel
+        /// row (the tram), without such bones (art before T256) or with no line rope on its anchors keeps its pose. Over-limit
+        /// stations are logged only: they are not in the hub's LiftTrainLimit row.</summary>
+        private void VisitStation(Entity node, Entity station, float slopeMax, string typeId, float headMax, ref PassStats st)
+        {
+            if (!m_SeenStations.Add(station) || EntityManager.HasComponent<Temp>(station) || EntityManager.HasComponent<Deleted>(station) ||
+                !EntityManager.TryGetComponent(station, out PrefabRef pr) || !EntityManager.TryGetComponent(station, out Transform t) ||
+                m_Census == null || !m_Census.TryGetStationDef(pr.m_Prefab, out StationDef def) || !math.all(math.isfinite(def.WheelLocal)))
+                return;
+            List<RigBone> rig = RigOf(pr.m_Prefab);
+            bool nose = HasPart(rig, PartNose);
+            bool hosted = false;
+            if (EntityManager.TryGetBuffer(station, true, out DynamicBuffer<SubObject> subs))
+                for (int s = 0; s < subs.Length && !hosted; s++)
+                    hosted = EntityManager.TryGetComponent(subs[s].m_SubObject, out PrefabRef hp) && HasHalves(RigOf(hp.m_Prefab));
+            if (!nose && !hosted)
+                return;
+
+            // The line rope ends on the station's anchors, and from each of them the in-station rope to the wheel's tangent point (the
+            // wheel's radius is half the rope gauge: the tangent point has the anchor's x in the station frame)
+            CollectEnds(node, pr.m_Prefab, t);
+            m_Fixed.Clear();
+            quaternion inverse = math.inverse(t.m_Rotation);
+            for (int i = 0; i < m_Ends.Count; i++)
+            {
+                float3 local = math.mul(inverse, m_Ends[i].End - t.m_Position);
+                float3 tangentPoint = Game.Objects.ObjectUtils.LocalToWorld(t, LiftAlignMath.StationTangentPoint(local, def.WheelLocal));
+                m_Fixed.Add(new RopeEnd { End = m_Ends[i].End, Inner = tangentPoint });
+            }
+
+            if (nose)
+            {
+                float3 forward = math.mul(t.m_Rotation, new float3(0f, 0f, 1f));
+                float fixF = 0f, fixB = 0f, lineF = 0f, lineB = 0f;
+                int nFixF = 0, nFixB = 0, nLineF = 0, nLineB = 0;
+                Sum(m_Fixed, forward, ref fixF, ref nFixF, ref fixB, ref nFixB);
+                Sum(m_Ends, forward, ref lineF, ref nLineF, ref lineB, ref nLineB);
+                // The in-station rope runs toward +z (the wheel), the line leaves toward -z. A line drawn back over the station is not a
+                // rope this train can follow: it keeps its rest pose.
+                float fixedPitch = nFixF > 0 ? fixF / nFixF : 0f;
+                LiftAlignMath.TrainLimits(slopeMax, false, out float maxPitch, out float maxHalfBreak);
+                float over = LiftAlignMath.StationNosePose(fixedPitch, nLineB > 0 ? lineB / nLineB : 0f, nFixF > 0 ? nLineB : 0, maxPitch,
+                    maxHalfBreak, float.PositiveInfinity, out float line, out _);
+                float delta = line - fixedPitch;
+                st.Stations++;
+                st.MaxNoseDeg = math.max(st.MaxNoseDeg, math.degrees(math.abs(delta)));
+                if (over > LiftAlignMath.TrainWarnDeg)
+                {
+                    st.StationsOver++;
+                    st.StationWorstOver = math.max(st.StationWorstOver, over);
+                }
+                m_StationSideNext.Add(station);
+                bool add = !EntityManager.TryGetComponent(station, out TrainPitch old);
+                if (add || math.abs(old.m_Nose - delta) >= PitchEpsilon)
+                    m_Pending.Add(new Pending
+                    {
+                        Tower = station, Pitch = new TrainPitch { m_Nose = delta, m_HeadFrame = quaternion.identity }, Rig = rig, Add = add,
+                    });
+            }
+
+            if (!hosted)
+                return;
+            for (int s = 0; s < subs.Length; s++)
+            {
+                Entity tower = subs[s].m_SubObject;
+                if (EntityManager.HasComponent<Temp>(tower) || EntityManager.HasComponent<Deleted>(tower) ||
+                    !EntityManager.TryGetComponent(tower, out PrefabRef hp) || !HasHalves(RigOf(hp.m_Prefab)) ||
+                    !EntityManager.TryGetComponent(tower, out Transform ht))
+                    continue;
+                float3 forward = math.mul(ht.m_Rotation, new float3(0f, 0f, 1f));
+                float sumF = 0f, sumB = 0f;
+                int nF = 0, nB = 0;
+                Sum(m_Ends, forward, ref sumF, ref nF, ref sumB, ref nB);
+                Sum(m_Fixed, forward, ref sumF, ref nF, ref sumB, ref nB);
+                if (nF + nB > 0)
+                    m_StationSideNext.Add(tower);   // without a rope this pass it goes back to rest below
+                VisitTower(Entity.Null, tower, hp.m_Prefab, ht, nF + nB > 0, nF > 0 ? sumF / nF : 0f, nF, nB > 0 ? sumB / nB : 0f, nB,
+                    slopeMax, typeId, headMax, ref st);
+            }
+        }
+
+        private static bool HasPart(List<RigBone> rig, int part)
+        {
+            if (rig != null)
+                for (int i = 0; i < rig.Count; i++)
+                    if (rig[i].Part == part)
+                        return true;
+            return false;
+        }
+
+        private static bool HasHalves(List<RigBone> rig) => HasPart(rig, PartFront) || HasPart(rig, PartBack);
 
         private static bool SameOver(Dictionary<Entity, float> a, Dictionary<Entity, float> b)
         {
@@ -404,8 +579,34 @@ namespace SkiResortMod.Systems
         {
             meanF = meanB = 0f;
             nF = nB = 0;
+            if (!CollectEnds(node, towerPrefab, t))
+                return false;
+            float3 forward = math.mul(t.m_Rotation, new float3(0f, 0f, 1f));
+            float sumF = 0f, sumB = 0f;
+            Sum(m_Ends, forward, ref sumF, ref nF, ref sumB, ref nB);
+            if (nF + nB == 0)
+                return false;
+            meanF = nF > 0 ? sumF / nF : 0f;
+            meanB = nB > 0 ? sumB / nB : 0f;
+            return true;
+        }
+
+        /// <summary>Adds the lane-end pitches of <paramref name="ends"/> to the front (+z) and back (-z) sums of an object whose +z is
+        /// <paramref name="forward"/> (LiftAlignMath.LaneEndPitch / LaneEndSide).</summary>
+        private static void Sum(List<RopeEnd> ends, float3 forward, ref float sumF, ref int nF, ref float sumB, ref int nB)
+        {
+            for (int i = 0; i < ends.Count; i++)
+                AddEnd(ends[i].End, ends[i].Inner, forward, ref sumF, ref nF, ref sumB, ref nB);
+        }
+
+        /// <summary>Fills m_Ends with every lift rope lane end of the node's edges that sits on an anchor of
+        /// <paramref name="anchorPrefab"/> (a tower's or a station's prefab sub-lanes, mapped by <paramref name="t"/>). False when the
+        /// prefab has no sub-lanes or the node no edges; m_Ends is empty then.</summary>
+        private bool CollectEnds(Entity node, Entity anchorPrefab, Transform t)
+        {
+            m_Ends.Clear();
             m_Anchors.Clear();
-            if (!EntityManager.TryGetBuffer(towerPrefab, true, out DynamicBuffer<Game.Prefabs.SubLane> anchors) ||
+            if (!EntityManager.TryGetBuffer(anchorPrefab, true, out DynamicBuffer<Game.Prefabs.SubLane> anchors) ||
                 !EntityManager.TryGetBuffer(node, true, out DynamicBuffer<ConnectedEdge> edges))
                 return false;
             for (int i = 0; i < anchors.Length; i++)
@@ -414,8 +615,6 @@ namespace SkiResortMod.Systems
                 m_Anchors.Add(w.a);
                 m_Anchors.Add(w.d);
             }
-            float3 forward = math.mul(t.m_Rotation, new float3(0f, 0f, 1f));
-            float sumF = 0f, sumB = 0f;
             for (int i = 0; i < edges.Length; i++)
             {
                 if (!EntityManager.TryGetBuffer(edges[i].m_Edge, true, out DynamicBuffer<SubLane> lanes))
@@ -427,16 +626,12 @@ namespace SkiResortMod.Systems
                         !EntityManager.TryGetComponent(lane, out Curve c))
                         continue;
                     if (OnAnchor(c.m_Bezier.a))
-                        AddEnd(c.m_Bezier.a, c.m_Bezier.b, forward, ref sumF, ref nF, ref sumB, ref nB);
+                        m_Ends.Add(new RopeEnd { End = c.m_Bezier.a, Inner = c.m_Bezier.b });
                     if (OnAnchor(c.m_Bezier.d))
-                        AddEnd(c.m_Bezier.d, c.m_Bezier.c, forward, ref sumF, ref nF, ref sumB, ref nB);
+                        m_Ends.Add(new RopeEnd { End = c.m_Bezier.d, Inner = c.m_Bezier.c });
                 }
             }
-            if (nF + nB == 0)
-                return false;
-            meanF = nF > 0 ? sumF / nF : 0f;
-            meanB = nB > 0 ? sumB / nB : 0f;
-            return true;
+            return m_Ends.Count > 0;
         }
 
         /// <summary>The carrier-clearance limit (radians, in the world) of a tower prefab on a <paramref name="typeId"/> line, cached per
@@ -492,7 +687,7 @@ namespace SkiResortMod.Systems
             if (m_Rigs.TryGetValue(prefab, out List<RigBone> rig))
                 return rig;
             rig = null;
-            int front = 0, back = 0, head = 0;
+            int front = 0, back = 0, head = 0, nose = 0;
             bool wide = false;
             if (EntityManager.TryGetBuffer(prefab, true, out DynamicBuffer<SubMesh> meshes))
                 for (int j = 0; j < meshes.Length; j++)
@@ -512,7 +707,8 @@ namespace SkiResortMod.Systems
                             continue;
                         int part = name.StartsWith(FrontPrefix, StringComparison.Ordinal) ? PartFront
                             : name.StartsWith(BackPrefix, StringComparison.Ordinal) ? PartBack
-                            : name.StartsWith(HeadPrefix, StringComparison.Ordinal) ? PartHead : -1;
+                            : name.StartsWith(HeadPrefix, StringComparison.Ordinal) ? PartHead
+                            : name.StartsWith(NosePrefix, StringComparison.Ordinal) ? PartNose : -1;
                         if (part < 0)
                             continue;
                         for (int b = 0; b < bones.Length; b++)
@@ -527,16 +723,23 @@ namespace SkiResortMod.Systems
                                     front++;
                                 else if (part == PartBack)
                                     back++;
+                                else if (part == PartNose)
+                                    nose++;
                                 else
                                     head++;
                                 break;
                             }
                     }
                 }
+            if (rig != null && front == 0 && back == 0 && nose == 0)
+                rig = null;   // only a bone named Head*: not a train rig (a station visits its sub-objects' prefabs too)
             m_Rigs[prefab] = rig;
             if (rig != null && wide)
                 m_WideTram.Add(prefab);
-            if (rig != null)
+            if (rig != null && nose > 0 && front == 0 && back == 0)
+                Mod.Log.Info($"Towers [trains]: {m_PrefabSystem.GetPrefabName(prefab)} has {nose} station nose-train bone(s); the outer " +
+                             "half of its nose train pitches with the first span's rope");
+            else if (rig != null)
                 Mod.Log.Info($"Towers [trains]: {m_PrefabSystem.GetPrefabName(prefab)} has train bones ({front} front, {back} back" +
                              (head > 0 ? $", {head} head" : string.Empty) + "); its half-trains pitch with the rope" +
                              (head > 0 ? ", its head with their mean" : string.Empty) +

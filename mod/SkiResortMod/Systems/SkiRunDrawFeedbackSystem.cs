@@ -22,6 +22,7 @@ using Game.Simulation;
 using Game.Tools;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;  // UnsafeUtility (SkiSlopeOverlaySystem.BufferView, tight strip boxes)
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -74,17 +75,12 @@ namespace SkiResortMod.Systems
             public const float ThrottleFactor = 8f;
             /// <summary>The cap of the throttle delay above, in ms.</summary>
             public const float MaxThrottleMs = 250f;
-            /// <summary>Overlay fill alpha (inside the polygon only): flat, green and blue cells.</summary>
-            public const float FillAlpha = 0.35f;
-            /// <summary>Black cells: a lighter black (BlackGray) at a higher alpha, so the band reads in low evening light (T234). The European
-            /// black uses the same.</summary>
-            public const float BlackFillAlpha = 0.6f;
+            /// <summary>Fill alpha per strip key (DisplayUnits.StripKey 0..5): flat, green, blue band (European red), black, double black
+            /// (European ski route), European blue. One table for the heat-map and the slope overlay (T253 look verdict: the heat-map takes
+            /// the overlay's softer alphas). Before T253 the heat-map drew 0.35 / 0.35 / 0.35 / 0.60 / 0.55 (T234).</summary>
+            public static readonly float[] KeyAlpha = { 0.35f, 0.35f, 0.40f, 0.55f, 0.50f, 0.40f };
+            /// <summary>Black cells: a lighter black, so the band reads in low evening light (T234). The European black uses the same.</summary>
             public const float BlackGray = 0.15f;
-            /// <summary>Double black cells (North American red, European orange ski route) (T234).</summary>
-            public const float DoubleBlackFillAlpha = 0.55f;
-            /// <summary>Thin white edge around the black-band region (ring mode), m wide, drawn after the fills while under MaxStrips (T234).</summary>
-            public const float BlackEdgeWidthM = 0.5f;
-            public const float BlackEdgeAlpha = 0.8f;
             /// <summary>Hard cap on Projected strips per frame (GPU overdraw, see OVERLAY).</summary>
             public const int MaxStrips = 3000;
             /// <summary>Width (m) of a polyline-mode segment strip.</summary>
@@ -93,9 +89,6 @@ namespace SkiResortMod.Systems
             public const int MinHeightmapResolution = 4096;
             /// <summary>Log one WARN per load when a recompute exceeds this (4.0-5.0 ms under Mono).</summary>
             public const float SlowRecomputeWarnMs = 4f;
-            /// <summary>Largest ring-mode row stride. When full row resolution exceeds MaxStrips, the smallest stride 2..MaxRowStride that
-            /// fits draws one representative row per group of rows. The list is truncated only if this stride overflows.</summary>
-            public const int MaxRowStride = 8;
             /// <summary>Log one WARN per load when the per-frame draw (GetBuffer + job schedule + AddBufferWriter) exceeds this.</summary>
             public const double SlowDrawWarnMs = 2.0;
             /// <summary>Crux ring diameter = max(CruxRingMinDiameterM, CruxRingStepFactor x step).</summary>
@@ -108,39 +101,33 @@ namespace SkiResortMod.Systems
             public const float ValidationLogWindowS = 10f;
         }
 
-        /// <summary>Band colors, index = (int)SlopeBand. Alpha FillAlpha, except black (BlackFillAlpha, lighter BlackGray) and double black
-        /// (DoubleBlackFillAlpha), T234.</summary>
-        private static readonly UnityEngine.Color[] BandColors =
+        /// <summary>Band colors, index = (int)SlopeBand = the North American strip key. Alpha Tuning.KeyAlpha (black: the lighter
+        /// BlackGray, T234).</summary>
+        internal static readonly UnityEngine.Color[] BandColors =
         {
-            new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.FillAlpha),
-            new UnityEngine.Color(Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackFillAlpha),
-            new UnityEngine.Color(0.85f, 0.20f, 0.10f, Tuning.DoubleBlackFillAlpha),
+            new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.KeyAlpha[0]),
+            new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.KeyAlpha[1]),
+            new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.KeyAlpha[2]),
+            new UnityEngine.Color(Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackGray, Tuning.KeyAlpha[3]),
+            new UnityEngine.Color(0.85f, 0.20f, 0.10f, Tuning.KeyAlpha[4]),
         };
 
         /// <summary>The same in European grading (T162 rev. 2, display only), index = the cell key (CellKey): green band under 15 % = green
         /// piste, blue band = red piste, black, double black = the ski route's orange, and key 5 = a green-band cell at 15 % or more (the
         /// blue piste). The North American table never sees key 5.</summary>
-        private static readonly UnityEngine.Color[] BandColorsEu =
+        internal static readonly UnityEngine.Color[] BandColorsEu =
         {
-            new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.FillAlpha),
-            new UnityEngine.Color(0.85f, 0.15f, 0.12f, Tuning.FillAlpha),
-            new UnityEngine.Color(Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackFillAlpha),
-            new UnityEngine.Color(0.95f, 0.55f, 0.05f, Tuning.DoubleBlackFillAlpha),
-            new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.FillAlpha),
+            new UnityEngine.Color(0.60f, 0.60f, 0.60f, Tuning.KeyAlpha[0]),
+            new UnityEngine.Color(0.20f, 0.75f, 0.30f, Tuning.KeyAlpha[1]),
+            new UnityEngine.Color(0.85f, 0.15f, 0.12f, Tuning.KeyAlpha[2]),
+            new UnityEngine.Color(Tuning.BlackGray, Tuning.BlackGray, Tuning.BlackGray, Tuning.KeyAlpha[3]),
+            new UnityEngine.Color(0.95f, 0.55f, 0.05f, Tuning.KeyAlpha[4]),
+            new UnityEngine.Color(0.20f, 0.45f, 0.95f, Tuning.KeyAlpha[5]),
         };
 
-        /// <summary>The black-region edge (T234).</summary>
-        private static readonly UnityEngine.Color BlackEdgeColor = new UnityEngine.Color(1f, 1f, 1f, Tuning.BlackEdgeAlpha);
 
-        private const byte KeyEuBlue = 5;
-
-        /// <summary>The strip key of a cell or segment: its band, except a European green-band cell at EuGreenMaxPct or more, which is
-        /// KeyEuBlue (DisplayUnits.EuClassOf on the cell's own grade). Same-key cells merge into one strip.</summary>
-        private static byte CellKey(byte band, float grade, bool eu) =>
-            eu && band == (byte)SlopeBand.Green && grade * 100f >= DisplayUnits.EuGreenMaxPct ? KeyEuBlue : band;
+        /// <summary>The strip key of a cell or segment (DisplayUnits.StripKey, shared with the slope overlay).</summary>
+        private static byte CellKey(byte band, float grade, bool eu) => DisplayUnits.StripKey(band, grade, eu);
 
         /// <summary>Crux ring: white outline, no fill (fill = outline with alpha 0, the vanilla
         /// range-circle style, EffectRangeRenderSystem.cs:166-169).</summary>
@@ -205,8 +192,6 @@ namespace SkiResortMod.Systems
         public int InsideCells, NeedCells, LatticeNx, LatticeNz;
         public int StripsBuilt, StripsDrawn;
         public bool StripCapHit;
-        /// <summary>T234 edge strips of the current build (part of StripsBuilt).</summary>
-        public int BlackEdgeStrips;
         /// <summary>Ring-mode row stride of the current strips (1 = full row resolution).</summary>
         public int RowStride = 1;
         /// <summary>Per-frame draw cost, ms (GetBuffer + job schedule + AddBufferWriter). PeakDrawMs (reset per load) excludes the first
@@ -269,11 +254,18 @@ namespace SkiResortMod.Systems
         public Readout CurrentReadout => m_Readout;
         public bool ReadoutLive => m_ReadoutLive;
 
-        /// <summary>One Projected strip: segment a -> b, width (m), color.</summary>
+        /// <summary>T253: the grid whose cells the heat-map paints this frame (ring mode, a valid readout, strips built), else null. The slope
+        /// overlay (SkiSlopeOverlaySystem, ordered after this system) leaves these cells to the heat-map.</summary>
+        internal SlopeGrid PaintedGrid =>
+            m_ReadoutLive && m_ReadoutFrame == UnityEngine.Time.frameCount && m_Readout.Valid && (m_StripCount > 0 || m_CFillCount > 0) && m_Grid != null &&
+            !m_Grid.PolylineMode ? m_Grid : null;
+
+        /// <summary>One Projected strip: segment a -> b, width (m), color, draw box YLo..YHi (m). YHi < YLo = the vanilla box.</summary>
         private struct Strip
         {
             public float3 A, B;
             public float Width;
+            public float YLo, YHi;
             public UnityEngine.Color Color;
         }
 
@@ -292,17 +284,41 @@ namespace SkiResortMod.Systems
             public UnityEngine.Color CruxOutline;
             public UnityEngine.Color CruxFill;
             public OverlayRenderSystem.Buffer Overlay;
+            public bool TightBoxes;
 
             public void Execute()
             {
                 var flags = OverlayRenderSystem.StyleFlags.Projected;
                 var roundness = new float2(0f, 0f);
                 int n = Count < Strips.Length ? Count : Strips.Length;
+                // T253: a strip with a known height range draws in its own box (SkiSlopeOverlaySystem.BufferView): the vanilla box spans
+                // the whole terrain height, and its GPU cost grows with strips x screen coverage.
+                SkiSlopeOverlaySystem.BufferView v = default;
+                if (TightBoxes)
+                    v = UnsafeUtility.As<OverlayRenderSystem.Buffer, SkiSlopeOverlaySystem.BufferView>(ref Overlay);
+                float lo = float.MaxValue, hi = float.MinValue;
                 for (int s = 0; s < n; s++)
                 {
                     Strip st = Strips[s];
-                    Overlay.DrawLine(st.Color, st.Color, 0f, flags, new Line3.Segment(st.A, st.B),
-                        st.Width, roundness);   // OverlayRenderSystem.cs:207
+                    if (TightBoxes && st.YHi >= st.YLo)
+                    {
+                        var b = new OverlayRenderSystem.Buffer(v.ProjectedCurves, v.AbsoluteCurves, v.CustomMeshes, v.TextMeshes, v.Bounds,
+                            st.YLo, st.YHi - st.YLo);   // :122, box bottom and height (FitBox :321-327)
+                        b.DrawLine(st.Color, st.Color, 0f, flags, new Line3.Segment(st.A, st.B), st.Width, roundness);
+                        lo = math.min(lo, st.YLo);
+                        hi = math.max(hi, st.YHi);
+                    }
+                    else
+                        Overlay.DrawLine(st.Color, st.Color, 0f, flags, new Line3.Segment(st.A, st.B),
+                            st.Width, roundness);   // OverlayRenderSystem.cs:207
+                }
+                if (TightBoxes && hi >= lo)
+                {
+                    // FitBox sets bounds.max.y = scaleY (the height, not the top): add the real range (SkiSlopeOverlaySystem, same fix).
+                    OverlayRenderSystem.BoundsData bd = v.Bounds.value;
+                    bd.m_CurveBounds.min.y = math.min(bd.m_CurveBounds.min.y, lo);
+                    bd.m_CurveBounds.max.y = math.max(bd.m_CurveBounds.max.y, hi);
+                    v.Bounds.value = bd;
                 }
                 if (DrawCrux)
                 {
@@ -328,7 +344,6 @@ namespace SkiResortMod.Systems
         private bool m_CapLogged;
         private bool m_SlowLogged;
         private bool m_HeightsLogged;
-        private bool m_StrideLogged;
         private bool m_SlowDrawLogged;
 
         // Step 3 cache: AreaGeometryData.m_Type of the tool's prefab, re-read on reference change.
@@ -392,6 +407,7 @@ namespace SkiResortMod.Systems
         private readonly Strip[] m_StripStage = new Strip[Tuning.MaxStrips];
         private NativeArray<Strip> m_Strips;
         private int m_StripCount;
+        private bool m_TightBoxes;
         private JobHandle m_DrawHandle;
         // Process-wide (one-time JIT of the draw-job schedule, see Draw): static on purpose.
         private static bool s_FirstDrawDone;
@@ -441,6 +457,11 @@ namespace SkiResortMod.Systems
             m_Grid = m_GridA;
             m_Strips = new NativeArray<Strip>(Tuning.MaxStrips, Allocator.Persistent,
                 NativeArrayOptions.UninitializedMemory);
+            m_TightBoxes = SkiSlopeOverlaySystem.TightBoxesSupported;   // T253: the slope overlay logs the size check
+            m_CFill = new NativeArray<ContourFill>(ContourMaxFill, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            m_CCurves = new NativeArray<ContourCurve>(ContourMaxCurves, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            m_CFillColors = new NativeArray<UnityEngine.Color>(6, Allocator.Persistent);
+            m_CLineColors = new NativeArray<UnityEngine.Color>(6, Allocator.Persistent);
 
             // All{Area, Temp, Node, PrefabRef, Surface} None{Deleted}. Surface narrows to surface areas (every SurfacePrefab archetype
             // carries Game.Areas.Surface, Game.Prefabs/SurfacePrefab.cs:21-23). No RequireForUpdate: the system must run to invalidate the
@@ -485,7 +506,6 @@ namespace SkiResortMod.Systems
             m_CapLogged = false;
             m_SlowLogged = false;
             m_HeightsLogged = false;
-            m_StrideLogged = false;
             m_SlowDrawLogged = false;
             RowStride = 1;
             LastDrawMs = 0.0;
@@ -540,10 +560,9 @@ namespace SkiResortMod.Systems
                     $"MinRecomputeFrames={Tuning.MinRecomputeFrames} HeartbeatSeconds={Tuning.HeartbeatSeconds} " +
                     $"VerifyNodesPerFrame={Tuning.VerifyNodesPerFrame} " +
                     $"NodeMoveEpsilonM={Tuning.NodeMoveEpsilonM} ThrottleFactor={Tuning.ThrottleFactor} " +
-                    $"MaxThrottleMs={Tuning.MaxThrottleMs} FillAlpha={Tuning.FillAlpha} " +
-                    $"BlackFillAlpha={Tuning.BlackFillAlpha} BlackGray={Tuning.BlackGray} DoubleBlackFillAlpha={Tuning.DoubleBlackFillAlpha} " +
-                    $"BlackEdgeWidthM={Tuning.BlackEdgeWidthM} BlackEdgeAlpha={Tuning.BlackEdgeAlpha} " +
-                    $"MaxStrips={Tuning.MaxStrips} MaxRowStride={Tuning.MaxRowStride} " +
+                    $"MaxThrottleMs={Tuning.MaxThrottleMs} KeyAlpha={string.Join("/", Tuning.KeyAlpha)} " +
+                    $"BlackGray={Tuning.BlackGray} " +
+                    $"MaxStrips={Tuning.MaxStrips} ContourLook=A2 " +
                     $"PolylineWidthM={Tuning.PolylineWidthM} " +
                     $"MinHeightmapResolution={Tuning.MinHeightmapResolution} " +
                     $"SlowRecomputeWarnMs={Tuning.SlowRecomputeWarnMs} " +
@@ -618,6 +637,7 @@ namespace SkiResortMod.Systems
             m_RetryPending = false;
             m_LastRecomputeFrame = m_Frame;
             StripsBuilt = 0;
+            ClearContours();
             StripsDrawn = 0;
             LengthRect = 0f;
             AxisLength = 0f;
@@ -686,6 +706,14 @@ namespace SkiResortMod.Systems
             }
             if (m_Strips.IsCreated)
                 m_Strips.Dispose();
+            if (m_CFill.IsCreated)
+                m_CFill.Dispose();
+            if (m_CCurves.IsCreated)
+                m_CCurves.Dispose();
+            if (m_CFillColors.IsCreated)
+                m_CFillColors.Dispose();
+            if (m_CLineColors.IsCreated)
+                m_CLineColors.Dispose();
             base.OnDestroy();
         }
 
@@ -701,6 +729,8 @@ namespace SkiResortMod.Systems
         {
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             IJobExtensions.EarlyJobInit<StripDrawJob>();
+            IJobExtensions.EarlyJobInit<ContourDrawJob>();
+            m_CSync = true;
             var grid = new SlopeGrid();
             var result = new SlopeResult();
             var pts = new[]
@@ -729,9 +759,13 @@ namespace SkiResortMod.Systems
                 if (IsRated(line))
                     BuildStrips(grid, result);
             }
+            m_CSync = false;
+            if (m_CBuilder.Done)
+                m_CBuilder.Release();
             // Leave no trace in the live state (the stage is rebuilt before every publish).
             m_StripCount = 0;
             StripsBuilt = 0;
+            ClearContours();
             RowStride = 1;
             StripCapHit = false;
 
@@ -986,7 +1020,7 @@ namespace SkiResortMod.Systems
             LengthRect = 0f;
             AxisLength = 0f;
             m_StripCount = 0;
-            StripsBuilt = 0;
+            StripsBuilt = 0;   // the contours stay drawn until this recompute's build lands (no flicker); Draw needs a valid readout
             RowStride = 1;
             m_CruxDraw = false;
             CruxValid = false;
@@ -1709,6 +1743,8 @@ namespace SkiResortMod.Systems
                             A = pts[s],
                             B = pts[s + 1],
                             Width = Tuning.PolylineWidthM,
+                            YLo = 1f,
+                            YHi = 0f,   // the vanilla box: no node heights along a polyline segment
                             Color = colors[CellKey(b, segGrade != null && s < segGrade.Length ? segGrade[s] : 0f, eu)],
                         };
                         m_StripCount++;
@@ -1716,242 +1752,122 @@ namespace SkiResortMod.Systems
                 }
             }
             else
-            {
-                // Full row resolution first. Above Tuning.MaxStrips, take the SMALLEST row stride 2..MaxRowStride whose strips fit, so the
-                // heat-map stays complete at a coarser row resolution. Linear search, because the count at stride s is not monotone in s
-                // (different representative rows). A failed pass stops at the first strip past the cap, and the buffers are simply rewritten.
-                // The list is truncated (at that stride) only when even MaxRowStride overflows.
-                int stride = 1;
-                while (!BuildRingStrips(grid, r, stride))
-                {
-                    if (stride >= Tuning.MaxRowStride)
-                    {
-                        capped = true;
-                        break;
-                    }
-                    stride++;
-                }
-                RowStride = stride;
-                BlackEdgeStrips = 0;
-                if (!capped)
-                    BuildBlackEdges(grid, r, stride);
-            }
+                RequestContours(grid, r);   // T253 1.0.4: smooth band outlines over a fainter fill, built off the main thread
 
             StripsBuilt = m_StripCount;
-            if (RowStride > 1 && !capped && !m_StrideLogged)
-            {
-                m_StrideLogged = true;
-                Mod.Log.Info($"RunFeedback: row stride {RowStride} — full row resolution exceeds " +
-                             $"strip cap {Tuning.MaxStrips}, heat-map drawn COMPLETE from one row per " +
-                             $"{RowStride} lattice rows ({StripsBuilt} strips, {RowStride * StepM:F1} m " +
-                             $"wide; {InsideCells} inside cells, {r.Nz} rows at {StepM:F1} m; " +
-                             "not truncated; logged once per load)");
-            }
             if (capped)
             {
                 StripCapHit = true;
                 if (!m_CapLogged)
                 {
                     m_CapLogged = true;
-                    Mod.Log.Info($"RunFeedback: strip cap {Tuning.MaxStrips} reached at row stride " +
-                                 $"{RowStride} (max {Tuning.MaxRowStride}) — heat-map truncated " +
-                                 $"({InsideCells} inside cells at {StepM:F1} m; logged once per load)");
+                    Mod.Log.Info($"RunFeedback: strip cap {Tuning.MaxStrips} reached in polyline mode — heat-map truncated " +
+                                 "(logged once per load)");
                 }
             }
         }
 
-        /// <summary>Ring-mode strips at row stride s into the strip stage. Lattice rows are grouped by RowGroup. Each group is drawn from
-        /// its MIDDLE row's same-band run-length merge, centered on the group's z-center, width = group rows × Step (s·Step). The last
-        /// group may be shorter. s = 1 is the full-resolution layout (one group per row, width = Step, center = the row). Returns false
-        /// when the strips do not fit Tuning.MaxStrips: the stage then holds the first MaxStrips strips (the truncated
-        /// list).</summary>
-        private bool BuildRingStrips(SlopeGrid grid, SlopeResult r, int s)
+        // T253 1.0.4: ring mode draws the slope overlay's contour look (SkiSlopeContourRender.cs) inside the run polygon: the fill ends on
+        // the polygon, the outlines too. The builder runs on a worker thread; until a build lands the previous one stays drawn.
+        private readonly SkiSlopeContourBuilder m_CBuilder = new SkiSlopeContourBuilder { MaxFill = ContourMaxFill, MaxCurves = ContourMaxCurves };
+        private const int ContourMaxFill = 24000, ContourMaxCurves = 6000;
+        private NativeArray<ContourFill> m_CFill;
+        private NativeArray<ContourCurve> m_CCurves;
+        private NativeArray<UnityEngine.Color> m_CFillColors, m_CLineColors;
+        private int m_CFillCount, m_CCurveCount, m_CGen;
+        private bool m_CPending, m_CColorsSet, m_CColorsEu, m_CSync;
+        private CameraUpdateSystem m_CameraSystem;
+        private float3 m_CCenter;
+        /// <summary>Contour strips / curves of the current heat-map, the worker ms of its build, the sub-rows used (dev tab).</summary>
+        public int ContourStrips => m_CFillCount;
+        public int ContourCurves => m_CCurveCount;
+        public double ContourBuildMs { get; private set; }
+
+        /// <summary>Drops the drawn contours and any build in flight (a new run, a cleared readout, a load).</summary>
+        private void ClearContours()
         {
-            m_StripCount = 0;
-            // Row run-length merge of same-band inside cells. Cell (i, j) is centered on the lattice node x = Origin.x + (I0 + i) * Step,
-            // spanning ± Step / 2. A strip runs from the first cell's west edge to the last cell's east edge, y = mean of the two end
-            // heights (at the representative row).
-            byte[] cellBand = r.CellBand;
-            float[] cellGrade = r.CellGrade;
-            int nx = r.Nx, nz = r.Nz;
-            double step = r.Step;
-            float[] heights = grid.Heights;
-            bool geomMatch = grid.Nx == nx && grid.Nz == nz &&
-                             grid.I0 == r.I0 && grid.J0 == r.J0;
-            bool heightsMatch = heights != null && geomMatch && heights.Length >= nx * nz;
-            // Walk only each row's Mask RUNS (SlopeGrid.MaskRuns / MaskRowStart from Plan) when the grid matches the result. CellBand is
-            // BandOutside everywhere outside the Mask, and same-band merging never crosses an outside cell. So the strips are identical to a
-            // full-row walk, and the walk is O(inside), not O(bbox) or O(row span) (a U- or C-shaped run's rows cross two arms). Otherwise
-            // keep the full walk.
-            int[] maskRuns = grid.MaskRuns, maskStart = grid.MaskRowStart;
-            bool spans = geomMatch && maskStart != null && maskStart.Length >= nz + 1 && maskStart[nz] >= 0 &&
-                         (maskStart[nz] == 0 || (maskRuns != null && maskRuns.Length >= 2L * maskStart[nz]));
-            if (cellBand == null || cellBand.Length < nx * nz)
-                return true;
-            bool eu = DisplayState.Scheme == GradeScheme.European && cellGrade != null && cellGrade.Length >= nx * nz;
-            UnityEngine.Color[] colors = DisplayState.Scheme == GradeScheme.European ? BandColorsEu : BandColors;
-            double half = step * 0.5;
-            int groups = (nz + s - 1) / s;
-            for (int g = 0; g < groups; g++)
+            m_CFillCount = m_CCurveCount = 0;
+            m_CGen++;
+            m_CPending = false;
+        }
+
+        /// <summary>Copies the field of (grid, r) into the builder and starts it, or marks the request pending while a build runs.</summary>
+        private void RequestContours(SlopeGrid grid, SlopeResult r)
+        {
+            SkiSlopeContourBuilder b = m_CBuilder;
+            if (!b.Idle)
             {
-                RowGroup(g, s, nz, out int lo, out int hi, out int j);
-                int row = j * nx;
-                // Group z-center and height. s = 1 gives exactly the row center and Step.
-                float wz = (float)(r.Origin.y + (r.J0 + 0.5 * (lo + hi)) * step);
-                float width = (float)((hi - lo + 1) * step);
-                int k0 = 0, k1 = 1;                  // full walk: one pseudo-run [0, nx - 1]
-                if (spans)
-                {
-                    k0 = maskStart[j];
-                    k1 = maskStart[j + 1];
-                }
-                for (int k = k0; k < k1; k++)
-                {
-                    int i = 0, iEnd = nx;
-                    if (spans)
-                    {
-                        i = maskRuns[2 * k] < 0 ? 0 : maskRuns[2 * k];
-                        iEnd = (maskRuns[2 * k + 1] > nx - 1 ? nx - 1 : maskRuns[2 * k + 1]) + 1;
-                    }
-                    while (i < iEnd)
-                    {
-                        byte b = cellBand[row + i];
-                        if (b > (byte)SlopeBand.DoubleBlack)
-                        {
-                            i++;
-                            continue;   // BandOutside (255) and anything invalid
-                        }
-                        byte key = eu ? CellKey(b, cellGrade[row + i], true) : b;
-                        int start = i;
-                        while (i + 1 < iEnd && cellBand[row + i + 1] == b && (!eu || CellKey(b, cellGrade[row + i + 1], true) == key))
-                            i++;
-                        int end = i;
-                        i++;
-                        if (m_StripCount >= Tuning.MaxStrips)
-                            return false;
-                        float y = heightsMatch
-                            ? 0.5f * (heights[row + start] + heights[row + end])
-                            : 0f;
-                        float xa = (float)(r.Origin.x + (r.I0 + start) * step - half);
-                        float xb = (float)(r.Origin.x + (r.I0 + end) * step + half);
-                        m_StripStage[m_StripCount] = new Strip
-                        {
-                            A = new float3(xa, y, wz),
-                            B = new float3(xb, y, wz),
-                            Width = width,
-                            Color = colors[key],
-                        };
-                        m_StripCount++;
-                    }
-                }
-            }
-            return true;
-        }
-
-        /// <summary>T234: a thin white edge around the black-band cells (ring mode), appended after the fills so it draws on top. One strip per
-        /// boundary run: the two ends of each black row strip, and along the group boundary where the neighbor group's representative row is not
-        /// black. Each boundary is drawn once, from the black side. Optional: it stops at MaxStrips (the fills always win the budget).</summary>
-        private void BuildBlackEdges(SlopeGrid grid, SlopeResult r, int s)
-        {
-            byte[] cellBand = r.CellBand;
-            int nx = r.Nx, nz = r.Nz;
-            if (cellBand == null || cellBand.Length < nx * nz || nx <= 0 || nz <= 0)
+                m_CPending = true;
                 return;
-            double step = r.Step, half = step * 0.5;
-            float[] heights = grid.Heights;
-            bool heightsMatch = heights != null && grid.Nx == nx && grid.Nz == nz && grid.I0 == r.I0 && grid.J0 == r.J0 &&
-                                heights.Length >= nx * nz;
-            const byte black = (byte)SlopeBand.Black;
-            float w = Tuning.BlackEdgeWidthM;
-            int groups = (nz + s - 1) / s;
-            for (int g = 0; g < groups; g++)
+            }
+            m_CPending = false;
+            int nx = r.Nx, nz = r.Nz, n = nx * nz;
+            if (n <= 0 || r.CellGrade == null || r.CellBand == null || r.CellGrade.Length < n || r.CellBand.Length < n || grid.Mask == null ||
+                grid.Mask.Length < n || grid.Nx != nx || grid.Nz != nz || grid.I0 != r.I0 || grid.J0 != r.J0)
             {
-                RowGroup(g, s, nz, out int lo, out int hi, out int j);
-                int row = j * nx;
-                float zLo = (float)(r.Origin.y + (r.J0 + lo - 0.5) * step);
-                float zHi = (float)(r.Origin.y + (r.J0 + hi + 0.5) * step);
-                int rowBelow = -1, rowAbove = -1;
-                if (g > 0)
+                ClearContours();
+                return;
+            }
+            b.Ensure(n, grid.PointCount);
+            bool heights = grid.Heights != null && grid.Need != null && grid.Heights.Length >= n && grid.Need.Length >= n;
+            double cx = 0, cz = 0;
+            int inside = 0;
+            for (int q = 0; q < n; q++)
+            {
+                bool ok = grid.Mask[q] != 0 && r.CellBand[q] <= (byte)SlopeBand.DoubleBlack;
+                b.O[q] = ok ? r.CellGrade[q] : float.NaN;
+                b.H[q] = heights && grid.Need[q] != 0 ? grid.Heights[q] : float.NaN;
+                if (ok)
                 {
-                    RowGroup(g - 1, s, nz, out int _, out int _, out int jb);
-                    rowBelow = jb * nx;
-                }
-                if (g + 1 < groups)
-                {
-                    RowGroup(g + 1, s, nz, out int _, out int _, out int ja);
-                    rowAbove = ja * nx;
-                }
-                int i = 0;
-                while (i < nx)
-                {
-                    if (cellBand[row + i] != black)
-                    {
-                        i++;
-                        continue;
-                    }
-                    int start = i;
-                    while (i + 1 < nx && cellBand[row + i + 1] == black)
-                        i++;
-                    int end = i;
-                    i++;
-                    float y = heightsMatch ? 0.5f * (heights[row + start] + heights[row + end]) : 0f;
-                    float xa = (float)(r.Origin.x + (r.I0 + start) * step - half);
-                    float xb = (float)(r.Origin.x + (r.I0 + end) * step + half);
-                    if (!AddEdge(new float3(xa, y, zLo), new float3(xa, y, zHi), w) || !AddEdge(new float3(xb, y, zLo), new float3(xb, y, zHi), w))
-                        return;
-                    if (!EdgesAlong(cellBand, row, rowBelow, start, end, zLo, y, step, half, r, w) ||
-                        !EdgesAlong(cellBand, row, rowAbove, start, end, zHi, y, step, half, r, w))
-                        return;
+                    cx += q % nx;
+                    cz += q / nx;
+                    inside++;
                 }
             }
+            for (int k = 0; k < grid.PointCount; k++)
+                b.Ring[k] = new double2(grid.Points[k].x, grid.Points[k].z);
+            b.RingCount = grid.PointCount;
+            b.Nx = nx;
+            b.Nz = nz;
+            b.Step = r.Step;
+            b.Ox = r.Origin.x + r.I0 * (double)r.Step;
+            b.Oz = r.Origin.y + r.J0 * (double)r.Step;
+            b.Eu = DisplayState.Scheme == GradeScheme.European;
+            b.Gen = m_CGen;
+            if (inside > 0)
+                m_CCenter = new float3((float)(b.Ox + cx / inside * r.Step), 0f, (float)(b.Oz + cz / inside * r.Step));
+            b.Start(!m_CSync);
         }
 
-        /// <summary>Edge pieces along one group boundary (z) for the black run start..end: the stretches where the neighbor row (-1 = none,
-        /// outside the lattice) is not black. False when MaxStrips is reached.</summary>
-        private bool EdgesAlong(byte[] cellBand, int row, int neighborRow, int start, int end, float z, float y, double step, double half,
-            SlopeResult r, float w)
+        /// <summary>Per drawn frame: takes a finished build (CompleteDraw first), and starts the pending request with the current grid.</summary>
+        private void PumpContours()
         {
-            const byte black = (byte)SlopeBand.Black;
-            int k = start;
-            while (k <= end)
+            SkiSlopeContourBuilder b = m_CBuilder;
+            if (b.Done)
             {
-                if (neighborRow >= 0 && cellBand[neighborRow + k] == black)
+                if (b.Error != null)
                 {
-                    k++;
-                    continue;
+                    Exception e = b.Error;
+                    b.Release();
+                    throw new InvalidOperationException("heat-map contour build failed on the worker thread", e);
                 }
-                int a = k;
-                while (k + 1 <= end && !(neighborRow >= 0 && cellBand[neighborRow + k + 1] == black))
-                    k++;
-                float xa = (float)(r.Origin.x + (r.I0 + a) * step - half);
-                float xb = (float)(r.Origin.x + (r.I0 + k) * step + half);
-                k++;
-                if (!AddEdge(new float3(xa, y, z), new float3(xb, y, z), w))
-                    return false;
+                if (b.Gen == m_CGen && m_CFill.IsCreated)
+                {
+                    CompleteDraw();   // the only write to m_CFill / m_CCurves, after the last job finished (OVERLAY safety (a))
+                    int nf = Math.Min(b.FillCount, m_CFill.Length), nc = Math.Min(b.CurveCount, m_CCurves.Length);
+                    if (nf > 0)
+                        NativeArray<ContourFill>.Copy(b.Fill, m_CFill, nf);
+                    if (nc > 0)
+                        NativeArray<ContourCurve>.Copy(b.Curves, m_CCurves, nc);
+                    m_CFillCount = nf;
+                    m_CCurveCount = nc;
+                    StripCapHit = b.Capped;
+                    ContourBuildMs = b.BuildMs;
+                }
+                b.Release();
             }
-            return true;
-        }
-
-        private bool AddEdge(float3 a, float3 b, float w)
-        {
-            if (m_StripCount >= Tuning.MaxStrips)
-                return false;
-            m_StripStage[m_StripCount] = new Strip { A = a, B = b, Width = w, Color = BlackEdgeColor };
-            m_StripCount++;
-            BlackEdgeStrips++;
-            return true;
-        }
-
-        /// <summary>Row group g at stride s over nz lattice rows: rows lo..hi, hi = lo + s - 1 clamped to the last row (the last group
-        /// may be shorter). Representative = the middle row lo + (hi - lo) / 2 (lower middle for an even count). Group count = (nz + s -
-        /// 1) / s. The groups cover rows 0..nz-1 exactly once.</summary>
-        private static void RowGroup(int g, int s, int nz, out int lo, out int hi, out int rep)
-        {
-            lo = g * s;
-            hi = lo + s - 1;
-            if (hi > nz - 1)
-                hi = nz - 1;
-            rep = lo + ((hi - lo) >> 1);
+            if (m_CPending && b.Idle && m_Readout.Valid && m_Grid != null && !m_Grid.PolylineMode)
+                RequestContours(m_Grid, m_Result);
         }
 
         /// <summary>Copies the staged strips into the NativeArray the draw job reads: the ONLY write to m_Strips, always after
@@ -1975,9 +1891,12 @@ namespace SkiResortMod.Systems
 
         private void Draw()
         {
+            PumpContours();
             int count = m_StripCount;
             bool crux = m_CruxDraw;
-            if (!m_Readout.Valid || (count == 0 && !crux) || !m_Strips.IsCreated)
+            bool ring = m_Grid != null && !m_Grid.PolylineMode;
+            int cFill = ring ? m_CFillCount : 0, cCurves = ring ? m_CCurveCount : 0;
+            if (!m_Readout.Valid || (count == 0 && !crux && cFill == 0 && cCurves == 0) || !m_Strips.IsCreated)
                 return;
             if (count > m_Strips.Length)
                 count = m_Strips.Length;
@@ -1985,6 +1904,35 @@ namespace SkiResortMod.Systems
             // runs on a worker thread.
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             OverlayRenderSystem.Buffer buffer = m_Overlay.GetBuffer(out JobHandle overlayDeps);   // :603-634
+            if (cFill > 0 || cCurves > 0)
+            {
+                bool eu = DisplayState.Scheme == GradeScheme.European;
+                if (!m_CColorsSet || eu != m_CColorsEu)
+                {
+                    CompleteDraw();
+                    SkiSlopeContourLook.Colors(eu ? BandColorsEu : BandColors, m_CFillColors, m_CLineColors);
+                    m_CColorsSet = true;
+                    m_CColorsEu = eu;
+                }
+                if (m_CameraSystem == null)
+                    m_CameraSystem = World.GetOrCreateSystemManaged<CameraUpdateSystem>();
+                float camDist = m_CameraSystem.TryGetViewer(out Viewer viewer) && viewer.camera != null
+                    ? math.distance(viewer.position.xz, m_CCenter.xz) : 0f;
+                var cjob = new ContourDrawJob
+                {
+                    Fill = m_CFill,
+                    FillCount = cFill,
+                    Curves = m_CCurves,
+                    CurveCount = cCurves,
+                    FillColors = m_CFillColors,
+                    LineColors = m_CLineColors,
+                    LineWidth = SkiSlopeContourLook.LineWidth(camDist),
+                    Disk = false,
+                    TightBoxes = m_TightBoxes,
+                    Overlay = buffer,
+                };
+                overlayDeps = cjob.Schedule(overlayDeps);   // the crux ring below draws on top
+            }
             var job = new StripDrawJob
             {
                 Strips = m_Strips,
@@ -1996,6 +1944,7 @@ namespace SkiResortMod.Systems
                 CruxOutline = CruxOutlineColor,
                 CruxFill = CruxFillColor,
                 Overlay = buffer,
+                TightBoxes = m_TightBoxes,
             };
             // Depends on every earlier overlay writer, ours included (engine notes OVERLAY (b)).
             JobHandle handle = job.Schedule(overlayDeps);

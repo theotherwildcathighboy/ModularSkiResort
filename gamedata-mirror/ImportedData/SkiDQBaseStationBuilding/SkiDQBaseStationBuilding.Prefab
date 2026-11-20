@@ -170,7 +170,7 @@
                 "m_SubLanes": {
                     "$id": 31,
                     "$type": "15|Game.Prefabs.ObjectSubLaneInfo[], Game",
-                    "$rlength": 3,
+                    "$rlength": 7,
                     "$rcontent": [
                         {
                             "$id": 32,
@@ -291,6 +291,174 @@
                                 "$type": 12,
                                 "x": 2,
                                 "y": 2
+                            },
+                            "m_ParentMesh": {
+                                "$type": 12,
+                                "x": 0,
+                                "y": 0
+                            }
+                        },
+                        {
+                            "$id": 900,
+                            "$type": 16,
+                            "m_LanePrefab": $fstrref:"UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b",
+                            "m_BezierCurve": {
+                                "$type": 10,
+                                "a": {
+                                    "$type": 11,
+                                    "x": -7.59,
+                                    "y": 8.02,
+                                    "z": -9.68
+                                },
+                                "b": {
+                                    "$type": 11,
+                                    "x": -7.59,
+                                    "y": 8.03,
+                                    "z": -9.595
+                                },
+                                "c": {
+                                    "$type": 11,
+                                    "x": -7.59,
+                                    "y": 8.04,
+                                    "z": -9.515
+                                },
+                                "d": {
+                                    "$type": 11,
+                                    "x": -7.59,
+                                    "y": 8.05,
+                                    "z": -9.43
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 12,
+                                "x": 10,
+                                "y": 10
+                            },
+                            "m_ParentMesh": {
+                                "$type": 12,
+                                "x": 0,
+                                "y": 0
+                            }
+                        },
+                        {
+                            "$id": 901,
+                            "$type": 16,
+                            "m_LanePrefab": $fstrref:"UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b",
+                            "m_BezierCurve": {
+                                "$type": 10,
+                                "a": {
+                                    "$type": 11,
+                                    "x": -7.59,
+                                    "y": 8.02,
+                                    "z": -8.7
+                                },
+                                "b": {
+                                    "$type": 11,
+                                    "x": -7.59,
+                                    "y": 8.03,
+                                    "z": -8.615
+                                },
+                                "c": {
+                                    "$type": 11,
+                                    "x": -7.59,
+                                    "y": 8.04,
+                                    "z": -8.535
+                                },
+                                "d": {
+                                    "$type": 11,
+                                    "x": -7.59,
+                                    "y": 8.05,
+                                    "z": -8.45
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 12,
+                                "x": 11,
+                                "y": 11
+                            },
+                            "m_ParentMesh": {
+                                "$type": 12,
+                                "x": 0,
+                                "y": 0
+                            }
+                        },
+                        {
+                            "$id": 902,
+                            "$type": 16,
+                            "m_LanePrefab": $fstrref:"UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b",
+                            "m_BezierCurve": {
+                                "$type": 10,
+                                "a": {
+                                    "$type": 11,
+                                    "x": -7.59,
+                                    "y": 8.02,
+                                    "z": -7.31
+                                },
+                                "b": {
+                                    "$type": 11,
+                                    "x": -7.59,
+                                    "y": 8.03,
+                                    "z": -7.225
+                                },
+                                "c": {
+                                    "$type": 11,
+                                    "x": -7.59,
+                                    "y": 8.04,
+                                    "z": -7.145
+                                },
+                                "d": {
+                                    "$type": 11,
+                                    "x": -7.59,
+                                    "y": 8.05,
+                                    "z": -7.06
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 12,
+                                "x": 12,
+                                "y": 12
+                            },
+                            "m_ParentMesh": {
+                                "$type": 12,
+                                "x": 0,
+                                "y": 0
+                            }
+                        },
+                        {
+                            "$id": 903,
+                            "$type": 16,
+                            "m_LanePrefab": $fstrref:"UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b",
+                            "m_BezierCurve": {
+                                "$type": 10,
+                                "a": {
+                                    "$type": 11,
+                                    "x": -7.75,
+                                    "y": 7.7,
+                                    "z": -8.67
+                                },
+                                "b": {
+                                    "$type": 11,
+                                    "x": -7.75,
+                                    "y": 5.133,
+                                    "z": -8.67
+                                },
+                                "c": {
+                                    "$type": 11,
+                                    "x": -7.75,
+                                    "y": 2.567,
+                                    "z": -8.67
+                                },
+                                "d": {
+                                    "$type": 11,
+                                    "x": -7.75,
+                                    "y": 0,
+                                    "z": -8.67
+                                }
+                            },
+                            "m_NodeIndex": {
+                                "$type": 12,
+                                "x": 13,
+                                "y": 14
                             },
                             "m_ParentMesh": {
                                 "$type": 12,
@@ -873,12 +1041,12 @@
     "m_Meshes": {
         "$id": 17,
         "$type": "19|Game.Prefabs.ObjectMeshInfo[], Game",
-        "$rlength": 1,
+        "$rlength": 3,
         "$rcontent": [
             {
                 "$id": 18,
                 "$type": "20|Game.Prefabs.ObjectMeshInfo, Game",
-                "m_Mesh": $fstrref:"CID:22947e280a584163a938d24e1b125c6f",
+                "m_Mesh": $fstrref:"CID:5768adbfcb897afbdcfedfbb5c27f3db",
                 "m_Position": {
                     "$type": 11,
                     "x": 0,
@@ -893,6 +1061,50 @@
                         "y": 0,
                         "z": 0,
                         "w": 1
+                    }
+                },
+                "m_RequireState": 0
+            },
+            {
+                "$id": 904,
+                "$type": 20,
+                "m_Mesh": $fstrref:"UnityGUID:3880b17eed0efbd448e640f6353a7f7b",
+                "m_Position": {
+                    "$type": 11,
+                    "x": -7.75,
+                    "y": 0,
+                    "z": -8.5
+                },
+                "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                        "$type": 22,
+                        "x": 0,
+                        "y": 0.7071068,
+                        "z": 0,
+                        "w": 0.7071068
+                    }
+                },
+                "m_RequireState": 0
+            },
+            {
+                "$id": 905,
+                "$type": 20,
+                "m_Mesh": $fstrref:"UnityGUID:12633b57802d4a84a8e8c08bbef9091d",
+                "m_Position": {
+                    "$type": 11,
+                    "x": -5.75,
+                    "y": 0,
+                    "z": -7.4
+                },
+                "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                        "$type": 22,
+                        "x": 0,
+                        "y": 0.7071068,
+                        "z": 0,
+                        "w": 0.7071068
                     }
                 },
                 "m_RequireState": 0

@@ -3,7 +3,7 @@ a01-start-card-1080 | control | h-btn.actionButton.startButton.fitText "Place We
 a01-start-card-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a01-start-card-1080 | control | tabButton "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a01-start-card-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a01-start-card-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a01-start-card-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a01-start-card-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a01-start-card-1080 | control | pickerChip "Warming hut¢120,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a01-start-card-1080 | control | pickerChip "Base lodge¢410,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -23,7 +23,7 @@ a01-start-card-2160 | control | h-btn.actionButton.startButton.fitText "Place We
 a01-start-card-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a01-start-card-2160 | control | tabButton "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a01-start-card-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a01-start-card-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a01-start-card-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a01-start-card-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a01-start-card-2160 | control | pickerChip "Warming hut¢120,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a01-start-card-2160 | control | pickerChip "Base lodge¢410,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -85,11 +85,12 @@ a03-attraction-1080 | control | infoLine.foldRow.infoHeader "Merged buildings2" 
 a03-attraction-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a03-attraction-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a03-attraction-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a03-attraction-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a03-attraction-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a03-attraction-1080 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a03-attraction-1080 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a03-attraction-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a03-attraction-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a03-attraction-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a03-attraction-1080 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1 rgb(75, 195, 241)
 a03-attraction-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a03-attraction-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -127,11 +128,12 @@ a03-attraction-2160 | control | infoLine.foldRow.infoHeader "Merged buildings2" 
 a03-attraction-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a03-attraction-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a03-attraction-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a03-attraction-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a03-attraction-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a03-attraction-2160 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a03-attraction-2160 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a03-attraction-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a03-attraction-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a03-attraction-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a03-attraction-2160 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1.5 rgb(75, 195, 241)
 a03-attraction-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a03-attraction-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -169,11 +171,12 @@ a04-attraction-fold0-1080 | control | infoLine.foldRow.infoHeader "Merged buildi
 a04-attraction-fold0-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a04-attraction-fold0-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a04-attraction-fold0-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a04-attraction-fold0-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a04-attraction-fold0-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a04-attraction-fold0-1080 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a04-attraction-fold0-1080 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a04-attraction-fold0-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a04-attraction-fold0-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a04-attraction-fold0-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a04-attraction-fold0-1080 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1 rgb(75, 195, 241)
 a04-attraction-fold0-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a04-attraction-fold0-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -211,11 +214,12 @@ a04-attraction-fold0-2160 | control | infoLine.foldRow.infoHeader "Merged buildi
 a04-attraction-fold0-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a04-attraction-fold0-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a04-attraction-fold0-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a04-attraction-fold0-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a04-attraction-fold0-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a04-attraction-fold0-2160 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a04-attraction-fold0-2160 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a04-attraction-fold0-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a04-attraction-fold0-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a04-attraction-fold0-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a04-attraction-fold0-2160 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1.5 rgb(75, 195, 241)
 a04-attraction-fold0-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a04-attraction-fold0-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -253,11 +257,12 @@ a05-attraction-fold1-1080 | control | infoLine.foldRow.infoHeader "Merged buildi
 a05-attraction-fold1-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a05-attraction-fold1-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a05-attraction-fold1-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a05-attraction-fold1-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a05-attraction-fold1-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a05-attraction-fold1-1080 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a05-attraction-fold1-1080 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a05-attraction-fold1-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a05-attraction-fold1-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a05-attraction-fold1-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a05-attraction-fold1-1080 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1 rgb(75, 195, 241)
 a05-attraction-fold1-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a05-attraction-fold1-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -295,11 +300,12 @@ a05-attraction-fold1-2160 | control | infoLine.foldRow.infoHeader "Merged buildi
 a05-attraction-fold1-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a05-attraction-fold1-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a05-attraction-fold1-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a05-attraction-fold1-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a05-attraction-fold1-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a05-attraction-fold1-2160 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a05-attraction-fold1-2160 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a05-attraction-fold1-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a05-attraction-fold1-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a05-attraction-fold1-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a05-attraction-fold1-2160 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1.5 rgb(75, 195, 241)
 a05-attraction-fold1-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a05-attraction-fold1-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -338,11 +344,12 @@ a06-attraction-fold2-1080 | control | pagerButton | h=20; pad=0 0 0 0; font=14; 
 a06-attraction-fold2-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a06-attraction-fold2-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a06-attraction-fold2-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a06-attraction-fold2-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a06-attraction-fold2-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a06-attraction-fold2-1080 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a06-attraction-fold2-1080 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a06-attraction-fold2-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a06-attraction-fold2-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a06-attraction-fold2-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a06-attraction-fold2-1080 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1 rgb(75, 195, 241)
 a06-attraction-fold2-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a06-attraction-fold2-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -353,11 +360,11 @@ a06-attraction-fold2-1080 | control | h-btn.actionButton.mergeAction.fitText "Me
 a06-attraction-fold2-1080 | control | h-floating.h-selected | h=48; pad=1 6 1 6; font=16; radius=8; bg=rgba(42, 55, 83, 0.55); color=rgb(0, 0, 0); border=1 rgba(255, 255, 255, 0.2)
 a06-attraction-fold2-1080 | control | h-btn.h-selected | h=14; pad=6 12 6 12; font=16; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a06-attraction-fold2-1080 | font | 12 | buildStatusLine.buildLineName buildTileLabel mergeTierFee pickerLabel scoreLabel stableValue statusHint.statusHintOn tileCaption
-a06-attraction-fold2-1080 | font | 14 | infoLabel infoValue markSlot pagerText problemMoreButton problemText statusText tabLabel
+a06-attraction-fold2-1080 | font | 14 | infoLabel infoValue markSlot pagerMore pagerText problemMoreButton problemText statusText tabLabel
 a06-attraction-fold2-1080 | font | 16 | areaNameText busCardTitle h-btn.actionButton.mergeAction.fitText span tileValue
 a06-attraction-fold2-1080 | font | 22 | h-panel-close
 a06-attraction-fold2-1080 | color | rgb(240, 251, 255) | areaNameText buildTileLabel h-btn.actionButton.mergeAction.fitText h-panel-close infoLabel infoValue mergeTierFee pickerLabel problemText span stableValue statusHint.statusHintOn statusText tabLabel tileValue
-a06-attraction-fold2-1080 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle problemMoreButton
+a06-attraction-fold2-1080 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle pagerMore problemMoreButton
 a06-attraction-fold2-1080 | color | rgba(240, 251, 255, 0.7) | infoLabel markSlot mergeTierFee pagerText pickerLabel scoreLabel tabLabel tileCaption
 a06-attraction-fold2-2160 | control | h-btn.h-iconbtn.headerButton | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a06-attraction-fold2-2160 | control | areaName "Ash Flat" | h=26; pad=0 6 0 6; font=16; radius=4; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
@@ -381,11 +388,12 @@ a06-attraction-fold2-2160 | control | pagerButton | h=20; pad=0 0 0 0; font=14; 
 a06-attraction-fold2-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a06-attraction-fold2-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a06-attraction-fold2-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a06-attraction-fold2-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a06-attraction-fold2-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a06-attraction-fold2-2160 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a06-attraction-fold2-2160 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a06-attraction-fold2-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a06-attraction-fold2-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a06-attraction-fold2-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a06-attraction-fold2-2160 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1.5 rgb(75, 195, 241)
 a06-attraction-fold2-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a06-attraction-fold2-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -396,11 +404,11 @@ a06-attraction-fold2-2160 | control | h-btn.actionButton.mergeAction.fitText "Me
 a06-attraction-fold2-2160 | control | h-floating.h-selected | h=48; pad=0.5 3 0.5 3; font=16; radius=8; bg=rgba(42, 55, 83, 0.55); color=rgb(0, 0, 0); border=0.5 rgba(255, 255, 255, 0.2)
 a06-attraction-fold2-2160 | control | h-btn.h-selected | h=13; pad=6 12 6 12; font=16; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a06-attraction-fold2-2160 | font | 12 | buildStatusLine.buildLineName buildTileLabel mergeTierFee pickerLabel scoreLabel stableValue statusHint.statusHintOn tileCaption
-a06-attraction-fold2-2160 | font | 14 | infoLabel infoValue markSlot pagerText problemMoreButton problemText statusText tabLabel
+a06-attraction-fold2-2160 | font | 14 | infoLabel infoValue markSlot pagerMore pagerText problemMoreButton problemText statusText tabLabel
 a06-attraction-fold2-2160 | font | 16 | areaNameText busCardTitle h-btn.actionButton.mergeAction.fitText span tileValue
 a06-attraction-fold2-2160 | font | 22 | h-panel-close
 a06-attraction-fold2-2160 | color | rgb(240, 251, 255) | areaNameText buildTileLabel h-btn.actionButton.mergeAction.fitText h-panel-close infoLabel infoValue mergeTierFee pickerLabel problemText span stableValue statusHint.statusHintOn statusText tabLabel tileValue
-a06-attraction-fold2-2160 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle problemMoreButton
+a06-attraction-fold2-2160 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle pagerMore problemMoreButton
 a06-attraction-fold2-2160 | color | rgba(240, 251, 255, 0.7) | infoLabel markSlot mergeTierFee pagerText pickerLabel scoreLabel tabLabel tileCaption
 a07-runs-1080 | control | h-btn.h-iconbtn.headerButton | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a07-runs-1080 | control | areaName "Ash Flat" | h=26; pad=0 6 0 6; font=16; radius=4; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
@@ -433,11 +441,12 @@ a07-runs-1080 | control | h-btn.h-iconbtn.rowPen #5 | h=22; pad=4 4 4 4; font=14
 a07-runs-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a07-runs-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a07-runs-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a07-runs-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a07-runs-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a07-runs-1080 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a07-runs-1080 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a07-runs-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a07-runs-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a07-runs-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a07-runs-1080 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1 rgb(75, 195, 241)
 a07-runs-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a07-runs-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -485,11 +494,12 @@ a07-runs-2160 | control | h-btn.h-iconbtn.rowPen #5 | h=22; pad=4 4 4 4; font=14
 a07-runs-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a07-runs-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a07-runs-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a07-runs-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a07-runs-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a07-runs-2160 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a07-runs-2160 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a07-runs-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a07-runs-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a07-runs-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a07-runs-2160 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1.5 rgb(75, 195, 241)
 a07-runs-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a07-runs-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -529,11 +539,12 @@ a08-lifts-1080 | control | h-btn.h-iconbtn.rowPen #3 | h=22; pad=4 4 4 4; font=1
 a08-lifts-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a08-lifts-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a08-lifts-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a08-lifts-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a08-lifts-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a08-lifts-1080 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a08-lifts-1080 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a08-lifts-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a08-lifts-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a08-lifts-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a08-lifts-1080 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1 rgb(75, 195, 241)
 a08-lifts-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a08-lifts-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -574,11 +585,12 @@ a08-lifts-2160 | control | h-btn.h-iconbtn.rowPen #3 | h=22; pad=4 4 4 4; font=1
 a08-lifts-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a08-lifts-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a08-lifts-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a08-lifts-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a08-lifts-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a08-lifts-2160 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a08-lifts-2160 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a08-lifts-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a08-lifts-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a08-lifts-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a08-lifts-2160 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1.5 rgb(75, 195, 241)
 a08-lifts-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a08-lifts-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -617,11 +629,12 @@ a09-guests-1080 | control | infoLine.foldRow.infoHeader "Car spaces124" | h=28.2
 a09-guests-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a09-guests-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a09-guests-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a09-guests-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a09-guests-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a09-guests-1080 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a09-guests-1080 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a09-guests-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a09-guests-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a09-guests-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a09-guests-1080 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1 rgb(75, 195, 241)
 a09-guests-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a09-guests-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -659,11 +672,12 @@ a09-guests-2160 | control | infoLine.foldRow.infoHeader "Car spaces124" | h=28.2
 a09-guests-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a09-guests-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a09-guests-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a09-guests-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a09-guests-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a09-guests-2160 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a09-guests-2160 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a09-guests-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a09-guests-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a09-guests-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a09-guests-2160 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1.5 rgb(75, 195, 241)
 a09-guests-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a09-guests-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -700,11 +714,12 @@ a10-finances-1080 | control | infoLine.foldRow.infoHeader "Other figures" | h=28
 a10-finances-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a10-finances-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a10-finances-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a10-finances-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a10-finances-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a10-finances-1080 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a10-finances-1080 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a10-finances-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a10-finances-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a10-finances-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a10-finances-1080 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1 rgb(75, 195, 241)
 a10-finances-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a10-finances-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -741,11 +756,12 @@ a10-finances-2160 | control | infoLine.foldRow.infoHeader "Other figures" | h=28
 a10-finances-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a10-finances-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a10-finances-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a10-finances-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a10-finances-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a10-finances-2160 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a10-finances-2160 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a10-finances-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a10-finances-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a10-finances-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a10-finances-2160 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1.5 rgb(75, 195, 241)
 a10-finances-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a10-finances-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -786,11 +802,12 @@ a11-history-1080 | control | pagerButton | h=20; pad=0 0 0 0; font=14; radius=3;
 a11-history-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a11-history-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a11-history-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a11-history-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a11-history-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a11-history-1080 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a11-history-1080 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a11-history-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a11-history-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a11-history-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a11-history-1080 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1 rgb(75, 195, 241)
 a11-history-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a11-history-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -801,11 +818,11 @@ a11-history-1080 | control | h-btn.actionButton.mergeAction.fitText "Merge" | h=
 a11-history-1080 | control | h-floating.h-selected | h=48; pad=1 6 1 6; font=16; radius=8; bg=rgba(42, 55, 83, 0.55); color=rgb(0, 0, 0); border=1 rgba(255, 255, 255, 0.2)
 a11-history-1080 | control | h-btn.h-selected | h=14; pad=6 12 6 12; font=16; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a11-history-1080 | font | 12 | buildStatusLine.buildLineName buildTileLabel histAxisCell histGutterSize histLegendText histScaleLabel histScaleLabel.histScaleBottom histScaleLabel.histScaleMid histVs mergeTierFee pickerLabel statusHint.statusHintOn tileCaption
-a11-history-1080 | font | 14 | h-btn.h-selected.segButton.histSeg.buttonOn h-btn.segButton.histSeg.histSegNext infoLabel infoValue pagerText problemMoreButton problemText stableValue statusText tabLabel
+a11-history-1080 | font | 14 | h-btn.h-selected.segButton.histSeg.buttonOn h-btn.segButton.histSeg.histSegNext infoLabel infoValue pagerMore pagerText problemMoreButton problemText stableValue statusText tabLabel
 a11-history-1080 | font | 16 | areaNameText busCardTitle h-btn.actionButton.mergeAction.fitText span tileValue
 a11-history-1080 | font | 22 | h-panel-close
 a11-history-1080 | color | rgb(240, 251, 255) | areaNameText buildTileLabel h-btn.actionButton.mergeAction.fitText h-btn.h-selected.segButton.histSeg.buttonOn h-btn.segButton.histSeg.histSegNext h-panel-close infoLabel infoValue mergeTierFee pickerLabel problemText span stableValue statusHint.statusHintOn statusText tabLabel tileValue
-a11-history-1080 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle problemMoreButton
+a11-history-1080 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle pagerMore problemMoreButton
 a11-history-1080 | color | rgba(240, 251, 255, 0.7) | histAxisCell histGutterSize histLegendText histScaleLabel histScaleLabel.histScaleBottom histScaleLabel.histScaleMid histVs infoLabel mergeTierFee pagerText pickerLabel tabLabel tileCaption
 a11-history-2160 | control | h-btn.h-iconbtn.headerButton | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a11-history-2160 | control | areaName "Ash Flat" | h=26; pad=0 6 0 6; font=16; radius=4; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
@@ -831,11 +848,12 @@ a11-history-2160 | control | pagerButton | h=20; pad=0 0 0 0; font=14; radius=3;
 a11-history-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a11-history-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a11-history-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a11-history-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a11-history-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a11-history-2160 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a11-history-2160 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a11-history-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a11-history-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a11-history-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a11-history-2160 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1.5 rgb(75, 195, 241)
 a11-history-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a11-history-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -846,11 +864,11 @@ a11-history-2160 | control | h-btn.actionButton.mergeAction.fitText "Merge" | h=
 a11-history-2160 | control | h-floating.h-selected | h=48; pad=0.5 3 0.5 3; font=16; radius=8; bg=rgba(42, 55, 83, 0.55); color=rgb(0, 0, 0); border=0.5 rgba(255, 255, 255, 0.2)
 a11-history-2160 | control | h-btn.h-selected | h=13; pad=6 12 6 12; font=16; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a11-history-2160 | font | 12 | buildStatusLine.buildLineName buildTileLabel histAxisCell histGutterSize histLegendText histScaleLabel histScaleLabel.histScaleBottom histScaleLabel.histScaleMid histVs mergeTierFee pickerLabel statusHint.statusHintOn tileCaption
-a11-history-2160 | font | 14 | h-btn.h-selected.segButton.histSeg.buttonOn h-btn.segButton.histSeg.histSegNext infoLabel infoValue pagerText problemMoreButton problemText stableValue statusText tabLabel
+a11-history-2160 | font | 14 | h-btn.h-selected.segButton.histSeg.buttonOn h-btn.segButton.histSeg.histSegNext infoLabel infoValue pagerMore pagerText problemMoreButton problemText stableValue statusText tabLabel
 a11-history-2160 | font | 16 | areaNameText busCardTitle h-btn.actionButton.mergeAction.fitText span tileValue
 a11-history-2160 | font | 22 | h-panel-close
 a11-history-2160 | color | rgb(240, 251, 255) | areaNameText buildTileLabel h-btn.actionButton.mergeAction.fitText h-btn.h-selected.segButton.histSeg.buttonOn h-btn.segButton.histSeg.histSegNext h-panel-close infoLabel infoValue mergeTierFee pickerLabel problemText span stableValue statusHint.statusHintOn statusText tabLabel tileValue
-a11-history-2160 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle problemMoreButton
+a11-history-2160 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle pagerMore problemMoreButton
 a11-history-2160 | color | rgba(240, 251, 255, 0.7) | histAxisCell histGutterSize histLegendText histScaleLabel histScaleLabel.histScaleBottom histScaleLabel.histScaleMid histVs infoLabel mergeTierFee pagerText pickerLabel tabLabel tileCaption
 a12-tab-lifts-1080 | control | h-btn.h-iconbtn.headerButton | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a12-tab-lifts-1080 | control | areaName "Ash Flat" | h=26; pad=0 6 0 6; font=16; radius=4; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
@@ -873,7 +891,7 @@ a12-tab-lifts-1080 | control | infoLine.foldRow.infoHeader "Merged buildings2" |
 a12-tab-lifts-1080 | control | tabButton.tabButtonOn.h-selected "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a12-tab-lifts-1080 | control | tabButton "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a12-tab-lifts-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a12-tab-lifts-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a12-tab-lifts-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a12-tab-lifts-1080 | control | pickerChip.pickerChipOn.h-selected "Fixed-grip" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a12-tab-lifts-1080 | control | pickerChip "Detachable" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a12-tab-lifts-1080 | control | pickerChip "Gondola" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -917,7 +935,7 @@ a12-tab-lifts-2160 | control | infoLine.foldRow.infoHeader "Merged buildings2" |
 a12-tab-lifts-2160 | control | tabButton.tabButtonOn.h-selected "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a12-tab-lifts-2160 | control | tabButton "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a12-tab-lifts-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a12-tab-lifts-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a12-tab-lifts-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a12-tab-lifts-2160 | control | pickerChip.pickerChipOn.h-selected "Fixed-grip" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a12-tab-lifts-2160 | control | pickerChip "Detachable" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a12-tab-lifts-2160 | control | pickerChip "Gondola" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -961,11 +979,12 @@ a13-tab-runs-1080 | control | infoLine.foldRow.infoHeader "Merged buildings2" | 
 a13-tab-runs-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a13-tab-runs-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a13-tab-runs-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a13-tab-runs-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a13-tab-runs-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a13-tab-runs-1080 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a13-tab-runs-1080 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a13-tab-runs-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a13-tab-runs-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a13-tab-runs-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a13-tab-runs-1080 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1 rgb(75, 195, 241)
 a13-tab-runs-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a13-tab-runs-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -1003,11 +1022,12 @@ a13-tab-runs-2160 | control | infoLine.foldRow.infoHeader "Merged buildings2" | 
 a13-tab-runs-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a13-tab-runs-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a13-tab-runs-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a13-tab-runs-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a13-tab-runs-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a13-tab-runs-2160 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a13-tab-runs-2160 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a13-tab-runs-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a13-tab-runs-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a13-tab-runs-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a13-tab-runs-2160 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1.5 rgb(75, 195, 241)
 a13-tab-runs-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a13-tab-runs-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -1045,7 +1065,7 @@ a14-tab-buildings-1080 | control | infoLine.foldRow.infoHeader "Merged buildings
 a14-tab-buildings-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a14-tab-buildings-1080 | control | tabButton "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a14-tab-buildings-1080 | control | tabButton.tabButtonOn.h-selected "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
-a14-tab-buildings-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a14-tab-buildings-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a14-tab-buildings-1080 | control | pickerChip.pickerChipOn.h-selected "Lodges" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a14-tab-buildings-1080 | control | pickerChip "Services" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a14-tab-buildings-1080 | control | pickerChip "Mergeable buildings" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -1090,7 +1110,7 @@ a14-tab-buildings-2160 | control | infoLine.foldRow.infoHeader "Merged buildings
 a14-tab-buildings-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a14-tab-buildings-2160 | control | tabButton "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a14-tab-buildings-2160 | control | tabButton.tabButtonOn.h-selected "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
-a14-tab-buildings-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a14-tab-buildings-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a14-tab-buildings-2160 | control | pickerChip.pickerChipOn.h-selected "Lodges" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a14-tab-buildings-2160 | control | pickerChip "Services" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a14-tab-buildings-2160 | control | pickerChip "Mergeable buildings" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -1140,7 +1160,7 @@ a15-problems-1080 | control | infoLine.foldRow.infoHeader "Merged buildings1" | 
 a15-problems-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a15-problems-1080 | control | tabButton "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a15-problems-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a15-problems-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a15-problems-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a15-problems-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a15-problems-1080 | control | pickerChip "Warming hut¢120,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a15-problems-1080 | control | pickerChip "Base lodge¢410,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -1181,7 +1201,7 @@ a15-problems-2160 | control | infoLine.foldRow.infoHeader "Merged buildings1" | 
 a15-problems-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a15-problems-2160 | control | tabButton "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a15-problems-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a15-problems-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a15-problems-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a15-problems-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a15-problems-2160 | control | pickerChip "Warming hut¢120,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a15-problems-2160 | control | pickerChip "Base lodge¢410,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -1220,11 +1240,12 @@ a16-areas-1080 | control | overlayItem "Not linked to a ski area1 ru" | h=28.2; 
 a16-areas-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a16-areas-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a16-areas-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a16-areas-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a16-areas-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a16-areas-1080 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a16-areas-1080 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a16-areas-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a16-areas-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a16-areas-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a16-areas-1080 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1 rgb(75, 195, 241)
 a16-areas-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a16-areas-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -1266,11 +1287,12 @@ a16-areas-2160 | control | overlayItem "Not linked to a ski area1 ru" | h=28.2; 
 a16-areas-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a16-areas-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a16-areas-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a16-areas-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a16-areas-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a16-areas-2160 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a16-areas-2160 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a16-areas-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a16-areas-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a16-areas-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a16-areas-2160 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1.5 rgb(75, 195, 241)
 a16-areas-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a16-areas-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -1309,7 +1331,7 @@ a17-merge-card-1080 | control | infoLine.foldRow.infoHeader "Merged buildings2" 
 a17-merge-card-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a17-merge-card-1080 | control | tabButton "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a17-merge-card-1080 | control | tabButton.tabButtonOn.h-selected "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
-a17-merge-card-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a17-merge-card-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a17-merge-card-1080 | control | pickerChip.pickerChipOn.h-selected "Lodges" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a17-merge-card-1080 | control | pickerChip "Services" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a17-merge-card-1080 | control | pickerChip "Mergeable buildings" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -1355,7 +1377,7 @@ a17-merge-card-2160 | control | infoLine.foldRow.infoHeader "Merged buildings2" 
 a17-merge-card-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a17-merge-card-2160 | control | tabButton "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a17-merge-card-2160 | control | tabButton.tabButtonOn.h-selected "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
-a17-merge-card-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a17-merge-card-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a17-merge-card-2160 | control | pickerChip.pickerChipOn.h-selected "Lodges" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a17-merge-card-2160 | control | pickerChip "Services" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a17-merge-card-2160 | control | pickerChip "Mergeable buildings" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -1423,11 +1445,12 @@ a18-planner-1080 | control | h-btn.h-iconbtn.rowPen #5 | h=22; pad=4 4 4 4; font
 a18-planner-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a18-planner-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a18-planner-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a18-planner-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a18-planner-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a18-planner-1080 | control | pickerChip "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a18-planner-1080 | control | pickerChip.pickerChipOn.h-selected "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a18-planner-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a18-planner-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a18-planner-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a18-planner-1080 | control | buildTile "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a18-planner-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a18-planner-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -1489,11 +1512,12 @@ a18-planner-2160 | control | h-btn.h-iconbtn.rowPen #5 | h=22; pad=4 4 4 4; font
 a18-planner-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a18-planner-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a18-planner-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a18-planner-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a18-planner-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a18-planner-2160 | control | pickerChip "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a18-planner-2160 | control | pickerChip.pickerChipOn.h-selected "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a18-planner-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a18-planner-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a18-planner-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a18-planner-2160 | control | buildTile "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a18-planner-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a18-planner-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -1590,7 +1614,7 @@ a19-runs-big-1080 | control | h-btn.h-iconbtn.rowPen #30 | h=22; pad=4 4 4 4; fo
 a19-runs-big-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a19-runs-big-1080 | control | tabButton "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a19-runs-big-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a19-runs-big-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a19-runs-big-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a19-runs-big-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a19-runs-big-1080 | control | pickerChip "Warming hut¢120,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a19-runs-big-1080 | control | pickerChip "Base lodge¢410,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -1683,7 +1707,7 @@ a19-runs-big-2160 | control | h-btn.h-iconbtn.rowPen #30 | h=22; pad=4 4 4 4; fo
 a19-runs-big-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a19-runs-big-2160 | control | tabButton "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a19-runs-big-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a19-runs-big-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a19-runs-big-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a19-runs-big-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a19-runs-big-2160 | control | pickerChip "Warming hut¢120,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a19-runs-big-2160 | control | pickerChip "Base lodge¢410,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -1719,11 +1743,12 @@ a20-tip-status-1080 | control | infoLine.foldRow.infoHeader "Merged buildings2" 
 a20-tip-status-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a20-tip-status-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a20-tip-status-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
-a20-tip-status-1080 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a20-tip-status-1080 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a20-tip-status-1080 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgb(75, 195, 241)
 a20-tip-status-1080 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a20-tip-status-1080 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a20-tip-status-1080 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
+a20-tip-status-1080 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a20-tip-status-1080 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1 rgb(75, 195, 241)
 a20-tip-status-1080 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1 rgba(0, 0, 0, 0)
 a20-tip-status-1080 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -1761,11 +1786,12 @@ a20-tip-status-2160 | control | infoLine.foldRow.infoHeader "Merged buildings2" 
 a20-tip-status-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a20-tip-status-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a20-tip-status-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
-a20-tip-status-2160 | control | tabChevron | h=24; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(16, 16, 16, 0.3); border=-
+a20-tip-status-2160 | control | tabChevron | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a20-tip-status-2160 | control | pickerChip.pickerChipOn.h-selected "Tree tool" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgb(75, 195, 241)
 a20-tip-status-2160 | control | pickerChip "Resort Planner" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a20-tip-status-2160 | control | pickerChip "Delete cat tracks" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a20-tip-status-2160 | control | pickerChip "Ski way" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
+a20-tip-status-2160 | control | pickerChip "Slope colors" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a20-tip-status-2160 | control | buildTile.buildTileActive.h-selected "Run" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(0, 0, 0); border=1.5 rgb(75, 195, 241)
 a20-tip-status-2160 | control | buildTile "Cat track" | h=56; pad=8 0 0 0; font=14; radius=4; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=1.5 rgba(0, 0, 0, 0)
 a20-tip-status-2160 | control | pickerChip "Day lodge¢180,000" | h=22; pad=0 4 0 4; font=12; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)

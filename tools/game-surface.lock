@@ -263,6 +263,7 @@ type Game.Objects.Elevation struct f5c16c458c m_Elevation:float m_Flags:Elevatio
 type Game.Objects.ElevationFlags enum 3d54325640 Stacked=1 OnGround=2 Lowered=4 OnAttachedParent=8
 type Game.Objects.GeometryFlags enum 18c095a485 None=0 Circular=1 Overridable=2 Marker=4 ExclusiveGround=8 DeleteOverridden=16 Physical=32 WalkThrough=64 Standing=128 CircularLeg=256 OverrideZone=512 OccupyZone=1024 CanSubmerge=2048 BaseCollision=4096 IgnoreSecondaryCollision=8192 OptionalAttach=16384 Brushable=32768 Stampable=65536 LowCollisionPriority=131072 IgnoreBottomCollision=262144 HasBase=524288 HasLot=1048576 IgnoreLegCollision=2097152 Builtin=4194304 ReadOnly=8388608 IgnoreElevatedGround=16777216
 type Game.Objects.Object struct 53a15dc08a
+type Game.Objects.ObjectGeometry struct 22a342b769
 type Game.Objects.ObjectUtils class c5d0ec0461
 type Game.Objects.OutsideConnection struct 5a01b05ba8 burst:r:SkiDaySystem
 type Game.Objects.OverrideSystem class 328db584f8
@@ -370,6 +371,7 @@ type Game.Prefabs.NotificationIconPrefab class f436893fc8
 type Game.Prefabs.NotificationIconPrefabSystem class 449bc0c7d4
 type Game.Prefabs.ObjectData struct 6d1cc80b7c m_Archetype:EntityArchetype
 type Game.Prefabs.ObjectGeometryData struct cd17a72fad m_Bounds:Bounds3 m_Size:float3 m_Pivot:float3 m_LegSize:float3 m_LegOffset:float2 m_Flags:GeometryFlags m_MinLod:int m_Layers:MeshLayer m_SubObjectMask:ObjectRequirementFlags
+type Game.Prefabs.ObjectGeometryPrefab class e7a0069bb6
 type Game.Prefabs.ObjectInitializeSystem class 15043f8835
 type Game.Prefabs.ObjectPrefab class 0b3dc04860
 type Game.Prefabs.ObjectRequirementElement struct d9fac0bdc0 m_Requirement:Entity m_Group:ushort m_Type:ObjectRequirementType m_RequireFlags:ObjectRequirementFlags m_ForbidFlags:ObjectRequirementFlags
@@ -459,7 +461,8 @@ type Game.Rendering.AreaBufferSystem class 9e228cf280
 type Game.Rendering.BatchDataHelpers class ffe493cbbd
 type Game.Rendering.BatchDataSystem class 23d333f248
 type Game.Rendering.BatchInstanceSystem class 7fec9048e3
-type Game.Rendering.Bone struct 8577b30561 burst:w:TrainBoneSystem m_Position:float3 m_Rotation:quaternion m_Scale:float3
+type Game.Rendering.Bone struct 8577b30561 burst:w:BullwheelBoneSystem,TrainBoneSystem m_Position:float3 m_Rotation:quaternion m_Scale:float3
+type Game.Rendering.BoneHistory struct 5fdafef2a5 m_Matrix:float4x4
 type Game.Rendering.CameraUpdateSystem class edf1128610
 type Game.Rendering.CullingInfo struct c3c14133b2 burst:w:SkiGroomerSystem m_Bounds:Bounds3 m_Radius:float m_CullingIndex:int m_Mask:BoundsMask m_MinLod:byte m_PassedCulling:byte
 type Game.Rendering.EffectRangeRenderSystem class 0b2f5d0a9f
@@ -470,13 +473,16 @@ type Game.Rendering.LightingSystem class fcc07f6927
 type Game.Rendering.NotificationIconRenderSystem class 83a26fc008
 type Game.Rendering.ObjectColorSystem class bf57bbeba9
 type Game.Rendering.ObjectInterpolateSystem class 5c620b5774
+type Game.Rendering.OverlayInfomodeSystem class 66b0d14fa2
 type Game.Rendering.OverlayRenderSystem class e9faffedcc
-type Game.Rendering.OverlayRenderSystem.Buffer struct e9faffedcc burst:r:SkiPisteMapSystem,SkiRunDrawFeedbackSystem,SkiRunOutlineSystem m_ProjectedCurves:NativeList<CurveData> m_AbsoluteCurves:NativeList<CurveData> m_CustomMeshes:NativeList<CustomMeshdData> m_TextMeshes:NativeList<TextMeshData> m_Bounds:NativeValue<BoundsData> m_PositionY:float m_ScaleY:float
+type Game.Rendering.OverlayRenderSystem.BoundsData struct e9faffedcc burst:r:SkiRunDrawFeedbackSystem,SkiSlopeContourBuilder m_CurveBounds:Bounds3
+type Game.Rendering.OverlayRenderSystem.Buffer struct e9faffedcc burst:r:SkiPisteMapSystem,SkiRunDrawFeedbackSystem,SkiRunOutlineSystem,SkiSlopeContourBuilder m_ProjectedCurves:NativeList<CurveData> m_AbsoluteCurves:NativeList<CurveData> m_CustomMeshes:NativeList<CustomMeshdData> m_TextMeshes:NativeList<TextMeshData> m_Bounds:NativeValue<BoundsData> m_PositionY:float m_ScaleY:float
 type Game.Rendering.PreCullingSystem class 4757a27628
+type Game.Rendering.ProceduralUploadSystem class a30866798e
 type Game.Rendering.RenderingSystem class 577547827a
 type Game.Rendering.RouteBufferSystem class 0610c4b152
 type Game.Rendering.RouteRenderSystem class 09cafeaf5a
-type Game.Rendering.Skeleton struct a66af6d7f6 burst:w:TrainBoneSystem m_BufferAllocation:NativeHeapBlock m_BoneOffset:int m_LayerOffset:int m_CurrentUpdated:bool m_HistoryUpdated:bool m_RequireHistory:bool
+type Game.Rendering.Skeleton struct a66af6d7f6 burst:w:BullwheelBoneSystem,TrainBoneSystem m_BufferAllocation:NativeHeapBlock m_BoneOffset:int m_LayerOffset:int m_CurrentUpdated:bool m_HistoryUpdated:bool m_RequireHistory:bool
 type Game.Rendering.UndergroundPass class 2eaa51639c
 type Game.Rendering.UndergroundViewSystem class ef72630ff5
 type Game.Rendering.Viewer class 61c2e21eb0
@@ -723,6 +729,8 @@ type Game.Zones.AreaType enum 0020e2eadd None=0 Residential=1 Commercial=2 Indus
 type Game.Zones.RaycastJobs class 7e0eac0191
 type Game.Zones.SearchSystem class 8b4292c96c
 type Game.Zones.ZoneType struct b246568eca m_Index:ushort
+anchor BoneRetrofitSystem after Game.Serialization.RequiredComponentSystem Deserialize
+anchor BullwheelBoneSystem after Game.Rendering.InitializeBonesSystem Rendering
 anchor CatTrackGradeTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
 anchor LiftLineIconSystem after Game.Net.ConnectionWarningSystem ModificationEnd
 anchor LiftLineTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
@@ -746,6 +754,7 @@ anchor SkiGuestCounterSystem after Game.Simulation.MeetingSystem GameSimulation 
 anchor SkiLiftTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
 anchor SkiMergeOverlaySystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiNightLightSystem after Game.Effects.EffectFlagSystem GameSimulation interval{return 2048;}
+anchor SkiParkingRingTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
 anchor SkiPisteMapSystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiPlacementInfoviewSystem before Game.UI.InGame.InfoviewsUISystem UIUpdate
 anchor SkiResortAttractivenessSystem after Game.Simulation.AttractionSystem GameSimulation interval{return 16;}
@@ -772,10 +781,12 @@ guid UnityGUID:03b1510ce391829409b4f09a7bffaa49 m_Object
 guid UnityGUID:05564431524791c48846dbd183fd232d m_Group
 guid UnityGUID:0bbcb0620e01694448cb78385580351b m_Object
 guid UnityGUID:0d01c98e6f7cd9b44ac31084b6ba7ccd m_Object
+guid UnityGUID:12633b57802d4a84a8e8c08bbef9091d m_Mesh
 guid UnityGUID:1a4c93c0bf4c1fa438702f35ad299923 m_Effect
 guid UnityGUID:1ad78f47f5ed32b4a85ae101abc6d7ae m_Object
 guid UnityGUID:2ea04b52c3797114cb8e4c281a6c91c3 m_Object
 guid UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b m_Lane,m_LanePrefab
+guid UnityGUID:3880b17eed0efbd448e640f6353a7f7b m_Mesh
 guid UnityGUID:3e47e765f44f210409edf4e6229fd0df (list)
 guid UnityGUID:3f3008bdf841128428290d4f3678baa7 m_Object
 guid UnityGUID:3f8dafc1558bce24597bd8ca898947fa m_Object
@@ -825,6 +836,7 @@ guid UnityGUID:fb4247f7a6f75b1478d9dd01ac88ce86 m_Object
 guid UnityGUID:fc058a3d03b337e4794c432a84170316 m_Object
 guid UnityObjectsMap:0f7db8761506813468a9bb7b91f145be m_Effect
 guid UnityObjectsMap:a1b9ab64e2f648a4da17231062c1e066 m_Material
+burstsystem BullwheelBoneSystem
 burstsystem ChairPinSystem
 burstsystem SkiCoachSystem
 burstsystem SkiDaySystem
@@ -837,5 +849,6 @@ burstsystem SkiReachCensusSystem
 burstsystem SkiResortAttractivenessSystem
 burstsystem SkiRunDrawFeedbackSystem
 burstsystem SkiRunOutlineSystem
+burstsystem SkiSlopeContourBuilder
 burstsystem SkiSnowInjectionSystem
 burstsystem TrainBoneSystem

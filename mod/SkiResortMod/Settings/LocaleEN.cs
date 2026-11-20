@@ -291,6 +291,16 @@ namespace SkiResortMod.Settings
                     "or snow guns run, so on a warm map with gating off they cost no upkeep. Default on."
                 },
                 {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.EnableTopToBottomRule)),
+                    "Runs need snow top to bottom"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.EnableTopToBottomRule)),
+                    "On: a run opens only when it has snow from top to bottom. Every stretch of its vertical needs 30 cm (1 ft) of " +
+                    "snow on half of it. An open run closes when a stretch falls under a quarter. The 60 % and 40 % rules still apply. " +
+                    "Off: only the 60 % and 40 % rules count, so a run can open with a bare bottom. Default on."
+                },
+                {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SnowmakingBonusCelsius)),
                     "Snowmaking margin (°C)"
                 },
@@ -348,6 +358,18 @@ namespace SkiResortMod.Settings
                     "the height under the cursor. While you place a sign, it also gives the lowest and highest dry ground " +
                     "within the ski area radius. It adds the vertical above the snow line and how much ground lies above it. " +
                     "Default on."
+                },
+                // The slope overlay (T253)
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ShowSlopeOverlay)),
+                    "Show slope colors around the cursor"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowSlopeOverlay)),
+                    "When enabled, the ground within 300 m of the cursor shows its slope in the ski run colors. Green is under 25 %, " +
+                    "blue to 40 %, black to 60 % and double black above. The European grading uses its own colors. A run is rated by " +
+                    "its steepest stretch that skiers cannot go around. A steep patch beside an easier line does not set the run's " +
+                    "color. The hub's Runs tab has a Slope colors button too. Default off."
                 },
                 // The ski area ring
                 {
@@ -490,6 +512,15 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.AnimatedLiftCarriers)),
                     "Grips follow the slope of the rope, and chairs and cabins swing in the wind. Off: they hang level and still. Default on."
+                },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LiftStationRetrofit)),
+                    "Moving parts for older lift stations"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftStationRetrofit)),
+                    "When a city loads, fixed-grip chairlift stations built before version 1.0.4 get what their turning bullwheel needs. " +
+                    "Off: those stations keep a still bullwheel, and newer ones turn either way. Takes effect at the next load. Default on."
                 },
 
                 // --- Diagnostics ---
@@ -638,6 +669,18 @@ namespace SkiResortMod.Settings
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleQuickRuns), "Toggle Resort Planner" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleQuickRuns), "Resort Planner" },
+                // The slope overlay (T253)
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ToggleSlopeOverlayBinding)),
+                    "Slope colors: toggle"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleSlopeOverlayBinding)),
+                    "Turns the slope colors around the cursor on or off. The Runs option \"Show slope colors around the cursor\" " +
+                    "and the Slope colors button on the hub's Runs tab do the same. No key by default."
+                },
+                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleSlopeOverlay), "Toggle slope colors" },
+                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleSlopeOverlay), "Slope colors" },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleGlade), "Toggle tree tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleGlade), "Tree tool" },
                 // The two persisted actions keep their names. Only the labels and descriptions change.

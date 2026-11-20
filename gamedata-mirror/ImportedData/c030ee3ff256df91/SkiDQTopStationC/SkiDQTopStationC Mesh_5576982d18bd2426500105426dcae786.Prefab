@@ -47,7 +47,7 @@
                                 "$rcontent": [
                                     { "$type": "8|UnityEngine.Color, UnityEngine.CoreModule", 0.62, 0.64, 0.66, 1 },
                                     { "$type": 8, 0.85, 0.25, 0.1, 1 },
-                                    { "$type": 8, 0.16, 0.3, 0.2, 1 }
+                                    { "$type": 8, 0.173, 0.42, 0.26, 1 }
                                 ]
                             },
                             "m_VariationGroup": ""

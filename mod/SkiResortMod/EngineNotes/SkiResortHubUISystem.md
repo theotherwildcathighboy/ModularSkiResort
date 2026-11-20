@@ -508,6 +508,19 @@ Appended fields and bindings by contract:
   They count the people of game-sent tourist parties that walked away at the ticket price. -1 means unknown. The counts are ledger
   Entry fields, not the saved month, so they restart at a load. The Guests view's "Turned away by price" row shows them. No trigger
   was added.
+- 59 (1.0.4, T266 / T267, r5/polish): `ResortLive` appends `passesSoldMonth` after `schoolOffSeason`. It is the ledger's count of passes sold
+  this month (-1 unknown). It is the count behind the Net's pass row (`passIncomeMonth`). That money also holds destination day fees.
+  The meaning of `priceTolerance` changes. It now comes from `SkiDaySystem.TryPriceToleranceOf`. The ski days and the destination pass
+  use that value: the area's best passing lodge. A closed lodge no longer zeroes it in the off-season. It is -1 (unknown) before the area's
+  first ski-day pass after a load, and with ski days off. Before, it came from the score (active lodges only, 0 without a result).
+  The Finances demand word shows "–" while it is -1. The destination line shows "–" for its share. No trigger was added.
+- 60 (1.0.4, T253, r4/slope-overlay): the `slopeOverlay` value binding (bool, `SkiSlopeOverlaySystem.IsOn`) and the
+  `setSlopeOverlay(on)` trigger for the Runs tab's Slope colors chip. The trigger goes through `RequestKind.SetSlopeOverlay` to
+  `SkiSlopeOverlaySystem.RequestSet`, which saves `ShowSlopeOverlay` like the toggle key (unbound by default). Panel binding, no Demand.
+  See EngineNotes/SkiSlopeOverlaySystem.md.
+- 61 (1.0.4, T268, r5/open-rule): `RunLive` appends `snowGap` after `gunWhy` (0 none, 1 bottom, 2 partway: `RunSnowRules.Gap`,
+  set only while the top-to-bottom rule holds a measured run under fully open). It is in `HashRunLive`. The run tooltip shows the gap
+  line and the Closed line drops "opens at 60 %" while it binds.
 - 42: the runs-first plans (Resort Planner round, task R2-b). `QuickRunsState` loses `mix`, `liftsKnob` and `home`. `QuickRunsLift` loses
   `wantedKey` and gains `flagged`, `waits`, `overLimitTowers`. `QuickRunsPlan` loses `pods` and gains `trackKm`. `QuickRunsState` gains `tracks`
   and `QuickRunsPod` gains `tracks`. `runs`, `enabled`, `count` and `variety` count pistes only. `QuickRunsSheetRow` gains `flagged`, `waits`,
