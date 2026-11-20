@@ -23,8 +23,10 @@ namespace SnowPackSim
     internal static class Program
     {
         private const int Cells = 15;
-        private const float BottomM = 300f, TopM = 1000f, LapsePerM = 0.01f;
-        private const float Dt = 0.25f;
+        private static readonly float BottomM = EnvF("SIM_BOTTOM_M", 300f), TopM = EnvF("SIM_TOP_M", 1000f);
+        private const float LapsePerM = 0.01f;
+        private static float EnvF(string name, float dflt) => float.TryParse(System.Environment.GetEnvironmentVariable(name), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float v) ? v : dflt;
+        private static readonly float Dt = EnvF("SIM_DT_H", 0.25f);   // game hours per step; 0.00586 = one 64-frame top-up window
         private const int HoursPerYear = 288;
         private const float MarginC = RunSnowRules.DefaultSnowmakingMarginC;
         private static float s_AddPerPrecipHourM;
@@ -68,7 +70,33 @@ namespace SnowPackSim
                 return RunSnowRules.MeasuredShare(prev, open / (float)Cells, keep / (float)Cells);
             }
             public void Label() => State = RunSnowRules.NextState(State, CountedShare(State));
+
+            // T268: the same surface under the open rule by continuity (RunSnowRules.OpenShare over elevation bands). Cat tracks keep
+            // the area rule (HasBands false). Each cell counts as BandCellWeight texels, so a band of one cell is still judged.
+            public RunSnowState StateC = RunSnowState.Unknown;
+            public double OpenHoursC;
+            public virtual bool HasBands => true;
+            public float CountedShareC(RunSnowState prev)
+            {
+                float area = CountedShare(prev);
+                if (!HasBands) return area;
+                float bar = RunSnowRules.KeepDepthM;   // the band share counts at the keep bar in every state (RunSnowRules T268)
+                var foot = new double[ContinuityBands];
+                var ski = new double[ContinuityBands];
+                for (int i = 0; i < Cells; i++)
+                {
+                    int b = RunSnowRules.ContinuityBand(CellY(i), BottomM, TopM);
+                    foot[b] += BandCellWeight;
+                    if (D[i] >= bar) ski[b] += BandCellWeight;
+                }
+                float worst = RunSnowRules.WorstBandShare(foot, ski, 0, out _);
+                return RunSnowRules.OpenShare(area, worst);
+            }
+            public void LabelC() => StateC = RunSnowRules.NextState(StateC, CountedShareC(StateC));
         }
+
+        private const int ContinuityBands = RunSnowRules.ContinuityBands;
+        private const float BandCellWeight = 4f;
 
         private static void Vanilla(float[] d, float tBase, float precip)
         {
@@ -130,6 +158,7 @@ namespace SnowPackSim
                 BuiltM += Math.Max(0f, m_Made.Share * m_Made.DepthM - before);
                 for (int i = 0; i < Cells; i++) D[i] = m_Nat[i];
             }
+            public override bool HasBands => false;
             public override float MeanDepth() => RunSnowRules.TrackMeanDepthM(Mean(m_Nat), m_Made);
             public override float CountedShare(RunSnowState prev) =>
                 RunSnowRules.TrackShare(NatShare(m_Nat, prev), RunSnowRules.TrackMadeCountedShare(prev, m_Made));
@@ -142,6 +171,7 @@ namespace SnowPackSim
             private RunSnowRules.PackGun m_Gun;
             private readonly float[] m_NatPrev = new float[Cells];
             public TrackProposed(RunSnowRules.PackParams p) { m_P = p; }
+            public override bool HasBands => false;
             public override void Step(float date, float tBase, float precip, float[] nat)
             {
                 bool season = SnowGunPlumeRules.InGunSeason("", date);
@@ -255,7 +285,7 @@ namespace SnowPackSim
             {
                 bool rec = year == 1;
                 if (rec)
-                    foreach (var s in surfaces) { s.GunHours = 0; s.BuiltM = 0; s.OpenHours = 0; s.Peak = 0; s.PeakTop = 0; }
+                    foreach (var s in surfaces) { s.GunHours = 0; s.BuiltM = 0; s.OpenHours = 0; s.OpenHoursC = 0; s.Peak = 0; s.PeakTop = 0; }
                 for (int h = 0; h < HoursPerYear; h++)
                 {
                     int hi = (start + h) % HoursPerYear;
@@ -273,6 +303,8 @@ namespace SnowPackSim
                             var s = surfaces[j];
                             s.Step(date, t, a.P, nat);
                             s.Label();
+                            s.LabelC();
+                            if (s.StateC == RunSnowState.Open) s.OpenHoursC += Dt;
                             gunsAny[j] |= s.GunsNow;
                             if (s.State == RunSnowState.Open) s.OpenHours += Dt;
                             s.Peak = Math.Max(s.Peak, s.MeanDepth());
@@ -300,10 +332,10 @@ namespace SnowPackSim
             }
             string tag = name + "_melt" + s_Melt.ToString("0.000");
             File.WriteAllText(Path.Combine(outDir, tag + ".csv"), csv.ToString());
-            summary.AppendLine("| " + name + " | " + s_Melt.ToString("0.000") + " | surface | open h | first open | last open | gun h | made m | peak mean m | peak top m |");
+            summary.AppendLine("| " + name + " | " + s_Melt.ToString("0.000") + " | surface | open h | open h, top to bottom (T268) | first open | last open | gun h | made m | peak mean m | peak top m |");
             foreach (var s in surfaces)
             {
-                summary.AppendLine("| | | " + s.Name + " | " + s.OpenHours.ToString("0.0") + " | " + (first.TryGetValue(s.Name, out var fo) ? fo : "-") + " | "
+                summary.AppendLine("| | | " + s.Name + " | " + s.OpenHours.ToString("0.0") + " | " + (s.HasBands ? s.OpenHoursC.ToString("0.0") : "area rule") + " | " + (first.TryGetValue(s.Name, out var fo) ? fo : "-") + " | "
                     + (last.TryGetValue(s.Name, out var lo) ? lo : "-") + " | " + s.GunHours.ToString("0.0") + " | " + s.BuiltM.ToString("0.00")
                     + " | " + s.Peak.ToString("0.00") + " | " + s.PeakTop.ToString("0.00") + " |");
             }

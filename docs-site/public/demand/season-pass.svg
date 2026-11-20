@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="dc" viewBox="0 0 640 360" width="640" height="360" role="img" aria-labelledby="dc-season-pass-t dc-season-pass-d" style="width:100%;height:auto;max-width:640px">
+<title id="dc-season-pass-t">Households that buy a season pass, by the pass price in lift tickets</title><desc id="dc-season-pass-d">One line. All would-be buyers buy up to 4 times the ticket price, then the share falls to 0 at 12 times the ticket price.</desc>
+<style>.dc{--bg:none;--tx:#1d2b44;--mu:#566a8a;--gr:#cbd8e5;--s1:#2e7d32;--s2:#2a63b8;--s3:#0e0e12;--s4:#b35a00;--ref:#8a9bb3}
+@media (prefers-color-scheme:dark){.dc{--tx:#f0fbff;--mu:#b9c9d8;--gr:#2a3753;--s1:#6fcf74;--s2:#6aa8ff;--s3:#d5dde6;--s4:#ffa42d;--ref:#56698a}}
+:root[data-theme='light'] .dc{--tx:#1d2b44;--mu:#566a8a;--gr:#cbd8e5;--s1:#2e7d32;--s2:#2a63b8;--s3:#0e0e12;--s4:#b35a00;--ref:#8a9bb3}
+:root[data-theme='dark'] .dc{--tx:#f0fbff;--mu:#b9c9d8;--gr:#2a3753;--s1:#6fcf74;--s2:#6aa8ff;--s3:#d5dde6;--s4:#ffa42d;--ref:#56698a}
+.dc text{fill:var(--tx);font:13px ui-sans-serif,system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+.dc .mu{fill:var(--mu)}.dc .gr{stroke:var(--gr);stroke-width:1;fill:none}.dc .ax{stroke:var(--mu);stroke-width:1.5;fill:none}
+.dc .ref{stroke:var(--ref);stroke-width:1.5;stroke-dasharray:2 4;fill:none}
+.dc .ln{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.dc .s1{stroke:var(--s1)}.dc .s2{stroke:var(--s2)}.dc .s3{stroke:var(--s3)}.dc .s4{stroke:var(--s4)}
+.dc .d2{stroke-dasharray:10 5}.dc .d3{stroke-dasharray:2 5}</style>
+<path class="gr" d="M58 306H620"/><text class="mu" x="50" y="310" text-anchor="end">0 %</text>
+<path class="gr" d="M58 244H620"/><text class="mu" x="50" y="248" text-anchor="end">25 %</text>
+<path class="gr" d="M58 182H620"/><text class="mu" x="50" y="186" text-anchor="end">50 %</text>
+<path class="gr" d="M58 120H620"/><text class="mu" x="50" y="124" text-anchor="end">75 %</text>
+<path class="gr" d="M58 58H620"/><text class="mu" x="50" y="62" text-anchor="end">100 %</text>
+<path class="gr" d="M58 58V306"/><text class="mu" x="58" y="324" text-anchor="middle">0 ×</text>
+<path class="gr" d="M138.3 58V306"/><text class="mu" x="138.3" y="324" text-anchor="middle">2 ×</text>
+<path class="gr" d="M218.6 58V306"/><text class="mu" x="218.6" y="324" text-anchor="middle">4 ×</text>
+<path class="gr" d="M298.9 58V306"/><text class="mu" x="298.9" y="324" text-anchor="middle">6 ×</text>
+<path class="gr" d="M379.1 58V306"/><text class="mu" x="379.1" y="324" text-anchor="middle">8 ×</text>
+<path class="gr" d="M459.4 58V306"/><text class="mu" x="459.4" y="324" text-anchor="middle">10 ×</text>
+<path class="gr" d="M539.7 58V306"/><text class="mu" x="539.7" y="324" text-anchor="middle">12 ×</text>
+<path class="gr" d="M620 58V306"/><text class="mu" x="620" y="324" text-anchor="middle">14 ×</text>
+<path class="ax" d="M58 58V306H620"/>
+<path class="ref" d="M218.6 58V306"/><text class="mu" x="223.6" y="298">4 × ticket</text>
+<path class="ln s2" d="M58 58L68 58L78.1 58L88.1 58L98.1 58L108.2 58L118.2 58L128.3 58L138.3 58L148.3 58L158.4 58L168.4 58L178.4 58L188.5 58L198.5 58L208.5 58L218.6 58L228.6 65.8L238.6 73.5L248.7 81.3L258.7 89L268.8 96.8L278.8 104.5L288.8 112.3L298.9 120L308.9 127.8L318.9 135.5L329 143.3L339 151L349 158.8L359.1 166.5L369.1 174.3L379.1 182L389.2 189.8L399.2 197.5L409.3 205.3L419.3 213L429.3 220.8L439.4 228.5L449.4 236.3L459.4 244L469.5 251.8L479.5 259.5L489.5 267.3L499.6 275L509.6 282.8L519.6 290.5L529.7 298.3L539.7 306L549.8 306L559.8 306L569.8 306L579.9 306L589.9 306L599.9 306L610 306L620 306"/>
+<text class="mu" x="339" y="350" text-anchor="middle">Pass price as a multiple of the lift ticket</text>
+<text class="mu" transform="translate(14 182) rotate(-90)" text-anchor="middle">Would-be buyers who buy</text>
+<path class="ln s2" d="M58 10h34"/><text x="100" y="14">Resident household with the season pass on offer</text>
+</svg>

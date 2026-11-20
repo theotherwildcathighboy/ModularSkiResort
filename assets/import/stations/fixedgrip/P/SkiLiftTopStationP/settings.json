@@ -1,0 +1,19 @@
+{
+  "sharedAssets": {
+    "SkiLiftTopStationP_LOD1_BaseColor.png": "SkiLiftTopStationP_BaseColor.png",
+    "SkiLiftTopStationP_LOD1_ControlMask.png": "SkiLiftTopStationP_ControlMask.png",
+    "SkiLiftTopStationP_LOD1_MaskMap.png": "SkiLiftTopStationP_MaskMap.png",
+    "SkiLiftTopStationP_LOD1_Normal.png": "SkiLiftTopStationP_Normal.png",
+    "SkiLiftTopStationP_LOD2_BaseColor.png": "SkiLiftTopStationP_BaseColor.png",
+    "SkiLiftTopStationP_LOD2_ControlMask.png": "SkiLiftTopStationP_ControlMask.png",
+    "SkiLiftTopStationP_LOD2_MaskMap.png": "SkiLiftTopStationP_MaskMap.png",
+    "SkiLiftTopStationP_LOD2_Normal.png": "SkiLiftTopStationP_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  },
+  "useProceduralAnimation": true
+}

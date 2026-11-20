@@ -976,16 +976,7 @@ namespace SkiResortMod.Systems
             float[] topFull = result.TopFull, topCell = result.TopCell;
             int topFullN = 0, topCellN = 0;
 
-            float halfFull = 0.5f * WindowLength / s;                 // cells
-            int checksFull = Checks(WindowLength, s);
-            // Shorter centered windows (overlay only), longest first, never shorter than 2 steps.
-            float l1 = 15f, l2 = 10f, l3 = 7f;
-            bool use1 = l1 >= 2f * s, use2 = l2 >= 2f * s, use3 = l3 >= 2f * s;
-            float half1 = 0.5f * l1 / s, half2 = 0.5f * l2 / s, half3 = 0.5f * l3 / s;
-            int checks1 = Checks(l1, s), checks2 = Checks(l2, s), checks3 = Checks(l3, s);
-
-            float inv50 = 1f / (50f * s);
-            int nx2 = 2 * nx, nx3 = 3 * nx;
+            CellParams cp = CellParams.For(s);
             double sumAbs = 0.0, sumGx = 0.0, sumGz = 0.0;
             float hmin = float.MaxValue, hmax = float.MinValue;
             int n = 0, valid = 0, c0 = 0, c1 = 0, c2 = 0, c3 = 0, c4 = 0;
@@ -1013,43 +1004,14 @@ namespace SkiResortMod.Systems
                         if (hq < hmin) hmin = hq;
                         if (hq > hmax) hmax = hq;
 
-                        // 5×5 box of central differences, telescoped per row / column.
-                        float ax = 0f, az = 0f;
-                        for (int b = -2; b <= 2; b++)
-                        {
-                            int r = q + b * nx;
-                            ax += h[r + 3] + h[r + 2] - h[r - 2] - h[r - 3];
-                            int c = q + b;
-                            az += h[c + nx3] + h[c + nx2] - h[c - nx2] - h[c - nx3];
-                        }
-                        float gx = ax * inv50, gz = az * inv50;
-                        float gm = math.sqrt(gx * gx + gz * gz);
+                        float o = CellValue(h, mask, nx, nz, i, j, in cp, out bool full, out float gx, out float gz, out float gm);
                         sumAbs += gm;
                         sumGx += gx;
                         sumGz += gz;
-                        float dx = 1f, dz = 0f;
-                        if (gm >= FlatGradient)
-                        {
-                            dx = -gx / gm;
-                            dz = -gz / gm;
-                        }
-
-                        float o = Window(h, mask, nx, nz, i, j, dx, dz, halfFull, checksFull, WindowLength);
-                        if (o >= 0f)
+                        if (full)
                         {
                             valid++;
                             Push(topFull, ref topFullN, k, o);
-                        }
-                        else
-                        {
-                            if (use1)
-                                o = Window(h, mask, nx, nz, i, j, dx, dz, half1, checks1, l1);
-                            if (o < 0f && use2)
-                                o = Window(h, mask, nx, nz, i, j, dx, dz, half2, checks2, l2);
-                            if (o < 0f && use3)
-                                o = Window(h, mask, nx, nz, i, j, dx, dz, half3, checks3, l3);
-                            if (o < 0f)
-                                o = gm;
                         }
                         Push(topCell, ref topCellN, k, o);
                         cellGrade[q] = o;
@@ -1938,6 +1900,89 @@ namespace SkiResortMod.Systems
             }
             uf[ra] += uf[rb];
             uf[rb] = ra;
+        }
+
+        /// <summary>The per-step window set of CellValue: the full WindowLength window and the shorter centered fallbacks (15 / 10 / 7 m,
+        /// longest first, each used only when at least 2 steps long). Built once per step by For.</summary>
+        public readonly struct CellParams
+        {
+            public readonly float HalfFull, Half1, Half2, Half3, Inv50;
+            public readonly int ChecksFull, Checks1, Checks2, Checks3;
+            public readonly bool Use1, Use2, Use3;
+
+            private CellParams(float s)
+            {
+                HalfFull = 0.5f * WindowLength / s;   // cells
+                ChecksFull = Checks(WindowLength, s);
+                Use1 = Short1 >= 2f * s;
+                Use2 = Short2 >= 2f * s;
+                Use3 = Short3 >= 2f * s;
+                Half1 = 0.5f * Short1 / s;
+                Half2 = 0.5f * Short2 / s;
+                Half3 = 0.5f * Short3 / s;
+                Checks1 = Checks(Short1, s);
+                Checks2 = Checks(Short2, s);
+                Checks3 = Checks(Short3, s);
+                Inv50 = 1f / (50f * s);
+            }
+
+            public static CellParams For(float step) => new CellParams(step);
+        }
+
+        private const float Short1 = 15f, Short2 = 10f, Short3 = 7f;
+
+        /// <summary>Margin (cells) a caller needs around node (i, j), inside the Mask, so that CellValue reads the full WindowLength window
+        /// and the 5×5 box: the rounded window end (ceil(HalfFull) + 1) plus the bilinear's one node, and at least Dilation for the box.
+        /// The slope overlay pads its tiles by this (SkiSlopeOverlayTiles).</summary>
+        public static int FullWindowMargin(float step)
+        {
+            int w = (int)math.ceil(0.5f * WindowLength / step) + 2;
+            return w > Dilation ? w : Dilation;
+        }
+
+        /// <summary>THE per-cell value o of node (i, j) (ClassifyRing's overlay value, the heat-map's color and the slope overlay's color):
+        /// the fall direction from the 5×5 box of central differences, then the drop over the centered WindowLength window along it, divided
+        /// by the length. When that window leaves the Mask, the longest shorter window that fits (15 / 10 / 7 m), else the box gradient |g|.
+        /// full = the WindowLength window fit. gx, gz, gm = the box gradient and its magnitude (ClassifyRing sums them). The caller keeps
+        /// node (i, j) at least Dilation from the grid border (the box reads ±3 rows / columns). Pure, no allocation.</summary>
+        public static float CellValue(float[] h, byte[] mask, int nx, int nz, int i, int j, in CellParams p, out bool full,
+                                      out float gx, out float gz, out float gm)
+        {
+            int q = j * nx + i;
+            int nx2 = 2 * nx, nx3 = 3 * nx;
+            // 5×5 box of central differences, telescoped per row / column.
+            float ax = 0f, az = 0f;
+            for (int b = -2; b <= 2; b++)
+            {
+                int r = q + b * nx;
+                ax += h[r + 3] + h[r + 2] - h[r - 2] - h[r - 3];
+                int c = q + b;
+                az += h[c + nx3] + h[c + nx2] - h[c - nx2] - h[c - nx3];
+            }
+            gx = ax * p.Inv50;
+            gz = az * p.Inv50;
+            gm = math.sqrt(gx * gx + gz * gz);
+            float dx = 1f, dz = 0f;
+            if (gm >= FlatGradient)
+            {
+                dx = -gx / gm;
+                dz = -gz / gm;
+            }
+
+            float o = Window(h, mask, nx, nz, i, j, dx, dz, p.HalfFull, p.ChecksFull, WindowLength);
+            full = o >= 0f;
+            if (!full)
+            {
+                if (p.Use1)
+                    o = Window(h, mask, nx, nz, i, j, dx, dz, p.Half1, p.Checks1, Short1);
+                if (o < 0f && p.Use2)
+                    o = Window(h, mask, nx, nz, i, j, dx, dz, p.Half2, p.Checks2, Short2);
+                if (o < 0f && p.Use3)
+                    o = Window(h, mask, nx, nz, i, j, dx, dz, p.Half3, p.Checks3, Short3);
+                if (o < 0f)
+                    o = gm;
+            }
+            return o;
         }
 
         private static int Checks(float lengthM, float step)

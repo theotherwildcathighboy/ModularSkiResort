@@ -57,6 +57,7 @@ namespace SkiTestBridge
             TickPerf();
             TickSequence();
             TickTrailer();
+            TickPointer();
             TickMergeProbeUi();
             TickLoadCheck();
             TickTourism();
@@ -68,6 +69,7 @@ namespace SkiTestBridge
             UnwatchErrors();
             DestroyReady();
             NativeInput.ReleaseAll();
+            ReleasePointer();
             base.OnDestroy();
         }
 
@@ -136,12 +138,14 @@ namespace SkiTestBridge
                 case "wind": return WindCommand(args);
                 case "fps": return FpsCommand(args);
                 case "overlay": return OverlayCommand(args);
+                case "pointer": return PointerCommand(args);
                 case "package": return PackageCommand(args);
                 case "loadcheck": return LoadCheckCommand(args);
                 case "prefabalias": return PrefabAliasCommand(args);
                 case "playset": return PlaysetCommand(args);
                 case "tourism": return TourismCommand(args);
                 case "meltprobe": return MeltProbeCommand(args);
+                case "vfxprobe": return VfxProbeCommand(args);
                 case "spawnprobe": return SpawnProbeCommand(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="dc" viewBox="0 0 640 360" width="640" height="360" role="img" aria-labelledby="dc-lodge-spend-t dc-lodge-spend-d" style="width:100%;height:auto;max-width:640px">
+<title id="dc-lodge-spend-t">Lodge spend per paying guest, by lift ticket price (setting 15)</title><desc id="dc-lodge-spend-d">Three rising lines, one per lodge tier, shaped like a square root. At the default ticket 100 they read 15, 23, 45. At 200 they read 21, 32, 64.</desc>
+<style>.dc{--bg:none;--tx:#1d2b44;--mu:#566a8a;--gr:#cbd8e5;--s1:#2e7d32;--s2:#2a63b8;--s3:#0e0e12;--s4:#b35a00;--ref:#8a9bb3}
+@media (prefers-color-scheme:dark){.dc{--tx:#f0fbff;--mu:#b9c9d8;--gr:#2a3753;--s1:#6fcf74;--s2:#6aa8ff;--s3:#d5dde6;--s4:#ffa42d;--ref:#56698a}}
+:root[data-theme='light'] .dc{--tx:#1d2b44;--mu:#566a8a;--gr:#cbd8e5;--s1:#2e7d32;--s2:#2a63b8;--s3:#0e0e12;--s4:#b35a00;--ref:#8a9bb3}
+:root[data-theme='dark'] .dc{--tx:#f0fbff;--mu:#b9c9d8;--gr:#2a3753;--s1:#6fcf74;--s2:#6aa8ff;--s3:#d5dde6;--s4:#ffa42d;--ref:#56698a}
+.dc text{fill:var(--tx);font:13px ui-sans-serif,system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+.dc .mu{fill:var(--mu)}.dc .gr{stroke:var(--gr);stroke-width:1;fill:none}.dc .ax{stroke:var(--mu);stroke-width:1.5;fill:none}
+.dc .ref{stroke:var(--ref);stroke-width:1.5;stroke-dasharray:2 4;fill:none}
+.dc .ln{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.dc .s1{stroke:var(--s1)}.dc .s2{stroke:var(--s2)}.dc .s3{stroke:var(--s3)}.dc .s4{stroke:var(--s4)}
+.dc .d2{stroke-dasharray:10 5}.dc .d3{stroke-dasharray:2 5}</style>
+<path class="gr" d="M58 306H620"/><text class="mu" x="50" y="310" text-anchor="end">0</text>
+<path class="gr" d="M58 244H620"/><text class="mu" x="50" y="248" text-anchor="end">17.5</text>
+<path class="gr" d="M58 182H620"/><text class="mu" x="50" y="186" text-anchor="end">35</text>
+<path class="gr" d="M58 120H620"/><text class="mu" x="50" y="124" text-anchor="end">52.5</text>
+<path class="gr" d="M58 58H620"/><text class="mu" x="50" y="62" text-anchor="end">70</text>
+<path class="gr" d="M58 58V306"/><text class="mu" x="58" y="324" text-anchor="middle">0</text>
+<path class="gr" d="M170.4 58V306"/><text class="mu" x="170.4" y="324" text-anchor="middle">40</text>
+<path class="gr" d="M282.8 58V306"/><text class="mu" x="282.8" y="324" text-anchor="middle">80</text>
+<path class="gr" d="M395.2 58V306"/><text class="mu" x="395.2" y="324" text-anchor="middle">120</text>
+<path class="gr" d="M507.6 58V306"/><text class="mu" x="507.6" y="324" text-anchor="middle">160</text>
+<path class="gr" d="M620 58V306"/><text class="mu" x="620" y="324" text-anchor="middle">200</text>
+<path class="ax" d="M58 58V306H620"/>
+<path class="ref" d="M339 58V306"/><text class="mu" x="344" y="298">default 100</text>
+<path class="ln s1" d="M58 306L72.1 294.1L86.1 289.2L100.2 285.4L114.2 282.2L128.3 279.4L142.3 276.9L156.4 274.6L170.4 272.4L184.5 270.4L198.5 268.4L212.6 266.6L226.6 264.8L240.7 263.2L254.7 261.5L268.8 260L282.8 258.5L296.9 257L310.9 255.6L325 254.2L339 252.9L353.1 251.5L367.1 250.3L381.2 249L395.2 247.8L409.3 246.6L423.3 245.4L437.4 244.3L451.4 243.1L465.5 242L479.5 240.9L493.6 239.8L507.6 238.8L521.7 237.7L535.7 236.7L549.8 235.7L563.8 234.7L577.9 233.7L591.9 232.7L605.9 231.8L620 230.8"/>
+<path class="ln s2 d2" d="M58 306L72.1 288.2L86.1 280.8L100.2 275.1L114.2 270.4L128.3 266.1L142.3 262.3L156.4 258.8L170.4 255.6L184.5 252.5L198.5 249.6L212.6 246.9L226.6 244.3L240.7 241.7L254.7 239.3L268.8 237L282.8 234.7L296.9 232.5L310.9 230.4L325 228.3L339 226.3L353.1 224.3L367.1 222.4L381.2 220.5L395.2 218.7L409.3 216.9L423.3 215.1L437.4 213.4L451.4 211.7L465.5 210L479.5 208.4L493.6 206.8L507.6 205.2L521.7 203.6L535.7 202.1L549.8 200.5L563.8 199.1L577.9 197.6L591.9 196.1L605.9 194.7L620 193.3"/>
+<path class="ln s3 d3" d="M58 306L72.1 270.4L86.1 255.6L100.2 244.3L114.2 234.7L128.3 226.3L142.3 218.7L156.4 211.7L170.4 205.2L184.5 199.1L198.5 193.3L212.6 187.8L226.6 182.5L240.7 177.5L254.7 172.6L268.8 167.9L282.8 163.4L296.9 159L310.9 154.8L325 150.6L339 146.6L353.1 142.6L367.1 138.8L381.2 135L395.2 131.4L409.3 127.8L423.3 124.2L437.4 120.8L451.4 117.4L465.5 114L479.5 110.7L493.6 107.5L507.6 104.3L521.7 101.2L535.7 98.1L549.8 95.1L563.8 92.1L577.9 89.2L591.9 86.2L605.9 83.4L620 80.5"/>
+<text class="mu" x="339" y="350" text-anchor="middle">Lift ticket price</text>
+<text class="mu" transform="translate(14 182) rotate(-90)" text-anchor="middle">Spend per paying guest</text>
+<path class="ln s1" d="M58 10h34"/><text x="100" y="14">Hut or A-frame (× 1)</text>
+<path class="ln s2 d2" d="M58 26h34"/><text x="100" y="30">Chalet Lodge (× 1.5)</text>
+<path class="ln s3 d3" d="M58 42h34"/><text x="100" y="46">Swanky Summit or Grand Lodge (× 3)</text>
+</svg>

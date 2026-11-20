@@ -73,7 +73,7 @@ namespace SkiResortMod.Systems
         public int SkiDaysState, SkiDaysThisMonth, SkiDaysLastMonth, SkiDaysSent, SkiDaysSentCar, SkiDaysSentNoCar,
                    SkiDaysNow, SkiDaysCap, SkiDaysLimit, SkiDaysPowderPct;
         // Appended in this order. LodgeBest = the season's best lodge's BuildItemId ("" none). LodgeExtra = the season's extras after
-        // the cap (Result.LodgeExtraApplied). SchoolValue, PatrolledRuns, PriceTolerance from the Result (-1 / 0 without one, as the
+        // the cap (Result.LodgeExtraApplied). SchoolValue, PatrolledRuns, PriceTolerance since contract 59 / T266 from SkiDaySystem.TryPriceToleranceOf (-1 unknown, as the
         // other score numbers). LodgeSpendMonth = the ledger's lodge spend per month by the tickets' month rule (-1 unknown, 0 while the
         // "Lodge spend per guest" setting is 0). LuxuryIgnored is retained for the wire only and is always 0: dropping the field would
         // bump HUB_CONTRACT (contract.lock) for nothing.
@@ -137,6 +137,9 @@ namespace SkiResortMod.Systems
         // ski school is closed that way. The hub says "Closed: off-season" for them, not "Deactivated".
         public int LodgesOffSeason;
         public bool SchoolOffSeason;
+        // Contract 59 (T267): PassesSoldMonth = the passes sold at the area this month (the ledger's month count: the count behind
+        // PassIncomeMonth, whose money also holds the destination passes' day fees). -1 unknown.
+        public int PassesSoldMonth;
 
         /// <summary>The terms NetMonth was computed from (-1 unknown).</summary>
         public HubMonthMoney NetTerms => new HubMonthMoney
@@ -165,6 +168,7 @@ namespace SkiResortMod.Systems
         public float ValueNow; public int CostMonth;
         public int SnowDepthCm; // mean depth, cm. -1 not measured
         public int GunWhy;
+        public int SnowGap;     // T268: RunSnowGap (0 none, 1 bottom, 2 partway), only while the band rule keeps the run from opening
     }
 
     /// <summary>bindings.ts LiftRow: Entity = the census row id (base station, else top station, else the lowest-index line
@@ -1660,6 +1664,7 @@ namespace SkiResortMod.Systems
                     ValueNow = member ? (float)part.Value : 0f,
                     CostMonth = (int)Math.Round(cost, MidpointRounding.AwayFromZero),
                     SnowDepthCm = bound && snow.Source == RunSnowSource.Measured ? HubRules.DepthCm(snow.MeanDepthM) : -1,
+                    SnowGap = bound && snow.Source == RunSnowSource.Measured ? (int)snow.Gap : 0,   // GatingOff / Estimated: no gap line
                     GunWhy = catTrack   // a track set to Off is not a gun run: no gun line
                         ? (int)TrackGunWhyOf(row, bound && trackGunsOn)
                         : (int)GunWhyOf(row.Entity, bound && row.Features.Snowmaking),
@@ -2288,7 +2293,6 @@ namespace SkiResortMod.Systems
                     live.LodgeExtra = (float)r.LodgeExtraApplied;
                     live.SchoolValue = (float)r.SchoolValue;
                     live.PatrolledRuns = r.RunsPatrolled;
-                    live.PriceTolerance = r.PriceTolerance;
                 }
                 else
                 {
@@ -2301,6 +2305,11 @@ namespace SkiResortMod.Systems
                     live.VerticalShortM = -1f;
                     live.LodgeBest = ""; // no result: no best lodge, the counts 0
                 }
+                // T266: the price tolerance the ski days and the destination pass use (SkiDaySystem.PriceToleranceOf), not the score's: the
+                // score counts active lodges only (0 in the off-season, all lodges closed), the ski days the area's best passing lodge. -1 =
+                // unknown (ski days off, or before the area's first pass after a load): the Finances demand word and destination share read 0
+                // as "no luxury lodge" and showed a low demand ("very low", "35 %") until the first pass.
+                live.PriceTolerance = m_SkiDays != null && m_SkiDays.TryPriceToleranceOf(sign, out int ptol) ? ptol : -1;
                 live.RunsValueFull = (float)work.RunsValueFull;
                 live.Status = (int)HubRules.Status(row.Runs, live.RunsOpen, live.RunsPartly);
 
@@ -2564,6 +2573,7 @@ namespace SkiResortMod.Systems
                 }
                 SetNetRows(ref live, in money);
                 live.PassIncomePreMonth = counterArmed ? ClampToInt(Math.Max(0L, booked.PassIncomePre)) : -1;
+                live.PassesSoldMonth = counterArmed ? ClampToInt(Math.Max(0L, booked.PassesSold)) : -1;
                 live.NetMonth = HubRules.NetMonth(money, out bool netEstimated);
                 live.NetEstimated = netEstimated;
                 m_ResortLiveNext.Add(live);
@@ -2600,7 +2610,7 @@ namespace SkiResortMod.Systems
                 BusGuestsMonth = -1,
                 // no ski area: the pass numbers unknown.
                 PassesSoldSeason = -1, PassIncomeSeason = -1, PassHoldersThisMonth = -1, PassHoldersLastMonth = -1,
-                PriceTurnedThisMonth = -1, PriceTurnedLastMonth = -1,
+                PriceTurnedThisMonth = -1, PriceTurnedLastMonth = -1, PassesSoldMonth = -1, PriceTolerance = -1,
                 // no ski area: the lesson, pre-season and city-income numbers unknown.
                 LessonsThisMonth = -1, LessonsLastMonth = -1, LessonIncomeMonth = -1, PassesPreSeason = -1, PassIncomePreSeason = -1, CityIncomeEst = -1,
                 // no ski area: no tourism bonus part, no resort hotel (contract 50).
@@ -3327,6 +3337,7 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.HotelRooms);
                 h = Mix(h, (uint)r.LodgesOffSeason);
                 h = Mix(h, r.SchoolOffSeason ? 1u : 0u);
+                h = Mix(h, (uint)r.PassesSoldMonth);
             }
             return Mix(h, (uint)rows.Count);
         }
@@ -3377,6 +3388,7 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.CostMonth);
                 h = Mix(h, (uint)r.SnowDepthCm);
                 h = Mix(h, (uint)r.GunWhy);
+                h = Mix(h, (uint)r.SnowGap);   // T268
             }
             return Mix(h, (uint)rows.Count);
         }
@@ -3698,6 +3710,7 @@ namespace SkiResortMod.Systems
               .Append(l.PatrolledRuns).Append("; lodge spend/month ").Append(l.LodgeSpendMonth)
               .Append("; passes this season ").Append(l.PassesSoldSeason).Append(" +").Append(l.PassIncomeSeason)
               .Append(", pass-holder guests this month ").Append(l.PassHoldersThisMonth).Append(" / last ").Append(l.PassHoldersLastMonth)
+              .Append(", passes sold this month ").Append(l.PassesSoldMonth)
               .Append(", turned away by price this month ").Append(l.PriceTurnedThisMonth).Append(" / last ").Append(l.PriceTurnedLastMonth)
               .Append("; pre-season passes ").Append(l.PassesPreSeason).Append(" +").Append(l.PassIncomePreSeason)
               .Append("; lessons this month ").Append(l.LessonsThisMonth).Append(" +").Append(l.LessonIncomeMonth).Append(" / last ").Append(l.LessonsLastMonth)

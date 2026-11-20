@@ -115,6 +115,9 @@ namespace SkiTestBridge
                         ["estimated"] = (bool)Field(live, "SnowEstimated"),
                         ["depthCm"] = (int)Field(live, "SnowDepthCm"),
                         ["gunWhy"] = (int)Field(live, "GunWhy"),
+                        ["openFactor"] = (float)Field(live, "OpenFactor"),
+                        // T268 (1.0.4): RunSnowGap, -1 on a build without the field (an A/B against 1.0.3)
+                        ["snowGap"] = live.GetType().GetField("SnowGap") is System.Reflection.FieldInfo gap ? (int)gap.GetValue(live) : -1,
                     };
                     if (EntityManager.Exists(e) && EntityManager.HasBuffer<Game.Areas.Node>(e))
                     {
