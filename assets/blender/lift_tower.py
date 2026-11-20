@@ -6769,7 +6769,7 @@ def twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weigh
                 half_shift_m=SKIN_HALF_SHIFT[spec.family], weights=weights, roundtrip=rt)
     man = {k: v for k, v in rep.items() if k not in ("frames", "seconds", "skin", "grip")}
     if args is not None:
-        man["args"] = vars(args)      # T256: every parsed flag (defaults too): a letter's build is reproducible
+        man["args"] = manifest_args(args)      # T256: every parsed flag (defaults too): a letter's build is reproducible
     man["skin"] = dict(skin_manifest_block(spec, skin), twin=rep["skin"])
     man["textures"] = {
         "shared_from": f"../{owner}/{owner}", "maps": list(TWIN_MAPS), "levels": list(range(len(lods) + 1)),
@@ -6970,6 +6970,26 @@ def parse_args_v2(argv):
     return ap.parse_args(argv)
 
 
+def manifest_args(args):
+    """vars(args) for a manifest that lands in the repo (T256 args): an absolute path under the repo becomes repo-relative
+    (forward slashes), any other one under the home folder starts with %USERPROFILE% (tools/check-no-user-paths.js: no
+    home paths in tracked files; the rule of carrier_split.manifest_args in the fixed-grip branch)."""
+    home = os.path.normcase(os.path.realpath(os.path.expanduser("~")))
+    repo = os.path.realpath(_REPO)
+    root = os.path.normcase(repo)
+    out = {}
+    for k, v in vars(args).items():
+        if isinstance(v, str) and v and os.path.isabs(v):
+            p = os.path.realpath(v)
+            pn = os.path.normcase(p)
+            if pn == root or pn.startswith(root + os.sep):
+                v = os.path.relpath(p, repo).replace(os.sep, "/")
+            elif pn == home or pn.startswith(home + os.sep):
+                v = "%USERPROFILE%" + p[len(home):].replace(os.sep, "/")
+        out[k] = v
+    return out
+
+
 def main_v2(argv):
     import time
     t0 = time.perf_counter()
@@ -7136,7 +7156,7 @@ def main_v2(argv):
     density = compose.density if compose is not None else None
     manifest = {
         "generator": f"lift_tower.py@{cs2_review.git_sha()}",
-        "args": vars(args),            # T256: every parsed flag (defaults too): a letter's build is reproducible
+        "args": manifest_args(args),   # T256: every parsed flag (defaults too): a letter's build is reproducible
         "spec": "towers-v2 + skeptic" if spec.family != "GD" else
                 "towers-v2 + skeptic; Revision 1b GD (tram_tower.GD / lattice-towers D2 contract)",
         "variant": spec.key, "family": spec.family, "role": spec.role, "kind": spec.kind,
