@@ -1901,6 +1901,9 @@ def run(recipe, args):
     tp_mat = texpass_rules(recipe, args)
     if tp_mat.get("mat"):
         parts, mat_moved = texpass_mat(parts, recipe, tp_mat)
+    # recipe.texpass["drip_skip"]: the sills named must exist (the strips themselves are skipped in tile_mesh, through
+    # texpass_weather's TileWeather.drip_skip)
+    drip_skipped = texpass_drip_skip(parts, recipe, tp_mat) if tp_mat.get("drip_skip") else None
     trim_moved = None
     if tc:                                  # T70 trim v1: the one remap by prefix (cs2_tilesheet.trim_remap)
         import cs2_tilesheet as TS
@@ -2011,6 +2014,8 @@ def run(recipe, args):
         result["we_boards"] = we_boards
     if mat_moved is not None:                           # --texpass builds with a "mat" rule only
         result["texpass_mat"] = {"moved": dict(sorted(mat_moved.items()))}
+    if drip_skipped is not None:                        # --texpass builds with a "drip_skip" rule only
+        result["texpass_drip_skip"] = {"sills": drip_skipped}
     if slot_moved is not None:
         result["slots_v2"] = {"moved": dict(sorted(slot_moved.items())),
                               "by_key": {f"{o}->{n}": sum(1 for v in slot_moved.values() if v == [o, n])
@@ -2442,14 +2447,35 @@ def texpass_mat(parts, recipe, tp):
     return out, moved
 
 
+def texpass_drip_skip(parts, recipe, tp):
+    """recipe.texpass["drip_skip"] (lodge.py --texpass only): sill part-name prefixes whose window hangs no sill-drip
+    strip (texpass_weather sets TileWeather.drip_skip; cs2_tilesheet._plan_strips skips those sills). A strip that ends
+    mid-wall under an upper window reads as a hard gray rectangle, not as run-off. Returns the sorted sill part names
+    the prefixes match. Raises on a prefix that does not start with "sill_" (a strip hangs from a sill part, nothing
+    else) and on one that matches no part (a renamed window must not drop the rule silently)."""
+    pre = tuple(tp.get("drip_skip") or ())
+    if not pre:
+        return []
+    bad = sorted(p for p in pre if not p.startswith("sill_"))
+    if bad:
+        raise ValueError(f"{recipe.key}: texpass drip_skip prefixes must start with sill_: {bad}")
+    names = [o.name for o, _k in parts]
+    dead = sorted(p for p in pre if not any(n.startswith(p) for n in names))
+    if dead:
+        raise ValueError(f"{recipe.key}: texpass drip_skip prefixes match no part: {dead}")
+    return sorted(n for n in names if n.startswith(pre))
+
+
 def texpass_weather(W, recipe, tp):
     """recipe.texpass rules on one weathering-ladder step (lodge.py --texpass): "grade" {"slope", "anchor_x"} = the
     plinth's design grade in the AUTHORING frame (z = -s (a - x), falling toward -X), turned into the tiled frame
     (orient_for_net maps (x, y) -> (y, -x): z = -s a - s y) and capped 5 cm under the lowest band top so no cut
     reaches the plinth's z-0 contract band; "eave_h" = one under-eave band height for every side (0 = none);
-    "band_skip" = part-name prefixes that take no base band (TileWeather.band_skip); "base_h" {"front", "side",
-    "back"} = the recipe's own base band heights in meters (a low building: the rollout's 0.5 / 0.8 / 1.1 m bands are
-    21 / 34 / 47 % of a 2.35 m wall), never above the ladder step's (a step that dropped a band keeps it dropped)."""
+    "band_skip" = part-name prefixes that take no base band (TileWeather.band_skip); "drip_skip" = sill part-name
+    prefixes whose window hangs no sill-drip strip (TileWeather.drip_skip; texpass_drip_skip checks them); "base_h"
+    {"front", "side", "back"} = the recipe's own base band heights in meters (a low building: the rollout's 0.5 / 0.8 /
+    1.1 m bands are 21 / 34 / 47 % of a 2.35 m wall), never above the ladder step's (a step that dropped a band keeps it
+    dropped)."""
     from dataclasses import replace as _rp
     if W is None:
         return None
@@ -2466,6 +2492,8 @@ def texpass_weather(W, recipe, tp):
         kw["eave_h"] = {k: float(tp["eave_h"]) for k in W.eave_h}
     if tp.get("band_skip"):
         kw["band_skip"] = tuple(tp["band_skip"])
+    if tp.get("drip_skip"):
+        kw["drip_skip"] = tuple(tp["drip_skip"])
     return _rp(W, **kw) if kw else W
 
 
@@ -2930,7 +2958,7 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
     if result.get("window_kit"):           # kit v2 builds only (older manifests keep their keys)
         data["window_kit"] = result["window_kit"]
     for k_ in ("glass", "slots_v2", "budget_override", "ridge", "flags", "p1_gear", "step_base",
-               "texpass_mat"):   # T85 / T89 / ridge v2 / T174 / T175 / step-base / texpass "mat" rule builds only
+               "texpass_mat", "texpass_drip_skip"):   # T85 / T89 / ridge v2 / T174 / T175 / step-base / texpass rules
         if result.get(k_) is not None:
             data[k_] = result[k_]
     if result.get("door_kit"):             # door kit v2 builds only

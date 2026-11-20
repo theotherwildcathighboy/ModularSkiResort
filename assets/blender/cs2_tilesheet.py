@@ -1904,6 +1904,10 @@ class TileWeather:
     # texture pass (recipe.texpass["band_skip"]): part-name prefixes whose faces take no base band (no cut, clean):
     # slender posts, whose concrete footings take the splash; under the grade every post foot meets the band
     band_skip: tuple = ()
+    # texture pass (recipe.texpass["drip_skip"]): sill part-name prefixes whose window hangs no sill-drip strip. Under
+    # an upper window the 0.7 m strip ends mid-wall and reads as a hard gray rectangle hanging from the sill; under a
+    # ground-floor window it reaches the base band or the plinth and reads as run-off
+    drip_skip: tuple = ()
 
 
 def weather_level(level):
@@ -2880,9 +2884,10 @@ def _plan_strips(wctx, Vw, tris, fpart, part_name, R, ground_band):
         return np.array(loc), idx
 
     if R.sill_drips:
+        skip = tuple(getattr(R, "drip_skip", ()) or ())
         for p, idx in sorted(by_part.items()):
             nm = part_name(p)
-            if not nm.startswith("sill_"):
+            if not nm.startswith("sill_") or (skip and nm.startswith(skip)):
                 continue
             P = pts_of(idx)
             L, T = frame(P)

@@ -182,6 +182,8 @@ class Recipe:
     # {"label_w": {"emblem_p1_face": 2.0}} = per-label density weights in the building's label rect (tile_mesh);
     # {"mat": {"balc_ASbal": "timber_lap"}} = parts whose names start with a prefix draw that key (lodge.texpass_mat;
     # raises on an unknown key or a prefix that matches no part);
+    # {"drip_skip": ("sill_LoftS",)} = sill part-name prefixes whose window hangs no sill-drip strip
+    # (lodge.texpass_drip_skip; raises on a prefix that is not a sill_ or matches no part);
     # {"weather_level": n} = the ladder level the flag-off build keeps (required: lodge.assert_texpass_level
     # raises below it). None = the rollout rules.
     texpass: object = None
@@ -490,7 +492,10 @@ L1 = Recipe(
     # rollout band grayed the top 0.4-0.6 m at half density. Measured (tiled LOD0, no bake): 10,562 -> 10,364 tris
     # (eave rule 317 pieces gone), ladder level 0 kept. ridge_key: the three ridge flashings in the coated roof's color
     # (lodge.texpass_ridge), the cap from the panels' coil; the galv cap read as a dark line on the light roof.
-    texpass={"eave_h": 0.0, "weather_level": 0, "ridge_key": "metal_roof_lt"},
+    # drip_skip: the two loft windows hang no sill-drip strip. Their 0.7 m strips ended mid-gable, 2.5 m above the
+    # gable's lower edge, and read as gray rectangles hanging under the windows; the nine main-floor strips reach the
+    # plinth cap and stay (letter Z: LOD0 10,396 -> 10,388 tris)
+    texpass={"eave_h": 0.0, "weather_level": 0, "ridge_key": "metal_roof_lt", "drip_skip": ("sill_Loft",)},
     views=(("prow", (0.55, 1.0, 0.30)), ("entry", (0.35, -1.0, 0.22)),
            ("roofwindows", (-1.0, 0.25, 0.85))),
     notes="base_lodge.py port: skirt deleted, porch slab a ground part, entry surround on "

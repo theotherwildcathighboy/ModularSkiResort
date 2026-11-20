@@ -18,8 +18,16 @@ Gates (the pilot's lessons, made mechanical):
       the timber), and no cut vertex lands above the cap (the plinth's z-0 contract band stays free);
   P4c band_skip: a 0.20 m post beside that plinth is banded and cut under the grade; with band_skip ("col_",) it is
       clean and uncut while every other face keeps its state (the hut's posts: 192 tris and a weather level);
+  P4d drip_skip: a wall with two window sills (sill_a, sill_b) through tile_mesh: sill drips hang a strip under each;
+      with drip_skip ("sill_b",) sill_a's strip stays as it was, sill_b's goes, and every other face keeps its state;
+      no ladder step sets it (a flag-off build hangs every strip it did); lodge.texpass_drip_skip returns the matched
+      sills and raises on a prefix that is not a sill_ or matches no part; _write_manifest copies its result key
+      (texpass_drip_skip, as P15's texpass_mat); each recipe that opts in names its real
+      sills (L1's loft pair, a 0.7 m strip that ends mid-gable; the hut's attic pairs, a strip that runs off the
+      shingle gable onto the boards below: each read as a hard gray rectangle under the window);
   P5  lodge.texpass_weather: the hut recipe's grade in the tiled frame matches the authoring grade through
-      cs2_asset.orient_for_net; eave_h overrides every side; band_skip carried; a yawed recipe raises; None stays None;
+      cs2_asset.orient_for_net; eave_h overrides every side; band_skip and drip_skip carried; a yawed recipe raises;
+      None stays None;
   P6  real-world scale: every pass key has a TEXPASS_PITCH range and its scan's course / board pitch (the fundamental of
       the Color map's row autocorrelation at the set's size_m) times tile_m / size_m lies in it (the 0.6 x shake scan
       failed this; the strongest peak passed the siding at half its intended board width); a key in
@@ -197,15 +205,19 @@ def check_cut_grid_and_round_trip():
     ok("P3 register + unregister: every BldgMat and the off layout (hash included) restored; --texpass defaults off")
 
 
-def scene(post=False):
+def scene(post=False, sills=False):
     """(obj, uvtile, keys): a stone_rubble plinth (z -4..0) under a timber_lap box (z 0..3), 4 x 8 m, lodge prep;
-    post: plus a free-standing 0.20 m timber_heavy post `col_a` beside the plinth (x -0.6, y 4)."""
+    post: plus a free-standing 0.20 m timber_heavy post `col_a` beside the plinth (x -0.6, y 4); sills: plus two
+    1.2 m window sills `sill_a` (y 1.0..2.2) and `sill_b` (y 5.0..6.2) on the -X face, bottom at z 1.5."""
     clear()
     TS.ensure_materials()
     parts = K.box_part("plinth_a", (0.0, 0.0, -4.0), (4.0, 8.0, 0.0), "stone_rubble")
     parts += K.box_part("wall_a", (0.0, 0.0, 0.0), (4.0, 8.0, 3.0), "timber_lap")
     if post:
         parts += K.box_part("col_a", (-0.7, 3.9, -4.0), (-0.5, 4.1, 0.0), "timber_heavy")
+    if sills:
+        parts += K.box_part("sill_a", (-0.15, 1.0, 1.5), (0.0, 2.2, 1.6), "timber_heavy")
+        parts += K.box_part("sill_b", (-0.15, 5.0, 1.5), (0.0, 6.2, 1.6), "timber_heavy")
     keys = sorted({k for _o, k in parts})
     K.bevel_parts(parts)
     cs2_uv.set_density(parts, K.part_weights(parts))
@@ -228,9 +240,9 @@ def scene(post=False):
     return obj, cs2_uv.loop_uvs(obj.data.uv_layers[cs2_bake.TILE_LAYER]), keys
 
 
-def run(rules, post=False):
+def run(rules, post=False, sills=False):
     """Mesh facts of the scene through tile_mesh with `rules` (TileWeather or None)."""
-    obj, uvt, keys = scene(post)
+    obj, uvt, keys = scene(post, sills)
     TS.tile_mesh(obj, uvt, keys, layout(), weather=rules, flat_prefixes=TS.FLAT_DETAIL_PREFIXES)
     me = obj.data
     n = len(me.polygons)
@@ -322,6 +334,64 @@ def check_band_skip():
        f"({skip['tris']} tris); every other face unchanged")
 
 
+# recipe.texpass drip_skip: the sills each opted recipe skips (lodge.texpass_drip_skip on its real parts)
+DRIP_SKIP_SILLS = {"L1": ["sill_LoftN", "sill_LoftS"],
+                   "L2": ["sill_aE0", "sill_aE1", "sill_aW0", "sill_aW1"]}
+
+
+def check_drip_skip():
+    assert TS.TileWeather().drip_skip == () and all(TS.weather_level(i).drip_skip == () for i in range(5)), \
+        "no ladder step may set drip_skip (the flag-off build hangs every strip)"
+    W = dataclasses.replace(bare(), sill_drips=True)
+    both = run(W, sills=True)
+    one = run(dataclasses.replace(W, drip_skip=("sill_b",)), sills=True)
+
+    def strip(r, y0, y1):
+        return sorted(tuple(np.round(r["V"][f], 5).ravel()) for i, f in enumerate(r["faces"])
+                      if r["wf"][i] == 2 and y0 <= r["V"][f][:, 1].mean() <= y1)
+    rest = lambda r: sorted((r["names"][i], int(r["wf"][i]), tuple(np.round(r["V"][f], 5).ravel()))
+                            for i, f in enumerate(r["faces"]) if r["wf"][i] != 2)
+    sa, sb = strip(both, 1.0, 2.2), strip(both, 5.0, 6.2)
+    assert sa and sb, "sill drips on: a strip under each sill"
+    assert strip(one, 1.0, 2.2) == sa, "drip_skip moved the strip it does not name"
+    assert not strip(one, 5.0, 6.2), "drip_skip: sill_b still hangs a strip"
+    assert rest(one) == rest(both), "drip_skip changed a face that is not a strip"
+    assert one["tris"] < both["tris"], (one["tris"], both["tris"])
+    # lodge: texpass_weather carries the rule; texpass_drip_skip names the sills and raises on a bad prefix
+    rc = lodge.select_recipe(lodge.parse_args(["--recipe", "L2"]))
+    assert lodge.texpass_weather(TS.TileWeather(), rc, {"drip_skip": ["sill_b"]}).drip_skip == ("sill_b",)
+    clear()
+    parts = (K.box_part("sill_a", (-0.15, 1.0, 1.5), (0.0, 2.2, 1.6), "timber_heavy")
+             + K.box_part("sill_b", (-0.15, 5.0, 1.5), (0.0, 6.2, 1.6), "timber_heavy")
+             + K.box_part("wall_a", (0.0, 0.0, 0.0), (4.0, 8.0, 3.0), "timber_lap"))
+    assert lodge.texpass_drip_skip(parts, rc, {"drip_skip": ("sill_b",)}) == ["sill_b"]
+    assert lodge.texpass_drip_skip(parts, rc, {}) == []
+    for pre, why in ((("wall_",), "a prefix that is not a sill_"), (("sill_zz",), "a dead prefix")):
+        try:
+            lodge.texpass_drip_skip(parts, rc, {"drip_skip": pre})
+        except ValueError:
+            continue
+        raise AssertionError(f"texpass drip_skip with {why} must raise")
+    # the recipes that opt in name real sills (flag off reads no rule at all: texpass_rules, P15)
+    want = {lodge.select_recipe(lodge.parse_args(["--recipe", k])).key: v for k, v in DRIP_SKIP_SILLS.items()}
+    got = {}
+    for key, r in sorted(lodge.R.load_recipes().items()):
+        tp = lodge.texpass_rules(r, lodge.parse_args(["--recipe", key, "--texpass", "v1"]))
+        if tp.get("drip_skip"):
+            clear()
+            got[r.key] = lodge.texpass_drip_skip(lodge.build_parts(r, {}), r, tp)
+    clear()
+    assert got == want, got
+    # the manifest writer copies only listed result keys: texpass_drip_skip must be one, or the record never lands
+    with open(lodge.__file__, encoding="utf-8") as fh:
+        src = fh.read()
+    mkeys = re.search(r'for k_ in \(([^)]*)\):', src[src.index("def _write_manifest"):]).group(1)
+    assert '"texpass_drip_skip"' in mkeys, "_write_manifest drops result['texpass_drip_skip']"
+    ok(f"P4d drip_skip: two sills hang a strip each ({both['tris']} tris); drip_skip (\"sill_b\",) keeps sill_a's "
+       f"strip and every other face ({one['tris']} tris); no ladder step sets it; a non-sill or dead prefix raises; "
+       f"manifest key texpass_drip_skip; opted {', '.join(f'{k} {len(v)} sills' for k, v in sorted(got.items()))}")
+
+
 def check_texpass_weather():
     rc = lodge.select_recipe(lodge.parse_args(["--recipe", "L2"]))
     tp = rc.texpass
@@ -331,6 +401,7 @@ def check_texpass_weather():
     assert W.grade == (-s * a, 0.0, -s, -(1.1 + 0.05)), W.grade
     assert all(v == float(tp["eave_h"]) for v in W.eave_h.values()) and W.base_h == TS.TileWeather().base_h
     assert W.band_skip == tuple(tp.get("band_skip", ())), W.band_skip
+    assert W.drip_skip == tuple(tp.get("drip_skip", ())), W.drip_skip
     assert lodge.texpass_weather(None, rc, tp) is None
     # the tiled-frame grade == the authoring grade z = -s (a - x), moved through the real orient_for_net
     clear()
@@ -351,7 +422,7 @@ def check_texpass_weather():
     except ValueError:
         pass
     ok(f"P5 texpass_weather: hut grade {W.grade} == the authoring grade through orient_for_net; eave_h "
-       f"{tp['eave_h']} on every side; band_skip {W.band_skip}; yaw raises")
+       f"{tp['eave_h']} on every side; band_skip {W.band_skip}; drip_skip {W.drip_skip}; yaw raises")
 
 
 def row_pitch(path, cols=False):
@@ -789,6 +860,7 @@ def main():
     check_cut_grid_and_round_trip()
     check_grade_bands()
     check_band_skip()
+    check_drip_skip()
     check_texpass_weather()
     check_scale()
     check_swatch_controls()

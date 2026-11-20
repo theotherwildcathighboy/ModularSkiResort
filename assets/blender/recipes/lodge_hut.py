@@ -682,9 +682,12 @@ RECIPE = FineRecipe(
     # (the z-0 rule weathered 98.6 % of the plinth at half density and a band of siding 4-6 m above the
     # downhill ground); no under-eave band (sheltered timber stays browner); the 0.20 m posts take no band
     # (their concrete footings take the splash; banding every post foot cost 192 tris and the weather
-    # level); weather_level 0 = the flag-off level the pass must keep (lodge.assert_texpass_level)
+    # level); weather_level 0 = the flag-off level the pass must keep (lodge.assert_texpass_level). drip_skip: the
+    # attic pair on both gables hangs no sill-drip strip. The 0.7 m strip ran from the sill past the shingle gable's
+    # foot onto the lap boards below (the weathered shingle cell is tan on the dark gable: a hard rectangle, partly
+    # over boards); the ten ground-floor strips reach the plinth and stay (letter Z: LOD0 5,947 -> 5,915 tris)
     texpass={"grade": {"slope": SLOPE, "anchor_x": ANCHOR_X}, "eave_h": 0.0, "band_skip": ("col_",),
-             "weather_level": 0},
+             "drip_skip": ("sill_aE", "sill_aW"), "weather_level": 0},
     massing="custom", builder=build_hut,
     rooms=ROOMS, interior="CommercialLow",
     # one resort, one trim (lodges-basic Q6): slot 1 = L1's shipped green VariationSet, slot 2 house orange (no slot-2
