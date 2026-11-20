@@ -15,16 +15,20 @@
 		<PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>
 
 		<!--
-		SAVE IDENTITY (Systems/SkiRunBinding.cs:50-57). A save names each of our persisted components by its AssemblyQualifiedName, which
-		carries "Version=" + this AssemblyVersion (Colossal.Core ComponentSerializer.cs:33-41). Whether Mono resolves a saved
-		name whose version differs is unverified, so the version never changes: AssemblyVersion is PINNED at 1.0.0.0 FOREVER.
-		It is also the third tie-break when two copies of the DLL are installed (Colossal.IO.AssetDatabase ExecutableAsset.cs:149, :189).
-		The release number moves in FileVersion (below) and in Properties/PublishConfiguration.xml ModVersion. tests/SaveBatch SL-AV
-		reads the built DLL and fails on any other AssemblyVersion (SaveLayouts.PinnedAssemblyVersion).
+		VERSION (T255). Properties/PublishConfiguration.xml ModVersion is the ONE release number. This file reads it and derives
+		AssemblyVersion and FileVersion (ModVersion + ".0") and Version (the build label "1.0.3+<sha>"). Skyve shows AssemblyVersion.
+		SAVE IDENTITY: a save names each persisted type by its AssemblyQualifiedName, "Version=" included (Colossal.Core
+		ComponentSerializer.cs:33-41). An old save still loads under a new AssemblyVersion: when Type.GetType misses, DeserializeType
+		strips the trailing ", ..." parts until the [FormerlySerializedAs("SkiResortMod.Systems.<T>, SkiResortMod")] self-alias hits
+		(:51-65). So every persisted type MUST carry that self-alias (tests/SaveBatch SL-A reads the built DLL). Releases 1.0.0-1.0.2
+		pinned AssemblyVersion at 1.0.0.0, so their saves say Version=1.0.0.0.
+		AssemblyVersion is also the third tie-break when two copies of the DLL are installed (Colossal.IO.AssetDatabase
+		ExecutableAsset.cs:149, :189): the newer release now wins it.
 		-->
-		<AssemblyVersion>1.0.0.0</AssemblyVersion>
-		<!-- Moves with each release (free; nothing persisted reads it). Must equal ModVersion + ".0": tools/release-check.ps1 "version" gate (T227). -->
-		<FileVersion>1.0.2.0</FileVersion>
+		<ModVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\$(PublishConfigurationPath)')), '(?&lt;=&lt;ModVersion\s+Value=")[0-9]+\.[0-9]+\.[0-9]+(?=")'))</ModVersion>
+		<Version>$(ModVersion)</Version>
+		<AssemblyVersion>$(ModVersion).0</AssemblyVersion>
+		<FileVersion>$(ModVersion).0</FileVersion>
 	</PropertyGroup>
 
 	<!--Imports must be after PropertyGroup block-->
@@ -276,6 +280,11 @@
 	<Target Name="SkiUiBuildFailedHint">
 		<Delete Files="$(SkiUiGateFile);$(SkiUiStampFile)" ContinueOnError="true" />
 		<Message Importance="high" Text="SkiResortMod UI: the UI build FAILED (see above). Nothing was compiled or deployed by THIS build; build\.gate-pass and build\.ui-stamp are deleted, so later builds rerun the UI build and can never ship the rejected bundle. Fix it, or build the DLL alone with: dotnet build -p:SkipUi=true (the hub UI is then absent)." />
+	</Target>
+
+	<!-- T255: an empty or malformed ModVersion in PublishConfiguration.xml would build version ".0". -->
+	<Target Name="SkiModVersionGuard" BeforeTargets="PrepareForBuild">
+		<Error Condition="'$(ModVersion)' == ''" Text="T255: no MAJOR.MINOR.PATCH ModVersion Value in $(PublishConfigurationPath)" />
 	</Target>
 
 	<Target Name="SkiBuildStamp" BeforeTargets="CoreCompile" DependsOnTargets="PrepareForBuild">

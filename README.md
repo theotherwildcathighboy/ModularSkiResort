@@ -32,9 +32,10 @@ Started 2026-08-03. A working chairlift beta took 5 days. The docs site's Timeli
 
 ## License
 
-Code (the C# mod, the Blender generators, the tools) is MIT — see `LICENSE`. Art assets and
-everything generated from them are CC BY-NC-SA 4.0 — see `assets/LICENSE`. `release/CREDITS.md`
-credits the design references. The mod includes no third-party code. We studied two GPL-licensed mods
+All rights reserved, source available: you may read the code and the art here. You may not copy,
+modify, redistribute or reuse them without written permission. See `LICENSE` (code, art and docs). Versions through 1.0.2 were MIT (code) and CC BY-NC-SA 4.0 (art). `release/CREDITS.md`
+credits the design references and the third-party material, which keeps its own license (the
+vendored `tools/ste-lint` is MIT). The mod includes no third-party code. We studied two GPL-licensed mods
 (ParkManager, ParkingLotTool). We re-derived them from the game's own systems and never copied them.
 Two CC BY 4.0 Sketchfab models (Kagelok's "Chair Lift", Wilin_Amaurea's gondola drafts) were
 visual references for the lifts only. No geometry or texture from them ships.
