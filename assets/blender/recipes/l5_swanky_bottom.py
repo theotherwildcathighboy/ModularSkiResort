@@ -3831,6 +3831,10 @@ RECIPE = FineRecipe(
     # posts and caps, the clock-tower dial boards and louvers: every wood trim part is a lux_glulam tiled key) left the flat
     # list. They draw the glulam grain like the outriggers (T66). Soffits and pool coping stay flat
     tiled_flat=("soffit_", "poolcap_"),
+    # texture pass v1 (--texpass v1 only): L5 adds no weathering rule (flat engine base, and the level is pinned: lodge
+    # TRIM_WEATHER_PIN); weather_level 4 = the flag-off level the pass must keep (lodge.assert_texpass_level), so a pass
+    # build that ever leaves level 4 raises and does not ship a different LOD0
+    texpass={"weather_level": 4},
     massing="custom", builder=build_l5,
     rooms="auto", interior="CommercialLow",
     # VariationSet A (contract 6, STEEL_DEFAULT_RGB convention): bronze / deep red / copper

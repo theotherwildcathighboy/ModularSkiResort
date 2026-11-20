@@ -991,13 +991,140 @@ TWOTONE = {"R": (0.08, 0.16, 0.30), "G": cs2_asset.PAD_RGB, "B": (0.10, 0.55, 0.
 MARK_WHITE = _lin((0.85, 0.86, 0.88))  # lift_terminal.py:240 white, as written to the PNG
 
 # --------------------------------------------------------------------------------------
-# Texture pass (--texpass v1, DQ stations only; off = the shipped station byte for byte). r4/tex, PIPELINE section 1b.
-# A pass changes material sources, relief, pack weights and weathering. It adds, moves and renames NO part, so every
-# contract number, the tri counts, the pivots, the rope path and the sub-object rows stay.
+# r4/tex texture pass (--texpass v1; off, the default = the shipped station byte for byte). r4/tex, PIPELINE section 1b.
+# Two families, one state, each reading only its own tables (merged 2026-11-20, r4/tex-gd + r4/tex-dq):
+# - GONDOLA (r4/tex-gd, gd_texpass_on): the tile aspect (concrete), the roof's relief specs and the slot-3 color default;
+#   the scan sources and density weights below are hooks, empty in v1.
+# - DQ (r4/tex-dq, texpass_table): material sources, relief, pack weights and weathering (TEXPASS_DQ).
+# A pass adds, moves and renames NO part, so every contract number, the tri counts, the pivots, the rope path and the
+# sub-object rows stay.
 # --------------------------------------------------------------------------------------
-TEXPASS = "off"                # this run's pass (main sets it from --texpass: tests call main() in-process)
-LIVERY = "off"                 # this run's livery proposal (main, --livery; needs a pass)
-TEX_SIDECAR = None             # dev (--tex-sidecar DIR): the weathering ladder's map sets + the part map, outside the asset
+TEXPASS = None                 # "v1" under --texpass v1, None = off. main() sets it from its own args on every run
+LIVERY = "off"                 # DQ: this run's livery proposal (main, --livery; needs a pass)
+TEX_SIDECAR = None             # DQ dev (--tex-sidecar DIR): the weathering ladder's map sets + the part map, outside the asset
+# ---- gondola (r4/tex-gd) ------------------------------------------------------------------
+GD_IDENTITY = None             # --gd-identity <name>: the station identity proposal (GD_IDENTITY_REMAP), None = shipped
+# key -> (CC0 set under assets/textures, meters per tile (u), target encoded sRGB mean, Color map width / height).
+# EMPTY in v1: the plinth ("stone") and the soffits ("cedar") keep their shipped flat materials and drawn joints. Tried
+# and rejected (overnight call of 2026-11-20, gd NOTE "Overnight calls"):
+# - stone = L5's squared fieldstone (PHRusticStoneWall at 2.4 m, mean = L5's tan (0.584, 0.448, 0.349)). The mean
+#   matched, but at scan strength its rust blocks and black joints read as red brick veneer at every distance; the
+#   lodges grade the same scan (chroma 0.7, contrast 0.8 in cs2_tilesheet), and the bake path has no such control.
+#   Close call against the shipped plinth, so the shipped look stays. Needs that grade first (lead-owned bake path).
+# - cedar = PHWeatheredPlankSiding at 2.4 m (17 cm boards), mean = L5's light cedar (0.584, 0.403, 0.272): a thin brown
+#   sliver at the eave that adds nothing at play distance.
+# The earlier pick, the lodges' rubble (Bricks096 at 3.2 m), read as mush at the plinth's 34 px/m.
+GD_TEXPASS_SCANS = {}
+# cs2_bake.project_world_uv makes SQUARE tiles. A 2:1 Color map then draws stretched 2x in v (Concrete034 is 1024 x 512:
+# every lift asset ships it that way). The pass scales the tile v by the map aspect.
+GD_TEXPASS_ASPECT = {"concrete": 2.0}
+# density weights over the shipped table: none in v1 (the scans that needed texels, stone 1.3 / soffit 0.8, are out)
+GD_TEXPASS_DENSITY = {}
+# The pass keeps the shipped cs2_uv pack. Measured on the base at 512 (blockouts with a pack-shape proposal, since
+# dropped): aabb 17.8 %, concave 18.0 %, aabb with square band texels 16.9 %, concave with them 16.9 % of the square.
+# The pack is margin-bound (thin islands between gutters): a concave shape gains 1 %, square band texels cost 5 %
+# Identity proposals: part prefix -> material key (first match wins). Keys live in GD_IDENTITY_MATERIALS.
+# "skin": the roof, the gable fascias, the ring beams and the entry canopies leave slot 1 (the steel frame) for slot 2,
+# which no gondola station part uses today (pad2 has no part). The station then has a SKIN color apart from its frame.
+GD_IDENTITY_REMAP = {
+    "skin": (("roof_shell", "skin2"), ("roof_rim", "skin2"), ("gable_", "skin2"), ("ringbeam_", "skin2"),
+             ("canopy_", "skin2")),
+    # "lodge": the skin of "skin" + the portal wall and the gable fascias in the lodges' timber (a valley hall)
+    "lodge": (("roof_shell", "skin2"), ("roof_rim", "skin2"), ("gable_", "timberclad"), ("ringbeam_", "glulam"),
+              ("canopy_", "skin2"), ("wall_nose", "timberclad")),
+}
+GD_IDENTITY_SCANS = {
+    "timberclad": ("PHWeatheredPlankSiding", 2.4, (0.295, 0.235, 0.185), 1.0),      # cs2_bldg "timber_lap"
+    "glulam": ("Planks021", 1.54, (0.30, 0.22, 0.16), 1.0),                         # cs2_bldg "timber_heavy"
+}
+GD_IDENTITY_ROLES = {"skin2": "paint_steel", "timberclad": "timber", "glulam": "timber"}
+# The skin's slot-2 default under "skin" (stored sRGB, as the prefab holds it): a weathered natural zinc. The overnight
+# call of 2026-11-20 (gd NOTE "Overnight calls"): silver 0.70 dissolved into snow and the concrete ramp at 150 m, the
+# shipped orange is louder than any vanilla roof and pairs red-green with the forest-green signs. The re-check on the
+# fixed build found zinc against no skin a close call (zinc meets the concrete portal at the same value), so the pass
+# recommends shipping WITHOUT --gd-identity skin; zinc stays this option's default. The critic's untested tweak:
+# (0.50, 0.51, 0.50)
+GD_SKIN_RGB = (0.56, 0.58, 0.60)
+_GD_SCAN_MEAN = {}
+
+
+def _gd_scan_tint(set_name, target_srgb):
+    """Linear tint that brings the mean of the set's Color map to `target_srgb` (encoded). The mean is taken in linear
+    over every 4th texel and cached per set. A 16-bit PNG (the Poly Haven scans) loads as a float buffer whose pixels
+    Blender already converted to linear; an 8-bit one holds the encoded values. Linearizing a float buffer twice
+    made the mean far too dark and the tint 5-25x too bright (the blown-out plinth and soffits of 2026-11-20 04:01)."""
+    if set_name not in _GD_SCAN_MEAN:
+        path = cs2_bake.find_set_map(cs2_bake._set_dir(set_name), "Color")
+        if path is None:
+            raise FileNotFoundError(f"texture pass: set {set_name} has no Color map under assets/textures")
+        img = bpy.data.images.load(path, check_existing=False)
+        try:
+            img.colorspace_settings.name = "sRGB"
+            w, h = img.size
+            buf = np.empty(w * h * 4, dtype=np.float32)
+            img.pixels.foreach_get(buf)
+            is_float = bool(img.is_float)
+        finally:
+            bpy.data.images.remove(img)
+        px = buf.reshape(h, w, 4)[::4, ::4, :3].astype(np.float64)
+        lin = px if is_float else cs2_preview._srgb_to_linear(px)
+        _GD_SCAN_MEAN[set_name] = lin.reshape(-1, 3).mean(axis=0)
+        print(f"[texpass] {set_name}: mean linear {np.round(_GD_SCAN_MEAN[set_name], 4).tolist()} "
+              f"({'float' if is_float else 'byte'} buffer)")
+    tgt = np.array(_lin(target_srgb), dtype=np.float64)
+    return tuple(float(x) for x in tgt / np.maximum(_GD_SCAN_MEAN[set_name], 1e-6))
+
+
+def gd_texpass_on(p):
+    return bool(TEXPASS) and bool(p.gondola) and GD_REV1
+
+
+def gd_texpass_materials(table):
+    """MATERIALS with the pass's sources (and the identity proposal's keys) for a gondola station."""
+    out = dict(table)
+    scans = dict(GD_TEXPASS_SCANS)
+    if GD_IDENTITY:
+        scans.update(GD_IDENTITY_SCANS)
+        out["skin2"] = _MS(albedo=GREY80, metal=0.10, rough=0.50, slot=2, recolor_albedo=True, projection="planar")
+    for key, (set_name, tile, target, _aspect) in scans.items():
+        out[key] = _MS(texture_set=set_name, metres_per_tile=tile, tint=_gd_scan_tint(set_name, target), metal=0.0)
+    return out
+
+
+def gd_texpass_parts(parts):
+    """The identity proposal's material remap: [(obj, key)] with the keys of GD_IDENTITY_REMAP[GD_IDENTITY]. Names,
+    order and geometry are untouched."""
+    remap = GD_IDENTITY_REMAP[GD_IDENTITY]
+    out = []
+    for obj, key in parts:
+        for prefix, new in remap:
+            if obj.name.startswith(prefix):
+                key = new
+                break
+        out.append((obj, key))
+    return out
+
+
+def gd_texpass_tile_aspect(parts):
+    """Scale the tile-layer v of every part whose material draws a non-square Color map (after material_sources, before
+    the join)."""
+    asp = dict(GD_TEXPASS_ASPECT)
+    for table in (GD_TEXPASS_SCANS, GD_IDENTITY_SCANS if GD_IDENTITY else {}):
+        asp.update({k: v[3] for k, v in table.items()})
+    n = 0
+    for obj, key in parts:
+        a = float(asp.get(str(key), 1.0))
+        if a == 1.0:
+            continue
+        lay = obj.data.uv_layers[cs2_bake.TILE_LAYER]
+        uv = cs2_uv.loop_uvs(lay)
+        uv[:, 1] *= a
+        cs2_uv.set_loop_uvs(lay, uv)
+        n += 1
+    print(f"[texpass] tile aspect applied to {n} part(s) ({sorted(k for k, v in asp.items() if v != 1.0)})")
+
+
+# ---- DQ (r4/tex-dq) -----------------------------------------------------------------------
 TEXPASS_DQ = {
     "v1": {
         # material key -> MaterialSpec: a new key, or the pass's source for a MATERIALS key
@@ -1058,8 +1185,8 @@ LIVERY_FRAME = dict(top=0.14, bottom=0.12, rib=0.11, pitch=1.50, metal=0.10, smo
 
 
 def texpass_table(p):
-    """This run's pass table ({} when off, or on the gondola: its pass lives with its own keys)."""
-    if TEXPASS == "off" or p.gondola or not DETAIL1:
+    """This run's DQ pass table ({} when off, or on the gondola: its pass lives with its own keys, gd_texpass_on)."""
+    if not TEXPASS or p.gondola or not DETAIL1:
         return {}
     return TEXPASS_DQ[TEXPASS]
 
@@ -1240,6 +1367,23 @@ def detail_specs_gd():
     return out
 
 
+def detail_specs_gd_texpass():
+    """Texture pass v1: the gondola table with the standing seams below; a part that draws a scan of GD_TEXPASS_SCANS
+    drops its drawn joints (the scan carries its own joints and normals). v1 has no such part."""
+    D = cs2_compose.DetailSpec
+    out = detail_specs_gd()
+    out.update({pref: D() for pref, key in (("stonebase_", "stone"), ("eavesof_", "cedar")) if key in GD_TEXPASS_SCANS})
+    # the shipped set's normal tilt is 3.2 deg rms (vanilla houses 22-25, PIPELINE 1b targets 8-25): the standing seams
+    # are 1.4 texels wide and 6 mm deep at 35 px/m. A real seam is a 25-40 mm rib: 0.06 m wide (2 texels). 10 mm deep: at
+    # 15 mm the facets of the barrel stepped the seams into a tile grid (critic, 2026-11-20). The roof rim (the fascia
+    # strip) draws no seams: they read as a dashed edge under a light skin
+    out["roof_"] = D(seams_m=0.50, seam_axes="ribs", seam_width_m=0.06, seam_depth_m=0.010)
+    out["roof_rim"] = D()
+    if GD_IDENTITY == "lodge":
+        out.update({"wall_nose": D(), "gable_": D(), "ringbeam_": D()})
+    return out
+
+
 def detail_specs_dq_tex():
     """Texture pass v1 relief for the DQ (over detail_specs_dq):
     - the roof's standing seams 0.04 x 0.004 -> 0.06 x 0.014 m (2.7 texels wide at the roof's ~45 px/m: a 15 deg normal step
@@ -1259,6 +1403,8 @@ def detail_specs_dq_tex():
 
 def specs_for(p):
     """The relief table of this station (a zero-argument function: lift_terminal's hook calls it)."""
+    if gd_texpass_on(p):
+        return detail_specs_gd_texpass
     if p.gondola and GD_REV1:
         return detail_specs_gd
     if texpass_table(p):
@@ -1271,6 +1417,8 @@ def density_for(p):
     - gondola draft 1 merges GD_DENSITY.
     - detail pass 1 (DQ) merges cs2_liftdress.DRESS_DENSITY and DQ_D1_DENSITY (design 3.7).
     - gondola revision 1 adds the DRESS_DENSITY of the dressing and GD_DENSITY_R1 (the glazed hall's frame, roof, plinth)."""
+    if gd_texpass_on(p):
+        return {**DENSITY_WEIGHTS, **GD_DENSITY, **_LD().DRESS_DENSITY, **GD_DENSITY_R1, **GD_TEXPASS_DENSITY}
     if p.gondola and GD_REV1:
         return {**DENSITY_WEIGHTS, **GD_DENSITY, **_LD().DRESS_DENSITY, **GD_DENSITY_R1}
     if p.gondola:
@@ -4310,7 +4458,9 @@ def build_station(p):
         parts += build_wx(p)
         parts += build_gd_dress(p)           # revision 1: the detail pass's kit where it fits
     parts = cut_long_parts(parts)
-    parts = texpass_parts(parts, p)              # --texpass: material keys by part prefix (the same list when off)
+    if gd_texpass_on(p) and GD_IDENTITY:
+        parts = gd_texpass_parts(parts)         # r4 identity proposal (gondola): material keys only
+    parts = texpass_parts(parts, p)              # --texpass (DQ): material keys by part prefix (the same list when off)
     names = [o.name for o, _ in parts]
     bad = sorted(n for n in names if "." in n)
     if bad or len(set(names)) != len(names):
@@ -4339,6 +4489,8 @@ def assemble(parts, finish, p):
     bpy.context.view_layer.update()             # project_world_uv reads matrix_world
     seed_parts(parts, p)
     sources = cs2_bake.material_sources(materials_for(p, parts), parts)
+    if gd_texpass_on(p):
+        gd_texpass_tile_aspect(parts)           # r4 texture pass v1: 2:1 Color maps keep square features
     # Revision 1 (e): the reserved sign rects are restored 1:1 from the material that fills them
     # (cs2_bake._restore_reserved), which must sample the PACKED source layer. The signband material is a constant (nothing
     # to copy), so its sampling layer is moot
@@ -4381,8 +4533,11 @@ def materials_for(p, parts=None):
         return {**MATERIALS, **wm}
     LD = _LD()
     keys = LD.part_keys(parts) if parts is not None else sorted(LD.DRESS_MATERIALS)
-    tp = texpass_table(p).get("materials")
-    table = {**MATERIALS, **tp} if tp else MATERIALS      # --texpass: the pass's sources over MATERIALS
+    if gd_texpass_on(p):
+        table = gd_texpass_materials(MATERIALS)           # r4 texture pass v1 (gondola)
+    else:
+        tp = texpass_table(p).get("materials")
+        table = {**MATERIALS, **tp} if tp else MATERIALS  # --texpass (DQ): the pass's sources over MATERIALS
     return {**LD.merge_materials(table, [k for k in keys if k in LD.DRESS_MATERIALS]), **wm}
 
 
@@ -8356,7 +8511,7 @@ def dq_weather_spec(name, intensity):
     equal prefix cs2_weather keeps the first)."""
     LD = _LD()
     w = DQ_WEATHER
-    tp = TEXPASS_DQ[TEXPASS].get("weather", ()) if TEXPASS != "off" else ()    # --texpass: the pass's overrides first
+    tp = TEXPASS_DQ[TEXPASS].get("weather", ()) if TEXPASS else ()    # --texpass: the pass's overrides first (DQ only)
     return LD.station_weather_spec(name, ground=w["ground"], ground_z=w["ground_z"],
                                    overrides=tuple(tp) + tuple(w["overrides"]) + tuple(LD.DRESS_WEATHER_OVERRIDES),
                                    traffic_extra=w["traffic_extra"], intensity=intensity)
@@ -8366,7 +8521,8 @@ def gd_mat_roles():
     """Gondola revision 1 weathering roles by material key: the DQ table (cs2_liftdress.DQ_MAT_ROLES,
     the dressing keys included) + the gondola's own safety stripe (paint)."""
     import cs2_sheaves as S
-    return {**_LD().DQ_MAT_ROLES, "stripe": "paint", **S.wheel_roles()}
+    extra = GD_IDENTITY_ROLES if (TEXPASS and GD_IDENTITY) else {}
+    return {**_LD().DQ_MAT_ROLES, "stripe": "paint", **extra, **S.wheel_roles()}
 
 
 def gd_weather_spec(name, intensity):
@@ -9310,11 +9466,16 @@ def prefab_numbers(p, bounds_authoring):
                 "slot1": {"rgb": [0.25, 0.26, 0.275], "what": "roof, mullions, transoms, ring beams, corner "
                           "columns, outriggers, gable fascias, canopies, door frames, portal trims (dark steel; "
                           "towers-transfer G5 compensated value)"},
-                "slot3": {"rgb": [0.16, 0.30, 0.20], "what": "sign spandrel + side sign plates + the sign "
-                          "fields (the DQ / draft-1 green default)"},
+                "slot3": {"rgb": [0.173, 0.420, 0.260] if TEXPASS else [0.16, 0.30, 0.20], "what": "sign spandrel + "
+                          "side sign plates + the sign fields (the DQ / draft-1 green default; the pass: forest green, "
+                          "the lead's ruling of 2026-11-20, as stored in the prefab)"},
                 "slot2": {"rgb": [0.85, 0.25, 0.10], "what": "the ski rack gear's accent color (the shared "
                           "cs2_bldg gear via cs2_liftdress.ski_rack, material 'accent'); the platform stripes "
                           "are fixed safety yellow"}}
+            if TEXPASS and GD_IDENTITY == "skin":
+                nums["color_defaults"]["slot2"] = {
+                    "rgb": list(GD_SKIN_RGB), "what": "the skin: roof shell + rim, gable fascias, ring beams, entry "
+                    "canopies (weathered zinc; --gd-identity skin), and the ski rack gear's accent"}
         nums["deck_top_y"] = DECK_H
         nums["floor_y"] = GD_FLOOR_Z
         nums["machinery_deck_y"] = GD_DECK_Z
@@ -9381,15 +9542,19 @@ def parse_args(argv=None):
                     help="fine-detail step 3b OFF: the approved pre-pass station byte for byte (modeled "
                          "dressing + box lamps, no kit rows; the DQ TOP alone differs - it has no STAY SEATED "
                          "board since 2026-10-12); default = the fine-detail pass (FINE_DETAIL)")
+    ap.add_argument("--texpass", default="off", choices=("off",) + tuple(sorted(TEXPASS_DQ)),
+                    help="r4 texture pass, per family; off = the shipped station byte for byte. Gondola v1: square "
+                         "concrete tiles, standing-seam ribs, the forest-green slot-3 default (the shipped pack, plinth "
+                         "and soffit). DQ v1: scanned timber, stronger roof seams, slab joints, the slab's pack weight, "
+                         "weathering capped at 0.40 without rust on the painted skin")
+    ap.add_argument("--gd-identity", choices=sorted(GD_IDENTITY_REMAP), default=None, dest="gd_identity",
+                    help="station identity proposal (needs --texpass v1): material keys per GD_IDENTITY_REMAP; "
+                         "default = the shipped slots")
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
                     help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel on the top's nose train (the GD "
                          "head too: the round-3 wheel); v1 = the pre-T62 wheels byte for byte")
-    ap.add_argument("--texpass", default="off", choices=("off",) + tuple(sorted(TEXPASS_DQ)),
-                    help="texture pass (DQ stations, r4/tex): v1 = scanned timber, stronger roof seams, slab joints, the "
-                         "slab's pack weight, weathering capped at 0.40 without rust on the painted skin; off = the "
-                         "shipped station byte for byte")
     ap.add_argument("--livery", default="off", choices=("off", "belt", "timber"),
-                    help="with --texpass: a station-identity proposal, texels only (belt = a fixed white belt line round "
+                    help="DQ, with --texpass: a station-identity proposal, texels only (belt = a fixed white belt line round "
                          "the lower band; timber = the long band sides in the lodges' lap siding); off = none")
     ap.add_argument("--tex-sidecar", dest="tex_sidecar", default=None, metavar="DIR",
                     help="dev: write every weathering-ladder step's map set and the part map under DIR (review renders "
@@ -9506,16 +9671,20 @@ def main(argv=None):
     global FINE_DETAIL
     FINE_DETAIL = not args.no_fine          # fine-detail step 3b: every run follows its own args
     global ROPE_ON_CROWN, BASE_NOSE_TRAIN, ROPE_R
+    global TEXPASS, GD_IDENTITY, LIVERY, TEX_SIDECAR
+    TEXPASS = args.texpass if args.texpass != "off" else None      # r4/tex: every run follows its own args (None = off)
+    GD_IDENTITY = args.gd_identity
+    LIVERY = args.livery
+    TEX_SIDECAR = os.path.abspath(args.tex_sidecar) if args.tex_sidecar else None
+    if GD_IDENTITY and not (TEXPASS and args.gondola):
+        raise SystemExit("--gd-identity needs --gondola --texpass v1")
+    if LIVERY != "off" and not TEXPASS:
+        raise SystemExit("--livery needs --texpass")
+    if LIVERY != "off" and args.gondola:
+        raise SystemExit("--livery is a DQ station option (the gondola's proposal is --gd-identity)")
     ROPE_ON_CROWN = bool(args.rope_on_crown)     # T27: every run follows its own args (tests call main() in-process)
     BASE_NOSE_TRAIN = bool(args.no_hosted_tower)
     ROPE_R = THIN_ROPE_R if args.thin_rope else ROPE_R_SHIPPED   # every run follows its args (tests call main())
-    global TEXPASS, LIVERY, TEX_SIDECAR
-    TEXPASS, LIVERY = args.texpass, args.livery  # r4/tex: every run follows its own args
-    TEX_SIDECAR = os.path.abspath(args.tex_sidecar) if args.tex_sidecar else None
-    if TEXPASS != "off" and args.gondola:
-        raise SystemExit("--texpass: the gondola pass is not in this table (DQ stations only)")
-    if LIVERY != "off" and TEXPASS == "off":
-        raise SystemExit("--livery needs --texpass")
     if BASE_NOSE_TRAIN and args.kind != "base":
         raise SystemExit("--no-hosted-tower is base only (DQ or gondola)")
     import cs2_sheaves as S
@@ -9841,6 +10010,9 @@ def main(argv=None):
                             "sub-objects, the detail pass's dressing + labels + weathering, lot 3 x 4 "
                             "(build/gondola-stations-rev1.md)"} if g1 else {}),
         "finish": "shipping" if args.finish else "blockout",
+        **({"texpass": {"pass": TEXPASS, "identity": GD_IDENTITY, "scans": {k: v[0] for k, v in GD_TEXPASS_SCANS.items()},
+                        "tiles_m": {k: v[1] for k, v in GD_TEXPASS_SCANS.items()}}}
+           if (TEXPASS and p.gondola) else {}),    # gondola pass (the DQ block is below, after win_cells)
         "atlas_px": A, "ao_samples": ao, "pack_margin_px": margin,
         "tris": tris, "tris_win": tris_win, "parts": len(table),
         "caps": {"lod0": p.lod0_cap, "lod1_max": p.lod1_max, "lod2": p.lod2},

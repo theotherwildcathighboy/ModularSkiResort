@@ -177,7 +177,9 @@ class Recipe:
     # ---- texture pass v1 (2026-10-29, docs/PIPELINE.md "Texture pass"): read ONLY under lodge.py --texpass v1
     # (lodge.texpass_weather). {"grade": {"slope": s, "anchor_x": a}} = a plinth recipe's design grade in the
     # authoring frame (z = -s (a - x), falling toward -X): the LOD0 base bands follow it instead of z 0;
+    # {"base_h": {"front": f, "side": s, "back": b}} = the recipe's own base band heights (m), at most the ladder step's;
     # {"eave_h": 0.0} = no under-eave band; {"band_skip": ("col_",)} = parts that take no base band;
+    # {"label_w": {"emblem_p1_face": 2.0}} = per-label density weights in the building's label rect (tile_mesh);
     # {"weather_level": n} = the ladder level the flag-off build keeps (required: lodge.assert_texpass_level
     # raises below it). None = the rollout rules.
     texpass: object = None
@@ -481,6 +483,11 @@ L1 = Recipe(
     sub_objects=L1_TABLES + L1_PARASOLS + L1_PORCH,
     cull_ok=("ridge_main", "ridge_prow", "soffit_mainE"),   # caps inside the slab X. The E
     # soffit faces the wall over the deck (no camera position sees it)
+    # texture pass v1 (read only under lodge.py --texpass v1): no under-eave band. The 1.1 m eaves keep the top of the
+    # knee walls dry, and sheltered wood stays the browner part of a wall; the rain-washed lower boards go gray. The
+    # rollout band grayed the top 0.4-0.6 m at half density. Measured (tiled LOD0, no bake): 10,562 -> 10,364 tris
+    # (eave rule 317 pieces gone), ladder level 0 kept.
+    texpass={"eave_h": 0.0, "weather_level": 0},
     views=(("prow", (0.55, 1.0, 0.30)), ("entry", (0.35, -1.0, 0.22)),
            ("roofwindows", (-1.0, 0.25, 0.85))),
     notes="base_lodge.py port: skirt deleted, porch slab a ground part, entry surround on "

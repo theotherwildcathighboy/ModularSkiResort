@@ -257,6 +257,9 @@ def tiled_keys():
 
 
 def smooth_of(key):
+    f = texpass_flat(key)
+    if "smooth" in f:
+        return float(f["smooth"])
     k = base_key(key)
     k = V2_BASE.get(k, k)
     if k in TRIM_SMOOTH:
@@ -266,6 +269,9 @@ def smooth_of(key):
 
 
 def metal_of(key, layout_name="rollout"):
+    f = texpass_flat(key)
+    if "metal" in f:
+        return float(f["metal"])
     k = base_key(key)
     k = V2_BASE.get(k, k)
     if layout_name == "rollout" and k in METAL_ROLLOUT:
@@ -349,29 +355,145 @@ GLASS_VERSION = "+gls1"
 TEXPASS_VERSION = "+tex1"
 TEXPASS = {
     "v1": {
-        # 1.57 m scan at 1.2 m (x 0.76): 17 cm rough-sawn boards (WoodSiding009 drew painted 15 cm boards, tinted);
-        # normal_gain 1.6: the scan's seams read flatter than the old set's (tilt rms 10.8 -> 15.9 deg, was 14.9)
-        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (1.2, 1.2), "repeat": 2, "normal_gain": 1.6},
-        # 1.5 m scan at 1.6 m (x 1.07): 20 x 14.5 cm slates (RoofingTiles003 drew 40 cm slates with scratch streaks)
+        # 1.57 m scan at 2.4 m (x 1.53): 17 cm rough-sawn lapped boards (WoodSiding009 drew painted 15 cm boards, tinted).
+        # The scan holds 14 boards (11.2 cm), not 7: the pilot's tile 1.2 x repeat 2 drew 8.6 cm boards, under the range
+        # below (its gate measured the 2-board harmonic of the luminance autocorrelation: alternate boards differ in tone).
+        # Tile 2.4 x 1 is the key's old period, so the cut grid and the far-set units are the flag-off ones.
+        # normal_gain 1.6: the scan's seams read flatter than the old set's. Its mean slope is -3.8 deg along v raw (-7.3
+        # at gain 1.6, P13): the butt steps are too shallow to close the course. A tilt of the bake plane is likely but
+        # unproven (u is 0.0); normal_lean (0, +1.8) is the de-tilted swatch's lean (it was +8.7)
+        # row_shuffle 14: every board row of the tile takes its own u offset (wrap), so the scan's butt joints and
+        # knots stop lining up in columns every 2.4 m (L1's gable is 17 x 6 tiles); contrast 0.7: the two-tone
+        # boards and knots repeat as a pattern at 20-45 m (luminance CoV 0.284 -> 0.199, shipped 0.123)
+        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (2.4, 2.4), "contrast": 0.7, "row_shuffle": 14,
+                       "normal_gain": 1.6, "normal_lean": (0.0, 1.8)},
+        # 1.5 m scan at 1.6 m (x 1.07): 20 x 14.5 cm slates (RoofingTiles003 drew 40 cm slates with scratch streaks).
+        # Its normal map carries a bake tilt: mean slope (+7.1, +6.4) deg raw where a relief that tiles has 0 (no
+        # course explains a u tilt, and its faces rise up the slope where a lapped course's fall; the butts face down-
+        # slope, so it is not laid upside down). At gain 1.3 it leaned (-9.0, -7.2) and the shaded roof slope rendered
+        # 23 % darker than flag-off; normal_lean (0, +0.5) is the de-tilted swatch's lean. The scan's moss and tone
+        # patches (0.3-0.8 m) repeat every 1.6 m and read as a mottle on L3's 936 m2 of roof from the lift: chroma 0.5
+        # halves the moss green, flatten_m 0.25 divides out the patches above the slate size (low-frequency CoV 0.064 ->
+        # 0.026; slate-to-slate tone and the course seams stay)
         "slate": {"set": "PHGrayRoofTiles02", "tile_m": (1.6, 1.6), "repeat": 2,
-                  "target_srgb": (0.214, 0.224, 0.215), "normal_gain": 1.3},
+                  "target_srgb": (0.214, 0.224, 0.215), "chroma": 0.5, "flatten_m": 0.25, "normal_gain": 1.3,
+                  "normal_lean": (0.0, 0.5)},
         # 1.8 m scan at 1.54 m (x 0.86): 12 cm weathered deck boards; the recipes' repeat 2 stays. On L3's 15 m deck
         # the scan repeated as a grid: its ~0.5 m water stains (flatten_m 0.15: low-frequency CoV 0.089 -> 0.012, was
         # 0.021) and its rust specks (chroma 0.25, contrast 0.6: luminance CoV 0.287 -> 0.172, was 0.151); normal_gain
         # 1.6 keeps the board seams legible once the albedo is calm
         "deck": {"set": "PHWeatheredBrownPlanks", "tile_m": (1.54, 1.54), "chroma": 0.25, "flatten_m": 0.15,
                  "contrast": 0.6, "normal_gain": 1.6},
-        # timber_shake stays WoodSiding013: it is roof shakes on L3 / L5 and wall shingles on L2, and the CC0 shake
-        # scan (Poly Haven roof_slates_02, 11 cm courses at 3.0 m) fits its 1.8 m cell only at x 0.6 (7 cm, P6 fails)
+        # Sawn heavy timber (posts, beams, knee braces, sign backs, L3's opaque balustrades, P1's log posts): Planks021
+        # drew 14 cm floor planks, so every 20-24 cm member face carried 1-2 plank seams and nail-hole pairs along it.
+        # Wood060 is a seam-free face; at 0.77 m x 4 (the key's 3.08 m period, tile factor 2 like slate) it reads as
+        # one solid member at 6-8 m (luminance CoV 0.184, low-frequency CoV 0.009, tilt 8.3 deg); the key's tint keeps
+        # its color. No course to measure, so P6 skips it (TEXPASS_SOLID)
+        "timber_heavy": {"set": "Wood060", "tile_m": (0.77, 0.77), "repeat": 4, "normal_gain": 1.6},
+        # L5 (l5 NOTE section 3, render set PD). lux_stone_tan: 1.52 m Poly Haven squared fieldstone at 2.4 m (x 1.58):
+        # 33 cm courses (P6), buff stones in gray mortar (Bricks096 drew gray rubble in salmon mortar, the same scan as
+        # the plaza); chroma 0.7 / contrast 0.8 calm its rust stones (loud on the chimneys at 22 m), normal_gain 0.85
+        # brings the tilt rms 28.6 -> about 24 deg (walls 15-25)
+        "lux_stone_tan": {"set": "PHRusticStoneWall", "tile_m": (2.4, 2.4), "chroma": 0.7, "contrast": 0.8,
+                          "normal_gain": 0.85},
+        # lux_paver: interlocking concrete unit pavers at 1.6 m (9 cm courses: 0.8 x a 22.5 x 11.25 cm unit; the cut
+        # grid allows only x 2 steps) instead of a rubble wall laid flat; normal_gain 1.6: the joints read at 30 m
+        "lux_paver": {"set": "PavingStones135", "tile_m": (1.6, 1.6), "normal_gain": 1.6},
+        # lux_glulam_s2 (L4 + L5): seam-free sawn timber at 0.77 m x 4 (Planks021 drew deck planking, a seam every
+        # 14 cm along every post and truss); square tile 1.54 -> 0.77: tile factor 2
+        "lux_glulam_s2": {"set": "Wood077", "tile_m": (0.77, 0.77), "repeat": 4},
+        # lux_siding_red / lux_vboard_red (L5 low floors, clock tower): the porch gables' cedar (recipe TG_LIN
+        # (0.30, 0.135, 0.060), lux_tg, the same WoodSiding009 scan) instead of SIDING_RED_LIN, which renders mauve under
+        # the sky light (blue = green) and matches the structural timber's value, so the posts in front did not separate.
+        # Light cedar low, walnut high: the two-tone of the references (One Ski Hill Place, Peak 7). The clock tower
+        # wears the same cedar (the Peak 7 tower wears its walls' siding); its TRIM_WOOD corner trim stays dark.
+        "lux_siding_red": {"target_srgb": (0.5838, 0.403, 0.2717)},
+        # lux_vboard_red: battens at 0.35 m = every second 17.5 cm board seam, 8 per 2.8 m
+        # tile (K.BATTEN's 0.30 m beat against the boards every 2.1 m and broke at every tile edge: 9.33 per tile)
+        "lux_vboard_red": {"detail": {"seams_m": 0.35}, "target_srgb": (0.5838, 0.403, 0.2717)},
+        # timber_shake is wall shingles (gable walls of L2 / L3 / L5, L3's kiosk walls). The one roof that draws the key
+        # is the welcome sign's (TEXPASS_ROLES["gate_roof"]); 6.9 cm is too fine for a roof, so the sign picks its own
+        # roof scale (welcome_sign.py --texpass-roof: true size or slate, never the key as is). WoodSiding013 (a 1.4 m shingle-siding scan) was drawn at 1.8 m: 22.5 cm courses that
+        # read as boards. Poly Haven roof_slates_02 (split larch shingles despite the name, 26 courses per 3.0 m) at the
+        # key's 1.8 m: 6.9 cm courses, the alpine wall-shingle scale. Its light / dark blotches repeat every 1.8 m
+        # (flatten_m), single light shingles repeat as dots (contrast 0.55); normal_gain 1.4 carries the courses.
+        # Its mean slope is +1.6 deg at gain 1.4 (under the P13 limit); normal_lean (0, 0) is the de-tilted swatch's
+        # lean (it was (+0.9, -1.4))
+        "timber_shake": {"set": "PHRoofSlates02", "tile_m": (1.8, 1.8), "target_srgb": (0.406, 0.352, 0.275),
+                         "chroma": 0.5, "flatten_m": 0.15, "contrast": 0.55, "normal_gain": 1.4,
+                         "normal_lean": (0.0, 0.0)},
+        # siding_paint (the ski school only; slot-1 recolor, so a LIGHT neutral swatch: the player's color multiplies).
+        # WoodSiding009 turned 90 deg drew a lap profile stood upright (15 cm "boards", grooves) and its butt-joint column
+        # as one horizontal line through every board every 2.4 m. Poly Haven wood_planks_grey (1.5 m, 5 vertical boards)
+        # turned into the key's row frame at 1.2 m x 2 (the 2.4 m period: cut grid, tris, far units kept): 24 cm boards
+        # (a 1x10) with a raised 19 x 50 mm batten on every joint (the timber_vboard batten), the reference school's
+        # 0.20-0.23 m pitch. contrast 0.35: matte paint hides the grain (luminance CoV 0.125 shipped -> about 0.11);
+        # nflatten_m 0.10 takes out the scan's 1.2 m board-warp bands and keeps the board relief. Mean height slope
+        # (-0.15, +0.22) deg as drawn: P13 holds without a normal_lean
+        "siding_paint": {"set": "PHWoodPlanksGray", "tile_m": (1.2, 1.2), "repeat": 2, "rot": 1, "flatten_m": 0.15,
+                         "contrast": 0.35, "nflatten_m": 0.10, "normal_gain": 1.6,
+                         "detail": {"seams_m": 0.24, "seam_width_m": 0.05, "seam_depth_m": -0.019}},
     },
 }
 # Real-world course / board pitch (m) a pass key must show at its tile size: lap siding exposure 10-20 cm, slate and
-# tile courses 10-25 cm, deck boards 9-16 cm on center, roof shakes 12-26 cm. test_texpass P6 measures each scan
-# (row-profile autocorrelation of the Color map at texture-sources.json size_m, times tile_m / size_m).
-TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.12, 0.26)}
+# tile courses 10-25 cm, deck boards 9-16 cm on center, wall shingles 6-19 cm (alpine larch 6-10, US cedar sidewall
+# 12.5-19). test_texpass P6 measures each scan
+# (the FUNDAMENTAL of the Color map's row-profile autocorrelation at texture-sources.json size_m, times tile_m / size_m;
+# count the seams on the normal map when you pick a scan: a bond or a two-tone board pattern has a stronger harmonic).
+TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.06, 0.19),
+                 # squared fieldstone courses 15-50 cm; unit pavers 8-15 cm courses
+                 "lux_stone_tan": (0.15, 0.50), "lux_paver": (0.08, 0.15),
+                 # board-and-batten boards 20-30 cm on center (1x8 .. 1x12; the reference school 0.20-0.23 m)
+                 "siding_paint": (0.20, 0.30)}
+# Pass keys with no course or board pitch to measure (P6 skips them; the grain scale is judged on renders): seam-free
+# member faces, and detail- or color-only keys that keep the flag-off scan
+TEXPASS_SOLID = ("timber_heavy", "lux_glulam_s2", "lux_vboard_red", "lux_siding_red")
 # Swatch controls a pass key may carry (texpass_apply runs them in this order on the sheet swatch and on the far source);
-# the color ones move the swatch mean, which the target_srgb tint then restores
-TEXPASS_CONTROLS = ("chroma", "flatten_m", "contrast", "normal_gain")
+# the color ones move the swatch mean, which the target_srgb tint then restores. "rot" = quarter turns of the square
+# scan tile before everything else: a scan whose boards run VERTICAL in the file (PHWoodPlanksGray) under a uv_rot 90 key
+# (timber_vboard stores its boards along the swatch rows). The key's BldgMat, tile and UVs do not change, so the cut grid
+# and the far layout hold; only the pixels turn. "nflatten_m" = flatten_m for the relief: the normal map's slope
+# blurred at that sigma (m) is taken out, so a scan's board warp and cupping along the board, which repeats with the
+# tile, stops drawing light / dark bands across a wall at 20 m (PHWoodPlanksGray at tile 1.2: one band every 1.2 m);
+# relief finer than about 3 x sigma (board seams, grain, battens drawn later by the key's detail spec) stays
+# normal_lean (u, v deg, after normal_gain): a lapped / shingled scan's normal map does not average to the face
+# normal (each face leans one way, its butt step is a few texels wide), so the sun shades the whole surface as if it
+# faced elsewhere; the control turns the swatch's mean normal to the stated lean. The value is the DE-TILTED swatch's
+# lean (its mean slope subtracted in slope space, then renormalized; P13), never a lean borrowed from another scan:
+# that copies the other scan's normal-map artifact. u is 0 (a course is symmetric across u)
+# row_shuffle n = a horizontal-board tile cut into n board rows, each shifted by its own u offset (wrap): butt joints
+# and knots stop lining up in columns every tile
+TEXPASS_CONTROLS = ("rot", "chroma", "flatten_m", "contrast", "row_shuffle", "nflatten_m", "normal_gain", "normal_lean")
+# Tilt gate (test_texpass P13): the mean height slope (mean of -n.x / n.z, -n.y / n.z) of a relief that tiles is 0, so
+# a nonzero mean slope is a tilt baked into the normal map (the bake plane), not relief. Every pass key's sheet swatch
+# (after normal_gain and normal_lean) stays under this in u and v (PHGrayRoofTiles02 at gain 1.3: +9.2 / +7.8)
+TEXPASS_MAX_MEAN_SLOPE_DEG = 2.0
+# Flat (procedural) keys a pass re-draws, by EXACT key (no V2_BASE fallback: metal_roof_dk and metal_roof_s1 derive
+# from metal_roof but have their own proposers). metal_roof_lt (the fixed light roof, slots v2) is a COATED
+# standing-seam panel (PVDF, 20-35 gloss units at 60 degrees: satin), not bare metal: METAL_ROLLOUT 1.0 made it a
+# mid-gray mirror that reads dark slate from the play views away from the sun (release shot 2026-11-10) and navy at
+# dusk (the chimney cap and the stove pipes left metal 1.0 for the same reason, T95 / T91). ribs = RAISED seams per
+# 3.0 m tile (7 = 0.43 m, real panels 0.30-0.46 m; the rollout drew 6 grooves at 0.50 m), rib_m = (half top, half base,
+# height) of the trapezoid in the normal map, ao = the contact shade beside a rib in the albedo (the MaskMap has no AO
+# channel), smooth_streak = sd of a faint down-slope wash in the smoothness. light_w = the light roof takes the
+# orphaned "metal_roof~w" cell as "metal_roof_lt~w" (no building has sampled that cell since slots v2: L1's 1,841 m2
+# roof drew no roof-eave band and no valley pieces), drawn as a dirt wash without rust (paint = True). The renamed
+# cell's ControlMask follows metal_roof_lt (slot 0): the old cell carried the recolor roof's slot-3 mask.
+# metal_roof_s1 (the P1 recolor roof, 33 m2) keeps the recolor model of vanilla's barn roof (metal 1.0, light neutral
+# albedo, the slot tint multiplies), so its character comes from the normal and the smoothness: panel = an
+# exposed-fastener ribbed panel, the common utility-shack roof (the shipped 3 cm grooves at 0.50 m read as a flat
+# painted slab past 20 m). 26 mm trapezoid major ribs (28 mm top, 96 mm base) at 0.30 m (PBR / R-panel: 1-1/4 in ribs 12 in on
+# center), 10 per 3.0 m tile, two 3 mm minor ribs per pan, a sheet = 3 pans (36 in coverage).
+# can_mm = the oil-canning bow of a pan; panel = sheet-to-sheet albedo shade; streak / sm_streak = soft down-slope
+# run-off 6-12 cm wide (darker / rougher); rib tops +0.05 smoothness; albedo features >= 5 cm. Same cell, 0 tris, 0 MB.
+TEXPASS_FLAT = {
+    "v1": {"metal_roof_lt": {"metal": 0.0, "smooth": 0.40, "ribs": 7, "rib_m": (0.007, 0.020, 0.014), "ao": 0.12,
+                             "smooth_streak": 0.012, "light_w": True, "paint": True},
+           "metal_roof_s1": {"panel": {"name": "rib30w", "profile": "rib", "pitch_m": 0.30, "rib_top": 0.028, "rib_base": 0.096,
+                                       "rib_h": 0.026, "can_mm": 0.3, "panel": 0.008, "streak": 0.0,
+                                       "sm_streak": 0.030, "sheet_ribs": 3}}},
+}
+PANEL_SS = 4                    # a panel swatch is box-filtered from PANEL_SS x its content size
 TEXPASS_COLOR_CONTROLS = ("chroma", "flatten_m", "contrast")
 # Low-frequency gate (test_texpass P10): a tile repeats every tile_m, so blotches above the board / course scale read as
 # a grid. Luminance CoV after a periodic Gaussian of TEXPASS_LF_SIGMA_M may not exceed max(TEXPASS_LF_RATIO x the
@@ -380,10 +502,27 @@ TEXPASS_LF_SIGMA_M = 0.2
 TEXPASS_LF_RATIO = 1.25
 TEXPASS_LF_FLOOR = 0.03
 _TEXPASS_STATE = {"version": None, "saved": {}}
+# Roles: an asset OFF the family sheet (the welcome sign bakes its own atlas from the family swatches) asks for "the family's
+# key for this role" instead of naming a key, so a key split or a rename reaches it without an edit in its generator.
+TEXPASS_ROLES = {"gate_roof": "timber_shake"}       # the welcome sign's roof slabs: the one roof use of the shingle key
+
+
+def texpass_role(role, default=None):
+    """The material key the family assigns to `role` (TEXPASS_ROLES), else `default`."""
+    return TEXPASS_ROLES.get(role, default)
 
 
 def texpass_version():
     return _TEXPASS_STATE["version"]
+
+
+def texpass_flat(key):
+    """The active pass's flat-key spec for `key` (its weathered "~w" twin included; exact key, no V2_BASE fallback),
+    {} when off."""
+    v = _TEXPASS_STATE["version"]
+    if not v:
+        return {}
+    return dict(TEXPASS_FLAT.get(v, {}).get(base_key(key), {}))
 
 
 def texpass_specs(version):
@@ -397,10 +536,19 @@ def texpass_specs(version):
 
 
 def _texpass_mat(m, s):
+    """The pass BldgMat: set / tile_m / target_srgb from the spec (a spec without "set" keeps the key's scan and tile).
+    "detail": the key's rib detail under the pass: None = no ribs, a dict = DetailSpec fields over the key's own spec
+    (e.g. {"seams_m": 0.35} retunes the rib pitch, depth and width stay). A NEGATIVE seam_depth_m is a RAISED rib (a
+    batten over each board joint). It lives on the BldgMat, so the sheet swatch (_ribs_height) and the far bake
+    (cs2_compose.detail_height) draw the same ribs."""
     from dataclasses import replace as _rp
-    kw = {"set": s["set"], "tile_m": tuple(s["tile_m"])}
+    kw = {"set": s.get("set", m.set), "tile_m": tuple(s.get("tile_m", m.tile_m))}
     if "target_srgb" in s:
         kw["target_srgb"] = tuple(s["target_srgb"])
+    if "detail" in s:
+        if s["detail"] is not None and m.detail is None:
+            raise ValueError(f"texpass: detail fields on a key without a DetailSpec ({m.set})")
+        kw["detail"] = None if s["detail"] is None else _rp(m.detail, **s["detail"])
     return _rp(m, **kw)
 
 
@@ -428,6 +576,8 @@ def register_texpass(version):
     ensure_materials()                  # the lux_* followers exist (and are saved) before the swap
     specs = texpass_specs(version)
     for k, s in sorted(specs.items()):
+        if "set" not in s:              # detail-only key: its scan is the flag-off one
+            continue
         sdir = os.path.join(cs2_bake.TEXTURE_ROOT, s["set"])
         miss = [m for m in ("Color", "NormalGL", "Roughness")
                 if not os.path.isdir(sdir) or cs2_bake.find_set_map(sdir, m) is None]
@@ -435,9 +585,24 @@ def register_texpass(version):
             raise FileNotFoundError(f"texpass {version}: {s['set']} lacks {miss} under {sdir} "
                                     f"(assets/texture-sources.json lists the downloads)")
     for k, s in sorted(specs.items()):
+        if k not in K.BLDG_MATERIALS:   # a --slots v2 key (lux_glulam_s2): register_slot_materials adopts it later
+            continue
         _TEXPASS_STATE["saved"][k] = K.BLDG_MATERIALS[k]
         K.BLDG_MATERIALS[k] = _texpass_mat(K.BLDG_MATERIALS[k], s)
     _TEXPASS_STATE["version"] = version
+
+
+def texpass_adopt():
+    """Swap the active pass's keys that were registered AFTER register_texpass (lodge.main registers the pass before
+    any material is read; the --slots v2 keys such as lux_glulam_s2 come later, from register_slot_materials). The
+    pre-pass material is saved, so unregister_texpass restores it. No-op when the pass is off."""
+    v = _TEXPASS_STATE["version"]
+    if not v:
+        return
+    for k, s in sorted(texpass_specs(v).items()):
+        if k not in _TEXPASS_STATE["saved"] and k in K.BLDG_MATERIALS:
+            _TEXPASS_STATE["saved"][k] = K.BLDG_MATERIALS[k]
+            K.BLDG_MATERIALS[k] = _texpass_mat(K.BLDG_MATERIALS[k], s)
 
 
 def unregister_texpass():
@@ -448,9 +613,10 @@ def unregister_texpass():
 
 
 def texpass_repeats():
-    """{key: r} the active pass adds to the sheet's repeats ({} when off)."""
+    """{key: r} the active pass adds to the sheet's repeats ({} when off). Keyed like the sheet's repeats: a v2 key
+    (lux_glulam_s2) under its base key (lux_glulam), which sheet_layout reads for the v2 cell."""
     v = _TEXPASS_STATE["version"]
-    return {k: int(s["repeat"]) for k, s in TEXPASS[v].items() if "repeat" in s} if v else {}
+    return {V2_BASE.get(k, k): int(s["repeat"]) for k, s in TEXPASS[v].items() if "repeat" in s} if v else {}
 
 
 def texpass_tile_factors():
@@ -479,7 +645,8 @@ def texpass_swatch(key):
     source alike, so the far set draws what LOD0 draws."""
     v = _TEXPASS_STATE["version"]
     s = texpass_specs(v).get(key) if v else None
-    return {f: float(s[f]) for f in TEXPASS_CONTROLS if f in s} if s else {}
+    return {f: (tuple(float(x) for x in s[f]) if f == "normal_lean" else float(s[f]))
+            for f in TEXPASS_CONTROLS if f in s} if s else {}
 
 
 def _normal_gain(nrm, g):
@@ -488,6 +655,69 @@ def _normal_gain(nrm, g):
     n[..., :2] *= g
     n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-9)
     return n * 0.5 + 0.5
+
+
+def normal_lean_deg(nrm):
+    """(u, v) degrees of the mean of 0..1-encoded tangent normals (atan2(x, z), atan2(y, z) of the mean vector)."""
+    n = np.asarray(nrm, np.float64)[..., :3].reshape(-1, 3) * 2.0 - 1.0
+    m = (n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-9)).mean(0)
+    return float(np.degrees(np.arctan2(m[0], m[2]))), float(np.degrees(np.arctan2(m[1], m[2])))
+
+
+def mean_slope_deg(nrm):
+    """(u, v) degrees of the mean height slope of 0..1-encoded tangent normals: atan of mean(-x / z), mean(-y / z),
+    z clamped at 0.05 as _normal_lean clamps it. 0 for any relief that tiles; anything else is a baked tilt (P13)."""
+    n = np.asarray(nrm, np.float64)[..., :3].reshape(-1, 3) * 2.0 - 1.0
+    n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-9)
+    z = np.maximum(n[:, 2], 0.05)
+    return (float(np.degrees(np.arctan((-n[:, 0] / z).mean()))),
+            float(np.degrees(np.arctan((-n[:, 1] / z).mean()))))
+
+
+def _normal_lean(nrm, lean):
+    """0..1-encoded tangent normals rotated as one (Rodrigues) so that their mean points at `lean` (u, v degrees):
+    the relief is kept, only its mean turns."""
+    n = np.asarray(nrm, np.float64)[..., :3] * 2.0 - 1.0
+    n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-9)
+    a = n.reshape(-1, 3).mean(0)
+    a /= np.linalg.norm(a)
+    tu, tv = (np.tan(np.radians(float(x))) for x in lean)
+    b = np.array([tu, tv, 1.0]) / np.sqrt(tu * tu + tv * tv + 1.0)
+    v = np.cross(a, b)
+    sn, cs = float(np.linalg.norm(v)), float(np.dot(a, b))
+    if sn > 1e-12:
+        k = v / sn
+        Kx = np.array([[0.0, -k[2], k[1]], [k[2], 0.0, -k[0]], [-k[1], k[0], 0.0]])
+        n = n @ (np.eye(3) + sn * Kx + (1.0 - cs) * (Kx @ Kx)).T
+    n[..., 2] = np.maximum(n[..., 2], 0.05)
+    n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-9)
+    return n * 0.5 + 0.5
+
+
+def _normal_flatten(nrm, sigma_px):
+    """0..1-encoded tangent normals of one seamless tile with the low-frequency slope taken out: the slope field
+    (x / z, y / z = the height gradient) minus its periodic blur at sigma_px plus its mean, renormalized. High-passing
+    the gradient high-passes the height field, so the fine relief keeps its shape."""
+    n = nrm * 2.0 - 1.0
+    z = np.maximum(n[..., 2:3], 0.05)
+    s = n[..., :2] / z
+    s = s - blur_periodic(s, sigma_px) + s.reshape(-1, 2).mean(0)
+    v = np.concatenate([s, np.ones(s.shape[:2] + (1,))], -1)
+    v /= np.linalg.norm(v, axis=-1, keepdims=True)
+    return v * 0.5 + 0.5
+
+
+def rot_tile(lin, nrm, rough, k):
+    """k quarter turns of one square tile (rows bottom-up, u = columns). np.rot90 moves a feature at (u, v) to
+    (v, 1 - u), so a tangent vector (x, y) becomes (y, -x): the normals turn with the image (the turned normal map of
+    a height field equals the normal map of the turned height field)."""
+    for _ in range(int(k) % 4):
+        if lin.shape[0] != lin.shape[1]:
+            raise ValueError(f"texpass rot needs a square tile, got {lin.shape[:2]}")
+        lin, rough = np.rot90(lin), np.rot90(rough)
+        n = np.rot90(nrm) * 2.0 - 1.0
+        nrm = np.stack([n[..., 1], -n[..., 0], n[..., 2]], -1) * 0.5 + 0.5
+    return np.ascontiguousarray(lin), np.ascontiguousarray(nrm), np.ascontiguousarray(rough)
 
 
 def blur_periodic(img, sigma_px):
@@ -507,11 +737,34 @@ def lf_cov(lin, ppm, sigma_m=TEXPASS_LF_SIGMA_M):
     return float(blur_periodic(lum, sigma_m * ppm).std() / max(float(lum.mean()), 1e-9))
 
 
+def _row_shuffle(n_rows, lin, nrm, rough):
+    """Horizontal-board tile: shift each of its n_rows board rows by its own u offset (wrap-around). The rows are cut on
+    the lap seams (the darkest phase of the row-mean luminance folded at the board pitch), so no cut shows; the
+    offsets are fractions of the tile (one fixed seed), so the sheet swatch and the far source shift alike."""
+    N = lin.shape[0]
+    pitch = N / float(n_rows)
+    prof = (lin[..., :3] @ LUMA).mean(1)
+    idx = np.floor(np.mod(np.arange(N), pitch)).astype(int)
+    fold = np.bincount(idx, weights=prof) / np.maximum(np.bincount(idx), 1)
+    phase = float(np.argmin(fold)) + 0.5
+    edges = np.rint(phase + np.arange(n_rows + 1) * pitch).astype(int)
+    rng = np.random.default_rng(20261119)
+    out = [lin.copy(), nrm.copy(), rough.copy()]
+    for i in range(n_rows):
+        sh = int(round(float(rng.random()) * lin.shape[1]))
+        rows = np.arange(edges[i], edges[i + 1]) % N
+        for a, o in zip((lin, nrm, rough), out):
+            o[rows] = np.roll(a[rows], sh, axis=1)
+    return out
+
+
 def texpass_apply(tps, lin, nrm, rough, ppm):
     """One seamless scan tile (linear RGB, 0..1 normals, roughness; ppm px per meter) through a pass key's controls
     (texpass_swatch) in TEXPASS_CONTROLS order. flatten and contrast keep every channel's mean exactly."""
     def keep_mean(new, old):
         return new * (old.reshape(-1, 3).mean(0) / np.maximum(new.reshape(-1, 3).mean(0), 1e-9))
+    if "rot" in tps:
+        lin, nrm, rough = rot_tile(lin, nrm, rough, int(round(tps["rot"])))
     if "chroma" in tps:
         lum = (lin @ LUMA)[..., None]
         lin = lum + (lin - lum) * tps["chroma"]
@@ -524,8 +777,14 @@ def texpass_apply(tps, lin, nrm, rough, ppm):
         lum = lin @ LUMA
         m = lum.mean()
         lin = keep_mean(lin * ((m + (lum - m) * tps["contrast"]) / np.maximum(lum, 1e-6))[..., None], lin)
+    if "row_shuffle" in tps:
+        lin, nrm, rough = _row_shuffle(int(tps["row_shuffle"]), lin, nrm, rough)
+    if "nflatten_m" in tps:
+        nrm = _normal_flatten(nrm, tps["nflatten_m"] * ppm)
     if "normal_gain" in tps:
         nrm = _normal_gain(nrm, tps["normal_gain"])
+    if "normal_lean" in tps:
+        nrm = _normal_lean(nrm, tps["normal_lean"])
     return lin, nrm, rough
 
 
@@ -648,6 +907,7 @@ def register_slot_materials():
     K.WEATHER_ROLES_EXTRA.setdefault(FRAME_KEY, "paint")
     for k in ACCENT_FIXED:
         K.WEATHER_ROLES_EXTRA.setdefault(k, roles.get("accent", "paint"))
+    texpass_adopt()                             # the pass's slots-v2 keys (lux_glulam_s2) exist only from here
 
 
 def register_glass_materials():
@@ -754,6 +1014,8 @@ def sheet_layout(A=SHEET_A, layout="rollout", repeats=None, trim=False, slots=Fa
         tiles_spec.update(SLOTS_V2_TILES)
         for a, b in slots_v2_rename().items():
             tiles_spec[b] = tiles_spec.pop(a)
+        if texpass_flat("metal_roof_lt").get("light_w"):   # texture pass only: flag off keeps the orphaned key
+            tiles_spec["metal_roof_lt" + W_SUFFIX] = tiles_spec.pop("metal_roof" + W_SUFFIX)
     for k, (c, r, span) in tiles_spec.items():
         sw = span * cell
         pad = max(8, sw // 32)
@@ -846,6 +1108,7 @@ def layout_hash(layout):
     if _TEXPASS_STATE["version"]:       # texture pass: the flag-off blob keeps its key set
         d["v"] += TEXPASS_VERSION
         d["texpass"] = {_TEXPASS_STATE["version"]: texpass_specs(_TEXPASS_STATE["version"])}
+        d["texpass_flat"] = TEXPASS_FLAT.get(_TEXPASS_STATE["version"], {})
     blob = json.dumps(d, sort_keys=True, default=str)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
 
@@ -863,10 +1126,111 @@ def _ribs_height(C, tile_m, spec, along_u):
     d = float(getattr(spec, "seam_depth_m", 0.004) or 0.004)
     ph = np.mod(s, pitch)
     dist = np.minimum(ph, pitch - ph)
-    prof = np.where(dist < w / 2.0, -d * 0.5 * (1.0 + np.cos(np.pi * dist / (w / 2.0))), 0.0)
+    if d < 0:                           # raised rib (batten): flat top `w` wide, 8 mm linear shoulders
+        n = tile_m / pitch
+        if abs(n - round(n)) > 1e-6:
+            raise ValueError(f"raised ribs: pitch {pitch} m does not divide the {tile_m} m swatch period")
+        prof = -d * np.clip((w / 2.0 - dist) / 0.008 + 0.5, 0.0, 1.0)
+    else:
+        prof = np.where(dist < w / 2.0, -d * 0.5 * (1.0 + np.cos(np.pi * dist / (w / 2.0))), 0.0)
     if along_u:
         return np.broadcast_to(prof[None, :], (C, C)).copy()
     return np.broadcast_to(prof[:, None], (C, C)).copy()
+
+
+def _rib_height(C, tile_m, n_ribs, rib_m):
+    """Raised trapezoid seams (meters): n_ribs per tile, one centered on the tile edge (the phase of _ribs_height).
+    Returns (height profile, distance to the nearest seam center)."""
+    half_top, half_base, height = (float(x) for x in rib_m)
+    s = (np.arange(C) + 0.5) / C * tile_m
+    pitch = tile_m / int(n_ribs)
+    ph = np.mod(s, pitch)
+    d = np.minimum(ph, pitch - ph)
+    t = np.clip((half_base - d) / max(half_base - half_top, 1e-9), 0.0, 1.0)
+    return height * (t * t * (3.0 - 2.0 * t)), d
+
+
+def _panel_profile(u, spec):
+    """Height (m) across a panel's ribs at u (m, periodic in the pitch): "rib" = a trapezoid major rib (rib_h high,
+    rib_top / rib_base wide; default 19 mm, 20 / 64 mm) + two 3 mm minor ribs per pan; "seam" = a raised 16 mm
+    standing seam (10 mm top, 32 mm base)."""
+    p = float(spec["pitch_m"])
+    ph = np.mod(u, p)
+    d = np.minimum(ph, p - ph)                       # distance to the nearest rib center
+    if spec["profile"] == "seam":
+        t = np.clip((d - 0.005) / (0.016 - 0.005), 0.0, 1.0)
+        return 0.016 * 0.5 * (1.0 + np.cos(np.pi * t))
+    if spec["profile"] == "rib":
+        a, b = float(spec.get("rib_top", 0.020)) / 2, float(spec.get("rib_base", 0.064)) / 2
+        t = np.clip((d - a) / (b - a), 0.0, 1.0)
+        major = float(spec.get("rib_h", 0.019)) * 0.5 * (1.0 + np.cos(np.pi * t))
+        minor = np.zeros_like(u)
+        for k in (1, 2):
+            dm = np.abs(ph - p * k / 3.0)
+            minor += np.where(dm < 0.014, 0.003 * 0.5 * (1.0 + np.cos(np.pi * dm / 0.014)), 0.0)
+        return major + minor
+    raise KeyError(spec["profile"])
+
+
+def _panel_box(a, f):
+    s = a.shape
+    return a.reshape(s[0] // f, f, s[1] // f, f, *s[2:]).mean((1, 3))
+
+
+def _panel_maps(key, C, tile_m, spec, smooth_mean, along_u=True):
+    """(luminance factor (C, C) mean 1, normal 0..1 (C, C, 3), smoothness (C, C) mean smooth_mean) of a TEXPASS_FLAT
+    "panel" spec. The ribs are columns (constant u, v up the slope; rows when not along_u), everything periodic in the
+    tile; built at PANEL_SS x and box-filtered (the normals as vectors). Deterministic per key and spec name."""
+    f = PANEL_SS
+    n = C * f
+    ppm = n / tile_m
+    u = (np.arange(n) + 0.5) / n * tile_m
+    pitch = float(spec["pitch_m"])
+    npan = int(round(tile_m / pitch))
+    if abs(npan * pitch - tile_m) > 1e-9:
+        raise ValueError(f"texpass panel {key}: pitch {pitch} does not divide the {tile_m} m tile")
+    prof = _panel_profile(u, spec)
+    h = np.broadcast_to(prof[None, :], (n, n)).copy()
+    sd = int(hashlib.sha1(f"{key}:{spec['name']}".encode()).hexdigest()[:8], 16)
+    rng = np.random.default_rng(sd)
+    pan = np.floor(np.mod(u + pitch / 2, tile_m) / pitch).astype(int) % npan   # pan index per column
+    # oil canning: each pan bows a little across its width, the bow drifting up the slope
+    can = float(spec["can_mm"]) * 1e-3
+    ph = np.mod(u, pitch) / pitch
+    bow = np.sin(np.pi * ph) ** 2
+    amp = _pnoise(n, n / 3.0, sd + 1, beta=2.4, aniso=(0.0001, 1.0))[:, :1]
+    per_pan = rng.uniform(-1.0, 1.0, npan)[pan]
+    drift = _pnoise(n, n / 3.0, sd + 2, beta=2.2)
+    h += can * bow[None, :] * (0.6 * per_pan[None, :] + 0.25 * amp + 0.35 * drift)
+    # albedo: sheet-to-sheet shade, then the run-off streaks (6-12 cm wide, >= 5 cm)
+    k = int(spec.get("sheet_ribs", 1))
+    nsheet = max(1, npan // k)
+    shade = rng.uniform(-1.0, 1.0, nsheet)
+    shade -= shade.mean()
+    sheet_of = (pan // k) % nsheet
+    lum = 1.0 + float(spec["panel"]) * shade[sheet_of][None, :] * np.ones((n, 1))
+    st = blur_periodic(_streaks(n, sd + 3, 0.09 * ppm, True), 0.02 * ppm)
+    st = st / max(st.max(), 1e-9)
+    lum *= 1.0 - float(spec["streak"]) * 2.0 * st
+    # smoothness: rib tops burnished, streaks rougher, sheets differ a little, a fine grain
+    top = prof / max(prof.max(), 1e-9)
+    sm = smooth_mean + 0.05 * np.clip(top, 0, 1)[None, :] - float(spec["sm_streak"]) * 2.0 * st \
+        + 0.012 * shade[sheet_of][None, :] + 0.008 * _pnoise(n, 6.0, sd + 5, beta=1.0)
+    gx = (np.roll(h, -1, 1) - np.roll(h, 1, 1)) * 0.5 * ppm
+    gy = (np.roll(h, -1, 0) - np.roll(h, 1, 0)) * 0.5 * ppm
+    nv = np.stack([-gx, -gy, np.ones_like(h)], -1)
+    nv /= np.linalg.norm(nv, axis=-1, keepdims=True)
+    nv = _panel_box(nv, f)
+    nv /= np.maximum(np.linalg.norm(nv, axis=-1, keepdims=True), 1e-9)
+    lum = _panel_box(lum, f)
+    lum = lum / lum.mean()                                    # recolor rule: the mean luminance holds
+    sm = _panel_box(sm, f)
+    sm = np.clip(smooth_mean + (sm - sm.mean()), 0.0, 1.0)
+    nrm = nv * 0.5 + 0.5
+    if not along_u:
+        lum, sm = lum.T.copy(), sm.T.copy()
+        nrm = np.stack([nrm[..., 1].T, nrm[..., 0].T, nrm[..., 2].T], -1)
+    return lum, nrm, sm
 
 
 def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
@@ -914,7 +1278,30 @@ def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
         k = float(K.srgb_to_linear(cs2_asset.RECOLOR_ALBEDO)) / max(float(lum.mean()), 1e-6)
         base = np.repeat(np.clip(lum * k, 0, 1)[..., None], 3, -1)
         info["recolor_scale"] = round(k, 4)
-    if m.detail is not None and getattr(m.detail, "seam_axes", None) == "ribs" and m.detail.seams_m:
+    tpf = texpass_flat(key) if not m.set else {}
+    if tpf.get("panel"):
+        along_u = (int(m.uv_rot) % 180 == 0)
+        tgt0 = float(tpf["smooth"]) if "smooth" in tpf else SMOOTH_TARGET.get(V2_BASE.get(key, key), float(sm.mean()))
+        lumf, nrm, panel_sm = _panel_maps(key, C, tile * r, tpf["panel"], tgt0, along_u)
+        base = base * lumf[..., None]
+        info["detail"] = f"panel {tpf['panel']['name']}, {'columns' if along_u else 'rows'}"
+        info["texpass_flat"] = dict(tpf)
+    elif tpf.get("ribs"):
+        rot = int(m.uv_rot) % 180
+        along_u = (rot == 0)
+        prof, dist = _rib_height(C, tile * r, tpf["ribs"] * r, tpf["rib_m"])
+        h = (np.broadcast_to(prof[None, :], (C, C)) if along_u else np.broadcast_to(prof[:, None], (C, C))).copy()
+        det = cs2_compose.height_to_normal(h.astype(np.float32), C / (tile * r))
+        nrm = cs2_compose.blend_rnm(nrm.astype(np.float32), det)
+        if tpf.get("ao"):
+            line = 1.0 - float(tpf["ao"]) * np.exp(-0.5 * (dist / 0.0175) ** 2)
+            base = base * (line[None, :, None] if along_u else line[:, None, None])
+        if tpf.get("smooth_streak"):
+            aniso = (1.0, 0.04) if along_u else (0.04, 1.0)
+            sm = sm + float(tpf["smooth_streak"]) * _pnoise(C, 0.08 * C / (tile * r), 11, beta=1.6, aniso=aniso)
+        info["detail"] = f"raised ribs {tile / tpf['ribs']:.4f} m, {'columns' if along_u else 'rows'}"
+        info["texpass_flat"] = dict(tpf)
+    elif m.detail is not None and getattr(m.detail, "seam_axes", None) == "ribs" and m.detail.seams_m:
         rot = int(m.uv_rot) % 180
         along_u = (rot == 0)            # planar / box: u is the horizontal in-plane axis
         h = _ribs_height(C, tile * r, m.detail, along_u)
@@ -922,8 +1309,10 @@ def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
         nrm = cs2_compose.blend_rnm(nrm.astype(np.float32), det)
         info["detail"] = f"ribs {m.detail.seams_m} m, {'columns' if along_u else 'rows'}"
     src_mean = float(sm.mean())
-    tgt = SMOOTH_TARGET.get(V2_BASE.get(key, key), src_mean)
+    tgt = float(tpf["smooth"]) if "smooth" in tpf else SMOOTH_TARGET.get(V2_BASE.get(key, key), src_mean)
     sm = np.clip(tgt + (sm - src_mean) * SMOOTH_GAIN, 0.0, 1.0)
+    if tpf.get("panel"):
+        sm = panel_sm                                   # a flat key's smoothness is the constant tgt: the panel's replaces it
     info["smooth_src_mean"] = round(src_mean, 3)
     info["smooth_mean"] = round(float(sm.mean()), 3)
     metal = metal_of(key, layout_name)
@@ -965,12 +1354,19 @@ def _streaks(C, seed, width_px, vertical_cols):
     return s if vertical_cols else s.T
 
 
-def weather_overlay(key, base, nrm, metal, sm, seed):
+def swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="rollout"):
+    """One key's swatch content as the sheet draws it (linear base, normal, metal, smoothness, slot, info): the registered
+    pass's scan, tile, tint, controls, rib relief and smoothness target. The public reader for an asset that bakes its own
+    atlas from the family's materials (welcome_sign.tp_swatch_source), so it draws the lodges' material by construction."""
+    return _swatch_maps(key, C, cache_dir, repeat=repeat, layout_name=layout_name)
+
+
+def weather_overlay(key, base, nrm, metal, sm, seed, cls=None):
     """(base, metal, sm) of the "~w" variant: the clean tile with a PARTIAL overlay (never a uniform tone shift, so a clean
     / weathered boundary reads as the edge of a stain, and the overlay stays sparse). Classes (W_CLASS): stone damp +
     lichen, timber silver-graying + water marks, paint dirt, metal-roof streaks, slate moss, concrete drip stains, deck
     / paver scuff. Linear albedo. Deterministic per key."""
-    cls = _bt(W_CLASS, base_key(key))
+    cls = cls or _bt(W_CLASS, base_key(key))    # `cls`: a key off the sheet names its class itself (the gate's plank, rock)
     m = K.BLDG_MATERIALS[base_key(key)]
     C = base.shape[0]
     vertical_cols = (int(m.uv_rot) % 180 == 0)          # box / planar: world-vertical = v
@@ -999,6 +1395,11 @@ def weather_overlay(key, base, nrm, metal, sm, seed):
         dirt = np.clip(0.6 * d + 0.7 * st, 0, 1)
         b = b * (1.0 - 0.20 * dirt[..., None])
         s = s - 0.06 * dirt
+    elif cls == "metal_roof" and texpass_flat(key).get("paint"):
+        st = _streaks(C, seed + 3, C / 50.0, True)            # a coated panel rusts only at cut edges: dirt wash
+        dirt = np.clip(0.75 * st + 0.25 * _smooth(_pnoise(C, C / 2.2, seed, 2.2), -0.2, 1.3), 0.0, 1.0)
+        b = b * (1.0 - 0.30 * dirt[..., None]) + np.array((0.060, 0.052, 0.042)) * 0.30 * dirt[..., None]
+        s = s - 0.07 * dirt
     elif cls == "metal_roof":
         st = _streaks(C, seed + 3, C / 50.0, True)            # planar roofs: v runs up the slope
         rust = st * _smooth(_pnoise(C, C / 6.0, seed + 5, 1.8), 0.3, 1.2)
@@ -1919,7 +2320,7 @@ def _strip_frames(Vw, tris, fpart, part_name, is_strip, skey, layout, seg_m=None
 
 def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM, max_cells=4096,
               ground_prefixes=(), ground_band=0.011, weather=None, patch_shift=True, flat_prefixes=(),
-              grid_offset=0.0, strip_prefixes=(), strip_seg_m=None):
+              grid_offset=0.0, strip_prefixes=(), strip_seg_m=None, label_weights=None):
     """
     Re-mesh `obj` for the sheet (module doc). `uvtile`: (n_loops, 2) UVTile coordinates of obj's CURRENT loops (tiles).
     `keys`: sorted material keys (material_index -> key). `weather`: TileWeather or None (no weathering). Returns a
@@ -2023,6 +2424,9 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
         else:
             pkey.append(keys[int(fmat[i])])
     # -- label rects (shelf-packed in the building's label rect, one ppm that fits all) ---
+    # label_weights {prefix: factor} (recipe.texpass["label_w"], --texpass only): a label draws at ppm x factor, so a
+    # small sign seen close (the P1 door disc, 0.7 m at 3-6 m) takes the rect's spare width beside the big one that
+    # sets the ppm (the 1.5 m roof cross). None = one ppm for all (flag off: byte-identical)
     LX, LY, LW, LH = (layout["label_rect"] + [layout["label_rect"][2]])[:4] \
         if len(layout["label_rect"]) == 3 else layout["label_rect"]
     ext = {}
@@ -2040,13 +2444,14 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
     def _pack(ppm):
         res, cx, cy, shelf = {}, LX + gut, LY + gut, 0
         for pre, (lo, hi, kk) in ext.items():
-            w_px = int(math.ceil((hi[0] - lo[0]) * ppm)) + 1
-            h_px = int(math.ceil((hi[1] - lo[1]) * ppm)) + 1
+            p = ppm * float(label_weights.get(pre, 1.0)) if label_weights else ppm
+            w_px = int(math.ceil((hi[0] - lo[0]) * p)) + 1
+            h_px = int(math.ceil((hi[1] - lo[1]) * p)) + 1
             if cx + w_px > LX + LW - gut:
                 cx, cy, shelf = LX + gut, cy + shelf + gut, 0
             if cy + h_px > LY + LH - gut or cx + w_px > LX + LW - gut:
                 return None
-            res[pre] = dict(origin=(cx, cy), lo=lo, ppm=ppm, size=(w_px, h_px), key=kk)
+            res[pre] = dict(origin=(cx, cy), lo=lo, ppm=p, size=(w_px, h_px), key=kk)
             cx += w_px + gut
             shelf = max(shelf, h_px)
         return res

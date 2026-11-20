@@ -250,6 +250,11 @@ def parse_args(argv=None):
     ap.add_argument("--p1-gear", default="rolls", choices=("rolls", "none", "firewood"),
                     help="patrol hut P1 front gear: rolls = the six red fence rolls (letter Y), none = no rolls, "
                          "firewood = no rolls + a vanilla FirewoodPileRandom01 row on the lot")
+    # r4/tex (2026-11-19, playtest 1.0.2 finding 4): door steps as engine-base ground parts. A recipe reads
+    # opts["step_base"] and hands its changed fields back in opts["recipe_replace"]. Off = byte-identical.
+    ap.add_argument("--step-base", default="off", choices=("off", "v1"),
+                    help="v1 = door steps are open-bottom ground parts, so the engine base draws a foundation under "
+                         "them on a sloped lot (the school; off = every build byte-identical)")
     # texture pass v1 (2026-10-29, docs/PIPELINE.md "Texture pass"): CC0 scans on three family swatches
     # (cs2_tilesheet.TEXPASS, same cut grid) + each recipe's opt-in rules (recipe.texpass). A family-sheet
     # change: build all eight and --finalize with the same flag. off = every build byte-identical.
@@ -1841,11 +1846,17 @@ def run(recipe, args):
     # T174 / T175 (post-release round 1): the flag kit and the patrol hut's gear (patrol.py reads K.PATROL_GEAR). A recipe
     # may hand back vanilla rows in opts["extra_rows"] (the P1 firewood pile); they join the recipe's sub_objects here.
     K.PATROL_GEAR["p1"] = getattr(args, "p1_gear", "rolls")
+    if getattr(args, "step_base", "off") == "v1":      # r4/tex: recipes that know the option read it (the school)
+        opts["step_base"] = "v1"
     with K.ridge_kit(2 if getattr(args, "ridge", "off") == "v2" else 0), \
             K.flag_kit(2 if getattr(args, "flags", "v1") == "v2" else 1):
         parts = build_parts(recipe, opts)
     if opts.get("extra_rows"):
         recipe = replace(recipe, sub_objects=tuple(recipe.sub_objects) + tuple(opts.pop("extra_rows")))
+    step_base = None
+    if opts.get("recipe_replace"):          # r4/tex: a builder option changed recipe fields (ground parts, LOD lists)
+        step_base = {k: list(v) for k, v in sorted(opts["recipe_replace"].items())}
+        recipe = replace(recipe, **opts.pop("recipe_replace"))
     door2 = None
     if dk:                                  # door kit v2: the registry of its parts (exact names)
         door2 = {"flat": K.door2_flat(), "protect": K.door2_protect(),
@@ -2004,6 +2015,8 @@ def run(recipe, args):
         result["flags"] = "v2"
     if getattr(args, "p1_gear", "rolls") != "rolls" and recipe.key == "P1":       # T175
         result["p1_gear"] = args.p1_gear
+    if step_base is not None:                           # r4/tex --step-base v1 builds only
+        result["step_base"] = {"version": "v1", "recipe_replace": step_base}
     if cap_override is not None:
         result["budget_override"] = cap_override
     if tc:                                  # T70 trim v1 builds only
@@ -2386,17 +2399,21 @@ def texpass_weather(W, recipe, tp):
     plinth's design grade in the AUTHORING frame (z = -s (a - x), falling toward -X), turned into the tiled frame
     (orient_for_net maps (x, y) -> (y, -x): z = -s a - s y) and capped 5 cm under the lowest band top so no cut
     reaches the plinth's z-0 contract band; "eave_h" = one under-eave band height for every side (0 = none);
-    "band_skip" = part-name prefixes that take no base band (TileWeather.band_skip)."""
+    "band_skip" = part-name prefixes that take no base band (TileWeather.band_skip); "base_h" {"front", "side",
+    "back"} = the recipe's own base band heights in meters (a low building: the rollout's 0.5 / 0.8 / 1.1 m bands are
+    21 / 34 / 47 % of a 2.35 m wall), never above the ladder step's (a step that dropped a band keeps it dropped)."""
     from dataclasses import replace as _rp
     if W is None:
         return None
     kw = {}
+    if tp.get("base_h"):
+        kw["base_h"] = {k: min(float(tp["base_h"].get(k, v)), float(v)) for k, v in W.base_h.items()}
     g = tp.get("grade")
     if g:
         if abs(float(getattr(recipe, "yaw_deg", 0.0) or 0.0)) > 1e-9:
             raise ValueError(f"{recipe.key}: texpass grade is written for yaw 0")
         s, a = float(g["slope"]), float(g["anchor_x"])
-        kw["grade"] = (-s * a, 0.0, -s, -(max(W.base_h.values()) + 0.05))
+        kw["grade"] = (-s * a, 0.0, -s, -(max(kw.get("base_h", W.base_h).values()) + 0.05))
     if "eave_h" in tp:
         kw["eave_h"] = {k: float(tp["eave_h"]) for k in W.eave_h}
     if tp.get("band_skip"):
@@ -2521,6 +2538,8 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
     tm_kw = dict(label_prefixes=tuple(p for p, _pa, _kw in recipe.labels),
                  ground_prefixes=tuple(recipe.ground_prefixes) if recipe.base_mode == "engine" else (),
                  label_ppm=TS.LABEL_PPM * SA / 4096.0,
+                 # recipe.texpass["label_w"] (--texpass only; tp is {} when off): per-label density weights
+                 label_weights=dict(tp.get("label_w") or {}) or None,
                  flat_prefixes=TS.flat_detail_prefixes(trim) + tuple(getattr(recipe, "tiled_flat", ()) or ())
                  # kit v2: the window parts draw their material's mean color (no tile cuts)
                  + ((K.KIT2_PARTS + WINDOW_FLAT_EXTRA.get(recipe.key, ()))
@@ -2819,7 +2838,7 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
     }
     if result.get("window_kit"):           # kit v2 builds only (older manifests keep their keys)
         data["window_kit"] = result["window_kit"]
-    for k_ in ("glass", "slots_v2", "budget_override", "ridge", "flags", "p1_gear"):   # T85 / T89 / ridge v2 / T174 / T175 builds only
+    for k_ in ("glass", "slots_v2", "budget_override", "ridge", "flags", "p1_gear", "step_base"):   # T85 / T89 / ridge v2 / T174 / T175 / step-base builds only
         if result.get(k_) is not None:
             data[k_] = result[k_]
     if result.get("door_kit"):             # door kit v2 builds only

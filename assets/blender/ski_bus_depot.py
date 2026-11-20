@@ -7,8 +7,15 @@ concrete. Yellow appears only on the hooks and the bench. Red appears only on th
 Form: welcome_sign.py's route (kit parts -> unique bake -> LOD chain), with the texture method of the hut pilot
 (docs/PIPELINE.md section 1b, DECISIONS 459). The method uses CC0 scans at real-world scale, tinted to the palette
 (target_srgb). The swatch controls are chroma / flatten_m / contrast / normal_gain. Weathering is low-frequency only. A
-building off the family sheet bakes its own atlas, so none of this is a family change. The controls live on the unmerged
-`hut-textures` branch. apply_controls below is a local copy of their order and math.
+building off the family sheet bakes its own atlas, so none of this is a family change. apply_controls below is a local copy
+of the order and math of cs2_tilesheet.texpass_apply (the family's swatch controls).
+
+Texture pass v1 (`--texpass v1`, default off = every FBX and PNG byte-identical to the flag-off build; r4/tex 2026-11-19):
+real scans at their real scale for the corten (PHRustCoarse01, 2.2 m), the roof (PHCorrugatedIron, 74 mm corrugation) and
+the cedar (PHWeatheredBrownPlanks, one scan board per plank, the family's deck scan), Concrete034 at its 1.1 m real size,
+a calmer low-frequency weathering paint, and a denser unique pack (plank panels as one island, a skyline packer). Geometry
+does not move: the pass changes pixels and the unique UV layout only. TEXPASS / TEXVAR below hold every number.
+`--texvar key=value,...` picks a look variant of the pass (cedar, corten, roof); the defaults are the recommended look.
 
 Frame: authoring meters, +X = the road, Y along the shelter, Z up, lot center at the origin (orient_for_net sends +X to game
 +Z). Lot 2 x 1 cells, flattened by the building's own terraform.
@@ -19,10 +26,15 @@ Vanilla first: bench, trash bin, planter rocks, young trees and the lamp are NOT
 CLI (headless only, never into assets/import):
     blender --background --factory-startup --python-exit-code 1 --python ski_bus_depot.py --
         --out DIR [--preview DIR] [--shots a,b] [--samples 48] [--tex 2048] [--ao-samples 32] [--blockout]
+        [--dry-pack] [--texpass v1 [--texvar cedar=stain,corten=umber,roof=scan]]
+    --blockout: geometry and caps only. --dry-pack: the blockout plus the unique pack and its density table (no bake).
+Outputs: DIR/<Name>/ (FBX, LOD FBX, `_Gls`, five PNGs, settings.json, <Name>.manifest.json with tris, density per
+material, texture memory and the sha1 of every file) and the run summary DIR/<Name>.manifest.json.
 Last line: PASS ski_bus_depot: <Name> LOD0 n, chain [n1, n2], tex A, ...
 """
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -154,6 +166,118 @@ DENSITY = {"plank_": 1.70, "wallcap_": 1.0, "ceil_": 1.0, "roof_": 0.85, "roofed
            "towerpost_": 1.0, "towerrail_": 1.0, "towercap_": 0.8, "pfs_": 2.0, "pfr_": 2.0, "hook": 1.0,
            "planter": 0.8, "ledcase_": 0.6, "screencase_": 0.8, "screenhang_": 0.8}
 
+# ======================================================================================
+# Texture pass v1 (--texpass v1). Nothing below is read when the flag is off.
+# ======================================================================================
+
+# Boards per scan image, counted on the groove rows of each NormalGL map (r4/tex busdepot audit). Planks021 holds 11, not
+# the 10 that scan_board_rows assumes flag-off: one of the ten flag-off "boards" spans two, so a plank that draws it shows a
+# seam through its middle.
+SCAN_BOARDS = {"Planks021": 11, "PHWeatheredBrownPlanks": 13}
+# 18 corrugations per rafter bay: stacked roof cells stay in phase. 74.1 mm (the real 7/8 in profile is 68-76 mm; flag-off
+# draws 110 mm, and its stacked cells meet 0.24 of a period out of phase).
+CORR_PITCH_V1 = (RAFTER_Y[1] - RAFTER_Y[0]) / 18.0
+CORR_V1 = cs2_compose.DetailSpec(corrugation_m=CORR_PITCH_V1, corr_depth_m=0.009)
+ROOF_SCAN_CORR = 15                     # corrugations across PHCorrugatedIron (1.12 m real: 74.7 mm)
+ROOF_SCAN_TILE = ROOF_SCAN_CORR * CORR_PITCH_V1     # 1.111 m, 0.992 x the scan's real size
+
+TEXPASS = {"v1": {
+    # one key = one real thing, every scan at (or one board per plank near) its real-world size
+    "mats": {
+        # satin enamel on rolled steel (the reference is glossier still). Metal032 is featureless: the paint is the look
+        "steel_ox": K.BldgMat("Metal032", (1.5, 1.5), (0.365, 0.175, 0.105), smooth=0.58),
+        # ambientCG states 1.1 x 0.55 m for Concrete034. Flag-off draws it at 3.0 x 1.5 m (2.7 x)
+        "pad_concrete": K.BldgMat("Concrete034", (1.1, 0.55), (0.70, 0.69, 0.66), proj="inplane"),
+    },
+    "controls": {
+        "pad_concrete": {"chroma": 0.4, "flatten_m": 0.25, "contrast": 0.8},
+    },
+    # look variants, one pick per group. The first entry of "default" is the recommended look
+    "variants": {
+        "cedar": {
+            # the family's weathered deck scan under a cedar stain a few winters old: 13 flat boards of 13.8 cm real, one
+            # scan board per 18.5 cm plank (x 1.34), the soffit boards at the scan's real size
+            "stain": {
+                "wall_set": "PHWeatheredBrownPlanks", "ceil_tile": 1.8,
+                "mats": {"cedar": ((0.52, 0.32, 0.18), 0.30), "cedar_ceil": ((0.60, 0.36, 0.18), 0.30)},
+                "controls": {"cedar": {"chroma": 0.35, "flatten_m": 0.15, "contrast": 0.7, "normal_gain": 1.4},
+                             "cedar_ceil": {"chroma": 0.35, "flatten_m": 0.15, "contrast": 0.6, "normal_gain": 1.6}}},
+            # the flag-off look (fresh orange stain on Planks021) with the board count fixed and the soffit at 14 cm
+            "honey": {
+                "wall_set": "Planks021", "ceil_tile": 1.54,
+                "mats": {"cedar": ((0.74, 0.42, 0.185), 0.32), "cedar_ceil": ((0.64, 0.35, 0.155), 0.28)},
+                "controls": {"cedar": {"contrast": 0.8, "normal_gain": 1.6},
+                             "cedar_ceil": {"contrast": 0.8, "normal_gain": 1.3}}},
+            # the lodge family's wall brown (timber_lap's palette mean) on the same scan
+            "family": {
+                "wall_set": "PHWeatheredBrownPlanks", "ceil_tile": 1.8,
+                "mats": {"cedar": ((0.295, 0.235, 0.185), 0.28), "cedar_ceil": ((0.36, 0.27, 0.19), 0.28)},
+                "controls": {"cedar": {"chroma": 0.25, "flatten_m": 0.15, "contrast": 0.7, "normal_gain": 1.4},
+                             "cedar_ceil": {"chroma": 0.25, "flatten_m": 0.15, "contrast": 0.6, "normal_gain": 1.6}}},
+        },
+        "corten": {
+            # a real rust scan (2.2 m) under an even umber patina: the scan's 0.5-1 m tone bands are flattened out
+            # (low-frequency CoV 0.221 -> 0.031) so the 6 m slab shows no repeat
+            "umber": {"mat": K.BldgMat("PHRustCoarse01", (2.2, 2.2), (0.33, 0.20, 0.125)),
+                      "controls": {"chroma": 0.8, "flatten_m": 0.15, "contrast": 0.6, "normal_gain": 1.5}},
+            # the same scan at its native orange-brown mean (younger patina)
+            "rust": {"mat": K.BldgMat("PHRustCoarse01", (2.2, 2.2), (0.396, 0.232, 0.130)),
+                     "controls": {"chroma": 0.8, "flatten_m": 0.15, "contrast": 0.6, "normal_gain": 1.5}},
+            # the flag-off source (Metal038, a gray plate) under the calm v1 paint
+            "plate": {"mat": K.BldgMat("Metal038", (1.6, 1.6), (0.33, 0.20, 0.125), smooth=0.14),
+                      "controls": {"chroma": 0.4, "contrast": 1.0, "normal_gain": 1.6}},
+        },
+        "roof": {
+            # scanned corrugated zinc: albedo, relief and roughness from the scan, u across the corrugations
+            "scan": {"mat": K.BldgMat("PHCorrugatedIron", (ROOF_SCAN_TILE, ROOF_SCAN_TILE), (0.60, 0.62, 0.61), metal=0.35,
+                                      proj="inplane"),
+                     "controls": {"chroma": 0.5, "contrast": 0.8}, "scan": True},
+            # the flag-off source with the painted corrugation at the real pitch
+            "proc": {"mat": K.BldgMat("Metal038", (1.6, 1.6), (0.60, 0.62, 0.61), smooth=0.40, metal=0.35, detail=CORR_V1,
+                                      proj="inplane"),
+                     "controls": {"chroma": 0.3, "contrast": 0.8}, "scan": False},
+        },
+    },
+    "default": {"cedar": "stain", "corten": "umber", "roof": "scan"},
+    # density weights (flag-off DENSITY with these replaced): see docs note busdepot/NOTE.md "Picks"
+    "density": {},
+}}
+
+
+def texpass_config(version, texvar=None):
+    """The resolved pass: BldgMat per key, controls per key, density weights, board mapping. texvar = "group=name,..."."""
+    if version in (None, "off"):
+        if texvar:
+            raise ValueError("--texvar needs --texpass")
+        return None
+    tp = TEXPASS[version]
+    pick = dict(tp["default"])
+    for item in (texvar.split(",") if texvar else ()):
+        g, _, v = item.partition("=")
+        if g not in tp["variants"] or v not in tp["variants"][g]:
+            raise ValueError(f"--texvar {item!r}: groups {({k: sorted(d) for k, d in tp['variants'].items()})}")
+        pick[g] = v
+    mats, controls = dict(tp["mats"]), {k: dict(v) for k, v in tp["controls"].items()}
+    ced = tp["variants"]["cedar"][pick["cedar"]]
+    boards = SCAN_BOARDS[ced["wall_set"]]
+    wall_tile = boards * BOARD_H                    # one scan board per plank, isotropic
+    for key, tile in (("cedar", wall_tile), ("cedar_ceil", ced["ceil_tile"])):
+        rgb, smooth = ced["mats"][key]
+        mats[key] = K.BldgMat(ced["wall_set"], (tile, tile), rgb, smooth=smooth)
+    controls.update({k: dict(v) for k, v in ced["controls"].items()})
+    cor = tp["variants"]["corten"][pick["corten"]]
+    mats["corten"] = cor["mat"]
+    controls["corten"] = dict(cor["controls"])
+    roof = tp["variants"]["roof"][pick["roof"]]
+    mats["roof_metal"] = roof["mat"]
+    controls["roof_metal"] = dict(roof["controls"])
+    density = dict(DENSITY)
+    density.update(tp["density"])
+    return dict(version=version, pick=pick, mats=mats, controls=controls, density=density, wall_set=ced["wall_set"],
+                wall_boards=boards, wall_tile=wall_tile, ceil_tile=ced["ceil_tile"], ceil_boards=boards,
+                roof_scan=bool(roof["scan"]), roof_tile=ROOF_SCAN_TILE if roof["scan"] else None,
+                roof_detail=roof["mat"].detail, corten_scan=cor["mat"].smooth is None)
+
 
 # Back wall rows per bay -> the canonical board that bay 0 owns. The low rows (the splash band) stay on their row. The rest
 # shuffle, so bays never repeat as a block. Nine boards carry all three bays (texel density, PIPELINE sec. 1).
@@ -173,9 +297,10 @@ PLANK_CANON = _plank_canon()
 HOOK_BOARDS = {(2, n) for n in (3, 4, 5, 6, 7)}     # the boards the two hook rows sit on
 
 
-def share_key(n):
+def share_key(n, tp=None):
     """Identical members stack on one island (cs2_uv share). Their weathering depends on height or slope position only. The key
-    groups names. share_groups proves that every member is a translation of the first, and raises otherwise."""
+    groups names. share_groups proves that every member is a translation of the first, and raises otherwise. Under a
+    texture pass the two roof overhang cells keep their own islands (8.48 m apart is no whole number of corrugations)."""
     m = re.match(r"^plank_b(\d)_(\d+)$", n)
     if m:
         if (int(m[1]), int(m[2])) in HOOK_BOARDS:   # a stacked texel shows the last copy's AO: the hook shadows must not repeat
@@ -185,6 +310,8 @@ def share_key(n):
     if m:
         i = int(m[2])
         if i in (0, len(RAFTER_Y)):              # the two narrow overhang cells
+            if tp and m[1] == "roof_c":
+                return None
             return f"{m[1]}edge"
         return f"{m[1]}{i % (2 if m[1] == 'roof_c' else 3)}"
     for pat, key in ((r"^post_r\d$", "post_r"), (r"^post_b\d$", "post_b"), (r"^rafter_\d$", "rafter"),
@@ -626,9 +753,10 @@ def set_band_uvs(obj, table, A, part_keys):
 # Scan handling: one scan board per plank, the swatch controls
 # ======================================================================================
 
-def scan_board_rows(n_boards=10):
-    """v ranges (0..1, bottom-up) of the scan's boards, measured from the dark seam rows of Planks021's Color map."""
-    path = cs2_bake.find_set_map(cs2_bake._set_dir("Planks021"), "Color")
+def scan_board_rows(n_boards=10, set_name="Planks021"):
+    """v ranges (0..1, bottom-up) of the scan's boards, measured from the dark seam rows of the set's Color map (flag-off:
+    Planks021 as ten boards)."""
+    path = cs2_bake.find_set_map(cs2_bake._set_dir(set_name), "Color")
     im = bpy.data.images.load(path)
     w, h = im.size
     a = np.empty(w * h * 4, np.float32)
@@ -656,10 +784,15 @@ def scan_board_rows(n_boards=10):
     return out
 
 
-def set_board_uvs(obj, table):
+def set_board_uvs(obj, table, tp=None):
     """Every plank face (front and back) gets one scan board and its own phase along the grain. The ceiling bays and other big
-    tiled faces get a random phase, so the tile's knots do not line up. Authoring frame, UVTile units."""
-    rows = scan_board_rows()
+    tiled faces get a random phase, so the tile's knots do not line up. Authoring frame, UVTile units. tp (a texture pass):
+    the pass's plank set, board count and tiles, and with a scanned roof u across the corrugations (the scan's ridges run
+    along image v, the roof's down the slope) in phase over every cell."""
+    wall_tile = tp["wall_tile"] if tp else BOARD_TILE
+    ceil_tile = tp["ceil_tile"] if tp else BOARD_TILE
+    ceil_steps = tp["ceil_boards"] if tp else 10
+    rows = scan_board_rows(tp["wall_boards"], tp["wall_set"]) if tp else scan_board_rows()
     me = obj.data
     lay = me.uv_layers[cs2_bake.TILE_LAYER]
     uv = cs2_uv.loop_uvs(lay)
@@ -676,7 +809,9 @@ def set_board_uvs(obj, table):
     ceil_phase = {}
     for n in table:
         if n.startswith("ceil_"):
-            ceil_phase.setdefault(share_key(n), (rng.random(), rng.randrange(10) / 10.0))
+            ceil_phase.setdefault(share_key(n), (rng.random(), rng.randrange(ceil_steps) / float(ceil_steps)))
+    roof_rng = random.Random(SEED + 9)
+    roof_phase = {}
     for p in me.polygons:
         n = names.get(int(pv[p.index]), "")
         if n.startswith("plank_") and abs(p.normal.x) > 0.9:
@@ -690,7 +825,7 @@ def set_board_uvs(obj, table):
             for li in range(p.loop_start, p.loop_start + p.loop_total):
                 co = me.vertices[me.loops[li].vertex_index].co
                 sgn = 1.0 if side == "f" else -1.0
-                uv[li] = (phase + sgn * (co.y - YS[bay]) / BOARD_TILE, v0 + (co.z - za) / max(zb - za, 1e-6) * (v1 - v0))
+                uv[li] = (phase + sgn * (co.y - YS[bay]) / wall_tile, v0 + (co.z - za) / max(zb - za, 1e-6) * (v1 - v0))
         elif n.startswith("ceil_"):
             du, dv = ceil_phase[share_key(n)]
             ys = [me.vertices[me.loops[li].vertex_index].co.y for li in range(p.loop_start, p.loop_start + p.loop_total)]
@@ -698,7 +833,17 @@ def set_board_uvs(obj, table):
             for li in range(p.loop_start, p.loop_start + p.loop_total):
                 co = me.vertices[me.loops[li].vertex_index].co
                 # boards run along the shelter (+Y). The slope stays in v
-                uv[li] = (du + (co.y - y0) / BOARD_TILE, dv + co.x / BOARD_TILE)
+                uv[li] = (du + (co.y - y0) / ceil_tile, dv + co.x / ceil_tile)
+        elif tp and tp["roof_scan"] and n.startswith("roof_c"):
+            T = tp["roof_tile"]
+            rk = share_key(n, tp) or ("own", n)
+            if rk not in roof_phase:
+                roof_phase[rk] = (roof_rng.randrange(ROOF_SCAN_CORR), roof_rng.random())
+            j, dv = roof_phase[rk]
+            for li in range(p.loop_start, p.loop_start + p.loop_total):
+                co = me.vertices[me.loops[li].vertex_index].co
+                # whole corrugations from the first rafter: every cell starts on the same phase of the profile
+                uv[li] = ((co.y - RAFTER_Y[0]) / T + j / float(ROOF_SCAN_CORR), dv + co.x / T)
     cs2_uv.set_loop_uvs(lay, uv)
 
 
@@ -868,6 +1013,148 @@ def depot_pack(obj, mesh, A, reserved, margin_px=None, equalise=True, density_la
             "band": (v_lo, v_hi), "w1_px_per_m": round(k, 1), "fill": round(fill, 3), "shared_faces": len(dup)}
 
 
+def _skyline(rects, W, H):
+    """Bottom-left skyline placement of (w, h) boxes in the given order inside W x H. Returns [(x, y)] or None."""
+    sky = [(0, 0, W)]                       # (x, top, width), left to right
+    out = []
+    for w, h in rects:
+        best = None
+        for i, (sx, _sy, _sw) in enumerate(sky):
+            if sx + w > W:
+                break
+            top, j = 0, i
+            while j < len(sky) and sky[j][0] < sx + w:
+                top = max(top, sky[j][1])
+                j += 1
+            if top + h > H:
+                continue
+            if best is None or (top + h, sx) < best[0]:
+                best = ((top + h, sx), sx, top)
+        if best is None:
+            return None
+        _score, x, y = best
+        out.append((x, y))
+        new, x1 = [], x + w
+        for sx, sy, sw in sky:
+            if sx + sw <= x or sx >= x1:
+                new.append((sx, sy, sw))
+                continue
+            if sx < x:
+                new.append((sx, sy, x - sx))
+            if sx + sw > x1:
+                new.append((x1, sy, sx + sw - x1))
+        new.append((x, y + h, w))
+        sky = sorted(new)
+    return out
+
+
+def _plank_panels(mesh, uv, start, total, free):
+    """Texture pass: the free plank faces of one bay side become ONE island, laid out as they stand in the wall (meters).
+    A board of 18.5 cm is about 40 texels and the mip-safe margin is 32: as 28 loose islands the boards spent 44 % of their
+    block on margins. Board to board the gaps are 3-12 mm of cedar beside cedar, so a bleed across them cannot show.
+    Mesh frame = orient_for_net's (authoring y is +x here). u follows each face's UVTile direction (front +y, back -y), so
+    the baked tangent frame holds. Returns {face: group id}; writes uv in place."""
+    names = cs2_compose.read_part_table(mesh)
+    pid = cs2_compose.part_indices(mesh)
+    groups = {}
+    for f in free:
+        n = names[int(pid[f]) - 1]
+        m = re.match(r"^plank_b(\d)_(\d+)$", n)
+        if not m:
+            continue
+        poly = mesh.polygons[f]
+        if abs(poly.normal.y) < 0.9:
+            continue
+        side = "f" if poly.normal.y < 0 else "b"            # authoring +x (the bench side) is -y here
+        sgn = 1.0 if side == "f" else -1.0
+        for li in range(start[f], start[f] + total[f]):
+            co = mesh.vertices[mesh.loops[li].vertex_index].co
+            uv[li] = (sgn * co.x, co.z)
+        hook = (int(m[1]), int(m[2])) in HOOK_BOARDS
+        groups[f] = f"plank_b{m[1]}_{'hook' if hook else 'wall'}_{side}"
+    return groups
+
+
+def depot_pack_v1(obj, mesh, A, reserved, margin_px=None, equalise=True, density_layer=cs2_uv.DENSITY_ATTR, share=None):
+    """The texture pass's packer (same contract as depot_pack: exact mip-safe margins, one density scale, density_w per
+    island, no rotation). Two changes: plank panels pack as one island each (_plank_panels), and the placement is a
+    bottom-left skyline tried in four sort orders (the shelf rows of depot_pack leave the space beside every tall island
+    empty). All of it is integer / float arithmetic in a fixed order: deterministic."""
+    margin = cs2_uv.default_margin_px(A) if margin_px is None else int(margin_px)
+    layer = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
+    mesh.uv_layers.active = layer
+    pinned = cs2_uv.pinned_faces(mesh, layer, reserved)
+    dup, src, dst = cs2_uv._share_loops(mesh, share or [], pinned)
+    hold = pinned | dup
+    free = [i for i in range(len(mesh.polygons)) if i not in hold]
+    uv = cs2_uv.loop_uvs(layer)
+    start, total = cs2_uv.face_loop_table(mesh)
+    panel = _plank_panels(mesh, uv, start, total, free)
+    cs2_uv.set_loop_uvs(layer, uv)
+    wa = cs2_uv.face_world_areas(mesh)
+    ua = cs2_uv.face_uv_areas(mesh, uv)
+    weights = cs2_uv.face_density_weights(mesh, density_layer)
+    merged, loose = {}, []
+    for faces in cs2_uv.uv_islands(mesh, layer, faces=free):
+        g = panel.get(faces[0])
+        if g is None:
+            loose.append(list(faces))
+        else:
+            merged.setdefault(g, []).extend(faces)
+    isl = []
+    for n_, faces in enumerate(loose + [merged[g] for g in sorted(merged)]):
+        idx = np.concatenate([np.arange(start[f], start[f] + total[f]) for f in faces])
+        a3, a2 = float(sum(wa[f] for f in faces)), float(sum(ua[f] for f in faces))
+        is_panel = n_ >= len(loose)
+        m_per_uv = 1.0 if is_panel else math.sqrt(a3 / max(a2, 1e-12))
+        w = float(sum(weights[f] * wa[f] for f in faces)) / max(a3, 1e-12)
+        lo, hi = uv[idx].min(0), uv[idx].max(0)
+        isl.append(dict(n=n_, idx=idx, lo=lo, ext=(hi - lo) * m_per_uv, scale=m_per_uv, w=w))
+    v_lo, v_hi = cs2_uv.free_v_band(reserved) if reserved else (0.0, 1.0)
+    y_min, y_max = int(math.ceil(v_lo * A)) + margin // 2, int(v_hi * A) - margin // 2
+    W, H = int(A), y_max - y_min + margin
+    orders = {"height": lambda d: (-d["ext"][1] * d["w"], d["n"]), "area": lambda d: (-d["ext"][0] * d["ext"][1] * d["w"] ** 2, d["n"]),
+              "side": lambda d: (-max(d["ext"]) * d["w"], d["n"]), "width": lambda d: (-d["ext"][0] * d["w"], d["n"])}
+
+    def fit(k, order):
+        seq = sorted(isl, key=orders[order])
+        boxes = [(int(math.ceil(d["ext"][0] * k * d["w"])) + margin, int(math.ceil(d["ext"][1] * k * d["w"])) + margin) for d in seq]
+        pos = _skyline(boxes, W, H)
+        if pos is None:
+            return None
+        return [(d, margin // 2 + x, y_min + y) for d, (x, y) in zip(seq, pos)]
+    best = None
+    for order in sorted(orders):
+        lo_k, hi_k, got = 1.0, float(A), None
+        for _ in range(40):
+            k = 0.5 * (lo_k + hi_k)
+            r = fit(k, order)
+            if r is None:
+                hi_k = k
+            else:
+                lo_k, got = k, (k, order, r)
+        if got is not None and (best is None or got[0] > best[0]):
+            best = got
+    if best is None:
+        raise RuntimeError("depot_pack_v1: nothing fits")
+    k, order, placed = best
+    for d, x, y in placed:
+        sc = d["scale"] * k * d["w"] / float(A)
+        uv[d["idx"]] = (uv[d["idx"]] - d["lo"]) * sc + np.array((x, y), np.float64) / float(A)
+    cs2_uv.set_loop_uvs(layer, uv)
+    if len(dst):
+        uv[dst] = uv[src]
+        cs2_uv.set_loop_uvs(layer, uv)
+    layer = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
+    cs2_uv.check_layout(mesh, layer, reserved, pinned)
+    fill = sum(float(cs2_uv.face_uv_areas(mesh, uv)[f]) for f in free)
+    print(f"[depot] pack v1 @ {A}: {len(isl)} islands ({len(merged)} plank panels), {len(pinned)} pinned, {len(dup)} stacked, "
+          f"margin {margin} px, order {order}, w=1 {k:.1f} px/m, fill {fill:.3f}")
+    return {"A": int(A), "margin_px": margin, "faces": len(mesh.polygons), "pinned_faces": len(pinned), "islands": len(isl),
+            "band": (v_lo, v_hi), "w1_px_per_m": round(k, 1), "fill": round(fill, 3), "shared_faces": len(dup),
+            "packer": "skyline", "order": order, "panels": len(merged)}
+
+
 LUMA = np.array((0.2126, 0.7152, 0.0722))
 
 
@@ -903,12 +1190,12 @@ def apply_controls(tps, lin, nrm, rough, ppm):
     return lin, nrm, rough
 
 
-def controlled_specs(specs, info, work_dir):
-    """Passes the prefiltered source of each CONTROLS key through apply_controls into work_dir. It re-derives the tint so the
-    palette mean holds (the hut pilot's target_srgb rule)."""
+def controlled_specs(specs, info, work_dir, controls=None):
+    """Passes the prefiltered source of each CONTROLS key (or the texture pass's controls) through apply_controls into
+    work_dir. It re-derives the tint so the palette mean holds (the hut pilot's target_srgb rule)."""
     out = dict(specs)
-    for key, tps in CONTROLS.items():
-        if key not in specs:
+    for key, tps in (CONTROLS if controls is None else controls).items():
+        if key not in specs or not tps:
             continue
         s = specs[key]
         src = os.path.normpath(s.texture_set)
@@ -1176,10 +1463,193 @@ def paint_weather(me, A, table, base, msk):
     return h
 
 
-def make_post(obj, band_paths, A, table, rects):
+def paint_weather_v1(me, A, table, base, msk, tp):
+    """Texture pass v1 paint (returns the relief height in meters; changes base (linear) and msk in place). Same layers as
+    paint_weather at about a third of the amplitude (vanilla albedo is near-flat, PIPELINE section 1), no painted knots or
+    paint chips (the scans carry their own grain), and the placement of a snow town: a salt and dust haze on the steel
+    up to knee height, cedar that grays on the weather side and in the splash band, an even corten patina with fine
+    vertical streaks, rust halos at the base plates, grit along the curb. Every feature is >= 5 cm with a soft edge."""
+    P, N, part = world_fields(me, A)
+    h = np.zeros((A, A), np.float32)
+    nz = Noise(SEED)
+    names = {i + 1: n for i, n in enumerate(table)}
+    luma = LUMA.astype(np.float32)
+
+    def mask_of(*prefixes):
+        ids = [i for i, n in names.items() if n.startswith(prefixes)]
+        return np.nonzero(np.isin(part, ids))
+
+    def rgb(idx):
+        return base[idx[0], idx[1], :3]
+
+    def desat(c, k):
+        lum = (c @ luma)[..., None]
+        return lum + (c - lum) * (1.0 - k)[..., None]
+
+    # ---- oxblood steel: even satin paint, a dust and road-salt haze at the feet, a rust line at the plate
+    idx = mask_of("post_", "beam_", "rafter_", "crossb_", "plate_", "towerpost_", "towerplate_", "towerrail_", "towercap_",
+                  "pfs_", "pfr_", "wallcap_", "roofedge_")
+    x, y, z = P[idx][..., 0], P[idx][..., 1], P[idx][..., 2]
+    m = nz.fbm(x / 0.9 + 3, y / 0.9, z / 1.4)
+    rgbv = rgb(idx) * (0.94 + 0.12 * m)[..., None]
+    h[idx] += 0.002 * nz.fbm(x / 0.10 + 7, y / 0.10, z / 0.14)
+    haze = 1.0 - smoothstep(0.12, 0.55, z + 0.16 * (nz(x / 0.3, y / 0.3, z / 0.3) - 0.5))
+    dust = np.array((0.214, 0.178, 0.147), np.float32)
+    rgbv = rgbv * (1.0 - 0.25 * haze[..., None]) + dust * (0.25 * haze[..., None])
+    rustline = np.exp(-((z - (PZ + PLATE_T + 0.02)) / 0.05) ** 2)
+    rgbv = rgbv * (1.0 + rustline[..., None] * np.array((0.10, -0.08, -0.20), np.float32))
+    base[idx[0], idx[1], :3] = rgbv
+    msk[idx[0], idx[1], 3] = np.clip(msk[idx[0], idx[1], 3] - 0.30 * haze + 0.05 * (m - 0.5), 0.0, 1.0)
+    # ---- the weld bead where a post meets its foot plate (paint_weather's, a little lighter)
+    idx = mask_of("post_", "towerpost_")
+    weld = np.exp(-((P[idx][..., 2] - (PZ + PLATE_T + 0.012)) / 0.018) ** 2)
+    h[idx] += 0.006 * weld
+    base[idx[0], idx[1], :3] *= (1.0 - 0.25 * weld)[..., None]
+    msk[idx[0], idx[1], 3] = np.clip(msk[idx[0], idx[1], 3] - 0.10 * weld, 0.0, 1.0)
+    # ---- bolts on the foot plates, screw heads at the panel corners (paint_weather's, unchanged) ---------------
+    idx = mask_of("plate_", "towerplate_")
+    up = N[idx][..., 2] > 0.9
+    idx = (idx[0][up], idx[1][up])
+    x, y = P[idx][..., 0], P[idx][..., 1]
+    cx = np.round((x - XR) / (XR - XB)) * (XR - XB) + XR
+    near_y = np.array(YS)[np.argmin(np.abs(y[..., None] - np.array(YS)), -1)]
+    d = np.minimum.reduce([np.hypot(x - (cx + sx * 0.125), y - (near_y + sy * 0.125)) for sx in (-1, 1) for sy in (-1, 1)])
+    dome = np.clip(1.0 - (d / 0.021) ** 2, 0.0, 1.0)
+    h[idx] += 0.008 * dome
+    base[idx[0], idx[1], :3] *= (1.0 + 0.55 * dome - 0.45 * smoothstep(0.036, 0.022, d) * (d > 0.021))[..., None]
+    msk[idx[0], idx[1], 3] = np.clip(msk[idx[0], idx[1], 3] + 0.1 * dome, 0, 1)
+    idx = mask_of("pfs_", "pfr_")
+    n_out = (N[idx][..., 0] > 0.9) | (N[idx][..., 1] < -0.9)
+    idx = (idx[0][n_out], idx[1][n_out])
+    x, y, z = P[idx][..., 0], P[idx][..., 1], P[idx][..., 2]
+    road = N[idx][..., 0] > 0.9
+    along = np.where(road, y, x)
+    fw = FRAME[0]
+    h_row = (PANEL_Z[1] - PANEL_Z[0] - fw) / PANEL_ROWS
+    e_row = (END_PANEL_Z[1] - END_PANEL_Z[0] - fw) / PANEL_ROWS
+    rz = np.where(road, (z - PANEL_Z[0] - fw / 2) / h_row, (z - END_PANEL_Z[0] - fw / 2) / e_row)
+    dz = np.abs(rz - np.round(rz)) * np.where(road, h_row, e_row)
+    edges = [e for a, b in zip(YS, YS[1:]) for e in (a + 0.012 + fw / 2, 0.5 * (a + b), b - 0.012 - fw / 2)] + \
+            [XB + 0.02 + 0.012 + fw / 2, 0.5 * (XB + XR), XR - 0.02 - 0.012 - fw / 2]
+    du = np.min(np.abs(along[..., None] - np.array(edges)), -1)
+    d = np.hypot(du, dz)
+    dome = np.clip(1.0 - (d / 0.010) ** 2, 0.0, 1.0)
+    h[idx] += 0.005 * dome
+    base[idx[0], idx[1], :3] = base[idx[0], idx[1], :3] * (1 - dome[..., None]) + np.array((0.24, 0.24, 0.23), np.float32) * dome[..., None]
+    msk[idx[0], idx[1], 3] = np.clip(msk[idx[0], idx[1], 3] + 0.1 * dome, 0, 1)
+    # ---- cedar boards: a little board-to-board color, gray on the weather side and in the splash band, damp board ends
+    rng = np.random.default_rng(SEED + 3)
+    plank_ids = sorted(i for i, n in names.items() if n.startswith("plank_"))
+    per = np.ones((max(names) + 2, 3), np.float32)
+    for i in plank_ids:
+        l = rng.uniform(0.92, 1.08)
+        hue = rng.uniform(-0.035, 0.035)
+        per[i] = (l * (1 + hue), l, l * (1 - hue * 1.5))
+    idx = mask_of("plank_")
+    x, y, z = P[idx][..., 0], P[idx][..., 1], P[idx][..., 2]
+    rgbv = rgb(idx) * per[part[idx]]
+    rgbv = rgbv * (0.95 + 0.10 * nz.fbm(y / 0.9, z / 0.5, x * 2 + 9))[..., None]
+    outside = (N[idx][..., 0] < -0.9).astype(np.float32)
+    splash = 1.0 - smoothstep(0.16, 0.62, z + 0.10 * (nz(y / 0.4, z / 0.4, 1.0) - 0.5))
+    rgbv = desat(rgbv, np.clip(0.55 * splash + 0.30 * outside, 0.0, 0.75)) * (1.0 - 0.14 * splash - 0.06 * outside)[..., None]
+    bay = YS[1] - YS[0]
+    u = (y - YS[0]) % bay
+    ends = 1.0 - smoothstep(0.0, 0.09, np.minimum(u, bay - u) - (POST / 2 - 0.005))
+    rgbv = rgbv * (1.0 - 0.10 * ends)[..., None]
+    base[idx[0], idx[1], :3] = rgbv
+    msk[idx[0], idx[1], 3] = np.clip(msk[idx[0], idx[1], 3] - 0.10 * splash - 0.05 * outside, 0, 1)
+    # ---- ceiling: sheltered, so it keeps its stain. A little bay variation, a touch darker over the back
+    idx = mask_of("ceil_")
+    x, y = P[idx][..., 0], P[idx][..., 1]
+    m = nz.fbm(y / 1.1 + 40, x / 0.5, 2.0)
+    base[idx[0], idx[1], :3] *= (0.94 + 0.12 * m)[..., None] * (0.95 + 0.05 * smoothstep(EAVE_B, EAVE_R, x))[..., None]
+    # ---- corten: an even patina. Slow tone drift, fine vertical streaks, darker runs below rails and the LED case, the
+    # faint mountain. No patches: at 2-3 years weathering steel is dark and even, and patches read as a repeating blotch
+    idx = mask_of("tower_", "planterwall_", "planterin_")
+    x, y, z = P[idx][..., 0], P[idx][..., 1], P[idx][..., 2]
+    tower = np.isin(part[idx], [i for i, n in names.items() if n.startswith("tower_")]).astype(np.float32)
+    c = rgb(idx)
+    drift = nz.fbm(y / 0.9 + x, z / 1.8, 5.0 + x, 3)
+    hue = smoothstep(0.35, 0.65, nz.fbm(y / 1.3 + 2 * x, z / 2.2, 27.0, 2))[..., None]
+    c = c * (0.90 + 0.20 * drift)[..., None] * (np.array((0.96, 1.0, 1.04), np.float32) * (1 - hue) + np.array((1.06, 1.0, 0.92), np.float32) * hue)
+    streak = nz.fbm(y / 0.07 + 3 * x, z / 2.4, 11.0, 3)
+    streak2 = nz.fbm(y / 0.22 + 3 * x, z / 3.2, 17.0, 2)
+    c = c * (0.90 + 0.20 * (0.6 * streak + 0.4 * streak2))[..., None]
+    runs = np.zeros_like(z)
+    for zr, fade in [(r, 0.7) for r in TOWER_RAILS] + [(LED_Z[0], 0.9), (TOWER_TOP, 0.9)]:
+        dz = zr - z
+        runs = np.maximum(runs, (dz > 0) * (1 - smoothstep(0.0, fade, dz)))
+    runs = runs * smoothstep(0.28, 0.62, streak) * tower
+    c = c * (1.0 - runs[..., None] * np.array((0.20, 0.23, 0.24), np.float32))
+    low = 1.0 - smoothstep(PZ, 0.85, z)
+    c = c * (1.0 + low[..., None] * np.array((0.08, -0.03, -0.10), np.float32))
+    ridge = 2.72 + 0.46 * np.sin((y + 5.45) * 1.9 + 0.6) + 0.60 * (nz.fbm(y / 0.7, 3.5 * np.ones_like(y), 21.0, 4) - 0.5)
+    body = smoothstep(0.02, -0.04, z - ridge) * smoothstep(1.76, 1.92, z)
+    snow = smoothstep(0.50, 0.62, nz.fbm(y / 0.16 + z / 0.3, z / 0.22, 31.0, 3)) * smoothstep(ridge - 0.72, ridge - 0.2, z)
+    mtn = (body * tower)[..., None]
+    c = c * (1.0 - mtn * 0.18) * (1.0 + mtn * snow[..., None] * 0.34)
+    base[idx[0], idx[1], :3] = c
+    if tp["corten_scan"]:      # the scan's own roughness, a little duller in the runs
+        msk[idx[0], idx[1], 3] = np.clip(msk[idx[0], idx[1], 3] - 0.05 * runs - 0.04 * (drift - 0.5), 0.0, 1.0)
+    else:
+        msk[idx[0], idx[1], 3] = np.clip(0.10 + 0.06 * (1 - drift), 0.0, 1.0)
+    # ---- roof: soft streaks down the slope, sheet laps every 12 corrugations (0.89 m), dirt along the low eave, a rust
+    # blush at the cut edges
+    idx = mask_of("roof_")
+    x, y = P[idx][..., 0], P[idx][..., 1]
+    st = nz.fbm(y / 0.22, x / 2.6, 41.0, 3)
+    low_eave = 1.0 - smoothstep(EAVE_B, EAVE_B + 1.2, x + 0.5 * (st - 0.5))
+    c = rgb(idx) * (0.92 + 0.16 * st)[..., None]
+    c = c * (1.0 - low_eave[..., None] * 0.20)
+    lap = 12 * CORR_PITCH_V1
+    dl = np.abs(((y - RAFTER_Y[0]) / lap + 0.5) % 1.0 - 0.5) * lap
+    lap_line = 1.0 - smoothstep(0.015, 0.04, dl)
+    c = c * (1.0 - lap_line[..., None] * 0.12)
+    edge = 1.0 - smoothstep(0.0, 0.34, np.minimum.reduce([x - EAVE_B, EAVE_R - x, y + ROOF_Y, ROOF_Y - y]))
+    c = c * (1.0 + (edge * smoothstep(0.46, 0.62, nz.fbm(y / 0.3, x / 0.3, 7.0)))[..., None] * np.array((0.15, -0.07, -0.18), np.float32))
+    base[idx[0], idx[1], :3] = c
+    msk[idx[0], idx[1], 3] = np.clip(msk[idx[0], idx[1], 3] - 0.08 * edge - 0.06 * low_eave, 0, 1)
+    h[idx] += -0.003 * lap_line
+    # ---- concrete: saw joints, broom waves, the drip line under the road eave, rust halos at the base plates, grit along
+    # the curb, dirt along the back wall, darker edges
+    idx = mask_of("pad_")
+    x, y, z = P[idx][..., 0], P[idx][..., 1], P[idx][..., 2]
+    up = N[idx][..., 2] > 0.9
+    c = rgb(idx) * (0.95 + 0.10 * nz.fbm(x / 1.3, y / 1.3, 51.0, 3))[..., None]
+    c = c * (0.97 + 0.06 * nz.fbm(x / 0.25, y / 0.25, 53.0, 2))[..., None]
+    pitch_y, pitch_x = 2.35, 2.65
+    jy = np.abs(((y - 0.35) / pitch_y + 0.5) % 1.0 - 0.5) * pitch_y
+    jx = np.abs(((x - 0.25) / pitch_x + 0.5) % 1.0 - 0.5) * pitch_x
+    joint = (1.0 - smoothstep(0.012, 0.038, np.minimum(jx, jy))) * up
+    c = c * (1.0 - joint[..., None] * 0.35)
+    h[idx] += -0.007 * joint
+    h[idx] += up * 0.0009 * np.sin(2 * np.pi * x / 0.075 + 2.0 * nz(x / 0.5, y / 0.5, 61.0)) * smoothstep(0.1, 0.4, nz(x / 0.9, y / 0.9, 63.0) + 0.2)
+    drip = np.exp(-(((x - EAVE_R) / 0.13) ** 2)) * (np.abs(y) < ROOF_Y) * up
+    c = c * (1.0 - drip[..., None] * (0.14 + 0.10 * nz(y / 0.2, 1.0, 71.0))[..., None])
+    wear = np.exp(-((y - YS[2] - 1.33) / 1.1) ** 2) * np.exp(-((x - 0.8) / 1.2) ** 2) * up
+    c = c * (1.0 + wear[..., None] * 0.05)
+    feet = np.zeros_like(x)
+    for fx in (XR, XB):
+        for fy in YS:
+            feet = np.maximum(feet, np.exp(-(((x - fx) ** 2 + (y - fy) ** 2) / (0.30 ** 2))))
+    feet = np.maximum(feet, np.exp(-(((x - 1.75) ** 2 + (y + 5.45) ** 2 / 2.2) / (0.40 ** 2))))
+    c = c * (1.0 - (feet * up)[..., None] * np.array((0.10, 0.20, 0.30), np.float32))
+    grit = (1.0 - smoothstep(0.0, 0.9, PAD[2] - x + 0.5 * (nz.fbm(x / 0.6, y / 0.6, 81.0, 2) - 0.5))) * up
+    c = c * (1.0 - grit[..., None] * np.array((0.12, 0.14, 0.17), np.float32))
+    wall = np.exp(-(((x - XB) / 0.22) ** 2)) * (np.abs(y) < YS[-1] + 0.1) * up
+    c = c * (1.0 - wall[..., None] * 0.08)
+    edge = 1.0 - smoothstep(0.0, 0.25, np.minimum.reduce([x - PAD[0], PAD[2] - x, y - PAD[1], PAD[3] - y]))
+    c = c * (1.0 - (edge * 0.10)[..., None])
+    base[idx[0], idx[1], :3] = c
+    return h
+
+
+def make_post(obj, band_paths, A, table, rects, tp=None):
     """cs2_bake post_compose: band back over AO, weathering, relief, compose (welcome_sign.make_post's order)."""
     dspecs = {n: EDGE_ROUND for n in table if n.startswith(EDGE_ROUND_PREFIXES)}
-    dspecs.update({n: CORR for n in table if n.startswith("roof_")})
+    roof_detail = tp["roof_detail"] if tp else CORR        # a scanned roof brings its own corrugation
+    if roof_detail is not None:
+        dspecs.update({n: roof_detail for n in table if n.startswith("roof_")})
     keys = list(rects.values())
 
     def hook(base, nrm, msk, ctl, ao, mesh, A_):
@@ -1191,7 +1661,7 @@ def make_post(obj, band_paths, A, table, rects):
             msk[sl][..., 0] = px["MaskMap"][sl][..., 0]
             msk[sl][..., 3] = px["MaskMap"][sl][..., 3]
             ctl[sl][..., 0:3] = px["ControlMask"][sl][..., 0:3]
-        h_paint = paint_weather(mesh, A, table, base, msk)
+        h_paint = paint_weather_v1(mesh, A, table, base, msk, tp) if tp else paint_weather(mesh, A, table, base, msk)
         part_map, ppm = cs2_compose.rasterise_face_fields(mesh, A)
         h = cs2_compose.detail_height(mesh, A, dspecs, part_table=table)
         h = h + h_paint
@@ -1221,7 +1691,7 @@ def make_post(obj, band_paths, A, table, rects):
 # Share list (identical members on one island)
 # ======================================================================================
 
-def share_groups(obj, table):
+def share_groups(obj, table, tp=None):
     me = obj.data
     pv = cs2_compose.part_indices(me)
     by_part = {}
@@ -1232,7 +1702,7 @@ def share_groups(obj, table):
     co = co.reshape(-1, 3)
     keyed = {}
     for n in sorted(by_part):
-        k = share_key(n)
+        k = share_key(n, tp)
         if k:
             keyed.setdefault(k, []).append(n)
     groups, rep = [], {}
@@ -1264,6 +1734,77 @@ def share_groups(obj, table):
             groups.append((c, [by_part[n] for n in dups]))
             rep[k] = 1 + len(dups)
     return groups, rep
+
+# ======================================================================================
+# Manifest numbers: mesh hash, density per part / material
+# ======================================================================================
+
+def mesh_hash(obj, layers=None, attrs=True):
+    """sha1 (12 hex) of vertex coordinates (%.5f), face vertex lists, the given UV layers (%.6f, default all), material
+    indices and the part / density_w face attributes (lodge.mesh_hash's definition). layers=(), attrs=False: the bare
+    geometry (positions and faces), which a texture pass must not move."""
+    me = obj.data
+    hh = hashlib.sha1()
+    co = np.empty(len(me.vertices) * 3, np.float32)
+    me.vertices.foreach_get("co", co)
+    hh.update(" ".join("%.5f" % v for v in co).encode())
+    for p in me.polygons:
+        hh.update((",".join(str(i) for i in p.vertices) + ";").encode())
+    for lay in sorted(me.uv_layers, key=lambda l: l.name):
+        if layers is not None and lay.name not in layers:
+            continue
+        uv = np.empty(len(lay.data) * 2, np.float32)
+        lay.data.foreach_get("uv", uv)
+        hh.update(lay.name.encode() + " ".join("%.6f" % v for v in uv).encode())
+    if not attrs:
+        return hh.hexdigest()[:12]
+    mi = np.empty(len(me.polygons), np.int32)
+    me.polygons.foreach_get("material_index", mi)
+    hh.update(mi.tobytes())
+    for an in ("part", "density_w"):
+        a = me.attributes.get(an)
+        if a is not None:
+            buf = np.empty(len(a.data), np.int32 if a.data_type == "INT" else np.float32)
+            a.data.foreach_get("value", buf)
+            hh.update(an.encode() + buf.tobytes())
+    return hh.hexdigest()[:12]
+
+
+def density_table(obj, table, A, part_keys):
+    """Shipped px/m on UVUnique per material key and per part prefix: {name: [area-weighted p50, min, m2, tris]} (the
+    lodge manifests' ppm_by_material, plus the minimum because density is judged per part, PIPELINE section 1)."""
+    me = obj.data
+    d = cs2_uv.face_px_per_m(me, me.uv_layers[cs2_uv.UNIQUE_LAYER], A)
+    pid = cs2_compose.part_indices(me)
+    rows = {"material": {}, "prefix": {}}
+    for p in me.polygons:
+        n = table[int(pid[p.index]) - 1]
+        if not np.isfinite(d[p.index]):
+            continue
+        pre = n if n.startswith("tower_") else n.split("_", 1)[0] + "_"
+        for kind, key in (("material", part_keys.get(n, "?")), ("prefix", pre)):
+            rows[kind].setdefault(key, []).append((float(d[p.index]), float(p.area), len(p.vertices) - 2))
+    out = {}
+    for kind, groups in rows.items():
+        out[kind] = {}
+        for key, fs in sorted(groups.items()):
+            fs.sort()
+            tot = sum(a for _d, a, _t in fs)
+            acc, med = 0.0, fs[-1][0]
+            for dd, a, _t in fs:
+                acc += a
+                if acc >= 0.5 * tot:
+                    med = dd
+                    break
+            out[kind][key] = [round(med, 1), round(fs[0][0], 1), round(tot, 2), sum(t for _d, _a, t in fs)]
+    return out
+
+
+def print_density(dens):
+    for kind in ("material", "prefix"):
+        for key, (p50, lo, m2, tris) in dens[kind].items():
+            print(f"[depot] density {kind:8s} {key:14s} p50 {p50:6.1f} min {lo:6.1f} px/m  {m2:7.2f} m2  {tris:4d} tris")
+
 
 # ======================================================================================
 # Preview scene (nothing here reaches an FBX, a PNG map or the manifest)
@@ -1529,6 +2070,36 @@ def render_previews(obj, glass, asset_dir, name, out_dir, samples, only=None):
 # Run
 # ======================================================================================
 
+def write_asset_manifest(asset_dir, name, args, result, A):
+    """<Name>.manifest.json beside settings.json, as the other generators write it (cs2_validate.write_manifest: name,
+    time, Blender version, bytes + sha1 of every FBX / PNG / JSON) plus this build's numbers. No folder paths: the
+    manifest travels with the asset."""
+    maps = sorted(f for f in os.listdir(asset_dir) if f.lower().endswith(".png"))
+    mats = {}
+    for k, i in (result.get("materials") or {}).items():
+        mats[k] = {f: v for f, v in i.items() if f != "filtered_dir"}
+    tris = {f"lod{k}": v for k, v in sorted(result["tris"].items())}
+    data = dict(
+        generator="ski_bus_depot.py", prefab=PREFAB, lot=list(LOT),
+        args=dict(tex=int(A), ao_samples=int(args.ao_samples), texpass=getattr(args, "texpass", "off"),
+                  texvar=getattr(args, "texvar", None), name=args.name),
+        texpass=result.get("texpass"),
+        tris=dict(tris, glass=result["glass_tris"]),
+        budget=dict(lod0_target=BUDGET.lod0_target, lod0_cap=BUDGET.lod0_cap, lod1=BUDGET.lod1, lod2=BUDGET.lod2,
+                    lod2_cap=BUDGET.lod2_cap),
+        hashes=result.get("hashes"),
+        pack=result.get("pack"), shipped_density=result.get("density"),
+        ppm_by_material={k: v for k, v in (result.get("density_by") or {}).get("material", {}).items()},
+        ppm_by_prefix={k: v for k, v in (result.get("density_by") or {}).get("prefix", {}).items()},
+        ppm_columns=["p50 px/m", "min px/m", "area m2", "tris"],
+        texture=dict(size=int(A), maps=maps, lods_share_lod0_maps=True,
+                     memory_mb_bc7_with_mips=round(len(maps) * A * A * 4.0 / 3.0 / 1048576.0, 2)),
+        materials=mats, share=result.get("share"), band=result.get("band"),
+        engine_base={f"lod{k}": v.get("verdict") for k, v in sorted(result["base"].items())},
+        sub_objects_planned=result.get("sub_objects_planned"), validate=result.get("validate"))
+    return cs2_validate.write_manifest(asset_dir, name, data)
+
+
 def parse_args(argv=None):
     if argv is None:
         argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
@@ -1541,11 +2112,28 @@ def parse_args(argv=None):
     ap.add_argument("--tex", type=int, default=TEX, choices=(1024, 2048))
     ap.add_argument("--ao-samples", type=int, default=AO_SAMPLES)
     ap.add_argument("--blockout", action="store_true", help="geometry and caps only: no bake, no FBX")
+    ap.add_argument("--dry-pack", action="store_true", help="the blockout plus the unique pack and its density table: no bake, no FBX")
+    ap.add_argument("--texpass", default="off", choices=("off",) + tuple(sorted(TEXPASS)),
+                    help="texture pass (default off: every FBX and PNG byte-identical to the flag-off build)")
+    ap.add_argument("--texvar", default=None, metavar="GROUP=NAME,...", help="look variants of the pass (TEXPASS[...]['variants'])")
     ap.add_argument("--no-validate", action="store_true")
     return ap.parse_args(argv)
 
 
 def run(args):
+    """One build. A texture pass registers its materials in K.BLDG_MATERIALS for the build only (restored on the way out),
+    so a flag-off build in the same process is untouched."""
+    tp = texpass_config(getattr(args, "texpass", "off"), getattr(args, "texvar", None))
+    saved = {k: K.BLDG_MATERIALS[k] for k in (tp["mats"] if tp else ())}
+    if tp:
+        K.BLDG_MATERIALS.update(tp["mats"])
+    try:
+        return _run(args, tp)
+    finally:
+        K.BLDG_MATERIALS.update(saved)
+
+
+def _run(args, tp):
     if not bpy.app.background:
         raise RuntimeError("ski_bus_depot.py runs headless only (PIPELINE section 2)")
     out = os.path.abspath(args.out)
@@ -1565,7 +2153,7 @@ def run(args):
     keys = sorted({k for _o, k in parts})
     part_keys = {o.name: k for o, k in parts}
     axes = {o.name: tuple(o["prism_axis"]) for o, _k in parts if "prism_axis" in o}
-    cs2_uv.set_density(parts, DENSITY)
+    cs2_uv.set_density(parts, tp["density"] if tp else DENSITY)
     table = cs2_asset.tag_parts(parts)
     K.strip_uv_layers(parts)
     kit = [k for k in keys if k != BAND_KEY]
@@ -1587,7 +2175,7 @@ def run(args):
     bpy.ops.object.mode_set(mode="OBJECT")
     cs2_asset.store_part_table(obj, table)
     cs2_asset.shade_by_angle(obj, SHADE_ANGLE, weighted=True)
-    set_board_uvs(obj, table)
+    set_board_uvs(obj, table, tp)
     uv_prisms(obj, table, axes)
     rects = set_band_uvs(obj, table, A, part_keys)
     cs2_asset.orient_for_net(obj)
@@ -1597,21 +2185,49 @@ def run(args):
     area = K.area_report(obj, table=table)
     result = dict(name=name, tris={0: n0}, glass_tris=cs2_asset.tri_count(glass), base={0: base0}, parts=len(table),
                   keys=keys, sub_objects_planned=[dict(s) for s in SUB_OBJECTS], tex=A, lot=list(LOT))
+    result["hashes"] = {"LOD0_prebake": mesh_hash(obj), "LOD0_geometry": mesh_hash(obj, layers=(), attrs=False), "Gls": mesh_hash(glass)}
+    if tp:
+        result["texpass"] = dict(version=tp["version"], variants=tp["pick"], wall_set=tp["wall_set"],
+                                 wall_boards=tp["wall_boards"], wall_tile_m=round(tp["wall_tile"], 4),
+                                 ceil_tile_m=tp["ceil_tile"], roof_tile_m=tp["roof_tile"],
+                                 corrugation_m=round(CORR_PITCH_V1, 5))
     print(f"[depot] LOD0 {n0} tris (cap {BUDGET.lod0_cap}), glass {result['glass_tris']}, kept {area['kept_m2']} m2, "
           f"predicted w=1 px/m {area['predicted_ppm_w1']}")
     if args.blockout:
         print(f"PASS ski_bus_depot: {name} BLOCKOUT LOD0 {n0}, engine base {base0['verdict']}")
         return result, obj
+    packer = depot_pack_v1 if tp else depot_pack
+    pack_rep = {}
+
+    def pack_hook(*a, **kw):
+        pack_rep.update(packer(*a, **kw))
+        return dict(pack_rep)
+    if getattr(args, "dry_pack", False):
+        groups, share_rep = share_groups(obj, table, tp)
+        obj.data.uv_layers.active = obj.data.uv_layers[cs2_bake.TILE_LAYER]
+        saved_pack = cs2_uv._pack_layout
+        cs2_uv._pack_layout = pack_hook
+        try:
+            cs2_uv.pack_unique(obj, A, list(rects.values()), margin_px=welcome_sign.pack_margin(A), share=groups)
+        finally:
+            cs2_uv._pack_layout = saved_pack
+        result.update(share=share_rep, pack=dict(pack_rep), density=K.shipped_density(obj, A),
+                      density_by=density_table(obj, table, A, part_keys))
+        result["hashes"]["LOD0_packed"] = mesh_hash(obj)
+        print_density(result["density_by"])
+        print(f"PASS ski_bus_depot: {name} DRY PACK LOD0 {n0}, tex {A}, w=1 {pack_rep.get('w1_px_per_m')} px/m, "
+              f"fill {pack_rep.get('fill')}")
+        return result, obj
     # ---- bake --------------------------------------------------------------------------------
     work = os.path.join(out, "_work")
     band_paths, emis, band_rep = paint_band(A, work, name)
     result["band"] = band_rep
-    groups, share_rep = share_groups(obj, table)
+    groups, share_rep = share_groups(obj, table, tp)
     result["share"] = share_rep
     base_ppm = area["predicted_ppm_w1"].get(A) or 0.48 * A / math.sqrt(max(area["sum_w2a"], 1.0))
     used = sorted(keys)
     specs, info = K.material_specs([k for k in used if k != BAND_KEY], base_ppm)
-    specs = controlled_specs(specs, info, work)
+    specs = controlled_specs(specs, info, work, tp["controls"] if tp else None)
     sources = {}
     for i, k in enumerate(used):
         if k == BAND_KEY:
@@ -1621,12 +2237,12 @@ def run(args):
         else:
             ss = cs2_bake._resolve_spec(cs2_bake._as_material_spec(specs[k], k), k)
             sources[i] = replace(ss, uv=cs2_bake.TILE_LAYER)
-    hook = make_post(obj, band_paths, A, table, rects)
+    hook = make_post(obj, band_paths, A, table, rects, tp)
     world = bpy.context.scene.world or bpy.data.worlds.new("World")
     bpy.context.scene.world = world
     world.light_settings.distance = 1.0
     saved_pack = cs2_uv._pack_layout
-    cs2_uv._pack_layout = depot_pack
+    cs2_uv._pack_layout = pack_hook
     try:
         brep = cs2_bake.bake_unique(obj, asset_dir, name, A, sources, reserved=list(rects.values()),
                                     margin_px=welcome_sign.pack_margin(A), ao_samples=int(args.ao_samples),
@@ -1639,6 +2255,10 @@ def run(args):
     result["bake"] = {k: brep[k] for k in ("A", "margin_px", "uncovered_texels", "seconds", "files", "ao")}
     result["density"] = hook.density
     result["materials"] = info
+    result["pack"] = dict(pack_rep)
+    result["density_by"] = density_table(obj, table, A, part_keys)
+    result["hashes"]["LOD0"] = mesh_hash(obj)
+    print_density(result["density_by"])
     cs2_asset.export_fbx(obj, os.path.join(asset_dir, f"{name}.fbx"))
     cs2_submesh.export_submeshes(glass, name, "Gls", asset_dir, lods=(1,))
     # ---- LODs ----------------------------------------------------------------------------------
@@ -1649,6 +2269,7 @@ def run(args):
     for lvl, lod in enumerate(lods, start=1):
         result["base"][lvl] = K.check_base_mode(lod, table, "engine", GROUND)
         result["tris"][lvl] = cs2_asset.tri_count(lod)
+        result["hashes"][f"LOD{lvl}"] = mesh_hash(lod)
         if lvl == 2:
             K.assert_budget(lod, BUDGET, 2)
         cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{name}_LOD{lvl}.fbx"))
@@ -1682,6 +2303,8 @@ def run(args):
     result["seconds"] = round(time.perf_counter() - t0, 1)
     with open(os.path.join(out, f"{name}.manifest.json"), "w", encoding="utf-8", newline="\n") as fh:
         json.dump(dict(generator="ski_bus_depot.py", prefab=PREFAB, args=vars(args), **result), fh, indent=1, default=str)
+    write_asset_manifest(asset_dir, name, args, result, A)
+    result["asset_dir"] = asset_dir
     dens = (result.get("density") or {}).get("median_w1")
     print(f"PASS ski_bus_depot: {name} LOD0 {n0}, chain {[result['tris'][i] for i in sorted(result['tris']) if i]}, "
           f"glass {result['glass_tris']}, tex {A}, w=1 median px/m {dens}, sign cap px {result.get('sign_cap_px')}")
