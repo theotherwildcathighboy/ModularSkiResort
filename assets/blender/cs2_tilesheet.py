@@ -546,8 +546,17 @@ TEXPASS_ROOF_KICK_MAX_DEG = {"slate": 11.0}
 # center), 10 per 3.0 m tile, two 3 mm minor ribs per pan, a sheet = 3 pans (36 in coverage).
 # can_mm = the oil-canning bow of a pan; panel = sheet-to-sheet albedo shade; streak / sm_streak = soft down-slope
 # run-off 6-12 cm wide (darker / rougher); rib tops +0.05 smoothness; albedo features >= 5 cm. Same cell, 0 tris, 0 MB.
+# r7 T272 (owner review of 1.0.4: the L1 roof "blurry, we went backwards"): px/m (320), tile (3.0 m) and mip (3.5 at
+# 45 m, 4.1 at 70 m on a 1080p frame) are 1.0.3's; the coated model lost the metal's reflections, and its one feature
+# was a 40 mm rib with an 11 % albedo dip, under 1.2 px at 45 m. Now: the rib 20 mm tall (was 14; real standing seams
+# 25-50 mm), a stronger, wider contact shade (ao 0.22, ao_m = its Gaussian sigma 22 mm: about 5 cm of shade line, the
+# 5 cm floor), and pan-to-pan paint shade (pan = +-2.5 % albedo) and sheen (pan_sm = +-0.06 before SMOOTH_GAIN), one
+# value per pan, so the panels read past the mips that eat the rib. Measured on the built cell: albedo column contrast
+# at mip 3 / 4 (45 / 70 m) 0.11 / 0.09 -> 0.26 / 0.22, smoothness sd 0.006 -> 0.021, albedo mean -1.5 % (the wider
+# shade), smoothness mean 0.40 held; same cell, 0 tris, 0 MB
 TEXPASS_FLAT = {
-    "v1": {"metal_roof_lt": {"metal": 0.0, "smooth": 0.40, "ribs": 7, "rib_m": (0.007, 0.020, 0.014), "ao": 0.12,
+    "v1": {"metal_roof_lt": {"metal": 0.0, "smooth": 0.40, "ribs": 7, "rib_m": (0.007, 0.022, 0.020), "ao": 0.22,
+                             "ao_m": 0.022, "pan": 0.025, "pan_sm": 0.06,
                              "smooth_streak": 0.012, "light_w": True, "paint": True},
            "metal_roof_s1": {"panel": {"name": "rib30w", "profile": "rib", "pitch_m": 0.30, "rib_top": 0.028, "rib_base": 0.096,
                                        "rib_h": 0.026, "can_mm": 0.3, "panel": 0.008, "streak": 0.0,
@@ -1240,6 +1249,19 @@ def _rib_height(C, tile_m, n_ribs, rib_m):
     return height * (t * t * (3.0 - 2.0 * t)), d
 
 
+def _rib_pan_shade(key, C, n_ribs, reps=1):
+    """r7 T272: one value in -1..1 (mean 0, max |v| 1) per pan between two raised ribs (_rib_height's phase: a rib on the
+    tile edge, pan k spans k..k+1 pitches), as a (C,) profile across the ribs, `reps` identical tile copies (the swatch
+    repeat). Deterministic per key."""
+    n = int(n_ribs)
+    rng = np.random.default_rng(int(hashlib.sha1(f"{key}:pan".encode()).hexdigest()[:8], 16))
+    sh = rng.uniform(-1.0, 1.0, n)
+    sh -= sh.mean()
+    sh /= max(float(np.abs(sh).max()), 1e-9)
+    idx = np.floor((np.arange(C) + 0.5) / C * n * int(reps)).astype(int) % n
+    return sh[idx]
+
+
 def _panel_profile(u, spec):
     """Height (m) across a panel's ribs at u (m, periodic in the pitch): "rib" = a trapezoid major rib (rib_h high,
     rib_top / rib_base wide; default 19 mm, 20 / 64 mm) + two 3 mm minor ribs per pan; "seam" = a raised 16 mm
@@ -1384,11 +1406,19 @@ def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
         det = cs2_compose.height_to_normal(h.astype(np.float32), C / (tile * r))
         nrm = cs2_compose.blend_rnm(nrm.astype(np.float32), det)
         if tpf.get("ao"):
-            line = 1.0 - float(tpf["ao"]) * np.exp(-0.5 * (dist / 0.0175) ** 2)
+            line = 1.0 - float(tpf["ao"]) * np.exp(-0.5 * (dist / float(tpf.get("ao_m", 0.0175))) ** 2)
             base = base * (line[None, :, None] if along_u else line[:, None, None])
+        if tpf.get("pan"):              # r7 T272: pan-to-pan paint shade (albedo) and sheen (smoothness), one value per pan
+            pan_sh = _rib_pan_shade(key, C, tpf["ribs"], r)
+            pf = 1.0 + float(tpf["pan"]) * pan_sh
+            pf = pf / pf.mean()                                     # the swatch mean (target_srgb) holds
+            base = base * (pf[None, :, None] if along_u else pf[:, None, None])
         if tpf.get("smooth_streak"):
             aniso = (1.0, 0.04) if along_u else (0.04, 1.0)
             sm = sm + float(tpf["smooth_streak"]) * _pnoise(C, 0.08 * C / (tile * r), 11, beta=1.6, aniso=aniso)
+        if tpf.get("pan_sm"):           # r7 T272: before SMOOTH_GAIN (the stored spread is pan_sm x SMOOTH_GAIN)
+            pan_sh = _rib_pan_shade(key, C, tpf["ribs"], r)
+            sm = sm + float(tpf["pan_sm"]) * (pan_sh[None, :] if along_u else pan_sh[:, None])
         info["detail"] = f"raised ribs {tile / tpf['ribs']:.4f} m, {'columns' if along_u else 'rows'}"
         info["texpass_flat"] = dict(tpf)
     elif m.detail is not None and getattr(m.detail, "seam_axes", None) == "ribs" and m.detail.seams_m:

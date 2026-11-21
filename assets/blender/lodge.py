@@ -484,6 +484,11 @@ def aframe_parts(c, opts):
     DX1, DY, DTOP = c["DECK_X1"], c["DECK_Y"], c["DECK_TOP"]
     SILL, HEAD = c["SILL_Z"], c["HEAD_Z"]
     P = []
+    # r7 T273 (2026-11-20, owner review of 1.0.4: "see-through" on the arrival side): the canopy window, both builds'
+    # geometry, changes under --texpass only (opts["texpass"] is absent with the flag off, so 1.0.3's L1 stays
+    # byte-identical; the pass is the 1.0.4 output). The ledge slot and the rake undersides are the cull's (seethru's
+    # conservative cull and _slab_geo split). Measured in docs/research/round3-2026-11-18/r7-tex/l1/NOTE.md section 1
+    tpg = bool(opts.get("texpass"))
 
     # ---- stone base (ground part, the skirt is gone: the engine draws the base) --------
     P += K.storey("base", BX0, BX1, BY0, BY1, 0.0, S1_Z, "stone_rubble", ground=True,
@@ -626,6 +631,14 @@ def aframe_parts(c, opts):
     bands_x = (("SlopeS", S2X1, +1, -18.0, -8.0, 5), ("SlopeN", S2X1, +1, 11.0, 19.0, 4),
                ("ParkS", S2X0, -1, -18.0, -10.0, 4), ("ParkC", S2X0, -1, -4.0, 4.0, 4),
                ("ParkN", S2X0, -1, 10.0, 18.0, 4))
+    if tpg:     # T273 canopy gable: the porch roof's ridge flashing (top 5.42) ran 0.17 m into ParkC's
+        #         glazed opening (sill 5.25), and in game a black triangle (the porch profile shifted 0.8 m up, base
+        #         +-1.0 m) sat in the glass above it. No glazing where a roof meets the wall (snow piles there too):
+        #         ParkC becomes two 2-light windows clear of the porch roof (|y| >= 2.0), wall over the porch. One hall
+        #         behind both, so one interior: the south half keeps ParkC's tag (plate seed win_ParkC_ParkC0, lit as the
+        #         8-light band was), the north half's ParkCN draws lit too (_interior_key hashes the seed name)
+        bands_x = tuple(b for t in bands_x for b in (
+            (("ParkC", S2X0, -1, -6.0, -2.0, 2), ("ParkCN", S2X0, -1, 2.0, 6.0, 2)) if t[0] == "ParkC" else (t,)))
     for tag, wx, sgn, y0, y1, lights in bands_x:
         wall = WallRef("+X" if sgn > 0 else "-X", wx)
         u0, u1 = (y0, y1) if sgn > 0 else (-y1, -y0)
