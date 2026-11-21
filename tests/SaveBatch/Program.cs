@@ -39,6 +39,7 @@ namespace SaveBatch
             DllAliasTests.Run(Check, root);
             ChangelogTests.Run(Check, root);
             RulesStampTests.Run(Check, root);
+            PassPlanTests.Run(Check, root);
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  SaveBatch checks={0} failures={1}", s_Checks, s_Failures));
             Environment.ExitCode = s_Failures;

@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 61;
+export const HUB_CONTRACT = 62;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -974,6 +974,42 @@ export interface ResortLive {
   /** Contract 59 (T267): passes sold at this area this month, the ledger's count behind passIncomeMonth (whose money also holds the
    *  destination passes' day fees). -1 unknown. */
   passesSoldMonth: number;
+  // Contract 62 (T284): the area's own prices (C# SkiLiftTicketSystem.AreaPrice of SkiPassPlanRules.Resolve). Appended in this order, as in
+  // C# WriteResortLiveRows. Not linked and unknown: -1 / false. The plan "in force" is this season's (locked once its sale started); "next"
+  // is the one the area's controls edit, the plan the next season gets as things stand (the same one while not locked).
+  /** The area's day ticket (its own, or the Options default). 0 = tickets off. */
+  areaTicket: number;
+  /** The ticket is the area's own (not the Options default). */
+  ticketOwn: boolean;
+  /** The plan in force: early price, rise per step (0-50 %), the season months on sale and the months a rise starts (bits 0..11, 0 = the
+   *  season's first month). */
+  passEarly: number;
+  passRisePct: number;
+  passSaleMask: number;
+  passRiseMask: number;
+  /** The next plan, the same four fields. */
+  passNextEarly: number;
+  passNextRisePct: number;
+  passNextSaleMask: number;
+  passNextRiseMask: number;
+  /** The next plan is the area's own (not the Options default plan). */
+  planOwn: boolean;
+  /** This season's plan is locked: its sale started. */
+  planLocked: boolean;
+  /** The plan in force is the default one: the area's passes are good at every area on the default plan this season. */
+  planOnDefault: boolean;
+  /** The pass price a resident pays now (0 = not on sale or tickets off). */
+  passNow: number;
+  /** The share of would-be buyers who buy at passNow, value left counted, whole percent. -1 while not on sale. */
+  passDemandPct: number;
+  /** The share of the winter still ahead, whole percent (100 before the winter). */
+  valueLeftPct: number;
+  /** The season month now (0..11) and the season's first calendar month (1..12, 7 = July). */
+  seasonMonth: number;
+  seasonFirstMonth: number;
+  /** The climate winter in season positions (months from the season's start, fractional; winterEnd at most 12). */
+  winterStart: number;
+  winterEnd: number;
 }
 
 /** One run of ours: identity, rating, service, value parts. */
@@ -1304,6 +1340,11 @@ export const TRIGGER = {
   setTicketPrice: "setTicketPrice",  // contract 54: the Money view's price stepper (T240)
   setPassPrice: "setPassPrice",  // contract 56: the Money view's season pass slider
   setSlopeOverlay: "setSlopeOverlay",  // contract 60: the Runs tab's Slope colors chip (T253)
+  setAreaTicket: "setAreaTicket",  // contract 62 (T284): the area's ticket slider (sign, price)
+  setAreaPassEarly: "setAreaPassEarly",  // contract 62: the area's early pass price (sign, price)
+  setAreaPassRise: "setAreaPassRise",  // contract 62: the area's rise per step (sign, percent)
+  setAreaPassMonths: "setAreaPassMonths",  // contract 62: the area's month strip (sign, saleMask | riseMask << 12)
+  setAreaUseDefault: "setAreaUseDefault",  // contract 62: back to the Options default (sign, 1 ticket / 2 pass plan)
 } as const;
 
 /**
@@ -1555,4 +1596,15 @@ export const hubTriggers = {
   /** Set the season pass price in money (the Options setting SeasonPassPrice, 20-2,000 step 20). C# snaps and clamps it, saves the
    *  options file and sends it back in city$.passPrice. */
   setPassPrice: (price: number): void => fire(TRIGGER.setPassPrice, price),
+  /** Contract 62 (T284): the area's own day ticket. C# snaps it (0-200 step 5) and stores it on the sign. */
+  setAreaTicket: (sign: Entity, price: number): void => fire(TRIGGER.setAreaTicket, wire(sign), Math.round(price)),
+  /** The area's own early pass price (20-2,000 step 20). It starts the area's own plan from the plan it has now. */
+  setAreaPassEarly: (sign: Entity, price: number): void => fire(TRIGGER.setAreaPassEarly, wire(sign), Math.round(price)),
+  /** The area's rise per step (0-50 %, step 5). */
+  setAreaPassRise: (sign: Entity, pct: number): void => fire(TRIGGER.setAreaPassRise, wire(sign), Math.round(pct)),
+  /** The area's months: the sale months and the rise months, one int (saleMask | riseMask << 12: hubRules.planMonthsArg). C# sanitizes
+   *  them (SkiPassPlanRules.Sanitize). */
+  setAreaPassMonths: (sign: Entity, masks: number): void => fire(TRIGGER.setAreaPassMonths, wire(sign), Math.round(masks)),
+  /** Back to the Options default: part 1 the ticket, 2 the pass plan (from the next season once this season's sale started). */
+  setAreaUseDefault: (sign: Entity, part: 1 | 2): void => fire(TRIGGER.setAreaUseDefault, wire(sign), part),
 } as const;

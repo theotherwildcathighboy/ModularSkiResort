@@ -95,6 +95,14 @@
   function get(name) { const b = bindings.get(key("skiResort", name)); return b ? b.value : undefined; }
   function set(name, value) { bindValue("skiResort", name, value).update(value); }
   function sameEntity(a, b) { return (a ? a.index : 0) === (b ? b.index : 0) && (a ? a.version : 0) === (b ? b.version : 0); }
+  // contract 62 (T284): edit one area's live row
+  function editLive(sign, f) { set("resortLive", (get("resortLive") || []).map((l) => (sameEntity(l.sign, sign) ? Object.assign({}, l, f(l)) : l))); }
+  // the next plan takes the edit; while the season is not locked, the plan in force follows it
+  function nextPlan(l, patch, own = true) {
+    const n = Object.assign({}, l, patch, { planOwn: own });
+    if (!l.planLocked) Object.assign(n, { passEarly: n.passNextEarly, passRisePct: n.passNextRisePct, passSaleMask: n.passNextSaleMask, passRiseMask: n.passNextRiseMask, planOnDefault: !own });
+    return n;
+  }
 
   // The C# HubSystem's trivial answers. Everything else is only logged.
   const answers = {
@@ -122,6 +130,17 @@
     // contract 56 (r3/sliders, DECISIONS 677): the season pass slider (C# SkiMoneyRules.ClampPassPrice: 20..2,000 step 20)
     setPassPrice: (n) => { const c = get("city"); if (c) set("city", Object.assign({}, c, { passPrice: Math.min(2000, Math.max(20, Math.round(n / 20) * 20)) })); },
     setTicketPrice: (price) => { const c = get("city"); if (c) set("city", Object.assign({}, c, { ticketPrice: Math.min(200, Math.max(0, Math.round(price / 5) * 5)) })); },
+    // contract 62 (T284): the area's own prices on its live row (C# sanitizes the plan; the mock keeps the run unbroken roughly). A locked
+    // season keeps its plan in force; the next plan takes the edit.
+    setAreaTicket: (sign, price) => editLive(sign, () => ({ areaTicket: Math.min(200, Math.max(0, Math.round(price / 5) * 5)), ticketOwn: true })),
+    setAreaPassEarly: (sign, n) => editLive(sign, (l) => nextPlan(l, { passNextEarly: Math.min(2000, Math.max(20, Math.round(n / 20) * 20)) })),
+    setAreaPassRise: (sign, n) => editLive(sign, (l) => nextPlan(l, { passNextRisePct: Math.min(50, Math.max(0, Math.round(n / 5) * 5)) })),
+    setAreaPassMonths: (sign, v) => editLive(sign, (l) => nextPlan(l, { passNextSaleMask: v & 0xfff, passNextRiseMask: (v >> 12) & 0xfff })),
+    setAreaUseDefault: (sign, part) => editLive(sign, (l) => {
+      const c = get("city") || {};
+      if (part === 1) return { ticketOwn: false, areaTicket: c.ticketPrice };
+      return nextPlan(l, { passNextEarly: c.passPrice, passNextRisePct: 15, passNextSaleMask: 0x1e, passNextRiseMask: 0x8 }, false);
+    }),
     launch: (id) => {
       const items = get("build") || [];
       set("build", items.map((it) => Object.assign({}, it, { active: it.id === id ? !it.active : false })));

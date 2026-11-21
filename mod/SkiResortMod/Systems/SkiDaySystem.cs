@@ -132,6 +132,7 @@ namespace SkiResortMod.Systems
         private ComponentLookup<Deleted> m_DeletedLookup;
         private ComponentLookup<Game.Buildings.LeisureProvider> m_LeisureProviderLookup;
         private ComponentLookup<SkiSeasonPass> m_SeasonPassLookup; // a holder gets P = 1 in the chance
+        private ComponentLookup<SkiSeasonPassArea> m_SeasonPassAreaLookup; // T284: where the pass is good
         private ComponentLookup<Game.Objects.OutsideConnection> m_OutsideConnectionLookup;
         private ComponentLookup<Worker> m_WorkerLookup;
         private ComponentLookup<AttendingMeeting> m_AttendingMeetingLookup;
@@ -248,7 +249,8 @@ namespace SkiResortMod.Systems
         private SkiDayRules.MonthFlags m_Month;
         private SkiDayCityMonth m_CityThis;
         private SkiDayRules.Knobs m_Knobs;
-        private int m_Price;
+        private int m_Price;           // the Options default ticket (lines only since T284)
+        private int m_PriceRevision = int.MinValue;   // T284: SkiLiftTicketSystem.PriceRevision at the last snapshot
         private bool m_KnobsKnown;
         private bool m_SnapshotValid, m_SiteDue, m_CensusDue;
         private int m_SnapGeneration, m_SnapLodgeRevision, m_SnapLiftRevision, m_SnapHourKey, m_PassesSinceRebuild;
@@ -556,6 +558,7 @@ namespace SkiResortMod.Systems
             m_DeletedLookup = GetComponentLookup<Deleted>(isReadOnly: true);
             m_LeisureProviderLookup = GetComponentLookup<Game.Buildings.LeisureProvider>(isReadOnly: true);
             m_SeasonPassLookup = GetComponentLookup<SkiSeasonPass>(isReadOnly: true);
+            m_SeasonPassAreaLookup = GetComponentLookup<SkiSeasonPassArea>(isReadOnly: true);
             m_OutsideConnectionLookup = GetComponentLookup<Game.Objects.OutsideConnection>(isReadOnly: true);
             m_WorkerLookup = GetComponentLookup<Worker>(isReadOnly: true);
             m_AttendingMeetingLookup = GetComponentLookup<AttendingMeeting>(isReadOnly: true);
@@ -2879,13 +2882,17 @@ namespace SkiResortMod.Systems
         {
             m_PassesSinceRebuild++;
             SkiDayRules.Knobs knobs = ReadKnobs();
+            // T284: the prices are per area; their revision (SkiLiftTicketSystem.PriceRevision) is the price part of the key. m_Price keeps
+            // the Options default ticket for the lines.
             int price = m_Ticket.Price;
+            int priceRevision = m_Ticket.PriceRevision;
             bool settingsChanged = !m_KnobsKnown || knobs.LocalsPct != m_Knobs.LocalsPct || knobs.TouristsPct != m_Knobs.TouristsPct ||
-                                   knobs.ReachKm != m_Knobs.ReachKm || knobs.PowderPct != m_Knobs.PowderPct || price != m_Price;
+                                   knobs.ReachKm != m_Knobs.ReachKm || knobs.PowderPct != m_Knobs.PowderPct || priceRevision != m_PriceRevision;
             if (settingsChanged && m_KnobsKnown)
                 SettingsLine(knobs, price);
             m_Knobs = knobs;
             m_Price = price;
+            m_PriceRevision = priceRevision;
             m_KnobsKnown = true;
 
             int generation = m_Attraction.Generation;
@@ -3050,6 +3057,7 @@ namespace SkiResortMod.Systems
                 bool known = m_Attraction.TryGetAreaScore(sign, out SkiResortAttractivenessSystem.AreaScoreView v);
                 SkiResortScore.Result r = v.Result;
                 AreaMemory mem = MemoryOf(sign);
+                SkiLiftTicketSystem.AreaPrice areaPrice = m_Ticket.AreaPriceOf(sign);   // T284: the area's own prices
 
                 int lodgeStart = m_Lodges.Length;
                 // The active lodges with their tier's numbers (main thread: the jobs never read a catalog row).
@@ -3110,6 +3118,9 @@ namespace SkiResortMod.Systems
                     Powder = powder,
                     // Locals × 1.2 while the school is active and a green run counts.
                     SchoolFactor = known ? SchoolRule.DemandFactorOf(r.SchoolActive, r.SchoolRunCounted) : 1.0,
+                    Ticket = areaPrice.R.Ticket,
+                    PassEarly = areaPrice.R.Plan.Early,
+                    OnDefault = areaPrice.R.OnDefault,
                 });
                 for (int c = 0; c < 3; c++)
                     m_Tracks.Add(mem.Tracks[c]);
@@ -3385,6 +3396,7 @@ namespace SkiResortMod.Systems
                 m_DeletedLookup.Update(this);
                 m_LeisureProviderLookup.Update(this);
                 m_SeasonPassLookup.Update(this);
+                m_SeasonPassAreaLookup.Update(this);
 
                 NativeList<ArchetypeChunk> chunks = m_CandidateQuery.ToArchetypeChunkListAsync(Allocator.TempJob, out JobHandle chunksHandle);
                 NativeQueue<Entity>.ParallelWriter reserve = m_Behavior.GetCarReserveQueue(out JobHandle reserveDeps);   // CBS :1094-1098, 1.6.2 :1126-1130
@@ -3419,6 +3431,7 @@ namespace SkiResortMod.Systems
                     Deleteds = m_DeletedLookup,
                     LeisureProviders = m_LeisureProviderLookup,
                     SeasonPasses = m_SeasonPassLookup,
+                    SeasonPassAreas = m_SeasonPassAreaLookup,
                     SeasonKey = SkiMoneyRules.SeasonKeyOfDate(m_Time.year, m_Time.normalizedDate, SkiClimateCalendar.SeasonFirstMonth(m_Climate, m_Prefabs)),
                     Areas = areaArray,
                     Lodges = lodgeArray,
@@ -3436,9 +3449,7 @@ namespace SkiResortMod.Systems
                     TimeOfDay = m_Time.normalizedTime,
                     DayKey = SkiDayRules.DayKey(m_Time.year, m_Time.normalizedDate, m_Time.daysPerYear),
                     Knobs = m_Knobs,
-                    Price = m_Price,
-                    PassShare = m_Ticket.PassShare,          // 1.0.3 destination pass (read live by the ticket system)
-                    PassPrice = m_Ticket.PassPriceSetting,
+                    PassShare = m_Ticket.PassShare,          // 1.0.3 destination pass (read live by the ticket system); prices per area (AreaJob)
                     LeisureInterval = m_LeisureInterval,
                     BehaviorInterval = m_BehaviorInterval,
                     BehaviorOffset = m_BehaviorOffset,
@@ -3925,7 +3936,7 @@ namespace SkiResortMod.Systems
         private void SettingsLine(SkiDayRules.Knobs k, int price)
         {
             Offer(m_SettingsLog, "settings", $"SkiDays [settings] locals {k.LocalsPct}%, tourists {k.TouristsPct}%, reach {k.ReachKm} km, " +
-                                             $"powder pull {k.PowderPct}%, ticket {price}");
+                                             $"powder pull {k.PowderPct}%, default ticket {price} (each area's own prices: the ticket system's DUMP)");
         }
 
         private static void Offer(LogWindow window, string tag, string text)

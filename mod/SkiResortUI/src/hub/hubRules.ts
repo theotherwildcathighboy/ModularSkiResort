@@ -976,6 +976,174 @@ export function passNowPrice(win: SaleWindow | null, price: number): number {
   return win && win.phase === "stepped" ? steppedPassPrice(price) : clampPassPrice(price);
 }
 
+// ---- T284 (contract 62): per-area prices. Mirror of C# SkiPassPlanRules (gate test-hub-rules T284). ----
+
+/** A pass plan: the early price, the rise per step, the season months on sale (one unbroken run) and the months a rise starts (bits 0..11,
+ *  0 = the season's first month). */
+export interface PassPlan { early: number; risePct: number; saleMask: number; riseMask: number }
+export const PLAN_MONTHS = 12;
+export const PLAN_MONTH_MASK = 0xfff;
+export const RISE_MAX_PCT = 50;
+export const RISE_STEP_PCT = 5;
+export const MAX_RISES = 3;
+/** The 1.0.3 calendar: on sale in season months 1-4, one rise of SALE_STEP_PCT from season month 3. */
+export const DEFAULT_SALE_MASK = 0x1e;
+export const DEFAULT_RISE_MASK = 1 << SALE_STEP_MONTH;
+/** The rise slider's stops: 0 to 50 in steps of 5. */
+export const RISE_STOPS: readonly number[] = Array.from({ length: RISE_MAX_PCT / RISE_STEP_PCT + 1 }, (_, i) => i * RISE_STEP_PCT);
+
+/** C# SkiPassPlanRules.ClampRisePct: clamped to 0-50, snapped to the nearest 5 (half up). */
+export function clampRisePct(pct: number): number {
+  const p = Math.min(RISE_MAX_PCT, Math.max(0, Number.isFinite(pct) ? Math.trunc(pct) : 0));
+  return Math.min(RISE_MAX_PCT, Math.floor((p + Math.floor(RISE_STEP_PCT / 2)) / RISE_STEP_PCT) * RISE_STEP_PCT);
+}
+/** The lowest / highest set bit of a mask (0..11), 0 for an empty mask. */
+export function firstBit(mask: number): number {
+  for (let m = 0; m < PLAN_MONTHS; m++) if (mask & (1 << m)) return m;
+  return 0;
+}
+export function lastBit(mask: number): number {
+  for (let m = PLAN_MONTHS - 1; m >= 0; m--) if (mask & (1 << m)) return m;
+  return 0;
+}
+export function bitCount(mask: number): number {
+  let n = 0;
+  for (let m = 0; m < PLAN_MONTHS; m++) if (mask & (1 << m)) n++;
+  return n;
+}
+/** C# SkiPassPlanRules.Sanitize: prices clamped; the sale months filled to one run (the default run when none); the rises kept inside
+ *  the run, not on its first month, the first MAX_RISES of them. */
+export function sanitizePlan(p: PassPlan): PassPlan {
+  let sale = p.saleMask & PLAN_MONTH_MASK;
+  if (sale === 0) sale = DEFAULT_SALE_MASK;
+  const first = firstBit(sale), last = lastBit(sale);
+  const run = ((1 << (last + 1)) - 1) & ~((1 << first) - 1);
+  const rise = p.riseMask & run & ~(1 << first);
+  let kept = 0, count = 0;
+  for (let m = 0; m < PLAN_MONTHS && count < MAX_RISES; m++) {
+    if (rise & (1 << m)) { kept |= 1 << m; count++; }
+  }
+  return { early: clampPassPrice(p.early), risePct: clampRisePct(p.risePct), saleMask: run, riseMask: kept };
+}
+export function samePlan(a: PassPlan, b: PassPlan): boolean {
+  return a.early === b.early && a.risePct === b.risePct && a.saleMask === b.saleMask && a.riseMask === b.riseMask;
+}
+/** The Options default plan (C# DefaultPlan). */
+export function defaultPlan(optionsPassPrice: number): PassPlan {
+  return { early: clampPassPrice(optionsPassPrice), risePct: SALE_STEP_PCT, saleMask: DEFAULT_SALE_MASK, riseMask: DEFAULT_RISE_MASK };
+}
+/** The rises started at or before season month `month`. */
+export function risesBy(p: PassPlan, month: number): number {
+  let n = 0;
+  for (let m = 0; m <= month && m < PLAN_MONTHS; m++) if (p.riseMask & (1 << m)) n++;
+  return n;
+}
+/** C# PriceAfter: each rise × (100 + rise) / 100, half up, snapped to the 20 step and capped (clampPassPrice). */
+export function priceAfter(p: PassPlan, rises: number): number {
+  let price = clampPassPrice(p.early);
+  const r = Math.min(RISE_MAX_PCT, Math.max(0, p.risePct));
+  for (let k = 0; k < rises; k++) price = clampPassPrice(Math.floor((price * (100 + r) + 50) / 100));
+  return price;
+}
+export function priceInMonth(p: PassPlan, month: number): number {
+  return priceAfter(p, risesBy(p, month));
+}
+/** C# PhaseAt for a whole season month: before the run, opening in it before the first rise, stepped from the first rise, closed after. */
+export function planPhaseAt(p: PassPlan, month: number): SalePhase {
+  if (month < firstBit(p.saleMask)) return "before";
+  if (month > lastBit(p.saleMask)) return "closed";
+  return risesBy(p, month) > 0 ? "stepped" : "opening";
+}
+
+/** The month strip's state of one season month. */
+export type MonthChip = "off" | "sale" | "rise";
+export function monthChip(p: PassPlan, month: number): MonthChip {
+  if (p.riseMask & (1 << month)) return "rise";
+  return p.saleMask & (1 << month) ? "sale" : "off";
+}
+/** One click on a month of the strip, sanitized (the run stays unbroken):
+ *  - off: the month goes on sale (the run grows to it);
+ *  - on sale: a rise starts there (not on the run's first month, at most MAX_RISES), else an end of the run leaves the run;
+ *  - a rise: the rise goes; at an end of the run the month also leaves the run.
+ *  A one-month run keeps its month. */
+export function cycleMonth(p: PassPlan, month: number): PassPlan {
+  const s = sanitizePlan(p);
+  const bit = 1 << month;
+  const first = firstBit(s.saleMask), last = lastBit(s.saleMask);
+  const atEnd = (month === first || month === last) && first !== last;
+  const chip = monthChip(s, month);
+  if (chip === "off") return sanitizePlan({ ...s, saleMask: s.saleMask | bit });
+  if (chip === "sale") {
+    if (month !== first && bitCount(s.riseMask) < MAX_RISES) return sanitizePlan({ ...s, riseMask: s.riseMask | bit });
+    return atEnd ? sanitizePlan({ ...s, saleMask: s.saleMask & ~bit }) : s;
+  }
+  return sanitizePlan({ ...s, riseMask: s.riseMask & ~bit, saleMask: atEnd ? s.saleMask & ~bit : s.saleMask });
+}
+
+/** The setAreaPassMonths argument: saleMask | riseMask << 12 (C# SkiLiftTicketSystem.EditArea splits it). */
+export function planMonthsArg(p: PassPlan): number {
+  return (p.saleMask & PLAN_MONTH_MASK) | ((p.riseMask & PLAN_MONTH_MASK) << PLAN_MONTHS);
+}
+
+/** The plan C# sent for an area (`next` = the next plan, else the plan in force). null while unknown (no row, or a field below 0). */
+export function planOf(l: ResortLive | null | undefined, next: boolean): PassPlan | null {
+  if (!l) return null;
+  const p = next
+    ? { early: l.passNextEarly, risePct: l.passNextRisePct, saleMask: l.passNextSaleMask, riseMask: l.passNextRiseMask }
+    : { early: l.passEarly, risePct: l.passRisePct, saleMask: l.passSaleMask, riseMask: l.passRiseMask };
+  if (!(p.early > 0) || !(p.risePct >= 0) || !(p.saleMask > 0) || !(p.riseMask >= 0)) return null;
+  return p;
+}
+/** The area's day ticket for the hub: ResortLive.areaTicket once C# sent it (0 or more), else the Options price (hubPrice, -1 unknown). */
+export function areaTicketOf(l: ResortLive | null | undefined, city: CityStats | null | undefined): number {
+  if (l && typeof l.areaTicket === "number" && Number.isFinite(l.areaTicket) && l.areaTicket >= 0) return l.areaTicket;
+  return hubPrice(city);
+}
+/** The calendar month index 0..11 of a season month for a season starting in calendar month seasonFirstMonth (1..12). */
+export function calendarMonthOf(seasonMonth: number, seasonFirstMonth: number): number {
+  return (seasonFirstMonth - 1 + seasonMonth + 12 * 4) % 12;
+}
+/** The season months (bits 0..11) that overlap the climate winter [winterStart, winterEnd) in season positions. 0 unknown. */
+export function winterMonthMask(winterStart: number, winterEnd: number): number {
+  if (!Number.isFinite(winterStart) || !Number.isFinite(winterEnd) || !(winterEnd > winterStart)) return 0;
+  let mask = 0;
+  for (let m = 0; m < PLAN_MONTHS; m++) if (m + 1 > winterStart && m < winterEnd) mask |= 1 << m;
+  return mask;
+}
+
+/** C# SkiPassPlanRules.Demand with value left s 0..1: PassFactor at s = 1; else the price over s against the ticket, × s. */
+export function planDemand(passPrice: number, ticketPrice: number, valueLeft: number): number {
+  if (!Number.isFinite(valueLeft)) return 0;
+  if (valueLeft >= 1) return passFactor(passPrice, ticketPrice);
+  if (!(valueLeft > 0) || !(ticketPrice > 0) || !(passPrice > 0)) return 0;
+  const ts = ticketPrice * valueLeft;
+  const f = ((PASS_FULL_AT + PASS_SPAN) * ts - passPrice) / (PASS_SPAN * ts);
+  return Math.min(1, Math.max(0, f)) * valueLeft;
+}
+
+/** The Money view's sale line of a plan: the phase in this season month, the calendar months it names (`open` the run's first month,
+ *  `through` the last month at the current price, `last` the run's last month), `price` the price now (the early price before the run),
+ *  `next` the price after the next rise (0 none) and `risePct` the price now over the early price in whole percent. */
+export interface PlanWindow { phase: SalePhase; open: number; through: number; last: number; price: number; next: number; risePct: number }
+export function planWindow(p: PassPlan, seasonMonth: number, seasonFirstMonth: number): PlanWindow | null {
+  if (!Number.isInteger(seasonMonth) || seasonMonth < 0 || seasonMonth >= PLAN_MONTHS) return null;
+  if (!Number.isInteger(seasonFirstMonth) || seasonFirstMonth < 1 || seasonFirstMonth > 12) return null;
+  const phase = planPhaseAt(p, seasonMonth);
+  const first = firstBit(p.saleMask), last = lastBit(p.saleMask);
+  const at = Math.min(last, Math.max(first, seasonMonth));
+  const price = priceInMonth(p, at);
+  let through = last, next = 0;
+  for (let m = at + 1; m <= last; m++) {
+    if (p.riseMask & (1 << m)) { through = m - 1; next = priceInMonth(p, m); break; }
+  }
+  const early = clampPassPrice(p.early);
+  const cal = (m: number): number => calendarMonthOf(m, seasonFirstMonth);
+  return {
+    phase, open: cal(first), through: cal(through), last: cal(last), price, next: next > price ? next : 0,
+    risePct: price > early ? Math.round(((price - early) * 100) / early) : 0,
+  };
+}
+
 /** r3/sliders: where a value sits on a slider track, 0..1, for stops in screen order (evenly spaced). A value on a stop sits on it. A
  *  value between two neighbor stops (a kind's default such as 90 m between 100 and 80) sits in between, by its value: the tightest pair
  *  that holds it (on the spacing list 90 also lies between Off and 200 m). −1 = not on the track (unknown). */

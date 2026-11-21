@@ -48,7 +48,15 @@ namespace SkiResortMod.Systems
         // 1.0.3 destination pass (SkiPassRules): DestShare = the share of tourist parties on a pass at this area (its price tolerance prices the
         // fee), DestFee = what a person on one pays per counted day. The main thread fills both (BuildSlots).
         // PriceTolerance (T258) = the area's best lodge's tolerance for the party price check (SkiDaySystem.PriceToleranceOf, as the ski days).
-        private struct TicketSlot { public Entity Sign; public byte RunStateKnown; public int OpenRuns; public byte SchoolActive; public double DestShare; public int DestFee; public int PriceTolerance; }
+        // T284 (1.0.4) per-area prices (SkiLiftTicketSystem.Prices.cs AreaPriceOf, filled by BuildSlots): Ticket = the area's day ticket (0 =
+        // tickets off there), LessonPrice, SalePrice = its pass price now (0 = not on sale), PassDemand = the pass demand at it (value left),
+        // AppliedPos = the area's last applied hourly sale window position this season (-1 none), OnDefault = the area's plan in force is the
+        // Options default (it sells and honors pool passes).
+        private struct TicketSlot
+        {
+            public Entity Sign; public byte RunStateKnown; public int OpenRuns; public byte SchoolActive; public double DestShare; public int DestFee; public int PriceTolerance;
+            public int Ticket, LessonPrice, SalePrice; public double PassDemand, AppliedPos; public byte OnDefault;
+        }
         // Booked = the income booked as public transportation fees instead of added to PlayerMoney (tickets, passes, lessons, lodge
         // spend). PassSold (0/1) and PassIncome = the pass this arrival bought (PassSeason = its season key). PassHolders = the people who
         // came in on a pass.
@@ -57,8 +65,11 @@ namespace SkiResortMod.Systems
         private struct TicketResult { public int Paid, Unpaid, Free, Income, Spends, SpendIncome, Booked, PassSold, PassIncome, PassHolders, PassSeason, Lessons, LessonIncome, DestPaid, DestIncome, DestUnpaid, PriceTurned; public byte NoCity; }
         // One SkiSeasonPass to add or overwrite on the main thread (Flags 0 = a pass bought, else Declined.
         // CannotPay 1 = Declined because the household could not afford the pass it rolled).
-        private struct PassWrite { public Entity Household; public int SeasonKey; public int PricePaid; public byte Flags; public byte CannotPay; }
+        // T284: Sign = the area whose sale decided it, Pool = SkiPassPlanRules.AreaFlagPool (the area was on the default plan): written as
+        // SkiSeasonPassArea with the standing.
+        private struct PassWrite { public Entity Household; public int SeasonKey; public int PricePaid; public byte Flags; public byte CannotPay; public Entity Sign; public byte Pool; }
 
+        /// <summary>The Options default lift ticket (clamped, live): the ticket of every area without its own (T284, AreaPriceOf).</summary>
         internal int Price { get; private set; } = SkiMoneyRules.TicketPriceDefault;
 
         internal int LodgeSpend { get; private set; } = SkiMoneyRules.LodgeSpendDefault;
@@ -66,7 +77,7 @@ namespace SkiResortMod.Systems
         /// <summary>The clamped SeasonPassShare read on the last tick (0 = passes off).</summary>
         internal int PassShare { get; private set; } = SkiMoneyRules.PassShareDefault;
 
-        /// <summary>The clamped SeasonPassPrice read on the last tick (1.0.2: money, 20-2,000).</summary>
+        /// <summary>The clamped SeasonPassPrice read on the last tick (1.0.2: money, 20-2,000): the Options default early price (T284).</summary>
         internal int PassPriceSetting { get; private set; } = SkiMoneyRules.PassPriceDefault;
 
         /// <summary>The clamped LessonShare read on the last tick (0 = lessons off).</summary>
@@ -92,6 +103,7 @@ namespace SkiResortMod.Systems
         private BufferLookup<GameResources> m_ResourcesLookup;
         private ComponentLookup<PlayerMoney> m_PlayerMoneyLookup;
         private ComponentLookup<SkiSeasonPass> m_PassLookup;   // read-only in the job, written on the main thread
+        private ComponentLookup<SkiSeasonPassArea> m_PassAreaLookup;   // T284: the standing's area, read-only in the jobs
 
         // Job data (Persistent, the job owns them while in flight)
         private NativeList<PassWrite> m_PassWrites;   // filled by the job, applied in ApplyResults
@@ -117,7 +129,7 @@ namespace SkiResortMod.Systems
         private readonly List<Entity> m_WatchDrop = new List<Entity>(2);
         private readonly Dictionary<Entity, SkiMoneyRules.TicketGate> m_WatchGate = new Dictionary<Entity, SkiMoneyRules.TicketGate>();
         private bool m_WatchPrimed;
-        private int m_WatchGeneration, m_WatchChargeRevision, m_WatchPrice;
+        private int m_WatchGeneration, m_WatchChargeRevision, m_WatchPrice;   // m_WatchPrice = PriceRevision (T284)
         private long m_GateMismatches;
 
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_NoCityWarned, m_RwhWarned;
@@ -166,6 +178,7 @@ namespace SkiResortMod.Systems
             m_ResourcesLookup = GetBufferLookup<GameResources>(isReadOnly: false);
             m_PlayerMoneyLookup = GetComponentLookup<PlayerMoney>(isReadOnly: true);
             m_PassLookup = GetComponentLookup<SkiSeasonPass>(isReadOnly: true);
+            m_PassAreaLookup = GetComponentLookup<SkiSeasonPassArea>(isReadOnly: true);
             m_PassWrites = new NativeList<PassWrite>(16, Allocator.Persistent);
             m_Requests = new NativeList<TicketRequest>(16, Allocator.Persistent);
             m_Slots = new NativeList<TicketSlot>(4, Allocator.Persistent);
@@ -261,6 +274,7 @@ namespace SkiResortMod.Systems
             m_Handle.Complete();
             m_JobInFlight = false;
             SaleOnLoad();
+            PricesOnLoad();
             m_Requests.Clear();
             m_Slots.Clear();
             m_Results.Clear();
@@ -344,16 +358,21 @@ namespace SkiResortMod.Systems
         {
             return PassShare > 0
                 ? $"season passes: {PassShare} % of a resident household's first arrivals of the season buy one (setting SeasonPassShare, " +
-                  $"0 = off; read live), price {PassPriceSetting} at the sale, locked (setting SeasonPassPrice; read live), sales × the pass demand factor (full up to {SkiMoneyRules.PassFullAt} × the lift ticket, then fewer; SkiMoneyRules.PassFactor); " +
+                  $"0 = off; read live), PER AREA (1.0.4): each ski area's own day ticket and pass plan (the hub), else the Options defaults " +
+                  $"(ticket {Price}, early price {PassPriceSetting}, +" + SkiPassRules.StepPct + " % from season month 3, on sale in season months 1-4); " +
+                  "a season's plan locks when its sale starts (no cuts; an edit applies from the next season); the price is locked at the sale, sales × " +
+                  $"the pass demand factor (full up to {SkiMoneyRules.PassFullAt} × the area's lift ticket, then fewer; in the winter judged against the " +
+                  "share of the winter still ahead and × that share: SkiPassPlanRules.Demand); " +
                   "taken from the household (never below 0), booked like a ticket; the pass holder pays 0 at the gate for the season " +
-                  "(July to June) and gets the full price factor in the ski-day chance; a household that does not buy pays lift tickets all season; " +
-                  "SALE WINDOW (1.0.3): season months 1-4 (August to November for a December winter) at the setting, +" + SkiPassRules.StepPct +
-                  " % from month 3, closed from month 5 (first arrivals then pay tickets); each resident household within reach has its own " +
-                  "buy hour in the window (front-loaded, a stateless hash) and the hourly sale (once per ski area per game hour, nothing open " +
+                  "(July to June) at the area that sold it (a pass of an area on the default plan: at every area on the default plan; a 1.0.3 pass: " +
+                  "everywhere) and gets the full price factor there in the ski-day chance; a household that does not buy pays lift tickets all season; " +
+                  "SALE RUN: the area's months on sale (one unbroken run) at its price of the month; each resident household is in the pool of " +
+                  "its nearest area within reach and has its own " +
+                  "buy hour in the run (front-loaded, a stateless hash) and the hourly sale (once per ski area per game hour, nothing open " +
                   "needed: the area rated as if fully open) rolls it once against the share × its ski-day chance as a pass holder (Bought or " +
                   "Declined); first arrivals decide only households whose hour has come and that no sale pool held; DESTINATION PASS (1.0.3): " +
                   "tourist parties roll once a season (stateless) against share × pass demand × the price factor of the fee; one on a pass pays " +
-                  "a quarter of the pass price per person and day (never above the ticket) instead of the ticket, booked as pass income, and " +
+                  "a quarter of the area's early pass price per person and day (never above its ticket) instead of the ticket, booked as pass income, and " +
                   "the ticket price does not deter it in the send"
                 : "season passes: off (setting SeasonPassShare 0; read live); holders keep what they bought";
         }
@@ -454,13 +473,16 @@ namespace SkiResortMod.Systems
                         WriteDestSummary(now);
                 }
 
+                // 2a''''. T284: every area's prices (own or the Options defaults), the season lock, the cache the jobs and the hub read.
+                RefreshAreaPrices();
+
                 // 2b. The gate watch (engine notes "Gate watch"), whether guests arrive or not.
-                WatchGates(price);
+                WatchGates();
 
                 // 2c. The pre-season pass sale of the first ski area whose gate is Open in a new season. A tick that
                 // starts one does not drain arrivals (they stay pending in the counter). A ticket job scheduled in the same window would
                 // not see the standings the sale writes next tick. It could sell the same household a pass again.
-                if (TryStartSale(price))
+                if (TryStartSale())
                     return;
 
                 // 3. Drain the counter.
@@ -469,14 +491,10 @@ namespace SkiResortMod.Systems
                     return;
                 m_JobPendingFrame = m_Counter.LastPendingFrame;
 
-                // 5 (before 4: the price-0 path logs its gates with the same slot inputs).
-                BuildSlots(price, spend);
-
-                // 4. Tickets off: every arrival is booked free, no job.
-                if (price == 0)
-                    BookAllFree();
-                else
-                    ScheduleJob(price);
+                // 4. One slot per area with its own prices (T284), then the job. An area with tickets off books its arrivals free in the job
+                // (TicketGateOf(0) = Off per slot).
+                BuildSlots(spend);
+                ScheduleJob();
 
                 RecordCost((Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency, m_Arrivals.Count);
             }
@@ -534,15 +552,15 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>One slot per distinct sign of this tick's arrivals (gate inputs) and one request per arrival. With a price and a
+        /// <summary>One slot per distinct sign of this tick's arrivals (gate inputs, the area's own prices: T284) and one request per arrival. With a price and a
         /// lodge-spend setting above 0, a request whose building is a lodge carries SpendPerPerson (the catalog's LodgeDefs view, fetched
         /// once). With either setting at 0 nothing is read.</summary>
-        private void BuildSlots(int price, int spendSetting)
+        private void BuildSlots(int spendSetting)
         {
             m_SlotOf.Clear();
             m_Slots.Clear();
             m_Requests.Clear();
-            IReadOnlyDictionary<Entity, LodgeDef> lodgeDefs = price > 0 && spendSetting > 0 ? m_PrefabCatalog.LodgeDefs : null;
+            IReadOnlyDictionary<Entity, LodgeDef> lodgeDefs = spendSetting > 0 ? m_PrefabCatalog.LodgeDefs : null;
             for (int i = 0; i < m_Arrivals.Count; i++)
             {
                 GuestArrival a = m_Arrivals[i];
@@ -553,6 +571,7 @@ namespace SkiResortMod.Systems
                     // known = a score present AND not in the first-write hold.
                     bool has = m_Attractiveness.TryGetAreaScore(a.Sign, out SkiResortAttractivenessSystem.AreaScoreView view);
                     bool known = has && !view.WriteHeld;
+                    AreaPrice ap = AreaPriceOf(a.Sign);
                     m_Slots.Add(new TicketSlot
                     {
                         Sign = a.Sign,
@@ -561,13 +580,21 @@ namespace SkiResortMod.Systems
                         // The area's ski school is installed and not Inactive (the attraction snapshot's slot.SchoolActive, echoed in
                         // Result.SchoolActive). It is only meaningful once the score is known.
                         SchoolActive = (byte)(known && view.Result.SchoolActive ? 1 : 0),
-                        DestShare = DestShareAt(a.Sign, price),
-                        DestFee = SkiPassRules.DestFee(PassPriceSetting, price),
+                        DestShare = DestShareAt(a.Sign, ap),
+                        DestFee = ap.DestFee,
                         PriceTolerance = m_SkiDay != null ? m_SkiDay.PriceToleranceOf(a.Sign) : 0,
+                        Ticket = ap.R.Ticket,
+                        LessonPrice = ap.LessonPrice,
+                        SalePrice = ap.SalePrice,
+                        PassDemand = ap.Demand,
+                        // a run of an earlier season says nothing about this one: no first-arrival sale until this season's first hourly run
+                        AppliedPos = AppliedSalePos(a.Sign, ap.Season),
+                        OnDefault = ap.R.OnDefault,
                     });
                 }
+                int price = m_Slots[slot].Ticket;
                 int spendPerPerson = 0;
-                if (lodgeDefs != null && a.Building != Entity.Null && a.Building != a.Sign &&
+                if (lodgeDefs != null && price > 0 && a.Building != Entity.Null && a.Building != a.Sign &&
                     EntityManager.Exists(a.Building) && EntityManager.HasComponent<Game.Prefabs.PrefabRef>(a.Building) &&
                     lodgeDefs.TryGetValue(EntityManager.GetComponentData<Game.Prefabs.PrefabRef>(a.Building).m_Prefab, out LodgeDef lodge))
                     spendPerPerson = SkiMoneyRules.LodgeSpendOf(spendSetting, lodge.SpendMultiplier, price);
@@ -583,7 +610,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private void ScheduleJob(int price)
+        private void ScheduleJob()
         {
             int requests = m_Requests.Length, slots = m_Slots.Length;
             m_Results.ResizeUninitialized(requests);
@@ -592,6 +619,7 @@ namespace SkiResortMod.Systems
             m_ResourcesLookup.Update(this);
             m_PlayerMoneyLookup.Update(this);
             m_PassLookup.Update(this);
+            m_PassAreaLookup.Update(this);
             m_PassWrites.Clear();   // the previous job's rows were applied (or dropped) in ApplyResults
             // The fee queue and its dependency, as ResidentAISystem.cs:265 / :277 / :285 (ServiceFeeSystem.cs:443-452).
             NativeQueue<ServiceFeeSystem.FeeEvent> feeQueue = m_ServiceFeeSystem.GetFeeQueue(out JobHandle feeDeps);
@@ -604,19 +632,14 @@ namespace SkiResortMod.Systems
                 HouseholdResources = m_ResourcesLookup,
                 PlayerMoneys = m_PlayerMoneyLookup,
                 Passes = m_PassLookup,
+                PassAreas = m_PassAreaLookup,
                 PassWrites = m_PassWrites,
                 SeasonKey = seasonKey,
                 PassShare = PassShare,
-                PassPriceSetting = PassPriceSetting,
-                SalePrice = SalePriceNow(price),
-                // a run of an earlier season says nothing about this one: no first-arrival sale until this season's first hourly run
-                SaleWindowPos = m_SaleAppliedSeason == seasonKey ? m_SaleAppliedPos : -1.0,
                 LessonShare = LessonShare,
-                LessonPrice = SkiMoneyRules.LessonPrice(LessonMultiplier, price),
                 LessonDay = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear),
                 FeeQueue = feeQueue,
                 City = m_CitySystem.City,
-                Price = price,
                 Results = m_Results.AsArray(),
                 SlotGate = m_SlotGate.AsArray(),
             };
@@ -626,22 +649,6 @@ namespace SkiResortMod.Systems
             m_Handle = handle;
             m_JobInFlight = true;
             m_JobFrame = m_SimulationSystem.frameIndex;
-        }
-
-        private void BookAllFree()
-        {
-            SkiResortLedger ledger = m_Counter.Ledger;
-            for (int i = 0; i < m_Requests.Length; i++)
-            {
-                TicketRequest q = m_Requests[i];
-                ledger.AddTickets(Ref(m_Slots[q.Slot].Sign), 0, 0, q.People, 0);
-                m_GuestsTotal += Math.Max(0, q.People);
-            }
-            m_RequestsTotal += m_Requests.Length;
-            for (int s = 0; s < m_Slots.Length; s++)
-                RecordChargedGate(m_Slots[s], SkiMoneyRules.TicketGate.Off);
-            m_Requests.Clear();
-            m_Slots.Clear();
         }
 
         /// <summary>Step 1: complete the job and book every request's result (ledger, the locals count). Then book the charged gate per slot
@@ -683,8 +690,9 @@ namespace SkiResortMod.Systems
                     {
                         m_PriceTurnedLogged = true;
                         int tol = m_Slots[q.Slot].PriceTolerance;
-                        Mod.Log.Info($"Tickets [turned away] first: ski area {Fmt(sign)}: a tourist party of {q.People} walked away at the lift ticket {Price} " +
-                                     $"(party price factor {SkiDayRules.PartyPriceFactor(Price, tol):0.00}: 1 up to {SkiDayRules.PartyPriceFullAt - SkiDayRules.PriceSpan + tol}, " +
+                        int areaTicket = m_Slots[q.Slot].Ticket;
+                        Mod.Log.Info($"Tickets [turned away] first: ski area {Fmt(sign)}: a tourist party of {q.People} walked away at the lift ticket {areaTicket} " +
+                                     $"(party price factor {SkiDayRules.PartyPriceFactor(areaTicket, tol):0.00}: 1 up to {SkiDayRules.PartyPriceFullAt - SkiDayRules.PriceSpan + tol}, " +
                                      "a stateless roll per party and day); no ticket, lesson or lodge spend");
                     }
                 }
@@ -743,6 +751,7 @@ namespace SkiResortMod.Systems
             int declined = 0, cannotPay = 0;
             Entity firstBuyer = Entity.Null;
             int firstPrice = 0, season = m_PassSeasonKey;
+            Entity firstSign = Entity.Null;
             for (int i = 0; i < m_PassWrites.Length; i++)
             {
                 PassWrite w = m_PassWrites[i];
@@ -752,6 +761,7 @@ namespace SkiResortMod.Systems
                     {
                         firstBuyer = w.Household;
                         firstPrice = w.PricePaid;
+                        firstSign = w.Sign;
                     }
                 }
                 else if (w.CannotPay != 0)
@@ -761,11 +771,7 @@ namespace SkiResortMod.Systems
                 season = w.SeasonKey;
                 if (quiet || !EntityManager.Exists(w.Household))
                     continue;
-                var pass = new SkiSeasonPass(w.SeasonKey, w.PricePaid, w.Flags);
-                if (EntityManager.HasComponent<SkiSeasonPass>(w.Household))
-                    EntityManager.SetComponentData(w.Household, pass);
-                else
-                    EntityManager.AddComponentData(w.Household, pass);
+                WriteStanding(w);
             }
             m_PassWrites.Clear();
             m_PassesSold += sold;
@@ -782,11 +788,13 @@ namespace SkiResortMod.Systems
                 string balance = city != Entity.Null && EntityManager.HasComponent<PlayerMoney>(city)
                     ? EntityManager.GetComponentData<PlayerMoney>(city).money.ToString()
                     : "n/a";
-                Mod.Log.Info($"Passes [first] resident household {Fmt(firstBuyer)} bought the season-{season} pass for {firstPrice} " +
-                             $"(price {PassPriceSetting}, demand x{SkiMoneyRules.PassFactor(SkiMoneyRules.SalePassPrice(PassPriceSetting, Price), Price):0.###} at the lift ticket {Price}; share {PassShare} %): it pays 0 at the gate until July and skis " +
-                             $"with the full price factor; booked as a public transportation fee (balance {balance})");
+                AreaPrice ap = AreaPriceOf(firstSign);
+                Mod.Log.Info($"Passes [first] resident household {Fmt(firstBuyer)} bought the season-{season} pass of ski area {Fmt(firstSign)} for {firstPrice} " +
+                             $"(demand x{ap.Demand:0.###} at the lift ticket {ap.R.Ticket}, value left {ap.ValueLeft:P0}; share {PassShare} %): it pays 0 at the gate " +
+                             (ap.R.OnDefault != 0 ? "at every area on the default plan" : "at that area") + " until the season ends and skis " +
+                             $"with the full price factor there; booked as a public transportation fee (balance {balance})");
             }
-            string body = $"{sold} pass(es) sold +{income} (price {PassPriceSetting}, lift ticket {Price}), {declined} household(s) rolled out, " +
+            string body = $"{sold} pass(es) sold +{income} (first-arrival sales at each area's own price), {declined} household(s) rolled out, " +
                           $"{cannotPay} could not afford the pass; season {season}";
             float now = UnityEngine.Time.realtimeSinceStartup;
             switch (m_PassLog.Offer(now, false, body, sold, income, declined + cannotPay))
@@ -810,15 +818,16 @@ namespace SkiResortMod.Systems
             m_LessonIncomeTotal += income;
             if (quiet)
                 return;
-            int unit = SkiMoneyRules.LessonPrice(LessonMultiplier, Price);
+            AreaPrice lap = AreaPriceOf(firstSign);
+            int unit = lap.LessonPrice;
             if (!m_LessonFirstLogged && firstSign != Entity.Null)
             {
                 m_LessonFirstLogged = true;
                 Mod.Log.Info($"Lessons [first] ski area {Fmt(firstSign)}: a party of {firstPeople} took {firstCount} lesson(s) at the ski school " +
-                             $"for {unit} each ({LessonMultiplier:0.0#} × the lift ticket {Price}; share {LessonShare} %), taken after the ticket or pass " +
+                             $"for {unit} each ({LessonMultiplier:0.0#} × the area's lift ticket {lap.R.Ticket}; share {LessonShare} %), taken after the ticket or pass " +
                              "and booked as a public transportation fee each");
             }
-            string body = $"{lessons} lesson(s) +{income} ({LessonMultiplier:0.0#} × the lift ticket {Price} = {unit} each; share {LessonShare} %)";
+            string body = $"{lessons} lesson(s) +{income} ({LessonMultiplier:0.0#} × each area's lift ticket; first area {unit} each; share {LessonShare} %)";
             float now = UnityEngine.Time.realtimeSinceStartup;
             switch (m_LessonLog.Offer(now, false, body, lessons, income))
             {
@@ -840,7 +849,7 @@ namespace SkiResortMod.Systems
                 return;
             int paid = 0, unpaid = 0;
             long income = 0;
-            int fee = 0;
+            int fee = 0, destTicket = 0;
             Entity firstSign = Entity.Null;
             double share = 0.0;
             for (int k = 0; k < batch.Count; k++)
@@ -856,6 +865,7 @@ namespace SkiResortMod.Systems
                     firstSign = slot.Sign;
                     fee = slot.DestFee;
                     share = slot.DestShare;
+                    destTicket = slot.Ticket;
                 }
             }
             m_DestGuests += paid;
@@ -868,10 +878,10 @@ namespace SkiResortMod.Systems
             {
                 m_DestFirstLogged = true;
                 Mod.Log.Info($"Passes [destination] first: ski area {Fmt(firstSign)}: {paid} tourist(s) on a destination pass paid the fee {fee} instead of the " +
-                             $"lift ticket {Price} (a quarter of the pass price {PassPriceSetting}, never above the ticket; {shareText} of the tourist parties " +
+                             $"lift ticket {destTicket} (a quarter of the area's early pass price, never above the ticket; {shareText} of the tourist parties " +
                              "are on a pass this season, a stateless roll per party); booked as pass income, a public transportation fee each");
             }
-            string body = $"{paid} tourist(s) on a destination pass paid +{income} (fee {fee}, lift ticket {Price}, share {shareText}), {unpaid} could not pay";
+            string body = $"{paid} tourist(s) on a destination pass paid +{income} (fee {fee}, lift ticket {destTicket}, share {shareText}), {unpaid} could not pay";
             float now = UnityEngine.Time.realtimeSinceStartup;
             switch (m_DestLog.Offer(now, false, body, paid, income, unpaid))
             {
@@ -894,21 +904,29 @@ namespace SkiResortMod.Systems
 
         /// <summary>1.0.3: the share of tourist parties on a destination pass at this sign (SkiPassRules.DestShare, the area's tolerance from the
         /// ski-day system prices the fee). 0 with passes off or tickets off.</summary>
-        private double DestShareAt(Entity sign, int price)
+        private double DestShareAt(Entity sign, in AreaPrice ap)
         {
-            int fee = SkiPassRules.DestFee(PassPriceSetting, price);
+            int fee = ap.DestFee;
             if (fee <= 0 || PassShare <= 0)
                 return 0.0;
             int tolerance = m_SkiDay != null ? m_SkiDay.PriceToleranceOf(sign) : 0;
-            return SkiPassRules.DestShare(PassShare, PassPriceSetting, price, SkiDayRules.PriceFactor(fee, tolerance));
+            return SkiPassRules.DestShare(PassShare, ap.R.Plan.Early, ap.R.Ticket, SkiDayRules.PriceFactor(fee, tolerance));
         }
 
-        /// <summary>1.0.3: the residents' pass price at a first arrival now (SkiPassRules.SalePrice of the window's phase), 0 outside the window.</summary>
-        private int SalePriceNow(int price)
+        /// <summary>T284: one standing as components on the main thread: SkiSeasonPass and SkiSeasonPassArea, added in one archetype move
+        /// when the household has neither (a 1.0.3 household may hold SkiSeasonPass alone: the area is added on its own).</summary>
+        private void WriteStanding(in PassWrite w)
         {
-            int firstMonth = SkiClimateCalendar.SeasonFirstMonth(m_ClimateSystem, m_PrefabSystem);
-            SkiPassRules.SalePhase phase = SkiPassRules.PhaseOf(SkiPassRules.SeasonPosition(m_TimeSystem.normalizedDate, firstMonth));
-            return SkiPassRules.SalePrice(PassPriceSetting, price, phase);
+            bool hasPass = EntityManager.HasComponent<SkiSeasonPass>(w.Household);
+            bool hasArea = EntityManager.HasComponent<SkiSeasonPassArea>(w.Household);
+            if (!hasPass && !hasArea)
+                EntityManager.AddComponent(w.Household, new ComponentTypeSet(ComponentType.ReadWrite<SkiSeasonPass>(), ComponentType.ReadWrite<SkiSeasonPassArea>()));
+            else if (!hasPass)
+                EntityManager.AddComponent<SkiSeasonPass>(w.Household);
+            else if (!hasArea)
+                EntityManager.AddComponent<SkiSeasonPassArea>(w.Household);
+            EntityManager.SetComponentData(w.Household, new SkiSeasonPass(w.SeasonKey, w.PricePaid, w.Flags));
+            EntityManager.SetComponentData(w.Household, new SkiSeasonPassArea(w.Sign, w.Pool));
         }
 
         private void WriteLessonSummary(float now)
@@ -943,16 +961,17 @@ namespace SkiResortMod.Systems
         /// <summary>When the attraction Generation, the lift charge Revision or the price moved since the last evaluation: the gate of every
         /// live sign with the hub's inputs. One line per sign whose gate changed (a new sign's first gate too). Signs that left are
         /// dropped without a line. Main thread, plain reads of the two snapshots.</summary>
-        private void WatchGates(int price)
+        private void WatchGates()
         {
             int generation = m_Attractiveness.Generation;
             int revision = m_LiftCharge.Revision;
-            if (m_WatchPrimed && generation == m_WatchGeneration && revision == m_WatchChargeRevision && price == m_WatchPrice)
+            int priceRevision = PriceRevision;
+            if (m_WatchPrimed && generation == m_WatchGeneration && revision == m_WatchChargeRevision && priceRevision == m_WatchPrice)
                 return;
             m_WatchPrimed = true;
             m_WatchGeneration = generation;
             m_WatchChargeRevision = revision;
-            m_WatchPrice = price;
+            m_WatchPrice = priceRevision;
 
             m_Attractiveness.CopySigns(m_WatchSigns);
             m_WatchSeen.Clear();
@@ -968,8 +987,8 @@ namespace SkiResortMod.Systems
                 int runs = known ? view.Result.RunsCounted : 0;
                 // The lift-charge operating count is printed in the line's body only (no longer a gate input).
                 int operating = m_LiftCharge.TryGetResort(sign, out SkiLiftChargeSystem.ResortLiftCharge rc) ? rc.Operating : 0;
-                // = the hub's rule (SkiResortStatsSystem, the `live.TicketGate` line)
-                SkiMoneyRules.TicketGate gate = SkiMoneyRules.TicketGateOf(price, efficiency, known, runs);
+                // = the hub's rule (SkiResortStatsSystem, the `live.TicketGate` line), at the area's own ticket (T284)
+                SkiMoneyRules.TicketGate gate = SkiMoneyRules.TicketGateOf(AreaPriceOf(sign).R.Ticket, efficiency, known, runs);
                 if (m_WatchGate.TryGetValue(sign, out SkiMoneyRules.TicketGate old) && old == gate)
                     continue;   // a new sign falls through: its first line
                 m_WatchGate[sign] = gate;
@@ -1125,7 +1144,7 @@ namespace SkiResortMod.Systems
             try
             {
                 sb.Append("  Tickets: armed ").Append(m_Armed).Append(", disabled ").Append(m_Disabled)
-                  .Append(", price ").Append(Price).Append(", job in flight ").Append(m_JobInFlight)
+                  .Append(", default price ").Append(Price).Append(", job in flight ").Append(m_JobInFlight)
                   .Append(", busy ticks ").Append(m_BusyTicks).Append(", requests ").Append(m_RequestsTotal)
                   .Append(" (largest batch ").Append(m_LargestBatch).Append("), guests ").Append(m_GuestsTotal)
                   .Append(", income +").Append(m_IncomeTotal)
@@ -1134,7 +1153,7 @@ namespace SkiResortMod.Systems
                   .Append(", lodge spend ").Append(LodgeSpend).Append(" per guest (× tier): ").Append(m_SpendsTotal)
                   .Append(" spent +").Append(m_SpendIncomeTotal)
                   // Passes: sold / income as booked, holder guests, households decided not to buy.
-                  .Append(", season passes share ").Append(PassShare).Append(" %, price ").Append(PassPriceSetting).Append(": ")
+                  .Append(", season passes share ").Append(PassShare).Append(" %, default early price ").Append(PassPriceSetting).Append(": ")
                   .Append(m_PassesSold).Append(" sold +").Append(m_PassIncomeTotal).Append(", ").Append(m_PassHolderGuests)
                   .Append(" pass-holder guest(s), ").Append(m_PassesDeclined).Append(" rolled out, ").Append(m_PassesCannotPay)
                   .Append(" could not afford it, destination pass ").Append(m_DestGuests).Append(" paid +").Append(m_DestIncomeTotal)
@@ -1161,7 +1180,18 @@ namespace SkiResortMod.Systems
                     sb.Append(" none yet;");
                 foreach (var pair in m_WatchGate)
                     sb.Append(' ').Append(Fmt(pair.Key)).Append(' ').Append(pair.Value).Append(';');
-                sb.Append(" charged gate differed from the watch ").Append(m_GateMismatches).Append(" time(s)\n");
+                sb.Append(" charged gate differed from the watch ").Append(m_GateMismatches).Append(" time(s); area prices (revision ").Append(PriceRevision).Append("):");
+                if (m_AreaPrices.Count == 0)
+                    sb.Append(" none yet;");
+                foreach (var pair in m_AreaPrices)
+                {
+                    AreaPrice ap = pair.Value;
+                    sb.Append(' ').Append(Fmt(pair.Key)).Append(" ticket ").Append(ap.R.Ticket).Append(ap.R.OwnTicket != 0 ? " own" : " default")
+                      .Append(", pass ").Append(PlanText(ap.R.Plan)).Append(ap.R.OnDefault != 0 ? " (default" : " (own").Append(ap.R.Locked != 0 ? ", locked)" : ")")
+                      .Append(", now ").Append(ap.SalePrice).Append(" ").Append(ap.Phase).Append(", demand x").Append(ap.Demand.ToString("0.###", CultureInfo.InvariantCulture))
+                      .Append(", value left ").Append(ap.ValueLeft.ToString("P0", CultureInfo.InvariantCulture)).Append(';');
+                }
+                sb.Append('\n');
             }
             catch (Exception e)
             {
@@ -1186,18 +1216,15 @@ namespace SkiResortMod.Systems
             public BufferLookup<GameResources> HouseholdResources;
             [ReadOnly] public ComponentLookup<PlayerMoney> PlayerMoneys;   // HasComponent(City) only
             [ReadOnly] public ComponentLookup<SkiSeasonPass> Passes;   // the household's standing (read only)
+            [ReadOnly] public ComponentLookup<SkiSeasonPassArea> PassAreas;   // T284: the standing's area (absent = good at every area)
             public NativeList<PassWrite> PassWrites;                   // appended here, applied on the main thread
             public int SeasonKey;                                      // SkiMoneyRules.SeasonKeyOfDate at the schedule
             public int PassShare;                                      // clamped setting (0 = no sales)
-            public int PassPriceSetting;                               // clamped setting (SeasonPassPrice)
-            public int SalePrice;                                      // 1.0.3: the window's pass price now (SkiPassRules.SalePrice), 0 = sales closed
-            public double SaleWindowPos;                               // 1.0.3: the last applied hourly sale's window position, -1 none yet
             public int LessonShare;                                    // clamped setting (0 = no lessons)
-            public int LessonPrice;                                    // SkiMoneyRules.LessonPrice at the schedule (0 = no lessons)
             public int LessonDay;                                      // SkiDayRules.DayKey at the schedule (the roll's day)
             public NativeQueue<ServiceFeeSystem.FeeEvent> FeeQueue;   // always valid (ScheduleJob)
             public Entity City;
-            public int Price;
+            // T284: the ticket, lesson price, pass price, pass demand and sale window are per slot (TicketSlot, the area's own prices).
             public NativeArray<TicketResult> Results;              // Requests.Length
             public NativeArray<byte> SlotGate;                     // Slots.Length
 
@@ -1208,18 +1235,20 @@ namespace SkiResortMod.Systems
                     TicketSlot slot = Slots[s];
                     float efficiency = EfficiencyOf(slot.Sign);
                     // RunStateKnown already excludes the load hold.
-                    SlotGate[s] = (byte)SkiMoneyRules.TicketGateOf(Price, efficiency, slot.RunStateKnown != 0, slot.OpenRuns);
+                    SlotGate[s] = (byte)SkiMoneyRules.TicketGateOf(slot.Ticket, efficiency, slot.RunStateKnown != 0, slot.OpenRuns);
                 }
                 bool cityOk = City != Entity.Null && PlayerMoneys.HasComponent(City);
-                // Households decided earlier in THIS batch (1 = holds a pass, 2 = declined). So a second arrival
-                // record of the same household in one drain does not wait for the component to exist.
-                var decided = new NativeHashMap<Entity, byte>(8, Allocator.Temp);
-                // 1.0.3 sale window: the first-arrival sale sells at the window's price, and not at all outside it (SalePrice 0).
-                int passPrice = SalePrice;
-                double passFactor = SkiMoneyRules.PassFactor(passPrice, Price);   // pass demand (1.0.2)
+                // Households decided earlier in THIS batch, with the deciding area (T284). So a second arrival record of the same household
+                // in one drain does not wait for the components to exist, and a pass bought at one area is judged at the next one.
+                var decided = new NativeHashMap<Entity, Decided>(8, Allocator.Temp);
                 for (int i = 0; i < Requests.Length; i++)
                 {
                     TicketRequest q = Requests[i];
+                    TicketSlot qs = Slots[q.Slot];
+                    int price = qs.Ticket;   // T284: the area's own day ticket
+                    // 1.0.3 sale window, per area since T284: the first-arrival sale sells at the area's price now, not at all outside its run.
+                    int passPrice = qs.SalePrice;
+                    double passFactor = qs.PassDemand;   // pass demand (1.0.2), with value left (T284)
                     var r = new TicketResult { NoCity = (byte)(cityOk ? 0 : 1) };
                     int people = math.max(0, q.People);
                     if (SlotGate[q.Slot] != (byte)SkiMoneyRules.TicketGate.Open || !cityOk)
@@ -1238,16 +1267,24 @@ namespace SkiResortMod.Systems
                         if (q.Tourist == 0)
                         {
                             SkiMoneyRules.PassStanding standing;
-                            if (decided.TryGetValue(q.Household, out byte seen))
-                                standing = seen == 1 ? SkiMoneyRules.PassStanding.Holder : SkiMoneyRules.PassStanding.Declined;
+                            bool validHere = true;   // T284: the pass is good at this area (SkiPassPlanRules.PassValidAt)
+                            if (decided.TryGetValue(q.Household, out Decided seen))
+                            {
+                                standing = seen.Kind == 1 ? SkiMoneyRules.PassStanding.Holder : SkiMoneyRules.PassStanding.Declined;
+                                validHere = SkiPassPlanRules.PassValidAt(true, seen.Pool, seen.Sign == qs.Sign, qs.OnDefault != 0);
+                            }
                             else if (Passes.TryGetComponent(q.Household, out SkiSeasonPass have))
+                            {
                                 standing = SkiMoneyRules.PassStandingOf(true, have.m_SeasonKey, have.m_Flags, SeasonKey);
+                                bool hasArea = PassAreas.TryGetComponent(q.Household, out SkiSeasonPassArea area);
+                                validHere = SkiPassPlanRules.PassValidAt(hasArea, area.m_Flags, hasArea && area.m_Sign == qs.Sign, qs.OnDefault != 0);
+                            }
                             else
                                 standing = SkiMoneyRules.PassStanding.None;
                             // 1.0.3: a household whose own buy hour has not come by the last hourly sale is left to that sale (it pays the
                             // ticket today, undecided). One whose hour has come and still has no standing is not in a sale pool: it decides here.
                             if (standing == SkiMoneyRules.PassStanding.None && PassShare > 0 && passPrice > 0 &&
-                                SkiPassRules.HourCome(q.Household.Index, SeasonKey, SaleWindowPos))
+                                SkiPassRules.HourCome(q.Household.Index, SeasonKey, qs.AppliedPos))
                             {
                                 SkiMoneyRules.PassSaleResult sale =
                                     SkiMoneyRules.PassSale(true, PassShare, q.Household.Index, SeasonKey, passPrice, money, passFactor);
@@ -1260,9 +1297,11 @@ namespace SkiResortMod.Systems
                                     r.PassIncome = passPrice;
                                     r.PassSeason = SeasonKey;
                                     Book(ref r, passPrice, 1);
-                                    PassWrites.Add(new PassWrite { Household = q.Household, SeasonKey = SeasonKey, PricePaid = passPrice });
-                                    decided.TryAdd(q.Household, 1);
+                                    byte pool = qs.OnDefault != 0 ? SkiPassPlanRules.AreaFlagPool : (byte)0;
+                                    PassWrites.Add(new PassWrite { Household = q.Household, SeasonKey = SeasonKey, PricePaid = passPrice, Sign = qs.Sign, Pool = pool });
+                                    decided.TryAdd(q.Household, new Decided { Kind = 1, Pool = pool, Sign = qs.Sign });
                                     standing = SkiMoneyRules.PassStanding.Holder;
+                                    validHere = true;
                                 }
                                 else if (sale != SkiMoneyRules.PassSaleResult.NotEligible)
                                 {
@@ -1273,18 +1312,20 @@ namespace SkiResortMod.Systems
                                         SeasonKey = SeasonKey,
                                         Flags = SkiMoneyRules.PassFlagDeclined,
                                         CannotPay = (byte)(sale == SkiMoneyRules.PassSaleResult.CannotPay ? 1 : 0),
+                                        Sign = qs.Sign,
+                                        Pool = qs.OnDefault != 0 ? SkiPassPlanRules.AreaFlagPool : (byte)0,
                                     });
-                                    decided.TryAdd(q.Household, 2);
+                                    decided.TryAdd(q.Household, new Decided { Kind = 2, Pool = 0, Sign = qs.Sign });
                                     standing = SkiMoneyRules.PassStanding.Declined;
                                 }
                             }
-                            holder = standing == SkiMoneyRules.PassStanding.Holder;
+                            holder = standing == SkiMoneyRules.PassStanding.Holder && validHere;
                         }
                         else
                         {
                             // 1.0.3 destination pass: a party on one this season (stateless roll, SkiPassRules) pays the fee per person
                             // instead of the ticket, never into debt. The fee is pass income; the payers are guests on a pass.
-                            TicketSlot ds = Slots[q.Slot];
+                            TicketSlot ds = qs;
                             bool onDest = ds.DestFee > 0 && SkiPassRules.OnDestPass(q.Household.Index, q.Household.Version, SeasonKey, ds.DestShare);
                             if (onDest)
                             {
@@ -1295,7 +1336,7 @@ namespace SkiResortMod.Systems
                                     EconomyUtils.AddResources(Resource.Money, -r.DestIncome, buffer);
                                     Book(ref r, ds.DestFee, destPaid);
                                     LessonsAndSpend(ref r, buffer, money - r.DestIncome, people, destPaid, q.SpendPerPerson,
-                                                    SlotSchool(q.Slot), q.Household);
+                                                    SlotSchool(q.Slot), q.Household, qs.LessonPrice);
                                 }
                                 r.DestPaid = destPaid;
                                 r.Unpaid = people - destPaid;
@@ -1306,7 +1347,7 @@ namespace SkiResortMod.Systems
                             // 1.0.3 T258: a game-sent party (a vanilla outing; the ski days already priced their own claims) checks the
                             // price on its own curve and may walk away: nothing is taken (no ticket, lesson or lodge spend). Destination-pass
                             // holders never get here (they paid above). At a factor of 1 there is no roll: the default price keeps today's numbers.
-                            if (SkiDayRules.PartyWalksAway(q.Outing != 0, onDest, Price, ds.PriceTolerance, q.Household.Index, q.Household.Version, LessonDay))
+                            if (SkiDayRules.PartyWalksAway(q.Outing != 0, onDest, price, ds.PriceTolerance, q.Household.Index, q.Household.Version, LessonDay))
                             {
                                 r.PriceTurned = people;
                                 Results[i] = r;
@@ -1319,19 +1360,19 @@ namespace SkiResortMod.Systems
                             // takes lessons and spends at the lodge from what is left (shopping, not the gate).
                             r.PassHolders = people;
                             LessonsAndSpend(ref r, buffer, money, people, people, q.SpendPerPerson,
-                                            SlotSchool(q.Slot), q.Household);
+                                            SlotSchool(q.Slot), q.Household, qs.LessonPrice);
                             Results[i] = r;
                             continue;
                         }
-                        paid = SkiMoneyRules.TicketsPaid(people, Price, money);
+                        paid = SkiMoneyRules.TicketsPaid(people, price, money);
                         if (paid > 0)
                         {
-                            r.Income = paid * Price;                   // paid ≤ money / price: no overflow, never below 0
+                            r.Income = paid * price;                   // paid ≤ money / price: no overflow, never below 0
                             EconomyUtils.AddResources(Resource.Money, -r.Income, buffer);
-                            Book(ref r, Price, paid);
+                            Book(ref r, price, paid);
                             // The lessons of the people counted, then the lodge spend of the paying guests, each from what the ticket left.
                             LessonsAndSpend(ref r, buffer, money - r.Income, people, paid, q.SpendPerPerson,
-                                            SlotSchool(q.Slot), q.Household);
+                                            SlotSchool(q.Slot), q.Household, qs.LessonPrice);
                         }
                     }
                     r.Paid = paid;
@@ -1343,24 +1384,27 @@ namespace SkiResortMod.Systems
 
             private bool SlotSchool(int slot) => Slots[slot].SchoolActive != 0;
 
+            /// <summary>T284: a household decided in this batch: Kind 1 = bought, 2 = declined; the area that decided it and its pool flag.</summary>
+            private struct Decided { public byte Kind, Pool; public Entity Sign; }
+
             /// <summary>After the ticket or pass, in this order, each from what the household still has (never below 0):
             /// - the ski lessons (SkiMoneyRules.LessonsTaken over <paramref name="people"/>, paid up to LessonsPaid),
             /// - then the lodge spend of <paramref name="spendPeople"/> at <paramref name="spendPerPerson"/>.
             /// Both are booked like the ticket (Book).</summary>
             private void LessonsAndSpend(ref TicketResult r, DynamicBuffer<GameResources> buffer, int money,
-                                         int people, int spendPeople, int spendPerPerson, bool school, Entity household)
+                                         int people, int spendPeople, int spendPerPerson, bool school, Entity household, int lessonPrice)
             {
-                if (school && LessonShare > 0 && LessonPrice > 0)
+                if (school && LessonShare > 0 && lessonPrice > 0)
                 {
                     int taken = SkiMoneyRules.LessonsTaken(people, household.Index, LessonDay, LessonShare);
-                    int lessons = SkiMoneyRules.LessonsPaid(taken, LessonPrice, money);
+                    int lessons = SkiMoneyRules.LessonsPaid(taken, lessonPrice, money);
                     if (lessons > 0)
                     {
                         r.Lessons = lessons;
-                        r.LessonIncome = lessons * LessonPrice;   // ≤ money left: no overflow, never below 0
+                        r.LessonIncome = lessons * lessonPrice;   // ≤ money left: no overflow, never below 0
                         EconomyUtils.AddResources(Resource.Money, -r.LessonIncome, buffer);
                         money -= r.LessonIncome;
-                        Book(ref r, LessonPrice, lessons);
+                        Book(ref r, lessonPrice, lessons);
                     }
                 }
                 if (spendPerPerson > 0)

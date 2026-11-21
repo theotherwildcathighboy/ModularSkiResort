@@ -151,6 +151,51 @@ of (household, season) or a standing that 1.0.2 already writes.
   The send gives such a party P = 1 (SkiDaySystem ClaimJob `DestPassAt`, the same roll). Logs: `Passes [destination] first`, then
   folded lines, and DUMP totals.
 
+## Per-area prices (1.0.4, T284, `SkiLiftTicketSystem.Prices.cs`, `SkiPassPlanRules.cs`)
+
+Each ski area (Welcome Sign) has its own day ticket and its own season pass plan. The plan has 4 parts:
+- the early price (20-2,000, step 20).
+- the rise per step (0-50 %, step 5).
+- the season months on sale (one unbroken run, bits 0..11, 0 = July on a December winter).
+- the months a rise starts (inside the run, never on its first month, at most 3).
+Prices rise compound, and each rise snaps to 20 (`PriceAfter`).
+
+**Persisted state:**
+- On the sign: `SkiPassPlan` (36 bytes, v1). Its flags are FlagOwnTicket, FlagOwnPlan and FlagLockedDefault. The component holds the
+  own values and the plan locked for one season (m_LockSeason, NoLock = int.MinValue).
+- On the household: `SkiSeasonPassArea` (6 bytes, v1). It holds the sign that sold the pass and AreaFlagPool.
+
+**Old saves.** A missing component, or flags 0 with no lock, resolves exactly to today's behavior: the Options ticket and
+`DefaultPlan(Options pass price)`. This is the 1.0.3 calendar: on sale in months 1-4, +15 % from month 3. ResortBatch T284 sweeps it
+against `SkiPassRules` at every position. SaveBatch SL-P3 checks it for a 1.0.3 save. A standing with no SkiSeasonPassArea (a 1.0.3
+pass) is good at every area.
+
+**Resolution.** Step 2a'''' `RefreshAreaPrices` resolves every live sign once per tick. The sign list is CopySigns, without the signs
+that carry the game's `Temp` or `Deleted` tags. The result goes into `m_AreaPrices`: ticket, plan in force, next plan, phase, sale price, value left, demand,
+destination fee and lesson price. `PriceRevision` (a hash) keys the gate watch and the SkiDaySystem snapshot. Consumers read
+`AreaPriceOf(sign)`:
+- the ticket job's per-slot prices.
+- the pool sale.
+- SkiDaySystem's AreaJob (Ticket, PassEarly, OnDefault).
+- the stats row (contract 62).
+
+**Season lock.** When a season's sale starts at an area, the plan in force is copied into the lock fields (`LockDue`). A sign
+without the component then gets one with flags 0. From then on that season's prices follow only its planned rises. An edit (hub, or
+an Options change) goes to the NEXT plan, so a price cut applies from the next season. The lock logs `Passes [plan] ...`.
+
+**Edits.** The hub triggers setAreaTicket / PassEarly / PassRise / PassMonths / UseDefault call `EditArea`. It locks first if the
+lock is due. It seeds the own plan from the next plan, sanitizes it, writes the component and updates the cache.
+
+**Validity (`PassValidAt`).**
+- A pass sold by an area on the default plan is a pool pass. It is good at every area whose plan in force is the default one that
+  season. Membership comes from LockedDefault while locked, else from !OwnPlan. The code reads the flags, never HasComponent.
+- An own-plan pass is good only at its own sign. A bulldozed sign loads as Null, so the pass is good nowhere.
+- At another area, a holder pays the ticket (TicketJob `holder = standing == Holder && validHere`, ClaimJob `holderHere`).
+
+**Value left.** From the start of the climate winter to its end, a buyer judges the price against the share of the winter still
+ahead. The winter start is never earlier than position 5, so the default calendar never sees it. `Demand = s x
+clamp01((12 t s - p) / (8 t s))`, and at s = 1 this is exactly PassFactor. There is no hard cap on late sales.
+
 ## Ski lessons
 
 This applies to a counted arrival at an OPEN gate (pass holder or not, resident or tourist). The ski area's Welcome Sign must have an ACTIVE ski school (Result.SchoolActive: installed, not BuildingOption.Inactive). Then each person counted gets one roll at LessonShare %. The roll is

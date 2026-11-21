@@ -1056,6 +1056,7 @@ function run(srcDir) {
       // icon buttons, tabs, chips, check rows
       headerButton: "calc(24rem * var(--fontScale))", tabButton: "calc(24rem * var(--fontScale))", tabChevron: "calc(24rem * var(--fontScale))", rowPen: "calc(22rem * var(--fontScale))",
       pickerChip: "calc(22rem * var(--fontScale))", toggleAct: "calc(22rem * var(--fontScale))", pagerButton: "calc(20rem * var(--fontScale))",
+      monthChip: "calc(22rem * var(--fontScale))",
       // tiles
       tile: "calc(33.1rem * var(--fontScale) + 36.315rem * var(--fontScaleChange) + 8.5rem)",
       buildTile: "calc(12rem + 44rem * var(--fontScale))",
@@ -1065,7 +1066,7 @@ function run(srcDir) {
     };
     const NO_OWN_HEIGHT = new Set([
       "areaNameOpen", "buildTileActive", "buildTileLocked", "buttonOn", "fitText", "foldRow", "foldRowOpen", "hiddenKeepSpace", "histSeg",
-      "histSegNext", "infoHeader", "lodgeRow", "mergeAction", "overlayItemOn", "pagerButtonOff", "pagerButtonText", "pickerChipOn", "planRow", "planRowOff",
+      "histSegNext", "infoHeader", "lodgeRow", "mergeAction", "monthNow", "monthRise", "monthSale", "monthWinter", "overlayItemOn", "pagerButtonOff", "pagerButtonText", "pickerChipOn", "planRow", "planRowOff",
       "problemClickable", "problemDim", "problemMoreButton", "problemMoreOn", "rowTrashArmed", "segButtonNext", "tabButtonOn", "tileOn",
     ]);
     const hubDir = path.join(srcDir, "hub");
@@ -1627,6 +1628,82 @@ function run(srcDir) {
     eq("T258.6 turned-away row shown", [R.priceTurnedShown(null), R.priceTurnedShown({ priceTurnedThisMonth: 0, priceTurnedLastMonth: 0 }),
       R.priceTurnedShown({ priceTurnedThisMonth: 3, priceTurnedLastMonth: -1 }), R.priceTurnedShown({ priceTurnedThisMonth: -1, priceTurnedLastMonth: 2 })],
       [false, false, true, true]);
+    // T284 (contract 62): the per-area plan rules, mirror of C# SkiPassPlanRules (tests/ResortBatch PlanRulesTests, same rules).
+    const DEF = { early: 400, risePct: 15, saleMask: 0x1e, riseMask: 0x8 };
+    eq("T284.1 rise clamp (0-50, step 5, half up)", [-5, 0, 2, 3, 7, 8, 48, 50, 51, 100].map(R.clampRisePct), [0, 0, 0, 5, 5, 10, 50, 50, 50, 50]);
+    eq("T284.1 rise stops", [R.RISE_STOPS.length, R.RISE_STOPS[0], R.RISE_STOPS[10]], [11, 0, 50]);
+    eq("T284.1 the default plan is the 1.0.3 calendar", R.defaultPlan(390), { early: 400, risePct: 15, saleMask: 0x1e, riseMask: 0x8 });
+    eq("T284.2 sanitize: gap filled, rise outside the run and on its first month dropped, prices clamped",
+      R.sanitizePlan({ early: 330, risePct: 17, saleMask: 0x801, riseMask: 0x1001 }), { early: 340, risePct: 15, saleMask: 0xfff, riseMask: 0 });
+    eq("T284.2 sanitize: no sale month = the default run; first three rises only",
+      [R.sanitizePlan({ early: 400, risePct: 15, saleMask: 0, riseMask: 0x3e }), R.sanitizePlan({ early: 400, risePct: 15, saleMask: 0xfff, riseMask: 0xffe })],
+      [{ early: 400, risePct: 15, saleMask: 0x1e, riseMask: 0x1c }, { early: 400, risePct: 15, saleMask: 0xfff, riseMask: 0xe }]);
+    eq("T284.3 compound rises, each snapped to 20, capped", [R.priceAfter(DEF, 0), R.priceAfter(DEF, 1), R.priceAfter(DEF, 2),
+      R.priceAfter({ early: 2000, risePct: 50, saleMask: 0x1e, riseMask: 0x8 }, 3)], [400, 460, 520, 2000]);
+    eq("T284.3 default plan phases by season month", Array.from({ length: 12 }, (_, m) => R.planPhaseAt(DEF, m)),
+      ["before", "opening", "opening", "stepped", "stepped", "closed", "closed", "closed", "closed", "closed", "closed", "closed"]);
+    {
+      // the default plan = the 1.0.3 calendar at every month and early price (oracle: the tested 1.0.3 functions)
+      let same = true;
+      for (const early of [20, 100, 320, 400, 1980, 2000]) {
+        for (let m = 0; m < 12; m++) {
+          const p = R.defaultPlan(early), ph = R.salePhaseOf(m);
+          same = same && R.planPhaseAt(p, m) === ph;
+          if (ph === "opening" || ph === "stepped") same = same && R.priceInMonth(p, m) === R.passNowPrice(R.saleWindow((6 + m) % 12, 7, early), early);
+        }
+      }
+      eq("T284.3 default plan == the 1.0.3 calendar (phase and price paid)", same, true);
+    }
+    eq("T284.4 month chips of the default plan", Array.from({ length: 6 }, (_, m) => R.monthChip(DEF, m)), ["off", "sale", "sale", "rise", "sale", "off"]);
+    eq("T284.4 cycle: off joins, first leaves, middle rises, rise clears, last rises, far month extends",
+      [0, 1, 2, 3, 4, 6].map((m) => { const p = R.cycleMonth(DEF, m); return [p.saleMask, p.riseMask]; }),
+      [[0x1f, 0x8], [0x1c, 0x8], [0x1e, 0xc], [0x1e, 0], [0x1e, 0x18], [0x7e, 0x8]]);
+    eq("T284.4 cycle: a rise at the run's end leaves the run; a one-month run keeps its month",
+      [R.cycleMonth({ ...DEF, riseMask: 0x18 }, 4), R.cycleMonth({ early: 400, risePct: 15, saleMask: 0x2, riseMask: 0 }, 1)].map((p) => [p.saleMask, p.riseMask]),
+      [[0x0e, 0x8], [0x2, 0]]);
+    eq("T284.4 cycle: no fourth rise; a middle month at three rises stays on sale",
+      ((p) => [p.saleMask, p.riseMask])(R.cycleMonth({ early: 400, risePct: 15, saleMask: 0x7e, riseMask: 0x1c }, 5)), [0x7e, 0x1c]);
+    eq("T284.5 window before the run (July season, July)", R.planWindow(DEF, 0, 7), { phase: "before", open: 7, through: 8, last: 10, price: 400, next: 460, risePct: 0 });
+    eq("T284.5 window after the first rise", R.planWindow(DEF, 3, 7), { phase: "stepped", open: 7, through: 10, last: 10, price: 460, next: 0, risePct: 15 });
+    eq("T284.5 window after the run", R.planWindow(DEF, 7, 7).phase, "closed");
+    eq("T284.5 window unknown", [R.planWindow(DEF, -1, 7), R.planWindow(DEF, 0, 0), R.planWindow(DEF, 12, 7)], [null, null, null]);
+    eq("T284.6 value-left demand (ticket 100, pass 400): s 1, 0.8, 0.5, 0.25, 0", [1, 0.8, 0.5, 0.25, 0].map((s) => Math.round(R.planDemand(400, 100, s) * 100)),
+      [100, 70, 25, 0, 0]);
+    eq("T284.6 winter months (season positions)", [R.winterMonthMask(5, 9), R.winterMonthMask(5.5, 8.2), R.winterMonthMask(6, 6), R.winterMonthMask(NaN, 9)],
+      [0x1e0, 0x1e0, 0, 0]);
+    eq("T284.7 months argument (sale | rise << 12)", [R.planMonthsArg(DEF), R.planMonthsArg({ ...DEF, saleMask: 0x1fff, riseMask: 0x800 })], [0x801e, 0x800fff]);
+    eq("T284.7 calendar month of a season month", [R.calendarMonthOf(0, 7), R.calendarMonthOf(5, 7), R.calendarMonthOf(6, 7), R.calendarMonthOf(11, 1)], [6, 11, 0, 11]);
+    const LIVE = { areaTicket: 90, passEarly: 260, passRisePct: 15, passSaleMask: 0x1e, passRiseMask: 0x8,
+      passNextEarly: 300, passNextRisePct: 20, passNextSaleMask: 0x3e, passNextRiseMask: 0x10 };
+    eq("T284.7 plans as sent (in force / next / unknown)", [R.planOf(LIVE, false), R.planOf(LIVE, true), R.planOf(null, true), R.planOf({ ...LIVE, passEarly: -1 }, false)],
+      [{ early: 260, risePct: 15, saleMask: 0x1e, riseMask: 0x8 }, { early: 300, risePct: 20, saleMask: 0x3e, riseMask: 0x10 }, null, null]);
+    eq("T284.7 the area ticket, else the Options price, else unknown", [R.areaTicketOf(LIVE, { known: true, ticketPrice: 65 }),
+      R.areaTicketOf(null, { known: true, ticketPrice: 65 }), R.areaTicketOf({ areaTicket: -1 }, { known: true, ticketPrice: 65 }),
+      R.areaTicketOf({ areaTicket: 0 }, { known: true, ticketPrice: 65 }), R.areaTicketOf(null, { known: false, ticketPrice: 65 })], [90, 65, 65, 0, -1]);
+
+    // 1.0.4 price edges (owner harness pass: "page jumps around a lot, and the slider acts weird and disappears if I jump to 0"); the
+    // pager half is PG.1 (hubRules.anchoredPage), next to T30.
+    // The minima: the ticket 0 (lift tickets off, C# TicketGate.Off), the pass 20 (no free pass: the slider has no 0), the rise 0 ("No
+    // price rise"). Each minimum is a stop, so the thumb is drawn at the left end and stays grabbable.
+    eq("T284.9 slider minima (ticket / pass / rise) and their thumb at the left end", [R.PRICE_STOPS[0], R.PASS_PRICE_STOPS[0], R.RISE_STOPS[0],
+      R.sliderPos(R.PRICE_STOPS, 0), R.sliderPos(R.PASS_PRICE_STOPS, 20), R.sliderPos(R.RISE_STOPS, 0)], [0, 20, 0, 0, 0, 0]);
+    {
+      // Stable rows: the Income fold's price blocks draw the same rows in every state (no row comes or goes under the pointer)
+      const mv = fs.readFileSync(path.join(srcDir, "hub", "MoneyView.tsx"), "utf8");
+      const body = (name) => { const i = mv.indexOf(`function ${name}(`); const j = mv.indexOf("\nfunction ", i + 1); return i < 0 ? "" : mv.slice(i, j < 0 ? mv.length : j); };
+      const price = body("PriceLine"), pass = body("PassLine"), sale = body("SaleLine"), dest = body("DestLine");
+      eq("T284.10 stable rows: no conditional row in the ticket and pass blocks, no block that vanishes at ticket 0",
+        [/\{[^{}]*&&\s*<UseDefault/.test(price + pass), /\{showNext &&/.test(pass), /ticket > 0\)\) return null/.test(pass),
+          /return null/.test(sale), /return null/.test(dest), /disabled=\{ticketsOff\}/.test(pass), /off=\{ticketsOff\}/.test(pass)],
+        [false, false, false, false, false, true, true]);
+      eq("T284.10 a 0 % rise says \"No price rise\"; the ticket at 0 says lift tickets are off", [pass.includes("HUB_LOC.moneyRiseNone"), price.includes("HUB_LOC.moneyPriceLineOff")], [true, true]);
+      const txt = fs.readFileSync(path.join(srcDir, "hub", "hubText.ts"), "utf8");
+      eq("T284.11 demand in plain words: 5 guest words, 5 buyer words, no \"Demand:\" template, no DEMAND_WORD key",
+        [(txt.match(/"SkiResort\.Hub\.GUESTS_WORD\[/g) || []).length, (txt.match(/"SkiResort\.Hub\.BUYERS_WORD\[/g) || []).length, /Demand: \{WORD\}/.test(txt), txt.includes("DEMAND_WORD[")],
+        [5, 5, false, false]);
+      eq("T284.12 the month strip legend (on sale / price rise / winter / now)",
+        ["moneyLegendSale", "moneyLegendRise", "moneyLegendWinter", "moneyLegendNow"].map((k) => mv.includes(`HUB_LOC.${k}`)), [true, true, true, true]);
+    }
   }
 
   const hr = require("./test-history-rules").run(srcDir);

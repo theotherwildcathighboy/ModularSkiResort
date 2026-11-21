@@ -14,5 +14,10 @@ To bump a layout:
 4. Append ONE entry to the type's row in `SaveLayouts`.
 5. Write the new changelog line with "Do not load in older versions: yes".
 
+Example (1.0.4, T284): the per-area prices did not grow SkiSeasonPass (still 10 bytes, SL-P4). They added two new types:
+- `SkiPassPlan` (row PassPlan, 36 bytes, on the sign).
+- `SkiSeasonPassArea` (row PassArea, 6 bytes, on the household).
+A save without them resolves to the 1.0.3 behavior (SL-P3). A 1.0.4 save loaded in 1.0.3 skips both types as unknown.
+
 A new persisted concept is a new type with a new row. Never edit a shipped entry. Never reorder the fields of a row. Never delete the
 row of a shipped type. The bytes are in players' saves.

@@ -9,20 +9,24 @@
  */
 import { useCallback, useState } from "react";
 import { useValue } from "cs2/api";
+import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
+import type { Entity } from "cs2/utils";
 import { RUN_KIND, build$, city$, hubTriggers, problems$, resortLive$, resorts$, runs$, selectedResort$ } from "../bindings";
 import type { BuildItem, BuildItemId, CityStats, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import { BUILD_ITEMS, LUXURY_PRICE_TOLERANCE, findBuildItem } from "./buildItems";
 import {
-  DEMAND_EXAMPLE_BELOW, PASS_FULL_AT, destFee, destSharePct, saleWindow, PASS_PRICE_STOPS, PASS_SPAN, PRICE_STOPS, cityIncomeShown, demandHeat, demandWord, fewerPct, hubPrice, liveOf,
-  netRowShown, passFactor, passFactorPct, passFullPrice, passNowPrice, passSliderShown, stepRisePct, passesShown, presaleShown, priceFactor, priceFactorPct,
-  priceFullWith, partyPriceFullWith, schoolBuiltOf, schoolState, ticketsRow,
+  DEMAND_EXAMPLE_BELOW, PASS_FULL_AT, destFee, destSharePct, PASS_PRICE_STOPS, PASS_SPAN, PRICE_STOPS, RISE_STOPS, areaTicketOf, calendarMonthOf, cityIncomeShown,
+  clampPassPrice, clampRisePct, cycleMonth, defaultPlan, demandHeat, demandWord, fewerPct, firstBit, hubPrice, lastBit, liveOf, monthChip, netRowShown, passFactor,
+  passFactorPct, passFullPrice, passesShown, planDemand, planMonthsArg, planOf, planWindow, presaleShown, priceFactor, priceFactorPct, priceFullWith, priceInMonth,
+  partyPriceFullWith, sanitizePlan, schoolBuiltOf, schoolState, seasonMonthOf, ticketsRow, winterMonthMask,
 } from "./hubRules";
-import type { SaleWindow, SchoolState } from "./hubRules";
-import { HUB_FMT, HUB_LOC, LIFT_TYPE, demandWordEntry, monthName } from "./hubText";
-import { Divider, InfoLine, LocText, Num, PagePart, SignedNum, StableWidth, SubLine, Tip, TipLines, areaArg, numArg, useNumberSamples, useUnits } from "./parts";
+import type { PassPlan, PlanWindow, SchoolState } from "./hubRules";
+import { HUB_FMT, HUB_LOC, LIFT_TYPE, demandWordEntry, monthName, monthShortName } from "./hubText";
+import { Divider, InfoLine, LocText, Num, PagePart, SignedNum, StableWidth, SubLine, Tip, TipLines, areaArg, cx, numArg, useNumberSamples, useUnits } from "./parts";
 import type { NumberSamples } from "./parts";
 import { currentResort, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
@@ -333,10 +337,10 @@ function TicketsRow({ l, price, samples, t }: { l: ResortLive | null; price: num
   );
 }
 
-/** The demand word of a factor percent, or "–" (unknown). */
-function demandText(pct: number, t: Translate): string {
+/** The demand of a factor percent in plain words (the guests a ticket turns away, the buyers a pass puts off), or "–" (unknown). */
+function demandText(pct: number, who: "guests" | "buyers", t: Translate): string {
   const w = demandWord(pct);
-  return w ? t(demandWordEntry(w)) : DASH;
+  return w ? t(demandWordEntry(w, who)) : DASH;
 }
 
 /** Under the tickets row: the Options price and its demand in one word (hubRules.demandWord of priceFactorPct; the numbers live in the
@@ -346,7 +350,9 @@ function demandText(pct: number, t: Translate): string {
  *  Tooltip (DECISIONS 677): the fact line with this area's limit, "about N % fewer than at the limit" at the shown price (hubRules.fewerPct,
  *  above the limit and under DEMAND_EXAMPLE_BELOW), the lever line (676: maxed with a luxury-tier lodge counted), and the pass holders.
  *  `price` = hubRules.hubPrice(city): -1 ("–", no thumb) until C# sends the city. The label is one text node (check-bundle rule R13). */
-function PriceLine({ price, tolerance, passPrice, passShare, t }: { price: number; tolerance: number; passPrice: number; passShare: number; t: Translate }): JSX.Element {
+function PriceLine({ sign, own, price, tolerance, passPrice, passShare, t }: {
+  sign: Entity; own: boolean; price: number; tolerance: number; passPrice: number; passShare: number; t: Translate;
+}): JSX.Element {
   // The slider's shown value, tied to the price it was shown against: after a load the price is another one, and a value kept from
   // before must not be read for a frame (T266). The slider reports its value in an effect, one render late.
   const [sh, setSh] = useState({ v: price, base: price });
@@ -370,89 +376,201 @@ function PriceLine({ price, tolerance, passPrice, passShare, t }: { price: numbe
     t(HUB_LOC.moneyPriceTipPasses),
     // 1.0.3 T259 (owner verdict): with passes on and the destination fee (pass / 4) below the shown ticket, the lever that lifts it.
     passShare > 0 && now > 0 && destFee(passPrice, now) < now && t(HUB_LOC.moneyDestTipRaise),
+    // T284: whose price it is
+    t(own ? HUB_LOC.moneyPriceTipOwn : HUB_LOC.moneyPriceTipDefault),
   ]} />;
   const heat = (v: number): readonly [number, number] => demandHeat(priceFactorPct(v, tol));
   return (
     <div className={styles.priceBlock}>
       <Tip tip={tip}>
         <div className={styles.priceRowText}>
-          {pct < 0 ? DASH : <LocText entry={HUB_FMT.moneyPriceLine} args={{ PRICE: numArg(now, Unit.Money), WORD: tolKnown ? demandText(pct, t) : DASH }} />}
+          {pct < 0 ? DASH : now === 0 ? t(HUB_LOC.moneyPriceLineOff)
+            : <LocText entry={HUB_FMT.moneyPriceLine} args={{ PRICE: numArg(now, Unit.Money), WORD: tolKnown ? demandText(pct, "guests", t) : DASH }} />}
         </div>
       </Tip>
       <Slider wide stops={PRICE_STOPS} value={price} heat={heat} format={(v) => numArg(v, Unit.Money)} samples={[]}
-        onShown={onShown} onCommit={(v) => hubTriggers.setTicketPrice(v)} />
+        onShown={onShown} onCommit={(v) => hubTriggers.setAreaTicket(sign, v)} />
+      <UseDefault label={t(HUB_LOC.moneyUseDefaultTicket)} live={own} onSelect={() => hubTriggers.setAreaUseDefault(sign, 1)} />
     </div>
   );
 }
 
-/** r3/sliders (DECISIONS 677): the season pass price in money (the Options setting SeasonPassPrice, every ski area), with its slider.
- *  T265 (2026-11-20): the slider sets the EARLY price (the opening price of the sale). The line under it says the price paid now, which
- *  steps up (SALE_STEP_PCT) after the opening months, and the demand word judges that price (hubRules.passNowPrice = C#
- *  SkiPassRules.SalePrice: the sale's own demand uses it). The demand is judged against day tickets (hubRules.passFactor = C#
- *  SkiMoneyRules.PassFactor): every would-be buyer buys up to PASS_FULL_AT × the ticket price, fewer above. The track colors follow it at
- *  today's ticket price and the price paid now. Drawn while passes are on and a ticket has a price (hubRules.passSliderShown). C# locks a
- *  pass at the price of its sale, so a change touches only later sales. */
-function PassLine({ city, l, t }: { city: CityStats; l: ResortLive | null; t: Translate }): JSX.Element | null {
-  // The slider's shown value, tied to the setting it was shown against (see PriceLine: nothing stale for a frame after a load, T266)
-  const [sh, setSh] = useState({ v: city.passPrice, base: city.passPrice });
-  const onShown = useCallback((v: number) => setSh((p) => (p.v === v && p.base === city.passPrice ? p : { v, base: city.passPrice })), [city.passPrice]);
-  if (!passSliderShown(city)) return null;
-  const ticket = city.ticketPrice;
-  const price = sh.base === city.passPrice && PASS_PRICE_STOPS.indexOf(sh.v) >= 0 ? sh.v : city.passPrice;
-  const win = saleWindow(city.month, city.seasonFirstMonth, price);
-  const paidNow = passNowPrice(win, price);
-  const pct = passFactorPct(paidNow, ticket);
+/** T284: the small button back to the Options default. 1.0.4 price edges: always drawn (a row that came with the first edit pushed the
+ *  rows under it down, and the view re-paged under the pointer), dimmed and dead while the area uses the default. */
+function UseDefault({ label, live, onSelect }: { label: string; live: boolean; onSelect: () => void }): JSX.Element {
+  return (
+    <div className={styles.priceDefaultRow}>
+      <Button focusKey={FOCUS_DISABLED} variant="flat" className={cx(styles.actionButton, styles.fitText)} disabled={!live}
+        onSelect={() => { if (live) onSelect(); }}>{label}</Button>
+    </div>
+  );
+}
+
+/** T284: the next plan's 12 season months in two rows of six, in season order (the first row starts with the season's first month).
+ *  A chip shows off / on sale / a rise (hubRules.monthChip); winter months are underlined, the month now is outlined. A click sends the
+ *  cycled masks (hubRules.cycleMonth); C# sanitizes them again. 1.0.4: a legend row under it names the four marks; `off` (lift tickets
+ *  off: no pass sale) dims the chips and takes no click. */
+function MonthStrip({ plan, seasonMonth, firstMonth, winterMask, off, onPick, t }: {
+  plan: PassPlan; seasonMonth: number; firstMonth: number; winterMask: number; off: boolean; onPick: (p: PassPlan) => void; t: Translate;
+}): JSX.Element {
+  const tip = <TipLines lines={[t(HUB_LOC.moneyMonthsTip), t(HUB_LOC.moneyMonthsTipRun)]} />;
+  const row = (from: number): JSX.Element => (
+    <div className={styles.monthRow}>
+      {Array.from({ length: 6 }, (_, k) => {
+        const m = from + k;
+        const chip = monthChip(plan, m);
+        return (
+          <Button key={m} focusKey={FOCUS_DISABLED} selected={chip !== "off"} disabled={off}
+            theme={{ button: cx(styles.monthChip, chip === "sale" && styles.monthSale, chip === "rise" && styles.monthRise,
+              (winterMask & (1 << m)) !== 0 && styles.monthWinter, m === seasonMonth && styles.monthNow) }}
+            onSelect={() => { if (!off) onPick(cycleMonth(plan, m)); }}>
+            {monthShortName(calendarMonthOf(m, firstMonth), t)}
+          </Button>
+        );
+      })}
+    </div>
+  );
+  const key = (mark: string, label: string): JSX.Element => (
+    <div className={styles.legendItem}>
+      <div className={cx(styles.legendSwatch, mark)} />
+      <div className={styles.legendLabel}>{label}</div>
+    </div>
+  );
+  return (
+    <Tip tip={tip}>
+      <div className={styles.monthStrip}>
+        {row(0)}{row(6)}
+        <div className={styles.monthLegend}>
+          {key(styles.legendSale, t(HUB_LOC.moneyLegendSale))}
+          {key(styles.legendRise, t(HUB_LOC.moneyLegendRise))}
+          {key(styles.legendWinter, t(HUB_LOC.moneyLegendWinter))}
+          {key(styles.legendNow, t(HUB_LOC.moneyLegendNow))}
+        </div>
+      </div>
+    </Tip>
+  );
+}
+
+/** The season pass block of an area (T284, contract 62: the area's own plan or the Options default plan). r3/sliders (DECISIONS 677),
+ *  T265: the first slider sets the EARLY price of the NEXT plan (the plan the area's controls edit: this season's while its sale has
+ *  not started, else the next season's). Under it: the rise per step (0-50 %) and the 12-month strip (on sale / rise months). The sale
+ *  line says the price paid now in THIS season's plan and how long it holds, with the demand word of that price (hubRules.planDemand =
+ *  C# SkiPassPlanRules.Demand: value left counted in the winter). Once this season's sale started its plan is locked, so a change shows
+ *  as a "Next season" line. Drawn while passes are on (an Options setting). Without a live row (C# not sent yet) the Options price and
+ *  the default plan stand in.
+ *  1.0.4 price edges (owner harness pass: "the slider acts weird and disappears if I jump to 0"): every row is drawn in every state, so
+ *  no row comes or goes under the pointer and the view never re-pages from an edit. With lift tickets off (ticket 0) there is no pass
+ *  sale (C# SkiPassPlanRules.SalePrice): the controls stay in place, dimmed and dead, and the sale line says why. The next-season line
+ *  and the destination line always hold their place; the "Use the default" button is dead while the area is on the default plan. */
+function PassLine({ sign, city, l, t }: { sign: Entity; city: CityStats; l: ResortLive | null; t: Translate }): JSX.Element | null {
+  const sent = planOf(l, true);
+  const base = sent ? sent.early : clampPassPrice(city.passPrice);
+  // The slider's shown value, tied to the price it was shown against (see PriceLine: nothing stale for a frame after a load, T266)
+  const [sh, setSh] = useState({ v: base, base });
+  const onShown = useCallback((v: number) => setSh((p) => (p.v === v && p.base === base ? p : { v, base })), [base]);
+  // The rise slider's shown value, so its line follows the drag ("No price rise" at 0)
+  const riseNow = clampRisePct((sent ?? defaultPlan(city.passPrice)).risePct);
+  const [rise, setRise] = useState({ v: riseNow, base: riseNow });
+  const onRise = useCallback((v: number) => setRise((p) => (p.v === v && p.base === riseNow ? p : { v, base: riseNow })), [riseNow]);
+  const ticket = areaTicketOf(l, city);
+  if (!(city.passShare > 0)) return null;
+  const ticketsOff = !(ticket > 0);
+  const dragging = sh.base === base && sh.v !== base && PASS_PRICE_STOPS.indexOf(sh.v) >= 0;
+  const early = dragging ? sh.v : base;
+  const next: PassPlan = { ...(sent ?? defaultPlan(city.passPrice)), early };
+  const locked = !!l && l.planLocked;
+  const inForce = locked ? planOf(l, false) ?? next : next;
+  const seasonMonth = l && l.seasonMonth >= 0 ? l.seasonMonth : seasonMonthOf(city.month, city.seasonFirstMonth);
+  const firstMonth = l && l.seasonFirstMonth >= 1 ? l.seasonFirstMonth : city.seasonFirstMonth;
+  const win = planWindow(inForce, seasonMonth, firstMonth);
+  const open = !!win && (win.phase === "opening" || win.phase === "stepped");
+  const valueLeft = l && l.valueLeftPct >= 0 ? l.valueLeftPct / 100 : 1;
+  // the price judged: the price paid now while on sale, else the opening price of the next sale (this season's before its run, the
+  // next plan's after it)
+  const judged = win && open ? win.price : win && win.phase === "closed" ? clampPassPrice(next.early) : clampPassPrice(inForce.early);
+  const pct = open && !dragging && l && l.passDemandPct >= 0 ? l.passDemandPct
+    : open ? Math.round(planDemand(judged, ticket, valueLeft) * 100) : passFactorPct(judged, ticket);
   const full = passFullPrice(ticket);
-  const word = demandText(pct, t);
+  const word = ticketsOff ? DASH : demandText(pct, "buyers", t);
   const tip = <TipLines lines={[
     <LocText key="a" entry={HUB_FMT.moneyPassTipAbove} args={{ FULL: numArg(full, Unit.Money) }} />,
-    paidNow > full && pct >= 0 && pct < DEMAND_EXAMPLE_BELOW && <LocText key="e" entry={HUB_FMT.moneyPassTipExample} args={{
-      PRICE: numArg(paidNow, Unit.Money), PCT: numArg(fewerPct(passFactor(paidNow, ticket)), Unit.Percentage), FULL: numArg(full, Unit.Money),
+    judged > full && pct >= 0 && pct < DEMAND_EXAMPLE_BELOW && <LocText key="e" entry={HUB_FMT.moneyPassTipExample} args={{
+      PRICE: numArg(judged, Unit.Money), PCT: numArg(fewerPct(passFactor(judged, ticket)), Unit.Percentage), FULL: numArg(full, Unit.Money),
     }} />,
     // The lever line (DECISIONS 676): above the limit fewer buy; below it as many buy at a lower price; at it, none (either way trades).
-    paidNow > full ? t(HUB_LOC.moneyPassTipLower) : paidNow < full ? t(HUB_LOC.moneyPassTipRaise) : null,
+    judged > full ? t(HUB_LOC.moneyPassTipLower) : judged < full ? t(HUB_LOC.moneyPassTipRaise) : null,
     <LocText key="l" entry={HUB_FMT.moneyPassTipLimit} args={{ N: numArg(PASS_FULL_AT + PASS_SPAN, Unit.Integer) }} />,
     t(HUB_LOC.moneyPassTipLocked),
+    locked && t(HUB_LOC.moneyPassTipSeason),
+    !!l && t(l.planOnDefault ? HUB_LOC.moneyPassTipPool : HUB_LOC.moneyPassTipOwnPlan),
     t(HUB_LOC.moneyPassTipResidents),
   ]} />;
-  // The sale months are not known (contract 57 not sent yet): the one line carries the word, as before the sale line existed
+  // The season months are not known (no live row, no city month): the one line carries the word
   const first = win
-    ? <LocText entry={HUB_FMT.moneyPassLine} args={{ PRICE: numArg(price, Unit.Money) }} />
-    : <LocText entry={HUB_FMT.moneyPassLineDemand} args={{ PRICE: numArg(price, Unit.Money), WORD: word }} />;
+    ? <LocText entry={HUB_FMT.moneyPassLine} args={{ PRICE: numArg(early, Unit.Money) }} />
+    : <LocText entry={HUB_FMT.moneyPassLineDemand} args={{ PRICE: numArg(early, Unit.Money), WORD: word }} />;
+  // the track colors: the price paid now at a dragged early price while this season follows the slider, else that early price itself
+  const at = win ? Math.min(lastBit(next.saleMask), Math.max(firstBit(next.saleMask), seasonMonth)) : 0;
+  const heat = (v: number): readonly [number, number] => demandHeat(!locked && open
+    ? Math.round(planDemand(priceInMonth({ ...next, early: v }, at), ticket, valueLeft) * 100) : passFactorPct(v, ticket));
+  const riseShown = rise.base === riseNow ? rise.v : riseNow;
+  const plan = sanitizePlan(next);
   return (
     <div className={styles.priceBlock}>
       <Tip tip={tip}>
         <div className={styles.priceRowText}>{first}</div>
       </Tip>
-      <Slider wide stops={PASS_PRICE_STOPS} value={city.passPrice}
-        heat={(v) => demandHeat(passFactorPct(passNowPrice(saleWindow(city.month, city.seasonFirstMonth, v), v), ticket))}
-        format={(v) => numArg(v, Unit.Money)} samples={[]} onShown={onShown} onCommit={(v) => hubTriggers.setPassPrice(v)} />
-      <SaleLine win={win} word={word} t={t} />
-      <DestLine city={city} price={price} tolerance={l ? l.priceTolerance : -1} t={t} />
+      <Slider wide stops={PASS_PRICE_STOPS} value={base} heat={heat} disabled={ticketsOff}
+        format={(v) => numArg(v, Unit.Money)} samples={[]} onShown={onShown} onCommit={(v) => hubTriggers.setAreaPassEarly(sign, v)} />
+      <div className={styles.priceRowText}>
+        {riseShown > 0 ? <LocText entry={HUB_FMT.moneyRiseLine} args={{ PCT: numArg(riseShown, Unit.Percentage) }} /> : t(HUB_LOC.moneyRiseNone)}
+      </div>
+      <Slider wide stops={RISE_STOPS} value={riseNow} format={(v) => numArg(v, Unit.Percentage)} samples={[]} disabled={ticketsOff}
+        onShown={onRise} onCommit={(v) => hubTriggers.setAreaPassRise(sign, v)} />
+      <MonthStrip plan={plan} seasonMonth={seasonMonth} firstMonth={firstMonth} off={ticketsOff}
+        winterMask={l ? winterMonthMask(l.winterStart, l.winterEnd) : 0}
+        onPick={(p) => hubTriggers.setAreaPassMonths(sign, planMonthsArg(p))} t={t} />
+      <SaleLine win={win} ticketsOff={ticketsOff} nextOpen={calendarMonthOf(firstBit(plan.saleMask), firstMonth)} risePct={inForce.risePct}
+        word={word} valueLeftPct={open && l ? l.valueLeftPct : 100} t={t} />
+      <div className={styles.priceRowText}>
+        <LocText entry={HUB_FMT.moneyPassNext} args={{
+          PRICE: numArg(clampPassPrice(next.early), Unit.Money),
+          MONTH: monthName(calendarMonthOf(firstBit(plan.saleMask), firstMonth), t),
+          MONTH2: monthName(calendarMonthOf(lastBit(plan.saleMask), firstMonth), t),
+        }} />
+      </div>
+      <DestLine city={city} ticket={ticket} price={inForce.early} tolerance={l ? l.priceTolerance : -1} t={t} />
+      <UseDefault label={t(HUB_LOC.moneyUseDefaultPass)} live={!!l && l.planOwn} onSelect={() => hubTriggers.setAreaUseDefault(sign, 2)} />
     </div>
   );
 }
 
-/** 1.0.3 R3-B, T265: the residents' pass sale under the pass slider (hubRules.saleWindow = C# SkiPassRules): the price paid now and how
- *  long it holds, with the demand word of that price. Opening: the early price through its last month (the tooltip names the step).
- *  Stepped: the stepped price, with its rise, through the sales end. Outside the window: when the sales open. Nothing while the season's
- *  months are not known (contract 57). */
-function SaleLine({ win, word, t }: { win: SaleWindow | null; word: string; t: Translate }): JSX.Element | null {
-  if (!win) return null;
-  const rise = stepRisePct(win);
+/** 1.0.3 R3-B, T265, T284: the residents' pass sale of this season's plan (hubRules.planWindow = C# SkiPassPlanRules): the price paid
+ *  now and the last month it holds, with the demand word of that price. Opening: the early price. Stepped: the risen price with its rise
+ *  over the early price. Before the run: when it opens; after it: when the next season's sale opens (`nextOpen`). The tooltip names the
+ *  next rise and, in the winter, the share of the winter left. 1.0.4: the line always holds its place: "–" while the season's months
+ *  are not known, and with lift tickets off the line says there is no pass sale. */
+function SaleLine({ win, ticketsOff, nextOpen, risePct, word, valueLeftPct, t }: {
+  win: PlanWindow | null; ticketsOff: boolean; nextOpen: number; risePct: number; word: string; valueLeftPct: number; t: Translate;
+}): JSX.Element {
+  if (ticketsOff) return <div className={styles.priceRowText}>{t(HUB_LOC.moneySaleTicketsOff)}</div>;
+  if (!win) return <div className={styles.priceRowText}>{DASH}</div>;
   const line = win.phase === "opening"
-    ? <LocText entry={HUB_FMT.moneySaleOpening} args={{ PRICE: numArg(win.price, Unit.Money), MONTH: monthName(win.stepAt, t), WORD: word }} />
+    ? <LocText entry={HUB_FMT.moneySaleOpening} args={{ PRICE: numArg(win.price, Unit.Money), MONTH: monthName(win.through, t), WORD: word }} />
     : win.phase === "stepped"
-      ? rise > 0
-        ? <LocText entry={HUB_FMT.moneySaleStepped} args={{ PRICE2: numArg(win.stepped, Unit.Money), PCT: numArg(rise, Unit.Percentage),
-          MONTH2: monthName(win.last, t), WORD: word }} />
-        : <LocText entry={HUB_FMT.moneySaleSteppedFlat} args={{ PRICE2: numArg(win.stepped, Unit.Money), MONTH2: monthName(win.last, t), WORD: word }} />
-      : <LocText entry={HUB_FMT.moneySaleClosed} args={{ MONTH: monthName(win.open, t), WORD: word }} />;
+      ? win.risePct > 0
+        ? <LocText entry={HUB_FMT.moneySaleStepped} args={{ PRICE2: numArg(win.price, Unit.Money), PCT: numArg(win.risePct, Unit.Percentage),
+          MONTH2: monthName(win.through, t), WORD: word }} />
+        : <LocText entry={HUB_FMT.moneySaleSteppedFlat} args={{ PRICE2: numArg(win.price, Unit.Money), MONTH2: monthName(win.through, t), WORD: word }} />
+      : <LocText entry={HUB_FMT.moneySaleClosed} args={{ MONTH: monthName(win.phase === "closed" ? nextOpen : win.open, t), WORD: word }} />;
+  const open = win.phase === "opening" || win.phase === "stepped";
   return (
     <Tip tip={<TipLines lines={[
       t(HUB_LOC.moneySaleTip),
-      win.phase === "opening" && rise > 0 && <LocText key="s" entry={HUB_FMT.moneySaleTipStep} args={{
-        PCT: numArg(rise, Unit.Percentage), MONTH: monthName(win.stepAt, t), PRICE2: numArg(win.stepped, Unit.Money) }} />,
+      open && win.next > 0 && <LocText key="s" entry={HUB_FMT.moneySaleTipStep} args={{
+        PCT: numArg(risePct, Unit.Percentage), MONTH: monthName(win.through, t), PRICE2: numArg(win.next, Unit.Money) }} />,
+      open && valueLeftPct >= 0 && valueLeftPct < 100 && <LocText key="v" entry={HUB_FMT.moneySaleTipValueLeft} args={{
+        PCT: numArg(valueLeftPct, Unit.Percentage) }} />,
       win.phase === "stepped" && t(HUB_LOC.moneySaleTipNow),
     ]} />}>
       <div className={styles.priceRowText}>{line}</div>
@@ -462,18 +580,25 @@ function SaleLine({ win, word, t }: { win: SaleWindow | null; word: string; t: T
 
 /** 1.0.3 R3-B: the destination pass of tourist parties (hubRules.destFee / destSharePct = C# SkiPassRules): its day fee and the share of
  *  tourist parties on one at this area's price tolerance. Tooltip: the fee rule, the share rule, and the lever line (DECISIONS 676: a fee at
- *  the ticket is maxed, say so). `price` = the pass price shown (live while dragging). */
-function DestLine({ city, price, tolerance, t }: { city: CityStats; price: number; tolerance: number; t: Translate }): JSX.Element | null {
-  const fee = destFee(price, city.ticketPrice);
+ *  the ticket is maxed, say so). T284: `ticket` = the area's ticket, `price` = this season's early price (C# DestFee of the plan in force).
+ *  1.0.4: the line always holds its place, with "–" for the fee and the share while there is none (lift tickets off). */
+function DestLine({ city, ticket, price, tolerance, t }: { city: CityStats; ticket: number; price: number; tolerance: number; t: Translate }): JSX.Element {
+  const fee = destFee(price, ticket);
   // -1 = the area's price tolerance is not known yet (before the first ski-day pass after a load): the line keeps its place and
   // shows "–" for the share, not the low share of tolerance 0 (T266)
   const unknown = tolerance < 0;
-  const pct = destSharePct(city.passShare, price, city.ticketPrice, unknown ? 0 : tolerance);
-  if (fee <= 0 || pct < 0) return null;
+  const pct = destSharePct(city.passShare, price, ticket, unknown ? 0 : tolerance);
+  if (fee <= 0 || pct < 0) {
+    return (
+      <div className={styles.priceRowText}>
+        <LocText entry={HUB_FMT.moneyDestLine} args={{ FEE: DASH, PCT: DASH }} />
+      </div>
+    );
+  }
   const tip = <TipLines lines={[
     t(HUB_LOC.moneyDestTipFee),
     t(HUB_LOC.moneyDestTipShare),
-    fee >= city.ticketPrice ? t(HUB_LOC.moneyDestTipFull) : t(HUB_LOC.moneyDestTipRaise),
+    fee >= ticket ? t(HUB_LOC.moneyDestTipFull) : t(HUB_LOC.moneyDestTipRaise),
   ]} />;
   return (
     <Tip tip={tip}>
@@ -486,7 +611,7 @@ function DestLine({ city, price, tolerance, t }: { city: CityStats; price: numbe
 
 /** The "Also" block under the Net (its own header): money that is not in this month's net. Nothing to show -> no block. */
 function AlsoBlock({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
-  const last = !!l && ticketsRow(l, city.ticketPrice) === "last";
+  const last = !!l && ticketsRow(l, areaTicketOf(l, city)) === "last";
   const passes = passesShown(l, city);
   const cityRow = cityIncomeShown(l, city);
   if (!last && !passes && !cityRow) return null;
@@ -516,9 +641,10 @@ function SignMoney({ row, l, city, build, feats, problems, samples, t }: {
       <MoneyHeader l={l} month={month} samples={samples} t={t} />
       <Fold view="money" id="income" header label={t(HUB_LOC.sectionIncome)}
         value={<Cell samples={samples}>{incomeValue(l ? l.incomeMonth ?? -1 : -1)}</Cell>}>
-      <TicketsRow l={l} price={city.ticketPrice} samples={samples} t={t} />
-      <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} passPrice={city.passPrice} passShare={city.passShare} t={t} />
-      <PassLine city={city} l={l} t={t} />
+      <TicketsRow l={l} price={areaTicketOf(l, city)} samples={samples} t={t} />
+      <PriceLine sign={row.sign} own={!!l && l.ticketOwn} price={hubPrice(city) < 0 ? -1 : areaTicketOf(l, city)}
+        tolerance={l ? l.priceTolerance : -1} passPrice={l && l.passEarly > 0 ? l.passEarly : city.passPrice} passShare={city.passShare} t={t} />
+      <PassLine sign={row.sign} city={city} l={l} t={t} />
       <LodgeSpendRow l={l} city={city} samples={samples} t={t} />
       <LessonRow l={l} city={city} school={schoolState(l, problems, row.sign, schoolBuiltOf(build))} samples={samples} t={t} />
       <PassesMonthRow l={l} city={city} samples={samples} t={t} />

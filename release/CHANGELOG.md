@@ -25,6 +25,24 @@ Template (copy above the newest entry):
 Notes...
 ```
 
+## 1.0.4 (unreleased)
+
+- Save compatible with previous: yes
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1, TrackPack 2, RulesStamp 1, PassPlan 1, PassArea 1
+- Do not load in older versions: yes
+
+**Prices per ski area:**
+- Each ski area has its own lift ticket price and its own season pass plan, set in its Finances view.
+- A pass plan has an early price, a rise size (up to +50 %, at most 3 rises) and a 12-month strip of the months on sale and the months a price rise starts.
+- Passes for the next season can go on sale from July. Late in the winter fewer households buy: the less winter is left, the fewer buyers.
+- Once a season's sales start, its prices stay as planned. A change applies from the next season, and the Finances view shows it.
+- A pass is good at the ski area that sold it. Passes of areas that use the default prices are good at every such area.
+- Pass sales count at each household's nearest ski area.
+- The price lines say in plain words how many guests a ticket price turns away and how many buyers a pass price puts off.
+- With a lift ticket price of 0, the pass controls stay in place, dimmed: there are no pass sales while lift tickets are off.
+- The Options prices are now the default for every ski area that has no price of its own. Lowering the default pass price after a season's sales started applies from the next season.
+- Old saves keep today's prices and calendar until you change an area's prices. This version adds new save data: do not load its saves in 1.0.3 or older (their prices fall back to the Options values).
+
 ## 1.0.3 (PDX version 4, 2026-11-19)
 
 - Save compatible with previous: yes
