@@ -20,7 +20,8 @@ SHEET (cs2_signset.SHEET / paint_sheet)
 - SS6 ControlMask: 0 everywhere (negative: one tinted texel is found).
 - SS7 determinism: two paints hash identically (full mode).
 - SS8 typography: nitpick C (2026-10-13). The font table's kinds are painted in their installed typefaces (Bookman Old
-  Style Bold: GRAND LODGE with lozenges + rule, SKI AREA. Franklin Gothic Demi Cond: SKI SCHOOL, RESTAURANT, SKI PATROL x
+  Style Bold: GRAND LODGE with lozenges + rule. Source Sans Pro Bold, the game's own: SKI AREA (T285). Franklin
+  Gothic Demi Cond: SKI SCHOOL, RESTAURANT, SKI PATROL x
   2, the school markings). The font files are present and sha1-pinned. No lit Bfont name board is left. The thinner
   stroke is >= 4 px (negatives: a changed font file and a missing one raise).
 - SS9 blank: hut.picto is a blank board (flat inside the trim rim, unlit) (negative: the fork-and-knife).
@@ -219,7 +220,7 @@ def ss5_ss6(maps):
 # ======================================================================================
 
 #: the font table (kind -> the typeface it must be painted in). Every lettered NAME board leaves Bfont
-NC_FACES = {"l5.name": "bookman_bold", "gate.header": "bookman_bold", "school.name": "franklin_demi_cond",
+NC_FACES = {"l5.name": "bookman_bold", "gate.header": "ssp_bold", "school.name": "franklin_demi_cond",
             "hut.name": "franklin_demi_cond", "p1.name": "franklin_demi_cond", "p2.name": "franklin_demi_cond",
             "school.markstaff": "franklin_demi_cond", "school.marknosled": "franklin_demi_cond"}
 NC_BLANK = ("hut.picto",)
