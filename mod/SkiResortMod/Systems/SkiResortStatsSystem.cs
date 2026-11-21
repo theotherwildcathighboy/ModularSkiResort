@@ -140,6 +140,20 @@ namespace SkiResortMod.Systems
         // Contract 59 (T267): PassesSoldMonth = the passes sold at the area this month (the ledger's month count: the count behind
         // PassIncomeMonth, whose money also holds the destination passes' day fees). -1 unknown.
         public int PassesSoldMonth;
+        // Contract 62 (T284, 1.0.4): the area's own prices (SkiLiftTicketSystem.AreaPriceOf), appended in this order.
+        // AreaTicket = the area's day ticket (0 = tickets off there), TicketOwn = it is the area's own (else the Options default).
+        // The plan in force this season (Pass*: early price, rise %, sale months, rise months; masks are 12 bits of season months, 0 = the
+        // season's first month) and the plan the next season gets (PassNext*). PlanOwn = the next plan is the area's own; PlanLocked = the
+        // plan in force is locked (its sale started); PlanOnDefault = the plan in force is the Options default (pool passes).
+        // PassNow = the pass price now (0 = not on sale), PassDemandPct = the pass demand now in percent (value left), ValueLeftPct = the
+        // share of the winter still ahead, SeasonMonth = the season month now (0..11), SeasonFirstMonth = the calendar month (1..12) of
+        // season month 0, WinterStart / WinterEnd = the winter in season positions. -1 on the Not linked row.
+        public int AreaTicket; public bool TicketOwn;
+        public int PassEarly, PassRisePct, PassSaleMask, PassRiseMask;
+        public int PassNextEarly, PassNextRisePct, PassNextSaleMask, PassNextRiseMask;
+        public bool PlanOwn, PlanLocked, PlanOnDefault;
+        public int PassNow, PassDemandPct, ValueLeftPct, SeasonMonth, SeasonFirstMonth;
+        public float WinterStart, WinterEnd;
 
         /// <summary>The terms NetMonth was computed from (-1 unknown).</summary>
         public HubMonthMoney NetTerms => new HubMonthMoney
@@ -2186,7 +2200,6 @@ namespace SkiResortMod.Systems
             double monthShare = counterArmed
                 ? HubRules.MonthShare(m_GuestCounter.MonthFramesSimulated, SkiMoneyRules.MonthFrames(m_TimeSystem.daysPerYear))
                 : -1.0;
-            int price = city.TicketPrice;
 
             // Ski days are "off" when both settings are 0 (the clamped readers), once per rebuild. BuildProblems reads the field.
             // SkiDaySystem's views are read per sign below (main thread, no job sync).
@@ -2257,6 +2270,9 @@ namespace SkiResortMod.Systems
                     continue;
                 }
 
+                // T284: the area's own prices (the ticket system's per-sign cache, or the Options defaults resolved now).
+                SkiLiftTicketSystem.AreaPrice areaPrice = m_LiftTicket.AreaPriceOf(sign);
+                int price = areaPrice.R.Ticket;
                 bool hasResult = m_Attractiveness.TryGetAreaScore(sign, out SkiResortAttractivenessSystem.AreaScoreView v);
                 m_Work[s].HasResult = hasResult;
                 m_Work[s].View = v;
@@ -2574,6 +2590,7 @@ namespace SkiResortMod.Systems
                 SetNetRows(ref live, in money);
                 live.PassIncomePreMonth = counterArmed ? ClampToInt(Math.Max(0L, booked.PassIncomePre)) : -1;
                 live.PassesSoldMonth = counterArmed ? ClampToInt(Math.Max(0L, booked.PassesSold)) : -1;
+                SetPriceFields(ref live, in areaPrice);
                 live.NetMonth = HubRules.NetMonth(money, out bool netEstimated);
                 live.NetEstimated = netEstimated;
                 m_ResortLiveNext.Add(live);
@@ -2616,6 +2633,11 @@ namespace SkiResortMod.Systems
                 // no ski area: no tourism bonus part, no resort hotel (contract 50).
                 BonusPct = -1f, BonusSizePct = -1f, BonusLiftLines = -1, BonusTierPoints = -1, BonusOpenSharePct = -1,
                 HotelGuests = -1, HotelRented = -1, HotelRooms = -1,
+                // no ski area: no prices of its own (contract 62).
+                AreaTicket = -1, PassEarly = -1, PassRisePct = -1, PassSaleMask = -1, PassRiseMask = -1,
+                PassNextEarly = -1, PassNextRisePct = -1, PassNextSaleMask = -1, PassNextRiseMask = -1,
+                PassNow = -1, PassDemandPct = -1, ValueLeftPct = -1, SeasonMonth = -1, SeasonFirstMonth = -1,
+                WinterStart = -1f, WinterEnd = -1f,
             };
             if (m_LiftCharge.TryGetResort(Entity.Null, out SkiLiftChargeSystem.ResortLiftCharge charge))
             {
@@ -2651,6 +2673,31 @@ namespace SkiResortMod.Systems
 
         /// <summary>The Net rows (and the two earlier rows that are Net terms: TicketsThisMonth, LessonIncomeMonth) from the terms
         /// NetMonth uses, so the UI's rows and the Net come from one HubMonthMoney.</summary>
+        /// <summary>Contract 62 (T284): the area's own prices into the live row.</summary>
+        private static void SetPriceFields(ref ResortLiveStats live, in SkiLiftTicketSystem.AreaPrice ap)
+        {
+            live.AreaTicket = ap.R.Ticket;
+            live.TicketOwn = ap.R.OwnTicket != 0;
+            live.PassEarly = ap.R.Plan.Early;
+            live.PassRisePct = ap.R.Plan.RisePct;
+            live.PassSaleMask = ap.R.Plan.SaleMask;
+            live.PassRiseMask = ap.R.Plan.RiseMask;
+            live.PassNextEarly = ap.R.Next.Early;
+            live.PassNextRisePct = ap.R.Next.RisePct;
+            live.PassNextSaleMask = ap.R.Next.SaleMask;
+            live.PassNextRiseMask = ap.R.Next.RiseMask;
+            live.PlanOwn = ap.R.OwnPlan != 0;
+            live.PlanLocked = ap.R.Locked != 0;
+            live.PlanOnDefault = ap.R.OnDefault != 0;
+            live.PassNow = ap.SalePrice;
+            live.PassDemandPct = ap.SalePrice > 0 ? HubRules.Percent(ap.Demand) : -1;
+            live.ValueLeftPct = HubRules.Percent(ap.ValueLeft);
+            live.SeasonMonth = SkiPassPlanRules.MonthOf(ap.SeasonPos);
+            live.SeasonFirstMonth = ap.FirstMonth;
+            live.WinterStart = (float)ap.WinterStart;
+            live.WinterEnd = (float)ap.WinterEnd;
+        }
+
         private static void SetNetRows(ref ResortLiveStats live, in HubMonthMoney money)
         {
             live.TicketsThisMonth = money.TicketIncome;
@@ -3338,6 +3385,24 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.LodgesOffSeason);
                 h = Mix(h, r.SchoolOffSeason ? 1u : 0u);
                 h = Mix(h, (uint)r.PassesSoldMonth);
+                h = Mix(h, (uint)r.AreaTicket);
+                h = Mix(h, r.TicketOwn ? 1u : 0u);
+                h = Mix(h, (uint)r.PassEarly);
+                h = Mix(h, (uint)r.PassRisePct);
+                h = Mix(h, (uint)r.PassSaleMask);
+                h = Mix(h, (uint)r.PassRiseMask);
+                h = Mix(h, (uint)r.PassNextEarly);
+                h = Mix(h, (uint)r.PassNextRisePct);
+                h = Mix(h, (uint)r.PassNextSaleMask);
+                h = Mix(h, (uint)r.PassNextRiseMask);
+                h = Mix(h, (r.PlanOwn ? 1u : 0u) | (r.PlanLocked ? 2u : 0u) | (r.PlanOnDefault ? 4u : 0u));
+                h = Mix(h, (uint)r.PassNow);
+                h = Mix(h, (uint)r.PassDemandPct);
+                h = Mix(h, (uint)r.ValueLeftPct);
+                h = Mix(h, (uint)r.SeasonMonth);
+                h = Mix(h, (uint)r.SeasonFirstMonth);
+                h = MixF(h, r.WinterStart);
+                h = MixF(h, r.WinterEnd);
             }
             return Mix(h, (uint)rows.Count);
         }
@@ -3711,6 +3776,12 @@ namespace SkiResortMod.Systems
               .Append("; passes this season ").Append(l.PassesSoldSeason).Append(" +").Append(l.PassIncomeSeason)
               .Append(", pass-holder guests this month ").Append(l.PassHoldersThisMonth).Append(" / last ").Append(l.PassHoldersLastMonth)
               .Append(", passes sold this month ").Append(l.PassesSoldMonth)
+              .Append(", ticket ").Append(l.AreaTicket).Append(l.TicketOwn ? " own" : " default")
+              .Append(", pass plan early ").Append(l.PassEarly).Append(" +").Append(l.PassRisePct).Append(" % sale 0x").Append(l.PassSaleMask.ToString("X3"))
+              .Append(" rise 0x").Append(l.PassRiseMask.ToString("X3")).Append(l.PlanLocked ? " locked" : "").Append(l.PlanOnDefault ? " default" : " own")
+              .Append(", next early ").Append(l.PassNextEarly).Append(" +").Append(l.PassNextRisePct).Append(" % sale 0x").Append(l.PassNextSaleMask.ToString("X3"))
+              .Append(" rise 0x").Append(l.PassNextRiseMask.ToString("X3")).Append(", pass now ").Append(l.PassNow).Append(" demand ").Append(l.PassDemandPct)
+              .Append(" %, value left ").Append(l.ValueLeftPct).Append(" %")
               .Append(", turned away by price this month ").Append(l.PriceTurnedThisMonth).Append(" / last ").Append(l.PriceTurnedLastMonth)
               .Append("; pre-season passes ").Append(l.PassesPreSeason).Append(" +").Append(l.PassIncomePreSeason)
               .Append("; lessons this month ").Append(l.LessonsThisMonth).Append(" +").Append(l.LessonIncomeMonth).Append(" / last ").Append(l.LessonsLastMonth)

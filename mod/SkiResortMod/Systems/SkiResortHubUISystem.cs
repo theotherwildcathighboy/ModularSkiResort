@@ -43,7 +43,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 61;
+        public const int HubContract = 62;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -530,6 +530,7 @@ namespace SkiResortMod.Systems
             SyncCard, SyncInclude, SyncKeep, SyncRun,   // contract 51: Sync Resort (SkiResortHubUISystem.Sync.cs)
             SetTicketPrice,                  // contract 54: the Money view's price slider (Int = price), T240
             SetPassPrice,                    // contract 56: the Money view's season pass slider (Int = the price in money), r3/sliders
+            SetAreaPrice,                    // contract 62 (T284): one area's prices (Entity = sign, Bool unused, Int = value, Text = the edit kind)
         }
 
         private struct Request
@@ -902,6 +903,12 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<string, int>(Group, "setDrawRun", OnSetDrawRun));
             AddBinding(new TriggerBinding<int>(Group, "setTicketPrice", OnSetTicketPrice));   // contract 54: T240
             AddBinding(new TriggerBinding<int>(Group, "setPassPrice", OnSetPassPrice));   // contract 56: r3/sliders
+            // Contract 62 (T284): one ski area's own prices (the Money view; the Options values stay the default of the other areas).
+            AddBinding(new TriggerBinding<Entity, int>(Group, "setAreaTicket", OnSetAreaTicket));
+            AddBinding(new TriggerBinding<Entity, int>(Group, "setAreaPassEarly", OnSetAreaPassEarly));
+            AddBinding(new TriggerBinding<Entity, int>(Group, "setAreaPassRise", OnSetAreaPassRise));
+            AddBinding(new TriggerBinding<Entity, int>(Group, "setAreaPassMonths", OnSetAreaPassMonths));
+            AddBinding(new TriggerBinding<Entity, int>(Group, "setAreaUseDefault", OnSetAreaUseDefault));
 
             Mod.Log.Info($"{nameof(SkiResortHubUISystem)} created — group '{Group}', contract {HubContract}, " +
                          $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 20 value bindings, " +
@@ -1224,6 +1231,27 @@ namespace SkiResortMod.Systems
         private void OnSetPassPrice(int price) =>
             Trigger("setPassPrice", new Request { Kind = RequestKind.SetPassPrice, Int = price });
 
+        // Contract 62 (T284): Text carries the edit kind (SkiLiftTicketSystem.AreaEdit) by name.
+        private void OnSetAreaTicket(Entity sign, int price) =>
+            Trigger("setAreaTicket", new Request { Kind = RequestKind.SetAreaPrice, Entity = sign, Int = price, Text = nameof(SkiLiftTicketSystem.AreaEdit.Ticket) });
+
+        private void OnSetAreaPassEarly(Entity sign, int price) =>
+            Trigger("setAreaPassEarly", new Request { Kind = RequestKind.SetAreaPrice, Entity = sign, Int = price, Text = nameof(SkiLiftTicketSystem.AreaEdit.PassEarly) });
+
+        private void OnSetAreaPassRise(Entity sign, int pct) =>
+            Trigger("setAreaPassRise", new Request { Kind = RequestKind.SetAreaPrice, Entity = sign, Int = pct, Text = nameof(SkiLiftTicketSystem.AreaEdit.PassRise) });
+
+        private void OnSetAreaPassMonths(Entity sign, int masks) =>
+            Trigger("setAreaPassMonths", new Request { Kind = RequestKind.SetAreaPrice, Entity = sign, Int = masks, Text = nameof(SkiLiftTicketSystem.AreaEdit.PassMonths) });
+
+        /// <summary>part 1 = the ticket, 2 = the pass plan.</summary>
+        private void OnSetAreaUseDefault(Entity sign, int part) =>
+            Trigger("setAreaUseDefault", new Request
+            {
+                Kind = RequestKind.SetAreaPrice, Entity = sign, Int = part,
+                Text = part == 1 ? nameof(SkiLiftTicketSystem.AreaEdit.TicketDefault) : nameof(SkiLiftTicketSystem.AreaEdit.PlanDefault),
+            });
+
         private void OnFocusLift(Entity entity, Entity top) =>
             Trigger("focusLift", new Request { Kind = RequestKind.FocusLift, Entity = entity, Entity2 = top });
 
@@ -1489,8 +1517,31 @@ namespace SkiResortMod.Systems
                 case RequestKind.SetPassPrice:
                     ApplyPassPrice(r.Int, r.Source);
                     break;
+                case RequestKind.SetAreaPrice:
+                    ApplyAreaPrice(r);
+                    break;
             }
         }
+
+        /// <summary>Contract 62 (T284): one area's price edit, through the ticket system (it owns the season lock: an edit after the season's
+        /// sale started applies from the next season). The Options values are not touched.</summary>
+        private void ApplyAreaPrice(in Request r)
+        {
+            SkiLiftTicketSystem.AreaEdit edit;
+            if (!Enum.TryParse(r.Text, out edit))
+                return;
+            m_LiftTicket ??= World.GetOrCreateSystemManaged<SkiLiftTicketSystem>();
+            string text = m_LiftTicket.EditArea(r.Entity, edit, r.Int);
+            LastTriggerText = $"area price {edit}({r.Int}) -> {(text ?? "refused: no such ski area")}";
+            if (text == null)
+            {
+                Mod.Log.Warn($"Hub: area price {edit}({r.Int}) refused, sign {r.Entity.Index}:{r.Entity.Version} is not a live ski area{SourceSuffix(r.Source)}");
+                return;
+            }
+            Mod.Log.Info($"Hub: {text}{SourceSuffix(r.Source)}");
+        }
+
+        private SkiLiftTicketSystem m_LiftTicket;
 
         /// <summary>T240 (contract 54): the Money view's price stepper writes the Options setting LiftTicketPrice (one price for every ski
         /// area) and saves the options file, as the Options page does. Snapped to the slider's step (SkiMoneyRules.SnapTicketPrice).
@@ -3924,6 +3975,47 @@ namespace SkiResortMod.Systems
                 writer.Write(r.SchoolOffSeason);
                 writer.PropertyName("passesSoldMonth");   // 59 (T267)
                 writer.Write(Fin(r.PassesSoldMonth));
+                // Contract 62 (T284): the area's own prices. Every path writes every field (one shape per TypeBegin name).
+                writer.PropertyName("areaTicket");
+                writer.Write(Fin(r.AreaTicket));
+                writer.PropertyName("ticketOwn");
+                writer.Write(r.TicketOwn);
+                writer.PropertyName("passEarly");
+                writer.Write(Fin(r.PassEarly));
+                writer.PropertyName("passRisePct");
+                writer.Write(Fin(r.PassRisePct));
+                writer.PropertyName("passSaleMask");
+                writer.Write(Fin(r.PassSaleMask));
+                writer.PropertyName("passRiseMask");
+                writer.Write(Fin(r.PassRiseMask));
+                writer.PropertyName("passNextEarly");
+                writer.Write(Fin(r.PassNextEarly));
+                writer.PropertyName("passNextRisePct");
+                writer.Write(Fin(r.PassNextRisePct));
+                writer.PropertyName("passNextSaleMask");
+                writer.Write(Fin(r.PassNextSaleMask));
+                writer.PropertyName("passNextRiseMask");
+                writer.Write(Fin(r.PassNextRiseMask));
+                writer.PropertyName("planOwn");
+                writer.Write(r.PlanOwn);
+                writer.PropertyName("planLocked");
+                writer.Write(r.PlanLocked);
+                writer.PropertyName("planOnDefault");
+                writer.Write(r.PlanOnDefault);
+                writer.PropertyName("passNow");
+                writer.Write(Fin(r.PassNow));
+                writer.PropertyName("passDemandPct");
+                writer.Write(Fin(r.PassDemandPct));
+                writer.PropertyName("valueLeftPct");
+                writer.Write(Fin(r.ValueLeftPct));
+                writer.PropertyName("seasonMonth");
+                writer.Write(Fin(r.SeasonMonth));
+                writer.PropertyName("seasonFirstMonth");
+                writer.Write(Fin(r.SeasonFirstMonth));
+                writer.PropertyName("winterStart");
+                writer.Write(Fin(r.WinterStart));
+                writer.PropertyName("winterEnd");
+                writer.Write(Fin(r.WinterEnd));
                 writer.TypeEnd();
             }
             writer.ArrayEnd();

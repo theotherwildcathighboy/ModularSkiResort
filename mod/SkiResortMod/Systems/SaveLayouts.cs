@@ -90,6 +90,13 @@ namespace SkiResortMod.Systems
             // 1.0.2 (T229, DECISIONS 670): the per-object rules stamp, a NEW type (no shipped row grows). Absent = level 0.
             new Layout("SkiRulesStamp", "RulesStamp", KindComponent,
                 new LayoutVersion(1, 6, "m_Rules:i32 m_Flags:u8")),
+            // 1.0.4 (T284): the per-area day ticket and season pass plan on the Welcome Sign, NEW types (no shipped row grows). Absent = the
+            // Options default (1.0.3). SkiSeasonPassArea sits beside the frozen SkiSeasonPass on the household. Absent = good at every area.
+            new Layout("SkiPassPlan", "PassPlan", KindComponent,
+                new LayoutVersion(1, 36, "m_Flags:u8 m_TicketPrice:i32 m_EarlyPrice:i32 m_RisePct:u8 m_SaleMask:i32 m_RiseMask:i32 " +
+                                   "m_LockSeason:i32 m_LockEarly:i32 m_LockRisePct:u8 m_LockSaleMask:i32 m_LockRiseMask:i32")),
+            new Layout("SkiSeasonPassArea", "PassArea", KindComponent,
+                new LayoutVersion(1, 6, "m_Flags:u8 m_Sign:entity")),
         };
         // FROZEN-END
 

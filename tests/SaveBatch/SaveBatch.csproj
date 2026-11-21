@@ -26,6 +26,7 @@
     <Compile Include="DllAliasTests.cs" />
     <Compile Include="ChangelogTests.cs" />
     <Compile Include="RulesStampTests.cs" />
+    <Compile Include="PassPlanTests.cs" />
     <Compile Include="EngineShims.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SaveLayouts.cs" Link="SaveLayouts.cs" />
     <!-- the persisted types -->
@@ -41,6 +42,10 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRulesLevel.cs" Link="SkiRulesLevel.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunName.cs" Link="SkiRunName.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSeasonPass.cs" Link="SkiSeasonPass.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiPassPlan.cs" Link="SkiPassPlan.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSeasonPassArea.cs" Link="SkiSeasonPassArea.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiPassPlanRules.cs" Link="SkiPassPlanRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiPassRules.cs" Link="SkiPassRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortHistory.cs" Link="SkiResortHistory.cs" />
     <!-- SkiResortHistory.cs's pure dependencies (the same files tests/ResortBatch links) -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\EntityRef.cs" Link="EntityRef.cs" />

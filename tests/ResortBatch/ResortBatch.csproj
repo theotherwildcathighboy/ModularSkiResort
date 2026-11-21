@@ -98,6 +98,8 @@
     <!-- 1.0.3 T258: the price check of game-sent tourist parties (SkiDayRules, linked above). -->
     <Compile Include="PartyPriceTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiPassRules.cs" Link="SkiPassRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiPassPlanRules.cs" Link="SkiPassPlanRules.cs" />
+    <Compile Include="PlanRulesTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiBusRules.cs" Link="SkiBusRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiDayTiming.cs" Link="SkiDayTiming.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiParkingRules.cs" Link="SkiParkingRules.cs" />
