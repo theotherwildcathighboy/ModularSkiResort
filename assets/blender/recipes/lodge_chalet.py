@@ -624,7 +624,7 @@ RECIPE = FineRecipe(
     # built name (no consumer reads it). buildings-integration 1
     asset="SkiLodgeChaletCommercialLow", prefab="SkiLodgeMid", category="lodges",
     lot=LOT, base_mode="engine", plinth=None, yaw_deg=0.0, tex=2048, allow_4096=False,
-    budget=Budget(11000, 12000, 4800, 500, 500),
+    budget=Budget(11000, 12800, 4800, 500, 500),   # r7 (T273): 12,000 -> 12,800 (+6.7 %, overnight call 8); tiled LOD0 12,770 at weather level 0 under cull v2 + gutter backs + flag rims
     massing="custom", builder=build_chalet,
     rooms=ROOMS, interior="CommercialLow",
     # one resort, one trim (lodges-basic Q6): L1's shipped green. Slot 2 = house orange (banners). Slot 3 inert (no
