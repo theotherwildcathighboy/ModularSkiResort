@@ -554,6 +554,11 @@ The report:
 
 The runner compares the census with the baseline beside the save and judges part (b); parts (a) and (c) come from the op.
 
+**Which playset (2026-11-21).** "Standard Mod Set" is the test-pass set. It includes Tourism Overhaul and the Realistic* mods,
+which change tourism, leisure and commercial demand. Label tourism or economy numbers from it "with Tourism Overhaul". For any
+measurement meant to stand for an unmodded game (A/B of economy options, memory per load, tourism), use the playset
+**"MSR base"** with a near-vanilla city (Corwen). Switching the playset restarts the game (see the bridge notes below).
+
 **World gate (DECISIONS 664, T228).** The runner first reads `tools\world.ps1 -World Status -Json` and stops (exit 2) unless the world is
 a clean PLAYER (published pack, ImportedData parked, playset "Standard Mod Set"); `-AnyWorld` runs anyway with the gate off. In a
 Player world part (a) also FAILs on any `Unknown prefab ID` line naming a Ski prefab after the load click (a save built outside the
