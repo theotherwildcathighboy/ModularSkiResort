@@ -6,19 +6,24 @@ where "SKI SCHOOL" text is too small. 1.0.3's cand_d read as a figure kneeling o
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_school_emblem.py
 
 - E1 strokes: every registered design's thinnest stroke (line width, disk diameter) is >= MIN_STROKE_TEXELS texels at the
-  mip a 45 m 1080p frame samples (school_emblem.glyph_texels: 3.04 m at 55.9 px/m, mip 1 = 85 texels). Negative: a
-  design with a 6-unit pole fails.
-- E2 head: rendered at mip 1 (85 texels, 2 x 2 box filter of the 170-texel mip 0) and cut at 0.5 coverage, each design's
-  head (its largest disk) is a blob of its own: the 4-connected component under the head center spans no more than the
-  disk plus 2 texels. Negative: the head moved onto the shoulders fails.
+  mip a 45 m 1080p frame samples (school_emblem.glyph_texels: 2.62 m at 55.9 px/m, mip 1 = 73 texels). Negative: a 6-unit
+  pole fails.
+- E2 head: rendered at mip 1 (2 x 2 box filter of mip 0) and cut at 0.5 coverage, each design's head (its largest disk) is
+  a blob of its own: the 4-connected component under the head center spans no more than the disk plus 2 texels. Negative:
+  the head moved onto the shoulders fails.
+- E5 the research spec (r7 RESEARCH.md section 2): torso 30-40 deg forward of vertical; ONE ski at 12-18 deg; the slope
+  line its own blob at mip 1 (no merge with the ski); the pole angled back (its tip behind the hand); the figure (head top
+  to ski bottom) >= 2.0 m on the building; the glyph inside the tile's red with >= 3 texels to spare at mip 1; the tile
+  rim >= 3 texels at mip 1. Negative: a slope line 4 units under the ski merges.
 - E3 wiring: cs2_bldg.glyph_prims resolves every school_emblem name and still resolves cand_d to
   ski_launcher_glyph.cand_d (flag off unchanged). school.v1_labels: the same label prefixes in the same order as
-  RECIPE.labels; the field (at FIELD_FRAC_V1) and both flags draw EMBLEM_V1 (field without ground, flags on SCHOOL_RED); every other
-  entry is RECIPE's own. RECIPE.labels (flag off) keeps the _Lazy cand_d field painter and cand_d flags. The school's
-  field numbers give FIELD_GLYPH_M.
+  RECIPE.labels; the field is the tile (white square, SCHOOL_RED inset by TILE_RIM) under EMBLEM_V1 at FIELD_FRAC_V1;
+  both flags draw EMBLEM_V1 on SCHOOL_RED; every other entry is RECIPE's own. RECIPE.labels (flag off) keeps the _Lazy
+  cand_d field painter and cand_d flags. The school's field numbers give FIELD_GLYPH_M.
 - E4 build: lodge.build_parts with opts["texpass"] = "v1" hands back recipe_replace["labels"] == v1_labels(); without
   the flag no "labels" key (flag-off builds paint as 1.0.3).
 """
+import math
 import os
 import sys
 
@@ -96,11 +101,60 @@ def e1_e2():
               f"({E.min_stroke(pr)} units = {t:.2f} texels)")
         ok, det = head_blob(pr)
         check(ok, f"E2 {nm}: the head is its own blob at mip {E.MIP_45M}", det)
-    thin = E.skier_b()[:-1] + [("line", [(182.0, 108.0), (210.0, 186.0)], 6.0)]
+    parts = E.skier_parts()
+    thin = list({**parts, "pole": ("line", parts["pole"][1], 6.0)}.values())
     check(stroke_texels(thin) < E.MIN_STROKE_TEXELS, "E1 negative: a 6-unit pole fails",
           f"({stroke_texels(thin):.2f} texels)")
-    sunk = [p if p[0] != "disk" else ("disk", 150.0, 74.0, 22.0) for p in E.skier_b()]
+    sunk = list({**parts, "head": ("disk", 146.0, 76.0, 22.0)}.values())
     check(not head_blob(sunk)[0], "E2 negative: the head on the shoulders fails", head_blob(sunk)[1])
+
+
+def _deg(p, q):
+    return math.degrees(math.atan2(q[1] - p[1], q[0] - p[0]))
+
+
+def slope_apart(pr, slope):
+    """The slope line's component at mip 1 (0.5 cut) holds no texel of the ski's center line."""
+    a = mip1(pr)
+    s = a.shape[0] / E.CANVAS
+    (x0, y0), (x1, y1) = slope[1][0], slope[1][-1]
+    xm, ym = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+    comp = component(a >= 0.5, int(ym * s), int(xm * s))
+    ski = [(int(E._on_ski(x) * s), int(x * s)) for x in range(30, 200, 4)]
+    return bool(comp.any()) and not any(comp[r, c] for r, c in ski if 0 <= r < comp.shape[0])
+
+
+def e5():
+    P = E.skier_parts()
+    sch = R.get_recipe("school").builder.__globals__
+    (hx, hy), (sx, sy) = P["torso"][1][0], P["torso"][1][-1]
+    lean = math.degrees(math.atan2(sx - hx, hy - sy))
+    check(30.0 <= lean <= 40.0, "E5 torso 30-40 deg forward of vertical", f"({lean:.1f} deg)")
+    ski = _deg(P["ski"][1][0], P["ski"][1][1])
+    longs = [p for p in E.skier_b() if p[0] == "line" and math.dist(p[1][0], p[1][-1]) > 150.0]
+    check(12.0 <= ski <= 18.0 and len(longs) == 2, "E5 ONE ski at 12-18 deg (the long strokes: the ski and the slope line)",
+          f"({ski:.1f} deg, {len(longs)} long strokes)")
+    check(slope_apart(E.skier_b(), P["slope"]), "E5 the slope line is its own blob at mip 1")
+    near = ("line", [(q[0], q[1] - 16.0) for q in P["slope"][1]], 12.0)
+    check(not slope_apart(list({**P, "slope": near}.values()), near),
+          "E5 negative: a slope line 4 units under the ski merges")
+    hand, tip = P["pole"][1][0], P["pole"][1][-1]
+    check(tip[0] < hand[0] and tip[1] > hand[1], "E5 the pole is angled back (tip behind and below the hand)",
+          f"(hand {hand}, tip {tip})")
+    m_per_unit = E.FIELD_GLYPH_M / E.CANVAS
+    top = P["head"][2] - P["head"][3]
+    bot = max(q[1] for q in P["ski"][1]) + P["ski"][2] / 2.0
+    check((bot - top) * m_per_unit >= 2.0, "E5 the figure is >= 2.0 m tall on the building",
+          f"({(bot - top) * m_per_unit:.2f} m)")
+    side = sch["FIELD"][1] - sch["FIELD"][0]
+    rim = sch["TILE_RIM"] * side
+    tex1 = E.SHEET_PPM / 2 ** E.MIP_45M
+    check(rim * tex1 >= E.MIN_STROKE_TEXELS, "E5 the tile rim >= 3 texels at mip 1", f"({rim * tex1:.1f} texels)")
+    x0, y0, x1, y1 = E.extent(E.skier_b())
+    half_red = side / 2.0 - rim
+    far = max(abs(v - E.CANVAS / 2.0) for v in (x0, y0, x1, y1)) * m_per_unit
+    check((half_red - far) * tex1 >= E.MIN_STROKE_TEXELS,
+          "E5 the glyph sits inside the tile's red with >= 3 texels to spare", f"({(half_red - far) * tex1:.1f} texels)")
 
 
 def e3():
@@ -118,7 +172,12 @@ def e3():
     field = by[sch["FIELD_FACE"]]
     fd = dict(field[2]["draws"])
     check(field[1] == "display" and fd["glyph"]["prims"] == em and "bg" not in fd["glyph"]
-          and fd["glyph"]["frac"] == sch["FIELD_FRAC_V1"], "E3 v1 field: display glyph EMBLEM_V1, no ground, FIELD_FRAC_V1")
+          and fd["glyph"]["frac"] == sch["FIELD_FRAC_V1"], "E3 v1 field: display glyph EMBLEM_V1 at FIELD_FRAC_V1")
+    items = fd.get("shapes", {}).get("items", ())
+    check([d[0] for d in field[2]["draws"]] == ["shapes", "glyph"] and len(items) == 2
+          and items[0][0] == items[1][0] == "square" and items[0][3] == 1.0 and tuple(items[0][4]) == (sch["WHITE"],) * 3
+          and abs(items[1][3] - (1.0 - 2.0 * sch["TILE_RIM"])) < 1e-9 and tuple(items[1][4]) == tuple(sch["SCHOOL_RED"]),
+          "E3 v1 field: the tile (white square, SCHOOL_RED inset by TILE_RIM) under the glyph")
     for s in "AB":
         g = dict(by[f"emblem_schoolflag{s}_face"][2]["draws"])["glyph"]
         check(g["prims"] == em and tuple(g["bg"]) == tuple(sch["SCHOOL_RED"]), f"E3 v1 flag {s}: EMBLEM_V1 on SCHOOL_RED")
@@ -150,12 +209,13 @@ def e4():
 
 def main():
     e1_e2()
+    e5()
     e3()
     e4()
     if FAILS:
         print(f"FAIL test_school_emblem: {len(FAILS)} failed: {FAILS}")
         sys.exit(1)
-    print(f"PASS test_school_emblem: E1-E4 + 2 negatives ({N_OK[0]} ok)")
+    print(f"PASS test_school_emblem: E1-E5 + 3 negatives ({N_OK[0]} ok)")
 
 
 main()

@@ -7,10 +7,16 @@ WHY. The 1.0.3 tower field drew ski_launcher_glyph.cand_d, a launcher-icon candi
 the building it read as a figure kneeling on a sled: the skis sank into the white wedge, the one bent leg read as a
 kneel, and nothing said "ski" at 45 m (owner review 2026-11-20, T278).
 
-WHERE IT IS DRAWN. The school's tower field (emblem_school_face, 3.2 m, the v1 glyph at 0.95 = 3.04 m) and the two flag
-cloths sit in the school's label rect of the FAMILY SHEET (55.9 px/m: 170 px at mip 0). A 1080p frame at 45 m shows
-1,304 / 45 = 29 px/m, so the game samples mip 1 (85 px across the glyph). Rule (test_school_emblem E1): every stroke
->= 3 texels at that mip = 9 canvas units; the flag (22 px at mip 1) is a color read only.
+WHERE IT IS DRAWN. The school's tower field (emblem_school_face, 3.2 m) becomes a sign tile: a white rim, SCHOOL_RED
+inside, the glyph at 0.82 of the face (2.62 m, the figure from head to ski 2.04 m) in white. The field and the two flag
+cloths sit in the school's label rect of the FAMILY SHEET (55.9 px/m: 147 px across the glyph at mip 0). A 1080p frame at
+45 m shows 1,304 / 45 = 29 px/m, so the game samples mip 1 (73 px across the glyph). Rule (test_school_emblem E1): every
+stroke >= 3 texels at that mip = 10.5 canvas units; the flag (22 px at mip 1) is a color read only.
+
+THE DESIGN follows the r7 research (RESEARCH.md section 2, the Olympic / Paralympic pictogram conventions, nothing copied):
+the head a disk of its own, the torso 37 deg forward of vertical, the knees bent with an open angle between thigh and
+torso, ONE long ski on a 15 deg slope with its tip turned up, a slope line under it, the arm reaching forward and the pole
+angled back from the hand with a basket.
 
 DROP-IN. A design is a function returning the primitive list, registered in EMBLEMS. recipes/school.py names the one
 the v1 build paints (EMBLEM_V1). A sign or mascot variant drops in as one more function plus that one constant: same
@@ -21,11 +27,12 @@ Every design here is drawn for this mod. None copies a ski-school logo, mascot o
 
 CANVAS = 256
 # The read rule (tests/test_school_emblem.py E1 / E2): the tower field's glyph is FIELD_GLYPH_M across on the family sheet
-# at SHEET_PPM (152 texels at mip 0); a 1080p frame at 45 m (screen 1,304 / 45 = 29 px/m) samples mip MIP_45M (76 texels).
-FIELD_GLYPH_M = 3.04            # recipes/school.py FIELD_FRAC_V1 0.95 x the 3.2 m field (1.0.3: 0.85 = 2.72 m)
+# at SHEET_PPM (147 texels at mip 0); a 1080p frame at 45 m (screen 1,304 / 45 = 29 px/m) samples mip MIP_45M (73 texels).
+FIELD_GLYPH_M = 2.624           # recipes/school.py FIELD_FRAC_V1 0.82 x the 3.2 m field (1.0.3: 0.85 = 2.72 m, no tile)
 SHEET_PPM = 55.9                # SkiTileSheetW, label rect emblem_school_face (manifest tiled.tile_mesh.label_rects)
 MIP_45M = 1
 MIN_STROKE_TEXELS = 3.0
+SLOPE_DEG = 15.0
 
 
 def glyph_texels(mip=MIP_45M):
@@ -33,43 +40,32 @@ def glyph_texels(mip=MIP_45M):
     return FIELD_GLYPH_M * SHEET_PPM / 2 ** mip
 
 
+def _on_ski(x):
+    """The ski's center line: y at canvas x (the slope SLOPE_DEG, down to the right)."""
+    return 160.0 + (x - 22.0) * 0.266
+
+
+def skier_parts():
+    """skier_b by part name (tests swap one part for a negative)."""
+    return {
+        "slope": ("line", [(16.0, _on_ski(16.0) + 26.0), (240.0, _on_ski(240.0) + 26.0)], 12.0),   # 12-unit gap to the ski
+        "ski": ("line", [(22.0, 160.0), (206.0, _on_ski(206.0)), (230.0, 195.0)], 16.0),          # tip turned up
+        "leg": ("line", [(116.0, _on_ski(116.0)), (150.0, 146.0), (108.0, 121.0)], 28.0),         # boot, knee, hip
+        "torso": ("line", [(108.0, 121.0), (138.0, 81.0)], 32.0),                                 # 37 deg forward
+        "head": ("disk", 170.0, 40.0, 22.0),                                                      # 14 units clear
+        "arm": ("line", [(138.0, 86.0), (196.0, 100.0)], 18.0),                                   # reaching forward
+        "pole": ("line", [(196.0, 100.0), (178.0, 172.0)], 14.0),                                 # angled back
+        "basket": ("disk", 180.0, 164.0, 9.0),
+    }
+
+
 def skier_b():
-    """(B, recommended) A recreational skier going downhill to the right: skis on an 18 deg line with an upturned tip, both
-    knees bent forward (one leg drawn, the classic pictogram), hips back, torso leaning in, the arm forward with its pole
-    planted ahead. Head clear of the shoulders (a 13-unit gap = 3.9 texels at mip 1), no ground wedge: the skis read as skis."""
-    ski = ("line", [(28.0, 166.0), (204.0, 222.0), (228.0, 208.0)], 16.0)
-    leg = ("line", [(118.0, 186.0), (152.0, 146.0), (110.0, 120.0)], 28.0)    # ankle, knee, hip
-    torso = ("line", [(110.0, 120.0), (142.0, 80.0)], 32.0)                   # hip -> shoulder
-    head = ("disk", 174.0, 40.0, 22.0)
-    arm = ("line", [(142.0, 84.0), (182.0, 108.0)], 18.0)                     # shoulder -> hand
-    pole = ("line", [(182.0, 108.0), (214.0, 184.0)], 15.0)                   # 15 = 0.8 x the arm (critic r7)
-    return [ski, leg, torso, head, arm, pole]
-
-
-def skier_speed():
-    """(C, the fun one) skier_b at speed: two speed lines behind the figure, parallel to the ski. (A first draft threw
-    snow-spray dots behind the tails; at the 45 m mip they clumped into a smudge, critic r7.)"""
-    lines = [("line", [(30.0, 100.0), (74.0, 114.0)], 12.0), ("line", [(16.0, 128.0), (70.0, 145.0)], 12.0)]
-    return skier_b() + lines
-
-
-def kid_pizza():
-    """(D, the school's own lesson) a child in the snowplow ("pizza") seen from the front: big head, arms out for
-    balance, legs in an A, the ski tips meeting in front. (No bobble hat: head + pompom read as a snowman, critic r7.)"""
-    head = ("disk", 128.0, 48.0, 26.0)
-    body = ("fill", [(106.0, 90.0), (150.0, 90.0), (160.0, 150.0), (96.0, 150.0)])
-    arms = ("line", [(58.0, 132.0), (104.0, 96.0), (152.0, 96.0), (198.0, 132.0)], 18.0)
-    legl = ("line", [(112.0, 146.0), (90.0, 200.0)], 24.0)
-    legr = ("line", [(144.0, 146.0), (166.0, 200.0)], 24.0)
-    skil = ("line", [(62.0, 204.0), (124.0, 234.0)], 16.0)
-    skir = ("line", [(194.0, 204.0), (132.0, 234.0)], 16.0)
-    return [head, body, arms, legl, legr, skil, skir]
+    """The school's v1 emblem: a recreational skier going downhill to the right on a slope (see the module docstring)."""
+    return list(skier_parts().values())
 
 
 EMBLEMS = {
     "emblem_skier_b": skier_b,
-    "emblem_skier_speed": skier_speed,
-    "emblem_kid_pizza": kid_pizza,
 }
 
 
@@ -79,8 +75,21 @@ def prims(name):
 
 
 def min_stroke(pr):
-    """Thinnest stroke of a primitive list in canvas units (line width, disk diameter, ring width); fills count by their
-    shortest edge-to-edge span is not measured (none is thin here)."""
-    ws = [float(p[2]) for p in pr if p[0] == "line"] + [2.0 * float(p[3]) for p in pr if p[0] == "disk"] + \
-         [float(p[4]) for p in pr if p[0] == "ring"]
+    """Thinnest stroke of a primitive list in canvas units (line width, disk diameter, ring width); fills are not
+    measured (none here)."""
+    ws = [float(p[2]) for p in pr if p[0] == "line"] + [2.0 * float(p[3]) for p in pr if p[0] == "disk"] +          [float(p[4]) for p in pr if p[0] == "ring"]
     return min(ws) if ws else None
+
+
+def extent(pr):
+    """(x0, y0, x1, y1) canvas units covered by the strokes (line half widths, disk radii)."""
+    xs, ys = [], []
+    for p in pr:
+        if p[0] == "line":
+            h = float(p[2]) / 2.0
+            xs += [q[0] - h for q in p[1]] + [q[0] + h for q in p[1]]
+            ys += [q[1] - h for q in p[1]] + [q[1] + h for q in p[1]]
+        elif p[0] == "disk":
+            xs += [p[1] - p[3], p[1] + p[3]]
+            ys += [p[2] - p[3], p[2] + p[3]]
+    return min(xs), min(ys), max(xs), max(ys)
