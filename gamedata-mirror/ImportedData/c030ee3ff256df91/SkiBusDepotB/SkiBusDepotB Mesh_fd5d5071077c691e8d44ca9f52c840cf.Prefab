@@ -1,0 +1,104 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiBusDepotB Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 2,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.EmissiveProperties, Game",
+                "name": "EmissiveProperties",
+                "active": true,
+                "m_SingleLights": {
+                    "$id": 3,
+                    "$type": "3|System.Collections.Generic.List`1[[Game.Prefabs.EmissiveProperties+SingleLightMapping, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 4,
+                            "$type": "4|Game.Prefabs.EmissiveProperties+SingleLightMapping, Game",
+                            "previewState": false,
+                            "purpose": 34,
+                            "color": {
+                                "$type": "5|UnityEngine.Color, UnityEngine.CoreModule",
+                                1,
+                                1,
+                                1,
+                                1
+                            },
+                            "colorOff": {
+                                "$type": 5,
+                                0,
+                                0,
+                                0,
+                                1
+                            },
+                            "intensity": 1,
+                            "luminance": 0,
+                            "responseTime": 0,
+                            "animationIndex": -1,
+                            "materialId": 0
+                        }
+                    ]
+                },
+                "m_MultiLights": null,
+                "m_AnimationCurves": null,
+                "m_SignalGroupAnimations": null
+            },
+            {
+                "$id": 5,
+                "$type": "6|Game.Prefabs.LodProperties, Game",
+                "name": "LodProperties",
+                "active": true,
+                "m_Bias": 0,
+                "m_ShadowBias": 0,
+                "m_LodMeshes": {
+                    "$id": 6,
+                    "$type": "7|Game.Prefabs.RenderPrefab[], Game",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        $fstrref:"CID:ce5111ae9b5dd71879231dfd8aff79c1",
+                        $fstrref:"CID:5b463074039c9dac1c418b286777364e"
+                    ]
+                }
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:835bb1e7b5205024220f0a62a16b2812",
+    "m_SurfaceAssets": {
+        "$id": 7,
+        "$type": "8|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 2,
+        "$rcontent": [
+            $fstrref:"CID:70bf0bc2cff7369b58a3c89f64804834",
+            $fstrref:"CID:c663640ca66cd4b87b56ca53c95b0788"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "9|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "10|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -7.34999943,
+            "y": -2.38418579E-07,
+            "z": -1.60000038
+        },
+        "max": {
+            "$type": 10,
+            "x": 6.750001,
+            "y": 6.24,
+            "z": 3.70000029
+        }
+    },
+    "m_SurfaceArea": 304.958374,
+    "m_IndexCount": 5502,
+    "m_VertexCount": 3172,
+    "m_MeshCount": 2,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

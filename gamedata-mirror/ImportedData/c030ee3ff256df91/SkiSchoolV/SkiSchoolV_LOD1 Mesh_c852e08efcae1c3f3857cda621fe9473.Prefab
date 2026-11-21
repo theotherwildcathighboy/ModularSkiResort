@@ -1,0 +1,46 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiSchoolV_LOD1 Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 0,
+        "$rcontent": [
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:db6619e888607102963e686eb72d3d01",
+    "m_SurfaceAssets": {
+        "$id": 2,
+        "$type": "2|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 2,
+        "$rcontent": [
+            $fstrref:"CID:6cf5543c07e7658ceb5b36d2a10d91b5",
+            $fstrref:"CID:9a0733fd3fc50ff569e43c545d1df647"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "3|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "4|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -15.4,
+            "y": -9.536743E-07,
+            "z": -19.75
+        },
+        "max": {
+            "$type": 4,
+            "x": 11.1999989,
+            "y": 14.3727226,
+            "z": 16.7
+        }
+    },
+    "m_SurfaceArea": 1564.54712,
+    "m_IndexCount": 5646,
+    "m_VertexCount": 3252,
+    "m_MeshCount": 2,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

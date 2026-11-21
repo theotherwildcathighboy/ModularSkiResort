@@ -1,0 +1,46 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiGondolaTopStationE_LOD1 Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 0,
+        "$rcontent": [
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:48c14d1d40e59425f869bf83e792c82b",
+    "m_SurfaceAssets": {
+        "$id": 2,
+        "$type": "2|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 2,
+        "$rcontent": [
+            $fstrref:"CID:f76d87aaabe7577607c8d4eb0f251d06",
+            $fstrref:"CID:a15fb269f0574730ba383e6c247d3363"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "3|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "4|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -8.25,
+            "y": -4.76837158E-07,
+            "z": -12.1
+        },
+        "max": {
+            "$type": 4,
+            "x": 8.25,
+            "y": 9.12474251,
+            "z": 10.9499989
+        }
+    },
+    "m_SurfaceArea": 2802.92627,
+    "m_IndexCount": 11655,
+    "m_VertexCount": 5263,
+    "m_MeshCount": 2,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

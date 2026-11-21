@@ -1,0 +1,46 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiLodgeAFrameV_LOD2 Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 0,
+        "$rcontent": [
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:e7e69346a3570783c620cf1fa049f5ae",
+    "m_SurfaceAssets": {
+        "$id": 2,
+        "$type": "2|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 2,
+        "$rcontent": [
+            $fstrref:"CID:93209ce5874066502e562c679d03dd11",
+            $fstrref:"CID:c96e39cd20980599fce9789c1ecd44a6"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "3|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "4|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -22.0000019,
+            "y": -9.536743E-07,
+            "z": -17.06
+        },
+        "max": {
+            "$type": 4,
+            "x": 22.7499981,
+            "y": 20.02,
+            "z": 18.4
+        }
+    },
+    "m_SurfaceArea": 5263.59863,
+    "m_IndexCount": 1728,
+    "m_VertexCount": 852,
+    "m_MeshCount": 2,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

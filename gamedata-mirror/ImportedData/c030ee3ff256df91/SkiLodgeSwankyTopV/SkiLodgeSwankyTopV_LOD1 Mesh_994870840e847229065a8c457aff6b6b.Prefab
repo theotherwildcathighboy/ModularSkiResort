@@ -1,0 +1,46 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiLodgeSwankyTopV_LOD1 Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 0,
+        "$rcontent": [
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:e2e1bca0ef2a1d6defa315f5ee328e21",
+    "m_SurfaceAssets": {
+        "$id": 2,
+        "$type": "2|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 2,
+        "$rcontent": [
+            $fstrref:"CID:8b3552404f91a19cbac66b12170df793",
+            $fstrref:"CID:754ad9577f13f1b993a3b73af21eda1d"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "3|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "4|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -23.75,
+            "y": -16.0000019,
+            "z": -19.6946411
+        },
+        "max": {
+            "$type": 4,
+            "x": 20.7230072,
+            "y": 16.4999981,
+            "z": 19.8
+        }
+    },
+    "m_SurfaceArea": 7523.93262,
+    "m_IndexCount": 12423,
+    "m_VertexCount": 7536,
+    "m_MeshCount": 2,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}
