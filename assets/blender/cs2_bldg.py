@@ -6610,15 +6610,25 @@ def draw_text(lines, fg=WHITE_SRGB, bg=None, fill=LABEL_FILL, line_gap=2):
 _GLYPH_PRIM_CACHE = {}
 
 
+def glyph_prims(name):
+    """The primitive list behind a glyph name: a school_emblem design (T278, 1.0.4: "emblem_..." names, the school's
+    pictograms) or a ski_launcher_glyph function ("cand_d", "cand_c", ...). Both are bpy-free."""
+    import school_emblem as se           # noqa: E402
+    if name in se.EMBLEMS:
+        return se.prims(name)
+    import ski_launcher_glyph as slg     # noqa: E402
+    return getattr(slg, name)()
+
+
 def _glyph_samples(cv, prims, xc, yc, side):
-    """(h, w, S) 0..1 coverage of a ski_launcher_glyph primitive list (a function name, e.g.
-    "cand_d" the skier on a slope, "cand_c" the resort glyph) drawn in a side x side square
-    centered at (xc, yc) face meters, upright as the viewer sees it."""
+    """(h, w, S) 0..1 coverage of a glyph primitive list (a glyph_prims name, e.g. "cand_d" the
+    skier on a slope, "cand_c" the resort glyph, "emblem_skier_b" the school's v1 emblem) drawn in a
+    side x side square centered at (xc, yc) face meters, upright as the viewer sees it."""
     import ski_launcher_glyph as slg     # noqa: E402
     N = int(min(512, max(32, math.ceil(side * cv.ppm * 4.0))))
     key = (prims, N)
     if key not in _GLYPH_PRIM_CACHE:
-        _GLYPH_PRIM_CACHE[key] = np.asarray(slg.render_alpha(getattr(slg, prims)(), N, ss=4),
+        _GLYPH_PRIM_CACHE[key] = np.asarray(slg.render_alpha(glyph_prims(prims), N, ss=4),
                                             dtype=np.float32)
     img = _GLYPH_PRIM_CACHE[key]
     gx = ((cv.x - xc) / side + 0.5) * N - 0.5
