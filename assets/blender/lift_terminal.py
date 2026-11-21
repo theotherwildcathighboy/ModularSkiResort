@@ -1562,7 +1562,7 @@ def texpass_block_m(hook, part_material):
                                 "joint_z": list(cw_joint_z_m())}}
                if "cwpaint" in keys else {}),       # T277
             **({"seethru": {"closes": ["bullwheel rim inner wall", "house + booth roof drip upstands", "leg caps",
-                                       "head-sheave wrap", "deflection wrap"],
+                                       "beam drum inner disks", "head-sheave wrap", "deflection wrap"],
                             "rim": {"r_inner": SV_RIM_INNER, "segs": SV_RIM_SEGS}, "wrap": dict(TP1_SV_WRAP),
                             "tris": sv_tris_m()}}
                if "cwpaint" in keys else {}),       # T277b
@@ -1703,13 +1703,19 @@ def check_cw_m(rekey=None, spec=None, joint=None, tone=None, ppm=TP1_CW_PPM):
 #   grooves of the head and deflection sheaves stayed empty over the top and showed the sky between the flanges. The
 #   rope wraps the sheave: chords on the rope radius (cwrope_<side>_wh<k> over the head sheave, cwrope_<side>_wd over
 #   the deflection sheave).
-# Tris (LOD0, sv_tris_m): rim wall 2 x 32, leg caps 4 x 16 (fan), drip faces 2 x 4 x 2, wraps 2 x (3 + 1) x 12 = 240. A
+# - the front beam's end drums (27 / 23 px on the combined build, 2026-11-21 03:09): the PAL-05 drum (0.60 m) is 0.10 m
+#   wider than the 0.50 m box beam it ends, and its inner end was open: a 5 cm crescent above the beam top looked into
+#   the hollow drum. A drum end cap is a welded can: its inner disk is closed too (beamdrum_<side> caps both, SV_DRUMS).
+# Tris (LOD0, sv_tris_m): rim wall 2 x 32, leg caps 4 x 16 (fan), drum disks 2 x 16 (fan), drip faces 2 x 4 x 2, wraps
+# 2 x (3 + 1) x 12 = 272. A
 # handrail corner of the platform (2.3 px, MINOR) is the shared cs2_kit.handrail corner joint: listed, not changed here
 # (it would change every railing of the mod).
 TP1_SV_WRAP = dict(head_segs=3, defl_segs=1, sides=6)
-# M15 under --rig --texpass v1 (DECISIONS 585, the in-round <= 5 % raise): the drive base 9,450 -> 9,700. The v1 letter
-# carries T279's comm arm (+156 over Q's 9,274, lv) and these closes (+240, sv_tris_m): 9,670. The return is unchanged.
-TP1_RIG_LOD0_CAP = {"drive": 9700, "return": 3600}
+# M15 under --rig --texpass v1 (DECISIONS 585, the in-round <= 5 % raise): the drive base 9,450 -> 9,700 -> 9,750. The v1
+# letter carries T279's comm arm (+156 over Q's 9,274, lv) and these closes (+272, sv_tris_m): 9,702. 9,700 -> 9,750 on
+# 2026-11-21 03:15 for the drum disks (+32). The return is unchanged.
+TP1_RIG_LOD0_CAP = {"drive": 9750, "return": 3600}
+SV_DRUMS = ("beamdrum_n", "beamdrum_p")     # the front beam's end drums: inner disk closed under v1
 
 
 SV_RIM_INNER = 1.50            # the rigged bullwheel rim's inner wall (_wheel_rig_m: cs2_kit.sheave r_hub)
@@ -1805,9 +1811,9 @@ def sv_drip_m(roof):
 
 def sv_tris_m():
     """T277b: LOD0 tris the see-through fixes add to the base (the rim's inner wall, four fan caps of the 16-gon legs,
-    the drip faces of both roofs, the wrap chords of both ropes)."""
+    the drum disks, the drip faces of both roofs, the wrap chords of both ropes)."""
     W = TP1_SV_WRAP
-    return (2 * SV_RIM_SEGS + 4 * 16 + len(SV_DRIP_ROOFS) * 4 * 2
+    return (2 * SV_RIM_SEGS + 4 * 16 + len(SV_DRUMS) * 16 + len(SV_DRIP_ROOFS) * 4 * 2
             + 2 * (W["head_segs"] + W["defl_segs"]) * 2 * W["sides"])
 
 
@@ -2775,7 +2781,8 @@ def build_base_m():
     for side, s in (("n", -1.0), ("p", 1.0)):
         # PAL-05: cylinder end caps on the portal box beam
         parts.append((_mcyl(f"beamdrum_{side}", (B["front_x"], s * B["beam_y"], zc),
-                            (B["front_x"], s * (B["beam_y"] + 0.35), zc), 0.30, 16, "top"), "paint1"))
+                            (B["front_x"], s * (B["beam_y"] + 0.35), zc), 0.30, 16,
+                            "both" if TEXPASS_M else "top"), "paint1"))   # T277b: the welded inner disk under v1
     # the raised emblem badge on the front beam's line face (PAL-05 oval, X11 square emblem)
     xf = bf[0]
     parts.append((_oval_plate("badge", (xf - 0.03, 0.0, zc), -1.0, 0.70, 0.42, 0.03), "darksteel"))
