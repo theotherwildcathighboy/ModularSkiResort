@@ -346,6 +346,23 @@ RISE_RATIO = 5.449 / 21.87     # [K] Kagelok St Verre rise / width 0.2492
 ROOF_SEGS = 28
 ROOF_T = 0.12
 ROOF_END = 0.15
+# T272 (r7 2026-11-20, texture pass v1, DQ and gondola): the roof field as a REPEATING seam tile. The 1.0.4 roofs drew
+# their standing seams in the unique bake at 35-48 px/m (vanilla roofs 340-520), so the 4K review frames magnified them
+# 2.7-7 x (the "blurry roof"), and cs2_compose.detail_height ADDS each face's 1-px dilated relief, so every barrel facet
+# edge drew a seam twice as deep (the dot grid; v1's deeper seams made it 2.3-3.5 x stronger). Under the pass the shell is
+# built as N translation-identical slices (roof_shell_<i>, a whole number of seams each) that share ONE uv island
+# (cs2_liftdress.share_identical), the density weight carries the texels N slices no longer need, and draw_roof_seams
+# paints the seams by ASSIGNMENT from each texel's position in its slice. Flag off: one shell, cut in 3 (CUT_PIECES).
+ROOF_SLICE_M = 2.8             # slice (repeat) length target along the barrel
+ROOF_SEAM_PITCH_M = 0.50       # seam pitch target: a slice holds round(L / pitch) seams (0.46-0.53 m)
+# the seam: the lodges' raised standing seam (cs2_tilesheet TEXPASS_FLAT metal_roof_lt: trapezoid half top, half base,
+# height) and the tram's contact shade (tram_tilesheet TRAM_SEAM: depth, Gaussian sigma; the albedo line that survives
+# the far mips), the seam tops a little burnished (MaskMap A), ss x ss supersamples a texel
+ROOF_SEAM = {"rib_m": (0.007, 0.020, 0.014), "ao": 0.22, "ao_sigma_m": 0.025, "smooth_top": 0.04, "ss": 4}
+# pack weight of the slices (one island for all of them): 1.5 (DQ roof_) / 1.35 (gondola roof_) x sqrt(8)
+ROOF_SLICE_DENSITY = {"dq": 4.2, "gd": 3.8}
+# a stacked texel carries one slice's weathering, so a streak repeats every slice: the wash stays faint (and no rust)
+ROOF_SLICE_WEATHER = (("roof_shell", {"rust": 0.0, "scale": 0.35}),)
 BAND_T = 0.15
 FILLET_R = 0.35
 DECK_H = 0.30
@@ -596,6 +613,11 @@ GD_LOT = (3, 4)                # m_LotWidth 3 = 24 m across (prefab x = authorin
 GD_LOT_HALF = (16.0, 12.0)     # 32 m along travel (prefab z = authoring X): authoring X / Y halves
 GD_LOD0_TARGET = {"base": 12000, "top": 9000}  # ROUND-SPEC section 4 budgets (caps 13,000 / 10,000)
 # T62: round 2 raised the top to 9,700 / cap 10,200 (224-tri wheels). Round 3 (98-tri wheels: 8,661) restores 9,000 / 10,000
+# T272 / T273 (texture pass only): the sliced roof (+320), the closed eave gutters (+36), the corner cheeks and end beam
+# tops (+12) and the pane backs (+152, overnight call 2026-11-21) put the top at about 9,240; the gate3 closures (pin
+# ends, rope socket, downspout outlets, about +50) at about 9,290. Its budget under the pass is 9,400 (+4.4 % over the
+# shipped 9,000, the small-overage rule; the 10,000 cap is untouched). Flag off: 9,000 as shipped
+GD_LOD0_TARGET_PASS = {"base": 12000, "top": 9400}
 GD_EAVE = 1.20                 # deep eaves: roof edge 1.20 m past the long walls' outer faces
 GD_ROOF_RISE = 0.95            # shallow segmental standing-seam roof: crown = eave + 0.95 (0 -> 14.5 deg)
 GD_RAKE_BACK = 0.60            # back gable overhang (the nose keeps ROOF_END 0.15: the nose ladder)
@@ -1019,7 +1041,8 @@ GD_TEXPASS_SCANS = {}
 # every lift asset ships it that way). The pass scales the tile v by the map aspect.
 GD_TEXPASS_ASPECT = {"concrete": 2.0}
 # density weights over the shipped table: none in v1 (the scans that needed texels, stone 1.3 / soffit 0.8, are out)
-GD_TEXPASS_DENSITY = {}
+GD_TEXPASS_DENSITY = {"roof_shell": ROOF_SLICE_DENSITY["gd"],      # T272: the sliced roof (one island)
+                      "paneback": 0.1}                             # T273: flat dark glass, almost no texels
 # The pass keeps the shipped cs2_uv pack. Measured on the base at 512 (blockouts with a pack-shape proposal, since
 # dropped): aabb 17.8 %, concave 18.0 %, aabb with square band texels 16.9 %, concave with them 16.9 % of the square.
 # The pack is margin-bound (thin islands between gutters): a concave shape gains 1 %, square band texels cost 5 %
@@ -1151,14 +1174,14 @@ TEXPASS_DQ = {
         "roles": {"siding": "timber"},          # cs2_weather role of each new key
         # pack weights over density_for: the walked slab 0.6 -> 0.8 (the nearest surface in every close-up), the flat dark
         # end glazing 0.8 -> 0.4 (one flat color: it only carries AO)
-        "density": {"deck": 0.8, "rampback": 0.8, "endglass_": 0.4},
+        "density": {"deck": 0.8, "rampback": 0.8, "endglass_": 0.4, "roof_shell": ROOF_SLICE_DENSITY["dq"]},
         # weathering: the ladder stops at the fixed-grip stations' level (they ship 0.40 / 0.45). The shipped D stations took
         # the top of cs2_liftdress.INTENSITY_STEPS (0.70: the budget never WARNed), the highest of any lift asset
         "weather_steps": (0.20, 0.30, 0.40),
         # (prefix, PartWeather fields), ahead of DQ_WEATHER's (cs2_weather keeps the first on an equal prefix): no rust on the
         # painted skin (a maintained enamel housing; rust stays below the galvanized fittings and on the underframe steel)
         "weather": (("roof_", {"rust": 0.0}), ("band_", {"rust": 0.0}), ("cabroof", {"rust": 0.0}),
-                    ("engroof", {"rust": 0.0})),
+                    ("engroof", {"rust": 0.0})) + ROOF_SLICE_WEATHER,
     },
 }
 # The livery proposals (--livery, with a pass; texels only, the owner picks one or none):
@@ -1379,6 +1402,7 @@ def detail_specs_gd_texpass():
     # strip) draws no seams: they read as a dashed edge under a light skin
     out["roof_"] = D(seams_m=0.50, seam_axes="ribs", seam_width_m=0.06, seam_depth_m=0.010)
     out["roof_rim"] = D()
+    out["roof_shell"] = D()             # T272: the sliced shell's seams are draw_roof_seams' (assigned, not summed)
     if GD_IDENTITY == "lodge":
         out.update({"wall_nose": D(), "gable_": D(), "ringbeam_": D()})
     return out
@@ -1394,6 +1418,7 @@ def detail_specs_dq_tex():
     out = detail_specs_dq()
     out.update({
         "roof_": D(seams_m=0.50, seam_axes="ribs", seam_width_m=0.06, seam_depth_m=0.014),
+        "roof_shell": D(),              # T272: the sliced shell's seams are draw_roof_seams' (the roof_ rows: the end rims)
         "soffit_": D(), "cab_": D(), "engroom_": D(),
         "deck": D(seams_m=3.0, seam_axes="both", seam_width_m=0.04, seam_depth_m=0.012),
         "rampback": D(seams_m=3.0, seam_axes="both", seam_width_m=0.04, seam_depth_m=0.012),
@@ -1577,10 +1602,159 @@ def arc_z(p, y, inner=True):
     return zc + math.sqrt(max(R * R - y * y, 0.0)) - (ROOF_T if inner else 0.0)
 
 
+def gd_lod0_target(p):
+    """The gondola's LOD0 budget: GD_LOD0_TARGET, or GD_LOD0_TARGET_PASS under the texture pass (T272 / T273)."""
+    return (GD_LOD0_TARGET_PASS if roof_slices_on(p) else GD_LOD0_TARGET)[p.kind]
+
+
+def roof_slices_on(p):
+    """T272: the sliced roof runs with the DQ / gondola texture pass only."""
+    return bool(texpass_table(p)) or gd_texpass_on(p)
+
+
+def roof_slices(xa, xb):
+    """([(x0, x1)] slice extents over xa..xb, seams a slice). The slices are equal, so every copy stacks."""
+    n = max(1, int(round((xb - xa) / ROOF_SLICE_M)))
+    L = (xb - xa) / n
+    k = max(1, int(round(L / ROOF_SEAM_PITCH_M)))
+    if abs((L / 0.01) % 1.0 - 0.5) < 0.01:      # share_identical buckets positions at 1 cm: stay off a rounding edge
+        raise ValueError(f"roof slice {L} m sits on share_identical's 1 cm bucket edge")
+    return [(xa + L * i, xa + L * (i + 1)) for i in range(n)], k
+
+
+def roof_shell_slices(prof, zc, xa, xb, t):
+    """T272: [(roof_shell_<i>, paint1)] over xa..xb, each slice the shell's cross-section `prof` [(y, z)] (the facets) and
+    the two eave fascias (`t` deep) at its ends. The middle slice is emitted LAST: a stacked texel carries the last
+    copy's bake sample, AO and weathering (cs2_bake), so the shared tile shows a mid-roof slice, not a gable end."""
+    sl, _k = roof_slices(xa, xb)
+    mid = len(sl) // 2
+    out = []
+    for i in [j for j in range(len(sl)) if j != mid] + [mid]:
+        x0, x1 = sl[i]
+        mb = _MB()
+        for (y0, z0), (y1, z1) in zip(prof, prof[1:]):
+            mb.f([(x0, y0, z0), (x1, y0, z0), (x1, y1, z1), (x0, y1, z1)],
+                 (0.0, (y0 + y1) / 2.0, (z0 + z1) / 2.0 - zc))
+        for (y, z), s in ((prof[0], -1.0), (prof[-1], 1.0)):
+            mb.f([(x0, y, z), (x1, y, z), (x1, y, z - t), (x0, y, z - t)], (0.0, s, 0.0))
+        # the slice's end edges are sharp: every slice's corner normals come from its own faces only. Without this the end
+        # slices smoothed with the gable rim (welded by remove_doubles) and missed the stack (measured: 2 of 7 unique,
+        # the roof took 31 % of the atlas, share_probe_full). Across an inner boundary both sides' normals are equal, so
+        # nothing changes on screen
+        for e in mb.bm.edges:
+            if all(abs(v.co.x - x0) < 1e-4 for v in e.verts) or all(abs(v.co.x - x1) < 1e-4 for v in e.verts):
+                e.smooth = False
+        out.append((mb.obj(f"roof_shell_{i}"), "paint1"))
+    return out
+
+
+def _all_sharp(mb):
+    """T272: every edge of a gable rim sharp. The rim meets the end slices at 90 deg, and the join's weld keeps ONE of two
+    coincident edges: when it kept the rim's smooth copy, the end slice's corner normals bent toward the rim and the slice
+    missed the stack (share_probe_full: 4 such edges at the eaves). The rim is flat per gable, so nothing changes on screen."""
+    for e in mb.bm.edges:
+        e.smooth = False
+
+
+def roof_share_lists(p, whitelist, hero):
+    """T272: the DQ share lists with the roof slices eligible (whitelisted: a slice is over the 3 m2 cap) and the end rims
+    kept as hero parts (the hero prefix roof_ also held the shell). Unchanged when the slices are off."""
+    if not roof_slices_on(p):
+        return whitelist, hero
+    return tuple(whitelist) + ("roof_shell",), tuple("roof_rim" if h == "roof_" else h for h in hero)
+
+
+def roof_extent(p):
+    """(xa, xb) of the roof shell: the DQ barrel (build_roof) or the gondola roof (build_gd_roof)."""
+    if p.gondola:
+        return p.x_nose - ROOF_END, p.x_back + GD_RAKE_BACK
+    return p.x_nose - ROOF_END, p.x_back + ROOF_END
+
+
+def draw_roof_seams(base, nrm, msk, mesh, table, p):
+    """T272: the standing seams of the sliced roof (roof_shell_<i>) in the composed maps (linear BaseColor, Normal 0..1,
+    MaskMap), in place. Each texel's position along the barrel (authoring x = bake -y: orient_for_net) relative to its
+    slice gives its distance to the nearest seam (seams at (j + 0.5) x L / k). From it, by ASSIGNMENT per texel (one value
+    per texel however many faces' dilated footprints cover it, and the same value from every stacked copy):
+    - the normal: the trapezoid's slope along the barrel, analytic, ss x ss supersampled (vectors averaged), RNM over the
+      composed normal
+    - the albedo: the contact shade, divided by its mean over a pitch (the slot's mean holds)
+    - the smoothness: + smooth_top on the seam tops
+    Returns the manifest's roof_seams block."""
+    A = base.shape[0]
+    xa, xb = roof_extent(p)
+    sl, k = roof_slices(xa, xb)
+    L = (xb - xa) / len(sl)
+    pitch = L / k
+    ht, hb, H = ROOF_SEAM["rib_m"]
+    ao, sig, ss = ROOF_SEAM["ao"], ROOF_SEAM["ao_sigma_m"], int(ROOF_SEAM["ss"])
+    line_mean = 1.0 - ao * sig * math.sqrt(2.0 * math.pi) / pitch
+    parts = cs2_compose.part_indices(mesh)
+    roof = np.array([n.startswith("roof_shell_") for n in table], bool)
+    co = np.empty(len(mesh.vertices) * 3, np.float64)
+    mesh.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    smin, smax = {}, {}
+    for poly in mesh.polygons:
+        pi = int(parts[poly.index])
+        if 1 <= pi <= len(table) and roof[pi - 1]:
+            s = -co[list(poly.vertices), 1]
+            smin[pi] = min(smin.get(pi, 1e9), float(s.min()))
+            smax[pi] = max(smax.get(pi, -1e9), float(s.max()))
+    ext = sorted({round(smax[q] - smin[q], 4) for q in smin})
+    if not smin or abs(ext[0] - L) > 1e-3 or abs(ext[-1] - L) > 1e-3:
+        raise ContractError(f"T272 roof seams: slice extents {ext} m != {L:.4f} m")
+    det = np.zeros((A, A, 3), np.float32)
+    line = np.ones((A, A), np.float32)
+    top = np.zeros((A, A), np.float32)
+    cov = np.zeros((A, A), bool)
+    offs = (np.arange(ss) + 0.5) / ss - 0.5
+    ppms = []
+    for poly, slc, mask, X, Y, q, P, ppm in cs2_compose.iter_face_rasters(mesh, A, cs2_uv.UNIQUE_LAYER, 1.0):
+        pi = int(parts[poly.index])
+        if not (1 <= pi <= len(table) and roof[pi - 1]):
+            continue
+        qm, Pm, Mt = cs2_compose._affine_uv_to_world(q, P)
+        gx, gy = -float(Mt[0, 1]), -float(Mt[1, 1])          # ds / dX, ds / dY (m per texel)
+        s0 = -(Pm[1] + (X - qm[0]) * Mt[0, 1] + (Y - qm[1]) * Mt[1, 1]) - smin[pi]
+        nacc = np.zeros(X.shape + (3,))
+        lacc = np.zeros(X.shape)
+        tacc = np.zeros(X.shape)
+        for ox in offs:
+            for oy in offs:
+                s = s0 + ox * gx + oy * gy
+                ph = np.mod(s, pitch) - pitch / 2.0
+                d = np.abs(ph)
+                tt = np.clip((hb - d) / (hb - ht), 0.0, 1.0)
+                slope = H * 6.0 * tt * (1.0 - tt) * (-1.0 / (hb - ht)) * np.where((d > ht) & (d < hb), 1.0, 0.0)
+                slope = slope * np.sign(ph)                     # dh / ds
+                n = np.stack([-slope * gx * ppm, -slope * gy * ppm, np.ones_like(s)], -1)
+                nacc += n / np.linalg.norm(n, axis=-1, keepdims=True)
+                lacc += 1.0 - ao * np.exp(-0.5 * (d / sig) ** 2)
+                tacc += tt * tt * (3.0 - 2.0 * tt)
+        m = mask
+        nv = nacc[m] / np.linalg.norm(nacc[m], axis=-1, keepdims=True)
+        det[slc][m] = (nv * 0.5 + 0.5).astype(np.float32)
+        line[slc][m] = (lacc[m] / (ss * ss) / line_mean).astype(np.float32)
+        top[slc][m] = (tacc[m] / (ss * ss)).astype(np.float32)
+        cov[slc] |= m
+        ppms.append(float(ppm))
+    nrm[cov, 0:3] = cs2_compose.blend_rnm(nrm[cov, 0:3][None], det[cov][None])[0]
+    base[cov, 0:3] *= line[cov][:, None]
+    msk[cov, 3] = np.clip(msk[cov, 3] + ROOF_SEAM["smooth_top"] * top[cov], 0.0, 1.0)
+    out = {"slices": len(sl), "slice_m": round(L, 4), "seams_per_slice": k, "pitch_m": round(pitch, 4),
+           "texels": int(cov.sum()), "px_per_m_median": round(float(np.median(ppms)), 1) if ppms else None,
+           "seam": dict(ROOF_SEAM), "density_w": ROOF_SLICE_DENSITY["gd" if p.gondola else "dq"]}
+    print(f"[roof] T272 seams: {out['slices']} slices x {L:.3f} m, {k} seams each ({pitch:.3f} m), {out['texels']} texels, "
+          f"median {out['px_per_m_median']} px/m")
+    return out
+
+
 def build_roof(p):
     """roof_shell (outer arc, end rims, eave fascias) + rooflining (the underside, arc shifted
     down ROOF_T): 228 tris together. The lining is its own part only so it can take a low
-    texel density - the ceiling hides all of it except the 0.10 / 0.15 m overhang strips."""
+    texel density - the ceiling hides all of it except the 0.10 / 0.15 m overhang strips.
+    Texture pass (T272): the shell as roof_shell_slices."""
     pts, _R, zc = arch(p)
     xa, xb, t = p.x_nose - ROOF_END, p.x_back + ROOF_END, ROOF_T
     mb, ml, mr = _MB(), _MB(), _MB()
@@ -1594,8 +1768,13 @@ def build_roof(p):
             mr.f([(x, y0, z0), (x, y1, z1), (x, y1, z1 - t), (x, y0, z0 - t)], (s, 0.0, 0.0))
     for (y, z), s in ((pts[0], -1.0), (pts[-1], 1.0)):
         mb.f([(xa, y, z), (xb, y, z), (xb, y, z - t), (xa, y, z - t)], (0.0, s, 0.0))
-    return [(mb.obj("roof_shell"), "paint1"), (mr.obj("roof_rim"), "paint1"),
-            (ml.obj("rooflining"), "paint1")]
+    if roof_slices_on(p):
+        mb.bm.free()
+        shell = roof_shell_slices(pts, zc, xa, xb, t)
+        _all_sharp(mr)
+    else:
+        shell = [(mb.obj("roof_shell"), "paint1")]
+    return shell + [(mr.obj("roof_rim"), "paint1"), (ml.obj("rooflining"), "paint1")]
 
 
 def band_profile(p):
@@ -1615,10 +1794,12 @@ def band_profile(p):
     return outer, inner
 
 
-def _sweep(name, W, ddir, tdir, t0, t1, outer, inner, caps=(False, False), cap_from=1):
+def _sweep(name, W, ddir, tdir, t0, t1, outer, inner, caps=(False, False), cap_from=1, coping=False):
     """One straight band piece: W(t, d, z) -> world point. t0(d) / t1(d) are the piece ends (a miter makes them depend on d).
     The outer strip faces outward. The inner strip and the return face the canopy interior. Caps close square ends below
-    profile point `cap_from`."""
+    profile point `cap_from`. `coping` (T273, the pass) closes the C-section's top between the outer face and the lining
+    (one quad, mitered with the piece): a fascia band is capped by a coping. Open, the 0.15 m slot showed the lining's
+    back from above (seen-through bandlining_back / _nose_*)."""
     mb, mi = _MB(), _MB()
 
     def nv(nd, nz):
@@ -1633,6 +1814,9 @@ def _sweep(name, W, ddir, tdir, t0, t1, outer, inner, caps=(False, False), cap_f
     (do, zo), (di, zi) = outer[-1], inner[-1]
     mb.f([W(t0(do), do, zo), W(t1(do), do, zo), W(t1(di), di, zi), W(t0(di), di, zi)],
          nv(1.0, 0.0))
+    if coping:
+        (da, za), (db, zb) = outer[0], inner[0]
+        mb.f([W(t0(da), da, za), W(t0(db), db, zb), W(t1(db), db, zb), W(t1(da), da, za)], (0.0, 0.0, 1.0))
     for cap, tf, s in ((caps[0], t0, -1.0), (caps[1], t1, 1.0)):
         if not cap:
             continue
@@ -1652,25 +1836,26 @@ def build_band_ring(p):
     outer, inner = band_profile(p)
     W2, xn, xb = p.w_half, p.x_nose, p.x_back
     yi, yo = p.lane_y - p.slot_half, p.lane_y + p.slot_half
+    cp = roof_slices_on(p)                  # T273: every piece capped by a coping (_sweep), the lintels keep their top
     parts = []
     for s, tag in ((1.0, "p"), (-1.0, "n")):
         parts.append(_sweep(f"band_{tag}", lambda t, d, z, s=s: (t, s * (W2 - d), z),
                             (0.0, -s, 0.0), (1.0, 0.0, 0.0),
-                            lambda d: xn + d, lambda d: xb - d, outer, inner))
+                            lambda d: xn + d, lambda d: xb - d, outer, inner, coping=cp))
     parts.append(_sweep("band_back", lambda t, d, z: (xb - d, t, z), (-1.0, 0.0, 0.0),
-                        (0.0, 1.0, 0.0), lambda d: -W2 + d, lambda d: W2 - d, outer, inner))
+                        (0.0, 1.0, 0.0), lambda d: -W2 + d, lambda d: W2 - d, outer, inner, coping=cp))
     nose = lambda t, d, z: (xn + d, t, z)  # noqa: E731
     parts.append(_sweep("band_nose_c", nose, (1.0, 0.0, 0.0), (0.0, 1.0, 0.0),
-                        lambda d: -yi, lambda d: yi, outer, inner, caps=(True, True)))
+                        lambda d: -yi, lambda d: yi, outer, inner, caps=(True, True), coping=cp))
     parts.append(_sweep("band_nose_p", nose, (1.0, 0.0, 0.0), (0.0, 1.0, 0.0),
-                        lambda d: yo, lambda d: W2 - d, outer, inner, caps=(True, False)))
+                        lambda d: yo, lambda d: W2 - d, outer, inner, caps=(True, False), coping=cp))
     parts.append(_sweep("band_nose_n", nose, (1.0, 0.0, 0.0), (0.0, 1.0, 0.0),
-                        lambda d: -W2 + d, lambda d: -yo, outer, inner, caps=(False, True)))
+                        lambda d: -W2 + d, lambda d: -yo, outer, inner, caps=(False, True), coping=cp))
     flat = [o for pair in parts for o in pair]
     for s, tag in ((1.0, "p"), (-1.0, "n")):
         y0, y1 = sorted((s * yi, s * yo))
         flat.append(_box(f"band_nose_l{tag}", xn, xn + BAND_T, y0, y1, p.notch_top, p.z_top,
-                         drop=("+Z", "+Y", "-Y")))
+                         drop=("+Y", "-Y") if cp else ("+Z", "+Y", "-Y")))
     return [(o, "accent3") for o in flat]
 
 
@@ -1865,7 +2050,65 @@ def build_soffit(p):
         (o0, i0), (o1, i1) = ray(a0), ray(a1)
         mb.f([i0, i1, o1, o0], dn)
     turn = mb.obj("soffit_turn")
-    return [(tongue, "cedar"), (outer, "cedar"), (turn, "cedar")]
+    out = [(tongue, "cedar"), (outer, "cedar"), (turn, "cedar")]
+    if roof_slices_on(p):                   # T273: the soffit boards' backs (soffit_back_*)
+        out += [(_flip_copy(o, f"soffit_back_{k}", SOFFIT_BACK_DZ), "cedar") for k, o in enumerate((tongue, outer, turn))]
+    return out
+
+
+# T273 (the see-through gate): a soffit is a board with two faces. The shipped soffit is one down-facing layer, and through
+# the nose notch (the rope's way into the canopy, z_soffit to notch_top) a player at 20 m looks down onto its top: back faces,
+# culled in game (DQ E base 789 px / top 775 px at 1080p, bearing 202.5, elevation 22; LOD1 20 px). Under the texture pass
+# each soffit piece gets its up-facing back (the same faces, reversed, SOFFIT_BACK_DZ up: the board's thickness, and the
+# assembly's vertex merge would fold a coincident reversed copy away). Flag off: the one layer
+# T273 (gate3, after the eave / soffit / liner clusters were closed): the holes they had masked. What a builder puts there:
+#   - a pin ends in a face (the main pivot pins sheave_guide_pivot_*_m*, built open by cs2_sheaves: seen from the nose
+#     at 20 m, 9.7-10.4 px on the DQ, inside the gondola's 32.5 px cluster with the rope end)
+#   - a hatch leaf is a plate closed on both faces (hatch_sofpf_leaf: from the nose, rays down through the soffit's hatch
+#     opening met its open top, 23.7 / 25.5 px)
+#   - a rope ends in a socket (haulrope_* at the stub tip; on the gondola 32.5 px with the pin)
+#   - a downspout ends in a closed foot / outlet (the gondola's shoes 0.12 m over the ground, 19-21 px; the DQ's feet)
+#   - the drip flashings keep their back leg (_hut closed=True)
+# Each closes only under the pass; flag off builds the parts exactly as before.
+PIN_CLOSE_RE = r"sheave_guide_pivot_[np]_m\d+"
+
+
+def _close_open_ends(obj):
+    """T273: fill every boundary loop of a part (an open tube end, a box's dropped face) and orient the closed shell
+    outward. Returns the number of faces added."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    n0 = len(bm.faces)
+    bnd = [e for e in bm.edges if e.is_boundary]
+    if bnd:
+        bmesh.ops.holes_fill(bm, edges=bnd, sides=0)
+        bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+        bm.normal_update()
+        bm.to_mesh(obj.data)
+        obj.data.update()
+    n = len(bm.faces) - n0
+    bm.free()
+    return n
+
+
+SOFFIT_BACK_DZ = 0.003
+
+
+def _flip_copy(obj, name, dz=0.0):
+    """The same faces as `obj`, reversed (its back side) and moved dz up, as a new object."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.reverse_faces(bm, faces=list(bm.faces))
+    if dz:
+        bmesh.ops.translate(bm, vec=(0.0, 0.0, dz), verts=list(bm.verts))
+    me = bpy.data.meshes.new(name)
+    bm.normal_update()
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
+    return o
 
 
 def build_endglass(p, which, y_lim, z_bottom=None, y_rect=None):
@@ -1911,17 +2154,51 @@ def build_endmullions(p, which, ys, z0, transom_z, y_lim, sill=True):
     return [(o, "paint1") for o in out]
 
 
+# T273 (the see-through gate): the eave gutter is an open trough, and a player at 20-70 m looks INTO it from above. The
+# shipped box (top dropped) has no inside, so its far wall and floor showed their back faces: culled in game, the ground
+# showed through a 0.12 m strip the whole length of both eaves (DQ E 1,732 / 1,690 px at 1080p, gondola D 1,941 / 1,854).
+# A sheet-metal gutter has an inside: under the texture pass the trough gets its floor, walls and ends GUTTER_WALL_M in
+# and the lip that closes the wall thickness at the top (+9 quads a gutter). Flag off: the shipped box
+GUTTER_WALL_M = 0.008
+
+
+def gutter_trough(name, x0, x1, y0, y1, z0, z1, p):
+    """An eave gutter (open at the top) over x0..x1 / y0..y1 / z0..z1: the shipped open box when the pass is off, the
+    trough with its inside and lip when it is on (T273)."""
+    if not roof_slices_on(p):
+        return _box(name, x0, x1, y0, y1, z0, z1, drop=("+Z",))
+    e = GUTTER_WALL_M
+    a0, a1, b0, b1, c0 = x0 + e, x1 - e, y0 + e, y1 - e, z0 + e
+    mb = _MB()
+    mb.f([(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0)], (0, 0, -1))   # outside floor
+    mb.f([(a0, b0, c0), (a1, b0, c0), (a1, b1, c0), (a0, b1, c0)], (0, 0, 1))     # inside floor
+    for (yy, n) in ((y0, (0, -1, 0)), (y1, (0, 1, 0))):                           # outside walls
+        mb.f([(x0, yy, z0), (x1, yy, z0), (x1, yy, z1), (x0, yy, z1)], n)
+    for (xx, n) in ((x0, (-1, 0, 0)), (x1, (1, 0, 0))):
+        mb.f([(xx, y0, z0), (xx, y1, z0), (xx, y1, z1), (xx, y0, z1)], n)
+    for (yy, n) in ((b0, (0, 1, 0)), (b1, (0, -1, 0))):                           # inside walls (face the trough)
+        mb.f([(a0, yy, c0), (a1, yy, c0), (a1, yy, z1), (a0, yy, z1)], n)
+    for (xx, n) in ((a0, (1, 0, 0)), (a1, (-1, 0, 0))):
+        mb.f([(xx, b0, c0), (xx, b1, c0), (xx, b1, z1), (xx, b0, z1)], n)
+    o = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]                                  # the lip: outer ring -> inner ring
+    i = [(a0, b0), (a1, b0), (a1, b1), (a0, b1)]
+    for k in range(4):
+        q = [o[k], o[(k + 1) % 4], i[(k + 1) % 4], i[k]]
+        mb.f([(x, y, z1) for x, y in q], (0, 0, 1))
+    return mb.obj(name)
+
+
 def build_gutters(p, z_low):
     c = p.chord_half
     out = []
     for s, tag in ((1.0, "p"), (-1.0, "n")):
         y0, y1 = sorted((s * c, s * (c + 0.12)))
-        out.append((_box(f"gutter_{tag}", p.x_nose - ROOF_END, p.x_back + ROOF_END, y0, y1,
-                         p.z_top - 0.14, p.z_top - 0.02, drop=("+Z",)), "galv"))
+        out.append((gutter_trough(f"gutter_{tag}", p.x_nose - ROOF_END, p.x_back + ROOF_END, y0, y1,
+                                  p.z_top - 0.14, p.z_top - 0.02, p), "galv"))
         out.append((cs2_kit.add_cyl(f"downspout_{tag}", 0.05, p.z_top - 0.14 - z_low,
                                     (p.x_back - 0.40, s * (c + 0.06),
                                      (p.z_top - 0.14 + z_low) / 2.0),
-                                    segments=6, caps="none"), "galv"))
+                                    segments=6, caps="bottom" if roof_slices_on(p) else "none"), "galv"))  # T273: the foot
     return out
 
 
@@ -1967,6 +2244,25 @@ def z_ped_top(p):
     return p.z_soffit - 0.60
 
 
+# T273 (the see-through gate): the crash pad is a foam sleeve around the column, and a sleeve has a top. The shipped pad is
+# a box with its top dropped, so the 0.16 m gap under the crosshead looked into it: its inner walls are back faces, culled
+# in game (DQ E top h2, 40 px at 1080p, seen at 20 m from the side). Under the texture pass the top is closed by a ring from
+# the pad's rim in to the column's section at that height (4 quads, +8 tris a pad), and the pad stands on the plinth: the
+# 4 cm slit under it showed its inner walls past the flange's corners. Flag off: the shipped open box at the flange top
+def pad_top(name, xp, bot, top, z0, zt, z):
+    """The crash pad's top ring at z: the pad's rim (+-0.8 x +-0.7 about xp) in to the frustum column's section there (the
+    column runs from the `bot` ring at z0 to the `top` ring at zt), facing up."""
+    f = (z - z0) / (zt - z0)
+    sec = [(b[0] + (t_[0] - b[0]) * f, b[1] + (t_[1] - b[1]) * f) for b, t_ in zip(bot, top)]
+    rim = [(xp - 0.8, -0.7), (xp + 0.8, -0.7), (xp + 0.8, 0.7), (xp - 0.8, 0.7)]
+    mb = _MB()
+    for i in range(4):
+        j = (i + 1) % 4
+        mb.f([(rim[i][0], rim[i][1], z), (rim[j][0], rim[j][1], z), (sec[j][0], sec[j][1], z),
+              (sec[i][0], sec[i][1], z)], (0.0, 0.0, 1.0))
+    return mb.obj(name)
+
+
 def build_pedestals(p):
     """Two galvanized pedestals on the centerline in front of the wheel (D5): open-bottom
     plinth, bolted flange, frustum column, slot-2 crash pad, 4 head gussets, crosshead."""
@@ -1990,8 +2286,11 @@ def build_pedestals(p):
                   (top[j][0], top[j][1], zt), (top[i][0], top[i][1], zt)],
                  (mid[0], mid[1], 0.0))
         out.append((mb.obj(f"ped_{tag}"), "galv"))
-        out.append((_box(f"pad_{tag}", xp - 0.8, xp + 0.8, -0.7, 0.7, z0, zt - 0.16,
+        zp0 = PLINTH[2] if roof_slices_on(p) else z0     # T273: the pad stands ON the plinth (no 4 cm slit under it)
+        out.append((_box(f"pad_{tag}", xp - 0.8, xp + 0.8, -0.7, 0.7, zp0, zt - 0.16,
                          drop=("+Z", "-Z")), "pad2"))
+        if roof_slices_on(p):
+            out.append((pad_top(f"pad_{tag}_top", xp, bot, top, z0, zt, zt - 0.16), "pad2"))
         for s in (-1.0, 1.0):
             for k, gx in enumerate((-0.30, 0.30)):
                 # web in the YZ plane: local +X -> outboard (s Y), local +Z -> down.
@@ -2090,7 +2389,7 @@ def build_machine(p):
     for s, tag in ((-1.0, "n"), (1.0, "p")):
         # T27: from the anchor (anchor_z = Zr unless ROPE_ON_CROWN) to the wheel tangent
         out.append((_cyl_pts(f"haulrope_{tag}", (p.anchor_x, s * R, anchor_z(p)), (X, s * R, Zr), ROPE_R,
-                             6), "rope"))
+                             6, caps="bottom" if roof_slices_on(p) else "none"), "rope"))   # T273: the stub-tip end
     # detach rails: straights + a U-turn tube (MUST-CHANGE 13: kit tube_along, bend_rings 2)
     L = detach_rail(p)
     rr, hw = L["rr"], L["half"]
@@ -2726,7 +3025,12 @@ def build_access(p):
         out += _ladder("pf", p.ped_f + 1.35, 0.0, DECK_H, zs)
     else:
         out += _ladder("pf", pf["x"], pf["y"], DECK_H, pf["z_top"], half=PF_HALF, rungs=pf["rungs"])
-        out += _LD().hatch_frame("sofpf", (pf["hatch"][0], pf["hatch"][1], zs), size=PF_HATCH)
+        hf = _LD().hatch_frame("sofpf", (pf["hatch"][0], pf["hatch"][1], zs), size=PF_HATCH)
+        if roof_slices_on(p):                  # T273: the leaf is a plate, closed on top as below
+            for o, _mat in hf:
+                if o.name.endswith("_leaf"):
+                    _close_open_ends(o)
+        out += hf
     if p.kind == "base":
         # (d) the queue corral on the loading side (+Y), back corner beside the bullwheel
         # turn (chair envelope r <= 4.0 about the wheel), clear of the downspout (x_back - 0.4)
@@ -2773,13 +3077,33 @@ def cab_layout(p):
     return dict(x0=x0, x1=x1, y0=y0, y1=y1, zf=zf, lane_y=y1, out_y=y0, door_y=y1 - 0.75, s=-1.0, opbase=False)
 
 
-def _hut(prefix, roof, x0, x1, y0, y1, z0, h):
-    """Cedar box walls (no top / bottom), paint1 roof slab + drip edges."""
+def _hut(prefix, roof, x0, x1, y0, y1, z0, h, lip=0.01, closed=False):
+    """Cedar box walls (no top / bottom), paint1 roof slab + drip edges. T273 (the pass, closed=True): each drip flashing
+    keeps its inner face, the folded sheet's back leg against the slab (_drip_closed). Its open inner face showed from
+    above over the 1 cm step it stands proud (seen-through drip_cabroof_*). The first pass laid the flashing flush (lip 0)
+    instead: that left a 0.8 px crack along the slab's edge (gate3 h1, 139 px long), so the lip stays as shipped."""
     out = [(_box(f"{prefix}_walls", x0, x1, y0, y1, z0, z0 + h, drop=("+Z", "-Z")), "cedar")]
     slab = _box(roof, x0 - 0.15, x1 + 0.15, y0 - 0.15, y1 + 0.15, z0 + h, z0 + h + 0.12)
     out.append((slab, "paint1"))
-    out += _m(cs2_kit.drip_edge(slab, drop=0.06, t=0.02), "galv")
+    if closed:
+        out += _m(_drip_closed(slab, drop=0.06, t=0.02, lip=lip), "galv")
+    else:
+        out += _m(cs2_kit.drip_edge(slab, drop=0.06, t=0.02, lip=lip), "galv")
     return out
+
+
+def _drip_closed(box_obj, drop=0.06, t=0.02, lip=0.01):
+    """T273: cs2_kit.drip_edge with each flashing's inner face kept (+2 tris each). Same names, sizes and places."""
+    lo, hi = cs2_kit._mesh_world_bounds(box_obj)
+    cx, cy = (lo.x + hi.x) / 2, (lo.y + hi.y) / 2
+    lx, ly = hi.x - lo.x, hi.y - lo.y
+    zc = hi.z + lip - (drop + lip) / 2
+    hz = drop + lip
+    specs = [("px", (t, ly + 2 * t, hz), (hi.x + t / 2, cy, zc)),
+             ("nx", (t, ly + 2 * t, hz), (lo.x - t / 2, cy, zc)),
+             ("py", (lx, t, hz), (cx, hi.y + t / 2, zc)),
+             ("ny", (lx, t, hz), (cx, lo.y - t / 2, zc))]
+    return [(cs2_kit.add_box(f"drip_{box_obj.name}_{k}", size, c, (0, 0, 0)), cs2_kit.QUAD_GALV) for k, size, c in specs]
 
 
 def build_buildings(p):
@@ -2798,7 +3122,8 @@ def build_buildings(p):
         out.append((_box("opbase", x_lo, xw - 0.4, OPB_Y[0], OPB_Y[1], 0.0, zf, open_bottom=True),
                     "concrete"))
     cx0, cx1 = L["x0"], L["x1"]
-    out += _hut("cab", "cabroof", cx0, cx1, cy0, cy1, zf, CAB[2])
+    shut = bool(roof_slices_on(p))                            # T273: closed drip flashings (_hut)
+    out += _hut("cab", "cabroof", cx0, cx1, cy0, cy1, zf, CAB[2], closed=shut)
     zb = zf + 1.65
     # MUST-CHANGE 12: the +X (door) pane is dropped on both kinds
     out.append((_box("cabwin", cx0 - 0.025, cx1 + 0.025, cy0 - 0.025, cy1 + 0.025, zb - 0.5,
@@ -2817,7 +3142,7 @@ def build_buildings(p):
                          zf + 2.28), "lamp"))
     if p.kind == "base":
         ex0, ex1 = xw - 6.6, xw - 3.6
-        out += _hut("engroom", "engroof", ex0, ex1, cy0, cy1, zf, CAB[2])
+        out += _hut("engroom", "engroof", ex0, ex1, cy0, cy1, zf, CAB[2], closed=shut)
         out += _m(cs2_kit.door("eng", w=0.85, h=1.95, reveal=0.04,
                                loc=(ex0, (cy0 + cy1) / 2.0, zf), facing="-X"), "galv",
                   door_eng_leaf="paint1")
@@ -3011,6 +3336,23 @@ def _close_open(obj):
     return obj
 
 
+# T273 (the see-through gate): a sign's printed face is laminated onto its board, edge to edge. The kit's label quad stands
+# LABEL_PROUD (3 mm) in front of the backing with nothing closing the slot, so a free-standing board seen edge-on from
+# behind showed the label's back through it (DQ E base h2 SLOW, 7.7 px at 1080p; the top's 3.0 px). Under the texture pass
+# the post-mounted boards get the 3 mm edge band from the backing's face to the label (4 quads, +8 tris a board)
+def board_edge(name, c, n, r, w, h, proud):
+    """The edge band of a sign: the rectangle w x h about the label center `c` (facing `n`, right `r`), from the backing's
+    face (proud behind the label) to the label plane, each strip facing out."""
+    C, up = Vector(c), Vector((0.0, 0.0, 1.0))
+    mb = _MB()
+    for a, b, o in ((-r, up, -r), (r, up, r), (up, r, up), (-up, r, -up)):
+        e = a * ((w if abs(a.z) < 0.5 else h) / 2.0)
+        s_ = b * ((h if abs(a.z) < 0.5 else w) / 2.0)
+        p0, p1 = C + e - s_, C + e + s_
+        mb.f([tuple(p0), tuple(p1), tuple(p1 - n * proud), tuple(p0 - n * proud)], tuple(o))
+    return mb.obj(name)
+
+
 def build_detail(p):
     """Detail pass 1 dressing (design 3.2 / 4.2 with the skeptic's MC10 moves, and assert_detail1 box-tests every slot and
     footprint). The cs2_liftdress builders work on the deck (z DECK_H), the soffit hang slot, the operator cabin / engine
@@ -3060,6 +3402,8 @@ def build_detail(p):
             # fine-detail: 12-seg capped posts (the kit board's fine post, design B.1)
             parts.append((LD._cyl(f"board_{nm}_post{k}", pr, (pc.x, pc.y, zd), (pc.x, pc.y, ztop),
                                   12 if fine else 6, "top"), "galv"))
+        if roof_slices_on(p):
+            parts.append((board_edge(f"board_{nm}_edge", c, n, r, w, h, LD.LABEL_PROUD), "galv"))
         return parts
 
     def doorlite_and_sill(door_y, sx0, sx1):
@@ -3929,6 +4273,29 @@ def gd_hall_layout(p):
             "door_clear": (round(xd - GD_SIDE_DOOR[0] / 2.0, 6), round(xd + GD_SIDE_DOOR[0] / 2.0, 6))}
 
 
+# T273 (the see-through gate, overnight call 2026-11-21): the game draws a `_Win` pane single-sided, so through the hall's
+# open nose portals the far wall's panes were not drawn at all: a stark bright mullion grid beside walls that read as dark
+# glass from outside (the gate's 3,821 / 3,651 px "liner" holes; the glass rule passes them, the look did not). Under the
+# texture pass every pane the hall shows from inside gets its back: the same rectangle PANE_BACK_IN in, facing the hall, in
+# the main mesh's painted dark glass (the end glazing's material, contract 7), so it never takes the window shader's night
+# light. The operator room's own panes are skipped (their backs face the closed room). Flag off: the single-sided panes
+PANE_BACK_IN = 0.003
+
+
+def pane_backs(panes):
+    """paneback: one inward-facing dark glass quad behind each hall pane (not the operator room's)."""
+    mb = _MB()
+    for _nm, room, (ax, c, s), (a0, a1, z0, z1) in panes:
+        if room == "opr":
+            continue
+        c2 = c - s * PANE_BACK_IN
+        if ax == "y":
+            mb.f([(a0, c2, z0), (a1, c2, z0), (a1, c2, z1), (a0, c2, z1)], (0.0, -s, 0.0))
+        else:
+            mb.f([(c2, a0, z0), (c2, a1, z0), (c2, a1, z1), (c2, a0, z1)], (-s, 0.0, 0.0))
+    return [(mb.obj("paneback"), "glass")]
+
+
 def _pane(name, plane, rect):
     """One `_Win` pane quad. plane ("y", y, s): rect (x0, x1, z0, z1) in the plane y facing s Y. ("x", x, s): rect (y0, y1, z0,
     z1) in the plane x facing s X."""
@@ -4004,6 +4371,26 @@ def build_gd_nose_wall_r1(p):
              (0.0, s, 0.0))
     mb.f([(xn, -W2, zl), (xn + wt, -W2, zl), (xn + wt, W2, zl), (xn, W2, zl)], (0.0, 0.0, 1.0))
     return mb.obj("wall_nose")
+
+
+# T273 (the see-through gate): over each end ring beam, between the gable fascia and the side ring beam's end, the roof's
+# arch leaves a pocket at the hall's corner (z_top up to the roof's underside at the gable's edge). Its side was open, and
+# from under the eave a player saw into the attic: the gable's back and the end beam's open top (gondola D base 25 px at
+# both nose and back corners, top 17 px, at 20 m). A builder closes it with a cheek plate flush with the side ring beam's
+# outer face, and the end beams' tops are closed. Under the texture pass: 4 cheek quads (+8 tris) and 2 beam tops (+4).
+# Flag off: the open pockets
+def ringbeam_cheeks(p, xn, xb, wt):
+    """ringbeam_cheek: the corner plates at y +-(w_half + 0.10), over the end ring beams (nose xn - 0.10 .. xn + wt, back
+    xb - wt .. xb + 0.10), from z_top to the roof's underside at the gable's edge, facing out."""
+    lim = p.w_half + 0.10
+    zr = gd_roof_z(p, lim, True)
+    if zr - p.z_top < 1e-3:
+        return []
+    mb = _MB()
+    for s in (-1.0, 1.0):
+        for xa, xc in ((xn - 0.10, xn + wt), (xb - wt, xb + 0.10)):
+            mb.f([(xa, s * lim, p.z_top), (xc, s * lim, p.z_top), (xc, s * lim, zr), (xa, s * lim, zr)], (0.0, s, 0.0))
+    return [(mb.obj("ringbeam_cheek"), "paint1")]
 
 
 def build_gd_gables(p):
@@ -4139,8 +4526,10 @@ def build_gd_hall(p):
     for s, tag in ((-1.0, "n"), (1.0, "p")):
         y0, y1 = sorted((s * W2, s * (W2 + STONE_T)))
         segs = [(xn - STONE_T, notch[0]), (notch[1], xb + STONE_T)] if notch else [(xn - STONE_T, xb + STONE_T)]
+        # T273 (the pass): the stone shell keeps its inner face. Where the hall's door notch leaves the plinth wall short of
+        # it, that face is the stone's own return into the reveal (seen-through stonebase_* from inside the hall)
         out.append((_multi_box(f"stonebase_{tag}", [(a, b, y0, y1, 0.0, STONE_H) for a, b in segs],
-                               drop=("-Y" if s > 0 else "+Y",)), "stone"))
+                               drop=() if roof_slices_on(p) else ("-Y" if s > 0 else "+Y",)), "stone"))
     out.append((_box("stonebase_back", xb, xb + STONE_T, -W2, W2, 0.0, STONE_H, open_bottom=True,
                      drop=("-X",)), "stone"))
     out.append((_multi_box("stonebase_nose", [(xn - STONE_T, xn, -W2, -yo, 0.0, STONE_H),
@@ -4181,7 +4570,8 @@ def build_gd_hall(p):
     zs0 = min(GD_LINTEL_Z, gd_sign_nose_z(p) - lay["H"] / 2.0 - 0.05)
     out.append((_box("spandrel_nose", xn - 0.06, xn + 0.18, -1.15 + GD_MULL_W / 2.0, 1.15 - GD_MULL_W / 2.0,
                      zs0, znh, drop=("+Z",)), "accent3"))
-    out.append((_box("ringbeam_nose", xn - 0.10, xn + wt, -(W2 + 0.10), W2 + 0.10, znh, ze, drop=("+Z",)),
+    rb_drop = () if roof_slices_on(p) else ("+Z",)     # T273: the end beams keep their tops (ringbeam_cheek)
+    out.append((_box("ringbeam_nose", xn - 0.10, xn + wt, -(W2 + 0.10), W2 + 0.10, znh, ze, drop=rb_drop),
                 "paint1"))
     # the back: glazing over the back plinth
     for k, y in enumerate(GD_BACK_BAYS[1:-1]):
@@ -4190,11 +4580,15 @@ def build_gd_hall(p):
     for k, zt in enumerate(GD_TRANSOMS):
         out.append((_box(f"transom_b{k}", xb - 0.10, xb + 0.06, -wi, wi, zt - 0.04, zt + 0.04,
                          drop=("+Y", "-Y")), "paint1"))
-    out.append((_box("ringbeam_back", xb - wt, xb + 0.10, -(W2 + 0.10), W2 + 0.10, zh, ze, drop=("+Z",)),
+    out.append((_box("ringbeam_back", xb - wt, xb + 0.10, -(W2 + 0.10), W2 + 0.10, zh, ze, drop=rb_drop),
                 "paint1"))
+    if roof_slices_on(p):
+        out += ringbeam_cheeks(p, xn, xb, wt)
     out += build_gd_gables(p)
     for nm, _room, plane, rect in L["panes"]:
         out.append((_pane(nm, plane, rect), "glass"))
+    if roof_slices_on(p):
+        out += pane_backs(L["panes"])
     for s, tag in ((-1.0, "n"), (1.0, "p")):
         out += build_gd_entry(p, s, tag, L)
     out += build_gd_signs_r1(p, L)
@@ -4230,9 +4624,15 @@ def build_gd_roof(p):
     for y, sy in ((ys[0], -1.0), (ys[-1], 1.0)):
         z = gd_roof_z(p, y)
         mb.f([(xa, y, z), (xb, y, z), (xb, y, z - t), (xa, y, z - t)], (0.0, sy, 0.0))
-    return [(mb.obj("roof_shell"), "paint1"), (mr.obj("roof_rim"), "paint1"),
-            (ml.obj("rooflining"), "paint1"), (ms["n"].obj("eavesof_n"), "cedar"),
-            (ms["p"].obj("eavesof_p"), "cedar")]
+    if roof_slices_on(p):                       # T272: the shell as roof_shell_slices
+        mb.bm.free()
+        shell = roof_shell_slices([(y, gd_roof_z(p, y)) for y in ys], zc, xa, xb, t)
+        _all_sharp(mr)
+    else:
+        shell = [(mb.obj("roof_shell"), "paint1")]
+    return shell + [(mr.obj("roof_rim"), "paint1"),
+                    (ml.obj("rooflining"), "paint1"), (ms["n"].obj("eavesof_n"), "cedar"),
+                    (ms["p"].obj("eavesof_p"), "cedar")]
 
 
 def build_gd_eaves(p):
@@ -4276,13 +4676,14 @@ def build_gd_eaves(p):
             _mb_box(mb, x - 0.02, x + 0.02, s * yg - 0.02, s * yg + 0.02, zr - 0.02, zr + 0.08, drop=("-Z", "+Z"))
         out.append((mb.obj(f"snowguard_{tag}"), "galv"))
         g0, g1 = sorted((s * c, s * (c + 0.12)))
-        out.append((_box(f"gutter_{tag}", xn - ROOF_END, xb + GD_RAKE_BACK, g0, g1, ze - 0.14, ze - 0.02,
-                         drop=("+Z",)), "galv"))
+        out.append((gutter_trough(f"gutter_{tag}", xn - ROOF_END, xb + GD_RAKE_BACK, g0, g1, ze - 0.14, ze - 0.02,
+                                  p), "galv"))
         for k, xg in enumerate((xn + 0.40, xb - 0.45)):
             pts = [(xg, s * (c + 0.06), ze - 0.14), (xg, s * (c + 0.06), ze - 0.45),
                    (xg, s * (W2 + 0.22), ze - 0.85), (xg, s * (W2 + 0.22), 0.30),
                    (xg, s * (W2 + 0.40), 0.12)]
-            out.append((cs2_kit.tube_along(f"downspout_{tag}{k}", pts, 0.05, segments=6, caps="none",
+            out.append((cs2_kit.tube_along(f"downspout_{tag}{k}", pts, 0.05, segments=6,
+                                           caps="end" if roof_slices_on(p) else "none",   # T273: the shoe's outlet
                                            bend_rings=2), "galv"))
     return out
 
@@ -4458,6 +4859,11 @@ def build_station(p):
         parts += build_wx(p)
         parts += build_gd_dress(p)           # revision 1: the detail pass's kit where it fits
     parts = cut_long_parts(parts)
+    if roof_slices_on(p):                      # T273: the train's main pivot pins end in closed faces
+        import re as _re
+        for o, _mat in parts:
+            if _re.fullmatch(PIN_CLOSE_RE, o.name):
+                _close_open_ends(o)
     if gd_texpass_on(p) and GD_IDENTITY:
         parts = gd_texpass_parts(parts)         # r4 identity proposal (gondola): material keys only
     parts = texpass_parts(parts, p)              # --texpass (DQ): material keys by part prefix (the same list when off)
@@ -7378,6 +7784,8 @@ NOSE_KNOWN_OPEN = {
     ("band_nose_c", "commcable_nose"): "comm cable corner fillet through the nose band",
     ("bandlining_nose_c", "commcable_nose"): "comm cable corner fillet through the band lining",
     ("commcable_nose", "soffit_tongue"): "comm cable corner fillet through the soffit tongue",
+    # T273 (roof slices on): the tongue's back face (soffit_back_0, 3 mm above it) meets the same fillet. Same finding
+    ("commcable_nose", "soffit_back_0"): "comm cable corner fillet through the soffit tongue's back",
 }
 
 
@@ -8148,6 +8556,8 @@ def make_hook(t, table, p):
         with _lt_override(detail_specs=specs):
             base, nrm, msk, ctl = inner(base, nrm, msk, ctl, ao, mesh, A)
         hook.detail_stats = json.loads(json.dumps(cs2_compose.LAST_DETAIL_STATS))
+        if roof_slices_on(p):                   # T272: the sliced roof's seams (before the stamps: no rect overlaps it)
+            hook.roof_seams = draw_roof_seams(base, nrm, msk, mesh, table, p)
         hook.stamps = stamp_signbands(base, ctl, mesh, table, p)
         relief_signbands(nrm, hook.stamps, p)
         if labels:
@@ -8163,6 +8573,7 @@ def make_hook(t, table, p):
 
     hook.inner = inner
     hook.livery = None
+    hook.roof_seams = None
     hook.flatten = None
     hook.stamps = None
     hook.labels = None
@@ -8450,7 +8861,7 @@ def detail1_block(t, table, p, A, asset_dir, name, dq_hook, hook, share, report)
         "detail_stats": dq_hook.detail_stats,
         "sub_objects": subobject_rows(p, name),
         "dress_tris_lod0": dress_tris,
-        "lod0_target": (GD_LOD0_TARGET if p.gondola else DETAIL_LOD0_TARGET)[p.kind],
+        "lod0_target": gd_lod0_target(p) if p.gondola else DETAIL_LOD0_TARGET[p.kind],
         "batches": 9,
     }
     print(f"[detach] detail1: w1 {dens['w1_px_per_m']} px/m, median {dens['median_px_per_m']}, "
@@ -8532,8 +8943,9 @@ def gd_weather_spec(name, intensity):
     the dressing's DRESS_WEATHER_OVERRIDES."""
     LD = _LD()
     w = GD_WEATHER
+    tp = ROOF_SLICE_WEATHER if (TEXPASS and GD_REV1) else ()     # T272: the sliced roof's faint wash first (pass only)
     return LD.station_weather_spec(name, ground=w["ground"], ground_z=w["ground_z"],
-                                   overrides=tuple(w["overrides"]) + tuple(LD.DRESS_WEATHER_OVERRIDES),
+                                   overrides=tuple(tp) + tuple(w["overrides"]) + tuple(LD.DRESS_WEATHER_OVERRIDES),
                                    traffic_extra=w["traffic_extra"], intensity=intensity)
 
 
@@ -9781,10 +10193,10 @@ def main(argv=None):
         raise ContractError(f"C11 detail pass 1: LOD0 {n0} tris > target {DETAIL_LOD0_TARGET[p.kind]}")
     if d1:
         contracts["C11"] += f", detail pass 1 target {DETAIL_LOD0_TARGET[p.kind]}"
-    if g1 and n0 > GD_LOD0_TARGET[p.kind]:
-        raise ContractError(f"C11 gondola revision 1: LOD0 {n0} tris > budget {GD_LOD0_TARGET[p.kind]}")
+    if g1 and n0 > gd_lod0_target(p):
+        raise ContractError(f"C11 gondola revision 1: LOD0 {n0} tris > budget {gd_lod0_target(p)}")
     if g1:
-        contracts["C11"] += f", revision 1 budget {GD_LOD0_TARGET[p.kind]} (ROUND-SPEC section 4)"
+        contracts["C11"] += f", revision 1 budget {gd_lod0_target(p)} (ROUND-SPEC section 4)"
     for k in ("C4", "C10", "C11", "C12"):
         print(f"[contract] {k} ok: {contracts[k]}")
 
@@ -9802,8 +10214,9 @@ def main(argv=None):
         # MC6: bay sharing on the bake mesh (after split_windows), never a prefix with an active DetailSpec (detail_height
         # sums world-anchored relief per face), labels / boards / sign bands / lamps, the hero list or a pinned face.
         # Grade-contact copies stack apart
-        share = LD.share_identical(t, table, LD.DQ_SHARE_WHITELIST, detail_specs=specs_for(p)(),
-                                   hero=LD.DQ_SHARE_HERO, reserved=rects, uv_layer=SEED_LAYER,
+        wl, hero = roof_share_lists(p, LD.DQ_SHARE_WHITELIST, LD.DQ_SHARE_HERO)     # T272: + the roof slices
+        share = LD.share_identical(t, table, wl, detail_specs=specs_for(p)(),
+                                   hero=hero, reserved=rects, uv_layer=SEED_LAYER,
                                    ground_band=(DQ_WEATHER["ground_z"], 0.60))
         if args.weather == "on":
             # MC7a: roles by material INDEX (the joined mesh's CS2SRC_<key> slots, read before the bake). Labels + sign live
@@ -9826,6 +10239,10 @@ def main(argv=None):
         hook = SteppedWeather(dq_hook, lambda s: gd_weather_spec(name, s), LD.INTENSITY_STEPS,
                               mat_roles=roles, detail_specs=detail_specs_gd(), reserved=rects,
                               compose_contact=False)
+    if g1 and args.finish and roof_slices_on(p):
+        # T272: the roof slices stack (the only shared parts of the gondola: cap 0 m2 leaves every other part unique)
+        share = _LD().share_identical(t, table, ("roof_shell",), detail_specs=specs_for(p)(), cap_m2=0.0,
+                                      reserved=rects, uv_layer=SEED_LAYER)
     # 6 px at 2048 (lift_terminal PACK_MARGIN_PX). Scaled with A, because ~1,250 islands at a 512 blockout with a 6 px margin
     # leave the margins ~70 % of the square (measured ~1 px/m)
     margin = max(2, int(round(PACK_MARGIN_PX * A / 2048.0)))
@@ -10031,6 +10448,9 @@ def main(argv=None):
         **({"sheave_trains": sheave_nums} if sheave_nums is not None else {}),
         **({"orientation": orient_nums} if orient_nums is not None else {}),
         "win_cells": want_cells,
+        # T272: the sliced roof (no key when off)
+        **({"roof_seams": dict(dq_hook.roof_seams, share=(share.report if share is not None else None))}
+           if (dq_hook is not None and dq_hook.roof_seams) else {}),
         # r4/tex: the pass this build ran (no key when off: the flag-off manifest keeps its keys)
         **({"texpass": {"version": TEXPASS, "livery": LIVERY,
                         "livery_stamp": (dq_hook.livery if dq_hook is not None else None),
