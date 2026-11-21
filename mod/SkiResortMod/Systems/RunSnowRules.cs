@@ -97,7 +97,7 @@ namespace SkiResortMod.Systems
         // default can be 3.3. The range stays 0..6.
         public const float DefaultSnowmakingMarginC = 3.3f;  // = SkiResortSettings.DefaultSnowmakingBonusCelsius
         public const float MinSnowmakingMarginC = 0f;       // = the slider's range (SkiResortSettings)
-        public const float MaxSnowmakingMarginC = 6f;       // T269: bounds the seed, d* < 0.1275 m per C of margin (0.77 m here)
+        public const float MaxSnowmakingMarginC = 6f;       // T269: bounds the seed, the seed threshold <= 0.1275 m per C of margin (0.77 m here)
         // Top-up cadence and skip limits
         public const int TopupIntervalFrames = 64;     // the injection's Tuning.TopupIntervalFrames points here
         // The raise steps on sim time like a cat track (StepTrackPack): a pass credits every sim frame since the last pass. The wall-clock
@@ -1101,13 +1101,22 @@ namespace SkiResortMod.Systems
             };
         }
 
-        /// <summary>T269: the depth above which the guns' build beats the game's melt at <paramref name="airC"/> (the threshold d*). The
-        /// melt's depth term coef x above / d equals the build B at d* = coef x above / B. Under it, a gun step's snow melts before the next
-        /// window (measured in game: 7 mm and 2 cm at +0.7 C gone within one 64-frame window), so a bare pack above freezing never grows.
+        /// <summary>T269: the depth above which the guns' build beats the game's melt at <paramref name="airC"/> (the threshold). Under it,
+        /// a gun step's snow melts before the next window (measured in game: 7 mm and 2 cm at +0.7 C gone within one 64-frame window), so a
+        /// bare pack above freezing never grows.
+        /// The threshold is quantum-aware: d*_q = coef x above / (floor x floor(B / floor)), B = the gun build. The continuous law's
+        /// break-even coef x above / B is not enough on a run texel. The game melts thin snow in whole R16 quanta per 4-frame update,
+        /// rounded up (a fit to the bridge melt probe; the shader form is unverified), so its melt at a depth d is floor x ceil(coef x above
+        /// / (floor x d)) per hour. That melt is at most B only from d*_q on. At the continuous d* it is always at least B, so a texel
+        /// seeded there stayed pinned (+1 C: d* 4.3 cm, the next quantum step 6.4 cm; in game most texels stayed under 9 cm for 2 hours
+        /// while the guns read Making). A cat track cell melts with the continuous law (PackMeltM), so for a track d*_q is a little above the exact threshold
+        /// (a slightly higher first seed, never a lower one).
         /// 0 at or below freezing, for NaN, and where B is not above the melt floor (no depth grows there: past +3.1 C at the mean rate and
-        /// the default margin). At the mean rate and margin 3.3: 2.7 cm at +0.7 C, 12.5 cm at +2 C, 27.9 cm at +2.8 C, and the most just under
-        /// the floor line (about 39 cm at +3.09 C). Bound: B > floor and above <= margin, so d* < coef x margin / floor = 0.1275 m per C of
-        /// margin (0.77 m at MaxSnowmakingMarginC 6, under every gun target; the test host sweeps it).</summary>
+        /// the default margin). At the mean rate and margin 3.3: 3.0 cm at +0.7 C, 6.4 cm at +1 C, 12.7 cm at +2 C, 35.7 cm at +2.8 C, and
+        /// the most just under the floor line (about 39 cm at +3.09 C: there floor(B / floor) = 1 and B nears the floor, so both forms
+        /// tend to the same peak, coef x above / floor).
+        /// Bound: floor(B / floor) >= 1 and above <= margin, so d*_q <= coef x margin / floor = 0.1275 m per C of margin (0.77 m at
+        /// MaxSnowmakingMarginC 6, under every gun target; the test host sweeps it).</summary>
         public static float PackSeedThresholdM(in PackParams p, float airC, float rateFactor)
         {
             float above = airC - p.FreezingC;
@@ -1116,7 +1125,9 @@ namespace SkiResortMod.Systems
             float b = PackBuildPerHourM(airC, p.FreezingC + p.MarginC, rateFactor);
             if (!(b > p.MeltFloorPerHourM))
                 return 0f;
-            return Math.Max(0f, p.MeltDepthCoef) * above / b;
+            // The melt the game can drop to: whole floors (one R16 quantum per update each), at most B. At least one floor, since B > floor.
+            float meltCap = p.MeltFloorPerHourM * Math.Max(1f, (float)Math.Floor(b / p.MeltFloorPerHourM));
+            return Math.Max(0f, p.MeltDepthCoef) * above / meltCap;
         }
 
         /// <summary>The gun state a cell starts a load with: NextPackGun from Unknown on its saved depth, so a load never needs the gun
