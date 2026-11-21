@@ -268,13 +268,23 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
         const inner = innerHeight(box) + freeHeight(body, box);
         const bodyH = body.getBoundingClientRect().height;
         const slotRect = slot.getBoundingClientRect();
-        const tops = rows.map((r) => r.getBoundingClientRect().top);
         const drawn: number[] = [];
         for (let i = 0; i < rows.length; i++) if (rows[i].style.display !== "none") drawn.push(i);
-        // A drawn row's height: down to the next drawn row when that is the next row, else to the slot's end (last drawn), else its box
+        // A drawn row's margins (the slot is a flex column: margins never collapse, so margin boxes tile it exactly)
+        const margin = (r: HTMLElement): [number, number] => {
+          try { const cs = getComputedStyle(r); return [parseFloat(cs.marginTop) || 0, parseFloat(cs.marginBottom) || 0]; } catch { return [0, 0]; }
+        };
+        const mt: number[] = rows.map(() => 0), mb: number[] = rows.map(() => 0);
+        for (const i of drawn) [mt[i], mb[i]] = margin(rows[i]);
+        // Margin-box tops. 2026-11-21: a row's own margin-top counts in its own height, never in the row above it. With border tops, a
+        // divider's 4 rem margin-top counted in the row above while the divider was drawn and nowhere while it was hidden, so a divider at
+        // a page's end flipped between the pages every two frames (the tooltip pass that never went quiet at 2160 x 1.5)
+        const tops = rows.map((r, i) => r.getBoundingClientRect().top - mt[i]);
+        // A drawn row's height: down to the next drawn row when that is the next row, else to the slot's end (last drawn), else its
+        // margin box
         drawn.forEach((i, k) => {
           const next = k + 1 < drawn.length ? drawn[k + 1] : -1;
-          const h = next === i + 1 ? tops[next] - tops[i] : next < 0 ? slotRect.bottom - tops[i] : rows[i].getBoundingClientRect().height;
+          const h = next === i + 1 ? tops[next] - tops[i] : next < 0 ? slotRect.bottom - tops[i] : rows[i].getBoundingClientRect().height + mt[i] + mb[i];
           heightOf.current.set(rows[i], Math.max(0, h));
         });
         if (drawn.length === rows.length) {

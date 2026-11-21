@@ -857,6 +857,9 @@ function run(srcDir) {
     eq("PG.1 pager anchor: the player paged (asked != the anchor's page): the asked page", [R.anchoredPage(PG, 2, 3, 1), R.anchoredPage(PG, 0, 3, 1)], [2, 0]);
     eq("PG.1 pager anchor: an anchor row past the rows is ignored", R.anchoredPage(PG, 1, 9, 1), 1);
     eq("PG.1 fit.tsx pages by the anchor", /anchoredPage\(pageOf, state\.current\.page/.test(fs.readFileSync(path.join(srcDir, "hub", "fit.tsx"), "utf8")), true);
+    // PG.2: row heights by margin-box tops, so a row's margin-top never counts in the row above it (a divider at a page's end flipped
+    // between pages every two frames: the tooltip pass that never went quiet at 2160 x 1.5)
+    eq("PG.2 fit.tsx measures margin-box tops", /getBoundingClientRect\(\)\.top - mt\[i\]/.test(fs.readFileSync(path.join(srcDir, "hub", "fit.tsx"), "utf8")), true);
   }
   // T31 (DECISIONS 423b) the cat track delete: a trash only on a cat track row (other rows keep an empty slot), armed by the first click
   // and sent by the second. The trigger is the deleteCatTrack one (C# queues it and applies it in OnUpdate).
