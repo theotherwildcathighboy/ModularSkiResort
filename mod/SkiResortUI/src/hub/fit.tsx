@@ -340,7 +340,6 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
         acc += heights[i];
       }
       const n = p + 1;
-      { const w = window as unknown as { __pg?: unknown[] }; (w.__pg = w.__pg || []).push(JSON.stringify({ isFresh, room: Math.round(room * 10) / 10, inner: Math.round(innerHeight(box) * 10) / 10, free: Math.round(freeHeight(body, box)), boxH: box.clientHeight, n, st: state.current.page, pageOf: pageOf.join(""), shown: rows.map((r) => r.style.display === "none" ? "-" : "x").join("") })); if (w.__pg.length > 80) w.__pg.shift(); }
       const anchor = anchorRef.current.key === keyRef.current ? anchorRef.current : null;
       let shown = anchoredPage(pageOf, state.current.page, anchor && anchor.row ? rows.indexOf(anchor.row) : -1, anchor ? anchor.page : -1);
       // A fold was just toggled: show the page that holds its header (the open one, or after a close the header that was open)
