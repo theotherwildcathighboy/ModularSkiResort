@@ -26,6 +26,18 @@ Gates (the lodge pilot's P gates, keyed to the station sheet, plus the aspect ga
   X8  UV turn (tram_tilesheet.TEXPASS_UV_TURN): the timber struts' UVTile turns 90 deg under the pass so the boards
       run up the member: inert when off, a rotation (det +1), the cut grid kept at grid offsets 0 / 0.5, only
       timber parts of the shipped part tables that do not strip.
+  X9  roof seam (T272, tram_tilesheet.TEXPASS_PROC): tram_roof draws the 1.0.3 sine ("seam") when off and the raised
+      standing seam ("standing") under v1 and under the roof-only pass "roof"; the "roof" pass moves no tile, no
+      BldgMat, no SMOOTH_TARGET, no far source and no other swatch's inputs (only tram_roof / tram_roof~w change);
+      the standing swatch: 16 seams a swatch (0.50 m), each >= 3 texels wide, flat pans, the recolor mean held
+      within 0.5 %, a seam line in the albedo at mip 3 (contrast >= 0.05); tram_station takes --texpass roof.
+  X10 fall turn (T272, tram_tilesheet.fall_turned): under a pass whose tram_roof is "standing", a roof face whose fall
+      line runs along X (the clock cap's X-facing slopes) turns its UVTile so the seams run down the slope; Z-facing
+      slopes, the hall roof, flat roofs, walls and other keys never turn; nothing turns when off.
+  X11 closures (T273, kit level, no station build): under the pass every handrail post (straight and corner) stays inside
+      its rails - rays from 16 bearings x 3 elevations at the post top hit no back face (flag off: the corner post's
+      top is open to them, recorded); the hall door's jambs and head are closed boxes (no boundary edge) when
+      `closed`, and keep their open back when not.
 Exit 1 on the first failure; one PASS line otherwise.
 """
 
@@ -289,13 +301,155 @@ def check_uv_turn():
        f" timber struts ({', '.join(turned['SkiTramBaseStationB'])}), top {len(turned['SkiTramTopStationB'])}; off = none")
 
 
+def check_roof_seam(off, v1_hash):
+    key = "tram_roof"
+    assert TT._sw(key).get("proc") == "seam", "flag off: the shipped sine"
+    (b0, n0, _m0, _s0, _c0, i0), ppm = swatch(key, off)
+    assert i0.get("proc") == "seam", i0
+    sw0 = {k: dict(TT._sw(k)) for k in off["tiles"]}
+    mats0 = {k: repr(K.BLDG_MATERIALS[k]) for k in TT.SWATCHES}
+    smooth0 = dict(TS.SMOOTH_TARGET)
+    for ver in ("v1", "roof"):
+        TT.register_texpass(ver)
+        try:
+            assert TT._sw(key)["proc"] == "standing" and TT._sw(key + TS.W_SUFFIX)["proc"] == "standing", ver
+            if ver == "roof":
+                lay = layout()
+                assert lay["tiles"] == off["tiles"], "the roof pass moved a tile"
+                assert lay["hash"] not in (off["hash"], v1_hash), lay["hash"]
+                assert {k: repr(K.BLDG_MATERIALS[k]) for k in TT.SWATCHES} == mats0, "the roof pass moved a BldgMat"
+                assert dict(TS.SMOOTH_TARGET) == smooth0, "the roof pass moved a smoothness target"
+                assert TT.texpass_far_fields() == {}, "the roof pass has no far source"
+                moved = sorted(k for k in off["tiles"] if dict(TT._sw(k)) != sw0[k])
+                assert moved == [key, key + TS.W_SUFFIX], moved
+                (b, n, _m, sm, _c, info), _p = swatch(key, lay)
+        finally:
+            TT.unregister_texpass()
+    assert info.get("proc") == "standing", info
+    nn = n * 2.0 - 1.0
+    tilt = np.degrees(np.arccos(np.clip(nn[..., 2] / np.linalg.norm(nn, axis=-1), -1, 1)))
+    col = tilt.mean(0) > 4.0                                    # the seams run along v (constant u)
+    d = np.diff(np.r_[0, col.astype(np.int8), 0])
+    runs, ends = np.flatnonzero(d == 1), np.flatnonzero(d == -1)
+    widths = (ends - runs).tolist()
+    if col[0] and col[-1]:                                      # a seam on the swatch edge wraps (the pad is periodic)
+        widths = [widths[0] + widths[-1]] + widths[1:-1]
+    T = off["tiles"][key]["T_m"]
+    assert len(widths) == int(round(T / 0.50)), (len(widths), widths)
+    assert min(widths) >= 3, widths                             # >= 3 texels of seam (flanks + top) at 120 px/m
+    assert float(np.percentile(tilt, 50)) < 0.5, "pans must be flat"
+    l0, l1 = float((b0 @ TS.LUMA).mean()), float((b @ TS.LUMA).mean())
+    assert abs(l1 / l0 - 1.0) < 0.005, (l0, l1)
+    f = 8
+    C = b.shape[0]
+    prof = (b @ TS.LUMA).reshape(C // f, f, C // f, f).mean((1, 3)).mean(0)
+    con = float(np.percentile(prof, 98) - np.percentile(prof, 2)) / float(prof.mean())
+    assert con >= 0.05, con
+    a = ts.parse_args(["--role", "base", "--finish", "--tiled", "--texpass", "roof"])
+    assert a.texpass == "roof"
+    ok(f"X9 roof seam: off = sine; v1 / roof = standing, {len(widths)} seams a {T:g} m swatch, {min(widths)}-{max(widths)} texels each, "
+       f"pans flat (tilt p50 {np.percentile(tilt, 50):.2f} deg), mean {l1 / l0 - 1.0:+.4f}, mip-3 line contrast {con:.3f}; "
+       f"the roof pass moves only {key} (+ ~w): no tile, BldgMat, smoothness target or far source")
+
+
+def check_fall_turn():
+    xs = ((0.6, 0.8, 0.0), (-0.6, 0.8, 0.0))                     # the pyramid cap's X-facing slopes
+    rest = ((0.0, 0.8, 0.6), (0.0, 0.8, -0.6), (0.0, 0.98, 0.2), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0), (0.0, -1.0, 0.0))
+    for n in xs + rest:
+        assert not TT.fall_turned("tram_roof", n), ("off", n)
+    for ver in ("v1", "roof"):
+        TT.register_texpass(ver)
+        try:
+            for k in ("tram_roof", "tram_roof" + TS.W_SUFFIX):
+                assert all(TT.fall_turned(k, n) for n in xs), (ver, k)
+                assert not any(TT.fall_turned(k, n) for n in rest), (ver, k)
+            assert not TT.fall_turned("tram_timber", xs[0]) and not TT.fall_turned("tram_steel_b", xs[0]), ver
+        finally:
+            TT.unregister_texpass()
+    ok("X10 fall turn: under v1 / roof the X-facing roof slopes turn (seams down the slope); Z slopes, the hall roof, "
+       "flat roofs, walls, soffits and other keys never; nothing when off")
+
+
+def _bvh(objs):
+    from mathutils.bvhtree import BVHTree
+    bpy.context.view_layer.update()
+    verts, polys = [], []
+    for o in objs:
+        M = o.matrix_world
+        base = len(verts)
+        verts += [M @ v.co for v in o.data.vertices]
+        polys += [[base + i for i in pl.vertices] for pl in o.data.polygons]
+    return BVHTree.FromPolygons(verts, polys)
+
+
+def _back_hits(bvh, target, dist=6.0):
+    import math
+    from mathutils import Vector
+    n = 0
+    for b in range(16):
+        for e in (8.0, 22.0, 40.0):
+            a, el = math.radians(22.5 * b), math.radians(e)
+            eye = target + Vector((math.sin(a) * math.cos(el), -math.cos(a) * math.cos(el), math.sin(el))) * dist
+            for dx in (-0.01, 0.0, 0.01):
+                for dy in (-0.01, 0.0, 0.01):
+                    d = (target + Vector((dx, dy, 0.0)) - eye).normalized()
+                    hit, nrm, fi, _d = bvh.ray_cast(eye, d)
+                    if hit is not None and nrm.dot(d) > 0:
+                        n += 1
+    return n
+
+
+def check_closures():
+    import cs2_kit
+    from mathutils import Vector
+    path = [(0.0, 0.0, 0.0), (3.0, 0.0, 0.0), (3.0, 2.2, 0.0)]     # one straight span with a mid post, one corner
+    res = {}
+    for on in (False, True):
+        for o in list(bpy.data.objects):
+            bpy.data.objects.remove(o)
+        parts = cs2_kit.handrail("x", path, h=1.10, post_every=2.5, post_radius=ts.T273_POST_R if on else None)
+        if on:
+            ts.seat_corner_posts("x", [Vector(p) for p in path], parts)
+        for o, _q in parts:
+            if o.name not in bpy.context.scene.collection.objects:
+                bpy.context.scene.collection.objects.link(o)
+        bvh = _bvh([o for o, _q in parts])
+        posts = [o for o, _q in parts if o.name.startswith("post_x_")]
+        bpy.context.view_layer.update()
+        res[on] = {o.name: _back_hits(bvh, o.matrix_world.translation + Vector((0, 0, 0.55 - 0.004)))
+                   for o in posts}
+    corner = "post_x_2"
+    assert res[False][corner] > 0, f"flag off: the corner post top should be open to the rays ({res[False]})"
+    assert all(v == 0 for v in res[True].values()), f"under the pass a post top is open: {res[True]}"
+    for closed in (False, True):
+        for o in list(bpy.data.objects):
+            bpy.data.objects.remove(o)
+        parts = cs2_kit.door("hall", w=1.70, h=2.40, loc=(0, 0, 0), facing="-Y")
+        if closed:
+            ts.close_frame_backs("hall", parts)
+        for o, _q in parts:
+            if o.name.split("_")[-1] in ("jamb0", "jamb1", "head"):
+                import bmesh
+                bm = bmesh.new()
+                bm.from_mesh(o.data)
+                nb = sum(1 for e in bm.edges if e.is_boundary)
+                nf = len(bm.faces)
+                bm.free()
+                assert (nb == 0 and nf == 6) if closed else (nb == 4 and nf == 5), (o.name, closed, nb, nf)
+    ok(f"X11 closures: post tops behind the rails under the pass (back hits {res[True]}; flag off corner "
+       f"{res[False][corner]}); door frame closed when `closed` (6 faces, no boundary), open back otherwise")
+
+
 def main():
-    off, _h = check_flag_off()
+    off, v1_hash = check_flag_off()
     check_cut_grid(off)
     check_aspect()
     check_scale_palette_lf(off)
     check_far()
     check_uv_turn()
+    check_roof_seam(off, v1_hash)
+    check_fall_turn()
+    check_closures()
     print(f"PASS test_tram_texpass: {len(CHECKS)} checks")
 
 

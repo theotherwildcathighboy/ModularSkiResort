@@ -164,7 +164,20 @@ TEXPASS = {
         "tram_timber": dict(set="PHWeatheredPlankSiding", tile_m=(1.6, 1.6), target_srgb=(0.406, 0.352, 0.275),
                             smooth_mean=0.342, normal_gain=1.6),
     },
+    # T272 (r7 2026-11-20): the roof-only pass. The tram ships the flag-off look (letter B: the olive stone the owner
+    # accepted), so its roof fix travels without v1's stone / concrete / timber swaps (TEXPASS_PROC below)
+    "roof": {},
 }
+# per-pass procedural swaps on FLAT keys {version: {key: proc}} (register_texpass needs a scan for every TEXPASS key).
+# T272 "standing": the roof's 1.0.3 sine ("seam", 10 mm, 7 deg at most) has no edge and read as soft banding, the
+# "blurry roof" of the 1.0.4 review. Same key, cell, T and pitch: 0 tris, 0 MB
+TEXPASS_PROC = {"v1": {"tram_roof": "standing"}, "roof": {"tram_roof": "standing"}}
+# the "standing" seam: ribs per 8.0 m swatch (0.50 m pitch), the trapezoid (half top, half base, height) m, the contact
+# shade depth and its Gaussian sigma (m). The trapezoid is the lodge pass's seam (cs2_tilesheet TEXPASS_FLAT
+# metal_roof_lt). The shade is stronger than the lodges' 0.12 / 17.5 mm: this roof is 4-5 x a lodge roof and is seen at
+# 45-70 m, where the lodges' shade left the seam line under the sine's (shaded line rms at mip 3: 0.053 vs 0.060). At
+# 0.22 / 25 mm it is 0.071 (mip 3) and the albedo line 0.18 (roofsw lab, T272 NOTE)
+TRAM_SEAM = {"ribs": 16, "rib_m": (0.007, 0.020, 0.014), "ao": 0.22, "ao_sigma_m": 0.025}
 # real-world course / board pitch (m) a pass key must show at its tile (the lodge gate P6's rule)
 TEXPASS_PITCH = {"tram_timber": (0.10, 0.20)}
 # the far bake's material-table key of each pass key (tram_station.material_table): the far set draws what LOD0 draws
@@ -184,6 +197,19 @@ def turn_uv(uv):
     """(n, 2) UVTile turned 90 deg: u' = v, v' = -u (determinant +1)."""
     uv = np.asarray(uv, np.float64)
     return np.stack([uv[:, 1], -uv[:, 0]], 1)
+
+
+# T272: under a pass whose tram_roof is the "standing" seam, a roof face whose fall line runs along X (|n.x| > |n.z|: the
+# X-facing slopes of the clock tower's pyramid cap) turns its UVTile too. box_uv runs a roof's seams along Z, which is
+# down the hall roof's slope but ACROSS those cap faces (seams as contour lines: no roofer lays them so). Same rotation,
+# same cut grid (tram_roof T 8.0 m on both axes): no tri moves
+def fall_turned(key, n):
+    """True when the active pass turns this roof face's UVTile so its standing seams run down the slope (never when off)."""
+    v = _TEXPASS["version"]
+    if not v or TEXPASS_PROC.get(v, {}).get(TS.base_key(key)) != "standing":
+        return False
+    n = np.asarray(n, np.float64)
+    return int(np.argmax(np.abs(n))) == 1 and abs(n[0]) > abs(n[2]) + 0.05
 
 
 def uv_turned(key, part_name):
@@ -210,7 +236,8 @@ def _sw(key):
     v = _TEXPASS["version"]
     s = TEXPASS[v].get(bk) if v else None
     if not s:
-        return d
+        pr = TEXPASS_PROC.get(v, {}).get(bk) if v else None
+        return dict(d, proc=pr) if pr else d
     out = dict(d, set=s["set"], tile=float(max(s["tile_m"])))
     if "proc" in s:
         out["proc"] = s["proc"]
@@ -277,6 +304,9 @@ def texpass_far_fields():
         return {}
     if _TEXPASS["far"] is None:
         keys = sorted(k for k in TEXPASS[v] if k in TEXPASS_FAR)
+        if not keys:                    # a pass without scan swaps ("roof"): the far bake keeps its sources
+            _TEXPASS["far"] = {}
+            return {}
         specs, _info = K.material_specs(keys, TEXPASS_FAR_PPM)
         specs = TS.texpass_far_specs(specs)
         _TEXPASS["far"] = {TEXPASS_FAR[k]: dict(texture_set=s.texture_set, metres_per_tile=float(s.metres_per_tile),
@@ -292,7 +322,8 @@ def texpass_report():
         return None
     far = {k: dict(f, texture_set=os.path.basename(f["texture_set"]), tint=[round(x, 4) for x in f["tint"]])
            for k, f in texpass_far_fields().items()}
-    return {"version": v, "specs": _jsonable(TEXPASS[v]), "pitch_m": _jsonable(TEXPASS_PITCH), "far": far,
+    return {"version": v, "specs": _jsonable(TEXPASS[v]), "proc": _jsonable(TEXPASS_PROC.get(v, {})),
+            "pitch_m": _jsonable(TEXPASS_PITCH), "far": far,
             "far_ppm": TEXPASS_FAR_PPM * K.PREFILTER_FACTOR, "uv_turn": _jsonable(TEXPASS_UV_TURN.get(v, {}))}
 
 
@@ -381,6 +412,9 @@ def layout_hash(layout):
     if _TEXPASS["version"]:             # texture pass: the flag-off blob keeps its key set
         d["v"] += TEXPASS_VERSION
         d["texpass"] = {_TEXPASS["version"]: TEXPASS[_TEXPASS["version"]]}
+        if TEXPASS_PROC.get(_TEXPASS["version"]):
+            d["texpass_proc"] = TEXPASS_PROC[_TEXPASS["version"]]
+            d["tram_seam"] = TRAM_SEAM          # T272: the standing seam's constants are part of the pixels
     return hashlib.sha1(json.dumps(d, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:16]
 
 
@@ -443,6 +477,20 @@ def _procedural(proc, key, b, n, sm, C, T, seed):
         b = b * (1.0 + 0.025 * np.clip(tone, -2, 2))[..., None]
         h = 0.010 * np.sin(2.0 * math.pi * U / 0.50)
         n = _height_normal(n, h, ppm)
+    elif proc == "standing":
+        # T272 (texture pass): the lodges' raised standing seam (cs2_tilesheet TEXPASS_FLAT metal_roof_lt: the
+        # trapezoid 14 mm high, 14 mm top, 40 mm base) at the roof's own 0.50 m pitch, 16 a swatch running down the
+        # slope (constant u), flat pans between. 40 mm = 4.8 texels at 120 px/m. The contact shade beside each seam
+        # is the cue that survives the far mips (a symmetric rib's normal averages flat by mip 3, the albedo line
+        # does not); renormalized so the recolor mean holds. A calmer tone than the sine's (+-1.5 %)
+        ribs, rib_m, ao = TRAM_SEAM["ribs"], TRAM_SEAM["rib_m"], TRAM_SEAM["ao"]
+        prof, dist = TS._rib_height(C, T, ribs, rib_m)
+        n = _height_normal(n, np.broadcast_to(prof[None, :], (C, C)), ppm)
+        line = 1.0 - ao * np.exp(-0.5 * (dist / TRAM_SEAM["ao_sigma_m"]) ** 2)
+        line = line / line.mean()
+        tone = TS._pnoise(C, C / 3.0, seed, 2.2)
+        b = b * (line[None, :] * (1.0 + 0.015 * np.clip(tone, -2, 2)))[..., None]
+        sm = sm + 0.04 * (prof / max(float(prof.max()), 1e-9))[None, :]      # seam tops a little burnished
     elif proc == "clad":
         pitch = T / 32.0                                # 0.075 m corrugated sheet, ribs vertical (constant u)
         h = 0.002 * np.sin(2.0 * math.pi * U / pitch)   # today's hut relief: 0.076 m, 2 mm (detail_specs "hut")
@@ -778,7 +826,7 @@ def uvtile_for(obj, keys, fkey, table, dx, groups, targets, ts):
             uvt[L] = uv
             continue
         uv = box_uv(P[lv[L]], N[i])
-        if uv_turned(k, name_of(p)):            # texture pass only: boards up the timber struts
+        if uv_turned(k, name_of(p)) or fall_turned(k, N[i]):     # pass only: boards up the struts, seams down the slope
             uv = turn_uv(uv)
         if k in SWATCHES and SWATCHES[k].get("set"):
             uv = uv / TS.tile_m_of(k)

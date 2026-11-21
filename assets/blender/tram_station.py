@@ -446,6 +446,16 @@ TILED_TRACK_ROPE_SEGS = 6
 # SOURCES on the station sheet and material_table gives the far bake the same scans. apply_texpass() sets TEXPASS from the
 # run's args (main / build_checked), like TILED. Off (None) = byte-identical: no geometry, part or contract reads it.
 TEXPASS = None
+# T273 (r7-tex roofs, 2026-11-21): the see-through gate (tests/test_see_through.py) found open faces on the B letters. Under
+# the texture pass (TEXPASS v1 or roof) each one gets what a builder puts there; off stays byte-identical:
+#   - a cap or a column that overhangs what it stands on keeps its underside (stonecap, annexcap, col_*, annexframe_*):
+#     the 0.05-0.15 m overhangs showed the open boxes from the plaza
+#   - the track ropes end in a capped socket, not an open tube (rope_track_* caps "end")
+#   - the hall door's frame on the glass wall is a closed section (its back is seen through the glazing)
+#   - treads over a stair slab keep their plate underside (the slab sits 0.20 m lower and reads past them)
+#   - handrail posts stay inside the rail (post radius 0.8 x the rail's; corner posts stand under the fillet)
+#   - the pit-edge nosing and the chevron stripes stop short of the slab edge (no slot under a 3 mm proud stripe)
+T273_POST_R = 0.8 * 0.028
 # T76 R2 (parent's call on D4, 2026-10-18): under --tiled the unique bake is the LOD1 / LOD2 far set (seen past ~250 m). Its
 # weathering ladder starts lower. So a 1024 far set (the top) finds a budget-clean step instead of a 2048 atlas
 TILED_FAR_WEATHER_STEPS = (0.10, 0.15, 0.20, 0.25, 0.30, 0.35)
@@ -1113,8 +1123,13 @@ class Builder:
 
     # -- kit wrappers -----------------------------------------------------------------
     def handrail(self, name, path, mat, h=1.10, post_every=2.5):
-        return self.kit(cs2_kit.handrail(name, [P(*p) for p in path], h=h,
-                                         post_every=post_every), mat)
+        if not TEXPASS:
+            return self.kit(cs2_kit.handrail(name, [P(*p) for p in path], h=h,
+                                             post_every=post_every), mat)
+        pts = [P(*p) for p in path]
+        parts = cs2_kit.handrail(name, pts, h=h, post_every=post_every, post_radius=T273_POST_R)
+        seat_corner_posts(name, pts, parts)
+        return self.kit(parts, mat)
 
     def grating(self, name, x0, x1, z0, z1, ytop, t=0.06, mat="galv"):
         return self.kit(cs2_kit.grating(name, z1 - z0, x1 - x0, t,
@@ -1133,8 +1148,11 @@ class Builder:
                     close_rim(obj)
         return self.kit(parts, mat, rename=rename)
 
-    def door(self, name, w, h, loc, facing, mat="steel"):
-        return self.kit(cs2_kit.door(name, w=w, h=h, loc=P(*loc), facing=_FACING[facing]), mat)
+    def door(self, name, w, h, loc, facing, mat="steel", closed=False):
+        parts = cs2_kit.door(name, w=w, h=h, loc=P(*loc), facing=_FACING[facing])
+        if closed:
+            close_frame_backs(name, parts)
+        return self.kit(parts, mat)
 
     def drip(self, box_obj, mat="galv"):
         # revision 2 (S2): lip DRIP_LIP (0.0) - the strip no longer stands above the roof top, so its
@@ -1191,6 +1209,41 @@ class Builder:
         for obj, mat in parts:
             self.add(obj, mat)
         return [o for o, _m in parts]
+
+
+def seat_corner_posts(name, pts, parts):
+    """T273: cs2_kit.handrail stands a post ON each path corner, but its rails round the corner with a 3 r fillet that passes
+    up to 3 cm inside it, so the open post top stood clear of the rail. A builder sets the corner post under the bent rail:
+    move it (in plan) to the middle of the fillet's polyline, where the top and knee rails both pass."""
+    r = 0.028
+    posts = [o for o, _q in parts if o.name.startswith(f"post_{name}_")]
+    for i in range(1, len(pts) - 1):
+        a, c, b = Vector(pts[i - 1]), Vector(pts[i]), Vector(pts[i + 1])
+        tin, tout = (c - a).normalized(), (b - c).normalized()
+        if math.degrees(tin.angle(tout)) < 1.0:
+            continue
+        f = min(0.5 * min((c - a).length, (b - c).length), 3.0 * r)
+        q = cs2_kit._catmull_fillet(c - tin * f, c + tout * f, tin, tout, 4)
+        mid = (q[1] + q[2]) / 2.0
+        for o in posts:
+            if abs(o.location.x - c.x) < 1e-6 and abs(o.location.y - c.y) < 1e-6:
+                o.location.x += mid.x - c.x
+                o.location.y += mid.y - c.y
+
+
+def close_frame_backs(name, parts):
+    """T273: cs2_kit.door drops the frame's wall-side faces (they lie on an opaque wall). On a glass wall they are in view:
+    close the jambs' and the head's back (one quad each)."""
+    for o, _q in parts:
+        if o.name in (f"door_{name}_jamb0", f"door_{name}_jamb1", f"door_{name}_head"):
+            bm = bmesh.new()
+            bm.from_mesh(o.data)
+            edges = [e for e in bm.edges if e.is_boundary]
+            bmesh.ops.holes_fill(bm, edges=edges, sides=4)
+            bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+            bm.to_mesh(o.data)
+            bm.free()
+            o.data.update()
 
 
 # --------------------------------------------------------------------------------------
@@ -1686,7 +1739,7 @@ def build_base(k, opts):
     k.box("stonebase", -HALL_X, HALL_X, 0.0, STONE_TOP, TRENCH_Z1, HALL_Z, "stone",
           open_bottom=True, drop=("+Y",))
     k.box("stonecap", -HALL_X - 0.10, HALL_X + 0.10, STONE_TOP, CAP_TOP, TRENCH_Z1 - 0.10,
-          HALL_Z + 0.10, "concrete", drop=("-Y",))
+          HALL_Z + 0.10, "concrete", drop=() if TEXPASS else ("-Y",))       # T273: the 0.10 overhang's underside
     k.box("stonebasefront", -HALL_X, HALL_X, 0.0, TRENCH_Y - 0.20, TRENCH_Z0, TRENCH_Z1, "stone",
           open_bottom=True, drop=("+Y", "+Z"))
     k.box("trenchcap", -HALL_X - 0.10, HALL_X + 0.10, TRENCH_Y - 0.20, TRENCH_Y, TRENCH_Z0 - 0.25,
@@ -1720,7 +1773,7 @@ def build_base(k, opts):
     cols += [(x, HALL_Z) for x in (-6.0, 0.0, 6.0)]
     for n, (x, z) in enumerate(cols):
         k.box(f"col_{n}", x - 0.25, x + 0.25, CAP_TOP, roof_under(z) + 0.05, z - 0.25, z + 0.25,
-              "steel", drop=("-Y",))
+              "steel", drop=() if TEXPASS else ("-Y",))     # T273: the base plate (0.15 past the cap's edge)
     # galvanized face portal over the open end (JH-07): two columns from the pit floor and the face girder (its underside =
     # the contract face opening 18.60). There is no gable band, so the structure of the deep roof reads above it
     for sx, tag in ((-1, "L"), (1, "R")):
@@ -1976,7 +2029,7 @@ def build_base(k, opts):
     k.box("annexbase", ax0, ax1, 0.0, STONE_TOP, az0, az1, "stone", open_bottom=True,
           drop=("+Y",))
     k.box("annexcap", ax0 - 0.10, ax1 + 0.10, STONE_TOP, CAP_TOP, az0 - 0.10, az1 + 0.10,
-          "concrete", drop=("-Y",))
+          "concrete", drop=() if TEXPASS else ("-Y",))      # T273: the 0.10 overhang's underside
     if ANNEX_STAIR and NB3["wall_cut"]:
         # nitpick B3: the hall's inner door opens THROUGH this wall. The wall is cut at the doorway (ANNEX_DOOR_Z, up to the
         # door's head), and the two wall pieces and the header are closed boxes like the old one. The landing block fills the
@@ -1991,7 +2044,7 @@ def build_base(k, opts):
     fcols = [(ax1, z) for z in (-8.0, -4.2, -0.4, 3.4, 7.2)] + [(16.0, az0), (16.0, az1)]
     for n, (x, z) in enumerate(fcols):
         k.box(f"annexframe_{n}", x - 0.15, x + 0.15, CAP_TOP, ytop, z - 0.15, z + 0.15, "steel",
-              drop=("-Y",))
+              drop=() if TEXPASS else ("-Y",))              # T273: the base plate (0.05 past the cap's edge)
     k.box("annextransom_x", ax1 - 0.12, ax1 + 0.12, ytr0, ytr1, az0, az1, "steel")
     # revision 2 (C19, B4): the side transoms start 0.02 inside the back wall (their end face lay in its -X
     # face) and stop 0.01 inside the front transom (shared top / bottom planes at the corners)
@@ -2045,7 +2098,8 @@ def build_base(k, opts):
 
     # -- switchback stair on -X to the hall door at the boarding level -------------------
     build_base_stair(k)
-    k.door("hall", 1.70, 2.40, (-HALL_X - 0.02, DECK_Y + 0.02, -1.30), "-X", mat="steel")
+    k.door("hall", 1.70, 2.40, (-HALL_X - 0.02, DECK_Y + 0.02, -1.30), "-X", mat="steel",
+           closed=bool(TEXPASS))                            # T273: on the glass wall, its back is in view
     if RAMPS:
         build_base_side_door(k)
         build_base_ramp(k)
@@ -2389,7 +2443,8 @@ def build_base_saddles(k):
                                          for a in angs]
         pts.append((xl, 12.50, ze + t * math.sin(pe)))
         k.tube(f"rope_track_{tag}", _dedupe(pts), TRACK_ROPE_R, "rope",
-               segs=TILED_TRACK_ROPE_SEGS if TILED else TRACK_ROPE_SEGS["base"])
+               segs=TILED_TRACK_ROPE_SEGS if TILED else TRACK_ROPE_SEGS["base"],
+               caps="end" if TEXPASS else "none")          # T273: the socket at the shaft end
     zp0, zp1 = 0.35, 0.85
     yb = min(cy + math.sqrt(rb ** 2 - (z - cz) ** 2) for z in (zp0, zp1))
     k.box("sportal_beam", -6.85, 6.85, yb - 0.50, yb - 0.02, zp0, zp1, "galv")
@@ -2471,7 +2526,7 @@ def stair_flight(k, tag, x0, x1, y_top, z_top, n_risers, going, direction, mat_t
         y = y_top - rise * kk
         za, zb = z_top + direction * going * (kk - 1), z_top + direction * going * kk
         k.box(f"tread_{tag}_{kk}", x0 + 0.08, x1 - 0.08, y - 0.05, y, min(za, zb), max(za, zb),
-              mat_tread, drop=("-Y",) if slab else ())
+              mat_tread, drop=("-Y",) if (slab and not TEXPASS) else ())    # T273: the plate's underside
     # revision 2 (C19, Z6): the stringers sit STRINGER_INSET inside the flight's edges - their outer faces lay in
     # the landings' side faces where the top ends run into them (69-76 cm2 each)
     for s, xs in (("a", x0 + 0.05 + STRINGER_INSET), ("b", x1 - 0.05 - STRINGER_INSET)):
@@ -2938,7 +2993,8 @@ def build_top_saddles(k):
             a = phi - math.radians(DRUM_WRAP) * f
             pts.append((x0 + (x1 - x0) * f, cy + DRUM_RR * math.sin(a), cz + DRUM_RR * math.cos(a)))
         check_rope_clear(pts, side, f"rope_track_{tag}")
-        k.tube(f"rope_track_{tag}", _dedupe(pts), TRACK_ROPE_R, "rope", segs=TRACK_ROPE_SEGS["top"])
+        k.tube(f"rope_track_{tag}", _dedupe(pts), TRACK_ROPE_R, "rope", segs=TRACK_ROPE_SEGS["top"],
+               caps="end" if TEXPASS else "none")          # T273: the socket where the wrap ends on the drum
         out.append({"centre": [xd, cy, cz], "rope_r": DRUM_RR, "axle": "x",
                     "leave_deg": round(math.degrees(phi), 2)})
     # tie beam under both girders at the first posts. Revision 2 (Z3 / T2): moved down under the 2.90 m lane wheels (rim
@@ -7672,9 +7728,10 @@ def parse_args(argv=None):
                     help="tiled: the sheet workspace (default <out>/_SkiTramSheet<letter>, beside the asset folders)")
     ap.add_argument("--tiled-step", type=int, default=0, choices=(0, 1, 2),
                     help="tiled: the fallback ladder (plan 3.3) steps 1..N applied (0 = the plan's set)")
-    ap.add_argument("--texpass", default="off", choices=("off", "v1"),
+    ap.add_argument("--texpass", default="off", choices=("off", "v1", "roof"),
                     help="tiled: texture pass on the station sheet and the far set (tram_tilesheet.TEXPASS: swatch "
-                         "sources at real-world scale, the period of every key kept); off = byte-identical")
+                         "sources at real-world scale, the period of every key kept); roof = the T272 standing-seam roof only "
+                         "(tram_tilesheet.TEXPASS_PROC); off = byte-identical")
     a = ap.parse_args(argv)
     if a.tiled and not a.finish:
         ap.error("--tiled needs --finish (the sheet LOD0 is a finished build)")
