@@ -179,10 +179,13 @@ def check_cut_grid_and_round_trip():
         try:
             on = layout()
             assert on["hash"] != off0["hash"], "the pass must change the sheet hash"
-            # the one cell a pass may RENAME (same rect): the orphaned metal_roof~w taken by the coated light roof
+            # the cells a pass may RENAME (same rect): the orphaned metal_roof~w taken by the coated light roof, and
+            # the unsampled metal_roof_s1~w taken by the T275 moss fade cell
             ren = {}
             if TS.TEXPASS_FLAT.get(v, {}).get("metal_roof_lt", {}).get("light_w"):
                 ren["metal_roof" + TS.W_SUFFIX] = "metal_roof_lt" + TS.W_SUFFIX
+            if v in TS.MOSS_SLOT:               # T275: the eave fade cell takes an unsampled slot (same rect)
+                ren[TS.MOSS_SLOT[v][0]] = TS.MOSS_CELL
             for k, t in off0["tiles"].items():
                 kn = ren.get(k, k)
                 assert on["tiles"][kn]["rect_px"] == t["rect_px"], (k, t["rect_px"], on["tiles"][kn]["rect_px"])

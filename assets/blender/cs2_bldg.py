@@ -1457,11 +1457,13 @@ def flat_roof(name, x0, x1, y0, y1, z, parapet=0.3, band=None, mat="metal_roof")
 
 
 def dormer(name, spec, u, w=2.4, h=1.6, room=None, win=WinSpec(1.2, 1.2, 0.3), side=None,
-           setback=0.8, pitch_deg=40.0, wall_mat=None):
+           setback=0.8, pitch_deg=40.0, wall_mat=None, valley=False):
     """Gable dormer on one slope of a pitched RoofSpec: `dormer_<name>_front` wall at
     `setback` up-slope of the wall line, `dormer_<name>_cheek0/1`, `dormerroof_<name>`
     mini gable (ridge perpendicular to the main ridge) and a `window_bay` (win.sill is
-    RELATIVE to the dormer floor here). u = position along the main ridge axis."""
+    RELATIVE to the dormer floor here). u = position along the main ridge axis.
+    valley=True: the mini roof runs back until its ridge dies into the main roof (the valleys close). False = it ends
+    0.3 m past the cheeks, which leaves an open triangle under the ridge unless the main roof is far steeper than the dormer."""
     g = _roof_geometry(spec)
     side = side or ("-X" if g["ax"] == "Y" else "-Y")
     s0 = side.startswith("-")
@@ -1498,7 +1500,13 @@ def dormer(name, spec, u, w=2.4, h=1.6, room=None, win=WinSpec(1.2, 1.2, 0.3), s
     ridge_z = z_plate + tp * (w / 2)
     ax_d = "X" if side in ("+X", "-X") else "Y"
     a_out = wall_point(wall, uu, 0, ov)
-    a_in = wall_point(wall, uu, 0, -depth - 0.3)
+    back = depth + 0.3
+    if valley:                                  # the ridge's top meets the main roof's top surface, + 0.15 m
+        back = max(back, (ridge_z + 0.1 * tp + 0.16 - z_f) / max(t, 0.05) + 0.15)
+        reach = abs(g["r"] - e_f) if g["ridge_z"] is not None else float("inf")
+        if back >= reach:
+            raise ValueError(f"dormer {name}: valley back {back:.2f} m passes the main ridge ({reach:.2f} m)")
+    a_in = wall_point(wall, uu, 0, -back)
     a0, a1 = (sorted((a_out.x, a_in.x)) if ax_d == "X" else sorted((a_out.y, a_in.y)))
     c_across = wall_point(wall, uu, 0, 0)
     cc = c_across.y if ax_d == "X" else c_across.x
@@ -3174,14 +3182,17 @@ def deck(name, x0, x1, y0, y1, z, support="col", support_every=3.2, support_to=0
 
 
 def stair(name, foot, top, w=1.2, rise_max=0.18, run=0.28, stringers=True, rail="tube",
-          ground=True, rail_sides=(-1, 1), tread_mat="deck", stringer_mat="trim"):
+          ground=True, rail_sides=(-1, 1), tread_mat="deck", stringer_mat="trim", housed=False):
     """n = ceil(dz / rise_max) risers from `foot` (bottom of the first riser) to `top` (top nosing). The stair has these parts:
     - `stair_<name>_treads` (0.05 thick, open risers)
     - `stair_<name>_str0/1` stringers (feet open on z 0 when ground -> engine-base edges)
     - rails per `rail` ("tube" cs2_kit.handrail / "timber" / "none") on `rail_sides` (+1 = right of the run).
 
     ground=False (plinth mode): the foot must sit at z <= -0.05 (below grade) or >= 0.02. The stringer feet are closed
-    (skeptic MUST-CHANGE 3). `run` is informative: the run is derived from the foot / top points."""
+    (skeptic MUST-CHANGE 3). `run` is informative: the run is derived from the foot / top points.
+    housed=True: a closed (housed) stringer. Its top edge runs one rise + 0.05 above the line under the treads, so it
+    covers the tread ends; plumb cut at the foot, level cut flush with the landing at the top (a hexagon, +8 tris per
+    stringer). False = the band under the treads (the tread ends stood up to one rise above it)."""
     F, T = Vector(foot), Vector(top)
     if ground and abs(F.z) > 1e-9:
         raise ValueError(f"stair {name}: ground stairs start at z 0")
@@ -3212,15 +3223,19 @@ def stair(name, foot, top, w=1.2, rise_max=0.18, run=0.28, stringers=True, rail=
             B = F + off + d * ac
             C = F + off + d * (L + hs * math.sin(th)) + Vector((0, 0, dz - hs * math.cos(th)))
             D = T + off
+            loop = [A, B, C, D]
+            if housed:                  # the top edge lifted by one rise + 0.05: level top cut, plumb foot cut
+                lift = rise + 0.05
+                loop += [F + off + d * ((dz - lift) * L / dz) + Vector((0, 0, dz)), A + Vector((0, 0, lift))]
             gg = _Geo()
             half = side * 0.03
-            fa = [gg.v(p - half) for p in (A, B, C, D)]
-            fb = [gg.v(p + half) for p in (A, B, C, D)]
+            fa = [gg.v(p - half) for p in loop]
+            fb = [gg.v(p + half) for p in loop]
             gg.face(fa, -side)
             gg.face(fb, side)
-            cen = (A + B + C + D) * 0.25
-            for i in range(4):
-                j = (i + 1) % 4
+            cen = sum(loop, Vector()) / len(loop)
+            for i in range(len(loop)):
+                j = (i + 1) % len(loop)
                 if i == 0 and ground:
                     continue            # open foot on grade: the engine-base edges
                 mid = (fa[i].co + fa[j].co) * 0.5 + half
