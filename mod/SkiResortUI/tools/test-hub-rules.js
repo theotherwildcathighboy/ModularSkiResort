@@ -848,6 +848,16 @@ function run(srcDir) {
   const listViews = ["RunsView.tsx", "LiftsView.tsx"].map((v) => read(path.join("hub", v)));
   eq("T30.1 Runs / Lifts: every row in one list (styles.listAll), no useFitPage, no <Pager>",
     listViews.map((v) => [v.includes("styles.listAll"), /useFitPage|<Pager/.test(v)]), [[true, false], [true, false]]);
+  // PG.1 (1.0.4 price edges, owner harness pass: "page jumps around a lot"): the view pager keeps the rows in view. After a re-page the
+  // shown page follows the row that was first on it, until the player pages (hubRules.anchoredPage, fit.tsx useViewPager).
+  {
+    const PG = [0, 0, 0, 1, 1, 2];
+    eq("PG.1 pager anchor: no anchor = the asked page, within the count", [R.anchoredPage(PG, 1, -1, -1), R.anchoredPage(PG, 5, -1, -1), R.anchoredPage([], 2, -1, -1)], [1, 2, 0]);
+    eq("PG.1 pager anchor: a re-cut moves the anchor row to another page, the view follows it", [R.anchoredPage(PG, 1, 2, 1), R.anchoredPage(PG, 2, 4, 2)], [0, 1]);
+    eq("PG.1 pager anchor: the player paged (asked != the anchor's page): the asked page", [R.anchoredPage(PG, 2, 3, 1), R.anchoredPage(PG, 0, 3, 1)], [2, 0]);
+    eq("PG.1 pager anchor: an anchor row past the rows is ignored", R.anchoredPage(PG, 1, 9, 1), 1);
+    eq("PG.1 fit.tsx pages by the anchor", /anchoredPage\(pageOf, state\.current\.page/.test(fs.readFileSync(path.join(srcDir, "hub", "fit.tsx"), "utf8")), true);
+  }
   // T31 (DECISIONS 423b) the cat track delete: a trash only on a cat track row (other rows keep an empty slot), armed by the first click
   // and sent by the second. The trigger is the deleteCatTrack one (C# queues it and applies it in OnUpdate).
   const runList = read(path.join("hub", "RunList.tsx"));
@@ -1657,6 +1667,30 @@ function run(srcDir) {
     eq("T284.7 the area ticket, else the Options price, else unknown", [R.areaTicketOf(LIVE, { known: true, ticketPrice: 65 }),
       R.areaTicketOf(null, { known: true, ticketPrice: 65 }), R.areaTicketOf({ areaTicket: -1 }, { known: true, ticketPrice: 65 }),
       R.areaTicketOf({ areaTicket: 0 }, { known: true, ticketPrice: 65 }), R.areaTicketOf(null, { known: false, ticketPrice: 65 })], [90, 65, 65, 0, -1]);
+
+    // 1.0.4 price edges (owner harness pass: "page jumps around a lot, and the slider acts weird and disappears if I jump to 0"); the
+    // pager half is PG.1 (hubRules.anchoredPage), next to T30.
+    // The minima: the ticket 0 (lift tickets off, C# TicketGate.Off), the pass 20 (no free pass: the slider has no 0), the rise 0 ("No
+    // price rise"). Each minimum is a stop, so the thumb is drawn at the left end and stays grabbable.
+    eq("T284.9 slider minima (ticket / pass / rise) and their thumb at the left end", [R.PRICE_STOPS[0], R.PASS_PRICE_STOPS[0], R.RISE_STOPS[0],
+      R.sliderPos(R.PRICE_STOPS, 0), R.sliderPos(R.PASS_PRICE_STOPS, 20), R.sliderPos(R.RISE_STOPS, 0)], [0, 20, 0, 0, 0, 0]);
+    {
+      // Stable rows: the Income fold's price blocks draw the same rows in every state (no row comes or goes under the pointer)
+      const mv = fs.readFileSync(path.join(srcDir, "hub", "MoneyView.tsx"), "utf8");
+      const body = (name) => { const i = mv.indexOf(`function ${name}(`); const j = mv.indexOf("\nfunction ", i + 1); return i < 0 ? "" : mv.slice(i, j < 0 ? mv.length : j); };
+      const price = body("PriceLine"), pass = body("PassLine"), sale = body("SaleLine"), dest = body("DestLine");
+      eq("T284.10 stable rows: no conditional row in the ticket and pass blocks, no block that vanishes at ticket 0",
+        [/\{[^{}]*&&\s*<UseDefault/.test(price + pass), /\{showNext &&/.test(pass), /ticket > 0\)\) return null/.test(pass),
+          /return null/.test(sale), /return null/.test(dest), /disabled=\{ticketsOff\}/.test(pass), /off=\{ticketsOff\}/.test(pass)],
+        [false, false, false, false, false, true, true]);
+      eq("T284.10 a 0 % rise says \"No price rise\"; the ticket at 0 says lift tickets are off", [pass.includes("HUB_LOC.moneyRiseNone"), price.includes("HUB_LOC.moneyPriceLineOff")], [true, true]);
+      const txt = fs.readFileSync(path.join(srcDir, "hub", "hubText.ts"), "utf8");
+      eq("T284.11 demand in plain words: 5 guest words, 5 buyer words, no \"Demand:\" template, no DEMAND_WORD key",
+        [(txt.match(/"SkiResort\.Hub\.GUESTS_WORD\[/g) || []).length, (txt.match(/"SkiResort\.Hub\.BUYERS_WORD\[/g) || []).length, /Demand: \{WORD\}/.test(txt), txt.includes("DEMAND_WORD[")],
+        [5, 5, false, false]);
+      eq("T284.12 the month strip legend (on sale / price rise / winter / now)",
+        ["moneyLegendSale", "moneyLegendRise", "moneyLegendWinter", "moneyLegendNow"].map((k) => mv.includes(`HUB_LOC.${k}`)), [true, true, true, true]);
+    }
   }
 
   const hr = require("./test-history-rules").run(srcDir);

@@ -2315,6 +2315,71 @@
   border-left-color: var(--accentColorNormal);
 }
 
+// 1.0.4 price edges: lift tickets off (no pass sale), the chips stay in place, dimmed, and take no click
+.monthChip[disabled] {
+  opacity: 0.45;
+}
+
+// 1.0.4: the strip's legend row, one swatch per mark (the chip's own colors and edges, small) and its word
+.monthLegend {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  align-items: center;
+  padding-top: 1rem;
+}
+
+.legendItem {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: 12rem;
+}
+
+.legendSwatch {
+  flex-shrink: 0;
+  width: 12rem;
+  height: 10rem;
+  margin-right: 4rem;
+  background-color: var(--sectionBackgroundColor);
+  border-style: solid;
+  border-top-width: 1rem;
+  border-right-width: 1rem;
+  border-bottom-width: 2rem;
+  border-left-width: 1rem;
+  border-top-color: var(--hubEdge);
+  border-right-color: var(--hubEdge);
+  border-bottom-color: var(--hubEdge);
+  border-left-color: var(--hubEdge);
+}
+
+.legendSale {
+  background-color: var(--hubPlanSale);
+}
+
+.legendRise {
+  background-color: var(--hubPlanRise);
+}
+
+.legendWinter {
+  border-bottom-color: var(--hubKindSnowmaking);
+}
+
+.legendNow {
+  border-top-color: var(--accentColorNormal);
+  border-right-color: var(--accentColorNormal);
+  border-left-color: var(--accentColorNormal);
+}
+
+.legendLabel {
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: var(--hubTextDim);
+  white-space: nowrap;
+}
+
 // r3/sliders (Slider.tsx): a track, its fill, a round thumb, ticks at the stops of a short list, and the readout in a fixed slot.
 // The row is 22 rem x fontScale (the chip / check row height, T46.3) and all of it is the hit area; the drawn track is 4 rem. A value
 // change moves only the absolutely placed fill and thumb, never the layout. Fill and thumb ring: the vanilla accent; hover and drag:

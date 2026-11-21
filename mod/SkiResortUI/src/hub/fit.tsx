@@ -19,6 +19,7 @@ import { folds$, openFold, toggleFold } from "./hubState";
 import { HUB_FMT, HUB_LOC } from "./hubText";
 import { Glyph, LocText, MarkSlot, Tip, cx, numArg } from "./parts";
 import styles from "./hub.module.scss";
+import { anchoredPage } from "./hubRules";
 
 export const GLYPH_FOLD_CLOSED = "Media/Glyphs/ThickStrokeArrowRight.svg";
 export const GLYPH_FOLD_OPEN = "Media/Glyphs/ThickStrokeArrowDown.svg";
@@ -149,6 +150,8 @@ const FOLD_FOCUS_MS = 1000;
  * push it past page 1 must not hide the header the player just clicked.
  * A change of `geometryKey` (what changes the box, the Buildings tab's taller footer) drops the measured room. It also keeps an
  * open fold's page in view.
+ * 1.0.4 price edges: between a pass and the next, the shown page follows its first row (hubRules.anchoredPage) until the player pages.
+ * A row that grows, appears or goes above the next page (an edit in the Finances view) re-cuts the pages, but the rows in view stay.
  *
  * Gameface does not reflow on a read: getBoundingClientRect / clientHeight return the last DRAWN frame. Measured in game
  * 2026-11-07: a div inserted from a plain task reads 0 in the next animation frame callback. Its real height shows only in the
@@ -183,6 +186,8 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
   // Row heights from fresh frames where the row was drawn, and the room for the view rows from the last fresh measurement
   const heightOf = useRef(new WeakMap<HTMLElement, number>());
   const roomRef = useRef<number | null>(null);
+  // The first row of the shown page at the last fresh pass, its page, and the view it belongs to (resetKey): see anchoredPage
+  const anchorRef = useRef<{ row: HTMLElement | null; page: number; key: string }>({ row: null, page: -1, key: "" });
   const geometryRef = useRef(geometryKey);
   if (geometryRef.current !== geometryKey) {
     // Another footer: re-measure, and keep an open fold in view (it was on screen before the switch)
@@ -298,7 +303,8 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
       }
       const n = p + 1;
       { const w = window as unknown as { __pg?: unknown[] }; (w.__pg = w.__pg || []).push(JSON.stringify({ isFresh, room: Math.round(room * 10) / 10, inner: Math.round(innerHeight(box) * 10) / 10, free: Math.round(freeHeight(body, box)), boxH: box.clientHeight, n, st: state.current.page, pageOf: pageOf.join(""), shown: rows.map((r) => r.style.display === "none" ? "-" : "x").join("") })); if (w.__pg.length > 80) w.__pg.shift(); }
-      let shown = Math.min(state.current.page, n - 1);
+      const anchor = anchorRef.current.key === keyRef.current ? anchorRef.current : null;
+      let shown = anchoredPage(pageOf, state.current.page, anchor && anchor.row ? rows.indexOf(anchor.row) : -1, anchor ? anchor.page : -1);
       // A fold was just toggled: show the page that holds its header (the open one, or after a close the header that was open)
       const openIdx = openRowClass ? rows.findIndex((r) => r.className.indexOf(openRowClass) >= 0) : -1;
       if (openIdx >= 0) lastOpenRow.current = rows[openIdx];
@@ -306,6 +312,8 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
         const target = openIdx >= 0 ? openIdx : lastOpenRow.current ? rows.indexOf(lastOpenRow.current) : -1;
         if (target >= 0 && pageOf[target] !== shown) shown = pageOf[target];
       }
+      if (isFresh) anchorRef.current = { row: rows[pageOf.indexOf(shown)] ?? null, page: shown, key: keyRef.current };
+
       rows.forEach((r, i) => setDisplay(r, pageOf[i] === shown ? "" : "none"));
       if (n !== state.current.pages) setPages(n);
       if (shown !== state.current.page) setPage(shown);

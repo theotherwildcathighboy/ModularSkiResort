@@ -377,16 +377,30 @@ export const HUB_LOC = {
   moneyDestTipShare: ["SkiResort.Hub.MONEY_DEST_TIP[Share]", "Fewer tourists hold one while the pass or its day fee is dear. The Options pass share sets both kinds of pass."],
   moneyDestTipRaise: ["SkiResort.Hub.MONEY_DEST_TIP[Raise]", "To raise destination fees, raise the pass price."],
   moneyDestTipFull: ["SkiResort.Hub.MONEY_DEST_TIP[Full]", "Destination guests pay the full lift ticket."],
-  moneySaleTipNow: ["SkiResort.Hub.MONEY_SALE_TIP[Now]", "The demand word judges the price paid now."],
+  moneySaleTipNow: ["SkiResort.Hub.MONEY_SALE_TIP[Now]", "How many buyers are put off is judged at the price paid now."],
   moneySaleTip: ["SkiResort.Hub.MONEY_SALE_TIP", "Each household buys at its own time, most of them early. After the sale, guests without a pass pay the lift ticket."],
   moneyPassTipLocked: ["SkiResort.Hub.MONEY_PASS_TIP[Locked]", "Price locked at the sale."],
   moneyPassTipResidents: ["SkiResort.Hub.MONEY_PASS_TIP[Residents]", "Residents buy it before the winter. Tourists on a destination pass pay a quarter of it a day."],
-  // r3/sliders: the one demand word (hubRules.demandWord) and the price tip lines without a placeholder
-  demandUnaffected: ["SkiResort.Hub.DEMAND_WORD[unaffected]", "unaffected"],
-  demandHigh: ["SkiResort.Hub.DEMAND_WORD[high]", "high"],
-  demandFair: ["SkiResort.Hub.DEMAND_WORD[fair]", "fair"],
-  demandLow: ["SkiResort.Hub.DEMAND_WORD[low]", "low"],
-  demandVeryLow: ["SkiResort.Hub.DEMAND_WORD[veryLow]", "very low"],
+  // 1.0.4 price edges: the demand of a price in plain words (hubRules.demandWord bands): the guests a ticket price turns away, the
+  // households a pass price puts off. The price tip lines without a placeholder follow.
+  guestsWordUnaffected: ["SkiResort.Hub.GUESTS_WORD[unaffected]", "no guests turned away"],
+  guestsWordHigh: ["SkiResort.Hub.GUESTS_WORD[high]", "a few guests turned away"],
+  guestsWordFair: ["SkiResort.Hub.GUESTS_WORD[fair]", "some guests turned away"],
+  guestsWordLow: ["SkiResort.Hub.GUESTS_WORD[low]", "many guests turned away"],
+  guestsWordVeryLow: ["SkiResort.Hub.GUESTS_WORD[veryLow]", "most guests turned away"],
+  buyersWordUnaffected: ["SkiResort.Hub.BUYERS_WORD[unaffected]", "no buyers put off"],
+  buyersWordHigh: ["SkiResort.Hub.BUYERS_WORD[high]", "a few buyers put off"],
+  buyersWordFair: ["SkiResort.Hub.BUYERS_WORD[fair]", "some buyers put off"],
+  buyersWordLow: ["SkiResort.Hub.BUYERS_WORD[low]", "many buyers put off"],
+  buyersWordVeryLow: ["SkiResort.Hub.BUYERS_WORD[veryLow]", "most buyers put off"],
+  moneyPriceLineOff: ["SkiResort.Hub.MONEY_PRICE_LINE[Off]", "Lift tickets off · no ticket income"],
+  moneySaleTicketsOff: ["SkiResort.Hub.MONEY_SALE_LINE[TicketsOff]", "No pass sales while lift tickets are off"],
+  moneyRiseNone: ["SkiResort.Hub.MONEY_RISE_LINE[None]", "No price rise"],
+  // the month strip legend (MoneyView MonthStrip)
+  moneyLegendSale: ["SkiResort.Hub.MONEY_LEGEND[Sale]", "On sale"],
+  moneyLegendRise: ["SkiResort.Hub.MONEY_LEGEND[Rise]", "Price rise"],
+  moneyLegendWinter: ["SkiResort.Hub.MONEY_LEGEND[Winter]", "Winter"],
+  moneyLegendNow: ["SkiResort.Hub.MONEY_LEGEND[Now]", "Now"],
   moneyPriceTipPasses: ["SkiResort.Hub.MONEY_PRICE_TIP[Passes]", "Pass holders always come: residents on a season pass and tourists on a destination pass. Full table in the docs."],
   // r3/sliders, lever lines (DECISIONS 676: "To <goal>, <action>.", no amounts; "at its maximum" when maxed)
   moneyPriceTipLever: ["SkiResort.Hub.MONEY_PRICE_TIP[Lever]", "To raise ticket tolerance, build better lodges."],
@@ -395,7 +409,7 @@ export const HUB_LOC = {
   moneyPassTipRaise: ["SkiResort.Hub.MONEY_PASS_TIP[Raise]", "To earn more from passes, raise the pass price."],
   /* T284 (contract 62): per-area prices. The ticket line's tooltip says whose price it is; the pass block's says when a change applies
    and where the area's passes are good. The month strip's tooltip says what its colors mean. The two buttons show only while the area
-   has its own value. */
+   has its own value: drawn always, live only then (1.0.4 price edges: no row comes or goes under the pointer). */
   moneyPriceTipOwn: ["SkiResort.Hub.MONEY_PRICE_TIP[Own]", "This area has its own ticket price."],
   moneyPriceTipDefault: ["SkiResort.Hub.MONEY_PRICE_TIP[Default]", "This area uses the default ticket price from the Options."],
   moneyUseDefaultTicket: ["SkiResort.Hub.MONEY_USE_DEFAULT[Ticket]", "Use the default ticket price"],
@@ -919,8 +933,8 @@ export const HUB_FMT = {
   moneyRowLessons: ["SkiResort.Hub.MONEY_ROW[Lessons]", "Lessons · {N}"],
   moneyFactBus: ["SkiResort.Hub.MONEY_FACT[Bus]", "Depots {N} · guests by bus {GUESTS} · bill {RATE}"],
   moneyTicketsPrice: ["SkiResort.Hub.MONEY_TICKETS_PRICE", "Lift ticket price now: {PRICE}"],
-  /* r3/sliders (DECISIONS 677): {PRICE} = the slider price (Money), {WORD} = the demand word (DEMAND_WORD) */
-  moneyPriceLine: ["SkiResort.Hub.MONEY_PRICE_LINE", "Ticket {PRICE} · Demand: {WORD}"],
+  /* r3/sliders (DECISIONS 677): {PRICE} = the slider price (Money), {WORD} = the plain demand words (GUESTS_WORD / BUYERS_WORD) */
+  moneyPriceLine: ["SkiResort.Hub.MONEY_PRICE_LINE", "Ticket {PRICE} · {WORD}"],
   /* T265: the slider's line ({PRICE} = the early price, the slider's) and, while the sale months are not known, the same with the Demand word */
   moneyPassLine: ["SkiResort.Hub.MONEY_PASS_LINE", "Season pass, early price {PRICE}"],
   /* T267: the Net's pass row with its count: {N} = ResortLive.passesSoldMonth (Integer). The plain row above while the count is unknown. */
@@ -929,16 +943,16 @@ export const HUB_FMT = {
   moneySaleTipStep: ["SkiResort.Hub.MONEY_SALE_TIP[Step]", "The price rises by {PCT} after {MONTH}, to {PRICE2}."],
   /* T267: the season pass row's tooltip: {PRICE} = passIncomeSeason / passesSoldSeason (Money). Each pass keeps its sale's price. */
   moneyTipPassesAvg: ["SkiResort.Hub.MONEY_TIP[PassesAvg]", "Average price paid: {PRICE}. Each pass keeps the price of its sale, so earlier sales can cost less."],
-  moneyPassLineDemand: ["SkiResort.Hub.MONEY_PASS_LINE[Demand]", "Season pass, early price {PRICE} · Demand: {WORD}"],
+  moneyPassLineDemand: ["SkiResort.Hub.MONEY_PASS_LINE[Demand]", "Season pass, early price {PRICE} · {WORD}"],
   /* 1.0.3 R3-B: {FEE} = hubRules.destFee (Money), {PCT} = hubRules.destSharePct (Percentage), {PRICE} / {PRICE2} = the opening /
    stepped pass price (Money), {MONTH} / {MONTH2} = month names (hubRules.saleWindow) */
   moneyDestLine: ["SkiResort.Hub.MONEY_DEST_LINE", "Destination pass {FEE} a day · {PCT} of tourists"],
   /* T265: the line under the pass slider: the price a household pays now and the word that judges it. {PRICE} = the early price,
    {PRICE2} = the stepped price, {PCT} = hubRules.stepRisePct (Percentage), {WORD} = the demand word of the price paid now */
-  moneySaleOpening: ["SkiResort.Hub.MONEY_SALE_LINE[Opening]", "Now {PRICE} through {MONTH} · Demand: {WORD}"],
-  moneySaleStepped: ["SkiResort.Hub.MONEY_SALE_LINE[Stepped]", "Now {PRICE2} (+{PCT}) through {MONTH2} · Demand: {WORD}"],
-  moneySaleSteppedFlat: ["SkiResort.Hub.MONEY_SALE_LINE[SteppedFlat]", "Now {PRICE2} through {MONTH2} · Demand: {WORD}"],
-  moneySaleClosed: ["SkiResort.Hub.MONEY_SALE_LINE[Closed]", "Pass sales open in {MONTH} · Demand: {WORD}"],
+  moneySaleOpening: ["SkiResort.Hub.MONEY_SALE_LINE[Opening]", "Now {PRICE} through {MONTH} · {WORD}"],
+  moneySaleStepped: ["SkiResort.Hub.MONEY_SALE_LINE[Stepped]", "Now {PRICE2} (+{PCT}) through {MONTH2} · {WORD}"],
+  moneySaleSteppedFlat: ["SkiResort.Hub.MONEY_SALE_LINE[SteppedFlat]", "Now {PRICE2} through {MONTH2} · {WORD}"],
+  moneySaleClosed: ["SkiResort.Hub.MONEY_SALE_LINE[Closed]", "Pass sales open in {MONTH} · {WORD}"],
   /* r3/sliders (DECISIONS 677): {FULL} = priceFullWith(area tolerance) or passFullPrice(ticket) (Money), {PRICE} = the slider price (Money),
    {PCT} = hubRules.fewerPct (Percentage, a multiple of 5), {N} = PASS_FULL_AT + PASS_SPAN, where demand reaches 0 (Integer) */
   moneyPriceTipAbove: ["SkiResort.Hub.MONEY_PRICE_TIP[Above]", "Above {FULL}, fewer guests choose a ski day."],
@@ -1458,12 +1472,16 @@ export const DRAW_LABEL = {
 } as const;
 
 /* The game's text for a factor (unknown name: the raw enum name as the fallback). */
-/* r3/sliders: the entry of a demand word (hubRules.demandWord). */
-const DEMAND_WORD_ENTRY: Readonly<Record<DemandWord, LocEntry>> = {
-  unaffected: HUB_LOC.demandUnaffected, high: HUB_LOC.demandHigh, fair: HUB_LOC.demandFair, low: HUB_LOC.demandLow, veryLow: HUB_LOC.demandVeryLow,
+/* r3/sliders, 1.0.4: the entry of a demand word (hubRules.demandWord). */
+const GUESTS_WORD_ENTRY: Readonly<Record<DemandWord, LocEntry>> = {
+  unaffected: HUB_LOC.guestsWordUnaffected, high: HUB_LOC.guestsWordHigh, fair: HUB_LOC.guestsWordFair, low: HUB_LOC.guestsWordLow, veryLow: HUB_LOC.guestsWordVeryLow,
 };
-export function demandWordEntry(w: DemandWord): LocEntry {
-  return DEMAND_WORD_ENTRY[w];
+const BUYERS_WORD_ENTRY: Readonly<Record<DemandWord, LocEntry>> = {
+  unaffected: HUB_LOC.buyersWordUnaffected, high: HUB_LOC.buyersWordHigh, fair: HUB_LOC.buyersWordFair, low: HUB_LOC.buyersWordLow, veryLow: HUB_LOC.buyersWordVeryLow,
+};
+/** The plain words of a demand band: the guests a ticket price turns away ("guests") or the households a pass price puts off ("buyers"). */
+export function demandWordEntry(w: DemandWord, who: "guests" | "buyers"): LocEntry {
+  return (who === "guests" ? GUESTS_WORD_ENTRY : BUYERS_WORD_ENTRY)[w];
 }
 
 export function factorEntry(name: string): LocEntry {

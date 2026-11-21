@@ -15,6 +15,9 @@
 *   - (round 624) a tooltip icon key row passes its box, or a number stands apart from its unit (an ASCII space before a hubRules
 *     UNIT_WORDS entry) in the panel or a tooltip: harness/layout-check.js tipPass hovers every row of the Attraction view (each fold
 *     open in turn) and the six tiles, at text scale 1, 1.25 and 1.5
+*   - (1.0.4 price edges) the Finances view's price controls at their edges (harness/layout-check.js edgePass, text scale 1 and 1.25,
+*     season plan locked and not): after each slider end, month chip and "Use the default" click, the same page and first row, the same
+*     rows, the edited control in place, an end thumb still live, no overflow. --edges-only runs just that pass.
 * Before the browser runs, the test checks a stylesheet rule. The note classes (NOTE_CLASSES) wrap. Every other class that cuts text with an
 * ellipsis is a written decision (CUT_DECIDED). So a new one-line note with an ellipsis fails at once.
 * The Runs and Lifts views are the exception. They list every row and may scroll (their list carries class listAll). For them
@@ -734,7 +737,7 @@ async function shots(b, base, dir, list) {
 /** One unit's result appended to the size's merged result. Units arrive in report order (scenario, then text scale), as one run() makes them. */
 function mergeInto(r, u) {
   r.remPx = u.remPx;
-  for (const k of ["cases", "fails", "pagers", "buildings", "liftsTile", "band", "liftTool", "tabShape"]) r[k].push(...u[k]);
+  for (const k of ["cases", "fails", "pagers", "buildings", "liftsTile", "band", "liftTool", "tabShape", "edges"]) r[k].push(...(u[k] || []));
   for (const [k, v] of Object.entries(u.clipped)) if (!r.clipped[k]) r.clipped[k] = v;   // first sighting wins, as in one page
   for (const [fs, x] of Object.entries(u.fullest)) if (!r.fullest[fs] || x.full > r.fullest[fs].full) r.fullest[fs] = x;
   r.maxOverRem = r.cases.reduce((m, c) => Math.max(m, c.overRem || 0), 0);
@@ -744,7 +747,7 @@ function mergeInto(r, u) {
   r.tips.n += u.tips.n; r.tips.keys += u.tips.keys; r.tips.keyRows = Math.max(r.tips.keyRows, u.tips.keyRows);
   for (const n of u.tips.scenarios) if (!r.tips.scenarios.includes(n)) r.tips.scenarios.push(n);
 }
-const emptyResult = () => ({ remPx: 0, cases: [], fails: [], pagers: [], buildings: [], liftsTile: [], band: [], liftTool: [], tabShape: [], clipped: {}, fullest: {},
+const emptyResult = () => ({ remPx: 0, cases: [], fails: [], pagers: [], edges: [], buildings: [], liftsTile: [], band: [], liftTool: [], tabShape: [], clipped: {}, fullest: {},
   maxOverRem: 0, minSlackRem: 1e9, timing: { ms: 0, settles: 0, frames: 0, capped: 0, cappedWhere: [] }, tips: { n: 0, keys: 0, keyRows: 0, scenarios: [] } });
 
 /**
@@ -778,14 +781,15 @@ async function runSharded(browsers, base, sizes, units, opts) {
         else if (!p && last !== null) { await open(b, base, u.w, u.h); }   // the size's first unit: a fresh page, as in the serial run
         const o = u.kind === "tip"
           ? { scenarios: [], units: opts.units, tipScenarios: [u.name], tipScales: [u.fs] }
-          : { scenarios: [u.name], scales: [u.fs] };
+          : u.kind === "edge" ? { scenarios: [], edges: [u.name], scales: [u.fs] }
+            : { scenarios: [u.name], scales: [u.fs] };
         const r = await evalAsync(b, `window.SkiLayout.run(${JSON.stringify(Object.assign(o, { keepScale: true, fixedSettle: opts.fixedSettle }))})`, 600000);
-        r.timing.where = `${u.kind === "tip" ? "tooltip pass" : "check"} [${u.name}] fs ${u.fs}`;
+        r.timing.where = `${u.kind === "tip" ? "tooltip pass" : u.kind === "edge" ? "price edges" : "check"} [${u.name}] fs ${u.fs}`;
         done.get(u.h)[u.idx] = r;
         last = u;
       } catch (e) {
         const r = emptyResult();
-        r.fails.push({ scenario: u.name, fs: u.fs, what: (u.kind === "tip" ? "tooltip pass exception: " : "exception: ") + (e && e.message || e) });
+        r.fails.push({ scenario: u.name, fs: u.fs, what: (u.kind === "tip" ? "tooltip pass exception: " : u.kind === "edge" ? "price edges exception: " : "exception: ") + (e && e.message || e) });
         done.get(u.h)[u.idx] = r;
         await open(b, base, u.w, u.h); last = null;
       }
@@ -833,17 +837,21 @@ async function main() {
     let failures = styleFails.length;
     // The scenario lists come from the page (harness/scenarios.js)
     await open(b, base, sizes[0][0], sizes[0][1]);
-    const lists = await evalAsync(b, "({ check: window.SkiLayout.checkScenarios(), tip: window.SkiLayout.tipScenarios(), tipScales: window.SkiLayout.TIP_SCALES })", 10000);
-    let names = lists.check, tipNames = lists.tip;
+    const lists = await evalAsync(b, "({ check: window.SkiLayout.checkScenarios(), tip: window.SkiLayout.tipScenarios(), edge: window.SkiLayout.edgeScenarios(), tipScales: window.SkiLayout.TIP_SCALES })", 10000);
+    let names = lists.check, tipNames = lists.tip, edgeNames = lists.edge;
+    // --edges-only: only the T284 price edge pass (edgePass), for iteration on the Finances controls
+    if (process.argv.includes("--edges-only")) { names = []; tipNames = []; }
     if (filter) {
       const re = new RegExp(filter, "i");
       names = names.filter((n) => re.test(n));
       tipNames = tipNames.filter((n) => re.test(n));
-      if (names.length + tipNames.length === 0) throw new Error(`test-hub-layout: --scenario=${filter} matches no scenario`);
+      edgeNames = edgeNames.filter((n) => re.test(n));
+      if (names.length + tipNames.length + edgeNames.length === 0) throw new Error(`test-hub-layout: --scenario=${filter} matches no scenario`);
     }
     const scales = [1, 1.25];
     const units = [...names.flatMap((name) => scales.map((fs) => ({ kind: "check", name, fs }))),
-      ...tipNames.flatMap((name) => lists.tipScales.map((fs) => ({ kind: "tip", name, fs })))];
+      ...tipNames.flatMap((name) => lists.tipScales.map((fs) => ({ kind: "tip", name, fs }))),
+      ...edgeNames.flatMap((name) => scales.map((fs) => ({ kind: "edge", name, fs })))];
     const nUnits = sizes.length * units.length;
     const workers = Math.min(nWorkers, nUnits);
     browsers.push(...await Promise.all(Array.from({ length: workers - 1 }, () => startBrowser())));
@@ -878,6 +886,9 @@ async function main() {
       for (const c of clipped) r.fails.push({ scenario: c.where, what: `text cut [${c.cls}] ${c.kind} +${c.over}px: "${c.text}"` });
       console.log(`  tooltips (text scale ${[1, 1.25, 1.5].join(" / ")}, ${r.tips.scenarios.length} scenario(s)): ${r.tips.n} hovered, ${r.tips.keys} with an icon key ` +
         `(at most ${r.tips.keyRows} key row(s)); key rows inside the box and every number with its unit, else FAIL below`);
+      const edgeStates = r.edges.filter((x) => x.fs === 1).map((x) => `${x.state}: ${x.sliders} slider(s), ${x.chips} chip(s), ${x.defaults} default button(s)`);
+      console.log(`  price edges (T284, Finances / Income, text scale 1 and 1.25): ${r.edges.length} page state(s)${edgeStates.length ? " [fs 1: " + edgeStates.join("; ") + "]" : ""}`);
+      if (r.edges.length === 0 && edgeNames.length > 0) r.fails.push({ scenario: "price edges", what: "no page with a price control: the pass checked nothing" });
       if (r.tips.n === 0 && tipNames.length > 0) r.fails.push({ scenario: "tooltip pass", what: "no tooltip opened: the pass checked nothing" });
       for (const f of r.fails) console.log(`  FAIL ${f.scenario || ""} fs ${f.fs || ""}: ${f.what}` + (f.overRem !== undefined ? ` (over ${f.overRem} rem, slack ${f.slackRem} rem)` : ""));
       if (process.argv.includes("--verbose")) for (const c of r.cases) console.log(`    ${c.scenario.slice(0, 22)} fs ${c.fs} view ${c.view} ${c.state}: over ${c.overRem} slack ${c.slackRem} header ${c.headerRem}`);

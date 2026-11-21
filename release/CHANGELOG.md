@@ -38,6 +38,8 @@ Notes...
 - Once a season's sales start, its prices stay as planned. A change applies from the next season, and the Finances view shows it.
 - A pass is good at the ski area that sold it. Passes of areas that use the default prices are good at every such area.
 - Pass sales count at each household's nearest ski area.
+- The price lines say in plain words how many guests a ticket price turns away and how many buyers a pass price puts off.
+- With a lift ticket price of 0, the pass controls stay in place, dimmed: there are no pass sales while lift tickets are off.
 - The Options prices are now the default for every ski area that has no price of its own. Lowering the default pass price after a season's sales started applies from the next season.
 - Old saves keep today's prices and calendar until you change an area's prices. This version adds new save data: do not load its saves in 1.0.3 or older (their prices fall back to the Options values).
 

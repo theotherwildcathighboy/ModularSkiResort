@@ -488,12 +488,160 @@
     await closeFolds();
   }
 
+  /** The page now and the page count, from the pager text ("N / M"), else [1, 1]. */
+  function pagerNow() { const m = /(\d+)\s*\/\s*(\d+)/.exec(pagerText()); return m ? [Number(m[1]), Number(m[2])] : [1, 1]; }
+  // The pager's forward / back button: its side (data-pager, the T283 pager) when the row marks them, else the last / first button
+  function pagerStep(fwd) {
+    const r = q(cls("pagerRow"));
+    if (!r) return null;
+    if (q("[data-pager]", r)) return q(`[data-pager="${fwd ? "next" : "prev"}"] button`, r);
+    const bs = qa("button", r);
+    return bs.length < 2 ? null : fwd ? bs[bs.length - 1] : bs[0];
+  }
+  async function goToPage(p) {
+    for (let i = 0; i < 12; i++) {
+      const cur = pagerNow()[0];
+      if (cur === p) return true;
+      const b = pagerStep(cur < p);
+      if (!b) return false;
+      b.click();
+      await settle();
+    }
+    return pagerNow()[0] === p;
+  }
+
+  /**
+   * T284 price edges (owner harness pass, 2026-11-21: "page jumps around a lot, and the slider acts weird and disappears if I jump to
+   * 0"). The Finances view with the Income fold open, on every page that shows a price control, with this season's plan locked and
+   * not locked. On each page the pass uses the controls the player sees there, as the player does: each slider dragged to its
+   * minimum, its maximum and back, every month chip clicked (one that is on too), both "Use the default" buttons. After each edit:
+   *   - the view shows the same page with the same first row (the pager never moves the view under an edit),
+   *   - the view has the same rows and each price block the same children (no row appears or disappears under the pointer),
+   *   - the edited control did not move (1 px) and is still drawn,
+   *   - a slider dragged to an end still has its thumb and takes input (a minimum stays grabbable), and the rise line at 0 says so,
+   *   - nothing overflows.
+   */
+  const EDGE_SCENARIOS = ["Ash Flat (runs, lifts, problems)"];
+  async function edgePass(name, fs, out) {
+    await applyScenario(name);
+    setScale(fs);
+    await settle();
+    const fail = (what, m) => out.fails.push(Object.assign({ scenario: name, fs, what: "price edges: " + what }, m || {}));
+    const money = tiles().findIndex((b) => /Finances/.test(b.textContent));
+    if (money < 0) { fail("no Finances tile"); return; }
+    tiles()[money].click();
+    await settle();
+    await closeFolds();
+    const income = folds().find((f) => /Income/.test(f.textContent));
+    if (!income) { fail("no Income fold"); return; }
+    income.click();
+    await settle();
+    const sign = H().get("selectedResort");
+    const setLive = (patch) => H().set("resortLive", (H().get("resortLive") || []).map((l) => (l.sign && sign && l.sign.index === sign.index ? Object.assign({}, l, patch) : l)));
+    const api = window["cs2/api"];
+    const slot = () => q(cls("viewSlot"));
+    const shownRow = (el) => { const s = slot(); let r = el; while (r && r.parentElement !== s) r = r.parentElement; return r && r.style.display !== "none" ? r : null; };
+    const snap = () => {
+      const rows = Array.from(slot().children);
+      const blocks = qa(cls("priceBlock"), slot());
+      return { rows, first: rows.find((r) => r.style.display !== "none") || null, page: pagerNow().join("/"),
+        kids: blocks.map((b) => b.children.length).join("/") };
+    };
+    const label = (el) => (el.textContent || "").trim().slice(0, 30);
+    let steps = 0;
+    const check = async (what, el, act, after) => {
+      const s0 = snap();
+      const top0 = el.getBoundingClientRect().top;
+      await act();
+      await settle();
+      steps++;
+      const s1 = snap();
+      const tag = `${what} (page ${s0.page})`;
+      if (s1.page !== s0.page) fail(`the page changed ${s0.page} -> ${s1.page} after ${tag}`);
+      else if (s1.first !== s0.first) fail(`the page's first row changed ("${s0.first ? label(s0.first) : "-"}" -> "${s1.first ? label(s1.first) : "-"}") after ${tag}`);
+      if (s1.rows.length !== s0.rows.length || s1.rows.some((r, i) => r !== s0.rows[i])) fail(`the view rows changed (${s0.rows.length} -> ${s1.rows.length}) after ${tag}`);
+      if (s1.kids !== s0.kids) fail(`a price block changed its rows (${s0.kids} -> ${s1.kids}) after ${tag}`);
+      if (!el.isConnected || !shownRow(el)) fail(`the edited control is gone after ${tag}`);
+      else if (Math.abs(el.getBoundingClientRect().top - top0) > 1) fail(`the edited control moved ${Math.round(el.getBoundingClientRect().top - top0)} px after ${tag}`);
+      const m = measure();
+      if (!m || m.overPx > 1) fail(`overflow after ${tag}`, m);
+      if (after) after(tag);
+    };
+    const drag = async (sl, frac) => {
+      const hit = q(cls("sliderHit"), sl), tr = q(cls("sliderTrack"), sl).getBoundingClientRect();
+      const x = tr.left + frac * tr.width, y = tr.top + tr.height / 2;
+      hit.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y }));
+      await frames(1);
+      document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0, clientX: x, clientY: y }));
+    };
+    const live = () => (H().get("resortLive") || []).find((l) => l.sign && sign && l.sign.index === sign.index) || {};
+    const grabbable = (sl, tag) => {
+      if (/sliderOff_/.test(q(cls("slider"), sl) ? q(cls("slider"), sl).className : sl.className)) fail(`a slider is disabled at its end after ${tag}`);
+      if (!q(cls("sliderThumb"), sl)) fail(`a slider lost its thumb after ${tag}`);
+    };
+    // the controls of the shown page, in screen order: [kind, element]
+    const controls = () => {
+      const s = slot();
+      const sl = qa(cls("sliderHit"), s).map((h) => h.parentElement).filter((e) => shownRow(e));
+      const chips = qa(cls("monthChip"), s).filter((e) => shownRow(e));
+      const defs = qa("button", s).filter((b) => b.closest(cls("priceDefaultRow")) && shownRow(b));
+      return { sl, chips, defs };
+    };
+    for (const locked of [true, false]) {
+      setLive({ planLocked: locked });
+      api.trigger("skiResort", "setAreaUseDefault", sign, 1);
+      api.trigger("skiResort", "setAreaUseDefault", sign, 2);
+      await settle();
+      const pages = pagerNow()[1];
+      for (let p = 1; p <= pages; p++) {
+        if (!(await goToPage(p))) { fail(`cannot reach page ${p} / ${pages}`); continue; }
+        const state = `${locked ? "locked" : "not locked"}, page ${p}`;
+        const { sl, chips, defs } = controls();
+        if (!sl.length && !chips.length) continue;
+        out.edges.push({ scenario: name, fs, state, sliders: sl.length, chips: chips.length, defaults: defs.length });
+        // sliders: in screen order (the ticket, then the early pass price, then the rise): min, max, then a middle stop
+        for (let k = 0; k < sl.length; k++) {
+          const el = controls().sl[k];
+          if (!el) { fail(`slider ${k + 1} is gone (${state})`); break; }
+          for (const [f, what] of [[0, "min"], [1, "max"], [0.3, "middle"]]) {
+            await check(`slider ${k + 1} to its ${what} (${state})`, el, () => drag(el, f), (tag) => {
+              if (f !== 0.3) grabbable(el, tag);
+              const l = live();
+              if (k === 2 && f === 0 && l.passNextRisePct === 0 && !/No price rise/.test(slot().textContent)) fail(`a 0 % rise does not say "No price rise" after ${tag}`);
+            });
+          }
+        }
+        // the month chips: each one clicked, in strip order (on ones included); then the plan goes back to the default
+        for (let k = 0; k < chips.length; k++) {
+          const el = controls().chips[k];
+          if (!el) { fail(`month chip ${k + 1} is gone (${state})`); break; }
+          await check(`month chip ${k + 1} "${label(el)}" (${state})`, el, async () => { el.click(); });
+        }
+        // the "Use the default" buttons, after an edit made each value the area's own
+        api.trigger("skiResort", "setAreaTicket", sign, 85);
+        api.trigger("skiResort", "setAreaPassRise", sign, 20);
+        await settle();
+        for (let k = 0; k < controls().defs.length; k++) {
+          const el = controls().defs[k];
+          await check(`"Use the default" ${k + 1} (${state})`, el, async () => { el.click(); });
+        }
+      }
+    }
+    setLive({ planLocked: true });
+    api.trigger("skiResort", "setAreaUseDefault", sign, 1);
+    api.trigger("skiResort", "setAreaUseDefault", sign, 2);
+    await settle();
+    if (steps === 0) fail("no price control found on any page");
+    await closeFolds();
+  }
+
   /** The scenarios the check runs and those the tooltip pass runs, each in report order. */
   function checkScenarios() { return Object.keys(window.SkiScenarios).filter((n) => /Ash Flat \(runs|Big resort|Field case/.test(n)); }
   function tipScenarios() { return Object.keys(window.SkiScenarios).filter((n) => /^Ash Flat \(runs|^Ash Flat, no black run open$|^Ash Flat, no ski school$|^Field case/.test(n)); }
 
   /**
-   * opts: scenarios (names, default checkScenarios()), scales (default [1, 1.25]), units (hubRules UNIT_WORDS: runs the tooltip pass
+   * opts: scenarios (names, default checkScenarios(), none when `edges` is given), edges (names: the T284 price edge pass, edgePass,
+   * at `scales`), scales (default [1, 1.25]), units (hubRules UNIT_WORDS: runs the tooltip pass
    * after the check), tipScenarios (default tipScenarios()), tipScales (default TIP_SCALES), keepScale (leave the last text scale set,
    * as a serial run does between its units), fixedSettle (the old fixed waits). tools/test-hub-layout.js runs one scenario x text scale
    * of the check or of the tooltip pass per call, on several pages at once, and merges the results in this order.
@@ -503,11 +651,14 @@
     fixedSettle = !!o.fixedSettle;
     gameRem();
     const t0 = performance.now(), s0 = Object.assign({}, stats);
-    const out = { viewport: `${window.innerWidth}x${window.innerHeight}`, remPx: 0, cases: [], fails: [], pagers: [], buildings: [], liftsTile: [], band: [], liftTool: [], tabShape: [], clipped: {}, fullest: {} };
+    const out = { viewport: `${window.innerWidth}x${window.innerHeight}`, remPx: 0, cases: [], fails: [], pagers: [], edges: [], buildings: [], liftsTile: [], band: [], liftTool: [], tabShape: [], clipped: {}, fullest: {} };
     out.remPx = Math.round(rem() * 1000) / 1000;
-    const names = o.scenarios || checkScenarios();
+    const names = o.scenarios || (o.edges ? [] : checkScenarios());
     for (const name of names) for (const fs of o.scales || SCALES) {
       try { await checkOne(name, fs, out); } catch (e) { out.fails.push({ scenario: name, fs, what: "exception: " + (e && e.message || e) }); }
+    }
+    for (const name of o.edges || []) for (const fs of o.scales || SCALES) {
+      try { await edgePass(name, fs, out); } catch (e) { out.fails.push({ scenario: name, fs, what: "price edges exception: " + (e && e.message || e) }); }
     }
     out.tips = { n: 0, keys: 0, keyRows: 0, scenarios: [] };
     if (o.units && o.units.length) {
@@ -584,5 +735,5 @@
     }
   }
 
-  window.SkiLayout = { run, prime, checkScenarios, tipScenarios, TIP_SCALES, boot, shot, measure, setScale, stats };
+  window.SkiLayout = { run, prime, checkScenarios, tipScenarios, edgeScenarios: () => EDGE_SCENARIOS.slice(), TIP_SCALES, boot, shot, measure, setScale, stats };
 })();
