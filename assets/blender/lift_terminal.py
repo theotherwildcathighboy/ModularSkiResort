@@ -1484,6 +1484,7 @@ TP1_DENSITY = {
     "pad": 1.0, "houseroof": 1.2, "hutroof": 1.2, "grate_": 0.9, "loaddeck": 1.2, "loadramp": 1.2,
     "hutbase": 0.8, "cwfoot": 0.7, "crest": 0.8, "rampup": 0.8, "rampdown": 0.8,
     "leg_": 1.15, "beam_": 1.15, "rail_n": 1.15, "rail_p": 1.15, "column": 1.2,
+    "spoke_web": 0.6,       # T277b: the bullwheel's web plate at the spokes' density (one density across the wheel)
 }
 # detail_tone specs per MATERIAL key (cs2_compose.DetailSpec tone fields). paint / galv = lift_tower.DP1_TONE within 20 %
 TP1_TONE = {
@@ -1561,8 +1562,11 @@ def texpass_block_m(hook, part_material):
             **({"counterweight": {"rekey": dict(TP1_CW_REKEY), "rough": TP1_CW_ROUGH, "joint": dict(TP1_CW_JOINT),
                                 "joint_z": list(cw_joint_z_m())}}
                if "cwpaint" in keys else {}),       # T277
+            **({"seethru": {"closes": ["h1 bullwheel web", "h2 leg caps", "h3 head-sheave wrap", "h4 deflection wrap"],
+                            "web": dict(TP1_SV_WEB), "wrap": dict(TP1_SV_WRAP), "tris": sv_tris_m()}}
+               if "cwpaint" in keys else {}),       # T277b
             "weather": [list(map(str, r)) for r in TP1_WEATHER],
-            "tris_added": 0, "textures_added_mb": 0.0}
+            "tris_added": sv_tris_m() if "cwpaint" in keys else 0, "textures_added_mb": 0.0}
 
 
 def density_m():
@@ -1676,6 +1680,74 @@ def check_cw_m(rekey=None, spec=None, joint=None, tone=None, ppm=TP1_CW_PPM):
                              f"(< {TP1_TONE_FLOOR_TEXELS})")
 
 
+# ---- T277b (r7, 1.0.4): see-through holes on the FG base (the seethru gate on Q, r7 audit1). Closed the way a builder
+# closes them, --texpass v1 only (the letter that ships T277), flag off byte for byte:
+# - h1 (732 px at LOD0, 10.5 px at LOD1): the 8-spoke bullwheel was open between hub and rim, so the play camera saw the
+#   ground through the wheel under the beam. A small bullwheel (3.5 m) is a welded steel disc: a web plate between hub
+#   and rim with the spokes as stiffeners on it. `spoke_web` (darksteel, the shadowed inside of the wheel, so the galv
+#   spokes and the yellow mark read on it) rides the Bullwheel bone by its prefix and drops at LOD2 with the spokes.
+#   Its 12-gon edge hides in the rim (inner wall 1.50 m), the disc's middle in the hub.
+# - h2 (23 px): the portal legs (0.60 m) are 0.10 m wider than the beams (0.50 m) they carry, and their tops were open: a
+#   crescent at each beam face showed the hollow leg. A pipe column gets a welded top cap: the leg's top cap.
+# - h3 / h4 (5 / 4 px): the counterweight rope ran in straight pieces between tangent points, so the grooves of the head and
+#   deflection sheaves stayed empty over the top and showed the sky between the flanges. The rope wraps the sheave:
+#   chords on the rope radius (cwrope_<side>_wh<k> over the head sheave, cwrope_<side>_wd over the deflection sheave).
+# Tris (LOD0, sv_tris_m): web 2 x 10, caps 4 x 16 (fan), wraps 2 x (3 + 1) x 12 = 180. h5 (2.3 px, a handrail corner of the platform) is the
+# shared cs2_kit.handrail corner joint: listed, not changed here (it would change every railing of the mod).
+TP1_SV_WEB = dict(segs=12, r=1.58, z_top=-0.07, z_bot=-0.085)      # m, z about the wheel center (spokes cz +- 0.08)
+TP1_SV_WRAP = dict(head_segs=3, defl_segs=1, sides=6)
+# M15 under --rig --texpass v1 (DECISIONS 585, the in-round <= 5 % raise): the drive base 9,450 -> 9,650. The v1 letter
+# carries T279's comm arm (+156 over Q's 9,274, lv) and these closes (+180, sv_tris_m): 9,610. The return is unchanged.
+TP1_RIG_LOD0_CAP = {"drive": 9650, "return": 3600}
+
+
+SV_RIM_INNER = 1.50            # the rigged bullwheel rim's inner wall (_wheel_rig_m: cs2_kit.sheave r_hub)
+
+
+def check_sv_m(web=None):
+    """T277b contract SV1 (every v1 base build runs it in sv_web_m; tests/test_fg_counterweight.py names the negatives): the
+    web's edge hides in the rim (its 12-gon's inradius >= the rim's inner wall + 0.01 m, its corners <= M_RIM_OUT - 0.10 m)
+    and the plate lies inside the rim's height under the spokes' tops (z_bot >= -0.18, z_top <= -0.05 about the wheel
+    center, z_top > z_bot). Raises MContractError("SV1: ...")."""
+    W = TP1_SV_WEB if web is None else web
+    inr = W["r"] * math.cos(math.pi / W["segs"])
+    if inr < SV_RIM_INNER + 0.01 or W["r"] > M_RIM_OUT - 0.10:
+        raise MContractError(f"SV1: web 12-gon inradius {inr:.3f} / corner {W['r']:.3f} m (need >= {SV_RIM_INNER + 0.01} "
+                             f"and <= {M_RIM_OUT - 0.10:.2f}: the edge must hide in the rim)")
+    if not (-0.18 <= W["z_bot"] < W["z_top"] <= -0.05):
+        raise MContractError(f"SV1: web z {W['z_bot']} .. {W['z_top']} m about the wheel center (need -0.18 <= bottom "
+                             f"< top <= -0.05: inside the rim, under the spokes' tops)")
+
+
+def sv_web_m(cx, cz):
+    """T277b h1: the bullwheel's web plate (--texpass v1): two 12-gons (top up, bottom down), rim-hidden edge."""
+    W = TP1_SV_WEB
+    check_sv_m()
+    bm = bmesh.new()
+    for z, up in ((cz + W["z_top"], True), (cz + W["z_bot"], False)):
+        vs = [bm.verts.new((cx + W["r"] * math.cos(2.0 * math.pi * k / W["segs"]),
+                            W["r"] * math.sin(2.0 * math.pi * k / W["segs"]), z)) for k in range(W["segs"])]
+        bm.faces.new(vs if up else list(reversed(vs)))
+    bmesh.ops.triangulate(bm, faces=list(bm.faces), quad_method="BEAUTY", ngon_method="BEAUTY")   # no n-gon (kit rule)
+    return [(_mbm_obj("spoke_web", bm), "darksteel")]
+
+
+def sv_tris_m():
+    """T277b: LOD0 tris the see-through fixes add to the base (the web's two triangulated 12-gons, four fan caps of the
+    16-gon legs, the wrap chords of both ropes)."""
+    W = TP1_SV_WRAP
+    return 2 * (TP1_SV_WEB["segs"] - 2) + 4 * 16 + 2 * (W["head_segs"] + W["defl_segs"]) * 2 * W["sides"]
+
+
+def sv_rope_wrap_m(name, c, r, th0, th1, n, y):
+    """T277b h3 / h4: the rope over a sheave in the plane y: n chords on the circle (center c = (x, z), radius r) from
+    angle th0 to th1 (degrees from +z toward +x), rope radius and sides as the straight pieces (0.025 m, 6)."""
+    pts = [(c[0] + r * math.sin(math.radians(th0 + (th1 - th0) * k / n)), y,
+            c[1] + r * math.cos(math.radians(th0 + (th1 - th0) * k / n))) for k in range(n + 1)]
+    return [(_mcyl(f"{name}{k}" if n > 1 else name, pts[k], pts[k + 1], 0.025, TP1_SV_WRAP["sides"], "none"), "rope")
+            for k in range(n)]
+
+
 def tone_specs_tp1(table, part_material, ppm_of):
     """detail_tone specs keyed by FULL part name (every part gets a key, so a short name never lends its tone to a longer one):
     TP1_TONE by material key, a galv bloom cell never below TP1_TONE_FLOOR_TEXELS texels."""
@@ -1758,6 +1830,7 @@ M_NOT_WALKABLE = (
     ("cabinet", "the electrical cabinet top"),
     ("sheave_bull", "the bullwheel rim: machinery"),
     ("wheelhub", "the bullwheel hub: machinery"),
+    ("spoke_web", "the bullwheel's web plate (T277b, --texpass v1): turning machinery under the rope"),
     ("bearing", "the top bearing housing: machinery"),
     # nitpick A (2026-10-13): the base's hold-down trains (the towers' Yan rocker tree) and their box boom
     ("sheave_hold_", "the hold-down sheave trains (rocker tree): machinery over the rope"),
@@ -2616,7 +2689,8 @@ def build_base_m():
     for tag, lx, ztop in (("f", B["front_x"], bf[2]), ("b", B["back_x"], bb[2])):
         for side, ly in (("n", -B["leg_y"]), ("p", B["leg_y"])):
             nm = f"leg_{tag}_{side}"
-            parts.append((_mcyl(nm, (lx, ly, ph), (lx, ly, ztop), B["leg_r"], 16, "none"), "paint1"))
+            parts.append((_mcyl(nm, (lx, ly, ph), (lx, ly, ztop), B["leg_r"], 16, "top" if TEXPASS_M else "none"),
+                          "paint1"))        # T277b h2: the welded top cap under v1
             parts += _kit_m(cs2_kit.flange(nm, 0.46, 0.04, bolts=8, segs=16, loc=(lx, ly, ph + 0.02),
                                            axis="Z", bolt_geo=True, caps="top"), "paint1", bolt_="galv")
             sgn = 1.0 if ly > 0 else -1.0
@@ -2675,6 +2749,8 @@ def build_base_m():
     # -- the open spoked bullwheel on the code datum + the rope -------------------------------
     if M_RIG:       # T256: the 8-spoke wheel, the cable-width hexagon rope from the lane end, the entry sheaves
         parts += _rope_and_wheel_rig_m(spec) + entry_sheaves_rig_m("drive")
+        if TEXPASS_M:   # T277b h1: the web plate closes the wheel (the base only: the top keeps its letter)
+            parts += sv_web_m(spec.wheel[0], spec.wheel[2])
     else:
         parts += _wheel_m(wx, wz)
         parts.append((_half_torus("wheelrope", wx, wz, M_TORUS_R, M_ROPE_R), "rope"))
@@ -2828,6 +2904,11 @@ def build_base_m():
         parts.append((_mcyl(f"cwcable_{side}", (mhx + 0.35, y, hz), (B["pot_x"] - 0.35 * 0.0 + 0.0, y,
                                                                       B["pot_z"][1] + 0.30), 0.025, 6,
                             "none"), "rope"))
+        if TEXPASS_M:       # T277b h3 / h4: the rope wraps the head sheave (b1 -> the cable) and the deflection sheave
+            W = TP1_SV_WRAP
+            parts += sv_rope_wrap_m(f"cwrope_{side}_wh", (mhx, hz), 0.35, math.degrees(math.atan2(-0.40, 0.92)), 90.0,
+                                    W["head_segs"], y)
+            parts += sv_rope_wrap_m(f"cwrope_{side}_wd", (B["defl_x"], 4.45), 0.20, 0.0, 30.0, W["defl_segs"], y)
     pz0, pz1 = B["pot_z"]
     # T277: the pot + bail take TP1_CW_REKEY's key under --texpass v1 (matte, jointed), paint1 otherwise
     parts.append((_mcyl("cwpot", (B["pot_x"], 0.0, pz0), (B["pot_x"], 0.0, pz1), B["pot_r"], 16, "both"),
@@ -4727,6 +4808,8 @@ def contact_kinds_m():
         for tok in ("beam:commsaddle commarm:commsaddle commarm:commbox commbox:commgland commbox:commstub "
                     "beam:commstrut commarm:commstrut commstrut:commstrut").split():
             out[tuple(sorted(tok.split(":")))] = "T279: the comm arm on its saddle on the front beam, into the box, the gland"
+    if TEXPASS_M:   # T277b: the counterweight rope's wrap over the head sheave runs into the cable to the pot
+        out[("cwcable", "cwrope")] = "T277b: the rope over the head sheave runs on as the cable to the pot"
     return out
 
 
@@ -6446,6 +6529,8 @@ def main_m(args):
     base_report = engine_ring_m(t, kind)
     n0 = cs2_asset.tri_count(t)
     cap = (RIG_LOD0_CAP if M_RIG else LOD0_CAP_M)[kind]
+    if M_RIG and TEXPASS_M:     # T277b: the v1 letter's raise (DECISIONS 585), flag off keeps RIG_LOD0_CAP
+        cap = TP1_RIG_LOD0_CAP[kind]
     if n0 > cap:
         _m_fail("M15", f"LOD0 {n0} tris > cap {cap}")
     print(f"[contract M] M6 pre-bake ok: {base_report['verdict']}, {base_report['ok_edges']} OK edges; "
