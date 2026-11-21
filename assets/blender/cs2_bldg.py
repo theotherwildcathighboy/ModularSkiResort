@@ -1274,15 +1274,20 @@ def cull_selfcheck():
     for name in set(bpy.data.materials.keys()) - mats0:
         bpy.data.materials.remove(bpy.data.materials[name])
     (b1, a1, sb1, sa1), (b2, a2, sb2, sa2) = rep[1], rep[2]
+    import cs2_fittings                     # the eave-rake corner case: a K-style gutter's back on its fascia
+    gb = cs2_fittings.gutter_back_selfcheck()
     out = {"v1_rake_underside_m2": [b1, a1], "v2_rake_underside_m2": [b2, a2],
-           "v1_fascia_strip_m2": [sb1, sa1], "v2_fascia_strip_m2": [sb2, sa2]}
-    if not (a1 < b1 - 0.5 and b2 > 1.0 and a2 >= b2 - 1e-3 and sb2 > 0.2 and sa2 >= sb2 - 1e-3):
-        raise RuntimeError(f"cull_selfcheck (T273): v1 must delete rake underside area and v2 keep all of it, and v2 must "
-                           f"keep the deck strip above its fascia: rake v1 {b1} -> {a1} m2, v2 {b2} -> {a2} m2; strip v1 "
-                           f"{sb1} -> {sa1} m2, v2 {sb2} -> {sa2} m2. A cull change opened a see-through hole at play "
-                           f"angles (PIPELINE).")
+           "v1_fascia_strip_m2": [sb1, sa1], "v2_fascia_strip_m2": [sb2, sa2], **gb}
+    if not (a1 < b1 - 0.5 and b2 > 1.0 and a2 >= b2 - 1e-3 and sb2 > 0.2 and sa2 >= sb2 - 1e-3
+            and gb["v1_open_edges"] > 0 and gb["v2_open_edges"] == 0):
+        raise RuntimeError(f"cull_selfcheck (T273): v1 must delete rake underside area and v2 keep all of it, v2 must "
+                           f"keep the deck strip above its fascia and close the gutter back: rake v1 {b1} -> {a1} m2, v2 "
+                           f"{b2} -> {a2} m2; strip v1 {sb1} -> {sa1} m2, v2 {sb2} -> {sa2} m2; gutter open edges v1 "
+                           f"{gb['v1_open_edges']}, v2 {gb['v2_open_edges']}. A cull change opened a see-through hole at "
+                           f"play angles (PIPELINE).")
     print(f"[cull] selfcheck: rake underside v1 {b1} -> {a1} m2 (the defect), v2 {b2} -> {a2} m2 (kept); deck strip above "
-          f"the fascia v1 {sb1} -> {sa1} m2, v2 {sb2} -> {sa2} m2 (kept)")
+          f"the fascia v1 {sb1} -> {sa1} m2, v2 {sb2} -> {sa2} m2 (kept); gutter back open edges v1 "
+          f"{gb['v1_open_edges']} (the defect), v2 {gb['v2_open_edges']} (closed)")
     _CULL_SELFCHECK["rep"] = out
     return out
 

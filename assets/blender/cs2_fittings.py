@@ -1260,6 +1260,10 @@ def _gutter_run(o):
 def refit_gutters(recipe, parts, W, report):
     kind = GUTTER_PROFILE.get(recipe.key, "half")
     pts, back = gutter_profile(kind)
+    # cull kit v2 (T273): the back face too. A K-style run hangs 2 to 4 cm below its fascia's bottom chamfer, so the open
+    # back showed the run's inside from under the eaves near every gable end (L1 / L4 / L5 eave-rake corners, 8 to 100 px
+    # at play angles). +2 tris per segment
+    shut = back and K.CULL_KIT.get("version", 1) >= 2
     vmin = min(v for _u, v in pts)
     width = max(u for u, _v in pts)
     every = GUTTER_STRAPS.get(recipe.key)
@@ -1347,7 +1351,7 @@ def refit_gutters(recipe, parts, W, report):
             ring0 = [g.v(P(s0, u, v)) for u, v in pts]
             ring1 = [g.v(P(s1, u, v)) for u, v in pts]
             for i in range(len(pts) - 1):
-                if back and i == 0:
+                if back and i == 0 and not shut:
                     continue                              # the back face lies on the fascia
                 u = 0.5 * (pts[i][0] + pts[i + 1][0])
                 v = 0.5 * (pts[i][1] + pts[i + 1][1])
@@ -1798,6 +1802,33 @@ def clip_runs(recipe, parts, W, report):
                clips)
         _write(o, g)
         report.append({"pipe": o.name, "clips": clips, "run_on": True})
+
+
+def gutter_back_selfcheck():
+    """T273, called by cs2_bldg.cull_selfcheck (the build-path regression of `lodge.py --cull v2`): one K-style run on a
+    0.42 m fascia board (the gable_roof layout), refit by refit_gutters under cull kit v1 and v2. Measured: the run's open
+    (boundary) edges. v1 leaves the back open (the field defect, so the check can still fail). v2 must close the shell.
+    The scene is left as it was."""
+    class _Recipe:
+        key = "L5"                          # a K-style profile without hanger straps (straps are open quads)
+    out = {}
+    for v in (1, 2):
+        objs0, meshes0 = set(bpy.data.objects.keys()), set(bpy.data.meshes.keys())
+        try:
+            with K.cull_kit(v):
+                parts = K.box_part("fascia_zgutchk", (-2.0, -0.06, 2.73), (2.0, 0.06, 3.15), "trim")
+                parts += K.gutter("zgutchk", (-2.0, 0.13), (2.0, 0.13), 2.82)
+                refit_gutters(_Recipe(), parts, _World(parts), [])
+                bm = bmesh.new()
+                bm.from_mesh([o for o, _m in parts if o.name.startswith("gutter_")][0].data)
+                out[v] = sum(1 for e in bm.edges if e.is_boundary)
+                bm.free()
+        finally:
+            for name in set(bpy.data.objects.keys()) - objs0:
+                bpy.data.objects.remove(bpy.data.objects[name], do_unlink=True)
+            for name in set(bpy.data.meshes.keys()) - meshes0:
+                bpy.data.meshes.remove(bpy.data.meshes[name])
+    return {"v1_open_edges": out[1], "v2_open_edges": out[2]}
 
 
 def closelook(recipe, parts, opts):

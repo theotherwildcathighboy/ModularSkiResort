@@ -1909,11 +1909,13 @@ def run(recipe, args):
     fit = None
     if fk:                                  # fittings v1: recipe-independent parts + vanilla rows
         import cs2_fittings
+        # cull kit v2 (T273): refit_gutters reads CULL_KIT (it closes the gutter backs)
         if sk:                              # structure v1: built with the kit flag on (K.STRUCTURE)
-            with K.structure(**sk):
+            with K.structure(**sk), K.cull_kit(cull_v):
                 fparts, frows, fit = cs2_fittings.build(recipe, parts, opts)
         else:
-            fparts, frows, fit = cs2_fittings.build(recipe, parts, opts)
+            with K.cull_kit(cull_v):
+                fparts, frows, fit = cs2_fittings.build(recipe, parts, opts)
         parts = list(parts) + list(fparts)
         if frows:
             recipe = replace(recipe, sub_objects=tuple(recipe.sub_objects) + tuple(frows))
