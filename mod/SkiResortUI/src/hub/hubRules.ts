@@ -1508,6 +1508,17 @@ export function iconPieces(tokens: readonly IconToken[]): IconPiece[] {
   return out;
 }
 
+/** The view pager's page after a re-page (fit.tsx useViewPager, 1.0.4 price edges: an edit made a row grow, appear or go, and the
+ *  same page index then showed other rows, "page jumps around a lot"). `pageOf` = each row's page (rising), `asked` = the page the
+ *  state holds, `anchorRow` = the row that was first on the shown page at the last pass (-1 = none), `anchorPage` = the page it was
+ *  first on. While the player has not paged since (asked = anchorPage), the view shows the page that holds that row now, so the rows
+ *  in view stay in view. Else (the player paged, or no anchor) the asked page, within the count. */
+export function anchoredPage(pageOf: readonly number[], asked: number, anchorRow: number, anchorPage: number): number {
+  const n = pageOf.length > 0 ? pageOf[pageOf.length - 1] + 1 : 1;
+  if (anchorRow >= 0 && anchorRow < pageOf.length && anchorPage === asked) return pageOf[anchorRow];
+  return Math.min(Math.max(0, asked), n - 1);
+}
+
 /** U+00A0, the no-break space of the inline rescue (iconInlinePieces). */
 export const NBSP = " ";
 

@@ -848,6 +848,16 @@ function run(srcDir) {
   const listViews = ["RunsView.tsx", "LiftsView.tsx"].map((v) => read(path.join("hub", v)));
   eq("T30.1 Runs / Lifts: every row in one list (styles.listAll), no useFitPage, no <Pager>",
     listViews.map((v) => [v.includes("styles.listAll"), /useFitPage|<Pager/.test(v)]), [[true, false], [true, false]]);
+  // PG.1 (1.0.4 price edges, owner harness pass: "page jumps around a lot"): the view pager keeps the rows in view. After a re-page the
+  // shown page follows the row that was first on it, until the player pages (hubRules.anchoredPage, fit.tsx useViewPager).
+  {
+    const PG = [0, 0, 0, 1, 1, 2];
+    eq("PG.1 pager anchor: no anchor = the asked page, within the count", [R.anchoredPage(PG, 1, -1, -1), R.anchoredPage(PG, 5, -1, -1), R.anchoredPage([], 2, -1, -1)], [1, 2, 0]);
+    eq("PG.1 pager anchor: a re-cut moves the anchor row to another page, the view follows it", [R.anchoredPage(PG, 1, 2, 1), R.anchoredPage(PG, 2, 4, 2)], [0, 1]);
+    eq("PG.1 pager anchor: the player paged (asked != the anchor's page): the asked page", [R.anchoredPage(PG, 2, 3, 1), R.anchoredPage(PG, 0, 3, 1)], [2, 0]);
+    eq("PG.1 pager anchor: an anchor row past the rows is ignored", R.anchoredPage(PG, 1, 9, 1), 1);
+    eq("PG.1 fit.tsx pages by the anchor", /anchoredPage\(pageOf, state\.current\.page/.test(fs.readFileSync(path.join(srcDir, "hub", "fit.tsx"), "utf8")), true);
+  }
   // T31 (DECISIONS 423b) the cat track delete: a trash only on a cat track row (other rows keep an empty slot), armed by the first click
   // and sent by the second. The trigger is the deleteCatTrack one (C# queues it and applies it in OnUpdate).
   const runList = read(path.join("hub", "RunList.tsx"));
