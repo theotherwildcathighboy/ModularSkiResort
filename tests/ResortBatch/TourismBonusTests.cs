@@ -6,6 +6,7 @@
 //   TB-5 city sum and cap, off at 0, the vanilla Relative stacking
 //   TB-6 log step
 //   TB-7 tourist day mean: warm-up, rolling window, rounding, negatives
+//   TB-8 T289 cold threshold (ColdTourismRules): open / closed / option off / a colder vanilla value preserved, the open-area test
 // Oracles are literal hand values (the comments show the arithmetic).
 
 using System;
@@ -28,6 +29,7 @@ namespace ResortBatch
             CityAndStack();
             LogStep();
             DayMean();
+            ColdThreshold();
         }
 
         private static bool Near(double a, double b, double tol = 1e-9) => Math.Abs(a - b) <= tol;
@@ -134,6 +136,26 @@ namespace ResortBatch
             for (int i = 0; i < 8; i++)
                 m.Add(i < 4 ? 10 : 11);
             C(m.Mean == 11, W, "10.5 rounds half away from zero -> 11");
+        }
+
+        // TB-8
+        private static void ColdThreshold()
+        {
+            const string W = "tourism TB-8 cold threshold";
+            C(ColdTourismRules.ColdThresholdOpenC == -30f && ColdTourismRules.DefaultEnabled, W,
+                "-30 C while a ski area is open, option default on (the Options text says -30 °C)");
+            // The vanilla prefab value is -10 C (AttractivenessParametersPrefab.cs:27).
+            C(ColdTourismRules.ThresholdC(true, 1, -10f) == -30f, W, "open area, option on: -10 -> -30");
+            C(ColdTourismRules.ThresholdC(true, 3, -10f) == -30f, W, "three open areas: the same constant, not scaled");
+            C(ColdTourismRules.ThresholdC(true, 0, -10f) == -10f, W, "no open area: vanilla -10");
+            C(ColdTourismRules.ThresholdC(false, 2, -10f) == -10f, W, "option off: vanilla -10");
+            C(ColdTourismRules.ThresholdC(true, 1, -35f) == -35f, W, "a vanilla value already colder than -30 is preserved");
+            C(ColdTourismRules.ThresholdC(false, 0, -12.5f) == -12.5f, W, "not engaged: any vanilla value passes through unchanged");
+            C(float.IsNaN(ColdTourismRules.ThresholdC(true, 1, float.NaN)), W, "a vanilla value that is not finite passes through (no write)");
+            C(ColdTourismRules.Engaged(true, 1) && !ColdTourismRules.Engaged(true, 0) && !ColdTourismRules.Engaged(false, 1), W,
+                "engaged = option on and at least one open area");
+            C(ColdTourismRules.IsOpenArea(1.0, 1) && !ColdTourismRules.IsOpenArea(1.0, 0) && !ColdTourismRules.IsOpenArea(0.0, 4), W,
+                "open = a working sign and at least one counted run");
         }
     }
 }

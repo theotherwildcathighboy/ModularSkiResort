@@ -179,6 +179,17 @@ namespace SkiResortMod.Settings
                     "Chalet 2, Summit and Grand 3, a merged building 2. The share of the resort that is open multiplies the total, so the " +
                     "bonus is highest in the ski season. 0 turns the bonus off. Default 10 %."
                 },
+                // T289 (1.0.4): -10 / -20 °C = vanilla's AttractivenessParametersPrefab, -30 °C = ColdTourismRules.ColdThresholdOpenC (ResortBatch TB-8).
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ColdWeatherTourism)),
+                    "Cold weather keeps no tourists away while a ski area is open"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ColdWeatherTourism)),
+                    "The game normally sends fewer new tourists when it is colder than -10 °C (14 °F), up to 30 % fewer at -20 °C (-4 °F). " +
+                    "On: while at least one ski area has an open run, this cut starts only below -30 °C (-22 °F). Hot weather still keeps " +
+                    "tourists away as before. Off: the game's own rule. Default on."
+                },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.BackcountryValuePercent)),
                     "Backcountry run value"

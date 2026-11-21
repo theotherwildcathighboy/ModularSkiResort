@@ -138,6 +138,9 @@ namespace SkiResortMod
             // T226 resort tourism bonus: right after CityModifierUpdateSystem (interval 256), which clears and rebuilds the city modifier
             // buffer. Runs every simulation frame and re-applies only after a rebuild or a change of the bonus, so TourismSystem never reads
             // the buffer without it. Reads the attractiveness system's last recompute by a Generation compare (no order needed).
+            // T289 (ResortTourismBonusSystem.Cold.cs): the same system lowers AttractivenessParameterData.m_ExtremeTemperature.x while a
+            // ski area is open. No order needed: TourismSystem reads the singleton when it schedules (every 32,768 frames), and a write a
+            // frame late changes nothing. Restored from the prefab in OnGamePreload, before GameModeSystem (Deserialize) applies a mode.
             updateSystem.UpdateAfter<ResortTourismBonusSystem, Game.Simulation.CityModifierUpdateSystem>(
                 SystemUpdatePhase.GameSimulation);
 

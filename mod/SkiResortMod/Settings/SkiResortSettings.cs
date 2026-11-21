@@ -164,6 +164,16 @@ namespace SkiResortMod.Settings
         public static int CapPctOf(SkiResortSettings s)
             => s == null ? TourismBonusRules.CapDefaultPct : TourismBonusRules.ClampCapPct(s.ResortTourismBonusPct);
 
+        /// <summary>T289 (1.0.4): on = while at least one ski area is open, vanilla's cold cut on tourist arrivals starts at
+        /// ColdTourismRules.ColdThresholdOpenC instead of the prefab's -10 C. Read live by ResortTourismBonusSystem through
+        /// ColdWeatherTourismOf. Off restores the vanilla value at once. Default on. New in 1.0.4: an options file without it loads the
+        /// default.</summary>
+        [SettingsUISection(SectionMain, GroupBalance)]
+        public bool ColdWeatherTourism { get; set; }
+
+        /// <summary>The option. Null settings give the default. Main thread only.</summary>
+        public static bool ColdWeatherTourismOf(SkiResortSettings s) => s?.ColdWeatherTourism ?? ColdTourismRules.DefaultEnabled;
+
         /// <summary>Backcountry run value: what a run no complete, powered lift serves is worth, in percent of a lift-served run
         /// (default 40). Read by SkiResortAttractivenessSystem with the DefaultBackcountryValuePercent fallback.</summary>
         [SettingsUISlider(min = 0f, max = 100f, step = 5f, unit = "percentage")]
@@ -572,6 +582,7 @@ namespace SkiResortMod.Settings
             SkiAreaRadiusKm = SkiAreaRadiusRules.DefaultKm;
             AttractivenessScaleK = DefaultAttractivenessScaleK;
             ResortTourismBonusPct = TourismBonusRules.CapDefaultPct;
+            ColdWeatherTourism = ColdTourismRules.DefaultEnabled;
             BackcountryValuePercent = DefaultBackcountryValuePercent;
             LiftTicketPrice = SkiMoneyRules.TicketPriceDefault;
             LodgeSpendPerGuest = DefaultLodgeSpendPerGuest;

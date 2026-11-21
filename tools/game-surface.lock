@@ -324,6 +324,8 @@ type Game.Prefabs.AreaGeometryData struct 4c997acc89 burst:r:SkiRunOutlineSystem
 type Game.Prefabs.AreaInitializeSystem class 5358ea2db4
 type Game.Prefabs.AreaPrefab class 45bda7ab4c
 type Game.Prefabs.Attraction class ff41a5a3bf
+type Game.Prefabs.AttractivenessParameterData struct c5ec827f70 m_ForestEffect:float m_ForestDistance:float m_ShoreEffect:float m_ShoreDistance:float m_HeightBonus:float3 m_AttractiveTemperature:float2 m_ExtremeTemperature:float2 m_TemperatureAffect:float2 m_RainEffectRange:float2 m_SnowEffectRange:float2 m_SnowRainExtremeAffect:float3
+type Game.Prefabs.AttractivenessParametersPrefab class 876b6a8906
 type Game.Prefabs.BoneType enum 4874dd6ad5 None=0 LookAtDirection=1 WindTurbineRotation=2 WindSpeedRotation=3 RollingTire=4 SteeringTire=5 PoweredRotation=6 TrafficBarrierDirection=7 SuspensionMovement=8 SteeringRotation=9 SuspensionRotation=10 FixedRotation=11 FixedTire=12 DebugMovement=13 VehicleConnection=14 TrainBogie=15 RollingRotation=16 PropellerRotation=17 LookAtRotation=18 LookAtAim=19 PropellerAngle=20 PantographRotation=21 SteeringSuspension=22 LengthwiseLookAtRotation=23 WorkingRotation=24 OperatingRotation=25 TimeRotation=26 LookAtMovementX=27 LookAtMovementY=28 LookAtMovementZ=29 LookAtRotationSide=30 RotationXFromMovementY=31 ScaledMovement=32 LookAtAimForward=33 ScaledRotation=34 PlaybackLayer0=35 PlaybackLayer1=36 PlaybackLayer2=37 PlaybackLayer3=38 PlaybackLayer4=39 PlaybackLayer5=40 PlaybackLayer6=41 PlaybackLayer7=42
 type Game.Prefabs.BuildingData struct 4dc7a131fc m_LotSize:int2 m_Flags:BuildingFlags
 type Game.Prefabs.BuildingEfficiencyParameterData struct c90827afa9 m_ServiceBudgetEfficiencyFactor:AnimationCurve1 m_LowEfficiencyThreshold:float m_ElectricityPenalty:float m_ElectricityPenaltyDelay:float m_ElectricityFeeFactor:AnimationCurve1 m_WaterPenalty:float m_WaterPenaltyDelay:float m_WaterPollutionPenalty:float m_SewagePenalty:float m_SewagePenaltyDelay:float m_WaterFeeFactor:AnimationCurve1 m_GarbagePenalty:float m_NegligibleMail:int m_MailEfficiencyPenalty:float m_TelecomBaseline:float m_MissingEmployeesEfficiencyPenalty:float m_MissingEmployeesEfficiencyDelay:float m_ServiceBuildingEfficiencyGracePeriod:short m_SickEmployeesEfficiencyPenalty:float
@@ -358,6 +360,7 @@ type Game.Prefabs.Locked struct ae116a782e
 type Game.Prefabs.LotPrefab class 9ce011d1e8
 type Game.Prefabs.MeshLayer enum bf58e83853 Default=1 Moving=2 Tunnel=4 Pipeline=8 SubPipeline=16 Waterway=32 Outline=64 Marker=128 First=1 Last=128
 type Game.Prefabs.MeshSystem class 5216ada9b4
+type Game.Prefabs.Modes.GameModeSystem class 8f28f2eeb5
 type Game.Prefabs.NetCompositionData struct 382e5507ef m_SyncVertexOffsetsLeft:float4 m_SyncVertexOffsetsRight:float4 m_HeightRange:Bounds1 m_SurfaceHeight:Bounds1 m_EdgeHeights:float4 m_SideConnectionOffset:float2 m_Flags:CompositionFlags m_State:CompositionState m_Width:float m_MiddleOffset:float m_WidthOffset:float m_NodeOffset:float m_MinLod:int
 type Game.Prefabs.NetData struct b001b7922d m_NodeArchetype:EntityArchetype m_EdgeArchetype:EntityArchetype m_RequiredLayers:Layer m_ConnectLayers:Layer m_LocalConnectLayers:Layer m_GeneralFlagMask:CompositionFlags.General m_SideFlagMask:CompositionFlags.Side m_NodePriority:float
 type Game.Prefabs.NetFencePrefab class 18c9284188
@@ -666,6 +669,7 @@ type Game.UI.InGame.SelectedInfoUISystem class 531ae549b4
 type Game.UI.InGame.TitleSection class 9ecf7cc0cf
 type Game.UI.InGame.ToolUISystem class 62c8d463cc
 type Game.UI.InGame.ToolbarUISystem class 61a1507c2e
+type Game.UI.InGame.TourismInfoviewUISystem class 9ad135db2c
 type Game.UI.InGame.TransformerSection class fd8798c25e
 type Game.UI.InGame.UIHighlightSystem class 6d44f3410e
 type Game.UI.InGame.UpgradeMenuUISystem class 4ed75d9941
