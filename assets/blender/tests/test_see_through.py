@@ -1003,8 +1003,8 @@ def check_asset(asset_dir, name, lod, ring, allow, outdir, images="worst", opaqu
     if not quiet:
         print(f"[see-through] {name} LOD{lod}: {verdict}  views {len(views)}  holes {len(rows)} "
               f"(FAIL {sum(m['class'] == 'FAIL' for m in rows)}, MINOR {sum(m['class'] == 'MINOR' for m in rows)}, "
-              f"ALLOWED {sum(m['class'] == 'ALLOWED' for m in rows)}, GLASS {sum(m['class'] == 'GLASS' for m in rows)}"
-              + (f", KNOWN {sum(m['class'] == 'KNOWN' for m in rows)}" if baseline is not None else "") + ")"
+              f"ALLOWED {sum(m['class'] == 'ALLOWED' for m in rows)}, GLASS {sum(m['class'] == 'GLASS' for m in rows)}, "
+              f"KNOWN {sum(m['class'] == 'KNOWN' for m in rows)})"
               f"  coplanar clusters {len(copl)}  "
               f"{rep['seconds']} s")
         for k, m in enumerate(rows):
@@ -1160,7 +1160,7 @@ def self_test(outdir):
     notch = [h for h in fails4 if h["gap"][0] >= 5.0]        # border on the +X side: the slot under the notch
     print(f"[self-test] glass: verdict {rep4['verdict']}, FAIL {len(fails4)} (in the notch {len(notch)}), GLASS "
           f"{len(gl4)} (the _Win back {len(win4)}, under the _Gls sheet {len(under)})")
-    ok &= rep4["verdict"] == "FAIL" and len(notch) >= 1 and len(notch) == len(fails4) and win4 and under
+    ok &= bool(rep4["verdict"] == "FAIL" and len(notch) >= 1 and len(notch) == len(fails4) and win4 and under)
     # an entry with a "requires" block (the welcome sign's header) holds only while the manifest it names agrees
     e = {"box": [-2.6, 0.15, 3.75, 2.6, 0.75, 4.55], "why": "self-test",
          "requires": {"manifest_key": "fine_detail.sign_set", "faces": ["a_face", "b_face"], "gap_tol_m": 0.25}}
@@ -1269,6 +1269,11 @@ def main():
                          f"{h['views']}\t{h['solid_views']}\t{seen}\t{' | '.join(h['border_desc'])}\t"
                          f"{h.get('image', '-')}\n")
     bad = [r for r in reps if r["verdict"] != "PASS"]
+    # the gate line per asset and LOD: every class as a count (FAIL fails; KNOWN / MINOR / GLASS / ALLOWED never do)
+    for r in reps:
+        c = {k: sum(h.get("class") == k for h in r["holes"]) for k in ("FAIL", "KNOWN", "MINOR", "GLASS", "ALLOWED")}
+        print(f"[see-through] gate {r['asset']} LOD{r['lod']}: {r['verdict']}  FAIL {c['FAIL']}  KNOWN {c['KNOWN']}  "
+              f"MINOR {c['MINOR']}  GLASS {c['GLASS']}  ALLOWED {c['ALLOWED']}")
     names = ", ".join("%s LOD%s %s" % (r["asset"], r["lod"], r["verdict"]) for r in bad) or "none failed"
     print(f"[see-through] {len(reps) - len(bad)}/{len(reps)} PASS, {time.time() - t0:.0f} s  ({names})")
     return 0 if ok and not bad else 1
