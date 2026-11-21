@@ -28,6 +28,11 @@ Gates:
       to the column, no ray into the 0.16 m gap under the crosshead meets a back face (the shipped pad shows them);
       (c) the SLOW board: on = a 4-quad 3 mm edge band, no grazing ray at the board's ends meets the label's back (the
       shipped board shows it); (d) the gable rims: every edge sharp under the pass, none when off.
+  R5  T273 closures, round 2: (a) the DQ soffit: off = 3 down-facing pieces; on = + soffit_back_0..2, the same face counts
+      reversed (facing up) SOFFIT_BACK_DZ above z_soffit, and no ray from above onto the soffit field meets a back face
+      (off: they do); (b) the gondola's end-beam corner cheeks: 4 quads facing +-y at y = +-(w_half + 0.10), from z_top up
+      to the roof's underside there, spanning each end beam; (c) the gondola pane backs: one quad per hall pane except the
+      operator room's, PANE_BACK_IN behind its pane, facing the opposite way.
 Exit 1 on the first failure; one PASS line otherwise.
 """
 
@@ -397,11 +402,80 @@ def check_closures():
     ok("R4 closures: " + "; ".join(rows))
 
 
+def check_closures2():
+    rows = []
+    try:
+        # (a) the DQ soffit and its back
+        for tp in (None, "v1"):
+            D.TEXPASS = tp
+            p = params("base", False)
+            parts = D.build_soffit(p)
+            names = [o.name for o, _m in parts]
+            fronts = [o for o, _m in parts if not o.name.startswith("soffit_back_")]
+            tg = []
+            for o in fronts[:2]:
+                a = coords(o)
+                lo, hi = a.min(axis=0), a.max(axis=0)
+                tg += [(x, y, p.z_soffit) for x in np.linspace(lo[0] + 0.1, hi[0] - 0.1, 5)
+                       for y in np.linspace(lo[1] + 0.05, hi[1] - 0.05, 3)]
+            nh, nb = _back_hits([o for o, _m in parts], tg)
+            if tp is None:
+                assert names == ["soffit_tongue", "soffit_outer", "soffit_turn"] and nb > 0, (names, nb)
+                off_b = nb
+            else:
+                backs = [o for o, _m in parts if o.name.startswith("soffit_back_")]
+                assert len(backs) == 3, names
+                for f, bk in zip(fronts, backs):
+                    assert len(bk.data.polygons) == len(f.data.polygons), (bk.name, f.name)
+                    assert all(pl.normal.z > 0.99 for pl in bk.data.polygons), bk.name
+                    assert np.allclose(coords(bk)[:, 2], p.z_soffit + D.SOFFIT_BACK_DZ, atol=1e-6), bk.name
+                assert nb == 0, nb
+                rows.append(f"soffit off {off_b} back-face rays from above, on 3 backs / 0 of {nh}")
+            clear(parts)
+        # (b) the gondola's corner cheeks and (c) pane backs, base and top
+        D.TEXPASS = "v1"
+        for kind in ("base", "top"):
+            p = params(kind, True)
+            L = D.gd_hall_layout(p)
+            ch = D.ringbeam_cheeks(p, p.x_nose, p.x_back, D.WALL_T)
+            assert len(ch) == 1, ch
+            o = ch[0][0]
+            lim = p.w_half + 0.10
+            zr = D.gd_roof_z(p, lim, True)
+            assert len(o.data.polygons) == 4, len(o.data.polygons)
+            for pl in o.data.polygons:
+                c = pl.center
+                assert abs(abs(c.y) - lim) < 1e-6 and abs(pl.normal.y) > 0.99 and pl.normal.y * c.y > 0.0, (c, pl.normal)
+            a = coords(o)
+            assert abs(a[:, 2].min() - p.z_top) < 1e-6 and abs(a[:, 2].max() - zr) < 1e-6 and zr > p.z_top + 0.01
+            pb = D.pane_backs(L["panes"])
+            ob = pb[0][0]
+            want = [pn for pn in L["panes"] if pn[1] != "opr"]
+            assert len(ob.data.polygons) == len(want), (len(ob.data.polygons), len(want))
+            cen = sorted((round(pl.center.x, 4), round(pl.center.y, 4), round(pl.center.z, 4)) for pl in ob.data.polygons)
+            exp = []
+            for _nm, _room, (ax, c, s_), (a0, a1, z0, z1) in want:
+                c2 = c - s_ * D.PANE_BACK_IN
+                exp.append((round(c2, 4), round((a0 + a1) / 2, 4), round((z0 + z1) / 2, 4)) if ax == "x"
+                           else (round((a0 + a1) / 2, 4), round(c2, 4), round((z0 + z1) / 2, 4)))
+            assert cen == sorted(exp), "pane back centers"
+            for pl in ob.data.polygons:                   # each faces into the hall (toward the hall axis)
+                n = pl.normal
+                assert (abs(n.y) > 0.99 and n.y * pl.center.y < 0.0) or (abs(n.x) > 0.99), n
+            rows.append(f"gd {kind}: 4 cheeks to z {zr:.3f}, {len(want)} pane backs (opr skipped "
+                        f"{len(L['panes']) - len(want)})")
+            clear(ch + pb)
+    finally:
+        D.TEXPASS = None
+    ok("R5 closures 2: " + "; ".join(rows))
+
+
 def main():
     check_off()
     check_on()
     check_seams()
     check_closures()
+    check_closures2()
     print(f"PASS test_roof_slices: {len(CHECKS)} checks")
 
 

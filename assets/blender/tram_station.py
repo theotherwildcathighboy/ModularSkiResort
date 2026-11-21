@@ -448,14 +448,29 @@ TILED_TRACK_ROPE_SEGS = 6
 TEXPASS = None
 # T273 (r7-tex roofs, 2026-11-21): the see-through gate (tests/test_see_through.py) found open faces on the B letters. Under
 # the texture pass (TEXPASS v1 or roof) each one gets what a builder puts there; off stays byte-identical:
-#   - a cap or a column that overhangs what it stands on keeps its underside (stonecap, annexcap, col_*, annexframe_*):
-#     the 0.05-0.15 m overhangs showed the open boxes from the plaza
-#   - the track ropes end in a capped socket, not an open tube (rope_track_* caps "end")
+#   - a cap or a column that overhangs what it stands on gets its underside: the caps a soffit ring under the 0.10 m
+#     overhang only (capsof_*, strip-mapped, 16 tris: the full undersides cost 136 tiled tris), each column a 2-tri end
+#     plate (colsole_*: the kept bottom of the beveled box cost 14), the annex frames their bottoms. The 0.05-0.15 m
+#     overhangs showed the open boxes from the plaza
+#   - the ropes end in capped sockets, not open tubes: rope_track_* at the stub tip ("start" on the base, whose far end is
+#     buried in the counterweight shaft; "both" on the top, where it ends on the drum), and the haul loop's two ends at
+#     the stub tips (the gate saw them open from 20 m, 7.5-8.0 px)
+#   - the two corner piers of the front wall (stonepier_6 / _9, flush with the stone base's ends) keep their back face: the
+#     base's 0.02 m corner bevel left a notch that let a grazing ray into the open pier (8.3 px). 20 tris with the bevel. A
+#     3 cm bond into the base instead (0 tris) made a 1 cm coplanar strip with the base's end face (C19 z-fight): rejected
+#   - the downspouts' feet are closed (a capped pipe end, 6 tris each): from the plaza the open foot at the cap level
+#     showed the pipe's inside (see-through h1, 9 px at the +x front corner)
 #   - the hall door's frame on the glass wall is a closed section (its back is seen through the glazing)
 #   - treads over a stair slab keep their plate underside (the slab sits 0.20 m lower and reads past them)
 #   - handrail posts stay inside the rail (post radius 0.8 x the rail's; corner posts stand under the fillet)
-#   - the pit-edge nosing and the chevron stripes stop short of the slab edge (no slot under a 3 mm proud stripe)
+#   - the pit-edge nosing stops behind the deck's 2 cm edge chamfer (it overhung it: a slot under the stripe), and the
+#     chevrons' black stripes stop T273_CHEV_INSET inside their yellow plate (they float LABEL_PROUD over it, so at the
+#     plate's open edges the 3 mm slot showed their undersides)
+#   - the operator cab's line-face glazing starts at the door jamb, and the side-area door leaves close against the head
+#     (4 cm / 2 cm slots into the cab and the annex)
 T273_POST_R = 0.8 * 0.028
+T273_NOSE_INSET = 0.03
+T273_CHEV_INSET = 0.05
 # T76 R2 (parent's call on D4, 2026-10-18): under --tiled the unique bake is the LOD1 / LOD2 far set (seen past ~250 m). Its
 # weathering ladder starts lower. So a 1024 far set (the top) finds a budget-clean step instead of a 2048 atlas
 TILED_FAR_WEATHER_STEPS = (0.10, 0.15, 0.20, 0.25, 0.30, 0.35)
@@ -664,6 +679,11 @@ HEIGHT_TOL = {("base", True): 0.05, ("base", False): 0.05, ("top", True): 0.05,
 # 500 satisfies the 700 / 600 caps too.
 LOD0_TARGET = {"base": 14000, "top": 12000}
 LOD0_CAP = {"base": 16000, "top": 14000}
+# T273 (texture pass only, the small-overage rule): the base's cap 16,000 -> 16,100 (+0.6 %). The see-through closures
+# (cap soffit rings, column end plates, rope sockets, corner pier backs, downspout feet) cost about 120 tris on a base
+# that shipped at 15,902; trimming detail for them is ruled out. apply_texpass swaps the table; off keeps 16,000
+LOD0_CAP_OFF = dict(LOD0_CAP)
+LOD0_CAP_PASS = {"base": 16100, "top": 14000}
 LOD1_TARGET = {"base": 6000, "top": 5000}
 LOD2_CAP = {"base": 700, "top": 600}
 LOD2_TARGET = {"base": 480, "top": 460}
@@ -1231,6 +1251,38 @@ def seat_corner_posts(name, pts, parts):
                 o.location.y += mid.y - c.y
 
 
+def cap_soffit(k, name, x_rng, z_rng, over, y):
+    """T273: the soffit ring under a cap's overhang: four quads (facing down) from the cap's edge (`over` past the wall
+    line x_rng / z_rng) to 0.02 m inside the wall line, at the cap's underside `y`. The cap's own bottom stays dropped (a
+    full underside is sliced by the tile sheet). Each quad is a strip on the concrete swatch."""
+    (x0, x1), (z0, z1) = sorted(x_rng), sorted(z_rng)
+    i = 0.02
+    X0, X1, Z0, Z1 = x0 - over, x1 + over, z0 - over, z1 + over
+    rects = ((X0, X1, Z0, z0 + i), (X0, X1, z1 - i, Z1), (X0, x0 + i, z0 + i, z1 - i), (x1 - i, X1, z0 + i, z1 - i))
+    for n, (a0, a1, b0, b1) in enumerate(rects):
+        k.quad(f"{name}_{n}", [(a0, y, b0), (a1, y, b0), (a1, y, b1), (a0, y, b1)], "concrete", (0, -1, 0))
+
+
+def chevrons_inset(LD, tag, a_rng, b_rng):
+    """T273: the pit-edge chevrons with the black stripes T273_CHEV_INSET inside the yellow plate on every side (the plate as
+    before). Two cs2_liftdress.chevrons calls: the plate of the full one, the stripes of the inset one; the two leftovers are
+    removed. 0 tris."""
+    i = T273_CHEV_INSET
+    full = LD.chevrons(tag, "+Z", DECK_Y, a_rng, b_rng, period=0.60, band=0.30)
+    a0, a1 = sorted(a_rng)
+    b0, b1 = sorted(b_rng)
+    inner = LD.chevrons(tag, "+Z", DECK_Y, (a0 + i, a1 - i), (b0 + i, b1 - i), period=0.60, band=0.30)
+    keep = ([pm for pm in full if pm[0].name.split(".")[0].endswith("_base")]
+            + [pm for pm in inner if pm[0].name.split(".")[0].endswith("_k")])
+    for o, _m in full + inner:
+        if all(o is not q for q, _mm in keep):
+            bpy.data.objects.remove(o, do_unlink=True)
+    for o, _m in keep:                      # Blender suffixes a clash (.001): the kept pair takes the plain names
+        o.name = o.name.split(".")[0]
+        o.data.name = o.name
+    return keep
+
+
 def close_frame_backs(name, parts):
     """T273: cs2_kit.door drops the frame's wall-side faces (they lie on an opaque wall). On a glass wall they are in view:
     close the jambs' and the head's back (one quad each)."""
@@ -1739,7 +1791,9 @@ def build_base(k, opts):
     k.box("stonebase", -HALL_X, HALL_X, 0.0, STONE_TOP, TRENCH_Z1, HALL_Z, "stone",
           open_bottom=True, drop=("+Y",))
     k.box("stonecap", -HALL_X - 0.10, HALL_X + 0.10, STONE_TOP, CAP_TOP, TRENCH_Z1 - 0.10,
-          HALL_Z + 0.10, "concrete", drop=() if TEXPASS else ("-Y",))       # T273: the 0.10 overhang's underside
+          HALL_Z + 0.10, "concrete", drop=("-Y",))
+    if TEXPASS:                                       # T273: the 0.10 overhang's underside
+        cap_soffit(k, "capsof_stone", (-HALL_X, HALL_X), (TRENCH_Z1, HALL_Z), 0.10, STONE_TOP)
     k.box("stonebasefront", -HALL_X, HALL_X, 0.0, TRENCH_Y - 0.20, TRENCH_Z0, TRENCH_Z1, "stone",
           open_bottom=True, drop=("+Y", "+Z"))
     k.box("trenchcap", -HALL_X - 0.10, HALL_X + 0.10, TRENCH_Y - 0.20, TRENCH_Y, TRENCH_Z0 - 0.25,
@@ -1764,8 +1818,9 @@ def build_base(k, opts):
                   open_bottom=True, drop=("-X" if sx > 0 else "+X",))
             i += 1
     for xc in (-11.40, -6.00, 2.40, 11.40):
+        corner = abs(abs(xc) + 0.60 - HALL_X) < 1e-6        # T273: flush with the base's end, it keeps its back
         k.box(f"stonepier_{i}", xc - 0.60, xc + 0.60, 0.0, CAP_TOP - CAP_DROP, HALL_Z, HALL_Z + 0.40,
-              "stone", open_bottom=True, drop=("-Z",))
+              "stone", open_bottom=True, drop=() if (TEXPASS and corner) else ("-Z",))
         i += 1
 
     # -- steel hall -----------------------------------------------------------------------
@@ -1773,7 +1828,10 @@ def build_base(k, opts):
     cols += [(x, HALL_Z) for x in (-6.0, 0.0, 6.0)]
     for n, (x, z) in enumerate(cols):
         k.box(f"col_{n}", x - 0.25, x + 0.25, CAP_TOP, roof_under(z) + 0.05, z - 0.25, z + 0.25,
-              "steel", drop=() if TEXPASS else ("-Y",))     # T273: the base plate (0.15 past the cap's edge)
+              "steel", drop=("-Y",))
+        if TEXPASS:                                   # T273: the end plate (the column stands 0.15 past the cap's edge)
+            k.quad(f"colsole_{n}", [(x - 0.25, CAP_TOP, z - 0.25), (x + 0.25, CAP_TOP, z - 0.25),
+                                    (x + 0.25, CAP_TOP, z + 0.25), (x - 0.25, CAP_TOP, z + 0.25)], "steel", (0, -1, 0))
     # galvanized face portal over the open end (JH-07): two columns from the pit floor and the face girder (its underside =
     # the contract face opening 18.60). There is no gable band, so the structure of the deep roof reads above it
     for sx, tag in ((-1, "L"), (1, "R")):
@@ -1943,9 +2001,12 @@ def build_base(k, opts):
                            (-ox - e, y1w, oz0)], "glass", (-1, 0, 0))
     k.quad("opcabwin_px", [(ox + e, y0w, oz0), (ox + e, y0w, oz1), (ox + e, y1w, oz1),
                            (ox + e, y1w, oz0)], "glass", (1, 0, 0))
-    # -Z (line-facing) band: the operator door at x -1.50 takes its left end (revision 1)
-    k.quad("opcabwin_nz", [(-0.95, y0w, oz0 - e), (ox, y0w, oz0 - e), (ox, y1w, oz0 - e),
-                           (-0.95, y1w, oz0 - e)], "glass", (0, 0, -1))
+    # -Z (line-facing) band: the operator door at x -1.50 takes its left end (revision 1). T273: the band starts AT the
+    # door's right jamb (x -0.99), as a glazier sets the pane into the frame; it started 4 cm short, a 1.4 m tall slit
+    # into the cab (see-through h1, 79 px at 20 m)
+    xw0 = -0.99 if TEXPASS else -0.95
+    k.quad("opcabwin_nz", [(xw0, y0w, oz0 - e), (ox, y0w, oz0 - e), (ox, y1w, oz0 - e),
+                           (xw0, y1w, oz0 - e)], "glass", (0, 0, -1))
     k.quad("opcabwin_pz", [(-ox, y0w, oz1 + e), (ox, y0w, oz1 + e), (ox, y1w, oz1 + e),
                            (-ox, y1w, oz1 + e)], "glass", (0, 0, 1))
     k.door("opcab", 0.90, 2.10, (-1.50, DECK_Y, oz0), "-Z", mat="steel")
@@ -1980,7 +2041,8 @@ def build_base(k, opts):
 
     # -- haul loop (starts EXACTLY at the stub tips, C2). Revision 2: around the two deflection sheaves and the
     # 4.0 m drive wheel (haul_route_base, C20b) ---------------------------------------------------
-    k.tube("rope_haul", haul_route_base()["points"], HAUL_ROPE_R, "rope", segs=6)
+    k.tube("rope_haul", haul_route_base()["points"], HAUL_ROPE_R, "rope", segs=6,
+           caps="both" if TEXPASS else "none")          # T273: the loop's two ends at the stub tips are capped
 
     # -- platform lamps hung from the roof. Revision 2 (vanilla lamps, JH-04: downlights, no pole lights): the modeled
     # pendant boxes and the two entrance lantern boxes are gone. The vanilla RoofLightRandom01 rows (SUBOBJ_ROWS) ARE the
@@ -2022,14 +2084,17 @@ def build_base(k, opts):
     for sx, tag in ((-1, "L"), (1, "R")):
         x = sx * (HALL_X + 0.45)
         k.cyl(f"downspout_{tag}", 0.06, (x, CAP_TOP, HALL_Z + 0.45),
-              (x, roof_under(ROOF_Z) - 0.05, HALL_Z + 0.45), "roof", segs=6, caps="none")
+              (x, roof_under(ROOF_Z) - 0.05, HALL_Z + 0.45), "roof", segs=6,
+              caps="bottom" if TEXPASS else "none")      # T273: the pipe's foot is closed (it showed its inside, 9 px)
 
     # -- annex (waiting hall = the side building, _Win rows 17/18 + ground windows 8) -------
     ax0, ax1, az0, az1 = 12.40, 19.60, -8.00, 7.20
     k.box("annexbase", ax0, ax1, 0.0, STONE_TOP, az0, az1, "stone", open_bottom=True,
           drop=("+Y",))
     k.box("annexcap", ax0 - 0.10, ax1 + 0.10, STONE_TOP, CAP_TOP, az0 - 0.10, az1 + 0.10,
-          "concrete", drop=() if TEXPASS else ("-Y",))      # T273: the 0.10 overhang's underside
+          "concrete", drop=("-Y",))
+    if TEXPASS:                                       # T273: the 0.10 overhang's underside
+        cap_soffit(k, "capsof_annex", (ax0, ax1), (az0, az1), 0.10, STONE_TOP)
     if ANNEX_STAIR and NB3["wall_cut"]:
         # nitpick B3: the hall's inner door opens THROUGH this wall. The wall is cut at the doorway (ANNEX_DOOR_Z, up to the
         # door's head), and the two wall pieces and the header are closed boxes like the old one. The landing block fills the
@@ -2177,8 +2242,9 @@ def build_base_side_door(k):
     zm = (z0 + z1) / 2.0
     lx0, lx1 = D["leaf_x"]
     k.box("annexdoor_mid", lx0 - 0.02, lx1 + 0.02, CAP_TOP, yh0, zm - 0.03, zm + 0.03, "galv", drop=("-Y",))
+    lt = yh0 if TEXPASS else yh0 - 0.02    # T273: the leaves close against the head's stop (a 2 cm slot showed the annex)
     for n, (za, zb) in enumerate(((z0, zm - 0.03), (zm + 0.03, z1))):
-        k.box(f"annexdoor_leaf{n}", lx0, lx1, CAP_TOP + 0.02, yh0 - 0.02, za, zb, "galv")
+        k.box(f"annexdoor_leaf{n}", lx0, lx1, CAP_TOP + 0.02, lt, za, zb, "galv")
         xl = lx1 + 0.005
         k.quad(f"doorlite_side{n}", [(xl, CAP_TOP + 0.45, za + 0.10), (xl, CAP_TOP + 0.45, zb - 0.10),
                                      (xl, yh0 - 0.16, zb - 0.10), (xl, yh0 - 0.16, za + 0.10)], "glass", (1, 0, 0))
@@ -2444,7 +2510,7 @@ def build_base_saddles(k):
         pts.append((xl, 12.50, ze + t * math.sin(pe)))
         k.tube(f"rope_track_{tag}", _dedupe(pts), TRACK_ROPE_R, "rope",
                segs=TILED_TRACK_ROPE_SEGS if TILED else TRACK_ROPE_SEGS["base"],
-               caps="end" if TEXPASS else "none")          # T273: the socket at the shaft end
+               caps="start" if TEXPASS else "none")        # T273: the socket at the stub tip (the end is in the shaft)
     zp0, zp1 = 0.35, 0.85
     yb = min(cy + math.sqrt(rb ** 2 - (z - cz) ** 2) for z in (zp0, zp1))
     k.box("sportal_beam", -6.85, 6.85, yb - 0.50, yb - 0.02, zp0, zp1, "galv")
@@ -2994,7 +3060,7 @@ def build_top_saddles(k):
             pts.append((x0 + (x1 - x0) * f, cy + DRUM_RR * math.sin(a), cz + DRUM_RR * math.cos(a)))
         check_rope_clear(pts, side, f"rope_track_{tag}")
         k.tube(f"rope_track_{tag}", _dedupe(pts), TRACK_ROPE_R, "rope", segs=TRACK_ROPE_SEGS["top"],
-               caps="end" if TEXPASS else "none")          # T273: the socket where the wrap ends on the drum
+               caps="both" if TEXPASS else "none")         # T273: sockets at the stub tip and on the drum
         out.append({"centre": [xd, cy, cz], "rope_r": DRUM_RR, "axle": "x",
                     "leave_deg": round(math.degrees(phi), 2)})
     # tie beam under both girders at the first posts. Revision 2 (Z3 / T2): moved down under the 2.90 m lane wheels (rim
@@ -3092,7 +3158,8 @@ def build_top_wheels(k):
                  rename=lambda nm, t=tag: f"fsrim_{t}" if nm.endswith("_rim") else f"fshub_{t}")
     k.box("fsbeam", -FS_X - 0.10, FS_X + 0.10, FS_Y - 0.20, FS_Y + 0.10, BULL_Z + 0.12, 2.05, "steel")
     # the loop
-    k.tube("rope_haul", haul_route_top()["points"], HAUL_ROPE_R, "rope", segs=6)
+    k.tube("rope_haul", haul_route_top()["points"], HAUL_ROPE_R, "rope", segs=6,
+           caps="both" if TEXPASS else "none")          # T273: the loop's two ends at the stub tips are capped
 
 
 def build_top_bullwheel(k):
@@ -3110,7 +3177,7 @@ def build_top_bullwheel(k):
     semi = [(cx - HAUL_X * math.cos(f), HAUL_Y, cz + HAUL_X * math.sin(f))
             for f in (math.pi * i / 14.0 for i in range(15))]
     k.tube("rope_haul", _dedupe([(-HAUL_X, HAUL_Y, STUB_Z)] + semi + [(HAUL_X, HAUL_Y, STUB_Z)]),
-           HAUL_ROPE_R, "rope", segs=6)
+           HAUL_ROPE_R, "rope", segs=6, caps="both" if TEXPASS else "none")      # T273: capped at the stub tips
 
 
 def build_top_crane(k):
@@ -3266,9 +3333,13 @@ def build_base_detail(k):
     # TB8 platform-edge chevrons on the four edge strips. TB9 deck-front nosings at the pit edge
     for tag, (x0, x1) in (("cL", (-3.20, -2.90)), ("cR", (2.90, 3.20)), ("oL", (-8.10, -7.80)),
                           ("oR", (7.80, 8.10))):
-        k.dress(LD.chevrons(tag, "+Z", DECK_Y, (TRENCH_Z1, -0.80), (x0, x1), period=0.60, band=0.30))
+        if not TEXPASS:
+            k.dress(LD.chevrons(tag, "+Z", DECK_Y, (TRENCH_Z1, -0.80), (x0, x1), period=0.60, band=0.30))
+            continue
+        k.dress(chevrons_inset(LD, tag, (TRENCH_Z1, -0.80), (x0, x1)))
+    zn = TRENCH_Z1 + 0.05 + (T273_NOSE_INSET if TEXPASS else 0.0)
     for tag, (x0, x1) in (("nosL", (-11.80, -8.11)), ("nosC", (-2.89, 2.89)), ("nosR", (8.11, 11.80))):
-        k.dress(LD.stripe(tag, (TRENCH_Z1 + 0.05, x0), (TRENCH_Z1 + 0.05, x1), 0.10, DECK_Y, mat="safety"))
+        k.dress(LD.stripe(tag, (zn, x0), (zn, x1), 0.10, DECK_Y, mat="safety"))
     # TB10 ski rack. Revision 2 (B1, eleventh look: "the skis outside the tram building look totally different from the ones
     # on the A frame - the A-frame ones way preferred (sans bindings)"): the A-frame KIT rack itself
     # (cs2_liftdress.aframe_rack -> cs2_bldg.ski_rack_frame, 8 slots, gear, no bindings) with L1's entry-rack contents. It
@@ -4938,6 +5009,14 @@ CONTACTS = {
     # join origin (the first part, `plinth`, moved its center) re-rounds every vertex by ~1e-7 m, and the BVH overlap
     # then sees the shared plane. Declared, not moved (nothing above grade moves in revision 3)
     "saddle-girder hangers under the rear head beam (face contact)": "headbeam:sghanger",
+    # T273 (texture pass): the soffit rings under the caps' overhangs meet the caps' sides, run 0.02 m over the ground
+    # shells' wall tops and through what passes the overhang (the stone and clock-tower piers, the ramp ledger, the
+    # moving platform's posts and braces at the pit edge); the columns' end plates lie on the caps' top, over the piers'
+    # tops and against the deck's underside where a column stands in the deck edge (all hidden over the cap). Flag off
+    # neither part exists
+    "T273 cap soffits and column end plates": "capsof:stonecap capsof:annexcap capsof:stonebase capsof:annexbase "
+        "capsof:stonepier capsof:stonebasefront capsof:trenchwall colsole:col colsole:stonecap colsole:annexcap "
+        "colsole:stonepier capsof:ctbasepier capsof:rampbeam capsof:mplatbrace capsof:mplatpost colsole:deck",
 }
 CONTACT_KINDS = {tuple(sorted(tok.split(":"))): why for why, toks in CONTACTS.items()
                  for tok in toks.split()}
@@ -7662,6 +7741,8 @@ def apply_texpass(args):
     global TEXPASS
     v = getattr(args, "texpass", None)
     TEXPASS = None if v in (None, "off") else v
+    LOD0_CAP.clear()
+    LOD0_CAP.update(LOD0_CAP_PASS if TEXPASS else LOD0_CAP_OFF)
     if TEXPASS or "tram_tilesheet" in sys.modules:
         import tram_tilesheet as TT
         TT.register_texpass(TEXPASS, int(getattr(args, "tiled_step", 0) or 0))

@@ -399,6 +399,68 @@ def _back_hits(bvh, target, dist=6.0):
     return n
 
 
+class _QuadKit:
+    """Stand-in for tram_station.Builder: quad() as Builder.quad (prefab frame through ts.P), the objects linked."""
+
+    def __init__(self):
+        self.objs = []
+
+    def quad(self, name, pts, mat, facing):
+        import bmesh
+        bm = bmesh.new()
+        f = bm.faces.new([bm.verts.new(ts.P(*q)) for q in pts])
+        bm.normal_update()
+        if f.normal.dot(ts.P(*facing)) < 0:
+            bmesh.ops.reverse_faces(bm, faces=[f])
+        self.objs.append(_link_bm(name, bm))
+
+
+def _link_bm(name, bm):
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    return o
+
+
+def _shell(name, x0, x1, y0, y1, z0, z1, drop):
+    """An outward box in the prefab frame (Y up) without the faces in `drop` ("+Y" / "-Y")."""
+    import bmesh
+    bm = bmesh.new()
+    c = {(i, j, k): bm.verts.new(ts.P((x0, x1)[i], (y0, y1)[j], (z0, z1)[k])) for i in (0, 1) for j in (0, 1)
+         for k in (0, 1)}
+    quads = {"-X": [(0, 0, 0), (0, 1, 0), (0, 1, 1), (0, 0, 1)], "+X": [(1, 0, 0), (1, 0, 1), (1, 1, 1), (1, 1, 0)],
+             "-Y": [(0, 0, 0), (0, 0, 1), (1, 0, 1), (1, 0, 0)], "+Y": [(0, 1, 0), (1, 1, 0), (1, 1, 1), (0, 1, 1)],
+             "-Z": [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)], "+Z": [(0, 0, 1), (0, 1, 1), (1, 1, 1), (1, 0, 1)]}
+    ctr = ts.P((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
+    for side, q in quads.items():
+        if side in drop:
+            continue
+        f = bm.faces.new([c[t] for t in q])
+        f.normal_update()
+        if f.normal.dot(f.calc_center_median() - ctr) < 0:
+            bmesh.ops.reverse_faces(bm, faces=[f])
+    return _link_bm(name, bm)
+
+
+def _back_hits_below(bvh, target, dist=6.0):
+    """Back-face first hits on rays from BELOW (elevation -8 / -16 deg, 16 bearings) at `target` (Blender frame)."""
+    import math
+    from mathutils import Vector
+    n = 0
+    for b in range(16):
+        for e in (-8.0, -16.0):
+            a, el = math.radians(22.5 * b), math.radians(e)
+            eye = target + Vector((math.sin(a) * math.cos(el), -math.cos(a) * math.cos(el), math.sin(el))) * dist
+            for dx in (-0.02, 0.0, 0.02):
+                d = (target + Vector((dx, dx, 0.0)) - eye).normalized()
+                hit, nrm, fi, _d = bvh.ray_cast(eye, d)
+                if hit is not None and nrm.dot(d) > 0:
+                    n += 1
+    return n
+
+
 def check_closures():
     import cs2_kit
     from mathutils import Vector
@@ -436,8 +498,25 @@ def check_closures():
                 nf = len(bm.faces)
                 bm.free()
                 assert (nb == 0 and nf == 6) if closed else (nb == 4 and nf == 5), (o.name, closed, nb, nf)
+    # the cap soffit ring: a wall shell (top open) under a cap 0.10 m wider (bottom open), as stonebase / stonecap
+    sof = {}
+    for ring in (False, True):
+        for o in list(bpy.data.objects):
+            bpy.data.objects.remove(o)
+        objs = [_shell("wall", -2.0, 2.0, 0.0, 1.0, -1.5, 1.5, ("+Y",)),
+                _shell("cap", -2.1, 2.1, 1.0, 1.4, -1.6, 1.6, ("-Y",))]
+        if ring:
+            kq = _QuadKit()
+            ts.cap_soffit(kq, "capsof_x", (-2.0, 2.0), (-1.5, 1.5), 0.10, 1.0)
+            objs += kq.objs
+            assert len(kq.objs) == 4, [o.name for o in kq.objs]
+        bvh = _bvh(objs)
+        sof[ring] = sum(_back_hits_below(bvh, ts.P(*t)) for t in ((2.05, 1.0, 0.3), (-0.4, 1.0, -1.55),
+                                                                  (2.05, 1.0, 1.55)))
+    assert sof[False] > 0 and sof[True] == 0, f"cap soffit: back hits without / with the ring {sof}"
     ok(f"X11 closures: post tops behind the rails under the pass (back hits {res[True]}; flag off corner "
-       f"{res[False][corner]}); door frame closed when `closed` (6 faces, no boundary), open back otherwise")
+       f"{res[False][corner]}); door frame closed when `closed` (6 faces, no boundary), open back otherwise; cap "
+       f"soffit ring: back hits from below {sof[False]} -> {sof[True]}")
 
 
 def main():
