@@ -568,6 +568,14 @@ def build_l4(recipe, opts):
     d_ridge = D_EAVE + math.tan(math.radians(D_PITCH)) * 0.5 * (D_Y1 - D_Y0)
     P += K.prism_gable("dfront", "X", D_X0, D_X0 + 0.15, D_Y0, D_Y1, D_EAVE, d_ridge - 0.02,
                        mat="glass_dark")
+    if opts.get("texpass", "off") != "off":
+        # The east gable end (X D_X1) has no wall from W6's top (the eave line) up to the roof south of U's corner (U_Y0).
+        # U's west wall closes it only from U_Y0 north. Low rays under the 1.5 m rake entered that triangle and saw the
+        # inside of the glass box (see-through gate, 4 wedges up to 207 px). The glass box's east gable is glazed like the
+        # west one: one glass_dark triangle in the wall plane, up to the slab's center plane
+        z_u = D_EAVE + math.tan(math.radians(D_PITCH)) * (U_Y0 - D_Y0)
+        P += K._single("wall_dgle", lambda g: g.poly(
+            [(D_X1, D_Y0, D_EAVE), (D_X1, U_Y0, D_EAVE), (D_X1, U_Y0, z_u)], (1.0, 0.0, 0.0)), "glass_dark")
     # gable glazing above 1.5: 6 stepped panes (contract 4.3 "6 trapezoids")
     gw = WallRef("-X", D_X0)
     for j in range(6):
