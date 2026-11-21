@@ -14,13 +14,14 @@ B3  reduced finish x 2 (--tex 1024 --ao-samples 4 --no-validate): the five PNGs 
     BaseColor alpha is 255.
 B4  manifest: <Name>.manifest.json sits beside settings.json and records tris, budget, ppm_by_material, texture memory
     and bytes + sha1 of the five PNGs, the five FBX files and settings.json; each sha1 matches the file.
-B5  texture pass v1 (reduced finish with --texpass v1): the bare geometry hash (positions, faces) and every tri count
-    equal the flag-off build (a pass moves pixels and the unique layout only), the PNG set differs, the manifest
-    records the pass and its variants, alpha 255, an unknown --texvar raises.
+B5  texture pass v1 (reduced finish with --texpass v1): LOD0 tris = the flag-off build + V1_EDGE_TRIS exactly (the
+    closed back-wall boards, T273; nothing else moves geometry), the glass sub-mesh is unchanged, the PNG set differs,
+    the manifest records the pass and its variants, alpha 255, an unknown --texvar raises.
 B6  flag-off identity after a pass: one more flag-off reduced finish in the same process equals B3's PNGs and hashes
     (a pass registers its materials for its build only).
 B7  density (--dry-pack at 2048, no bake): flag-off and v1 report px/m per material; under v1 no material's p50 falls
-    below its flag-off p50 and the atlas fill does not fall (the pass may only add texels to a part).
+    below its flag-off p50 and the atlas fill does not fall (the pass may only add texels to a part); LOD0 tris differ by
+    V1_EDGE_TRIS only.
 
 --quick runs B1, B2 and B7 only (no bake: a light job).
 
@@ -49,6 +50,8 @@ QUICK = "--quick" in sys.argv
 # LOD0 / LOD1 / LOD2 FBX by content, so this blockout hash is the released mesh
 LOD0_TRIS = 1624
 FLAG_OFF_PREBAKE = "9cfabfc7e8da"
+# texpass v1 closes every back-wall board (a top and a bottom quad each; T273, the see-through gate)
+V1_EDGE_TRIS = 2 * 2 * D.BOARD_N * (len(D.YS) - 1)
 FAILS = []
 
 
@@ -115,7 +118,8 @@ def main():
             dry[tag] = r
             print(f"[bus_depot] B7 {tag}: w=1 {r['pack']['w1_px_per_m']} px/m, fill {r['pack']['fill']}, "
                   f"p50 by material { {k: v[0] for k, v in r['density_by']['material'].items()} }")
-        ok(dry["v1"]["hashes"]["LOD0_geometry"] == dry["off"]["hashes"]["LOD0_geometry"], "B7 the pass moved geometry")
+        ok(dry["v1"]["tris"][0] == dry["off"]["tris"][0] + V1_EDGE_TRIS,
+           f"B7 v1 LOD0 {dry['v1']['tris'][0]} != flag-off {dry['off']['tris'][0]} + {V1_EDGE_TRIS} board-edge tris")
         ok(dry["v1"]["pack"]["fill"] >= dry["off"]["pack"]["fill"], "B7 the pass lowered the atlas fill")
         for k, v in dry["off"]["density_by"]["material"].items():
             if k == D.BAND_KEY:
@@ -155,8 +159,8 @@ def main():
                 ok(man["tris"]["lod0"] == t[0] and man["texture"]["size"] == 1024, "B4 manifest tris / texture size")
             # -- B5: the pass --------------------------------------------------------------------------------
             v1 = finish(tmp, "v1", ("--texpass", "v1"))
-            ok(v1["hashes"]["LOD0_geometry"] == fin[0]["hashes"]["LOD0_geometry"], "B5 the pass moved LOD0 geometry")
-            ok(v1["tris"][0] == t[0] and v1["glass"] == fin[0]["glass"], f"B5 tris moved: {v1['tris']} vs {t}")
+            ok(v1["tris"][0] == t[0] + V1_EDGE_TRIS and v1["glass"] == fin[0]["glass"],
+               f"B5 tris: {v1['tris']} vs {t} + {V1_EDGE_TRIS} board-edge tris")
             ok(v1["tris"][1] <= 0.5 * v1["tris"][0] and v1["tris"][2] <= D.BUDGET.lod2_cap, f"B5 LOD caps: {v1['tris']}")
             ok(v1["hashes"]["Gls"] == fin[0]["hashes"]["Gls"], "B5 the pass moved the glass sub-mesh")
             ok(v1["pngs"][f"{D.NAME}_BaseColor.png"] != fin[0]["pngs"][f"{D.NAME}_BaseColor.png"], "B5 the pass changed no pixel")

@@ -260,6 +260,11 @@ def parse_args(argv=None):
     # change: build all eight and --finalize with the same flag. off = every build byte-identical.
     ap.add_argument("--texpass", default="off", choices=("off", "v1"),
                     help="v1 = texture pass v1 (scanned swatches + recipe.texpass rules; off = byte-identical)")
+    # cull kit v2 (T273, r7 2026-11-20, docs/PIPELINE.md "No see-through hole"): cull_hidden keeps every face any point of
+    # it shows to a play camera, and gable slabs put their rake undersides into soffit_. v1 = every build byte-identical.
+    ap.add_argument("--cull", default="v1", choices=("v1", "v2"),
+                    help="v2 = conservative cull (whole-face samples vs the play camera ring) + rake soffits "
+                         "(cs2_bldg.CULL_KIT; v1 = byte-identical)")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -510,19 +515,23 @@ def aframe_parts(c, opts):
     v2 = K.RIDGE.get("version", 0) >= 2
     g_ = K.RIDGE_GAP
     ov = g_ if v2 else 0.35
+    # gable_lines (cull kit v2 only, T273): the gable walls' outer planes (mainS / mainN at -+20.85 -+ 0.15, the prow gable
+    # at PX1). The rake undersides past them go to soffit_<name>
     P += K.roof_slab("mainW", "Y", -22.0, 22.0, S2X0 - OVER, EAVE_Z, RX + ov, RZ + ov * MP,
-                     wall_line=S2X0, mat="metal_roof", ridge_x=RX + g_ if v2 else None)
+                     wall_line=S2X0, mat="metal_roof", ridge_x=RX + g_ if v2 else None, gable_lines=(-21.0, 21.0))
     P += K.roof_slab("mainE", "Y", -22.0, 22.0, S2X1 + OVER, EAVE_Z, RX - ov, RZ + ov * MP,
-                     wall_line=S2X1, mat="metal_roof", ridge_x=RX - g_ if v2 else None)
+                     wall_line=S2X1, mat="metal_roof", ridge_x=RX - g_ if v2 else None, gable_lines=(-21.0, 21.0))
     if v2:                                  # ends where the v1 box did: 5 cm short of the north chimney stack
         P += K.ridge_flashing("main", "Y", RX, RZ, MP, MP, 0.24, -22.0, -0.75 + 21.35)
     else:
         P += K.box_part("ridge_main", (RX - 0.225, -0.75 - 21.35, RZ + 0.01),
                         (RX + 0.225, -0.75 + 21.35, RZ + 0.15), "galv")
     P += K.roof_slab("prowS", "X", -4.1, PX1 + 1.1, PY0 - 1.0, EAVE_Z, PRY + ov,
-                     PRZ + ov * PP, wall_line=PY0, mat="metal_roof", ridge_x=PRY + g_ if v2 else None)
+                     PRZ + ov * PP, wall_line=PY0, mat="metal_roof", ridge_x=PRY + g_ if v2 else None,
+                     gable_lines=(-4.1, PX1))
     P += K.roof_slab("prowN", "X", -4.1, PX1 + 1.1, PY1 + 1.0, EAVE_Z, PRY - ov,
-                     PRZ + ov * PP, wall_line=PY1, mat="metal_roof", ridge_x=PRY - g_ if v2 else None)
+                     PRZ + ov * PP, wall_line=PY1, mat="metal_roof", ridge_x=PRY - g_ if v2 else None,
+                     gable_lines=(-4.1, PX1))
     if v2:
         P += K.ridge_flashing("prow", "X", PRY, PRZ, PP, PP, 0.24, 3.63 - 7.55, PX1 + 1.1)
     else:
@@ -1850,8 +1859,11 @@ def run(recipe, args):
         opts["step_base"] = "v1"
     if getattr(args, "texpass", "off") != "off":       # r4/tex: recipe geometry that rides the pass (L4's ug3 window);
         opts["texpass"] = args.texpass                 # absent with the flag off, so a flag-off build never reads it
+    cull_v = 2 if getattr(args, "cull", "v1") == "v2" else 1      # T273 cull kit (slab rake soffits + the cull below)
+    if cull_v == 2:                         # the cull regression in the build path: raises if a cull change opens the rake
+        K.cull_selfcheck()
     with K.ridge_kit(2 if getattr(args, "ridge", "off") == "v2" else 0), \
-            K.flag_kit(2 if getattr(args, "flags", "v1") == "v2" else 1):
+            K.flag_kit(2 if getattr(args, "flags", "v1") == "v2" else 1), K.cull_kit(cull_v):
         parts = build_parts(recipe, opts)
     if opts.get("extra_rows"):
         recipe = replace(recipe, sub_objects=tuple(recipe.sub_objects) + tuple(opts.pop("extra_rows")))
@@ -1978,11 +1990,12 @@ def run(recipe, args):
     # 12 cull (after the rooms so panes are not occluders). T85: the backing plates sit out of the mesh during the cull (a
     # surface plate 1-3 cm in front of a wall would hide that wall, and LOD2 drops the plates)
     pobj = _lift_plates(obj, table) if glass == "gls" else None
-    cull = K.cull_hidden(obj, protect=tuple(recipe.ground_prefixes) + K.LABEL_PREFIXES
-                         + (K.KIT2_RECESSED if wk else ()) + (door2["protect"] if door2 else ()),
-                         table=table, cull_ok=recipe.cull_ok, wall_rule=recipe.wall_rule,
-                         arrival=(0.0, -1.0), ground_prefixes=recipe.ground_prefixes,
-                         thin_occluders=FITTINGS_THIN if fk else ())
+    with K.cull_kit(cull_v):
+        cull = K.cull_hidden(obj, protect=tuple(recipe.ground_prefixes) + K.LABEL_PREFIXES
+                             + (K.KIT2_RECESSED if wk else ()) + (door2["protect"] if door2 else ()),
+                             table=table, cull_ok=recipe.cull_ok, wall_rule=recipe.wall_rule,
+                             arrival=(0.0, -1.0), ground_prefixes=recipe.ground_prefixes,
+                             thin_occluders=FITTINGS_THIN if fk else ())
     if pobj is not None:
         _rejoin_plates(obj, pobj)
     T["cull"] = time.perf_counter() - t0

@@ -654,6 +654,11 @@ def gallery_parts(C, c, gls=False):
         P += C.quads_part("gallery_in", in_q, "trim_white")
     n = int(round(L / step))
     rib = []
+    # cull kit v2 (T273): through the clear tunnel (gls) a camera sees each hoop from inside, where the stile and arc strips
+    # had no face (the see-through gate: 7 FAIL, 480-680 px at 20 m). Each hoop gets its inner faces: the stiles 2 mm
+    # outside the glass, the arc strips 3 mm under their outer face (no cheeks needed). +28 tris per hoop
+    import cs2_bldg
+    inner = gls and cs2_bldg.CULL_KIT.get("version", 1) >= 2
     for k in range(n + 1):
         x = xl - L * k / n
         xa, xb = x + RIB_W / 2.0, x - RIB_W / 2.0
@@ -671,8 +676,14 @@ def gallery_parts(C, c, gls=False):
                 for xx, sx in ((xa, 1.0), (xb, -1.0)):
                     rib.append(([pt(xx, v0, h0), pt(xx, vo, h0), pt(xx, vo, h1), pt(xx, v0, h1)],
                                 (sx, 0.0, 0.0)))
+                if inner:
+                    vi = v0 + sg * 0.002
+                    rib.append(([pt(xa, vi, h0), pt(xa, vi, h1), pt(xb, vi, h1), pt(xb, vi, h0)], (0.0, -sg, 0.0)))
             else:                                   # arc: an offset frame strip
                 rib.append(seg_quad(xa, xb, p, q, off=RIB_OUT))
+                if inner:
+                    ipts, (_x, nv, nh) = seg_quad(xa, xb, p, q, off=RIB_OUT - 0.003)
+                    rib.append((ipts[::-1], (0.0, -nv, -nh)))
     P += C.quads_part(f"galleryrib_{tag}", rib, "galv" if gls else "trim_white")
     return P
 
