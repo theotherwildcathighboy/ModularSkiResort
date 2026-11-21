@@ -2,7 +2,9 @@
 //   1. reads each ski area's last score (SkiResortAttractivenessSystem: Result and active lodges) when that system's Generation or the
 //      "Resort tourism bonus" option changes, and sums the areas into the city bonus (capped by the option, 0 = off);
 //   2. writes it into the city's CityModifier buffer as ONE more Relative Attractiveness modifier (the vanilla airport pattern);
-//   3. samples the city's tourist count for the hub's day mean (TouristDayMean).
+//   3. samples the city's tourist count for the hub's day mean (TouristDayMean);
+//   4. T289 (1.0.4): counts the open areas and lowers vanilla's cold threshold for tourist arrivals while one is open
+//      (ResortTourismBonusSystem.Cold.cs, ColdTourismRules).
 //
 // Engine facts (decompile 1.6.0f1 / 1.6.2f1, unchanged between them):
 //   - CityModifierUpdateSystem (GameSimulation, interval 256) clears the city's CityModifier buffer and rebuilds it from policies and
@@ -88,6 +90,7 @@ namespace SkiResortMod.Systems
             m_Simulation = World.GetOrCreateSystemManaged<SimulationSystem>();
             m_Attract = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
             m_Households = World.GetOrCreateSystemManaged<CountHouseholdDataSystem>();
+            CreateCold();
             Mod.Log.Info($"{nameof(ResortTourismBonusSystem)} created");
         }
 
@@ -105,6 +108,7 @@ namespace SkiResortMod.Systems
             m_HaveWritten = false;
             m_Areas.Clear();
             m_DayMean.Clear();
+            ResetColdForLoad();
         }
 
         protected override void OnUpdate()
@@ -127,6 +131,7 @@ namespace SkiResortMod.Systems
             int cap = SkiResortSettings.CapPctOf(Mod.Settings);
             if (cap != m_CapPct || m_Attract.Generation != m_LastGeneration)
                 Recompute(cap);
+            StepCold();
 
             if (m_TargetPct <= 0.0 && !m_HaveWritten)
                 return;
@@ -143,6 +148,7 @@ namespace SkiResortMod.Systems
             m_LastGeneration = m_Attract.Generation;
             m_Areas.Clear();
             double sum = 0.0;
+            int open = 0;
             m_Attract.CopySigns(m_Signs);
             for (int s = 0; s < m_Signs.Count; s++)
             {
@@ -150,6 +156,8 @@ namespace SkiResortMod.Systems
                 if (!m_Attract.TryGetAreaScore(sign, out SkiResortAttractivenessSystem.AreaScoreView v))
                     continue;
                 SkiResortScore.Result r = v.Result;
+                if (ColdTourismRules.IsOpenArea(r.Efficiency, r.RunsCounted))
+                    open++;
                 int points = 0;
                 m_Attract.CopyActiveLodgeInfo(sign, m_Lodges);
                 for (int i = 0; i < m_Lodges.Count; i++)
@@ -170,6 +178,7 @@ namespace SkiResortMod.Systems
                 };
             }
             m_SumPct = sum;
+            m_OpenAreas = open;
             m_TargetPct = TourismBonusRules.CityBonusPct(sum, cap);
 
             if (!m_LoggedOnce || capChanged || TourismBonusRules.LogWorthy(m_LoggedPct, m_TargetPct))

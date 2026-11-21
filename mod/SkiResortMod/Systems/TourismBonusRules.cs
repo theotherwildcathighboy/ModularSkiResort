@@ -111,6 +111,37 @@ namespace SkiResortMod.Systems
         }
     }
 
+    /// <summary>T289 cold-weather tourism (study docs/research/round3-2026-11-18/t289-tourism-weather.md). Vanilla cuts tourist arrivals
+    /// below AttractivenessParameterData.m_ExtremeTemperature.x (prefab -10 C), lerping to m_TemperatureAffect.y (-0.3) at 10 C colder
+    /// (TourismSystem.GetWeatherEffect, TourismSystem.cs:215-217; AttractivenessParametersPrefab.cs:27, 52; same lines in 1.6.0f1 and
+    /// 1.6.4f1). While a ski area is open and the option is on, ResortTourismBonusSystem lowers only that .x to ColdThresholdOpenC.
+    /// m_TemperatureAffect is never touched: its y is shared with the hot side (above m_ExtremeTemperature.y).</summary>
+    public static class ColdTourismRules
+    {
+        /// <summary>The cold threshold while at least one ski area is open, Celsius. The full -30 % then needs -40 C.</summary>
+        public const float ColdThresholdOpenC = -30f;
+
+        /// <summary>The option "Cold weather keeps no tourists away while a ski area is open" (SkiResortSettings.ColdWeatherTourism).</summary>
+        public const bool DefaultEnabled = true;
+
+        /// <summary>An area counts as open when its sign works (efficiency above 0) and its last score counts at least one run (the same
+        /// "open run" test as OffSeasonStaffSystem: Result.RunsCounted).</summary>
+        public static bool IsOpenArea(double efficiency, int runsCounted) => efficiency > 0.0 && runsCounted > 0;
+
+        /// <summary>True when the lowered threshold applies: the option is on and at least one ski area is open.</summary>
+        public static bool Engaged(bool optionOn, int openAreas) => optionOn && openAreas > 0;
+
+        /// <summary>The cold threshold to apply, Celsius. <paramref name="vanillaC"/> = the PREFAB's m_ExtremeTemperature.x. Engaged:
+        /// the colder of vanilla and ColdThresholdOpenC (a vanilla value already colder stays). Otherwise, or when vanilla is not finite:
+        /// vanilla unchanged.</summary>
+        public static float ThresholdC(bool optionOn, int openAreas, float vanillaC)
+        {
+            if (!Engaged(optionOn, openAreas) || float.IsNaN(vanillaC) || float.IsInfinity(vanillaC))
+                return vanillaC;
+            return Math.Min(vanillaC, ColdThresholdOpenC);
+        }
+    }
+
     /// <summary>A rolling mean of the city's tourist count over the last game day. Add a sample every SampleFrames simulation frames;
     /// Mean is -1 until MinSamples are in (3 game hours). Clear at every load.</summary>
     public sealed class TouristDayMean
