@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiWelcomeSignD_LOD1_BaseColor.png": "SkiWelcomeSignD_BaseColor.png",
+    "SkiWelcomeSignD_LOD1_ControlMask.png": "SkiWelcomeSignD_ControlMask.png",
+    "SkiWelcomeSignD_LOD1_MaskMap.png": "SkiWelcomeSignD_MaskMap.png",
+    "SkiWelcomeSignD_LOD1_Normal.png": "SkiWelcomeSignD_Normal.png",
+    "SkiWelcomeSignD_LOD2_BaseColor.png": "SkiWelcomeSignD_BaseColor.png",
+    "SkiWelcomeSignD_LOD2_ControlMask.png": "SkiWelcomeSignD_ControlMask.png",
+    "SkiWelcomeSignD_LOD2_MaskMap.png": "SkiWelcomeSignD_MaskMap.png",
+    "SkiWelcomeSignD_LOD2_Normal.png": "SkiWelcomeSignD_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

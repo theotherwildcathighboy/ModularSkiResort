@@ -1420,9 +1420,9 @@
   },
   "prefab_contract": {
     "source": "gamedata-mirror/ImportedData/SkiBaseStationBuilding/SkiBaseStationBuilding.Prefab",
-    "source_sha256": "44a02c15b1e86c7a34e8d0d05c0df9d39e444171258a1d0c6b98b2a4d86eac1d",
+    "source_sha256": "19eae5d87dac251d01581c781613b9e255dbeaebc14cbca95a52a1446f0156a4",
     "repoint": {
-      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:562422700e971deff0ba4c37bf8e18d3",
+      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:e4cf3bedce9faaf4a406c2b4a5d12808",
       "m_Meshes[0].m_Mesh_to": "<the M mesh's CID, written by the importer>",
       "k_mesh": "SkiLiftBaseStationK",
       "rule": "only this line changes (surgery/towers-transfer.md; never rename, never a new .Prefab.cid)"
@@ -2250,25 +2250,30 @@
       ]
     ],
     "refrozen": {
-      "utc": "2026-11-20T18:47:30Z",
-      "why": "FG Q meshes on the M stations (rig rope r 0.024), top sub-object z -5.025; merged with the LV service rows (1.0.4, refrozen 2026-11-20T09:27:53Z)",
-      "previous_source_sha256": "9603af8ef7f8206159a935fec726f0326260e421b27fda1645c4902df3fd810a",
+      "utc": "2026-11-21T13:51:45Z",
+      "why": "r7 import: SkiBaseStationBuilding m_Meshes[0] repointed to SkiLiftBaseStationR Mesh (comm arm, T279)",
+      "previous_source_sha256": "44a02c15b1e86c7a34e8d0d05c0df9d39e444171258a1d0c6b98b2a4d86eac1d",
       "earlier": {
-        "utc": "2026-11-09T18:45:13Z",
-        "why": "BuildingTerraformOverride: stations cut a level pad (DontLower false, LevelMinOffset inside the lot; base runway 12 m on the line side)",
-        "previous_source_sha256": "f0c64c7bbdf320dbd302a29dacf3efd453f4ae4f2cd47e6e300c5daadfe99b1b",
+        "utc": "2026-11-20T18:47:30Z",
+        "why": "FG Q meshes on the M stations (rig rope r 0.024), top sub-object z -5.025; merged with the LV service rows (1.0.4, refrozen 2026-11-20T09:27:53Z)",
+        "previous_source_sha256": "9603af8ef7f8206159a935fec726f0326260e421b27fda1645c4902df3fd810a",
         "earlier": {
-          "utc": "2026-11-05T15:53:58Z",
-          "why": "art-601: hosted ET68 row dropped from SkiBaseStationBuilding, base and top point to the O meshes",
-          "previous_source_sha256": "c706cc4c31a26e400558034ceea736763ccc82d172fc077be038bbb5179ff3e0",
+          "utc": "2026-11-09T18:45:13Z",
+          "why": "BuildingTerraformOverride: stations cut a level pad (DontLower false, LevelMinOffset inside the lot; base runway 12 m on the line side)",
+          "previous_source_sha256": "f0c64c7bbdf320dbd302a29dacf3efd453f4ae4f2cd47e6e300c5daadfe99b1b",
           "earlier": {
-            "utc": "2026-11-04T09:33:57Z",
-            "why": "baseline re-frozen from the deployed prefab after lift alignment phase 1 (2026-11-02, 7fe59ae): the two HV sub-lanes now name the FG station's own rope lane SkiFixedGripHaulRope (CID 2b960a16...) instead of the vanilla HV lane (UnityGUID 5d88ac45...); no other frozen field changed; the FBX / mesh files are unchanged",
-            "previous_source_sha256": "5ac45acfd5072375717009412207345aa800790f363b4d4e4ded61eb72d373e5",
+            "utc": "2026-11-05T15:53:58Z",
+            "why": "art-601: hosted ET68 row dropped from SkiBaseStationBuilding, base and top point to the O meshes",
+            "previous_source_sha256": "c706cc4c31a26e400558034ceea736763ccc82d172fc077be038bbb5179ff3e0",
             "earlier": {
-              "utc": "2026-10-24T18:44:57Z",
-              "why": "baseline re-frozen from the deployed prefab after the 2026-10-19/20 surgeries; the FBX / mesh files are unchanged (T144)",
-              "previous_source_sha256": "099fd9b53342c7f0994ddd76538ac01d6d3cad72867b22c9a7c0252ebe5ad584"
+              "utc": "2026-11-04T09:33:57Z",
+              "why": "baseline re-frozen from the deployed prefab after lift alignment phase 1 (2026-11-02, 7fe59ae): the two HV sub-lanes now name the FG station's own rope lane SkiFixedGripHaulRope (CID 2b960a16...) instead of the vanilla HV lane (UnityGUID 5d88ac45...); no other frozen field changed; the FBX / mesh files are unchanged",
+              "previous_source_sha256": "5ac45acfd5072375717009412207345aa800790f363b4d4e4ded61eb72d373e5",
+              "earlier": {
+                "utc": "2026-10-24T18:44:57Z",
+                "why": "baseline re-frozen from the deployed prefab after the 2026-10-19/20 surgeries; the FBX / mesh files are unchanged (T144)",
+                "previous_source_sha256": "099fd9b53342c7f0994ddd76538ac01d6d3cad72867b22c9a7c0252ebe5ad584"
+              }
             }
           }
         }

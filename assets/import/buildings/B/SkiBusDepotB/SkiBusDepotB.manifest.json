@@ -1,0 +1,802 @@
+{
+  "name": "SkiBusDepotB",
+  "written_utc": "2026-11-21T12:58:45Z",
+  "blender": "5.3.0",
+  "files": {
+    "SkiBusDepotB.fbx": {
+      "bytes": 134668,
+      "sha1": "0ec650617cd29848d93aa084f3cd9aedf728b85f"
+    },
+    "SkiBusDepotB_BaseColor.png": {
+      "bytes": 4506515,
+      "sha1": "f34b09ebd521ce7ecf8badfb5c27aaa12a4cbc1f"
+    },
+    "SkiBusDepotB_ControlMask.png": {
+      "bytes": 73562,
+      "sha1": "abc68bebd476204b38a599502881bd0a841fe03a"
+    },
+    "SkiBusDepotB_Emissive.png": {
+      "bytes": 144875,
+      "sha1": "aecaae12908457ae51cae515399a6a661265551e"
+    },
+    "SkiBusDepotB_Gls.fbx": {
+      "bytes": 13868,
+      "sha1": "ff38e70b32b6f1da9fa86f5899a2dbeb7b8d15f4"
+    },
+    "SkiBusDepotB_LOD1.fbx": {
+      "bytes": 67996,
+      "sha1": "8e0addfd3d59b2cdc89f843b866c51dc3a134cf1"
+    },
+    "SkiBusDepotB_LOD1_Gls.fbx": {
+      "bytes": 13884,
+      "sha1": "3096422deac80070c1025b4bcfc192ceb1cdda09"
+    },
+    "SkiBusDepotB_LOD2.fbx": {
+      "bytes": 38700,
+      "sha1": "1508ac6fb72011328c08afd9f4f70dfb8057e5f0"
+    },
+    "SkiBusDepotB_MaskMap.png": {
+      "bytes": 1324100,
+      "sha1": "d3fc1b5b9bd6c45b4fe2b4b2079ca3c09b7ecffb"
+    },
+    "SkiBusDepotB_Normal.png": {
+      "bytes": 3884979,
+      "sha1": "486b7b5188aa3f5c3db3be5c9a502eee5f87e1a3"
+    },
+    "settings.json": {
+      "bytes": 655,
+      "sha1": "ddc554049249eb1895923608adbe67ffbd109548"
+    }
+  },
+  "generator": "ski_bus_depot.py",
+  "prefab": "SkiBusDepot",
+  "lot": [
+    2,
+    1
+  ],
+  "args": {
+    "tex": 2048,
+    "ao_samples": 32,
+    "texpass": "v1",
+    "texvar": null,
+    "name": "SkiBusDepotB"
+  },
+  "texpass": {
+    "version": "v1",
+    "variants": {
+      "cedar": "honey",
+      "corten": "rust",
+      "roof": "proc"
+    },
+    "wall_set": "Planks021",
+    "wall_boards": 11,
+    "wall_tile_m": 2.035,
+    "ceil_tile_m": 1.54,
+    "roof_tile_m": null,
+    "corrugation_m": 0.07407
+  },
+  "tris": {
+    "lod0": 1816,
+    "lod1": 817,
+    "lod2": 300,
+    "glass": 18
+  },
+  "budget": {
+    "lod0_target": 2200,
+    "lod0_cap": 2500,
+    "lod1": 1000,
+    "lod2": 300,
+    "lod2_cap": 500
+  },
+  "hashes": {
+    "LOD0_prebake": "2dabfa4ab15f",
+    "LOD0_geometry": "b3af8903832e",
+    "Gls": "618d8f0ecafb",
+    "LOD0": "3b9e2620c5c9",
+    "LOD1": "7500840aa5dc",
+    "LOD2": "311158f52372"
+  },
+  "pack": {
+    "A": 2048,
+    "margin_px": 32,
+    "faces": 829,
+    "pinned_faces": 301,
+    "islands": 44,
+    "band": [
+      0.1065625,
+      0.995
+    ],
+    "w1_px_per_m": 115.0,
+    "fill": 0.562,
+    "shared_faces": 318,
+    "packer": "skyline",
+    "order": "height",
+    "panels": 4
+  },
+  "shipped_density": {
+    "median_w1": 115.01,
+    "median_all": 115.01,
+    "by_weight": {
+      "0.5": 57.5,
+      "0.6": 28.22,
+      "0.75": 86.26,
+      "0.8": 92.01,
+      "1": 115.01,
+      "1.1": 126.51,
+      "1.15": 132.26,
+      "1.2": 138.01,
+      "1.25": 143.76,
+      "1.5": 172.51,
+      "2": 230.02
+    }
+  },
+  "ppm_by_material": {
+    "band": [
+      237.8,
+      237.8,
+      6.02,
+      12
+    ],
+    "bed_rock": [
+      92.0,
+      92.0,
+      6.63,
+      2
+    ],
+    "case_dark": [
+      28.2,
+      20.0,
+      2.4,
+      32
+    ],
+    "cedar": [
+      172.5,
+      39.9,
+      28.72,
+      216
+    ],
+    "cedar_ceil": [
+      132.3,
+      132.3,
+      36.43,
+      16
+    ],
+    "corten": [
+      115.0,
+      92.0,
+      21.1,
+      40
+    ],
+    "hook_black": [
+      160.2,
+      160.2,
+      0.38,
+      252
+    ],
+    "hook_yellow": [
+      474.3,
+      246.7,
+      0.79,
+      360
+    ],
+    "pad_concrete": [
+      86.3,
+      86.3,
+      65.96,
+      10
+    ],
+    "roof_metal": [
+      115.0,
+      115.0,
+      36.43,
+      16
+    ],
+    "steel_ox": [
+      126.5,
+      57.5,
+      85.11,
+      860
+    ]
+  },
+  "ppm_by_prefix": {
+    "beam_": [
+      115.0,
+      115.0,
+      15.33,
+      56
+    ],
+    "ceil_": [
+      132.3,
+      132.3,
+      36.43,
+      16
+    ],
+    "crossb_": [
+      126.5,
+      126.5,
+      7.61,
+      64
+    ],
+    "hookbase_": [
+      160.2,
+      160.2,
+      0.38,
+      252
+    ],
+    "hookprong_": [
+      474.3,
+      246.7,
+      0.79,
+      360
+    ],
+    "ledcase_": [
+      28.2,
+      20.0,
+      2.13,
+      8
+    ],
+    "ledface_": [
+      237.8,
+      237.8,
+      5.22,
+      8
+    ],
+    "pad_": [
+      86.3,
+      86.3,
+      65.96,
+      10
+    ],
+    "pfr_": [
+      230.0,
+      230.0,
+      8.05,
+      96
+    ],
+    "pfs_": [
+      230.0,
+      230.0,
+      3.58,
+      72
+    ],
+    "plank_": [
+      172.5,
+      39.9,
+      28.72,
+      216
+    ],
+    "planterbed_": [
+      92.0,
+      92.0,
+      6.63,
+      2
+    ],
+    "planterin_": [
+      92.0,
+      92.0,
+      1.09,
+      8
+    ],
+    "planterwall_": [
+      92.0,
+      92.0,
+      5.65,
+      24
+    ],
+    "plate_": [
+      230.0,
+      230.0,
+      1.29,
+      80
+    ],
+    "post_": [
+      138.0,
+      138.0,
+      14.92,
+      176
+    ],
+    "rafter_": [
+      126.5,
+      126.5,
+      16.06,
+      196
+    ],
+    "roof_": [
+      115.0,
+      115.0,
+      36.43,
+      16
+    ],
+    "roofedge_": [
+      57.5,
+      57.5,
+      1.3,
+      8
+    ],
+    "screencase_": [
+      56.3,
+      56.3,
+      0.19,
+      8
+    ],
+    "screenface_": [
+      453.6,
+      453.6,
+      0.81,
+      4
+    ],
+    "screenhang_": [
+      198.6,
+      198.6,
+      0.07,
+      16
+    ],
+    "tower_b": [
+      115.0,
+      115.0,
+      7.18,
+      4
+    ],
+    "tower_f": [
+      143.8,
+      143.8,
+      7.18,
+      4
+    ],
+    "towercap_": [
+      92.0,
+      92.0,
+      1.59,
+      12
+    ],
+    "towerplate_": [
+      115.0,
+      115.0,
+      0.44,
+      20
+    ],
+    "towerpost_": [
+      115.0,
+      115.0,
+      9.91,
+      32
+    ],
+    "towerrail_": [
+      115.0,
+      115.0,
+      3.38,
+      24
+    ],
+    "wallcap_": [
+      115.0,
+      115.0,
+      1.65,
+      24
+    ]
+  },
+  "ppm_columns": [
+    "p50 px/m",
+    "min px/m",
+    "area m2",
+    "tris"
+  ],
+  "texture": {
+    "size": 2048,
+    "maps": [
+      "SkiBusDepotB_BaseColor.png",
+      "SkiBusDepotB_ControlMask.png",
+      "SkiBusDepotB_Emissive.png",
+      "SkiBusDepotB_MaskMap.png",
+      "SkiBusDepotB_Normal.png"
+    ],
+    "lods_share_lod0_maps": true,
+    "memory_mb_bc7_with_mips": 26.67
+  },
+  "materials": {
+    "bed_rock": {
+      "set": "Rock030",
+      "N": 391,
+      "ppm": 156.45,
+      "tile_sq": 2.5,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        1.7163,
+        1.6634,
+        1.6688
+      ],
+      "set_mean_srgb": [
+        0.324,
+        0.313,
+        0.288
+      ],
+      "target_srgb": [
+        0.42,
+        0.4,
+        0.37
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "inplane",
+      "controls": {
+        "contrast": 0.75
+      }
+    },
+    "case_dark": {
+      "set": null,
+      "albedo_lin": [
+        0.0066,
+        0.0066,
+        0.0072
+      ],
+      "target_srgb": [
+        0.075,
+        0.075,
+        0.08
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "cedar": {
+      "set": "Planks021",
+      "N": 318,
+      "ppm": 156.45,
+      "tile_sq": 2.035,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        0.9144,
+        0.3607,
+        0.1557
+      ],
+      "set_mean_srgb": [
+        0.77,
+        0.671,
+        0.466
+      ],
+      "target_srgb": [
+        0.74,
+        0.42,
+        0.185
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box",
+      "controls": {
+        "normal_gain": 1.6
+      }
+    },
+    "cedar_ceil": {
+      "set": "Planks021",
+      "N": 241,
+      "ppm": 156.45,
+      "tile_sq": 1.54,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        0.6622,
+        0.246,
+        0.113
+      ],
+      "set_mean_srgb": [
+        0.77,
+        0.671,
+        0.466
+      ],
+      "target_srgb": [
+        0.64,
+        0.35,
+        0.155
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box",
+      "controls": {
+        "contrast": 0.85,
+        "normal_gain": 1.3
+      }
+    },
+    "corten": {
+      "set": "PHRustCoarse01",
+      "N": 344,
+      "ppm": 156.45,
+      "tile_sq": 2.2,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        1.0552,
+        0.7016,
+        0.5517
+      ],
+      "set_mean_srgb": [
+        0.396,
+        0.232,
+        0.13
+      ],
+      "target_srgb": [
+        0.385,
+        0.2,
+        0.12
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box",
+      "controls": {
+        "chroma": 0.8,
+        "flatten_m": 0.35,
+        "contrast": 0.6,
+        "normal_gain": 1.5
+      }
+    },
+    "glass_dark": {
+      "set": null,
+      "albedo_lin": [
+        0.006,
+        0.0085,
+        0.0116
+      ],
+      "target_srgb": [
+        0.07,
+        0.09,
+        0.11
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "hook_black": {
+      "set": null,
+      "albedo_lin": [
+        0.0039,
+        0.0039,
+        0.0044
+      ],
+      "target_srgb": [
+        0.05,
+        0.05,
+        0.055
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "hook_yellow": {
+      "set": null,
+      "albedo_lin": [
+        0.8481,
+        0.42,
+        0.0049
+      ],
+      "target_srgb": [
+        0.93,
+        0.68,
+        0.06
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "pad_concrete": {
+      "set": "Concrete034",
+      "N": 172,
+      "ppm": 156.45,
+      "tile_sq": 1.1,
+      "stack": [
+        1,
+        2
+      ],
+      "tint_lin": [
+        0.9298,
+        0.9005,
+        0.8159
+      ],
+      "set_mean_srgb": [
+        0.723,
+        0.723,
+        0.723
+      ],
+      "target_srgb": [
+        0.7,
+        0.69,
+        0.66
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "inplane",
+      "controls": {
+        "chroma": 0.4,
+        "flatten_m": 0.25,
+        "contrast": 0.55
+      }
+    },
+    "roof_metal": {
+      "set": "Metal038",
+      "N": 250,
+      "ppm": 156.45,
+      "tile_sq": 1.6,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        2.3029,
+        2.2771,
+        2.1839
+      ],
+      "set_mean_srgb": [
+        0.376,
+        0.382,
+        0.384
+      ],
+      "target_srgb": [
+        0.56,
+        0.56,
+        0.55
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "inplane",
+      "controls": {
+        "chroma": 0.3,
+        "contrast": 0.8
+      }
+    },
+    "steel_ox": {
+      "set": "Metal032",
+      "N": 235,
+      "ppm": 156.45,
+      "tile_sq": 1.5,
+      "stack": [
+        1,
+        1
+      ],
+      "tint_lin": [
+        0.5351,
+        0.1042,
+        0.0368
+      ],
+      "set_mean_srgb": [
+        0.49,
+        0.536,
+        0.579
+      ],
+      "target_srgb": [
+        0.365,
+        0.175,
+        0.105
+      ],
+      "slot": 0,
+      "uv_rot": 0,
+      "proj": "box",
+      "controls": {
+        "contrast": 1.35,
+        "normal_gain": 2.0
+      }
+    }
+  },
+  "share": {
+    "ceil_0": 2,
+    "ceil_1": 2,
+    "ceil_2": 2,
+    "ceil_edge": 2,
+    "crossb": 4,
+    "pfr_e": 4,
+    "pfr_r": 8,
+    "pfs_e": 2,
+    "pfs_r": 4,
+    "plank0": 3,
+    "plank1": 3,
+    "plank2": 3,
+    "plank3": 2,
+    "plank4": 2,
+    "plank5": 2,
+    "plank6": 2,
+    "plank7": 2,
+    "plank8": 3,
+    "plate": 8,
+    "post_b": 4,
+    "post_r": 4,
+    "rafter": 7,
+    "roof_c0": 3,
+    "roof_c1": 3,
+    "towerplate": 2,
+    "towerpost": 2,
+    "towerrail": 3
+  },
+  "band": {
+    "ski": {
+      "px": [
+        384,
+        192
+      ],
+      "ppm": [
+        238.5,
+        237.0
+      ],
+      "width_m": 1.275,
+      "cap_m": 0.64
+    },
+    "bus": {
+      "px": [
+        384,
+        192
+      ],
+      "ppm": [
+        238.5,
+        237.0
+      ],
+      "width_m": 1.47,
+      "cap_m": 0.64
+    }
+  },
+  "engine_base": {
+    "lod0": "OK",
+    "lod1": "OK",
+    "lod2": "OK"
+  },
+  "sub_objects_planned": [
+    {
+      "prop": "GardenBenchRandom01",
+      "guid": "8df0703be09426948b5bc3262d86bc04",
+      "at": [
+        -0.5800000000000001,
+        -1.2,
+        0.1
+      ],
+      "note": "against the back wall; vanilla variants vary, the yellow slat bench of the reference may not exist"
+    },
+    {
+      "prop": "TrashbinRandom01",
+      "guid": "41e3c9ba6e1d6b948a6b1bc3499a5397",
+      "at": [
+        -0.55,
+        4.62,
+        0.1
+      ],
+      "note": "pad corner at the open end"
+    },
+    {
+      "prop": "LightpoleParkRandom01",
+      "guid": "c987b53e24a01e744b4a00ee5b1f8a08",
+      "at": [
+        3.25,
+        6.3,
+        0.0
+      ],
+      "note": "beside the planter"
+    },
+    {
+      "prop": "TreeWildRandom01 x 2",
+      "guid": "f7955fd41c1617847b4a4138acabcbcb",
+      "at": [
+        0.3,
+        6.0,
+        0.36
+      ],
+      "note": "in the planter"
+    },
+    {
+      "prop": "RockRandom01 x 3",
+      "guid": "3f3008bdf841128428290d4f3678baa7",
+      "at": [
+        1.0,
+        6.3,
+        0.36
+      ],
+      "note": "in the planter"
+    }
+  ],
+  "validate": {
+    "errors": [],
+    "warnings": []
+  }
+}

@@ -1,0 +1,1462 @@
+{
+  "name": "SkiWelcomeSignD",
+  "written_utc": "2026-11-21T11:06:03Z",
+  "blender": "5.3.0",
+  "files": {
+    "SkiWelcomeSignD.fbx": {
+      "bytes": 91212,
+      "sha1": "52d39a9005fb7bdd0614b022fab1f67faa6e7fc7"
+    },
+    "SkiWelcomeSignD_BaseColor.png": {
+      "bytes": 4721817,
+      "sha1": "11c245e2699ff467ba633dd95d95f962508d26f7"
+    },
+    "SkiWelcomeSignD_ControlMask.png": {
+      "bytes": 129664,
+      "sha1": "57e4730ced89952add1d69e537c017c76167f476"
+    },
+    "SkiWelcomeSignD_LOD1.fbx": {
+      "bytes": 50780,
+      "sha1": "0b741bba36332110506f2b4b7bb85593ed24dd59"
+    },
+    "SkiWelcomeSignD_LOD2.fbx": {
+      "bytes": 36812,
+      "sha1": "95634563e51e57a93f166814da7f2a21e63486c1"
+    },
+    "SkiWelcomeSignD_MaskMap.png": {
+      "bytes": 931735,
+      "sha1": "299b2ad6256f66ff6ac61fa9cc120095a253f404"
+    },
+    "SkiWelcomeSignD_Normal.png": {
+      "bytes": 6374768,
+      "sha1": "9fc43e7aa1e65d2529efe1d71e633cffc5ca441a"
+    },
+    "settings.json": {
+      "bytes": 703,
+      "sha1": "3fd6c96739a8f1f7f1da6820e0c4b0321ed42053"
+    }
+  },
+  "generator": "welcome_sign.py",
+  "spec": "civic-sign-2026-10",
+  "prefab": "SkiResortGate",
+  "args": {
+    "out": null,
+    "export": true,
+    "letter": "D",
+    "name": null,
+    "masts": 2,
+    "no_lanterns": false,
+    "header": "SKI AREA",
+    "finish": true,
+    "lods": true,
+    "blockout": false,
+    "preview": null,
+    "we_mock": null,
+    "review": null,
+    "tex": 2048,
+    "closeups": null,
+    "ao_samples": 48,
+    "no_validate": false,
+    "no_fine": false,
+    "signset_out": null,
+    "texpass": "v1",
+    "texpass_picks": "family",
+    "texpass_roof": "true",
+    "texpass_plank": "pine6",
+    "texpass_heavy": "lodge",
+    "texpass_weather": 1.0,
+    "texpass_emblem": "mark"
+  },
+  "kind": "building",
+  "lot": [
+    2,
+    1
+  ],
+  "tris": {
+    "0": 916,
+    "1": 411,
+    "2": 250
+  },
+  "budget": {
+    "lod0_target": 2000,
+    "lod0_cap": 2500,
+    "lod1": 900,
+    "lod2": 250,
+    "lod2_cap": 250
+  },
+  "parts": 40,
+  "materials_used": [
+    "accent",
+    "band",
+    "concrete",
+    "galv",
+    "rock",
+    "sign_plank",
+    "stone_rubble",
+    "timber_heavy",
+    "timber_shake",
+    "timber_vboard",
+    "trim_grain",
+    "trim_white"
+  ],
+  "materials": {
+    "accent": {
+      "set": null,
+      "albedo_lin": [
+        0.6038,
+        0.6038,
+        0.6038
+      ],
+      "target_srgb": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "slot": 2,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "trim_white": {
+      "set": null,
+      "albedo_lin": [
+        0.6921,
+        0.6921,
+        0.6921
+      ],
+      "target_srgb": [
+        0.85,
+        0.85,
+        0.85
+      ],
+      "slot": 0,
+      "proj": "box",
+      "emissive_lin": null
+    },
+    "band": {
+      "band": true,
+      "files": {
+        "BaseColor": "SkiWelcomeSignD_band_BaseColor.png",
+        "Normal": "SkiWelcomeSignD_band_Normal.png",
+        "MaskMap": "SkiWelcomeSignD_band_MaskMap.png",
+        "ControlMask": "SkiWelcomeSignD_band_ControlMask.png"
+      }
+    },
+    "concrete": {
+      "key": "concrete",
+      "tile_m": 3.0,
+      "ppm": 341.3,
+      "set": "Concrete034",
+      "repeat": 1,
+      "tint_lin": [
+        0.58,
+        0.58,
+        0.58
+      ],
+      "smooth_src_mean": 0.484,
+      "smooth_mean": 0.38,
+      "metal": 0.0,
+      "slot": 0,
+      "swatch": true,
+      "N": 1024,
+      "native_px": 1024,
+      "source_ppm": 341.3,
+      "filtered_dir": "%TEMP%/sign_texpass__2bhsoj2/sw_concrete_1024",
+      "target_srgb": null,
+      "mean_srgb": [
+        0.565,
+        0.565,
+        0.565
+      ],
+      "standin": false,
+      "weather_class": "concrete",
+      "weather_ratio_mean": [
+        0.967,
+        0.967,
+        0.967
+      ]
+    },
+    "galv": {
+      "key": "galv",
+      "tile_m": 2.0,
+      "ppm": 384.0,
+      "set": "Metal032",
+      "repeat": 1,
+      "tint_lin": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "smooth_src_mean": 0.35,
+      "smooth_mean": 0.4,
+      "metal": 1.0,
+      "slot": 0,
+      "swatch": true,
+      "N": 768,
+      "native_px": 1024,
+      "source_ppm": 384.0,
+      "filtered_dir": "%TEMP%/sign_texpass__2bhsoj2/sw_galv_768",
+      "target_srgb": null,
+      "mean_srgb": [
+        0.49,
+        0.536,
+        0.579
+      ],
+      "standin": false
+    },
+    "rock": {
+      "key": "rock",
+      "tile_m": 2.5,
+      "ppm": 409.6,
+      "set": "Rock030",
+      "repeat": 1,
+      "tint_lin": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "smooth_src_mean": 0.307,
+      "smooth_mean": 0.25,
+      "metal": 0.0,
+      "slot": 0,
+      "swatch": true,
+      "N": 1024,
+      "native_px": 2048,
+      "source_ppm": 409.6,
+      "filtered_dir": "%TEMP%/sign_texpass__2bhsoj2/sw_rock_1024",
+      "target_srgb": null,
+      "mean_srgb": [
+        0.324,
+        0.313,
+        0.288
+      ],
+      "standin": false,
+      "weather_class": "stone",
+      "weather_ratio_mean": [
+        0.973,
+        0.98,
+        0.974
+      ]
+    },
+    "sign_plank": {
+      "key": "sign_plank",
+      "tile_m": 2.75,
+      "ppm": 372.4,
+      "set": "Planks021",
+      "repeat": 1,
+      "texpass": {
+        "chroma": 0.6,
+        "contrast": 0.7,
+        "normal_gain": 1.3
+      },
+      "tint_lin": [
+        0.2081,
+        0.102,
+        0.063
+      ],
+      "smooth_src_mean": 0.35,
+      "smooth_mean": 0.35,
+      "metal": 0.0,
+      "slot": 0,
+      "swatch": true,
+      "N": 1024,
+      "native_px": 2048,
+      "source_ppm": 372.4,
+      "filtered_dir": "%TEMP%/sign_texpass__2bhsoj2/sw_sign_plank_1024",
+      "target_srgb": [
+        0.3568627450980392,
+        0.22745098039215686,
+        0.1411764705882353
+      ],
+      "mean_srgb": [
+        0.357,
+        0.227,
+        0.141
+      ],
+      "standin": false,
+      "weather_class": "timber",
+      "weather_ratio_mean": [
+        0.906,
+        1.138,
+        1.741
+      ]
+    },
+    "stone_rubble": {
+      "key": "stone_rubble",
+      "tile_m": 3.2,
+      "ppm": 640.0,
+      "set": "PHStoneWall",
+      "repeat": 1,
+      "texpass": {
+        "flatten_m": 0.2,
+        "normal_lean": [
+          0.0,
+          -0.8
+        ]
+      },
+      "tint_lin": [
+        0.4673,
+        0.5339,
+        0.6504
+      ],
+      "smooth_src_mean": 0.22,
+      "smooth_mean": 0.25,
+      "metal": 0.0,
+      "slot": 0,
+      "swatch": true,
+      "N": 2048,
+      "native_px": 2048,
+      "source_ppm": 640.0,
+      "filtered_dir": "%TEMP%/sign_texpass__2bhsoj2/sw_stone_rubble_2048",
+      "target_srgb": [
+        0.455,
+        0.435,
+        0.4
+      ],
+      "mean_srgb": [
+        0.455,
+        0.435,
+        0.4
+      ],
+      "standin": false,
+      "weather_class": "stone",
+      "weather_ratio_mean": [
+        0.942,
+        0.945,
+        0.943
+      ]
+    },
+    "timber_heavy": {
+      "key": "timber_heavy",
+      "tile_m": 0.77,
+      "ppm": 166.2,
+      "set": "Wood060",
+      "repeat": 1,
+      "texpass": {
+        "normal_gain": 1.0
+      },
+      "tint_lin": [
+        0.4906,
+        0.6129,
+        0.663
+      ],
+      "smooth_src_mean": 0.336,
+      "smooth_mean": 0.3,
+      "metal": 0.0,
+      "slot": 0,
+      "swatch": true,
+      "N": 128,
+      "native_px": 2048,
+      "source_ppm": 166.2,
+      "filtered_dir": "%TEMP%/sign_texpass__2bhsoj2/sw_timber_heavy_128",
+      "target_srgb": [
+        0.3,
+        0.22,
+        0.16
+      ],
+      "mean_srgb": [
+        0.3,
+        0.22,
+        0.16
+      ],
+      "standin": false,
+      "weather_class": "timber",
+      "weather_ratio_mean": [
+        0.938,
+        1.098,
+        1.403
+      ]
+    },
+    "timber_shake": {
+      "key": "timber_shake",
+      "tile_m": 3.0,
+      "ppm": 341.3,
+      "set": "PHRoofSlates02",
+      "repeat": 1,
+      "texpass": {
+        "chroma": 0.5,
+        "flatten_m": 0.15,
+        "contrast": 0.4,
+        "normal_gain": 1.2,
+        "normal_lean": [
+          0.0,
+          1.54
+        ]
+      },
+      "tint_lin": [
+        0.4923,
+        0.3961,
+        0.2706
+      ],
+      "smooth_src_mean": 0.155,
+      "smooth_mean": 0.3,
+      "metal": 0.0,
+      "slot": 0,
+      "swatch": true,
+      "N": 1024,
+      "native_px": 2048,
+      "source_ppm": 341.3,
+      "filtered_dir": "%TEMP%/sign_texpass__2bhsoj2/sw_timber_shake_1024",
+      "target_srgb": [
+        0.406,
+        0.352,
+        0.275
+      ],
+      "mean_srgb": [
+        0.406,
+        0.352,
+        0.275
+      ],
+      "standin": false,
+      "weather_class": "timber",
+      "weather_ratio_mean": [
+        0.987,
+        1.069,
+        1.302
+      ]
+    },
+    "timber_vboard": {
+      "key": "timber_vboard",
+      "tile_m": 2.4,
+      "ppm": 266.7,
+      "set": "WoodSiding009",
+      "repeat": 1,
+      "texpass": {
+        "normal_lean": [
+          0.0,
+          0.0
+        ]
+      },
+      "tint_lin": [
+        0.1094,
+        0.0957,
+        0.1013
+      ],
+      "detail": "ribs 0.3 m, rows",
+      "smooth_src_mean": 0.275,
+      "smooth_mean": 0.35,
+      "metal": 0.0,
+      "slot": 0,
+      "swatch": true,
+      "N": 640,
+      "native_px": 2048,
+      "source_ppm": 266.7,
+      "filtered_dir": "%TEMP%/sign_texpass__2bhsoj2/sw_timber_vboard_640",
+      "target_srgb": [
+        0.282,
+        0.251,
+        0.208
+      ],
+      "mean_srgb": [
+        0.282,
+        0.251,
+        0.208
+      ],
+      "standin": false,
+      "weather_class": "timber",
+      "weather_ratio_mean": [
+        0.998,
+        1.063,
+        1.25
+      ]
+    },
+    "trim_grain": {
+      "key": "trim_grain",
+      "tile_m": 2.4,
+      "ppm": 373.3,
+      "set": "WoodSiding009",
+      "repeat": 1,
+      "tint_lin": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "recolor_scale": 1.1305,
+      "smooth_src_mean": 0.36,
+      "smooth_mean": 0.36,
+      "metal": 0.0,
+      "slot": 1,
+      "swatch": true,
+      "N": 896,
+      "native_px": 2048,
+      "source_ppm": 373.3,
+      "filtered_dir": "%TEMP%/sign_texpass__2bhsoj2/sw_trim_grain_896",
+      "target_srgb": null,
+      "mean_srgb": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "standin": false,
+      "weather_class": "paint",
+      "weather_ratio_mean": [
+        0.957,
+        0.957,
+        0.957
+      ]
+    }
+  },
+  "tex": 2048,
+  "bake": {
+    "A": 2048,
+    "margin_px": 32,
+    "uncovered_texels": 1997454,
+    "seconds": {
+      "pack": 0.0018448000046191737,
+      "emit": 4.50212140000076,
+      "ao": 6.436877999993158,
+      "total": 15.212647299995297
+    },
+    "files": [
+      "SkiWelcomeSignD_BaseColor.png",
+      "SkiWelcomeSignD_Normal.png",
+      "SkiWelcomeSignD_MaskMap.png",
+      "SkiWelcomeSignD_ControlMask.png"
+    ],
+    "ao": "self",
+    "band_index": 1
+  },
+  "shipped_density": {
+    "median_w1": 298.67,
+    "median_all": 108.69,
+    "by_weight": {
+      "0.1": 21.74,
+      "0.25": 54.67,
+      "0.3": 65.24,
+      "0.35": 76.45,
+      "0.4": 86.95,
+      "0.5": 108.69,
+      "0.55": 119.55,
+      "0.6": 115.44,
+      "0.75": 163.03,
+      "0.8": 173.9,
+      "1": 298.67,
+      "1.4": 304.32
+    }
+  },
+  "area_report": {
+    "kept_m2": 151.2,
+    "sum_w2a": 75.0,
+    "k": 0.48,
+    "predicted_ppm_w1": {
+      "1024": 56.74,
+      "2048": 113.48,
+      "4096": 226.96
+    },
+    "predicted_ppm_unweighted": {
+      "1024": 39.98,
+      "2048": 79.95,
+      "4096": 159.9
+    },
+    "by_prefix": {
+      "barge_": [
+        5.5,
+        1.4
+      ],
+      "beamhead_": [
+        13.4,
+        1.9
+      ],
+      "beamheadfront_": [
+        4.1,
+        0.5
+      ],
+      "beamlow_": [
+        12.7,
+        3.9
+      ],
+      "brace_": [
+        2.0,
+        1.1
+      ],
+      "emblemfront_": [
+        1.7,
+        1.7
+      ],
+      "emblemrim_": [
+        0.2,
+        0.1
+      ],
+      "finial_": [
+        0.1,
+        0.0
+      ],
+      "flag_": [
+        3.4,
+        0.4
+      ],
+      "footing_": [
+        1.0,
+        0.2
+      ],
+      "gable_": [
+        13.5,
+        2.2
+      ],
+      "mast_": [
+        5.6,
+        0.5
+      ],
+      "pier_": [
+        20.3,
+        39.9
+      ],
+      "piercap_": [
+        8.9,
+        2.0
+      ],
+      "pierplinth_": [
+        7.3,
+        7.6
+      ],
+      "plankbody_": [
+        12.7,
+        1.6
+      ],
+      "plankframe_": [
+        2.0,
+        0.5
+      ],
+      "plankfront_": [
+        11.2,
+        3.4
+      ],
+      "plate_": [
+        6.7,
+        0.8
+      ],
+      "ridge_": [
+        0.6,
+        0.2
+      ],
+      "roof_": [
+        12.8,
+        2.0
+      ],
+      "soffit_": [
+        0.2,
+        0.0
+      ],
+      "strap_": [
+        0.1,
+        0.0
+      ],
+      "tpost_": [
+        5.0,
+        3.2
+      ]
+    }
+  },
+  "engine_base": {
+    "0": {
+      "verdict": "OK",
+      "ok_edges": 24,
+      "blocked_edges": 0,
+      "below_verts": 0,
+      "ok_parts": [
+        "footing_0",
+        "footing_1",
+        "pierplinth_l",
+        "pierplinth_r"
+      ],
+      "mode": "engine"
+    },
+    "1": {
+      "verdict": "OK",
+      "ok_edges": 24,
+      "blocked_edges": 0,
+      "below_verts": 0,
+      "ok_parts": [
+        "footing_0",
+        "footing_1",
+        "pierplinth_l",
+        "pierplinth_r"
+      ],
+      "mode": "engine"
+    },
+    "2": {
+      "verdict": "OK",
+      "ok_edges": 24,
+      "blocked_edges": 0,
+      "below_verts": 0,
+      "ok_parts": [
+        "footing_0",
+        "footing_1",
+        "pierplinth_l",
+        "pierplinth_r"
+      ],
+      "mode": "engine"
+    }
+  },
+  "contracts": {
+    "S1": {
+      "extents": [
+        0.0,
+        7.5,
+        1.5
+      ],
+      "centre": [
+        -0.46,
+        0.0,
+        2.55
+      ]
+    },
+    "S2": "105 rays clear",
+    "S4": {
+      "roof_underside_min": 4.4836,
+      "roof_top": 6.6186,
+      "emblem_margin": 0.1342
+    },
+    "S7": "73 emblem points visible at 45 deg",
+    "G3": {
+      "x": [
+        -1.2,
+        0.2
+      ],
+      "y": [
+        -7.622,
+        6.75
+      ],
+      "z": [
+        0.0,
+        8.16
+      ],
+      "margin_x": 2.8,
+      "margin_y": 0.378
+    },
+    "plank_centre_game": [
+      0.0,
+      2.55,
+      -0.46
+    ],
+    "normal_game": [
+      0,
+      0,
+      1
+    ]
+  },
+  "band": {
+    "emblem": {
+      "px": [
+        448,
+        448
+      ],
+      "ppm": 298.67,
+      "glyph": "lexa_mark (mark)",
+      "spec": {
+        "h_m": 0.84,
+        "dx_m": 0.0,
+        "dy_m": 0.14,
+        "rings": [
+          [
+            0.71,
+            0.06
+          ]
+        ],
+        "clip_r": null
+      },
+      "white_frac": 0.2562
+    },
+    "check": {
+      "emblem": {
+        "glyph_texels": 51571,
+        "field_texels": 146888
+      },
+      "S3": {
+        "header_px": [
+          1488,
+          224
+        ],
+        "header_aspect_err_px": -0.8
+      }
+    },
+    "dir": "%TEMP%/welcome_sign/SkiWelcomeSignD_2048_48161c5f",
+    "rects": {
+      "emblem": [
+        0.007812,
+        0.007812,
+        0.226562,
+        0.226562
+      ]
+    },
+    "png_sha1": {
+      "BaseColor": "c79d68360ff0",
+      "Normal": "7cdd95d2754c",
+      "MaskMap": "e4f974ff78ec",
+      "ControlMask": "ff79667b775c"
+    }
+  },
+  "lod_plan": {
+    "LOD1": {
+      "cap": 412,
+      "achievable": 818,
+      "target": 412,
+      "dry_run": 411,
+      "protected_tris": 80,
+      "note": "ok"
+    },
+    "LOD2": {
+      "cap": 250,
+      "achievable": 598,
+      "target": 250,
+      "dry_run": 250,
+      "protected_tris": 80,
+      "note": "ok"
+    }
+  },
+  "lod_info": [
+    {
+      "deleted_faces": 58,
+      "after_delete": 824,
+      "after_planar": 818,
+      "protected_tris": 80,
+      "target": 412,
+      "tris": 411,
+      "ratio": 0.4499
+    },
+    {
+      "deleted_faces": 184,
+      "after_delete": 604,
+      "after_planar": 598,
+      "protected_tris": 80,
+      "target": 250,
+      "tris": 250,
+      "ratio": 0.3282
+    }
+  ],
+  "lod_switch_m": {
+    "csum": 23.93250036239624,
+    "bias": 0.4885799102746223,
+    "distances": [
+      122.4867940336969,
+      182.85889602624678,
+      234.45904953138754
+    ],
+    "switch": {
+      "1": 182.85889602624678,
+      "2": 234.45904953138754
+    },
+    "cull": 3707.124801234433
+  },
+  "batches_per_mesh_group": 6,
+  "extent_game_m": {
+    "x": 14.37,
+    "y": 8.16,
+    "z": 1.4
+  },
+  "mesh_hash": {
+    "LOD0_prebake": "89b9a162445c",
+    "LOD0": "a3c915e0c407",
+    "LOD1": "f08c9b91b9ce",
+    "LOD2": "148d5dc1cfd9"
+  },
+  "slots_variation_set": {
+    "1": [
+      0.1435,
+      0.3129,
+      0.5306
+    ],
+    "2": [
+      0.1435,
+      0.3129,
+      0.5306
+    ]
+  },
+  "emissive": null,
+  "constants": {
+    "PORTAL_X": -0.5,
+    "PIER_Y": 4.7,
+    "PLANK": [
+      7.5,
+      1.5,
+      0.08
+    ],
+    "PLANK_Z": [
+      1.8,
+      3.3
+    ],
+    "HEADER": [
+      4.0,
+      0.6000000000000001
+    ],
+    "GABLE": [
+      3.3,
+      30.0,
+      6.4553
+    ],
+    "EMBLEM": [
+      1.5,
+      5.4342,
+      -0.39
+    ],
+    "RAKE_X": [
+      -0.95,
+      -0.3
+    ],
+    "BARGE_T": 0.03,
+    "MASTS": [
+      [
+        -0.5,
+        6.5
+      ],
+      [
+        -0.5,
+        -6.5
+      ]
+    ],
+    "FLAG": [
+      1.1,
+      0.75,
+      7.85,
+      0.06
+    ]
+  },
+  "we": {
+    "PLANK_CENTRE_GAME": [
+      0.0,
+      2.55,
+      -0.46
+    ],
+    "normal_game": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "PLANK_W": 7.5,
+    "PLANK_H": 1.5,
+    "WE_MARGIN": 0.45,
+    "WE_MAX_WIDTH": 6.6,
+    "WE_STANDOFF": 0.004,
+    "WE_OFFSET": [
+      0.0,
+      2.55,
+      -0.456
+    ],
+    "layout": "assets/we/K45_WE/layouts/SkiResortGate.wedefault.xml",
+    "frame": "game: lot-center origin at grade, +Z road, y up"
+  },
+  "review_pack": null,
+  "previews": null,
+  "total_seconds": 59.6,
+  "texpass": {
+    "version": "v1",
+    "picks": "family",
+    "standins": {},
+    "roof": [
+      "true",
+      "timber_shake"
+    ],
+    "plank": "pine6",
+    "heavy": "lodge",
+    "pack": {
+      "A": 2048,
+      "margin_px": 32,
+      "faces": 531,
+      "pinned_faces": 24,
+      "islands": 150,
+      "band": [
+        0.0,
+        1.0
+      ],
+      "w1_px_per_m": 217.37,
+      "fill": 0.476,
+      "clamped": 0,
+      "order": "area",
+      "shared_faces": 168,
+      "px_per_m": {
+        "min": 21.737203086274903,
+        "median": 108.68601381182671,
+        "max": 304.3208334905618
+      },
+      "covered_texels": 2196850,
+      "planned_fill_texels": 1996513
+    },
+    "share": {
+      "pairs": 168,
+      "saved_m2": 46.81,
+      "parts": {
+        "pierplinth_r": 3.67,
+        "pier_r": 10.168,
+        "piercap_r": 4.448,
+        "tpost_r": 2.476,
+        "brace_r0": 0.504,
+        "brace_r1": 0.504,
+        "beamlow_sign": 3.534,
+        "plankbody_sign": 11.37,
+        "gable_sign": 6.744,
+        "footing_1": 0.49,
+        "mast_1": 2.82,
+        "finial_1": 0.06
+      },
+      "uv_edits": {
+        "roof_top": 2,
+        "roof_under": 6,
+        "plank": 4,
+        "unwrapped": 139,
+        "frame": 4,
+        "roof_rake": 8
+      }
+    },
+    "weather": {
+      "strength": 1.0,
+      "rules": {
+        "splash": {
+          "texels": 401186,
+          "mean": 0.853
+        },
+        "feet": {
+          "texels": 18342,
+          "mean": 0.524
+        },
+        "exposed": {
+          "texels": 233301,
+          "mean": 0.705
+        },
+        "eave": {
+          "texels": 18809,
+          "mean": 0.666
+        },
+        "cap": {
+          "texels": 22875,
+          "mean": 0.467
+        },
+        "trim": {
+          "texels": 87093,
+          "mean": 0.454
+        },
+        "drip": {
+          "texels": 38464,
+          "mean": 0.517
+        }
+      },
+      "keys": {
+        "concrete": 6720,
+        "rock": 27121,
+        "stone_rubble": 410074,
+        "timber_heavy": 175106,
+        "timber_shake": 20295,
+        "trim_grain": 150609
+      },
+      "family_rules": {
+        "base_h_side": 0.8,
+        "roof_eave_m_back": 1.2
+      }
+    },
+    "key_ppm": {
+      "accent": 76.1,
+      "band": 0.0,
+      "concrete": 108.7,
+      "galv": 108.7,
+      "rock": 130.4,
+      "sign_plank": 119.6,
+      "stone_rubble": 304.3,
+      "timber_heavy": 173.9,
+      "timber_shake": 108.7,
+      "timber_vboard": 86.9,
+      "trim_grain": 108.7,
+      "trim_white": 65.2
+    },
+    "density": {
+      "by_part_m2_ppm": {
+        "pierplinth_l": [
+          3.67,
+          87.0
+        ],
+        "pier_l": [
+          10.17,
+          304.3
+        ],
+        "piercap_l": [
+          4.45,
+          130.4
+        ],
+        "tpost_l": [
+          2.48,
+          173.9
+        ],
+        "brace_l0": [
+          0.51,
+          163.0
+        ],
+        "brace_l1": [
+          0.51,
+          163.0
+        ],
+        "pierplinth_r": [
+          3.67,
+          87.0
+        ],
+        "pier_r": [
+          10.17,
+          304.3
+        ],
+        "piercap_r": [
+          4.45,
+          130.4
+        ],
+        "tpost_r": [
+          2.48,
+          173.9
+        ],
+        "brace_r0": [
+          0.51,
+          163.0
+        ],
+        "brace_r1": [
+          0.51,
+          163.0
+        ],
+        "beamlow_sign": [
+          12.72,
+          115.4
+        ],
+        "beamhead_sign": [
+          13.44,
+          79.7
+        ],
+        "beamheadfront_sign": [
+          4.14,
+          76.1
+        ],
+        "plankbody_sign": [
+          12.69,
+          119.6
+        ],
+        "plankfront_sign": [
+          11.25,
+          119.6
+        ],
+        "plankframe_sign": [
+          1.96,
+          108.7
+        ],
+        "strap_sign": [
+          0.06,
+          108.7
+        ],
+        "plate_sign": [
+          6.68,
+          76.1
+        ],
+        "gable_sign": [
+          13.49,
+          86.9
+        ],
+        "roof_signL": [
+          6.41,
+          76.1
+        ],
+        "soffit_signL": [
+          0.09,
+          76.1
+        ],
+        "barge_signLf": [
+          1.36,
+          108.7
+        ],
+        "barge_signLb": [
+          1.36,
+          108.7
+        ],
+        "roof_signR": [
+          6.41,
+          76.1
+        ],
+        "soffit_signR": [
+          0.09,
+          76.1
+        ],
+        "barge_signRf": [
+          1.36,
+          108.7
+        ],
+        "barge_signRb": [
+          1.36,
+          108.7
+        ],
+        "ridge_sign": [
+          0.63,
+          108.7
+        ],
+        "emblemfront_sign": [
+          1.75,
+          298.7
+        ],
+        "emblemrim_sign": [
+          0.23,
+          109.9
+        ],
+        "footing_0": [
+          0.49,
+          108.7
+        ],
+        "mast_0": [
+          2.82,
+          65.2
+        ],
+        "finial_0": [
+          0.06,
+          65.2
+        ],
+        "flag_0": [
+          1.68,
+          76.4
+        ],
+        "footing_1": [
+          0.49,
+          108.7
+        ],
+        "mast_1": [
+          2.82,
+          65.2
+        ],
+        "finial_1": [
+          0.06,
+          65.2
+        ],
+        "flag_1": [
+          1.68,
+          76.4
+        ]
+      },
+      "by_key_m2_ppm": {
+        "accent": [
+          3.37,
+          76.4
+        ],
+        "band": [
+          1.75,
+          298.7
+        ],
+        "concrete": [
+          0.98,
+          108.7
+        ],
+        "galv": [
+          0.06,
+          108.7
+        ],
+        "rock": [
+          8.91,
+          130.4
+        ],
+        "sign_plank": [
+          23.94,
+          119.6
+        ],
+        "stone_rubble": [
+          27.68,
+          304.3
+        ],
+        "timber_heavy": [
+          31.7,
+          115.4
+        ],
+        "timber_shake": [
+          7.68,
+          108.7
+        ],
+        "timber_vboard": [
+          13.49,
+          86.9
+        ],
+        "trim_grain": [
+          25.87,
+          79.7
+        ],
+        "trim_white": [
+          5.76,
+          65.2
+        ]
+      }
+    },
+    "emblem_px": 448,
+    "emblem": "mark",
+    "plank_srgb": [
+      0.3569,
+      0.2275,
+      0.1412
+    ],
+    "slots_game_srgb": {
+      "1": [
+        0.1059,
+        0.2432,
+        0.4196
+      ],
+      "2": [
+        0.1059,
+        0.2432,
+        0.4196
+      ]
+    }
+  },
+  "sub_objects": {
+    "target_prefab": "SkiResortGate",
+    "frame": "game local (gx, gy, gz) = (-y, z, x) of authoring, gx NEGATED (x-sign gate N, 2026-10-15); rotation (x, y, z, w); recipes design rows in the old +y frame, written through rule T (fine_detail.design_row_to_game)",
+    "notes": "ObjectSubObjects on SkiResortGate (the deployed prefab: keep its name / CID; drop the ParkSign placeholder row ec48568...); m_GroupIndex 0, m_Probability 100; m_ParentMesh 0 (on the sign mesh)",
+    "objects": [
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          4.7,
+          3.15,
+          -0.325
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "m_Object": "cfc12fde01d9da24b86ddedd657eaae1",
+        "prefab": "WallLightShortRangeRandom01",
+        "position": [
+          -4.7,
+          3.15,
+          -0.325
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0
+      },
+      {
+        "kind": "mod",
+        "ref": "CID",
+        "m_Object": "5cc81c32c98f460b8c4aa8df9f61b722",
+        "prefab": "SkiSignSetGate",
+        "mesh": "SkiSignSetGateD",
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0,
+        "role": "signset",
+        "bounds": [
+          [
+            -2.0,
+            3.85,
+            -0.35
+          ],
+          [
+            2.0,
+            4.45,
+            -0.35
+          ]
+        ]
+      }
+    ],
+    "x_convention": "game (gx, gy, gz) = (-y, z, x) of authoring; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; FBX-raw = authoring (y, z, x) and the game negates FBX x on import). Rows are designed in the old +y frame and written through rule T (x -> -x, q -> (qx, -qy, -qz, qw)). Identity rows (role signset) are frame-free.",
+    "kinds": {
+      "vanilla": 2,
+      "mod": 1
+    }
+  },
+  "fine_detail": {
+    "fine_detail": true,
+    "x_convention": "game (gx, gy, gz) = (-y, z, x) of authoring; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; FBX-raw = authoring (y, z, x) and the game negates FBX x on import). Rows are designed in the old +y frame and written through rule T (x -> -x, q -> (qx, -qy, -qz, qw)). Identity rows (role signset) are frame-free.",
+    "sign_set": {
+      "cid": "5cc81c32c98f460b8c4aa8df9f61b722",
+      "faces": [
+        "sign_gateflakeL_face",
+        "sign_gate_face",
+        "sign_gateflakeR_face"
+      ],
+      "mesh": "SkiSignSetGateD",
+      "asset_dir": "assets/import/signs/D/SkiSignSetGateD",
+      "tris": 6,
+      "cull": {
+        "extent_m": [
+          4.0,
+          0.6,
+          0.0
+        ],
+        "area_m2": 2.4,
+        "thin_bias": 0.5001,
+        "cull_bias0_m": 706.9,
+        "target_m": 234.5,
+        "m_Bias": 1.59,
+        "cull_at_bias_m": 234.8,
+        "lod_factor": 652.0,
+        "small_mesh_rule": "not applied (LodProperties present)",
+        "status": "[U] formula until SkiProbeLodA / F5"
+      },
+      "bounds_game": [
+        [
+          -2.0,
+          3.85,
+          -0.35
+        ],
+        [
+          2.0,
+          4.45,
+          -0.35
+        ]
+      ],
+      "row": {
+        "kind": "mod",
+        "ref": "CID",
+        "m_Object": "5cc81c32c98f460b8c4aa8df9f61b722",
+        "prefab": "SkiSignSetGate",
+        "mesh": "SkiSignSetGateD",
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_ParentMesh": 0,
+        "role": "signset"
+      },
+      "owner": true,
+      "validate": {
+        "errors": [],
+        "warnings": [],
+        "tris": {
+          "0": 6
+        },
+        "tex": [
+          2048
+        ]
+      },
+      "staged": [
+        "assets/staging/prefabs/signs/D/SkiSignSetGate/SkiSignSetGate.Prefab",
+        "assets/staging/prefabs/signs/D/SkiSignSetGate/SkiSignSetGateD Mesh.LodProperties.fragment",
+        "assets/staging/prefabs/signs/D/SkiSignSetGate/SkiSignSetGateD Mesh.surgery.json"
+      ]
+    },
+    "rows": {
+      "vanilla": 2,
+      "mod": 1
+    },
+    "header": {
+      "split_y": 1.3,
+      "band_keys": [
+        "emblem"
+      ],
+      "was": "vector Bfont at 186 px/m in the host band"
+    },
+    "masts_segs": 12,
+    "placeholders": [
+      "masts + flags (FlagPole01 / 02: Editor harvest, H5)"
+    ]
+  }
+}
