@@ -1379,7 +1379,7 @@ def materials_for_m(parts):
     keys = LD.part_keys(parts)
     # T62 round 2: adds the one wheel material under v2 ({} under v1)
     return {**LD.merge_materials(materials_m(), [k for k in keys if k in LD.DRESS_MATERIALS]),
-            **S.wheel_materials(cs2_bake.MaterialSpec)}
+            **S.wheel_materials(cs2_bake.MaterialSpec), **cw_materials_m(cs2_bake.MaterialSpec, keys)}
 
 
 def mat_roles_m():
@@ -1444,6 +1444,7 @@ def detail_specs_m():
         "stripe_": D(), "chev_": D(), "carpet_": D(), "doorlite_": D(), "winframe_": D(),
         "plate_cap": D(),
         **(texpass_detail_specs_m(D) if TEXPASS_M else {}),
+        **(cw_detail_specs_m(D) if TEXPASS_M else {}),
     }
 
 
@@ -1557,6 +1558,9 @@ def texpass_block_m(hook, part_material):
             "tone_stats": hook.inner.tone, "cavity": hook.inner.cavity,
             "relief": {"pad_joint_m": TP1_JOINT_M, "roof_seam_m": TP1_SEAM_M},
             "rekey": dict(TP1_REKEY[IDENTITY_M]) if IDENTITY_M else {},
+            **({"counterweight": {"rekey": dict(TP1_CW_REKEY), "rough": TP1_CW_ROUGH, "joint": dict(TP1_CW_JOINT),
+                                "joint_z": list(cw_joint_z_m())}}
+               if "cwpaint" in keys else {}),       # T277
             "weather": [list(map(str, r)) for r in TP1_WEATHER],
             "tris_added": 0, "textures_added_mb": 0.0}
 
@@ -1578,6 +1582,98 @@ def texpass_detail_specs_m(D):
     if IDENTITY_M == "shack":
         out["hut"] = D()
     return out
+
+
+# ---- T277 (r7, 1.0.4): the counterweight read as a lacquered can. Why the part is there: the Yan drive-tension base is
+# tensioned by gravity. The pot hangs from two cables over the mast-head sheaves and pulls the bullwheel carriage back
+# along the rails (PAL-04: a black steel pot, ~1.4 m x 1.2 m, filled with concrete, open top with a rim). Cause, measured
+# on the Q export: the pot shared paint1, and the pass made paint1 satin (rough 0.55 -> 0.42 = smoothness 0.58, metal
+# 0.10; vanilla walls / trims 0.22-0.44). The pot is the biggest unbroken painted surface of the station (8.2 m2 at
+# 42 px/m), a 16-segment smooth cylinder with a flat normal and no relief, so the low sun drew one clean specular band
+# down its side. The legs and rails share the paint but their bolted seams break the band. The fix (v1 only, keys and
+# pixels only, no vertex moves): the pot and its bail take their own key `cwpaint`. It stays on slot 1, so the frame
+# color is unchanged and the pot stays the lift's color. It is a weathered matte coat (smoothness 0.25, metal 0). Three
+# horizontal joints split the wall into four 0.30 m cast segments, deep enough for TP1_CAVITY to darken and dull them.
+# They are world-height `band` marks, not DetailSpec seams: "rings" seams also draw straight stripes across a horizontal
+# face, and the game camera looks down onto the lid (critic finding, r7). The tone is a dusty chalk on the lid.
+# TP1_CW_REKEY is the one table (part name -> key). A variant build swaps it (concrete pot: {"cwpot": "concrete", ...}).
+TP1_CW_REKEY = {"cwpot": "cwpaint", "cwpot_bail": "cwpaint"}
+TP1_CW_ROUGH = 0.75             # smoothness 0.25: vanilla's weathered walls (texture-parity section 3: 0.26-0.41)
+TP1_CW_JOINT = dict(pitch_m=0.30, half_w_m=0.04, depth_m=0.008)    # cast-segment joints: grooves at constant height
+TP1_TONE["cwpaint"] = dict(mottle_m=0.45, mottle_amp=0.06, mottle_smooth=0.10, chalk_amp=0.08, chalk_smooth=0.12)
+TP1_ROLES["cwpaint"] = "paint_steel"
+
+
+def _cw_mat(name, default):
+    """The counterweight part's material key: TP1_CW_REKEY under --texpass v1, else the shipped key."""
+    return TP1_CW_REKEY.get(name, default) if TEXPASS_M else default
+
+
+def cw_materials_m(MS, keys):
+    """`cwpaint` in the material table when a part of this build uses it (--texpass v1, the drive station only), else {}:
+    the return station's table and manifest stay as they are."""
+    if not TEXPASS_M or "cwpaint" not in keys:
+        return {}
+    spec = MS(albedo=_lin_m((0.80, 0.80, 0.80)), metal=0.0, rough=TP1_CW_ROUGH, slot=1, recolor_albedo=True,
+              projection="planar")
+    check_cw_m(spec=spec)
+    return {"cwpaint": spec}
+
+
+def cw_joint_z_m(joint=None):
+    """Heights of the pot's joints: every pitch_m above the pot's foot, none on the foot or the lid."""
+    J = TP1_CW_JOINT if joint is None else joint
+    pz0, pz1 = m_base()["pot_z"]
+    n = int(round((pz1 - pz0) / J["pitch_m"]))
+    return tuple(round(pz0 + J["pitch_m"] * k, 4) for k in range(1, n))
+
+
+def cw_detail_specs_m(D):
+    """The pot's joints (--texpass v1) as world-height bands (cs2_compose.Mark "band" about +Z: orient_for_net turns the
+    mesh about Z only, so the heights hold in the bake frame). The bail gets an empty spec (the "cwpot" prefix would lend
+    it the joints)."""
+    if TP1_CW_REKEY.get("cwpot") is None:
+        return {}
+    J = TP1_CW_JOINT
+    marks = tuple(cs2_compose.Mark("band", (0.0, 0.0, z), n=(0.0, 0.0, 1.0), half_w=J["half_w_m"], h=-J["depth_m"])
+                  for z in cw_joint_z_m())
+    return {"cwpot": D(marks=marks), "cwpot_bail": D()}
+
+
+TP1_CW_PPM = 42.2               # the pot's texel density on the Q export (manifest density.classes.cwpot.px_per_m)
+
+
+def check_cw_m(rekey=None, spec=None, joint=None, tone=None, ppm=TP1_CW_PPM):
+    """T277 contracts (--texpass v1; every build runs them through cw_materials_m, tests/test_fg_counterweight.py names the
+    negatives). CW1: the rekey moves counterweight parts only (names "cw..."). CW2: the coat is matte and keeps the frame
+    color: metal <= 0.05, smoothness (1 - rough) <= 0.30, slot 1 with recolor like paint1. CW3: the joints read: grooves
+    deeper than TP1_CAVITY from_m (the cavity darkens them), 2 x half_w x ppm >= cs2_compose.TEXEL_FLOOR, at least one,
+    none within half_w of the foot or the lid (no stripe on a cap); the tone cell mottle_m x ppm >=
+    TP1_TONE_FLOOR_TEXELS. Raises MContractError naming the contract."""
+    rekey = TP1_CW_REKEY if rekey is None else rekey
+    J = TP1_CW_JOINT if joint is None else joint
+    tone = TP1_TONE["cwpaint"] if tone is None else tone
+    bad = sorted(n for n in rekey if not n.startswith("cw"))
+    if bad:
+        raise MContractError(f"CW1: TP1_CW_REKEY names non-counterweight parts {bad}")
+    if spec is not None:
+        smooth = 1.0 - float(spec.rough)
+        if float(spec.metal) > 0.05 or smooth > 0.30 + 1e-9 or int(spec.slot) != 1 or not spec.recolor_albedo:
+            raise MContractError(f"CW2: cwpaint metal {spec.metal}, smoothness {smooth:.2f}, slot {spec.slot}, "
+                                 f"recolor {spec.recolor_albedo} (need <= 0.05, <= 0.30, slot 1 recolor)")
+    w_tex = 2.0 * float(J["half_w_m"]) * ppm
+    if float(J["depth_m"]) <= TP1_CAVITY["from_m"] or w_tex < cs2_compose.TEXEL_FLOOR:
+        raise MContractError(f"CW3: pot joints {2 * J['half_w_m']} m wide = {w_tex:.2f} texels at {ppm} px/m, depth "
+                             f"{J['depth_m']} m (need a groove > {TP1_CAVITY['from_m']} m, >= "
+                             f"{cs2_compose.TEXEL_FLOOR} texels)")
+    pz0, pz1 = m_base()["pot_z"]
+    zs = cw_joint_z_m(J)
+    off = [z for z in zs if not pz0 + J["half_w_m"] < z < pz1 - J["half_w_m"]]
+    if not zs or off:
+        raise MContractError(f"CW3: pot joints at {list(zs)}: none, or on the foot / lid {off} (pot {pz0}..{pz1} m)")
+    if float(tone["mottle_m"]) * ppm < TP1_TONE_FLOOR_TEXELS:
+        raise MContractError(f"CW3: cwpaint mottle cell {tone['mottle_m']} m = {tone['mottle_m'] * ppm:.1f} texels "
+                             f"(< {TP1_TONE_FLOOR_TEXELS})")
 
 
 def tone_specs_tp1(table, part_material, ppm_of):
@@ -2648,12 +2744,13 @@ def build_base_m():
     d = _V((mhx - mfx, 0.0, mhz - mfz))
     mast = cs2_kit.add_box("cwmast", (0.45, 0.35, d.length), ((mfx + mhx) / 2.0, 0.0, (mfz + mhz) / 2.0),
                            rot=(0.0, math.atan2(d.x, d.z), 0.0))
-    parts.append((mast, "paint1"))
+    parts.append((mast, _cw_mat("cwmast", "paint1")))     # T277: paint1 unless a variant lists the mast
     hz = mhz + 0.35
     # mast head: cap plate, a pedestal and the head-sheave axle across both ropes
     parts.append((_mbox("cwmast_cap", mhx - 0.28, mhx + 0.28, -0.24, 0.24, mhz - 0.06, mhz + 0.10),
-                  "paint1"))
-    parts.append((_mbox("cwmast_ped", mhx - 0.10, mhx + 0.10, -0.12, 0.12, mhz + 0.10, hz), "paint1"))
+                  _cw_mat("cwmast_cap", "paint1")))
+    parts.append((_mbox("cwmast_ped", mhx - 0.10, mhx + 0.10, -0.12, 0.12, mhz + 0.10, hz),
+                  _cw_mat("cwmast_ped", "paint1")))
     parts.append((_mcyl("cwmast_axle", (mhx, -0.40, hz), (mhx, 0.40, hz), 0.06, 8), "galv"))
     for side, s in (("n", -1.0), ("p", 1.0)):
         y = s * 0.30
@@ -2681,10 +2778,11 @@ def build_base_m():
                                                                       B["pot_z"][1] + 0.30), 0.025, 6,
                             "none"), "rope"))
     pz0, pz1 = B["pot_z"]
+    # T277: the pot + bail take TP1_CW_REKEY's key under --texpass v1 (matte, jointed), paint1 otherwise
     parts.append((_mcyl("cwpot", (B["pot_x"], 0.0, pz0), (B["pot_x"], 0.0, pz1), B["pot_r"], 16, "both"),
-                  "paint1"))
+                  _cw_mat("cwpot", "paint1")))
     parts.append((_mbox("cwpot_bail", B["pot_x"] - 0.04, B["pot_x"] + 0.04, -0.40, 0.40, pz1,
-                        pz1 + 0.32), "paint1"))
+                        pz1 + 0.32), _cw_mat("cwpot_bail", "paint1")))
     for k in range(6):
         z = 0.70 + 0.30 * k
         t_ = (z - mfz) / (mhz - mfz)
