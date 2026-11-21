@@ -1561,7 +1561,7 @@ def texpass_block_m(hook, part_material):
             **({"counterweight": {"rekey": dict(TP1_CW_REKEY), "rough": TP1_CW_ROUGH, "joint": dict(TP1_CW_JOINT),
                                 "joint_z": list(cw_joint_z_m())}}
                if "cwpaint" in keys else {}),       # T277
-            **({"seethru": {"closes": ["bullwheel rim inner wall", "booth roof drip upstand", "leg caps",
+            **({"seethru": {"closes": ["bullwheel rim inner wall", "house + booth roof drip upstands", "leg caps",
                                        "head-sheave wrap", "deflection wrap"],
                             "rim": {"r_inner": SV_RIM_INNER, "segs": SV_RIM_SEGS}, "wrap": dict(TP1_SV_WRAP),
                             "tris": sv_tris_m()}}
@@ -1692,28 +1692,30 @@ def check_cw_m(rekey=None, spec=None, joint=None, tone=None, ppm=TP1_CW_PPM):
 #   vertices, facing the axis) to sheave_bull_rim, so it rides the Bullwheel bone and keeps the rim's paint and LOD
 #   rules. The open spoked wheel stays (the approved look). Round 1's web plate under the spokes did not close this
 #   hole (the hole was the rim, not the gaps between the spokes) and is gone.
-# - the booth roof edge (168 px): cs2_kit.drip_edge leaves each strip's face against the roof open. Its 0.01 m lip above
-#   the roof top was then a slit along the edge with the ground behind it. A drip flashing is a bent sheet whose upstand
-#   is closed toward the roof: sv_drip_m closes that face (its part below the roof top stays hidden behind the roof's
-#   side). The kit keeps the slit on every other roof of the mod (an idea for a later kit fix, not this letter).
+# - the roof edges (the booth 168 px; the house 245 px, which showed once the rim was closed): cs2_kit.drip_edge leaves
+#   each strip's face against the roof open. Its 0.01 m lip above the roof top was then a slit along the edge with the
+#   ground behind it. A drip flashing is a bent sheet whose upstand is closed toward the roof: sv_drip_m closes that face
+#   on both roofs (SV_DRIP_ROOFS; its part below the roof top stays hidden behind the roof's side). The kit keeps the
+#   slit on every other roof of the mod (an idea for a later kit fix, not this letter).
 # - the portal legs (23 px on Q): the legs (0.60 m) are 0.10 m wider than the beams (0.50 m) they carry, and their tops
 #   were open: a crescent at each beam face showed the hollow leg. A pipe column gets a welded top cap: the leg's top cap.
 # - the sheave grooves (5 / 4 px on Q): the counterweight rope ran in straight pieces between tangent points, so the
 #   grooves of the head and deflection sheaves stayed empty over the top and showed the sky between the flanges. The
 #   rope wraps the sheave: chords on the rope radius (cwrope_<side>_wh<k> over the head sheave, cwrope_<side>_wd over
 #   the deflection sheave).
-# Tris (LOD0, sv_tris_m): rim wall 2 x 32, leg caps 4 x 16 (fan), drip faces 4 x 2, wraps 2 x (3 + 1) x 12 = 232. A
+# Tris (LOD0, sv_tris_m): rim wall 2 x 32, leg caps 4 x 16 (fan), drip faces 2 x 4 x 2, wraps 2 x (3 + 1) x 12 = 240. A
 # handrail corner of the platform (2.3 px, MINOR) is the shared cs2_kit.handrail corner joint: listed, not changed here
 # (it would change every railing of the mod).
 TP1_SV_WRAP = dict(head_segs=3, defl_segs=1, sides=6)
 # M15 under --rig --texpass v1 (DECISIONS 585, the in-round <= 5 % raise): the drive base 9,450 -> 9,700. The v1 letter
-# carries T279's comm arm (+156 over Q's 9,274, lv) and these closes (+232, sv_tris_m): 9,662. The return is unchanged.
+# carries T279's comm arm (+156 over Q's 9,274, lv) and these closes (+240, sv_tris_m): 9,670. The return is unchanged.
 TP1_RIG_LOD0_CAP = {"drive": 9700, "return": 3600}
 
 
 SV_RIM_INNER = 1.50            # the rigged bullwheel rim's inner wall (_wheel_rig_m: cs2_kit.sheave r_hub)
 SV_RIM_SEGS = 32               # ... and its segments (the same call)
 SV_DRIP_SIDES = {"px": (0, -1.0), "nx": (0, 1.0), "py": (1, -1.0), "ny": (1, 1.0)}   # strip -> (axis, face toward the roof)
+SV_DRIP_ROOFS = ("houseroof", "hutroof")      # the base's roofs with a drip flashing (the house, the operator booth)
 
 
 def check_sv_m(rim):
@@ -1776,7 +1778,7 @@ def sv_rim_band_m(parts):
 
 
 def sv_drip_m(roof):
-    """T277b: the booth roof's drip flashing with its upstand closed toward the roof (--texpass v1, the base):
+    """T277b: a roof's drip flashing with its upstand closed toward the roof (--texpass v1, the base's SV_DRIP_ROOFS):
     cs2_kit.drip_edge's four strips with the face against the roof put back (one quad each). Names, sizes and every
     other face as the kit's."""
     parts = cs2_kit.drip_edge(roof, drop=0.06, t=0.02)
@@ -1803,9 +1805,10 @@ def sv_drip_m(roof):
 
 def sv_tris_m():
     """T277b: LOD0 tris the see-through fixes add to the base (the rim's inner wall, four fan caps of the 16-gon legs,
-    the four drip faces, the wrap chords of both ropes)."""
+    the drip faces of both roofs, the wrap chords of both ropes)."""
     W = TP1_SV_WRAP
-    return 2 * SV_RIM_SEGS + 4 * 16 + 4 * 2 + 2 * (W["head_segs"] + W["defl_segs"]) * 2 * W["sides"]
+    return (2 * SV_RIM_SEGS + 4 * 16 + len(SV_DRIP_ROOFS) * 4 * 2
+            + 2 * (W["head_segs"] + W["defl_segs"]) * 2 * W["sides"])
 
 
 def sv_rope_wrap_m(name, c, r, th0, th1, n, y):
@@ -2855,7 +2858,8 @@ def build_base_m():
     ro = B["roof_over"]
     roof = _mbox("houseroof", hx0 - ro, hx1 + ro, -(hw + ro), hw + ro, hz1, hz1 + B["roof_t"])
     parts.append((roof, "galv"))
-    parts += _kit_m(cs2_kit.drip_edge(roof, drop=0.06, t=0.02), "galv")
+    # T277b: under --texpass v1 the flashing's upstand is closed toward the roof (sv_drip_m)
+    parts += _kit_m(sv_drip_m(roof) if TEXPASS_M else cs2_kit.drip_edge(roof, drop=0.06, t=0.02), "galv")
     # windows on all four sides (M10): +-y operator end, the -x machine end, the +x end
     panes = []
     for side, s in (("p", 1.0), ("n", -1.0)):

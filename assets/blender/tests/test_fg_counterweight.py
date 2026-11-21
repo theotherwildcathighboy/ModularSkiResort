@@ -60,7 +60,7 @@ SV_PARTS = ("cwrope_n_wh0", "cwrope_n_wh1", "cwrope_n_wh2", "cwrope_n_wd",
             "cwrope_p_wh0", "cwrope_p_wh1", "cwrope_p_wh2", "cwrope_p_wd")
 LEGS = ("leg_f_n", "leg_f_p", "leg_b_n", "leg_b_p")
 RIM = "sheave_bull_rim"
-DRIPS = tuple(f"drip_hutroof_{k}" for k in LT.SV_DRIP_SIDES)
+DRIPS = tuple(f"drip_{r}_{k}" for r in LT.SV_DRIP_ROOFS for k in LT.SV_DRIP_SIDES)
 SV_CHANGED = LEGS + (RIM,) + DRIPS          # same part, more faces under v1
 
 
