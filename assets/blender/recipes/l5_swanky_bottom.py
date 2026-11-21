@@ -2731,7 +2731,7 @@ def deck_rail(name, segs, z, h=DK_RAIL_H, t=0.06, post=0.16, every=2.6):
             (caps.finish(f"trim_{name}cap"), "lux_glulam")]
 
 
-def tower_deck(tower=True):
+def tower_deck(tower=True, v1=False):
     """(c) "on the clock tower side, build an elevated deck and the clock tower is sort of the focal point" (verdict B1'): the
     deck is one story up (top DK_Z = F2 4.5, slab DK_T) between M's road face (x 6), the hall's +Y wall (y 9) and the road
     cross gable r1 (y 21), out to DK_X1 = 21 (3 m past the hall glass). Parts:
@@ -2747,7 +2747,11 @@ def tower_deck(tower=True):
     Revision 3 (verdict B1'' "the STAIRS should be to the RIGHT, so that cars can pull through the valet area"): the 3 m
     stair (`stair_tw*`, kit stair, tube rails) leaves from the right-hand edge (DK_Y1, +Y seen from the road) at x
     DK_STAIR_X and runs on +Y down to the walk at DK_STAIR_FOOT_Y. The front balustrade is closed. The bistro sets and
-    lanterns are vanilla sub-objects (SUB_OBJECT_ROWS). Returns (parts, info)."""
+    lanterns are vanilla sub-objects (SUB_OBJECT_ROWS). Returns (parts, info).
+
+    v1 (--texpass v1, see-through fixes): the posts are cut to the beam's width (0.35, was 0.40: the 25 mm lips beside the
+    beam showed the culled post top), the knee braces sit on the narrower post faces, and the stair has housed stringers
+    (the tread ends were open above the stringer band)."""
     K = _kit()
     from cs2_bldg import WallRef
     STN, GLU = "lux_stone_tan", "lux_glulam"
@@ -2776,16 +2780,17 @@ def tower_deck(tower=True):
     # supports: stone pier 1.0 (to 1.2 + cap 0.15), glulam post 0.40 to the beam bottom
     bw, bh = DK_BEAM
     bz = zb - bh / 2
+    psz, pface = (bw, bw / 2) if v1 else (0.40, 0.2)   # v1: a post is cut to the width of the beam it carries
     for k, (px, py) in enumerate(DK_POSTS):
         P += K.stone_pier(f"tw{k}", px, py, 1.0, 1.0, LIFT, 1.2, cap=True, ground=False, mat=STN)
-        P += K.col(f"tw{k}", px, py, 1.35, zb - bh, size=0.40, mat=GLU)
+        P += K.col(f"tw{k}", px, py, 1.35, zb - bh, size=psz, mat=GLU)
     fx = DK_POSTS[2][0]
     P += K.beam("tw0", (fx, y0 + 0.2, bz), (fx, y1 - 0.2, bz), bw, bh, mat=GLU)        # front
     P += K.beam("tw1", (x0 + 0.05, DK_POSTS[0][1], bz), (fx - bw / 2, DK_POSTS[0][1], bz),
                 bw, bh, mat=GLU)                                                     # side
     for k, (py, sy) in enumerate(((DK_POSTS[2][1], 1.0), (DK_POSTS[3][1], -1.0),
                                   (DK_POSTS[3][1], 1.0), (DK_POSTS[4][1], -1.0))):
-        P += K.bracket(f"tw{k}", (fx, py + sy * 0.2, zb - bh), (0.0, sy, 0.0), span=1.0,
+        P += K.bracket(f"tw{k}", (fx, py + sy * pface, zb - bh), (0.0, sy, 0.0), span=1.0,
                        drop=1.0, t=0.22, curved=True, mat=GLU)
     # balustrade (revision 3): the whole front edge (no stair gap there any more), the r1
     # side with the stair gap, the open stretch past the hall pier
@@ -2799,7 +2804,7 @@ def tower_deck(tower=True):
     # the stair to the walk (kit stair, foot on the walk slab, closed stringer feet), run +Y
     P += K.stair("tw", (DK_STAIR_X, DK_STAIR_FOOT_Y, SLAB_T), (DK_STAIR_X, y1 + 0.02, zt),
                  w=DK_STAIR_W, rise_max=0.18, rail="tube", ground=False, tread_mat="deck",
-                 stringer_mat=GLU)
+                 stringer_mat=GLU, housed=v1)
     if tower:                                   # a door from the deck into the tower base
         P += K.entry("ctdk", WallRef("+X", tx1), CT_C[1], w=1.6, h=2.4, sidelights=0, lamps=0,
                      z=zt + 0.01, surround_mat=GLU, glass=False)
@@ -3473,7 +3478,7 @@ def build_l5(recipe, opts):
     for k, (spec, side, u) in enumerate(dorms):
         ps = K.dormer(f"d{k}", spec, u, w=2.4, h=1.7, room=f"dorm{k}",
                       win=WinSpec(1.3, 1.2, 0.25, lights=2), side=side, setback=1.0,
-                      pitch_deg=45.0, wall_mat=SID_HI)
+                      pitch_deg=45.0, wall_mat=SID_HI, valley=bd)   # v1: the dormer ridge dies into the roof
         flip_dormer_cheeks(ps, f"d{k}", side)   # coplanar hygiene (-X / +Y sides)
         P += ps
     for k, y in enumerate((-14.0, 14.0)):       # stack from just under the slab top
@@ -3666,7 +3671,7 @@ def build_l5(recipe, opts):
                          louvres=True, fine=fine, detail=CT_DETAIL_V1 if bd else None)
 
     # ---------------- revision 2: the tower deck (asymmetric front) ----------------------------
-    ps, deck = tower_deck(tower)
+    ps, deck = tower_deck(tower, v1=bd)
     P += ps
 
     # ---------------- fittings v1 (2026-10-17, docs/research/art/fittings-2026-10-17.md) ------

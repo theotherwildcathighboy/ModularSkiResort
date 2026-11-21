@@ -656,6 +656,12 @@ def build_l4(recipe, opts):
     P += _plinth_wall(SW, "w2", (T_WALL, T_Y1), (T_X1, T_Y1), top_deck, "+Y")
     P += _plinth_wall(SW, "w5", (T_X1, T_Y1), (T_X1, ROUTE_Y0), top_deck, "+X")
     P += _plinth_wall(SW, "w6", (D_X1 + W_T / 2, U_Y0), (D_X1 + W_T / 2, D_Y0), D_EAVE, "+X")
+    if opts.get("texpass", "off") != "off":
+        # W6 stands W_T / 2 proud of the dining room's south glass line, and its inner face is not built: that 0.3 m end
+        # strip at X D_X1 showed the inside of the wall (see-through gate, 300 px). The mason returns the stone round
+        # the wall's end: one stone quad from W4's top to the eave
+        P += K.pane_quad("plinth_w6r", WallRef("-X", D_X1), -D_Y0, -(D_Y0 - W_T / 2), Z_DSLAB, D_EAVE,
+                         d=0.0, mat=STN)
     P += _plinth_wall(SW, "w4", (D_X1, D_Y0), (-9.0, D_Y0), Z_DSLAB, "-Y")
     P += _plinth_wall(SW, "w3", (-9.0, D_Y0), (-9.0, D_Y1), Z_DSLAB, "-X")
     P += _plinth_wall(SW, "w7b", (-9.0, T_Y0), (D_X0, T_Y0), Z_DSLAB, "-Y")
