@@ -109,6 +109,11 @@
     lodgesOffSeason: 0, schoolOffSeason: false,
     // Contract 59 (T267)
     passesSoldMonth: 0,
+    // Contract 62 (T284): the area follows the Options defaults (ticket 65, pass 260 on the 1.0.3 calendar). February = season month 7:
+    // this season's sale ran (locked), the winter is December to March (positions 5..9), 40 % of it left.
+    areaTicket: 65, ticketOwn: false, passEarly: 260, passRisePct: 15, passSaleMask: 0x1e, passRiseMask: 0x8,
+    passNextEarly: 260, passNextRisePct: 15, passNextSaleMask: 0x1e, passNextRiseMask: 0x8, planOwn: false, planLocked: true, planOnDefault: true,
+    passNow: 0, passDemandPct: -1, valueLeftPct: 40, seasonMonth: 7, seasonFirstMonth: 7, winterStart: 5, winterEnd: 9,
     // Contract 48 (T200): the snow report, a 760 m vertical, the summit below freezing, a storm in the last day.
     snowReport,
   };
@@ -347,7 +352,7 @@
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800, affordMask: 31 };
   const snowCardHidden = { shown: false, report: Object.assign({}, snowReport, { known: false }) };
-  const base = { hubOpen: false, contract: 61, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 62, gradeScheme: 0, displayUnits: 0, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, catTrackSkiWay: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },

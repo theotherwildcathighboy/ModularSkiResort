@@ -393,6 +393,18 @@ export const HUB_LOC = {
   moneyPriceTipMax: ["SkiResort.Hub.MONEY_PRICE_TIP[Max]", "Ticket tolerance is at its maximum."],
   moneyPassTipLower: ["SkiResort.Hub.MONEY_PASS_TIP[Lower]", "To sell more passes, lower the pass price."],
   moneyPassTipRaise: ["SkiResort.Hub.MONEY_PASS_TIP[Raise]", "To earn more from passes, raise the pass price."],
+  /* T284 (contract 62): per-area prices. The ticket line's tooltip says whose price it is; the pass block's says when a change applies
+   and where the area's passes are good. The month strip's tooltip says what its colors mean. The two buttons show only while the area
+   has its own value. */
+  moneyPriceTipOwn: ["SkiResort.Hub.MONEY_PRICE_TIP[Own]", "This area has its own ticket price."],
+  moneyPriceTipDefault: ["SkiResort.Hub.MONEY_PRICE_TIP[Default]", "This area uses the default ticket price from the Options."],
+  moneyUseDefaultTicket: ["SkiResort.Hub.MONEY_USE_DEFAULT[Ticket]", "Use the default ticket price"],
+  moneyUseDefaultPass: ["SkiResort.Hub.MONEY_USE_DEFAULT[Pass]", "Use the default pass plan"],
+  moneyPassTipSeason: ["SkiResort.Hub.MONEY_PASS_TIP[Season]", "This season's pass prices are fixed since its sale started. Changes apply from the next season."],
+  moneyPassTipPool: ["SkiResort.Hub.MONEY_PASS_TIP[Pool]", "Passes of areas on the default plan are good at every such area."],
+  moneyPassTipOwnPlan: ["SkiResort.Hub.MONEY_PASS_TIP[OwnPlan]", "This area's passes are good only here."],
+  moneyMonthsTip: ["SkiResort.Hub.MONEY_MONTHS_TIP", "Green months are on sale. Amber months start a price rise. Underlined months are winter."],
+  moneyMonthsTipRun: ["SkiResort.Hub.MONEY_MONTHS_TIP[Run]", "The months on sale form one unbroken run, with at most 3 price rises."],
   cruxPitch: ["SkiResort.Tooltip.CRUX_PITCH", "Hardest unavoidable pitch"],
   steepestPatch: ["SkiResort.Tooltip.STEEPEST_PATCH", "Steepest patch (avoidable)"],
 
@@ -936,6 +948,11 @@ export const HUB_FMT = {
   moneyPassTipAbove: ["SkiResort.Hub.MONEY_PASS_TIP[Above]", "Above {FULL}, fewer households buy a pass."],
   moneyPassTipExample: ["SkiResort.Hub.MONEY_PASS_TIP[Example]", "At {PRICE}, about {PCT} fewer households buy than at {FULL}."],
   moneyPassTipLimit: ["SkiResort.Hub.MONEY_PASS_TIP[Limit]", "No household buys a pass at {N} times the lift ticket price or more."],
+  /* T284: {PCT} = the plan's rise per step (Percentage) / ResortLive.valueLeftPct (Percentage); {PRICE} = the next plan's early price
+   (Money), {MONTH} / {MONTH2} = its first and last sale month */
+  moneyRiseLine: ["SkiResort.Hub.MONEY_RISE_LINE", "Each price rise +{PCT}"],
+  moneyPassNext: ["SkiResort.Hub.MONEY_PASS_NEXT", "Next season: early {PRICE}, on sale {MONTH} to {MONTH2}"],
+  moneySaleTipValueLeft: ["SkiResort.Hub.MONEY_SALE_TIP[ValueLeft]", "{PCT} of the winter is left. The less is left, the fewer households buy."],
   /* {FULL} = priceFullWith(the luxury tolerance 40) = 80 */
   buildTipLuxury: ["SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days come in full numbers at any lift ticket price up to {FULL}."],
   moneyRowNatural: ["SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA}"],

@@ -18,7 +18,8 @@ import type { BuildItemId, CityStats, LodgeParkingRow, ResortLive } from "../bin
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
-  guestBarParts, guestBarScale, lastMonthMark, lessonsShown, liveOf, passesShown, priceTurnedShown, skiDayLine, skiDayTip, skiDayWalk, ticketNote, tripPlannerNote,
+  areaTicketOf, guestBarParts, guestBarScale, lastMonthMark, lessonsShown, liveOf, passesShown, priceTurnedShown, skiDayLine, skiDayTip, skiDayWalk, ticketNote,
+  tripPlannerNote,
 } from "./hubRules";
 import type { LastMonthMark, TicketNote, TripPlannerNote } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LODGE_BUILDING, allMonthNames, monthName } from "./hubText";
@@ -197,7 +198,7 @@ function GuestsHeader({ l, city, note, t }: { l: ResortLive | null; city: CitySt
       tip={<TipLines lines={[
         t(HUB_LOC.guestsNoteWhere),
         !!l && l.thisMonthSinceLoad && t(HUB_LOC.guestsNoteSinceLoad),
-        note === "open" && <LocText key="o" entry={HUB_FMT.ticketsNoteOpen} args={{ PRICE: numArg(city.ticketPrice, Unit.Money) }} />,
+        note === "open" && <LocText key="o" entry={HUB_FMT.ticketsNoteOpen} args={{ PRICE: numArg(areaTicketOf(l, city), Unit.Money) }} />,
       ]} />}
     />
   );
@@ -232,7 +233,7 @@ function SignGuests({ l, city, parking, samples, t }: {
   // A row's tooltip: what it counts, then the last-month note (the row's label is not repeated: DECISIONS 613).
   const rowTip = (body: string | JSX.Element, ...more: Array<TipLine | false>): JSX.Element =>
     <TipLines lines={[body, ...more, lastNote]} />;
-  const note = l ? ticketNote(l.ticketGate, city.ticketPrice) : null;
+  const note = l ? ticketNote(l.ticketGate, areaTicketOf(l, city)) : null;
   // The trip-planner note ("none" in a base-game city: no line).
   const tripNote = tripPlannerNote(city);
   const tripName = typeof city.tripPlanner === "string" ? city.tripPlanner : "";

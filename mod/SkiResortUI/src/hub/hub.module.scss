@@ -44,6 +44,8 @@
   --hubKindNatural: rgba(236, 244, 252, 0.7);
   --hubKindSnowmaking: rgba(110, 205, 255, 1);
   --hubKindNight: rgba(255, 196, 70, 1);
+  --hubPlanSale: rgba(76, 175, 80, 0.45);   // T284: a pass plan month on sale (MonthStrip)
+  --hubPlanRise: rgba(255, 196, 70, 0.5);   // T284: a pass plan month that starts a price rise
   --hubKindCatTrack: rgba(110, 200, 120, 1);
   --hubKindUnknown: rgba(150, 160, 170, 1);
   --hubMergeFits: rgb(110, 220, 120);
@@ -2231,6 +2233,86 @@
   line-height: 130%;
   color: var(--hubTextDim);
   white-space: nowrap;
+}
+
+// T284: the "Use the default ..." button under an area's own price (MoneyView UseDefault), left-aligned, one text-button height.
+.priceDefaultRow {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  justify-content: flex-start;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+// T284: the pass plan's 12-month strip (MoneyView MonthStrip): two rows of six chips in season order. Off = dim, on sale = green, a
+// rise = amber (the --hubGood / --hubCaution tokens); winter months carry a light bottom edge, the month now an accent outline.
+.monthStrip {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.monthRow {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  margin-bottom: 2rem;
+}
+
+.monthChip {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  align-items: center;
+  justify-content: center;
+  height: calc(22rem * var(--fontScale));
+  margin-right: 2rem;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: var(--fontSizeXS);
+  color: var(--hubTextDim);
+  background-color: var(--sectionBackgroundColor);
+  border-style: solid;
+  border-top-width: 1rem;
+  border-right-width: 1rem;
+  border-bottom-width: 2rem;
+  border-left-width: 1rem;
+  border-top-color: var(--hubEdge);
+  border-right-color: var(--hubEdge);
+  border-bottom-color: var(--hubEdge);
+  border-left-color: var(--hubEdge);
+}
+
+.monthChip:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.monthSale,
+.monthSale:hover {
+  color: var(--normalTextColor);
+  background-color: var(--hubPlanSale);
+}
+
+.monthRise,
+.monthRise:hover {
+  color: var(--normalTextColor);
+  background-color: var(--hubPlanRise);
+}
+
+.monthWinter {
+  border-bottom-color: var(--hubKindSnowmaking);
+}
+
+.monthNow {
+  border-top-color: var(--accentColorNormal);
+  border-right-color: var(--accentColorNormal);
+  border-left-color: var(--accentColorNormal);
 }
 
 // r3/sliders (Slider.tsx): a track, its fill, a round thumb, ticks at the stops of a short list, and the readout in a fixed slot.

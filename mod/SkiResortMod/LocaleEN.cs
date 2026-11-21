@@ -1407,6 +1407,16 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_PROPS_TIP[FeePaid]", "Fee paid: on again costs nothing" },
                 { "SkiResort.Hub.MONEY_PASS_TIP[Locked]", "Price locked at the sale." },
                 { "SkiResort.Hub.MONEY_PASS_TIP[Residents]", "Residents buy it before the winter. Tourists on a destination pass pay a quarter of it a day." },
+                // T284 (contract 62): per-area prices.
+                { "SkiResort.Hub.MONEY_PRICE_TIP[Own]", "This area has its own ticket price." },
+                { "SkiResort.Hub.MONEY_PRICE_TIP[Default]", "This area uses the default ticket price from the Options." },
+                { "SkiResort.Hub.MONEY_USE_DEFAULT[Ticket]", "Use the default ticket price" },
+                { "SkiResort.Hub.MONEY_USE_DEFAULT[Pass]", "Use the default pass plan" },
+                { "SkiResort.Hub.MONEY_PASS_TIP[Season]", "This season's pass prices are fixed since its sale started. Changes apply from the next season." },
+                { "SkiResort.Hub.MONEY_PASS_TIP[Pool]", "Passes of areas on the default plan are good at every such area." },
+                { "SkiResort.Hub.MONEY_PASS_TIP[OwnPlan]", "This area's passes are good only here." },
+                { "SkiResort.Hub.MONEY_MONTHS_TIP", "Green months are on sale. Amber months start a price rise. Underlined months are winter." },
+                { "SkiResort.Hub.MONEY_MONTHS_TIP[Run]", "The months on sale form one unbroken run, with at most 3 price rises." },
                 { "SkiResort.Hub.DEMAND_WORD[unaffected]", "unaffected" },
                 { "SkiResort.Hub.DEMAND_WORD[high]", "high" },
                 { "SkiResort.Hub.DEMAND_WORD[fair]", "fair" },
@@ -1788,6 +1798,10 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_SALE_LINE[SteppedFlat]", "Now {PRICE2} through {MONTH2} · Demand: {WORD}" },
                 { "SkiResort.Hub.MONEY_SALE_LINE[Closed]", "Pass sales open in {MONTH} · Demand: {WORD}" },
                 { "SkiResort.Hub.MONEY_PASS_TIP[Limit]", "No household buys a pass at {N} times the lift ticket price or more." },
+                // T284: the rise line, the next season's plan, the value left of a winter buyer.
+                { "SkiResort.Hub.MONEY_RISE_LINE", "Each price rise +{PCT}" },
+                { "SkiResort.Hub.MONEY_PASS_NEXT", "Next season: early {PRICE}, on sale {MONTH} to {MONTH2}" },
+                { "SkiResort.Hub.MONEY_SALE_TIP[ValueLeft]", "{PCT} of the winter is left. The less is left, the fewer households buy." },
                 { "SkiResort.Hub.MONEY_ROW[Natural]", "Natural runs · {HA}" },
                 // The runs row by feature (R3, DECISIONS 578; SkiRunUpkeepRates.PisteUpkeep).
                 { "SkiResort.Hub.MONEY_ROW[Grooming]", "Grooming · {HA} with snow" },
