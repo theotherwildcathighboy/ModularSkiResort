@@ -378,6 +378,9 @@ def roof_line(x):
 # Parts
 # ======================================================================================
 
+# texpass v1 (T273) closed geometry beyond the boards: a root cap per hook prong (2 tris) and a top cap per post (an
+# octagon, 6 tris)
+V1_CAP_TRIS = sum(len(ys_) for _z, ys_ in HOOK_ROWS) * 2 * 2 + 2 * len(YS) * (6 if CHAMFER > 0 else 2)
 BOARD_EDGE_BAND = 0.0015    # m of panel v per board edge (texpass v1, T273): half the smallest board gap (3 mm)
 
 
@@ -389,7 +392,9 @@ def build_parts(board_edges=False):
     k = 0
     for tag, x, top in (("r", XR, BEAM_TOP_R - BEAM_D), ("b", XB, BEAM_TOP_B - BEAM_D)):
         for i, y in enumerate(YS):
-            P += bar(f"post_{tag}{i}", (x, y, PZ + PLATE_T - 0.005), (x, y, top + 0.01), POST, POST, "steel_ox", up=(1, 0, 0))
+            # texpass v1 (T273): a top cap. The post is wider than its beam, so the open top showed beside the beam
+            P += bar(f"post_{tag}{i}", (x, y, PZ + PLATE_T - 0.005), (x, y, top + 0.01), POST, POST, "steel_ox",
+                     up=(1, 0, 0), caps=(False, bool(board_edges)))
             s = PLATE / 2
             P += K.box_part(f"plate_{k}", (x - s, y - s, PZ), (x + s, y + s, PZ + PLATE_T), "steel_ox", drop=("-Z",))
             k += 1
@@ -407,7 +412,10 @@ def build_parts(board_edges=False):
     # ---- cedar ceiling and roof sheets: one quad per rafter bay, a few variants stacked (share_key) -------
     ys = (-ROOF_Y,) + RAFTER_Y + (ROOF_Y,)
     tb, tr = roof_line(EAVE_B) + ROOF_ABOVE, roof_line(EAVE_R) + ROOF_ABOVE
-    cb, cr = roof_line(EAVE_B) + CEIL_ABOVE - 0.015, roof_line(EAVE_R) + CEIL_ABOVE - 0.015
+    # texpass v1 (T273): the roof edge stops at the ceiling. A one-sided band that hangs 1.5 cm below it showed its
+    # inside from under the roof (depot gate, 17 px at the tower end)
+    drop = 0.0 if board_edges else 0.015
+    cb, cr = roof_line(EAVE_B) + CEIL_ABOVE - drop, roof_line(EAVE_R) + CEIL_ABOVE - drop
     for i, (a, b) in enumerate(zip(ys, ys[1:])):
         pts = [(EAVE_B, a, roof_line(EAVE_B) + CEIL_ABOVE), (EAVE_R, a, roof_line(EAVE_R) + CEIL_ABOVE),
                (EAVE_R, b, roof_line(EAVE_R) + CEIL_ABOVE), (EAVE_B, b, roof_line(EAVE_B) + CEIL_ABOVE)]
@@ -450,7 +458,7 @@ def build_parts(board_edges=False):
     n = 0
     for z, ys_ in HOOK_ROWS:
         for y in ys_:
-            P += hook_parts(n, face_x, y, z)
+            P += hook_parts(n, face_x, y, z, closed=board_edges)
             n += 1
     # ---- clear panels: road side bays 0 and 1, the -Y end wall. Bay 2 and the +Y end stay open
     bays = (("r0", "X", XR + POST / 2, YS[0], YS[1], PANEL_Z), ("r1", "X", XR + POST / 2, YS[1], YS[2], PANEL_Z),
@@ -547,8 +555,11 @@ def bar(name, p0, p1, w, h, mat, up=(0.0, 0.0, 1.0), chamfer=CHAMFER, caps=(Fals
     return parts
 
 
-def hook_parts(n, x, y, z):
-    """One ski hook, proud of the board face (+X): a black half-moon base and two yellow prongs, about 30 cm wide."""
+def hook_parts(n, x, y, z, closed=False):
+    """One ski hook, proud of the board face (+X): a black half-moon base and two yellow prongs, about 30 cm wide.
+    closed (texpass v1, T273): each prong gets a root cap, and the base and each prong are welded before their normals
+    are recalculated. The mirrored prong was inside out (depot gate, 66 px of back faces), and some base side quads
+    faced in (26.7 px)."""
     def base(bm):
         d = 0.028
         ring = [(-0.13, -0.01), (-0.115, -0.055), (-0.07, -0.075), (0.07, -0.075), (0.115, -0.055), (0.13, -0.01),
@@ -559,6 +570,9 @@ def hook_parts(n, x, y, z):
         for a in range(len(ring)):
             b = (a + 1) % len(ring)
             C.face(bm, [back[a], back[b], front[b], front[a]], None)
+        if closed:
+            # weld first, as the prongs: loose side quads kept their own winding, and some faced in (depot gate, 26.7 px)
+            bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-6)
         bm.normal_update()
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     parts = C.new_part(f"hookbase_{n}", base, "hook_black")
@@ -578,6 +592,11 @@ def hook_parts(n, x, y, z):
                 for a, b in ((0, 1), (1, 2), (2, 3), (3, 0)):
                     C.face(bm, [r0_[a], r0_[b], r1_[b], r1_[a]], None)
             C.face(bm, tip, None)
+            if closed:
+                C.face(bm, root, None)
+                # weld first. C.face makes loose quads, so recalc_face_normals saw one-face islands and kept each
+                # winding: the mirrored prong (sign -1) came out inside out
+                bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-6)
             bm.normal_update()
             bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
         return build

@@ -51,7 +51,7 @@ QUICK = "--quick" in sys.argv
 LOD0_TRIS = 1624
 FLAG_OFF_PREBAKE = "9cfabfc7e8da"
 # texpass v1 closes every back-wall board (a top and a bottom quad each; T273, the see-through gate)
-V1_EDGE_TRIS = 2 * 2 * D.BOARD_N * (len(D.YS) - 1)
+V1_EDGE_TRIS = 2 * 2 * D.BOARD_N * (len(D.YS) - 1) + D.V1_CAP_TRIS     # board edges + hook root / post top caps
 FAILS = []
 
 
@@ -122,8 +122,10 @@ def main():
            f"B7 v1 LOD0 {dry['v1']['tris'][0]} != flag-off {dry['off']['tris'][0]} + {V1_EDGE_TRIS} board-edge tris")
         ok(dry["v1"]["pack"]["fill"] >= dry["off"]["pack"]["fill"], "B7 the pass lowered the atlas fill")
         for k, v in dry["off"]["density_by"]["material"].items():
-            if k == D.BAND_KEY:
-                continue
+            if k == D.BAND_KEY or k in D.FLAT_SWATCH:
+                continue                # band faces: their UVs are authored into the band, so px/m means nothing there.
+                # The flat swatches (hooks, cases) are band faces too: a ramp inside one color rect (T273: the hook root
+                # caps moved hook_yellow's p50 with no change on screen)
             w = dry["v1"]["density_by"]["material"].get(k)
             ok(w is not None and w[0] >= v[0] - 0.05, f"B7 {k}: v1 p50 {w and w[0]} px/m under flag-off {v[0]}")
         try:
