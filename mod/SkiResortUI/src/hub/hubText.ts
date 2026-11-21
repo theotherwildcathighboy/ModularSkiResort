@@ -377,7 +377,7 @@ export const HUB_LOC = {
   moneyDestTipShare: ["SkiResort.Hub.MONEY_DEST_TIP[Share]", "Fewer tourists hold one while the pass or its day fee is dear. The Options pass share sets both kinds of pass."],
   moneyDestTipRaise: ["SkiResort.Hub.MONEY_DEST_TIP[Raise]", "To raise destination fees, raise the pass price."],
   moneyDestTipFull: ["SkiResort.Hub.MONEY_DEST_TIP[Full]", "Destination guests pay the full lift ticket."],
-  moneySaleTipNow: ["SkiResort.Hub.MONEY_SALE_TIP[Now]", "How many buyers are put off is judged at the price paid now."],
+  moneySaleTipNow: ["SkiResort.Hub.MONEY_SALE_TIP[Now]", "How many buyers are put off is judged at the current price."],
   moneySaleTip: ["SkiResort.Hub.MONEY_SALE_TIP", "Each household buys at its own time, most of them early. After the sale, guests without a pass pay the lift ticket."],
   moneyPassTipLocked: ["SkiResort.Hub.MONEY_PASS_TIP[Locked]", "Price locked at the sale."],
   moneyPassTipResidents: ["SkiResort.Hub.MONEY_PASS_TIP[Residents]", "Residents buy it before the winter. Tourists on a destination pass pay a quarter of it a day."],
@@ -949,9 +949,9 @@ export const HUB_FMT = {
   moneyDestLine: ["SkiResort.Hub.MONEY_DEST_LINE", "Destination pass {FEE} a day · {PCT} of tourists"],
   /* T265: the line under the pass slider: the price a household pays now and the word that judges it. {PRICE} = the early price,
    {PRICE2} = the stepped price, {PCT} = hubRules.stepRisePct (Percentage), {WORD} = the demand word of the price paid now */
-  moneySaleOpening: ["SkiResort.Hub.MONEY_SALE_LINE[Opening]", "Now {PRICE} through {MONTH} · {WORD}"],
-  moneySaleStepped: ["SkiResort.Hub.MONEY_SALE_LINE[Stepped]", "Now {PRICE2} (+{PCT}) through {MONTH2} · {WORD}"],
-  moneySaleSteppedFlat: ["SkiResort.Hub.MONEY_SALE_LINE[SteppedFlat]", "Now {PRICE2} through {MONTH2} · {WORD}"],
+  moneySaleOpening: ["SkiResort.Hub.MONEY_SALE_LINE[Opening]", "Current {PRICE} through {MONTH} · {WORD}"],
+  moneySaleStepped: ["SkiResort.Hub.MONEY_SALE_LINE[Stepped]", "Current {PRICE2} (+{PCT}) through {MONTH2} · {WORD}"],
+  moneySaleSteppedFlat: ["SkiResort.Hub.MONEY_SALE_LINE[SteppedFlat]", "Current {PRICE2} through {MONTH2} · {WORD}"],
   moneySaleClosed: ["SkiResort.Hub.MONEY_SALE_LINE[Closed]", "Pass sales open in {MONTH} · {WORD}"],
   /* r3/sliders (DECISIONS 677): {FULL} = priceFullWith(area tolerance) or passFullPrice(ticket) (Money), {PRICE} = the slider price (Money),
    {PCT} = hubRules.fewerPct (Percentage, a multiple of 5), {N} = PASS_FULL_AT + PASS_SPAN, where demand reaches 0 (Integer) */

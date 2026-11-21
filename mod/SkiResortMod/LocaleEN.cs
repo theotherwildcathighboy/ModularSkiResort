@@ -1804,12 +1804,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_DEST_TIP[Full]", "Destination guests pay the full lift ticket." },
                 { "SkiResort.Hub.MONEY_SALE_TIP", "Each household buys at its own time, most of them early. After the sale, guests without a pass pay the lift ticket." },
                 { "SkiResort.Hub.MONEY_SALE_TIP[Step]", "The price rises by {PCT} after {MONTH}, to {PRICE2}." },
-                { "SkiResort.Hub.MONEY_SALE_TIP[Now]", "How many buyers are put off is judged at the price paid now." },
+                { "SkiResort.Hub.MONEY_SALE_TIP[Now]", "How many buyers are put off is judged at the current price." },
                 { "SkiResort.Hub.MONEY_DEST_LINE", "Destination pass {FEE} a day · {PCT} of tourists" },
                 // T265: the line under the pass slider: the price a household pays now and the demand word of that price.
-                { "SkiResort.Hub.MONEY_SALE_LINE[Opening]", "Now {PRICE} through {MONTH} · {WORD}" },
-                { "SkiResort.Hub.MONEY_SALE_LINE[Stepped]", "Now {PRICE2} (+{PCT}) through {MONTH2} · {WORD}" },
-                { "SkiResort.Hub.MONEY_SALE_LINE[SteppedFlat]", "Now {PRICE2} through {MONTH2} · {WORD}" },
+                { "SkiResort.Hub.MONEY_SALE_LINE[Opening]", "Current {PRICE} through {MONTH} · {WORD}" },
+                { "SkiResort.Hub.MONEY_SALE_LINE[Stepped]", "Current {PRICE2} (+{PCT}) through {MONTH2} · {WORD}" },
+                { "SkiResort.Hub.MONEY_SALE_LINE[SteppedFlat]", "Current {PRICE2} through {MONTH2} · {WORD}" },
                 { "SkiResort.Hub.MONEY_SALE_LINE[Closed]", "Pass sales open in {MONTH} · {WORD}" },
                 { "SkiResort.Hub.MONEY_PASS_TIP[Limit]", "No household buys a pass at {N} times the lift ticket price or more." },
                 // T284: the rise line, the next season's plan, the value left of a winter buyer.
