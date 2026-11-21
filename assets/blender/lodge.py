@@ -489,6 +489,11 @@ def aframe_parts(c, opts):
     DX1, DY, DTOP = c["DECK_X1"], c["DECK_Y"], c["DECK_TOP"]
     SILL, HEAD = c["SILL_Z"], c["HEAD_Z"]
     P = []
+    # r7 T273 (2026-11-20, owner review of 1.0.4: "see-through" on the arrival side): the canopy window, both builds'
+    # geometry, changes under --texpass only (opts["texpass"] is absent with the flag off, so 1.0.3's L1 stays
+    # byte-identical; the pass is the 1.0.4 output). The ledge slot and the rake undersides are the cull's (seethru's
+    # conservative cull and _slab_geo split). Measured in docs/research/round3-2026-11-18/r7-tex/l1/NOTE.md section 1
+    tpg = bool(opts.get("texpass"))
 
     # ---- stone base (ground part, the skirt is gone: the engine draws the base) --------
     P += K.storey("base", BX0, BX1, BY0, BY1, 0.0, S1_Z, "stone_rubble", ground=True,
@@ -508,7 +513,10 @@ def aframe_parts(c, opts):
                            RZ + 0.05, ridge_at=RX)
     P += K.storey("prow", S2X1, PX1 - 0.15, PY0, PY1, S1_Z, S2P_Z, "timber_lap",
                   drop=("-Z", "+Z"), cut_z=(S1_Z + 0.17, DTOP))
-    P += K.prism_gable("prow", "X", PX1 - 0.3, PX1, PY0, PY1, S2P_Z, PRZ - 0.02, ridge_at=PRY)
+    # T273 (texpass): the prow gable sits 0.15 m proud of the timber wall below it (it carries the glass wall's head), and
+    # its underside was open: from below the gable's own back face showed in the slot (seethru gate, 13 px). The jetty's
+    # underside is boarded, as a builder closes any overhang (keeps snow, wind and birds out): the prism's bottom face
+    P += K.prism_gable("prow", "X", PX1 - 0.3, PX1, PY0, PY1, S2P_Z, PRZ - 0.02, ridge_at=PRY, bottom=tpg)
     # ---- roofs (standing seam, slot 3), ridge caps, rakes, fascia, tails ----------------
     # ridge v2 (T95, cad-review-2026-10-19 section 8): the slabs end RIDGE_GAP past the ridge plane (a 6 mm overlap, no 0.35
     # m crossing) under the kit's 12-tri bent flashing. v0 = the old slabs + galv boxes, byte for byte
@@ -618,8 +626,21 @@ def aframe_parts(c, opts):
     # ---- prow glass wall (A-Basin signature) -> `_Win` -----------------------------------
     bay = [-4.3, -1.78, 0.74, 3.26, 5.78, 8.3]
     prow = WallRef("+X", PX1)
-    P += K.window_bay("prow", prow, bay[0], bay[-1],
-                      WinSpec(bay[-1] - bay[0], 2.20, 4.85, lights=5, transom=5.95), room="prow")
+    pws = WinSpec(bay[-1] - bay[0], 2.20, 4.85, lights=5, transom=5.95)
+    P += K.window_bay("prow", prow, bay[0], bay[-1], pws, room="prow")
+    if tpg and K.WINDOW_KIT["version"] == 2:
+        # T273 (texpass): the prow glass wall stands 0.15 m proud of the timber wall (wall_prow at PX1 - 0.15), and no wall
+        # face lies in its plane. Kit v2's casing and reveal assume one: from above and from the sides a camera looked into
+        # the slot behind the frame and saw the back of the reveal (seethru gate: 505 px, the biggest L1 hole). A
+        # curtain wall set in front of a wall gets closures: a head flashing from the frame head back to the wall (sheds
+        # water and snow off the slot) and jamb closures down both sides. One box, top and sides only (front = the
+        # opening, back = the wall, bottom under the sill), flush with the casing's outer faces: 6 tris. `head_` = the
+        # casing's frame paint, LOD2 drops it with the head. Sizes = window_bay_v2's casing (posts from sill - 0.03, the
+        # head casing_w tall); the window fills its bay, so a0 / a1 = bay[0] / bay[-1]
+        kp = K.kit_params()
+        cw = kp["casing_w"]
+        P += K.wall_box("head_prowcl", prow, bay[0] - cw, bay[-1] + cw, pws.sill - 0.03, pws.sill + pws.h + cw,
+                        -0.15, 0.0, kp["casing_key"] or K.WINDOW_KIT["trim"], drop=("front", "back", "bottom"))
     for i, (cy0, cy1, top) in enumerate(((bay[1], bay[2], 10.4 + KH), (bay[2], bay[3], 13.7 + KH),
                                          (bay[3], bay[4], 10.4 + KH))):
         P += K.pane_quad(f"win_cle{i}_prowcl{i}", prow, cy0, cy1, 7.65, top)
@@ -635,6 +656,14 @@ def aframe_parts(c, opts):
     bands_x = (("SlopeS", S2X1, +1, -18.0, -8.0, 5), ("SlopeN", S2X1, +1, 11.0, 19.0, 4),
                ("ParkS", S2X0, -1, -18.0, -10.0, 4), ("ParkC", S2X0, -1, -4.0, 4.0, 4),
                ("ParkN", S2X0, -1, 10.0, 18.0, 4))
+    if tpg:     # T273 canopy gable: the porch roof's ridge flashing (top 5.42) ran 0.17 m into ParkC's
+        #         glazed opening (sill 5.25), and in game a black triangle (the porch profile shifted 0.8 m up, base
+        #         +-1.0 m) sat in the glass above it. No glazing where a roof meets the wall (snow piles there too):
+        #         ParkC becomes two 2-light windows clear of the porch roof (|y| >= 2.0), wall over the porch. One hall
+        #         behind both, so one interior: the south half keeps ParkC's tag (plate seed win_ParkC_ParkC0, lit as the
+        #         8-light band was), the north half's ParkCN draws lit too (_interior_key hashes the seed name)
+        bands_x = tuple(b for t in bands_x for b in (
+            (("ParkC", S2X0, -1, -6.0, -2.0, 2), ("ParkCN", S2X0, -1, 2.0, 6.0, 2)) if t[0] == "ParkC" else (t,)))
     for tag, wx, sgn, y0, y1, lights in bands_x:
         wall = WallRef("+X" if sgn > 0 else "-X", wx)
         u0, u1 = (y0, y1) if sgn > 0 else (-y1, -y0)

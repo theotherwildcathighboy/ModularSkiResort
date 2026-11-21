@@ -495,7 +495,11 @@ L1 = Recipe(
     # drip_skip: the two loft windows hang no sill-drip strip. Their 0.7 m strips ended mid-gable, 2.5 m above the
     # gable's lower edge, and read as gray rectangles hanging under the windows; the nine main-floor strips reach the
     # plinth cap and stay (letter Z: LOD0 10,396 -> 10,388 tris)
-    texpass={"eave_h": 0.0, "weather_level": 0, "ridge_key": "metal_roof_lt", "drip_skip": ("sill_Loft",)},
+    # r7 T274 (owner review of 1.0.4: "something removed on top"): the roof-color caps were the removed thing, the
+    # A-frame lost its ridge line. mat {"ridge_": "trim"} replaces ridge_key: the three ridge flashings take the trim
+    # paint (the rakes', fascias' and mullions' green), so the ridge closes the green gable outline, the way a metal
+    # roof's trim package colors ridge, rake and eave alike (r7-tex/l1/NOTE.md, owner question 1)
+    texpass={"eave_h": 0.0, "weather_level": 0, "mat": {"ridge_": "trim"}, "drip_skip": ("sill_Loft",)},
     views=(("prow", (0.55, 1.0, 0.30)), ("entry", (0.35, -1.0, 0.22)),
            ("roofwindows", (-1.0, 0.25, 0.85))),
     notes="base_lodge.py port: skirt deleted, porch slab a ground part, entry surround on "
