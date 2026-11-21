@@ -1,6 +1,8 @@
 /*
  * src/hub/RunsView.tsx - the Runs view: one context area, the piste-map toggle and the run list of the shown ski area.
- * The context area holds the Quick runs, draw, tree tool or picked run's rows. It is empty when idle. The Resort Planner's plan sheet (its
+ * The context area holds the Quick runs, draw, tree tool or picked run's rows. It is empty when idle. While the game's Snow visuals option is
+ * off (CityStats.snowVisualsOff), one note sits above the list: the runs then draw almost no snow, and the player cannot tell that they still work
+ * (r8-testpass T288). The Resort Planner's plan sheet (its
  * proposed lifts and their build state) stays at the top while the planner is closed and the sheet has rows.
  * One list, no pager (this view and Lifts are the two that may scroll).
  * The piste-map check box shows C#'s value (pisteMap$), never a guess: a click sends setPisteMap(!value), and C# answers by pushing it.
@@ -106,6 +108,12 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   return (
     <>
       {context}
+      {city.snowVisualsOff && (
+        <>
+          <div className={styles.noteArea}><div className={styles.note1}>{t(HUB_LOC.runsNoteSnowVisuals)}</div></div>
+          <Divider />
+        </>
+      )}
       <RunHeader t={t} samples={samples} pisteMap={toggle} />
       {rows.length === 0 ? (
         <div className={styles.dimLine}>{t(HUB_LOC.runsEmpty)}</div>

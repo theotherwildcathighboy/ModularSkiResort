@@ -884,6 +884,15 @@ function run(srcDir) {
     // PG.2: margin-box tops (see above)
     eq("PG.2 fit.tsx measures margin-box tops", /getBoundingClientRect\(\)\.top - mt\[i\]/.test(fs.readFileSync(path.join(srcDir, "hub", "fit.tsx"), "utf8")), true);
   }
+  // SV.1 (r8-testpass T288): with the game's Snow visuals off the runs draw almost no snow. The Runs view says so in a note, shown only
+  // while C# reports the option off (CityStats.snowVisualsOff, read live in SkiSnowInjectionSystem.GetSnowSummary), and the harness has the case.
+  {
+    const rv = fs.readFileSync(path.join(srcDir, "hub", "RunsView.tsx"), "utf8");
+    const sc = fs.readFileSync(path.join(__dirname, "..", "harness", "scenarios.js"), "utf8");
+    eq("SV.1 Runs view: the note only while snowVisualsOff, a harness case with it on",
+      [/\{city\.snowVisualsOff && \(/.test(rv), /HUB_LOC\.runsNoteSnowVisuals/.test(rv), /"Ash Flat, snow visuals off"[\s\S]{0,400}snowVisualsOff: true/.test(sc)],
+      [true, true, true]);
+  }
   // T31 (DECISIONS 423b) the cat track delete: a trash only on a cat track row (other rows keep an empty slot), armed by the first click
   // and sent by the second. The trigger is the deleteCatTrack one (C# queues it and applies it in OnUpdate).
   const runList = read(path.join("hub", "RunList.tsx"));

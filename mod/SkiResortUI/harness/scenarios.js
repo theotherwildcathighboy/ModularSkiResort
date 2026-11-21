@@ -427,6 +427,9 @@
     // that keeps the slot ("Thawing", the snow pair in the tooltip).
     "Ash Flat, snow estimated": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { snowEstimated: true, snowDepthCm: 41, snowPct: 72 }), live2],
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
+    // r8-testpass T288: Options > Gameplay > Snow visuals off. The Runs view says the runs work but draw no snow (the status tooltip too).
+    "Ash Flat, snow visuals off": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
+      problems, history, build: buildItems({ built: ["school"] }), city: Object.assign({}, city, { snowVisualsOff: true }) }),
     "Ash Flat, thawing": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { seasonHint: 3, snowDepthCm: 22, snowPct: 54, topTempC: 3 }), live2],
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
     // T209: a city loaded paused. C# sends -1 for every live number and no problem rows until the first simulation frames (HubRules.LoadSettleFrames).

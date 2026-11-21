@@ -48,6 +48,8 @@ Notes...
 - The view stays on the rows you are looking at while you change a price.
 - The Net row tooltip in History is short: year over year.
 - The build strip arrow is the same size as the Lifts, Runs and Buildings buttons.
+- With Snow visuals off in the game's Options, the Runs view says that the runs still work but show no snow.
+- A price slider no longer jumps back to its old value for a moment while the game is paused.
 
 **Tourism:**
 - Cold weather no longer keeps tourists away while a ski area is open: the game's cold cut on new tourists now starts at -30 °C instead of -10 °C (new option, on by default).

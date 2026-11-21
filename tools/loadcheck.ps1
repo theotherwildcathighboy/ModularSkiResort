@@ -26,6 +26,8 @@
     5. Writes the JSON report to docs/research/field/<date>/loadcheck/ and prints PASS / FAIL per part.
        The census baseline lives beside the save: release/saves-by-release/<stem>.census.json. The first run writes it;
        later runs diff their census against it (part b). -WriteBaseline replaces it.
+       Part (b) also FAILs on a persisted type with 0 entities, except a type newer than the save: one its release's CHANGELOG
+       "Layout versions" line lacks (Get-NewerPersistedTypes; the save name starts with that release's x.y.z). Those are info.
 
   Autosave is switched off before the load and again after it (a load builds a new world with autosave ON). With -NoLoad it is put back to the state
   it was found in; after a load it stays OFF in the loaded city. The sim speed returns to what it was.
@@ -261,6 +263,38 @@ function Compare-Counts($expected, $actual) {
     return , $diffs
 }
 
+# Part (b), r8-testpass B3: the persisted types that are newer than the save. The save's release comes from its file name
+# (release/saves-by-release/<x.y.z>_pdx<N>_<date>_<city>.cok); the types that release wrote are its release/CHANGELOG.md
+# "Layout versions" line (short names, SaveLayouts.cs ChangelogLine), mapped to type names through SaveLayouts.cs
+# (new Layout("<TypeName>", "<Short>", ...)). A type the line lacks is new since that release: 0 entities on that save is expected
+# (until the city makes one), not a failure. Returns @{ version; release; newer = type names; note }.
+function Get-NewerPersistedTypes([string]$stem) {
+    $out = @{ version = $null; release = $null; newer = @(); note = $null }
+    if ($stem -notmatch '^(?:loadcheck_)?(\d+\.\d+\.\d+)') { $out.note = "no x.y.z version at the start of the save name '$stem': no type exempt"; return $out }
+    $out.version = $Matches[1]
+    $saveVersion = [version]$out.version
+    $layoutsCs = Join-Path $Repo 'mod\SkiResortMod\Systems\SaveLayouts.cs'
+    $changelog = Join-Path $Repo 'release\CHANGELOG.md'
+    $typeOf = @{}
+    foreach ($m in [regex]::Matches([IO.File]::ReadAllText($layoutsCs), 'new Layout\("(\w+)", "(\w+)"')) { $typeOf[$m.Groups[2].Value] = $m.Groups[1].Value }
+    # Released entries only ("## 1.0.3 (PDX version 4, ...)"): the template and "(unreleased)" have no PDX version.
+    $entries = @()
+    $current = $null
+    foreach ($line in [IO.File]::ReadAllLines($changelog)) {
+        if ($line -match '^## (\d+\.\d+\.\d+) \(PDX version \d+') { $current = @{ version = [version]$Matches[1]; layouts = $null }; $entries += $current; continue }
+        if ($line -match '^## ') { $current = $null; continue }
+        if ($current -and $null -eq $current.layouts -and $line -match '^- Layout versions: (.+)$') {
+            $current.layouts = @($Matches[1] -split ',\s*' | ForEach-Object { ($_ -split '\s+')[0] })
+        }
+    }
+    # The save's own release only: a save of an unreleased build (1.0.4 dev) wrote every type it knows, so nothing is exempt.
+    $release = $entries | Where-Object { $_.layouts -and $_.version -eq $saveVersion } | Select-Object -First 1
+    if (-not $release) { $out.note = "no released CHANGELOG entry for $($out.version) (an unreleased build's save): no type exempt"; return $out }
+    $out.release = "$($release.version)"
+    $out.newer = @($typeOf.Keys | Where-Object { $release.layouts -notcontains $_ } | ForEach-Object { $typeOf[$_] } | Sort-Object)
+    return $out
+}
+
 function ConvertTo-OrderedCounts($obj) {
     $h = [ordered]@{}
     foreach ($p in $obj.PSObject.Properties) { $h[$p.Name] = $p.Value }
@@ -394,8 +428,15 @@ try {
     # (b): baseline diff
     $counts = Get-Counts $report.census
     $bDetail = @()
-    $bPass = $report.census.zeroTypes.Count -eq 0 -and $report.census.unresolvedTypes.Count -eq 0
-    if ($report.census.zeroTypes.Count) { $bDetail += "persisted types with 0 entities: $($report.census.zeroTypes -join ', ')" }
+    # B3: a type newer than the save may have 0 entities (info); every older type with 0 still FAILs.
+    $newerInfo = Get-NewerPersistedTypes $Stem
+    $zeroNewer = @($report.census.zeroTypes | Where-Object { $newerInfo.newer -contains $_ })
+    $zeroOld = @($report.census.zeroTypes | Where-Object { $newerInfo.newer -notcontains $_ })
+    $result.newerTypes = [ordered]@{ saveVersion = $newerInfo.version; release = $newerInfo.release; types = $newerInfo.newer; zero = $zeroNewer; note = $newerInfo.note }
+    $bPass = $zeroOld.Count -eq 0 -and $report.census.unresolvedTypes.Count -eq 0
+    if ($zeroOld.Count) { $bDetail += "persisted types with 0 entities: $($zeroOld -join ', ')" }
+    if ($zeroNewer.Count) { $bDetail += "info: 0 entities of type(s) newer than the save's $($newerInfo.release) layouts (expected): $($zeroNewer -join ', ')" }
+    if ($newerInfo.note) { $bDetail += "info: $($newerInfo.note)" }
     if ($report.census.unresolvedTypes.Count) { $bDetail += "persisted types not found: $($report.census.unresolvedTypes -join ', ')" }
     if ($BaselinePath -and (Test-Path $BaselinePath) -and -not $WriteBaseline) {
         $base = Get-Content $BaselinePath -Raw -Encoding UTF8 | ConvertFrom-Json

@@ -51,7 +51,7 @@ $mod = Join-Path $Repo 'mod\SkiResortMod'
 Add-Gate 'compile' 'heavy' $mod 'dotnet build -t:Compile'
 # The node gates are DERIVED from the 'gates' job of .github/workflows/ci.yml, so this list cannot drift from CI (2026-11-16: three branches went red on
 # check-run-props because a hand-kept list missed it). Every `node ...` command line of that job runs here, in its working-directory.
-# Only gates CI does not run (tooltip-units, ui-contract) are added by hand below.
+# Only gates CI does not run (tooltip-units, loadcheck-newer, ui-contract) are added by hand below.
 $nm = Join-Path $Ui 'node_modules'
 $ci = Join-Path $Repo '.github\workflows\ci.yml'
 $ciGates = 0
@@ -84,6 +84,7 @@ if (Test-Path -LiteralPath $ci) {
 }
 if ($ciGates -lt 10) { Write-Warning "gates: only $ciGates node gates found in ci.yml: the parser is out of date with the workflow" }
 Add-Gate 'tooltip-units' 'node' $Repo 'node tools\check-tooltip-units.js'   # local only, CI does not run it
+Add-Gate 'loadcheck-newer' 'node' $Repo 'powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-loadcheck-newer.ps1'   # local only (r8-testpass B3)
 Add-Gate 'ui-typecheck' 'heavy' $Ui 'npm run typecheck' '' $nm
 Add-Gate 'ui-contract' 'node' $Ui 'node tools\check-bundle.js --contract-only' '' $nm   # local only
 Add-Gate 'ui-build' 'heavy' $Ui 'npm run build' 'ui-typecheck' $nm

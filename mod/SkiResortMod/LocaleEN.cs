@@ -717,6 +717,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.TREES_APPLY_TO", "Apply to" },
                 { "SkiResort.Hub.TREES_UNAVAILABLE", "The tree tool is not available right now." },
                 { "SkiResort.Hub.RUNS_EMPTY", "No runs yet." },
+                { "SkiResort.Hub.RUNS_NOTE_SNOW_VISUALS", "Snow visuals are off in Options: runs work, but show no snow." },
                 { "SkiResort.Hub.COL_LENGTH", "Length" },
                 { "SkiResort.Hub.COL_DROP", "Drop" },
                 { "SkiResort.Hub.COL_AREA", "Area" },

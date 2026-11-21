@@ -344,6 +344,8 @@ export const HUB_LOC = {
   colLengthTip: ["SkiResort.Hub.COL_LENGTH_TIP", "Horizontal length, estimated from the outline."],
   colDropTip: ["SkiResort.Hub.COL_DROP_TIP", "Approximate height from the lowest to the highest point of the outline."],
   runsEmpty: ["SkiResort.Hub.RUNS_EMPTY", "No runs yet."],
+  /* the Runs view's note while the game's Options > Gameplay > Snow visuals is off (CityStats.snowVisualsOff): the runs draw almost no snow (r8-testpass T288) */
+  runsNoteSnowVisuals: ["SkiResort.Hub.RUNS_NOTE_SNOW_VISUALS", "Snow visuals are off in Options: runs work, but show no snow."],
   runEstimated: ["SkiResort.Hub.RUN_ESTIMATED", "Estimated from the day's temperature."],
   /* the run tooltip's state line while the snow is estimated: no share, nothing was read (RunList.tsx runTip) */
   runOpenEstOpen: ["SkiResort.Hub.RUN_OPEN_EST[Open]", "Open, estimated from the day's temperature"],
