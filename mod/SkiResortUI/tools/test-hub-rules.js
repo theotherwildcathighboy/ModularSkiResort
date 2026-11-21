@@ -859,6 +859,29 @@ function run(srcDir) {
     eq("PG.1 fit.tsx pages by the anchor", /anchoredPage\(pageOf, state\.current\.page/.test(fs.readFileSync(path.join(srcDir, "hub", "fit.tsx"), "utf8")), true);
     // PG.2: row heights by margin-box tops, so a row's margin-top never counts in the row above it (a divider at a page's end flipped
     // between pages every two frames: the tooltip pass that never went quiet at 2160 x 1.5)
+    // PG.3 (r8-testpass B1): Gameface's getComputedStyle returns "4rem" and a root font size of "0.0520833vw" (1 px of rem per 1920 px of
+    // width); Chrome returns px, so the harness cannot catch a parseFloat. cssPx converts; fit.tsx reads every length through it.
+    const r4k = R.rootFontPx("0.0520833vw", 3840, 2160), r1080 = R.rootFontPx("0.0520833vw", 1920, 1080);
+    eq("PG.3 root rem from a vw root (1080p, 4K), from px, unparsable = 16", [Math.round(r1080 * 1000) / 1000, Math.round(r4k * 1000) / 1000,
+      R.rootFontPx("16px", 1920, 1080), R.rootFontPx("", 1920, 1080), R.rootFontPx("auto", 1920, 1080)], [1, 2, 16, 16, 16]);
+    eq("PG.3 a Gameface margin of \"4rem\" in px (1080p, 4K), and the other units", [Math.round(R.cssPx("4rem", r1080, 1920, 1080) * 100) / 100,
+      Math.round(R.cssPx("4rem", r4k, 3840, 2160) * 100) / 100, R.cssPx("4px", r4k, 3840, 2160), R.cssPx("12", 2, 100, 100), R.cssPx("10vh", 2, 100, 500),
+      R.cssPx("2.5REM", 2, 0, 0), R.cssPx("auto", 2, 100, 100), R.cssPx("", 2, 100, 100), R.cssPx(undefined, 2, 100, 100), R.cssPx("1em", 2, 100, 100)],
+      [4, 8, 4, 12, 50, 5, 0, 0, 0, 0]);
+    {
+      const fitSrc = fs.readFileSync(path.join(srcDir, "hub", "fit.tsx"), "utf8");
+      eq("PG.3 fit.tsx reads lengths through cssPx (no bare parseFloat of a computed style)", [/parseFloat\(cs\./.test(fitSrc), /cssPx\(v, rem, w, h\)/.test(fitSrc)], [false, true]);
+    }
+    // SL.1 (r8-testpass B2): after a commit the slider holds the asked value until any echo from C# (a paused game took up to 5 s,
+    // n=5), with an 8 s cap for no answer
+    eq("SL.1 pending holds: no echo yet / the asked echo / another echo (clamped or refused) / nothing pending",
+      [R.pendingHolds(120, 100, 100), R.pendingHolds(120, 100, 120), R.pendingHolds(120, 100, 115), R.pendingHolds(null, 100, 100)], [true, false, false, false]);
+    eq("SL.1 the cap outlasts the slowest paused echo seen (5 s)", R.PENDING_ECHO_MS > 5000 && R.PENDING_ECHO_MS <= 10000, true);
+    {
+      const sl = fs.readFileSync(path.join(srcDir, "hub", "Slider.tsx"), "utf8");
+      eq("SL.1 Slider.tsx uses the rule (no fixed 3 s)", [/pendingHolds\(pend\.v, pend\.from, value\)/.test(sl), /PENDING_ECHO_MS\)/.test(sl), /PENDING_MS = 3000/.test(sl)], [true, true, false]);
+    }
+    // PG.2: margin-box tops (see above)
     eq("PG.2 fit.tsx measures margin-box tops", /getBoundingClientRect\(\)\.top - mt\[i\]/.test(fs.readFileSync(path.join(srcDir, "hub", "fit.tsx"), "utf8")), true);
   }
   // T31 (DECISIONS 423b) the cat track delete: a trash only on a cat track row (other rows keep an empty slot), armed by the first click

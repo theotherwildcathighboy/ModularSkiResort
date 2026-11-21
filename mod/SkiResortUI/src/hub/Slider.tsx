@@ -7,7 +7,8 @@
  * no wheel (it scrolls the Runs view, and a wheel step on a run re-emits it).
  * C# writes: onCommit once, on release, and only when the stop changed. onShown gets the value the slider shows (each stop while
  * dragging, then the asked value, then C#'s), so a text line can show it and its effect live (the demand next to the price) with no trigger. After a commit the slider shows the asked value until C# sends it
- * back or PENDING_MS passes (C# refused or did not answer), as the old price stepper did (T240).
+ * back, or until C# sends any other value (it clamped or refused), or PENDING_ECHO_MS passes (no answer): hubRules.pendingHolds
+ * (r8-testpass B2: a paused game echoed in up to 5 s, and the old fixed 3 s let the thumb snap back). As the old price stepper (T240).
  * The track position math is hubRules.sliderPos / sliderStopAt (test-hub-rules oracles). heat: a demand-colored track (the price and the
  * pass) in place of the accent fill.
  * Gameface: no <input type=range> (not drawn there). The thumb and fill sit by percent inside a fixed box, so a value change never moves
@@ -16,10 +17,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { StableWidth, Tip, cx } from "./parts";
-import { sliderPos, sliderStopAt } from "./hubRules";
+import { PENDING_ECHO_MS, pendingHolds, sliderPos, sliderStopAt } from "./hubRules";
 import styles from "./hub.module.scss";
-
-const PENDING_MS = 3000;
 
 export interface SliderProps {
   /** The values in screen order, left to right (at least 2). */
@@ -49,13 +48,17 @@ export interface SliderProps {
 export function Slider({ stops, value, format, samples, onCommit, onShown, disabled, marks, heat, ticks, tip, wide }: SliderProps): JSX.Element {
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<number | null>(null);
-  const [pending, setPending] = useState<number | null>(null);
-  useEffect(() => { if (pending !== null && pending === value) setPending(null); }, [value, pending]);
+  // The asked value and C#'s value when it was sent (`from`): held until any echo (hubRules.pendingHolds)
+  const [pend, setPend] = useState<{ v: number; from: number } | null>(null);
+  const pending = pend ? pend.v : null;
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  useEffect(() => { if (pend && !pendingHolds(pend.v, pend.from, value)) setPend(null); }, [value, pend]);
   useEffect(() => {
-    if (pending === null) return undefined;
-    const id = window.setTimeout(() => setPending(null), PENDING_MS);
+    if (pend === null) return undefined;
+    const id = window.setTimeout(() => setPend(null), PENDING_ECHO_MS);
     return () => window.clearTimeout(id);
-  }, [pending]);
+  }, [pend]);
 
   const shown = drag !== null ? drag : pending !== null ? pending : value;
   useEffect(() => { if (onShown) onShown(shown); }, [shown, onShown]);
@@ -87,7 +90,7 @@ export function Slider({ stops, value, format, samples, onCommit, onShown, disab
     const up = (): void => {
       stop();
       if (cur !== (pending !== null ? pending : value)) {
-        setPending(cur);
+        setPend({ v: cur, from: valueRef.current });
         onCommit(cur);
       }
     };

@@ -1687,6 +1687,35 @@ export function anchoredPage(pageOf: readonly number[], asked: number, anchorRow
   return Math.min(Math.max(0, asked), n - 1);
 }
 
+/** Slider.tsx after a commit (r8-testpass B2: a paused game echoed in 0.25-5.0 s, n=5, and the old fixed 3 s let the thumb snap back
+ *  to the old value). The slider shows the asked value while this holds: C#'s value is still the one it had at the commit
+ *  (`sentFrom`) and is not the asked one. Any echo ends it, the asked value or another (C# clamped or refused it), so a refusal shows at
+ *  once when C# says so. PENDING_ECHO_MS is the safety cap when C# never answers. */
+export const PENDING_ECHO_MS = 8000;
+export function pendingHolds(pending: number | null, sentFrom: number, value: number): boolean {
+  return pending !== null && value === sentFrom && value !== pending;
+}
+
+/** A computed CSS length in px (fit.tsx reads margins and paddings with getComputedStyle). Chrome returns px; Gameface returns the
+ *  authored unit: "4rem" for a margin, and "0.0520833vw" for the root font size (r8-testpass B1: "4rem" read as 4 px, exact only at
+ *  1920 px wide, under-read by width / 1920 at 4K). `remPx` = px of 1 rem (rootFontPx), `vw` / `vh` = the viewport in px. Units:
+ *  px, rem, vw, vh, a bare number (px); anything else or unparsable = 0. */
+export function cssPx(value: string | null | undefined, remPx: number, vw: number, vh: number): number {
+  const m = /^\s*(-?[0-9]*\.?[0-9]+(?:e-?[0-9]+)?)\s*(px|rem|vw|vh)?\s*$/i.exec(value || "");
+  if (!m) return 0;
+  const n = parseFloat(m[1]);
+  if (!Number.isFinite(n)) return 0;
+  const u = (m[2] || "px").toLowerCase();
+  const px = u === "px" ? n : u === "rem" ? n * remPx : u === "vw" ? n * vw / 100 : n * vh / 100;
+  return Number.isFinite(px) ? px : 0;
+}
+/** px of 1 rem from the root's computed font size (Gameface: "0.0520833vw" = 1 px per 1920 px of width; Chrome: "16px"). A rem
+ *  in the root's own font size is the CSS initial 16 px. 0 or unparsable: 16. */
+export function rootFontPx(fontSize: string | null | undefined, vw: number, vh: number): number {
+  const px = cssPx(fontSize, 16, vw, vh);
+  return px > 0 ? px : 16;
+}
+
 /** U+00A0, the no-break space of the inline rescue (iconInlinePieces). */
 export const NBSP = " ";
 

@@ -16,11 +16,10 @@ import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { useT } from "../l10n";
 import { folds$, openFold, toggleFold } from "./hubState";
-import { PAGER_DOTS_MAX, nextPageTitleRow } from "./hubRules";
+import { PAGER_DOTS_MAX, anchoredPage, cssPx, nextPageTitleRow, rootFontPx } from "./hubRules";
 import { HUB_FMT, HUB_LOC } from "./hubText";
 import { Glyph, LocText, MarkSlot, Tip, cx, numArg } from "./parts";
 import styles from "./hub.module.scss";
-import { anchoredPage } from "./hubRules";
 
 export const GLYPH_FOLD_CLOSED = "Media/Glyphs/ThickStrokeArrowRight.svg";
 export const GLYPH_FOLD_OPEN = "Media/Glyphs/ThickStrokeArrowDown.svg";
@@ -90,15 +89,23 @@ function freeHeight(body: HTMLElement, box: HTMLElement): number {
     const next = content.nextElementSibling as HTMLElement | null;
     // The panel content's own bottom padding and border are not room: the Scrollable ends above them
     const cs = getComputedStyle(content), cb = content.getBoundingClientRect().bottom;
-    const limit = cb - (parseFloat(cs.paddingBottom) || 0) - (parseFloat(cs.borderBottomWidth) || 0) + Math.max(0, (next ? next.getBoundingClientRect().top : cb) - cb);
+    const limit = cb - lengthPx(cs.paddingBottom) - lengthPx(cs.borderBottomWidth) + Math.max(0, (next ? next.getBoundingClientRect().top : cb) - cb);
     return Math.max(0, limit - box.getBoundingClientRect().bottom);
   } catch { return 0; }
+}
+/** A computed length in px. Gameface's getComputedStyle returns the authored unit ("4rem") and a root font size in vw, Chrome returns
+ *  px (r8-testpass B1: a margin of "4rem" read as 4 px, short by width / 1920 at 4K): hubRules.cssPx with this window's rem. */
+function lengthPx(v: string): number {
+  const w = window.innerWidth, h = window.innerHeight;
+  let rem = 16;
+  try { rem = rootFontPx(getComputedStyle(document.documentElement).fontSize, w, h); } catch { /* the CSS initial 16 px */ }
+  return cssPx(v, rem, w, h);
 }
 function innerHeight(el: HTMLElement): number {
   let pad = 0;
   try {
     const cs = getComputedStyle(el);
-    pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+    pad = lengthPx(cs.paddingTop) + lengthPx(cs.paddingBottom);
   } catch { /* no computed style: 0 */ }
   return el.clientHeight - pad;
 }
@@ -272,7 +279,7 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
         for (let i = 0; i < rows.length; i++) if (rows[i].style.display !== "none") drawn.push(i);
         // A drawn row's margins (the slot is a flex column: margins never collapse, so margin boxes tile it exactly)
         const margin = (r: HTMLElement): [number, number] => {
-          try { const cs = getComputedStyle(r); return [parseFloat(cs.marginTop) || 0, parseFloat(cs.marginBottom) || 0]; } catch { return [0, 0]; }
+          try { const cs = getComputedStyle(r); return [lengthPx(cs.marginTop), lengthPx(cs.marginBottom)]; } catch { return [0, 0]; }
         };
         const mt: number[] = rows.map(() => 0), mb: number[] = rows.map(() => 0);
         for (const i of drawn) [mt[i], mb[i]] = margin(rows[i]);
