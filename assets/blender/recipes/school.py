@@ -1008,6 +1008,8 @@ def build(recipe, opts):
             "ground_prefixes": tuple(recipe.ground_prefixes) + STEP_BASE_GROUND,
             "lod1_extra": tuple(p for p in recipe.lod1_extra if p not in STEP_BASE_GROUND),
             "lod2_extra": tuple(p for p in recipe.lod2_extra if p not in STEP_BASE_GROUND)}
+    if opts.get("texpass", "off") != "off":     # T278: the v1 emblem on the tower field + the flags (v1_labels)
+        opts.setdefault("recipe_replace", {})["labels"] = v1_labels()
     return P
 
 
@@ -1130,6 +1132,29 @@ def _labels():
 
 
 RECIPE = _labels()
+
+# T278 (1.0.4, texture pass v1): the school's emblem. 1.0.3 drew ski_launcher_glyph.cand_d, a launcher-icon candidate (a
+# skier on a solid slope wedge); on the tower it reads as a figure kneeling on a sled at 45 m. Under --texpass v1 the
+# tower field and both flag cloths draw EMBLEM_V1 (school_emblem.py: original designs, every stroke >= 3 texels at the
+# mip a 45 m 1080p frame samples). The field becomes a display glyph with no ground (the siding shows, as before), at
+# FIELD_FRAC_V1 of the field (0.95: 12 % larger than 1.0.3's 0.85, the design has room inside the field). Why
+# the field is there: the tower is the school's landmark from the slope, and a pictogram reads where "SKI SCHOOL" text
+# is too small. Drop-in: a sign or mascot variant is one more school_emblem function plus this one name (same faces,
+# same label rects, same painters). The sign set boards keep cand_d: sheet C is frozen (a new emblem there = letter D +
+# an import + the school prefab's sign rows).
+EMBLEM_V1 = "emblem_skier_b"
+FIELD_FRAC_V1 = 0.95
+
+
+def v1_labels(emblem=EMBLEM_V1):
+    """The label table under --texpass v1 (build() hands it back in opts["recipe_replace"]): the tower field and the
+    flags draw `emblem`; every other label is DISPLAY_LABELS unchanged. Same prefixes, so the label rects stay."""
+    field = _disp(FIELD_FACE, ("glyph", {"prims": emblem, "fg": WHITE, "frac": FIELD_FRAC_V1}))
+    rest = tuple(e for e in DISPLAY_LABELS if not e[0].startswith("emblem_schoolflag"))
+    flags = tuple(_disp(f"emblem_schoolflag{s}_face", ("glyph", {"prims": emblem, "fg": WHITE, "frac": 0.85,
+                                                                 "bg": SCHOOL_RED}))
+                  for s in "AB")
+    return (field,) + rest + flags
 
 
 # ======================================================================================
