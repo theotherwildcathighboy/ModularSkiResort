@@ -1,41 +1,44 @@
 """
 test_fg_counterweight.py - T277 (1.0.4): the FG drive station's counterweight pot under --texpass v1 (lift_terminal.py
 TP1_CW_REKEY / cw_materials_m / cw_detail_specs_m / check_cw_m), and T277b: the see-through closes of the same letter
-(sv_web_m / sv_rope_wrap_m / the leg caps / check_sv_m). Why the parts are there: the Yan drive-tension base is tensioned
-by gravity; the pot hangs from two ropes over the mast-head sheaves and pulls the bullwheel carriage back. The 1.0.4
-review found it read as a lacquered can (it shared paint1 at smoothness 0.58, a smooth cylinder without relief). The
-seethru gate found the play camera looking through the open bullwheel, into the open leg tops and through the empty
-sheave grooves.
+(sv_rim_band_m / sv_drip_m / sv_rope_wrap_m / the leg caps / check_sv_m). Why the parts are there: the Yan drive-tension
+base is tensioned by gravity; the pot hangs from two ropes over the mast-head sheaves and pulls the bullwheel carriage
+back. The 1.0.4 review found it read as a lacquered can (it shared paint1 at smoothness 0.58, a smooth cylinder without
+relief). The seethru gate found the play camera looking into the bullwheel rim's open channel, through the slit of the
+booth roof's drip flashing, into the open leg tops and through the empty sheave grooves.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_fg_counterweight.py
 
 Every build here is the shipped Q setup (--rig, wheels v2, fine detail), drive and return.
 - CW0 flag off: the drive station's pot and bail are paint1, no part and no table carries cwpaint, detail_specs_m has no
   cwpot entry (flag-off output byte for byte: the build chain proves the maps, this proves the keys).
-- CW1 v1: exactly cwpot and cwpot_bail move to cwpaint; every other part keeps its v1 key; the T277 rekey adds no
-  geometry (apart from the T277b parts, names, order and polygon counts equal the flag-off build). The return station
-  carries no cwpaint. check_cw_m passes on the shipped constants.
-- CW2 the coat: metal <= 0.05, smoothness <= 0.30, slot 1 recolor like paint1 (the frame color is unchanged).
+- CW1 v1: exactly cwpot (to the pad's concrete: the overnight call) and cwpot_bail (to cwpaint) move; every other part
+  keeps its v1 key; the T277 rekey adds no geometry (apart from the T277b parts, names, order and polygon counts equal
+  the flag-off build). The return station carries no cwpaint. check_cw_m passes on the shipped constants.
+- CW2 the bail's coat: metal <= 0.05, smoothness <= 0.30, slot 1 recolor like paint1 (the frame color is unchanged).
 - CW3 the joints and the tone read at the pot's density on the Q export (manifest density.classes.cwpot.px_per_m when
   the Q import is present, else TP1_CW_PPM): world-height band marks on the pot wall only (none on the foot or the lid:
   DetailSpec "rings" seams striped the lid, critic r7), each >= TEXEL_FLOOR texels wide, a groove deeper than
   TP1_CAVITY from_m; the mottle cell >= TP1_TONE_FLOOR_TEXELS.
-- SV0 flag off: no spoke_web, no rope wrap, the legs open-topped (16 faces).
-- SV1 v1 drive: added exactly spoke_web (darksteel, on the Bullwheel bone) and the wraps cwrope_<side>_wh0..2 / _wd
-  (rope); the four legs gain their top cap (16 fan faces); the tri delta of the assembled LOD0 = sv_tris_m(); the wraps
-  start and end on the straight rope pieces' tangent points (2 mm); check_sv_m passes. The return station v1 has no
-  T277b part (the top keeps its letter).
-- SV2 the contracts of the v1 drive build pass (M1-M21: M7 declares the web not walkable, M8 the wrap / cable joint),
+- SV0 flag off: no rope wrap, the legs open-topped (16 faces), the rim open (192 faces), the drip strips open toward
+  the roof (5 faces).
+- SV1 v1 drive: added exactly the wraps cwrope_<side>_wh0..2 / _wd (rope); the rim gains its inner wall (+32 faces, still
+  on the Bullwheel bone, check_sv_m passes on it), each drip strip its face toward the roof (6 faces), the four legs
+  their top cap (16 fan faces); the tri delta of the assembled LOD0 = sv_tris_m(); the wraps start and end on the
+  straight rope pieces' tangent points (2 mm). The return station v1 has no T277b part (the top keeps its letter).
+- SV2 the contracts of the v1 drive build pass (M1-M21: M8 declares the wrap / cable joint),
   also with T279's --comm-arm (the export candidate: M22 too); M15's count (the joined LOD0, the _Win part included)
   stays under TP1_RIG_LOD0_CAP with the arm, and the flag-off build under RIG_LOD0_CAP.
 - Negatives (each must raise MContractError with its code): a rekey naming a leg (CW1); a satin coat 0.42 rough, a
   metal 0.10 coat, a slot-2 coat (CW2); 0.03 m joints, 2 mm joints, raised joints, a joint on the foot, no joint at
-  all, a 0.08 m mottle cell (CW3); a web whose edge shows inside the rim, a web below the rim (SV1).
+  all, a 0.08 m mottle cell (CW3); the kit's open rim (the flag-off build), an inner wall facing away from the axis (SV1).
 """
 import json
+import math
 import os
 import sys
 
+import bmesh
 import bpy  # noqa: F401  (Blender only)
 import numpy as np
 
@@ -53,9 +56,12 @@ REPO = os.path.normpath(os.path.join(HERE, os.pardir, os.pardir, os.pardir))
 Q_MANIFEST = os.path.join(REPO, "assets", "import", "stations", "fixedgrip", "Q", "SkiLiftBaseStationQ",
                           "SkiLiftBaseStationQ.manifest.json")
 CW_PARTS = ("cwpot", "cwpot_bail")
-SV_PARTS = ("spoke_web", "cwrope_n_wh0", "cwrope_n_wh1", "cwrope_n_wh2", "cwrope_n_wd",
+SV_PARTS = ("cwrope_n_wh0", "cwrope_n_wh1", "cwrope_n_wh2", "cwrope_n_wd",
             "cwrope_p_wh0", "cwrope_p_wh1", "cwrope_p_wh2", "cwrope_p_wd")
 LEGS = ("leg_f_n", "leg_f_p", "leg_b_n", "leg_b_p")
+RIM = "sheave_bull_rim"
+DRIPS = tuple(f"drip_hutroof_{k}" for k in LT.SV_DRIP_SIDES)
+SV_CHANGED = LEGS + (RIM,) + DRIPS          # same part, more faces under v1
 
 
 def check(cond, label, detail=""):
@@ -91,10 +97,10 @@ def station(kind, texpass, contracts=False, comm=False):
     keys = [(o.name, m, len(o.data.polygons)) for o, m in parts]
     bpy.context.view_layer.update()     # matrix_world of the freshly placed parts
     verts = {o.name: [tuple(o.matrix_world @ v.co) for v in o.data.vertices] for o, _m in parts
-             if o.name.startswith(("cwrope_", "cwcable_", "spoke_web"))}
+             if o.name.startswith(("cwrope_", "cwcable_"))}
     table = LT.materials_for_m(parts)
     specs = LT.detail_specs_m()
-    extra = {"verts": verts}
+    extra = {"verts": verts, "sv": sv_probe(parts)}
     if contracts:
         t, tb, _src = LT.assemble_m(parts, False, kind)
         extra["tris"] = cs2_asset.tri_count(t)
@@ -104,6 +110,29 @@ def station(kind, texpass, contracts=False, comm=False):
             extra["contracts_error"] = str(e)
         extra["bones"] = LT.rig_part_bones_m(tb, kind)
     return keys, table, specs, extra
+
+
+def sv_probe(parts):
+    """check_sv_m on the build's rim ("ok" or the error) and on a copy with its inner wall reversed (the negative)."""
+    rim = next((o for o, _m in parts if o.name == RIM), None)
+    if rim is None:
+        return {}
+
+    def run(arg):
+        try:
+            LT.check_sv_m(arg)
+            return "ok"
+        except LT.MContractError as e:
+            return str(e)
+    out = {"rim": run(rim)}
+    bm = bmesh.new()
+    bm.from_mesh(rim.data)
+    inner = [f for f in bm.faces if all(abs(math.hypot(v.co.x, v.co.y) - LT.SV_RIM_INNER) < 1e-4 for v in f.verts)]
+    if inner:
+        bmesh.ops.reverse_faces(bm, faces=inner)
+        out["flipped"] = run(bm)
+    bm.free()
+    return out
 
 
 def rope_ends(pts):
@@ -140,10 +169,10 @@ def main():
     check("cwpot" not in off_specs and "cwpot_bail" not in off_specs, "CW0 flag off: no pot joints in detail_specs_m")
     # CW1
     moved = sorted(n for n in v1k if n in offk and v1k[n] != offk[n])
-    check(moved == sorted(CW_PARTS) and all(v1k[n] == "cwpaint" for n in CW_PARTS),
-          "CW1 v1: exactly the pot + bail move to cwpaint", f"(moved {moved})")
-    same = [(n, p) for n, _m, p in v1 if n not in SV_PARTS and n not in LEGS]
-    check([(n, p) for n, _m, p in off if n not in LEGS] == same,
+    check(moved == sorted(CW_PARTS) and v1k["cwpot"] == "concrete" and v1k["cwpot_bail"] == "cwpaint",
+          "CW1 v1: exactly the pot (concrete) + bail (cwpaint) move", f"(moved {moved})")
+    same = [(n, p) for n, _m, p in v1 if n not in SV_PARTS and n not in SV_CHANGED]
+    check([(n, p) for n, _m, p in off if n not in SV_CHANGED] == same,
           "CW1 v1: apart from the T277b parts, names, order and polygon counts = flag off", f"({len(same)} parts)")
     check(v1k.get("cwmast") == "paint1", "CW1 v1: the mast stays paint1 (its bolted seams already break the highlight)")
     check("cwpaint" not in {m for _n, m, _p in top} and "cwpaint" not in top_table,
@@ -181,13 +210,22 @@ def main():
           f"({LT.TP1_TONE['cwpaint']['mottle_m'] * ppm:.1f} texels)")
     # SV0 / SV1
     check(not any(n in offk for n in SV_PARTS) and all(offp[n] == 16 for n in LEGS),
-          "SV0 flag off: no web, no wrap, the legs open-topped (16 faces)", f"(legs {[offp[n] for n in LEGS]})")
+          "SV0 flag off: no wrap, the legs open-topped (16 faces)", f"(legs {[offp[n] for n in LEGS]})")
+    check(offp.get(RIM) == 6 * LT.SV_RIM_SEGS and all(offp.get(n) == 5 for n in DRIPS),
+          "SV0 flag off: the kit's open rim (192 faces) and open drip strips (5 faces)",
+          f"(rim {offp.get(RIM)}, drips {[offp.get(n) for n in DRIPS]})")
     added = sorted(n for n in v1k if n not in offk)
-    check(added == sorted(SV_PARTS), "SV1 v1: added exactly the web and the rope wraps", f"({added})")
-    check(v1k.get("spoke_web") == "darksteel" and all(v1k[n] == "rope" for n in SV_PARTS[1:]),
-          "SV1 v1: the web on darksteel, the wraps on rope")
-    check(v1_x["bones"].get("spoke_web") == "Bullwheel", "SV1 v1: the web rides the Bullwheel bone",
-          f"({v1_x['bones'].get('spoke_web')})")
+    check(added == sorted(SV_PARTS), "SV1 v1: added exactly the rope wraps (no new part for the rim or the drips)",
+          f"({added})")
+    check(all(v1k[n] == "rope" for n in SV_PARTS) and v1k.get(RIM) == offk.get(RIM),
+          "SV1 v1: the wraps on rope, the rim keeps its key", f"(rim {v1k.get(RIM)})")
+    check(v1p.get(RIM) == offp.get(RIM, 0) + LT.SV_RIM_SEGS and v1_x["sv"].get("rim") == "ok",
+          "SV1 v1: the rim gains its inner wall (+32 faces) and check_sv_m passes on it",
+          f"({offp.get(RIM)} -> {v1p.get(RIM)}; {v1_x['sv'].get('rim', '')[:100]})")
+    check(v1_x["bones"].get(RIM) == "Bullwheel", "SV1 v1: the closed rim still rides the Bullwheel bone",
+          f"({v1_x['bones'].get(RIM)})")
+    check(all(v1p.get(n) == 6 for n in DRIPS), "SV1 v1: each drip strip gains its face toward the roof (6 faces)",
+          f"({[v1p.get(n) for n in DRIPS]})")
     check(all(v1p[n] == 32 for n in LEGS), "SV1 v1: the four legs gain their top cap (16 + 16 fan faces)",
           f"({[v1p[n] for n in LEGS]})")
     check(v1_x["tris"] - off_x["tris"] == LT.sv_tris_m(), "SV1 v1: the LOD0 tri delta = sv_tris_m()",
@@ -200,15 +238,10 @@ def main():
                            (f"cwrope_{side}_1", f"cwrope_{side}_wd", f"the deflection wrap ends on cwrope_{side}_1's start")):
             d = min(max(abs(p - q) for p, q in zip(ea, eb)) for ea in rope_ends(V[a]) for eb in rope_ends(V[b]))
             check(d <= 2e-3, f"SV1 v1: {what} (2 mm)", f"({d * 1000:.2f} mm)")
-    try:
-        LT.check_sv_m()
-        check(True, "SV1 check_sv_m passes on the shipped constants")
-    except LT.MContractError as e:
-        check(False, "SV1 check_sv_m passes on the shipped constants", f"({e})")
     check([(n, p) for n, _m, p in top_off] == [(n, p) for n, _m, p in top],
           "SV1 v1: the return station's parts and polygon counts = flag off (the top keeps its letter)")
     # SV2
-    check("contracts_error" not in v1_x, "SV2 v1 drive: M1-M21 pass (M7 web not walkable, M8 wrap / cable declared)",
+    check("contracts_error" not in v1_x, "SV2 v1 drive: M1-M21 pass (M8 wrap / cable declared)",
           f"({v1_x.get('contracts_error', 'ok')[:160]})")
     cap = LT.TP1_RIG_LOD0_CAP["drive"]
     check("contracts_error" not in cm_x and "M22" in cm_x.get("contracts", {}),
@@ -234,9 +267,9 @@ def main():
     expect("CW3", lambda: LT.check_cw_m(joint={**J, "pitch_m": 1.2}), "negative: no joint")
     expect("CW3", lambda: LT.check_cw_m(tone={**LT.TP1_TONE["cwpaint"], "mottle_m": 0.08}),
            "negative: 0.08 m mottle cell")
-    W = dict(LT.TP1_SV_WEB)
-    expect("SV1", lambda: LT.check_sv_m(web={**W, "r": 1.50}), "negative: a web whose edge shows inside the rim")
-    expect("SV1", lambda: LT.check_sv_m(web={**W, "z_bot": -0.25}), "negative: a web below the rim")
+    for what, got in (("the kit's open rim (flag off)", off_x["sv"].get("rim", "")),
+                      ("an inner wall facing away from the axis", v1_x["sv"].get("flipped", ""))):
+        check(got.startswith("SV1"), f"negative: {what} -> SV1", f"({got[:120]})")
     if FAILS:
         print(f"FAIL test_fg_counterweight: {len(FAILS)} failed: {FAILS}")
         sys.exit(1)
