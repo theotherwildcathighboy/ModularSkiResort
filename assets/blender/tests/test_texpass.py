@@ -79,7 +79,8 @@ Gates (the pilot's lessons, made mechanical):
       (0.64 m past its end: in the air) are reported with those lengths and RAISE; "report" mode only reports; a
       STRIP_ALLOW line makes a strip "allowed" (flag "off": only with the pass off, the same strip under v1 raises; a
       bad flag fails); lodge.py runs the gate after the weather ladder.
-  P17 rib contrast (r7 T272): every ribbed flat key of v1 (metal_roof_lt) keeps an albedo contrast across its ribs of at
+  P17 rib contrast (r7 T272): every ribbed flat key of v1 with a contact shade (metal_roof_lt; bare-metal ribbed keys read
+      by reflection, their albedo stays near-flat) keeps an albedo contrast across its ribs of at
       least 0.15 at the mip a 1080p frame samples at 45 m (ceil of log2(sheet px/m / (1,304 / 45))); 1.0.4's shipped
       L1 roof swatch (0.09 there, the owner's "blurry") fails it.
 Exit 1 on the first failure; one PASS line otherwise.
@@ -577,7 +578,7 @@ def check_low_frequency():
 
 # P17 (r7 T272): a flat ribbed roof's albedo contrast across its ribs at the mip a 1080p frame samples at 45 m (screen
 # px/m 1,304 / d, mip = ceil(log2(sheet px/m / screen px/m)), the coarser of the two levels the GPU blends). 1.0.4's L1
-# roof shipped 0.09 there and read "blurry" in the owner's review; the T272 swatch measures 0.22
+# roof shipped 0.09 there and read "blurry" in the owner's review; the T272 swatch measures 0.29
 MIP_CONTRAST_D_M = 45.0
 MIP_CONTRAST_MIN = 0.15
 
@@ -602,8 +603,8 @@ def check_mip_contrast():
     rows = []
     try:
         lay = layout()
-        keys = sorted(k for k, s in TS.TEXPASS_FLAT["v1"].items() if s.get("ribs"))
-        assert keys, "no ribbed flat key in TEXPASS_FLAT v1"
+        keys = sorted(k for k, s in TS.TEXPASS_FLAT["v1"].items() if s.get("ribs") and s.get("ao"))
+        assert keys, "no ribbed flat key with a contact shade (ao) in TEXPASS_FLAT v1"
         for k in keys:
             c, lv = rib_mip_contrast(k, lay)
             assert c >= MIP_CONTRAST_MIN, (f"{k}: albedo contrast across the ribs {c:.3f} at mip {lv} "

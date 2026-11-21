@@ -549,14 +549,15 @@ TEXPASS_ROOF_KICK_MAX_DEG = {"slate": 11.0}
 # r7 T272 (owner review of 1.0.4: the L1 roof "blurry, we went backwards"): px/m (320), tile (3.0 m) and mip (3.5 at
 # 45 m, 4.1 at 70 m on a 1080p frame) are 1.0.3's; the coated model lost the metal's reflections, and its one feature
 # was a 40 mm rib with an 11 % albedo dip, under 1.2 px at 45 m. Now: the rib 20 mm tall (was 14; real standing seams
-# 25-50 mm), a stronger, wider contact shade (ao 0.22, ao_m = its Gaussian sigma 22 mm: about 5 cm of shade line, the
-# 5 cm floor), and pan-to-pan paint shade (pan = +-2.5 % albedo) and sheen (pan_sm = +-0.06 before SMOOTH_GAIN), one
-# value per pan, so the panels read past the mips that eat the rib. Measured on the built cell: albedo column contrast
-# at mip 3 / 4 (45 / 70 m) 0.11 / 0.09 -> 0.26 / 0.22, smoothness sd 0.006 -> 0.021, albedo mean -1.5 % (the wider
-# shade), smoothness mean 0.40 held; same cell, 0 tris, 0 MB
+# 25-50 mm), a darker contact line at each seam (ao 0.35, ao_m = its Gaussian sigma 16 mm: about the width of 1.0.4's
+# line, sigma 17.5 mm, at three times its depth; a wider 22 mm band at 0.22 read as a soft smudge in review, the line
+# reads as an edge), and pan-to-pan paint shade (pan = +-2.5 % albedo) and sheen (pan_sm = +-0.06 before SMOOTH_GAIN),
+# one value per pan. Albedo column contrast across the ribs at mip 2 / 3 / 4 (45 m on a 4K / 1440p / 1080p frame):
+# 1.0.4 0.09 at mip 4 -> 0.39 / 0.37 / 0.29; albedo mean -1.9 % (the line), smoothness sd 0.006 -> 0.021, mean 0.40
+# held; same cell, 0 tris, 0 MB
 TEXPASS_FLAT = {
-    "v1": {"metal_roof_lt": {"metal": 0.0, "smooth": 0.40, "ribs": 7, "rib_m": (0.007, 0.022, 0.020), "ao": 0.22,
-                             "ao_m": 0.022, "pan": 0.025, "pan_sm": 0.06,
+    "v1": {"metal_roof_lt": {"metal": 0.0, "smooth": 0.40, "ribs": 7, "rib_m": (0.007, 0.022, 0.020), "ao": 0.35,
+                             "ao_m": 0.016, "pan": 0.025, "pan_sm": 0.06,
                              "smooth_streak": 0.012, "light_w": True, "paint": True},
            "metal_roof_s1": {"panel": {"name": "rib30w", "profile": "rib", "pitch_m": 0.30, "rib_top": 0.028, "rib_base": 0.096,
                                        "rib_h": 0.026, "can_mm": 0.3, "panel": 0.008, "streak": 0.0,
