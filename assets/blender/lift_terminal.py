@@ -1855,13 +1855,13 @@ M_CONTACTS = {
 M_LOD1_DELETE = ("bolt_", "clamp_", "drip_", "kick_", "post_", "rail_catwalk", "rail_bay",
                  "lrung_", "hatch_", "wrung_", "antwhip", "guy_", "winframe_", "doorlite_",
                  "raillug_", "holdhang_", "cwbrk_", "stoparm", "gusset_", "catbrk_", "wxarm",
-                 "wxcup", "propane", "plate_cap", "sheave_hold")
+                 "wxcup", "propane", "plate_cap", "sheave_hold", "commgland", "commstub_")
 M_LOD2_DELETE = M_LOD1_DELETE + ("spoke_", "wheelhub", "wheelrope", "grate_", "ladder_",
                                  "flange_", "stiff_", "saddle_", "endmember_", "carr_",
                                  "wheelshaft", "railcap_", "hutroof", "cabinet", "beamdrum_",
                                  "badge", "scale_", "cwrope_", "cwcable_", "sheave_cw",
                                  "wheeldisc_", "exhaust", "antenna", "holdboom_", "holdweb_", "holdplate_", "holdclamp_", "door_",
-                                 "stake", "bearing", "colplate", "wxmast", "ropechord_",
+                                 "stake", "bearing", "colplate", "wxmast", "ropechord_", "commarm", "commbox", "commsaddle", "commstrut_",
                                  "houseroof", "signband_", "loadramp")
 
 # ---------------------------------------------------------------- mesh helpers ------------
@@ -2418,6 +2418,55 @@ def build_hold_train_m(spec):
     return out
 
 
+# -- T279 (r7/lv, 2026-11-20): the comm arm of the base (CLI --comm-arm, drive + --rig) -------------------------------------
+# The lift's comm wire ("Low-voltage Cable Lane" on the line edges) ends on the station's single-point anchor, sub-lane idx 2 at
+# game (0, comm_y, anchor_out x) = (0, 6.50, -7.03). That point was on the crossarm of the hosted end tower. art-601 dropped
+# the tower (M_NOSE_TRAIN), so the wire has ended in open air between the two nose trains on every FG base since 1.0.0
+# (in-game probe t279snap: every FG base wire end on the anchor; photos old_SkiBaseStation_*). The anchor is prefab data and
+# old saves keep their lanes, so the fix is geometry AT the anchor, not a new anchor: a slim tube on the lift's center line
+# from a saddle on the front portal beam out to a small junction box whose line-side face carries the anchor (a cable gland at
+# the exact point). Lateral 0 is clear of both rope lanes, the chairs (lane +-1.8) and the articulated nose trains, so no
+# pose check is needed; the tube passes about 15 cm over the beam top and its badge. Root bone, static. Level 1 keeps the box and the arm,
+# level 2 drops it all (the LOD2 budget is full). False = the shipped Q byte for byte.
+M_COMM_ARM = False
+M_COMM = dict(box=(0.16, 0.11, 0.17, 0.13),   # m: depth along x (inboard of the anchor), half width, below / above comm y
+              gland=(0.04, 0.01, 0.025),       # m: out of the face, into the box, radius
+              stubs=(0.045, 0.02, 0.07),       # the two conduit stubs on the lid (as on the DQ / GD wall boxes): +-x, r, height
+              tube_r=0.06, tube_segs=10,       # critic pass 1: r 0.05 -> 0.06
+              saddle=(-3.38, -3.02, 0.09, 0.11),   # x0, x1, half width, height over the beam top
+              root_x=-3.06,                    # the tube's root end (capped) over the saddle
+              # critic pass 1 (an unbraced 36:1 cantilever read as a patch): a V kicker from the front beam's line face,
+              # below its top and outboard of the badge (half width 0.35), to the arm at `at` of its span
+              kick=dict(y=0.45, z_over_bottom=0.07, at=0.55, r=0.03, segs=6))
+
+
+def build_comm_arm_m(spec, bf):
+    """T279: the comm arm, its V kicker, box, conduit stubs and gland of the base, authoring frame (x travel, y lateral, z up).
+    The box and the arm are station steel (paint1), never lighter than the steel around them. [(obj, M key)]."""
+    C = M_COMM
+    ax, cz = spec.anchor_out[0], spec.comm_y[0]
+    depth, hw, dn, up = C["box"]
+    out = [(_mbox("commbox", ax, ax + depth, -hw, hw, cz - dn, cz + up), "paint1")]
+    go, gi, gr = C["gland"]
+    out.append((_mcyl("commgland", (ax - go, 0.0, cz), (ax + gi, 0.0, cz), gr, 8, "both"), "darksteel"))
+    sdx, sr, sh_ = C["stubs"]
+    for k, dx in enumerate((-sdx, sdx)):
+        x = ax + depth / 2.0 + dx
+        out.append((_mcyl(f"commstub_{k}", (x, 0.0, cz + up - 0.01), (x, 0.0, cz + up + sh_), sr, 6, "top"), "darksteel"))
+    sx0, sx1, shw, sh = C["saddle"]
+    top = bf[3] + sh                                    # the saddle's top = the tube's underside at its root
+    out.append((_mbox("commsaddle", sx0, sx1, -shw, shw, bf[3] - 0.01, top), "paint1"))
+    root = (C["root_x"], 0.0, top + C["tube_r"] - 0.01)
+    tip = (ax + depth - 0.01, 0.0, cz - 0.02)
+    out.append((_mcyl("commarm", tip, root, C["tube_r"], C["tube_segs"], "both"), "paint1"))
+    K = C["kick"]
+    p = tuple(root[i] + K["at"] * (tip[i] - root[i]) for i in range(3))
+    for k, s in enumerate((-1.0, 1.0)):
+        foot = (bf[0] + 0.01, s * K["y"], bf[2] + K["z_over_bottom"])
+        out.append((_mcyl(f"commstrut_{k}", foot, p, K["r"], K["segs"], "none"), "paint1"))
+    return out
+
+
 def _bake_loc(obj):
     """Move the location of an object into its mesh (object at the origin). A box from _mbox keeps its center on the object, so
     data.transform(M) alone maps only the center-relative mesh. The part then lands (I - R) c off the chord frame (about 0.2
@@ -2639,6 +2688,8 @@ def build_base_m():
     # replaces the four plain cylinders: build_hold_train_m
     if M_RIG:       # T256: the articulated nose train, its pin on the lane end
         parts += build_nose_rig_m(spec)
+        if M_COMM_ARM:      # T279: the comm wire's landing (it ended in open air since art-601)
+            parts += build_comm_arm_m(spec, bf)
     elif M_HOLD_TRAIN:
         parts += build_hold_train_m(spec)
     else:
@@ -3820,6 +3871,35 @@ def orientation_m(co, tris, names, kind):
                     "under probe X2 branch N (game x = -authoring y, M's own rows), the mirror under branch P"}
 
 
+def comm_landing_m(co, tris, names, kind, force=False):
+    """M22 (T279): the comm wire (the station's LV single-point sub-lane, game (0, comm_y, anchor_out x)) lands on structure.
+    The anchor lies inside the cable gland, and the gland runs into the junction box. Without --comm-arm the shipped bases
+    have no structure there (art-601 dropped the hosted tower that carried it): the check is skipped unless `force`
+    (the test's negative). Measured on the authoring mesh. Returns the report."""
+    if not force and not (kind == "drive" and M_COMM_ARM):
+        return {"skipped": "no --comm-arm (the anchor of a shipped O / P / Q base has no structure, T279)"}
+    spec = M_SPECS[kind]
+    a = np.array((spec.anchor_out[0], 0.0, spec.comm_y[0]))
+    got = {}
+    for prefix in ("commgland", "commbox"):
+        idx = [i for i, n in enumerate(names) if n.startswith(prefix)]
+        if not idx:
+            _m_fail("M22", f"no part {prefix}* at the comm anchor {a.round(3).tolist()} (the wire ends in open air)")
+        v = co[np.unique(tris[idx].ravel())]
+        got[prefix] = (v.min(axis=0), v.max(axis=0))
+    lo, hi = got["commgland"]
+    if not (np.all(a >= lo - 1e-3) and np.all(a <= hi + 1e-3)):
+        _m_fail("M22", f"the comm anchor {a.round(3).tolist()} is outside the gland {lo.round(3).tolist()}.."
+                       f"{hi.round(3).tolist()}")
+    blo, bhi = got["commbox"]
+    if hi[0] < blo[0] - 1e-4 or lo[0] > bhi[0] + 1e-4:
+        _m_fail("M22", f"the gland x {lo[0]:.3f}..{hi[0]:.3f} does not reach the box x {blo[0]:.3f}..{bhi[0]:.3f}")
+    return {"anchor_authoring": a.round(3).tolist(),
+            "anchor_game": [0.0, round(float(a[2]), 3), round(float(a[0]), 3)],
+            "gland": [lo.round(3).tolist(), hi.round(3).tolist()],
+            "box": [blo.round(3).tolist(), bhi.round(3).tolist()], "ok": True}
+
+
 def sheave_trains_m(co, tris, names, kind):
     """M21 (nitpick A, 2026-10-13, S-2): the hold-down trains of the base are the rocker tree of the towers. The check has these
     rules:
@@ -4643,6 +4723,10 @@ def contact_kinds_m():
         for why, toks in RIG_CONTACTS.items():
             for tok in toks.split():
                 out[tuple(sorted(tok.split(":")))] = why
+    if M_COMM_ARM:  # T279: the comm arm's own joints (none of these parts exist without --comm-arm)
+        for tok in ("beam:commsaddle commarm:commsaddle commarm:commbox commbox:commgland commbox:commstub "
+                    "beam:commstrut commarm:commstrut commstrut:commstrut").split():
+            out[tuple(sorted(tok.split(":")))] = "T279: the comm arm on its saddle on the front beam, into the box, the gland"
     return out
 
 
@@ -5641,6 +5725,8 @@ def contracts_m(t, table, kind, sweep=True):
     # nitpick A (2026-10-13): M20 the layout around the up lane, M21 the sheave trains of the towers
     out["M20"] = orientation_m(co, tris, names, kind)
     out["M21"] = sheave_trains_m(co, tris, names, kind)
+    if kind == "drive" and M_COMM_ARM:        # T279: M22 the comm wire lands on the gland
+        out["M22"] = comm_landing_m(co, tris, names, kind)
     if kit:
         msg, nums = check_kit_rows_m(co, tris, names, table, kind, cloud=cloud)
         out["F1"] = {"message": msg.get("F1"), "rows": (nums or {}).get("rows")}
@@ -6233,7 +6319,40 @@ def render_rig_views_m(t, arm, asset_dir, name, out_dir, kind, win=None):
                     me = o.data
                     bpy.data.objects.remove(o, do_unlink=True)
                     bpy.data.meshes.remove(me)
+    if kind == "drive" and M_COMM_ARM:      # T279: the comm arm with a stand-in comm wire and the line ropes at rest
+        extras = rig_line_rope_m(kind, 0.0) + [rig_comm_wire_m(kind)]
+        try:
+            written += render_closeups_m(t, asset_dir, name, out_dir, kind, win=win, shots=comm_shots_m(kind),
+                                         extras=[(r_, (0.02, 0.02, 0.02, 1.0)) for r_ in extras])
+        finally:
+            for o in extras:
+                me = o.data
+                bpy.data.objects.remove(o, do_unlink=True)
+                bpy.data.meshes.remove(me)
     return written
+
+
+def rig_comm_wire_m(kind, length=14.0, rise=1.65):
+    """T279, render only (net frame): the lift's comm wire from the anchor (lateral 0, comm y, the lane end) out along the
+    line, rising `rise` over `length` (a tower's comm height 8.15 minus 6.50 over a short first span), vanilla LV width."""
+    spec = M_SPECS[kind]
+    px, cz = spec.anchor_out[0], spec.comm_y[0]
+    return _hex_tube_m("rigcommwire", rig_net_m((px, 0.0, cz)), rig_net_m((px - length, 0.0, cz + rise)), 0.015)
+
+
+def comm_shots_m(kind):
+    """T279 (name, target, eye) authoring: the comm arm from the side, from the line, from below at the loading spot, and at
+    play distance (30 m)."""
+    spec = M_SPECS[kind]
+    px, cz = spec.anchor_out[0], spec.comm_y[0]
+    mid = (px + M_COMM["root_x"]) / 2.0
+    return [("comm_side", (mid, 0.0, cz - 0.2), (mid - 1.5, 6.5, cz + 0.8)),
+            ("comm_box_close", (px + 0.1, 0.0, cz), (px - 1.6, 1.9, cz + 0.7)),
+            ("comm_line", (px + 1.5, 0.0, cz - 0.3), (px - 9.0, -3.0, cz + 2.2)),
+            ("comm_below", (mid, 0.0, cz), (mid + 1.0, -2.6, 1.6)),
+            ("comm_play", (mid, 0.0, cz - 1.0), (mid - 21.0, -16.0, cz + 14.0)),
+            ("comm_12m", (px, 0.0, cz - 0.5), (px - 8.0, -8.0, cz + 3.5)),       # ~11.8 m from the anchor
+            ("comm_45m", (px + 1.0, 0.0, cz - 2.0), (px - 30.0, -30.0, cz + 14.0))]   # ~45 m
 
 
 # ---------------------------------------------------------------- main (generation M) ------
@@ -6268,6 +6387,10 @@ def main_m(args):
     set_texpass_m(getattr(args, "texpass", "off"), getattr(args, "identity", "off"))   # every run follows its args
     kind = args.kind
     M_NOSE_TRAIN = bool(getattr(args, "no_hosted_tower", False))
+    global M_COMM_ARM
+    M_COMM_ARM = bool(getattr(args, "comm_arm", False))       # T279: every run follows its args
+    if M_COMM_ARM and not (kind == "drive" and getattr(args, "rig", False)):
+        raise SystemExit("--comm-arm is drive + --rig only (the return keeps its hosted tower, the comm landing)")
     M_ROPE_R = THIN_ROPE_R if getattr(args, "thin_rope", False) else M_ROPE_R_SHIPPED   # every run follows its args
     if M_NOSE_TRAIN and kind != "drive":
         raise SystemExit("--no-hosted-tower is drive only (the return has no hold-down train: ET62 keeps the rope)")
@@ -6535,7 +6658,7 @@ SHIPPED_FLAGS = {
 # the flags that change what a build exports (meshes, maps, settings). Output / preview / review / debugging flags (--out,
 # --preview, --review, --ab, --no-validate, --skip-sweep, --name) never count
 SHAPE_FLAGS = ("gen", "weather", "atlas", "ao_samples", "no_fine", "rope_on_crown", "thin_rope", "no_hosted_tower",
-               "wheels", "rig", "rig_hosted", "kind", "finish", "lods")
+               "wheels", "rig", "rig_hosted", "kind", "finish", "lods", "comm_arm")
 
 
 def flag_drift(args, ap=None):
@@ -6608,6 +6731,9 @@ def build_parser():
     ap.add_argument("--rig-hosted", default=None, dest="rig_hosted",
                     help="M return + --rig: the folder of the skinned hosted end tower (lift_tower --skinned "
                          "--hosted-lane 5.24); M5 and the previews use it at x RIG_HOSTED_X. Absent = M5 skipped.")
+    ap.add_argument("--comm-arm", action="store_true", dest="comm_arm",
+                    help="M drive + --rig, T279 (M_COMM_ARM): the comm arm + junction box at the comm anchor (the wire "
+                         "ended in open air since art-601). Off = the shipped Q byte for byte.")
     ap.add_argument("--kind", choices=["drive", "return"], default="drive")
     ap.add_argument("--name", default=None)
     ap.add_argument("--preview", default=None)

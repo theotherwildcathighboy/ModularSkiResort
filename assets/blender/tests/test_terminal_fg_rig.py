@@ -396,6 +396,47 @@ def r6_shipped_flags():
     check(LT.flag_drift(args("--name", "SkiLiftBaseStationP", "--rig"), ap) == {}, "R6 a new letter is not checked")
 
 
+def r7_comm_arm():
+    """T279: --comm-arm (M_COMM_ARM) gives the comm anchor structure. On: M22 passes, M1-M21 + M8 part clash pass with the arm,
+    the comm parts sit on the Root bone (static) and drop at LOD2. Negatives: the default build (flag off) has no structure at
+    the anchor (the 1.0.0-1.0.3 bug, M22 forced), and a gland moved 5 cm up misses the anchor."""
+    print("R7 comm arm (T279)")
+    LT.M_COMM_ARM = True
+    try:
+        t, table, co, tris, names = build_rig("drive")
+        comm = sorted({n for n in names if n.startswith("comm")})
+        check({"commarm", "commbox", "commgland", "commsaddle"} <= set(comm), "R7 the comm parts are built", f"({comm})")
+        try:
+            rep = LT.comm_landing_m(co, tris, names, "drive")
+            # the deployed prefab's sub-lane 2 (FG base): game (0, 6.50, -7.025); old saves measured (0, 6.50, -7.02 / -7.03)
+            ok = rep.get("ok") and max(abs(g - w) for g, w in zip(rep["anchor_game"], (0.0, 6.5, -7.025))) < 0.01
+            check(ok, "R7 M22 the comm anchor lies in the gland",
+                  f"({rep['anchor_game']}, gland {rep['gland']})")
+        except LT.MContractError as e:
+            check(False, "R7 M22 the comm anchor lies in the gland", f"({e})")
+        try:
+            rep = LT.contracts_m(t, table, "drive", sweep=False)
+            check("M22" in rep, "R7 M1-M22 with the comm arm (M8 part clash: every comm contact declared)")
+        except LT.MContractError as e:
+            check(False, "R7 M1-M22 with the comm arm", f"({e})")
+        LT._rig_bone_masks_m(t, table, "drive")      # one bone per vertex with the arm on Root (raises otherwise)
+        lod2 = [p for p in comm if any(p.startswith(x) for x in LT.M_LOD2_DELETE)]
+        check(set(lod2) >= {"commarm", "commbox", "commsaddle"}, "R7 the arm, box and saddle drop together at LOD2",
+              f"({lod2})")
+
+        def gland_up():
+            _t, _tb, c2, t2, n2 = build_rig("drive", mutate=move("commgland", (0.0, 0.0, 0.05)))
+            LT.comm_landing_m(c2, t2, n2, "drive")
+        expect("M22", gland_up, "R7 negative: the gland 5 cm above the anchor")
+    finally:
+        LT.M_COMM_ARM = False
+
+    def flag_off():
+        _t, _tb, c3, t3, n3 = build_rig("drive")
+        LT.comm_landing_m(c3, t3, n3, "drive", force=True)
+    expect("M22", flag_off, "R7 negative: the shipped build (no --comm-arm) has no structure at the comm anchor")
+
+
 def run_kind(kind):
     print(f"== {kind}")
     t, table, co, tris, names = build_rig(kind)
@@ -487,6 +528,7 @@ def main():
     run_kind("drive")
     run_kind("return")
     negatives()
+    r7_comm_arm()
     LT.set_m_rig(False)
     dt = time.perf_counter() - t0
     if FAILS:
@@ -494,7 +536,7 @@ def main():
         sys.exit(1)
     print(f"PASS test_terminal_fg_rig: R0 flags off, R1 bones / weights / round trip / posed copies, R2 rope, R2b round 2 "
           f"(S2 / C6 hangers, S3 mark, C1 knuckle, C2 brace), R3 entry "
-          f"sheaves, R4 nose joint + pin straps + chair sweep, R5 M1-M21 + budgets on both rigged stations, R6 shipped flags, "
+          f"sheaves, R4 nose joint + pin straps + chair sweep, R5 M1-M21 + budgets on both rigged stations, R6 shipped flags, R7 comm arm (M22), "
           f"every negative raises "
           f"({N_OK[0]} ok, {dt:.0f} s)")
 
