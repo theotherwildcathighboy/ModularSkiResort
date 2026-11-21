@@ -104,8 +104,30 @@ namespace SnowPackSim
             {
                 float t = Local(tBase, CellY(i));
                 if (t <= 0f) d[i] += s_AddPerPrecipHourM * precip * Dt;
-                else d[i] = Math.Max(0f, d[i] - RunSnowRules.PackMeltM(MeltParams(2f), d[i], t, Dt));
+                else d[i] = Math.Max(0f, d[i] - VanillaMeltM(d[i], t));
             }
+        }
+
+        // SIM_MELT_Q=1 (T269 calibration): the snow map's melt in whole R16 quanta per 4-frame update, rounded up (a fit to the bridge melt
+        // probe, the shader form is unverified): ceil(max(floor, coef x above / d) x dt / quantum) quanta per update, the depth first
+        // rounded to R16. Use it with a step of whole updates (SIM_DT_H=0.00586, one 64-frame window). Off: the continuous law (PackMeltM).
+        // Only snow map texels melt this way (natural snow and runs); the mod melts a cat track's cells with the continuous law.
+        private static readonly bool s_MeltQ = System.Environment.GetEnvironmentVariable("SIM_MELT_Q") == "1";
+
+        private static float VanillaMeltM(float depthM, float airC)
+        {
+            if (!s_MeltQ)
+                return RunSnowRules.PackMeltM(MeltParams(2f), depthM, airC, Dt);
+            double q = RunSnowRules.SnowHeightScaleM / 65535.0;
+            double dtu = RunSnowRules.SnowUpdateIntervalFrames / (double)RunSnowRules.FramesPerGameHour;
+            int updates = Math.Max(1, (int)Math.Round(Dt / dtu));
+            double x = Math.Round(depthM / q) * q;
+            for (int k = 0; k < updates && x > 0.0 && airC > 0f; k++)
+            {
+                double law = Math.Max(RunSnowRules.MeltFloorPerHourM, s_Melt * airC / x);
+                x -= Math.Min(x, Math.Ceiling(law * dtu / q - 1e-6) * q);
+            }
+            return (float)Math.Max(0.0, depthM - x);
         }
 
         private sealed class Natural : Surface
@@ -355,7 +377,8 @@ namespace SnowPackSim
             s_AddPerPrecipHourM = args.Length > 3 ? float.Parse(args[3], CultureInfo.InvariantCulture) : 0.35f;
             var summary = new StringBuilder();
             summary.AppendLine("Cells " + Cells + " from " + BottomM + " to " + TopM + " m above the base height, add " + s_AddPerPrecipHourM
-                + " m per precipitation-hour at or below 0 C, step " + Dt + " h, season from the 0.6 rollover, second year recorded.");
+                + " m per precipitation-hour at or below 0 C, step " + Dt + " h, season from the 0.6 rollover, second year recorded, snow map melt "
+                + (s_MeltQ ? "in whole R16 quanta per 4-frame update (SIM_MELT_Q)" : "by the continuous law") + ".");
             summary.AppendLine();
             foreach (var climate in new[] { "ContinentalMountainVillageClimate", "PolarTwinMountainClimate", "TemperateRiverDeltaClimate" })
             {

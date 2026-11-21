@@ -778,15 +778,18 @@ namespace ResortBatch
             float window = 1f / RunSnowRules.WindowsPerGameHour;
             // the build by hand: 0.004 m x rate x (0.35 + 1.65 x chill) per window, chill = (3.3 - air) / 4
             Func<double, double> build = air => 0.004 * 1.125 * (0.35 + 1.65 * Math.Min(1.0, Math.Max(0.0, (3.3 - air) / 4.0))) * RunSnowRules.WindowsPerGameHour;
+            // the quantum-aware threshold by hand: d*_q = coef x above / (floor x floor(B / floor)), floor = the 0.333 m/h melt floor
+            double floorM = RunSnowRules.MeltFloorPerHourM;
             double[] airs = { 0.7, 2.0, 2.8 };
-            double[] seeds = { 0.0336, 0.1289, 0.2811 };   // d* + one window at the mean rate, by hand (PLAN table)
+            double[] seeds = { 0.0362, 0.1315, 0.3595 };   // d*_q + one window at the mean rate, by hand (continuous d*: 0.0336, 0.1289, 0.2811)
             for (int k = 0; k < airs.Length; k++)
             {
                 float air = (float)airs[k];
                 double b = build(air);
-                double dStar = 0.0425 * air / b;
+                double dStar = 0.0425 * air / (floorM * Math.Floor(b / floorM));
                 float t = RunSnowRules.PackSeedThresholdM(p, air, rate);
-                check(Near(t, dStar, 1e-4), W, "the threshold d* = coef x above / B at +" + air + " C (" + t + " vs " + dStar.ToString("0.0000") + ")");
+                check(Near(t, dStar, 1e-4), W, "the threshold d*_q = coef x above / (floor x floor(B / floor)) at +" + air + " C (" + t + " vs " + dStar.ToString("0.0000") + ")");
+                check(t >= 0.0425 * air / b - 1e-6, W, "the quantum-aware threshold is never under the continuous d* at +" + air + " C");
                 float seeded = RunSnowRules.PackStep(p, 0f, air, true, RunSnowRules.PackGun.Running, window, rate, false).DepthM;
                 check(Near(seeded, dStar + b * window, 1e-4) && Near(seeded, seeds[k], 5e-4), W,
                       "a bare texel at +" + air + " C seeds to d* plus one window (" + seeded + " m, by hand " + seeds[k] + ")");
@@ -866,6 +869,59 @@ namespace ResortBatch
                 check(with > seed && without < 0.01f, W, "one game hour of guns on bare snow at +" + air + " C: seeded " + with.ToString("0.000") +
                       " m (seed " + seed.ToString("0.000") + "), without the seed " + without.ToString("0.000") + " m");
             }
+            T269QuantizedMelt(check);
+        }
+
+        /// <summary>T269 calibration (1.0.4): on a run texel the game melts thin snow in whole R16 quanta per 4-frame update, rounded up
+        /// (a fit to the bridge melt probe: ceil(law x dt / quantum), at least one quantum; the shader form is unverified). At the
+        /// continuous d* that melt is always at least the build, so a texel seeded there stays pinned under 10 cm (seen in game on Pine
+        /// Marten, 2026-11-20). Seeded at the quantum-aware d*_q (PackSeedThresholdM) it grows. Two game hours, a raise every 64 frames with
+        /// the upload rounded to R16, the rounded melt every 4 frames, bare at +1 and +2 C, at three noise rates.</summary>
+        private static void T269QuantizedMelt(Func<bool, string, string, bool> check)
+        {
+            const string W = "snow T269 quantized melt";
+            RunSnowRules.PackParams p = RunSnowRules.PackParams.Default;   // freezing 0, margin 3.3
+            double q = RunSnowRules.SnowHeightScaleM / 65535.0;             // one R16 quantum, m
+            double dtu = RunSnowRules.SnowUpdateIntervalFrames / (double)RunSnowRules.FramesPerGameHour;
+            int updatesPerWindow = RunSnowRules.TopupIntervalFrames / RunSnowRules.SnowUpdateIntervalFrames;
+            int windows = (int)Math.Round(2.0 * RunSnowRules.WindowsPerGameHour);
+            // the game melt hypothesis per update: whole quanta, ceil(max(floor, coef x above / d) x dt / quantum), at most the depth
+            Func<double, double, double> meltQ = (d, air) =>
+            {
+                if (!(air > 0.0) || d <= 0.0)
+                    return 0.0;
+                double law = Math.Max(RunSnowRules.MeltFloorPerHourM, RunSnowRules.MeltDepthCoef * air / d);
+                return Math.Min(d, Math.Ceiling(law * dtu / q - 1e-6) * q);
+            };
+            Func<double, double> toR16 = d => Math.Round(d / q) * q;
+            foreach (float air in new[] { 1f, 2f })
+                foreach (float rate in new[] { 0.8f, RunSnowRules.MeanRampRate, 1.5f })
+                {
+                    float chill = (3.3f - air) / RunSnowRules.RampChillSpanC;
+                    double b = RunSnowRules.PackBuildPerHourM(air, 3.3f, rate);
+                    double win = b / RunSnowRules.WindowsPerGameHour;
+                    double dOld = RunSnowRules.MeltDepthCoef * air / b;   // the 1.0.4 night seed, the continuous break-even
+                    double seedOld = dOld + win, seedNew = RunSnowRules.PackSeedThresholdM(p, air, rate) + win;
+                    double withNew = 0.0, withOld = 0.0, newHalf = 0.0;
+                    for (int w = 0; w < windows; w++)
+                    {
+                        withNew = toR16(RunSnowRules.PackRaiseTexelM((float)withNew, 2f, chill, rate, 1f, 3.3f));
+                        withOld = toR16(Math.Min(Math.Max(withOld, dOld) + win, 2.0));
+                        for (int s = 0; s < updatesPerWindow; s++)
+                        {
+                            withNew = Math.Max(0.0, withNew - meltQ(withNew, air));
+                            withOld = Math.Max(0.0, withOld - meltQ(withOld, air));
+                        }
+                        if (w == windows / 2 - 1)
+                            newHalf = withNew;
+                    }
+                    Console.WriteLine($"INFO  T269 quantized melt: 2 game hours at +{air} C, rate {rate:F3}: seeded at d*_q {withNew:F3} m (seed {seedNew:F3}), " +
+                                      $"at the continuous d* {withOld:F3} m (seed {seedOld:F3})");
+                    check(withNew > seedNew + 0.02 && withNew > newHalf, W, "seeded at d*_q a texel grows under the rounded melt at +" + air + " C, rate " +
+                          rate.ToString("0.000") + ": " + withNew.ToString("0.000") + " m after 2 h (seed " + seedNew.ToString("0.000") + ")");
+                    check(withOld <= seedOld + 1e-6 && withOld < 0.2, W, "seeded at the continuous d* the texel stays pinned at +" + air + " C, rate " +
+                          rate.ToString("0.000") + ": " + withOld.ToString("0.000") + " m after 2 h (seed " + seedOld.ToString("0.000") + ")");
+                }
         }
 
         private static void T09Ledger(Func<bool, string, string, bool> check)
