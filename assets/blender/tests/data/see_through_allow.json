@@ -1,0 +1,12 @@
+{
+  "_doc": [
+    "Allowlist of tests/test_see_through.py (T273): holes in a building's shell that are there on purpose.",
+    "Key: the asset name without its generation letter (SkiLodgeAFrameW -> SkiLodgeAFrame).",
+    "Entry: box [x0, y0, z0, x1, y1, z1] in the asset frame the test prints (meters, Z up, grade z = 0, arrival",
+    "face toward -Y), the hole's gap point must lie inside it; optional lods [0, 1]; why (required: what the",
+    "opening is and why an architect left it open). A ray through an intended opening normally meets front faces",
+    "(posts, the wall behind, the ground), so an entry here is rare: only a single-sided part seen from its back",
+    "on purpose belongs here."
+  ],
+  "assets": {}
+}
