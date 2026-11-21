@@ -3813,15 +3813,17 @@ def flag_mast(name, x, y, h=8.0, flag=(1.6, 1.0), *, z0=GROUND_LIFT, along="X", 
         parts += _single(f"emblem_{name}flag{tag}_face",
                          lambda g, pts=pts, sg=sg: g.poly(pts, front * sg), "label")
     if CULL_KIT.get("version", 1) >= 2:
-        # cull kit v2 (T273): the 1 cm edges between the two label quads, `flagpanel_<n>` (accent, 8 tris). Open, they
-        # showed the back of the far quad at play angles (school, 68 px at 20 m)
+        # cull kit v2 (T273): the 1 cm edges between the two label quads, `emblem_<n>flag_rim` (accent, 8 tris; the
+        # emblem_disc rim convention). Open, they showed the back of the far quad at play angles (school, 68 px at 20 m).
+        # The emblem_ prefix keeps them out of the cull (LABEL_PREFIXES) and with the cloth in the LOD lists: the inner
+        # strip faces the mast 1 cm away, so the contact ray deleted it and the slot showed again (school, 8 px)
         def edges(g):
             def P(t, z, sg):
                 return O + front * (0.005 * sg) + run * (0.06 + fw * t) + Vector((0, 0, z))
             for (t0, z0_, t1, z1_, out) in ((0.0, zc1, 1.0, zc1, Vector((0, 0, 1))), (0.0, zc0, 1.0, zc0, Vector((0, 0, -1))),
                                             (1.0, zc0, 1.0, zc1, run), (0.0, zc0, 0.0, zc1, -run)):
                 g.poly([P(t0, z0_, 1.0), P(t1, z1_, 1.0), P(t1, z1_, -1.0), P(t0, z0_, -1.0)], out)
-        parts += _single(f"flagpanel_{name}", edges, "accent")
+        parts += _single(f"emblem_{name}flag_rim", edges, "accent")
     return parts
 
 
