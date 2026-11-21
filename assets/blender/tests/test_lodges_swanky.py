@@ -314,7 +314,7 @@ def check_l5_r1(r, obj, table):
     lot = r["lot"]
     assert lot["margin_x"] >= 0.0 and lot["margin_y"] >= 0.0, lot
     assert r["facing"]["arrival_centroid_x"] >= SW.H_X1 + SW.X_SHIFT, r["facing"]
-    assert recipe.budget.lod0_cap == 33500 and r["tris"][0] <= 33500, r["tris"]       # 30,000 -> 33,500: DECISIONS 302
+    assert recipe.budget.lod0_cap == 34000 and r["tris"][0] <= 34000, r["tris"]       # 30,000 -> 33,500: DECISIONS 302; 34,000: r7 cull v2
     tf = tuple(recipe.tiled_flat)          # T66: the outriggers draw textured. T90 (DECISIONS 302): so do the porch / tower beams
     assert not any("beam_xgc0o0".startswith(p) for p in tf), f"outriggers still flat: {tf}"
     assert tf == ("soffit_", "poolcap_"), f"flat list is soffits + pool coping only (T90): {tf}"

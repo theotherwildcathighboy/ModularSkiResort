@@ -3948,7 +3948,8 @@ RECIPE = FineRecipe(
     # (deleted at LOD1).
     # Revision 3: the cap and target stand (verdict brief). The modeled dressing is vanilla sub-objects now (their tris are
     # vanilla's own, not ours), so LOD0 drops (build report)
-    budget=Budget(26000, 33500, 11000, 480, 800),   # T90 (T92): 33,500 = 31,812 measured x 1.05 (item 16 "up the tri budget by a bit"), was 30,000
+    # r7 (1.0.4): 34,000 (+1.5 %, the small-overage rule). Cull v2 keeps 435 faces that v1 dropped, and the gutter backs add 36
+    budget=Budget(26000, 34000, 11000, 480, 800),   # T90 (T92): 33,500 = 31,812 measured x 1.05 (item 16 "up the tri budget by a bit"), was 30,000
     # Tiled rollout (2026-10-16, texture-parity-rollout-2026-10-16.md section 2): read only on the --tiled path. 20,833 m2
     # of LOD0 cut at 1.5-3 m tiles is ~51,600 tris. 2 x 2 tiles on the members, pavers and the swanky walls, plus flat trims
     # / soffits / trusses, fit the 30,000 cap
