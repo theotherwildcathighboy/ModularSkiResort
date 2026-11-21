@@ -2496,6 +2496,8 @@ def texpass_weather(W, recipe, tp):
         kw["band_skip"] = tuple(tp["band_skip"])
     if tp.get("drip_skip"):
         kw["drip_skip"] = tuple(tp["drip_skip"])
+    if tp.get("eave_fade"):             # T275: the slate roof-eave band fades out (TileWeather.eave_fade, cs2_tilesheet)
+        kw["eave_fade"] = True
     return _rp(W, **kw) if kw else W
 
 
