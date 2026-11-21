@@ -922,10 +922,13 @@ RECIPE = FineRecipe(
     # lighter than the wall (0.43), the way dressed quoins sit on rubble, and L5's pier-cap key. Flag off keeps
     # stone_rubble (lodge.texpass_rules is {} there). drip_skip: the balcony door ubf1 hangs no sill-drip strip. Under
     # the pass its sill stands on the belt, so the strip took the walnut and ran 0.55 m down onto the stone: a walnut
-    # rectangle under the balcony slab (cs2_tilesheet.audit_strips, r4/tex 2026-11-20; LOD0 13,015 -> 13,013)
+    # rectangle under the balcony slab (cs2_tilesheet.audit_strips, r4/tex 2026-11-20; LOD0 13,015 -> 13,013).
+    # "eave_fade" (T275, r7-tex): the moss band along the terrace eave (roof_eave_m back 1.2 m) ended in a ruler-straight
+    # top edge. Its top now snaps to a slate cell row and the row above fades the same moss out up the slope along a
+    # wandering front (cs2_tilesheet.MOSS_CELL). The valley moss beside and under the dormer windows is unchanged
     texpass={"grade": {"slope": S_DESIGN, "anchor_x": HX}, "eave_h": 0.0,
              "band_skip": ("deck_s", "deck_dslab", "stair_"), "drip_skip": ("sill_ubf1",), "weather_level": 0,
-             "mat": {"trim_uquoins": "concrete"}},
+             "mat": {"trim_uquoins": "concrete"}, "eave_fade": True},
     massing="custom", builder=build_l4,
     rooms="auto", interior="CommercialLow",
     # VariationSet A (contract 6): graphite / red / zinc
