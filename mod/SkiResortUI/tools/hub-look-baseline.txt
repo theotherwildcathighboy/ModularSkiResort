@@ -795,7 +795,7 @@ a11-history-1080 | control | h-btn.segButton.histSeg.histSegNext "Whole city" | 
 a11-history-1080 | control | h-btn.h-selected.segButton.histSeg.buttonOn "12 months" | h=26; pad=6 5 6 5; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a11-history-1080 | control | h-btn.segButton.histSeg.histSegNext "This season vs last" | h=26; pad=6 5 6 5; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a11-history-1080 | control | h-btn.segButton.histSeg.histSegNext "By season" | h=26; pad=6 5 6 5; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
-a11-history-1080 | control | pagerButton.pagerButtonText "This season so far" | h=20; pad=0 8 0 8; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a11-history-1080 | control | pagerButton.pagerButtonText "This season" | h=20; pad=0 8 0 8; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a11-history-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a11-history-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a11-history-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -840,7 +840,7 @@ a11-history-2160 | control | h-btn.segButton.histSeg.histSegNext "Whole city" | 
 a11-history-2160 | control | h-btn.h-selected.segButton.histSeg.buttonOn "12 months" | h=26; pad=6 5 6 5; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a11-history-2160 | control | h-btn.segButton.histSeg.histSegNext "This season vs last" | h=26; pad=6 5 6 5; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a11-history-2160 | control | h-btn.segButton.histSeg.histSegNext "By season" | h=26; pad=6 5 6 5; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
-a11-history-2160 | control | pagerButton.pagerButtonText "This season so far" | h=20; pad=0 8 0 8; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a11-history-2160 | control | pagerButton.pagerButtonText "This season" | h=20; pad=0 8 0 8; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a11-history-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a11-history-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a11-history-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)

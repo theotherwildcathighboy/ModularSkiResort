@@ -1027,6 +1027,12 @@ function run(srcDir) {
       R.nextPageTitleRow([0, 0, 1, 1], [false, false, false, true], 0), R.nextPageTitleRow([0, 0, 1, 1, 2], [true, false, true, false, false], 2),
       R.nextPageTitleRow([0, 1], [false, false], 0)],
     [2, 2, 3, -1, -1]);
+  // Owner review (2026-11-21): the parts have fixed names (PagePart markers); a page that starts with a divider is named by its next row.
+  eq("T283.2 nextPageTitleRow: a leading divider is skipped / not past the page / without skip",
+    [R.nextPageTitleRow([0, 0, 1, 1, 1], [true, false, false, true, false], 0, [false, false, true, false, false]),
+      R.nextPageTitleRow([0, 1], [true, false], 0, [false, true]),
+      R.nextPageTitleRow([0, 0, 1, 1, 1], [true, false, false, true, false], 0)],
+    [3, 0, 0]);
 
   // T46 the control scale (T202, DECISIONS 668, docs/DESIGN-SYSTEM.md section 2.1): every class a hub <Button> carries either declares a
   // height that stands in CONTROL_HEIGHT with exactly that value, or is a modifier / inherits its height (NO_OWN_HEIGHT). A text button is

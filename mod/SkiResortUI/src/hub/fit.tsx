@@ -104,8 +104,9 @@ function innerHeight(el: HTMLElement): number {
 
 /** The pager row, T283 (1.0.4, the page-turn corners): HubPanel draws it at the top of the footer, over the build strip's tab row, while
  *  a view has more than one page. Back at the bottom left (from page 2, "‹ Back"), one dot per page in the middle (the "N / COUNT" text
- *  above PAGER_DOTS_MAX pages), and at the bottom right a button that names the next page ("This season so far ›": the title of the
- *  next page's first section, nextPageTitleRow; "Next page" when it has none). On the last page the next arrow is dimmed, as before.
+ *  above PAGER_DOTS_MAX pages), and at the bottom right a button that names the next page ("This season ›": the fixed name of the part
+ *  the next page starts in, a PagePart marker, nextPageTitleRow; "Next page" when there is none). On the last page the next arrow is
+ *  dimmed, as before.
  *  `data-page` / `data-pages` and `data-pager` carry the position and the two sides for the layout test (harness/layout-check.js). */
 export function Pager({ fit }: { fit: FitPage }): JSX.Element {
   const t = useT();
@@ -147,7 +148,8 @@ export function Pager({ fit }: { fit: FitPage }): JSX.Element {
   );
 }
 
-/** T283: a row that can name a page: a section header (InfoLine header) or a fold row. Its title is its label's text, as drawn. */
+/** T283: a row that can name a page: a PagePart marker (its data-page-title: the part's fixed name, owner review 2026-11-21), or a row
+ *  with one of `titleClasses`, named by its label's text as drawn (HubPanel passes none: a heading can hold a month). */
 function rowTitle(r: HTMLElement, titleClasses: readonly string[], labelClasses: readonly string[]): string | null {
   const own = r.getAttribute("data-page-title");
   if (own) return own;
@@ -193,7 +195,7 @@ const FOLD_FOCUS_MS = 1000;
  */
 export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject<HTMLElement>, enabled: boolean, resetKey: string,
   foldRowClass: string, geometryKey = "", openRowClass = "", foldSeq = 0, keepTailClass = "",
-  titleClasses: readonly string[] = [], labelClasses: readonly string[] = []): FitPage {
+  titleClasses: readonly string[] = [], labelClasses: readonly string[] = [], skipClass = ""): FitPage {
   const [pages, setPages] = useState(1);
   const [page, setPage] = useState(0);
   // T283: the next page's title (nextPageTitleRow over the rows' titles) and the pager row, drawn in the footer by HubPanel
@@ -344,7 +346,8 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
       }
       rows.forEach((r, i) => setDisplay(r, pageOf[i] === shown ? "" : "none"));
       // T283: name the next page by its first section (a hidden row keeps its text, so the title reads the same before it is shown)
-      const ti = nextPageTitleRow(pageOf, rows.map((r) => rowTitle(r, titleClasses, labelClasses) !== null), shown);
+      const ti = nextPageTitleRow(pageOf, rows.map((r) => rowTitle(r, titleClasses, labelClasses) !== null), shown,
+        rows.map((r) => !!skipClass && r.className.indexOf(skipClass) >= 0));
       const title = ti >= 0 ? rowTitle(rows[ti], titleClasses, labelClasses) || "" : "";
       if (title !== nextTitleRef.current) { nextTitleRef.current = title; setNextTitle(title); }
       if (n !== state.current.pages) setPages(n);

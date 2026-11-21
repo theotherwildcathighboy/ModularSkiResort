@@ -2416,6 +2416,14 @@
   background-color: var(--dividerColor);
 }
 
+// T283 (owner review 2026-11-21): the PagePart marker row (parts.tsx). It draws nothing and takes no height; the pager reads its name.
+.pagePart {
+  flex-shrink: 0;
+  height: 0rem;
+  margin: 0rem;
+  padding: 0rem;
+}
+
 // -- score bar, ticks, labels (design 5.2) ------------------------------------------------------------
 .scoreBar {
   display: flex;

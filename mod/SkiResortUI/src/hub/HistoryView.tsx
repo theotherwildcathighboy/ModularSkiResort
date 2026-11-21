@@ -31,7 +31,7 @@ import {
 import type { HistoryBucket, HistoryRange, SeasonSoFar } from "./historyRules";
 import { historyRange$, historyScope$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, monthName, monthShortName } from "./hubText";
-import { InfoLine, LocText, Num, SignedNum, StableWidth, Tip, TipLines, cx, depthValue, numArg, useNumberSamples, useUnits } from "./parts";
+import { InfoLine, LocText, Num, PagePart, SignedNum, StableWidth, Tip, TipLines, cx, depthValue, numArg, useNumberSamples, useUnits } from "./parts";
 import type { NumberSamples, TipLine } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
@@ -458,11 +458,16 @@ export function HistoryView(): JSX.Element {
   // Flat rows (no wrapper), so the view pager (fit.tsx) can put the money chart on a second page at a large text scale.
   return (
     <>
+      {/* T283: the view's named parts (PagePart, the pager's forward button) */}
+      <PagePart name={t(HUB_LOC.pageHistoryGuests)} />
       {scopeRow}
       {rangeRow}
       {guestsBlock}
+      {moneyBlock && <PagePart name={t(HUB_LOC.pageHistoryMoney)} />}
       {moneyBlock}
+      {attractionBlock && <PagePart name={t(HUB_LOC.pageHistoryAttraction)} />}
       {attractionBlock}
+      {soFar && <PagePart name={t(HUB_LOC.pageHistorySeason)} />}
       {soFar && <SeasonBlock s={soFar} samples={samples} t={t} />}
     </>
   );

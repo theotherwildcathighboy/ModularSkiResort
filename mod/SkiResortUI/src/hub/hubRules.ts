@@ -1833,13 +1833,15 @@ export function mountainFacts(runs: readonly RunRow[] | null | undefined, lifts:
 /** T283 (1.0.4): the pager draws one dot per page up to this many pages, else the "N / COUNT" text. */
 export const PAGER_DOTS_MAX = 6;
 
-/** T283 (1.0.4): the row whose title names the next page on the pager's forward button (fit.tsx). `pageOf[i]` = the page of row i,
- *  `titled[i]` = row i is a titled row (a section header or a fold row). The next page's first row when it is titled; else the titled row
- *  that the next page continues (the nearest titled row before its first row); else the first titled row on the next page. -1 when there
- *  is no next page or no titled row (the button then reads "Next page"). */
-export function nextPageTitleRow(pageOf: readonly number[], titled: readonly boolean[], shown: number): number {
-  const first = pageOf.indexOf(shown + 1);
+/** T283 (1.0.4): the row whose name labels the pager's forward button (fit.tsx). `pageOf[i]` = the page of row i, `titled[i]` = row i
+ *  names a part of the view (a PagePart marker: each paged view is cut into parts with fixed short names, PAGE_NAME). `skip[i]` = row i
+ *  is a divider: a page that starts with dividers is named by its first other row. The next page's first row when it is named; else the
+ *  part the next page continues (the nearest named row before that row); else the first named row on the next page. -1 when there is no
+ *  next page or no named row (the button then reads "Next page"). */
+export function nextPageTitleRow(pageOf: readonly number[], titled: readonly boolean[], shown: number, skip: readonly boolean[] = []): number {
+  let first = pageOf.indexOf(shown + 1);
   if (first < 0) return -1;
+  while (first + 1 < pageOf.length && pageOf[first + 1] === shown + 1 && skip[first] && !titled[first]) first++;
   if (titled[first]) return first;
   for (let i = first - 1; i >= 0; i--) if (titled[i]) return i;
   for (let i = first + 1; i < pageOf.length && pageOf[i] === shown + 1; i++) if (titled[i]) return i;

@@ -146,7 +146,7 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
   else if (foldSeen.current.fold !== fold) foldSeen.current = { view, fold, seq: foldSeen.current.seq + 1 };
   const viewPager = useViewPager(viewRef, contentRef, hasSign && view !== "runs" && view !== "lifts",
     `${view}|${fold}|${areaKey}`, styles.foldRow, `${footerShape}|${problemsListOpen ? "p" : ""}`, styles.foldRowOpen, foldSeen.current.seq, styles.pagerKeepTail,
-    [styles.infoHeader, styles.foldRow], [styles.infoLabelText, styles.infoLabel]);
+    [], [], styles.divider);
 
   // Plain markup only: an error-boundary fallback must not be able to throw
   const title = t(LOC.title);
