@@ -24,7 +24,7 @@ Every build here is the shipped Q setup (--rig, wheels v2, fine detail), drive a
   the roof (5 faces).
 - SV1 v1 drive: added exactly the wraps cwrope_<side>_wh0..2 / _wd (rope); the rim gains its inner wall (+32 faces, still
   on the Bullwheel bone, check_sv_m passes on it), each drip strip its face toward the roof (6 faces), the four legs
-  their top cap (16 fan faces); the tri delta of the assembled LOD0 = sv_tris_m(); the wraps start and end on the
+  their top cap (16 fan faces), the front beam's two end drums their inner disk (+16 fan faces); the tri delta of the assembled LOD0 = sv_tris_m(); the wraps start and end on the
   straight rope pieces' tangent points (2 mm). The return station v1 has no T277b part (the top keeps its letter).
 - SV2 the contracts of the v1 drive build pass (M1-M21: M8 declares the wrap / cable joint),
   also with T279's --comm-arm (the export candidate: M22 too); M15's count (the joined LOD0, the _Win part included)
@@ -61,7 +61,8 @@ SV_PARTS = ("cwrope_n_wh0", "cwrope_n_wh1", "cwrope_n_wh2", "cwrope_n_wd",
 LEGS = ("leg_f_n", "leg_f_p", "leg_b_n", "leg_b_p")
 RIM = "sheave_bull_rim"
 DRIPS = tuple(f"drip_{r}_{k}" for r in LT.SV_DRIP_ROOFS for k in LT.SV_DRIP_SIDES)
-SV_CHANGED = LEGS + (RIM,) + DRIPS          # same part, more faces under v1
+DRUMS = tuple(LT.SV_DRUMS)
+SV_CHANGED = LEGS + (RIM,) + DRIPS + DRUMS  # same part, more faces under v1
 
 
 def check(cond, label, detail=""):
@@ -228,6 +229,8 @@ def main():
           f"({[v1p.get(n) for n in DRIPS]})")
     check(all(v1p[n] == 32 for n in LEGS), "SV1 v1: the four legs gain their top cap (16 + 16 fan faces)",
           f"({[v1p[n] for n in LEGS]})")
+    check(all(v1p[n] == offp[n] + 16 for n in DRUMS), "SV1 v1: the beam drums gain their inner disk (+16 fan faces)",
+          f"({[(offp[n], v1p[n]) for n in DRUMS]})")
     check(v1_x["tris"] - off_x["tris"] == LT.sv_tris_m(), "SV1 v1: the LOD0 tri delta = sv_tris_m()",
           f"({off_x['tris']} -> {v1_x['tris']}, sv_tris_m {LT.sv_tris_m()})")
     V = v1_x["verts"]
