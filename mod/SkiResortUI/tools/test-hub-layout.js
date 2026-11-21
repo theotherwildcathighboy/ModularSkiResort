@@ -91,6 +91,7 @@ const CUT_DECIDED = {
   startText: "a numbered start step beside its button",
   buildStatusLine: "the build footer's one status line; every tile is hovered in turn and the fullest line is reported",
   quickLineText: "the picked run's name above its feature rows, a name the player chose (whole in the run row's tooltip)",
+  pagerLabel: "the pager's next-page button shows the fixed name of the part that page starts in, one line in the pinned pager row (fixed height, pager math)",
 };
 
 /** The top-level single-class rules of hub.module.scss: class -> rule body. */

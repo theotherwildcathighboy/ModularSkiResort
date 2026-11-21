@@ -22,7 +22,7 @@ import {
 } from "./hubRules";
 import type { SaleWindow, SchoolState } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, demandWordEntry, monthName } from "./hubText";
-import { Divider, InfoLine, LocText, Num, SignedNum, StableWidth, SubLine, Tip, TipLines, areaArg, numArg, useNumberSamples, useUnits } from "./parts";
+import { Divider, InfoLine, LocText, Num, PagePart, SignedNum, StableWidth, SubLine, Tip, TipLines, areaArg, numArg, useNumberSamples, useUnits } from "./parts";
 import type { NumberSamples } from "./parts";
 import { currentResort, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
@@ -511,6 +511,8 @@ function SignMoney({ row, l, city, build, feats, problems, samples, t }: {
   const month = monthName(city.month, t);
   return (
     <>
+      {/* T283: the view's named parts (PagePart, the pager's forward button) */}
+      <PagePart name={t(HUB_LOC.pageMoneyIncome)} />
       <MoneyHeader l={l} month={month} samples={samples} t={t} />
       <Fold view="money" id="income" header label={t(HUB_LOC.sectionIncome)}
         value={<Cell samples={samples}>{incomeValue(l ? l.incomeMonth ?? -1 : -1)}</Cell>}>
@@ -521,6 +523,7 @@ function SignMoney({ row, l, city, build, feats, problems, samples, t }: {
       <LessonRow l={l} city={city} school={schoolState(l, problems, row.sign, schoolBuiltOf(build))} samples={samples} t={t} />
       <PassesMonthRow l={l} city={city} samples={samples} t={t} />
       </Fold>
+      <PagePart name={t(HUB_LOC.pageMoneyCosts)} />
       <Fold view="money" id="costs" header label={t(HUB_LOC.sectionCosts)}
         value={<Cell samples={samples}>{costValue(l ? l.costsMonth ?? -1 : -1)}</Cell>}>
       <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />
@@ -532,8 +535,10 @@ function SignMoney({ row, l, city, build, feats, problems, samples, t }: {
         rwh={city.realisticWorkplaces} samples={samples} t={t} extra={t(HUB_LOC.moneyTipOffSeason)} />
       {city.realisticWorkplaces && <SubLine tip={t(HUB_LOC.moneyTipRwh)}>{t(HUB_LOC.moneyNoteRwh)}</SubLine>}
       </Fold>
+      <PagePart name={t(HUB_LOC.pageMoneyNet)} />
       <Divider />
       <NetRow l={l} samples={samples} t={t} />
+      <PagePart name={t(HUB_LOC.pageMoneyAlso)} />
       <AlsoBlock l={l} city={city} samples={samples} t={t} />
     </>
   );

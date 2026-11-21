@@ -612,7 +612,7 @@ function run(srcDir) {
     const fit = read("fit.tsx"), state = read("hubState.ts"), strip = read("BuildStrip.tsx"), tiles = read("ViewTiles.tsx");
     eq("T26.7 never a scrollbar, source facts: folds closed by default + accordion, pager always drawn, folds in Attraction (3 since T226) / Guests / Finances, no pager in Runs / Lifts (T131)",
       [/export const FOLD_DEFAULT: Readonly<Record<string, string>> = \{\};/.test(state), /open \? "" : id/.test(state),
-        /<div className=\{styles\.pagerRow\}>/.test(fit),
+        /<div ref=\{fit\.rowRef\} className=\{styles\.pagerRow\}/.test(fit),
         (read("OverviewView.tsx").match(/<Fold\b/g) || []).length, (read("GuestsView.tsx").match(/<Fold\b/g) || []).length,
         (read("MoneyView.tsx").match(/<Fold\b/g) || []).length, /<Pager fit=\{fit\} \/>/.test(read("RunsView.tsx")), /<Pager fit=\{fit\} \/>/.test(read("LiftsView.tsx"))],
       [true, true, true, 3, 4, 3, false, false]);   // Overview: Mountain, Resort tourism bonus (T226), Merged
@@ -848,6 +848,16 @@ function run(srcDir) {
   const listViews = ["RunsView.tsx", "LiftsView.tsx"].map((v) => read(path.join("hub", v)));
   eq("T30.1 Runs / Lifts: every row in one list (styles.listAll), no useFitPage, no <Pager>",
     listViews.map((v) => [v.includes("styles.listAll"), /useFitPage|<Pager/.test(v)]), [[true, false], [true, false]]);
+  // PG.1 (1.0.4 price edges, owner harness pass: "page jumps around a lot"): the view pager keeps the rows in view. After a re-page the
+  // shown page follows the row that was first on it, until the player pages (hubRules.anchoredPage, fit.tsx useViewPager).
+  {
+    const PG = [0, 0, 0, 1, 1, 2];
+    eq("PG.1 pager anchor: no anchor = the asked page, within the count", [R.anchoredPage(PG, 1, -1, -1), R.anchoredPage(PG, 5, -1, -1), R.anchoredPage([], 2, -1, -1)], [1, 2, 0]);
+    eq("PG.1 pager anchor: a re-cut moves the anchor row to another page, the view follows it", [R.anchoredPage(PG, 1, 2, 1), R.anchoredPage(PG, 2, 4, 2)], [0, 1]);
+    eq("PG.1 pager anchor: the player paged (asked != the anchor's page): the asked page", [R.anchoredPage(PG, 2, 3, 1), R.anchoredPage(PG, 0, 3, 1)], [2, 0]);
+    eq("PG.1 pager anchor: an anchor row past the rows is ignored", R.anchoredPage(PG, 1, 9, 1), 1);
+    eq("PG.1 fit.tsx pages by the anchor", /anchoredPage\(pageOf, state\.current\.page/.test(fs.readFileSync(path.join(srcDir, "hub", "fit.tsx"), "utf8")), true);
+  }
   // T31 (DECISIONS 423b) the cat track delete: a trash only on a cat track row (other rows keep an empty slot), armed by the first click
   // and sent by the second. The trigger is the deleteCatTrack one (C# queues it and applies it in OnUpdate).
   const runList = read(path.join("hub", "RunList.tsx"));
@@ -1021,6 +1031,19 @@ function run(srcDir) {
     eq("T40.1 color literals and legacy variables below the token block", [end > 0, scss.includes(":global(.legacy-interface) .tipLines {"), literals, legacy], [true, true, [], []]);
   }
 
+  // T283 (1.0.4) the pager names the next page: its first row when titled, else the titled row it continues, else its first titled row.
+  eq("T283.1 nextPageTitleRow: first row titled / continues a section / title later on the page / last page / no title",
+    [R.nextPageTitleRow([0, 0, 1, 1, 2], [true, false, true, false, false], 0), R.nextPageTitleRow([0, 0, 1, 1, 2], [true, false, true, false, false], 1),
+      R.nextPageTitleRow([0, 0, 1, 1], [false, false, false, true], 0), R.nextPageTitleRow([0, 0, 1, 1, 2], [true, false, true, false, false], 2),
+      R.nextPageTitleRow([0, 1], [false, false], 0)],
+    [2, 2, 3, -1, -1]);
+  // Owner review (2026-11-21): the parts have fixed names (PagePart markers); a page that starts with a divider is named by its next row.
+  eq("T283.2 nextPageTitleRow: a leading divider is skipped / not past the page / without skip",
+    [R.nextPageTitleRow([0, 0, 1, 1, 1], [true, false, false, true, false], 0, [false, false, true, false, false]),
+      R.nextPageTitleRow([0, 1], [true, false], 0, [false, true]),
+      R.nextPageTitleRow([0, 0, 1, 1, 1], [true, false, false, true, false], 0)],
+    [3, 0, 0]);
+
   // T46 the control scale (T202, DECISIONS 668, docs/DESIGN-SYSTEM.md section 2.1): every class a hub <Button> carries either declares a
   // height that stands in CONTROL_HEIGHT with exactly that value, or is a modifier / inherits its height (NO_OWN_HEIGHT). A text button is
   // 26 rem x fontScale, whatever its class (the three heights of one role, 22.4 / 26 / 30, were the 2026-11-15 audit's F1). A new Button
@@ -1031,7 +1054,7 @@ function run(srcDir) {
       // text buttons: one height
       actionButton: TEXT, segButton: TEXT, startButton: TEXT, treeToolButton: TEXT, areaName: TEXT,
       // icon buttons, tabs, chips, check rows
-      headerButton: "calc(24rem * var(--fontScale))", tabButton: "calc(24rem * var(--fontScale))", tabChevron: "calc(20rem * var(--fontScale))", rowPen: "calc(22rem * var(--fontScale))",
+      headerButton: "calc(24rem * var(--fontScale))", tabButton: "calc(24rem * var(--fontScale))", tabChevron: "calc(24rem * var(--fontScale))", rowPen: "calc(22rem * var(--fontScale))",
       pickerChip: "calc(22rem * var(--fontScale))", toggleAct: "calc(22rem * var(--fontScale))", pagerButton: "calc(20rem * var(--fontScale))",
       // tiles
       tile: "calc(33.1rem * var(--fontScale) + 36.315rem * var(--fontScaleChange) + 8.5rem)",
@@ -1042,7 +1065,7 @@ function run(srcDir) {
     };
     const NO_OWN_HEIGHT = new Set([
       "areaNameOpen", "buildTileActive", "buildTileLocked", "buttonOn", "fitText", "foldRow", "foldRowOpen", "hiddenKeepSpace", "histSeg",
-      "histSegNext", "infoHeader", "lodgeRow", "mergeAction", "overlayItemOn", "pagerButtonOff", "pickerChipOn", "planRow", "planRowOff",
+      "histSegNext", "infoHeader", "lodgeRow", "mergeAction", "overlayItemOn", "pagerButtonOff", "pagerButtonText", "pickerChipOn", "planRow", "planRowOff",
       "problemClickable", "problemDim", "problemMoreButton", "problemMoreOn", "rowTrashArmed", "segButtonNext", "tabButtonOn", "tileOn",
     ]);
     const hubDir = path.join(srcDir, "hub");

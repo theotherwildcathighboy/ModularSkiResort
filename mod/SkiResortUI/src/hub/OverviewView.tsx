@@ -31,7 +31,7 @@ import { BAND_NAME, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, euClassEntry, facto
 import { euCounts } from "./units";
 import type { BuildItemId } from "../bindings";
 import {
-  BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, areaArg, cx, depthValue, numArg, useUnits,
+  BandMarker, Divider, FlexBar, InfoLine, LocText, Num, PagePart, StableWidth, SubLine, Tip, TipLines, areaArg, cx, depthValue, numArg, useUnits,
 } from "./parts";
 import { currentResort, liftsOf, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
@@ -494,8 +494,10 @@ export function OverviewView(): JSX.Element {
   if (unlinked) {
     return (
       <>
+        <PagePart name={t(HUB_LOC.pageOverviewMountain)} />
         <SyncLine sign={null} />
         <MountainSection row={row} live={l} city={city} unrateable={unrateable} areaRuns={areaRuns} areaLifts={areaLifts} t={t} />
+        <PagePart name={t(HUB_LOC.pageOverviewMerged)} />
         <MergedFold sign={null} />
         <Divider />
         <div className={styles.noteArea}>
@@ -506,11 +508,16 @@ export function OverviewView(): JSX.Element {
   }
   return (
     <>
+      {/* T283: the view's named parts (PagePart, the pager's forward button) */}
+      <PagePart name={t(HUB_LOC.pageOverviewAttraction)} />
       <SyncLine sign={row.sign} />
       <Receipt row={row} l={l} city={city} problems={problems} build={build} areaRuns={areaRuns} t={t} />
+      <PagePart name={t(HUB_LOC.pageOverviewTourism)} />
       <Divider />
       <TourismGroup l={l} city={city} t={t} />
+      <PagePart name={t(HUB_LOC.pageOverviewMountain)} />
       <MountainSection row={row} live={l} city={city} unrateable={unrateable} areaRuns={areaRuns} areaLifts={areaLifts} t={t} folded />
+      <PagePart name={t(HUB_LOC.pageOverviewMerged)} />
       <MergedFold sign={row.sign} />
     </>
   );

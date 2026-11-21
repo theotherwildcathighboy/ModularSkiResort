@@ -464,6 +464,13 @@ export function Divider(): JSX.Element {
   return <div className={styles.divider} />;
 }
 
+/** T283 (owner review 2026-11-21): a marker row, no height, that starts a named part of a paged view. The pager's forward button shows
+ *  the name of the part the next page starts in (fit.tsx, hubRules.nextPageTitleRow). Put it before the part's divider, so a page that
+ *  starts at that divider gets the part's name. `name` = a PAGE_NAME text (1 to 3 words, no months, numbers or area names). */
+export function PagePart({ name }: { name: string }): JSX.Element {
+  return <div className={styles.pagePart} data-page-title={name} />;
+}
+
 /** The half-filled caution dot of the run and lift rows (icon scheme): a patchy run, a lift without power. It matches the patchy icon of
  *  hub text, and it differs from the filled dot by shape, not by color alone. CSS only (hub.module.scss .liftDotHalf*). */
 export function HalfDot(): JSX.Element {

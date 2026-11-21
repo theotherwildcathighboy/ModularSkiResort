@@ -177,7 +177,10 @@
     await settle();
   }
 
-  function pagerText() { const p = q(cls("pagerText")); return p ? p.textContent.trim() : ""; }
+  // T283 (1.0.4): the pager draws dots, not "N / COUNT": its row carries the position (data-page / data-pages) and its two sides
+  // (data-pager="prev" / "next"; Back is absent on page 1, the next arrow is dimmed on the last page)
+  function pagerText() { const p = q(cls("pagerRow")); return p ? `${p.getAttribute("data-page")} / ${p.getAttribute("data-pages")}` : ""; }
+  function pagerButton(side) { const p = q(cls("pagerRow")); return p ? q(`[data-pager="${side}"] button`, p) : null; }
 
 
   /**
@@ -193,9 +196,9 @@
       for (let i = 0; i < 12; i++) {
         const cur = pageOfPager()[0];
         if (cur === p) return true;
-        const bs = qa("button", q(cls("pagerRow")));
-        if (bs.length < 2) return false;
-        (cur < p ? bs[bs.length - 1] : bs[0]).click();
+        const b = pagerButton(cur < p ? "next" : "prev");
+        if (!b) return false;
+        b.click();
         await settle();
       }
       return pageOfPager()[0] === p;
@@ -284,7 +287,8 @@
       const m = /(\d+)\s*\/\s*(\d+)/.exec(pt);
       const pages = m ? Number(m[2]) : 1;
       for (let p = 1; p < pages; p++) {
-        qa("button", q(cls("pagerRow"))).pop().click();
+        const nb = pagerButton("next");
+        if (nb) nb.click();
         await settle();
         rec(v, `${state}, page ${p + 1} / ${pages}`, measure());
       }
@@ -552,7 +556,7 @@
     if (p.get("view")) { tiles()[Number(p.get("view"))].click(); await settle(); }
     if (p.get("tab")) { const b = buildTabs().find((x) => x.textContent.trim().toLowerCase() === p.get("tab")); if (b) await openTab(b); }
     if (p.get("fold")) { const f = folds()[Number(p.get("fold"))]; if (f) { f.click(); await settle(); } }
-    if (p.get("page")) { for (let i = 1; i < Number(p.get("page")); i++) { const r = q(cls("pagerRow")); if (r) { qa("button", r).pop().click(); await settle(); } } }
+    if (p.get("page")) { for (let i = 1; i < Number(p.get("page")); i++) { const b = pagerButton("next"); if (b) { b.click(); await settle(); } } }
     if (p.get("areas")) { const b = q(cls("areaName")); if (b) { b.click(); await settle(); } }
     if (p.get("problems")) { const b = q(cls("problemMoreButton")); if (b) { b.click(); await settle(); } }
     if (p.get("free")) {   // debug aid, never in the check: let the panel grow to show what the Scrollable hid

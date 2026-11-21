@@ -1508,6 +1508,17 @@ export function iconPieces(tokens: readonly IconToken[]): IconPiece[] {
   return out;
 }
 
+/** The view pager's page after a re-page (fit.tsx useViewPager, 1.0.4 price edges: an edit made a row grow, appear or go, and the
+ *  same page index then showed other rows, "page jumps around a lot"). `pageOf` = each row's page (rising), `asked` = the page the
+ *  state holds, `anchorRow` = the row that was first on the shown page at the last pass (-1 = none), `anchorPage` = the page it was
+ *  first on. While the player has not paged since (asked = anchorPage), the view shows the page that holds that row now, so the rows
+ *  in view stay in view. Else (the player paged, or no anchor) the asked page, within the count. */
+export function anchoredPage(pageOf: readonly number[], asked: number, anchorRow: number, anchorPage: number): number {
+  const n = pageOf.length > 0 ? pageOf[pageOf.length - 1] + 1 : 1;
+  if (anchorRow >= 0 && anchorRow < pageOf.length && anchorPage === asked) return pageOf[anchorRow];
+  return Math.min(Math.max(0, asked), n - 1);
+}
+
 /** U+00A0, the no-break space of the inline rescue (iconInlinePieces). */
 export const NBSP = " ";
 
@@ -1828,4 +1839,22 @@ export function mountainFacts(runs: readonly RunRow[] | null | undefined, lifts:
     pistes, catTracks, longestM, longestName, nightRuns, lifts: complete, liftsByType,
     snowmakingPct: area > 0 ? Math.round((100 * gunArea) / area) : -1,
   };
+}
+
+/** T283 (1.0.4): the pager draws one dot per page up to this many pages, else the "N / COUNT" text. */
+export const PAGER_DOTS_MAX = 6;
+
+/** T283 (1.0.4): the row whose name labels the pager's forward button (fit.tsx). `pageOf[i]` = the page of row i, `titled[i]` = row i
+ *  names a part of the view (a PagePart marker: each paged view is cut into parts with fixed short names, PAGE_NAME). `skip[i]` = row i
+ *  is a divider: a page that starts with dividers is named by its first other row. The next page's first row when it is named; else the
+ *  part the next page continues (the nearest named row before that row); else the first named row on the next page. -1 when there is no
+ *  next page or no named row (the button then reads "Next page"). */
+export function nextPageTitleRow(pageOf: readonly number[], titled: readonly boolean[], shown: number, skip: readonly boolean[] = []): number {
+  let first = pageOf.indexOf(shown + 1);
+  if (first < 0) return -1;
+  while (first + 1 < pageOf.length && pageOf[first + 1] === shown + 1 && skip[first] && !titled[first]) first++;
+  if (titled[first]) return first;
+  for (let i = first - 1; i >= 0; i--) if (titled[i]) return i;
+  for (let i = first + 1; i < pageOf.length && pageOf[i] === shown + 1; i++) if (titled[i]) return i;
+  return -1;
 }

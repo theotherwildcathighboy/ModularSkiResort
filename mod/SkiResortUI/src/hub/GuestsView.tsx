@@ -24,7 +24,7 @@ import type { LastMonthMark, TicketNote, TripPlannerNote } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LODGE_BUILDING, allMonthNames, monthName } from "./hubText";
 import { LODGE_SKIER_ROOM } from "./buildItems";
 import {
-  Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, cx, numArg, useNumberSamples,
+  Divider, FlexBar, InfoLine, LocText, Num, PagePart, StableWidth, SubLine, Tip, TipLines, cx, numArg, useNumberSamples,
 } from "./parts";
 import type { NumberSamples, TipLine } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
@@ -269,11 +269,14 @@ function SignGuests({ l, city, parking, samples, t }: {
 
   return (
     <>
+      {/* T283: the view's named parts (PagePart, the pager's forward button) */}
+      <PagePart name={t(HUB_LOC.pageGuestsMonth)} />
       <GuestsHeader l={l} city={city} note={note} t={t} />
       <GuestBar label={thisLabel} labels={barLabels} value={thisMonth} max={scale} samples={samples}
         tip={<TipLines lines={[thisLabel, scaleLine]} />} />
       <GuestBar label={lastLabel} labels={barLabels} value={lastMonth} max={scale} samples={samples}
         tip={<TipLines lines={[lastLabel, lastNote, scaleLine]} />} />
+      <PagePart name={t(HUB_LOC.pageGuestsLodges)} />
       <Divider />
       {/* group 1: the people at the lodges (open or not), and the note that not all of them ski. */}
       <Fold view="guests" id="lodges" header label={t(HUB_LOC.guestsGroupLodges)} tip={t(HUB_LOC.guestsNoteNeverSki)}>
@@ -293,6 +296,7 @@ function SignGuests({ l, city, parking, samples, t }: {
       />
       </Fold>
       {/* group 2: the Ski days row and its state line. */}
+      <PagePart name={t(HUB_LOC.pageGuestsTrips)} />
       <Fold view="guests" id="sent" header label={t(HUB_LOC.guestsGroupSent)}>
       {heads}
       <GuestRow
@@ -303,6 +307,7 @@ function SignGuests({ l, city, parking, samples, t }: {
       <SubLine tip={skiDayLineTip(l, t, tripNote)}><SkiDayLineText l={l} t={t} trip={tripNote} tripName={tripName} /></SubLine>
       </Fold>
       {/* group 3: what the gate charged. */}
+      <PagePart name={t(HUB_LOC.pageGuestsTickets)} />
       <Fold view="guests" id="tickets" header label={t(HUB_LOC.guestsGroupTickets)}>
       {heads}
       <GuestRow
@@ -337,6 +342,7 @@ function SignGuests({ l, city, parking, samples, t }: {
       )}
       {/* the ticket money is Finances' Income row (DECISIONS 613) */}
       </Fold>
+      {parking.length > 0 && <PagePart name={t(HUB_LOC.pageGuestsParking)} />}
       <Divider />
       {/* group 4: the car spaces, one row per road lodge under one header whose value is their total ("–" before the first count). */}
       {parking.length > 0 && (

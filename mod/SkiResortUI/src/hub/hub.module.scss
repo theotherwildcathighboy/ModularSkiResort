@@ -1331,8 +1331,8 @@
   background-color: var(--hoverColorNormal);
 }
 
-// T246: the strip's open / close chevron at the end of the tab row; the fold glyphs (fit.tsx). T262 (2026-11-20): a 20 rem square,
-// centered in the 24 rem tab row (it was 24 and read a few px too big beside the tabs), glyph 8 rem. Live while a mode is engaged: it cancels it.
+// T246: the strip's open / close chevron at the end of the tab row; the fold glyphs (fit.tsx). T281 (2026-11-20): a 24 rem square,
+// the tab buttons' own height (T262's 20 rem read smaller than the tabs in game), glyph 10 rem. Live while a mode is engaged: it cancels it (T262).
 .tabChevronCell {
   display: flex;
   flex-direction: column;
@@ -1340,7 +1340,7 @@
   justify-content: center;
   flex-grow: 0;
   flex-shrink: 0;
-  width: calc(20rem * var(--fontScale));
+  width: calc(24rem * var(--fontScale));
   margin-left: 2rem;
 }
 
@@ -1350,7 +1350,7 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  height: calc(20rem * var(--fontScale));
+  height: calc(24rem * var(--fontScale));
   padding: 0rem;
   background-color: var(--sectionBackgroundColor);
   border-radius: 3rem;
@@ -1365,8 +1365,8 @@
 }
 
 .tabChevronGlyph {
-  width: calc(8rem * var(--fontScale));
-  height: calc(8rem * var(--fontScale));
+  width: calc(10rem * var(--fontScale));
+  height: calc(10rem * var(--fontScale));
   background-color: var(--hubTextDim);
 }
 
@@ -2414,6 +2414,14 @@
   margin-left: 10rem;
   margin-right: 10rem;
   background-color: var(--dividerColor);
+}
+
+// T283 (owner review 2026-11-21): the PagePart marker row (parts.tsx). It draws nothing and takes no height; the pager reads its name.
+.pagePart {
+  flex-shrink: 0;
+  height: 0rem;
+  margin: 0rem;
+  padding: 0rem;
 }
 
 // -- score bar, ticks, labels (design 5.2) ------------------------------------------------------------
@@ -3655,15 +3663,55 @@
   opacity: 0.7;
 }
 
-// The list pager (fit.tsx Pager): ALWAYS drawn at this height, empty on one page, so paging never moves the rows above it.
+// The view pager (fit.tsx Pager). T283 (1.0.4, the page-turn corners): one row at the top of the footer (HubPanel), drawn while the view
+// has more than one page, at this one height on every page. Back at the left edge, the page dots in the middle, the next page's title at the
+// right edge. The two sides share the width equally, so the dots stay centered whatever the labels.
 .pagerRow {
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: center;
   flex-shrink: 0;
   height: calc(1.3em + 6rem);
+  padding: 2rem 8rem 0rem 8rem;
   font-size: var(--fontSizeS);
+}
+
+.pagerSide {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+}
+
+.pagerSideEnd {
+  justify-content: flex-end;
+}
+
+.pagerDots {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 8rem;
+  margin-right: 8rem;
+}
+
+.pagerDot {
+  width: 7rem;
+  height: 7rem;
+  margin-left: 3rem;
+  margin-right: 3rem;
+  border-radius: 4rem;
+  background-color: var(--hubTextDim);
+  opacity: 0.45;
+}
+
+.pagerDotOn {
+  background-color: var(--accentColorNormal);
+  opacity: 1;
 }
 
 .pagerButton {
@@ -3698,14 +3746,37 @@
   background-color: var(--normalTextColor);
 }
 
-// T264: the "More" hint before the next arrow (accent color). The slot keeps its width on the last page (empty there) and an empty slot
-// of the same width stands before the page text, so the text stays centered and paging never moves the row.
-.pagerMore {
-  min-width: 2.6em;
-  margin-right: 4rem;
-  text-align: right;
+// T283: a pager button with a label ("‹ Back", "<next page title> ›"): the pagerButton box grown to its label, cut with an ellipsis at
+// its side's width. Its height is pagerButton's (T46).
+.pagerButtonText {
+  width: auto;
+  max-width: 100%;
+  min-width: 0rem;
+  flex-shrink: 1;
+  padding-left: 8rem;
+  padding-right: 8rem;
+}
+
+.pagerLabel {
+  min-width: 0rem;
+  overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--normalTextColor);
+}
+
+.pagerLabelNext {
   color: var(--accentColorNormal);
+}
+
+.pagerGlyphBefore {
+  flex-shrink: 0;
+  margin-right: 5rem;
+}
+
+.pagerGlyphAfter {
+  flex-shrink: 0;
+  margin-left: 5rem;
 }
 
 .pagerText {
