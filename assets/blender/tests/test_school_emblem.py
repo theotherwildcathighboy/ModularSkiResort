@@ -181,7 +181,8 @@ def e3():
     for s in "AB":
         g = dict(by[f"emblem_schoolflag{s}_face"][2]["draws"])["glyph"]
         check(g["prims"] == em and tuple(g["bg"]) == tuple(sch["SCHOOL_RED"]), f"E3 v1 flag {s}: EMBLEM_V1 on SCHOOL_RED")
-    same = [e for e in v1 if not e[0].startswith(("emblem_schoolflag", sch["FIELD_FACE"]))]
+    same = [e for e in v1 if not e[0].startswith(("emblem_schoolflag", sch["FIELD_FACE"]))
+            and e[0] not in ("sign_meet_face", "sign_lesson3_face")]     # call 5: E6 checks those two
     check(all(e in rec.labels for e in same), "E3 v1: every other label entry is RECIPE's own", f"({len(same)})")
     f0 = rec.labels[0]
     check(f0[0] == sch["FIELD_FACE"] and callable(f0[1]) and getattr(f0[1], "__name__", "") == "glyph_cand_d",
@@ -207,15 +208,68 @@ def e4():
             check("labels" not in rr, "E4 flag off: no labels in recipe_replace")
 
 
+def e6():
+    """Overnight call 5: the sign-set boards (meeting board, fourth lesson board) draw the v1 emblem under --texpass v1
+    only. Flag off: sheet_for returns SHEET itself. v1: only the two kinds' draws change (rects, sizes, lit flags and
+    layout_hash stay), and painting them changes only their own rects. E6_OUT=<dir>: writes the off / v1 sheets."""
+    import cs2_signset as CS
+    sch = R.get_recipe("school").builder.__globals__
+    check(CS.sheet_for("off") is CS.SHEET and CS.sheet_for(None) is CS.SHEET, "E6 flag off: sheet_for is SHEET itself")
+    check(CS.TEXPASS_EMBLEM == sch["EMBLEM_V1"], "E6 the sign set and the tower draw the same emblem",
+          f"({CS.TEXPASS_EMBLEM} / {sch['EMBLEM_V1']})")
+    v1 = CS.sheet_for("v1")
+    same = all(a is b for a, b in zip(CS.SHEET, v1) if a.key not in CS.TEXPASS_GLYPH_KEYS)
+    check(len(v1) == len(CS.SHEET) and same, "E6 v1: every other kind is the same object")
+    for key in CS.TEXPASS_GLYPH_KEYS:
+        a, b = CS.kind(key), next(k for k in v1 if k.key == key)
+        kinds = [it[0] for d, kw in b.draws if d == "shapes" for it in kw["items"]]
+        check((a.rect, a.size, a.lit, a.state) == (b.rect, b.size, b.lit, b.state), f"E6 v1 {key}: rect / size / lit kept")
+        check(f"glyph:{CS.TEXPASS_EMBLEM}" in kinds and "glyph:cand_d" not in kinds, f"E6 v1 {key}: draws the emblem",
+              f"({kinds})")
+    check(CS.layout_hash(v1) == CS.layout_hash(), "E6 v1: layout_hash unchanged (the B sharers keep their sheet)")
+    lab = {e[0]: e for e in sch["v1_labels"]()}
+    for face in ("sign_meet_face", "sign_lesson3_face"):
+        items = [it[0] for d in lab[face][2]["draws"] if d[0] == "shapes" for it in d[1]["items"]]
+        check(f"glyph:{sch['EMBLEM_V1']}" in items and "glyph:cand_d" not in items,
+              f"E6 v1_labels {face} (the --no-signset path): draws the emblem", f"({items})")
+    rest_ok = all(lab[e[0]] == e for e in sch["DISPLAY_LABELS"]
+                  if e[0] not in ("sign_meet_face", "sign_lesson3_face", sch["FIELD_FACE"])
+                  and not e[0].startswith("emblem_schoolflag"))
+    check(rest_ok, "E6 v1_labels: every other label entry unchanged")
+    sub_off = [CS.kind(k) for k in CS.TEXPASS_GLYPH_KEYS]
+    sub_v1 = [k for k in v1 if k.key in CS.TEXPASS_GLYPH_KEYS]
+    m_off, _ = CS.paint_sheet(sub_off)
+    m_v1, _ = CS.paint_sheet(sub_v1)
+    b0, b1 = m_off["BaseColor"][0], m_v1["BaseColor"][0]
+    inside = np.zeros(b0.shape[:2], bool)
+    for k in sub_off:
+        x0, y0, x1, y1 = k.rect
+        inside[max(0, y0 - CS.DILATE):y1 + CS.DILATE, max(0, x0 - CS.DILATE):x1 + CS.DILATE] = True
+    diff = np.any(np.abs(b0 - b1) > 1e-6, axis=2)
+    check(diff[inside].any() and not diff[~inside].any(), "E6 paint: the v1 boards differ from 1.0.3 inside their rects only",
+          f"({int(diff[inside].sum())} texels changed)")
+    x0, y0, x1, y1 = CS.kind("school.lesson3").rect
+    red = np.asarray(CS._srgb_to_lin(CS.SCHOOL_RED))
+    crop = CS._srgb_to_lin(b1[y0:y1, x0:x1, 0:3])
+    cov = float(np.mean(np.all(np.abs(crop - red) < 0.02, axis=2)))
+    check(0.08 <= cov <= 0.5, "E6 paint: the lesson board's emblem covers a plausible share of the board", f"({cov:.3f})")
+    out = os.environ.get("E6_OUT")
+    if out:
+        os.makedirs(out, exist_ok=True)
+        CS.write_sheet(m_off, out, "e6_off")
+        CS.write_sheet(m_v1, out, "e6_v1")
+
+
 def main():
     e1_e2()
     e5()
     e3()
     e4()
+    e6()
     if FAILS:
         print(f"FAIL test_school_emblem: {len(FAILS)} failed: {FAILS}")
         sys.exit(1)
-    print(f"PASS test_school_emblem: E1-E5 + 3 negatives ({N_OK[0]} ok)")
+    print(f"PASS test_school_emblem: E1-E6 + 3 negatives ({N_OK[0]} ok)")
 
 
 main()

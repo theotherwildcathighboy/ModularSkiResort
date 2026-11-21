@@ -383,6 +383,33 @@ def layout_hash(kinds=SHEET, n=None):
 
 LAYOUT_SHA[len(SHEET)] = layout_hash()
 
+# T278 / overnight call 5 (1.0.4, --texpass v1 only): the school's boards show the same pictogram as its tower. The
+# meeting board (the school's skier in a red square beside the three trail symbols: where a class gathers) and the fourth
+# lesson board (the school's own class, in school red) drew cand_d; under v1 the tower field and the flags draw
+# recipes/school.EMBLEM_V1, so a school whose boards disagree with its landmark reads as two brands. Draws only: the
+# rects, sizes and lit flags stay (layout_hash unchanged), so the sheet owner re-letters (lodge.py --signset-letter) and
+# the B sharers keep their sheet. Flag off returns SHEET itself (byte-identical by construction).
+TEXPASS_EMBLEM = "emblem_skier_b"           # = recipes/school.EMBLEM_V1 (test_school_emblem E6 pins the two together)
+TEXPASS_GLYPH_KEYS = ("school.meet", "school.lesson3")
+
+
+def _swap_glyph(draws, old="glyph:cand_d", new=f"glyph:{TEXPASS_EMBLEM}"):
+    out = []
+    for kind_name, kw in draws:
+        if kind_name == "shapes":
+            kw = dict(kw, items=tuple((new if it[0] == old else it[0],) + tuple(it[1:]) for it in kw["items"]))
+        out.append((kind_name, kw))
+    return tuple(out)
+
+
+def sheet_for(texpass="off"):
+    """The kinds to paint: SHEET with the flag off; under --texpass v1 the TEXPASS_GLYPH_KEYS draw TEXPASS_EMBLEM where
+    they drew cand_d."""
+    if texpass in (None, "off"):
+        return SHEET
+    return tuple(replace(k, draws=_swap_glyph(k.draws), note=(k.note + f" (texpass v1: {TEXPASS_EMBLEM})").strip())
+                 if k.key in TEXPASS_GLYPH_KEYS else k for k in SHEET)
+
 
 def check_layout(kinds=SHEET, A=SHEET_A, gutter_min=6, ppm=SHEET_PPM, ppm_tol=0.02):
     """SS1: every rect inside the sheet with >= gutter_min px to the edge, pairwise gaps >=

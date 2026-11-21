@@ -3078,7 +3078,8 @@ def _export_sign_set(signset, recipe, args, name, obj, lods, result, area):
             "lot_half_game": [4.0 * W_, 4.0 * D_], "switch_lod2_m": round(float(target), 2),
             "host_tris": result["tris"]}
     rep = cs2_signset.export_sign_set(signset["obj"], spec, letter_dir, host=host, cid=signset["cid"],
-                                      mint=bool(args.export))
+                                      mint=bool(args.export),
+                                      kinds=cs2_signset.sheet_for(getattr(args, "texpass", "off")))  # T278 call 5
     owner_dir = os.path.join(os.path.dirname(letter_dir), cs2_signset.SHEET_LETTER, cs2_signset.SHEET_OWNER)
     if not rep["owner"] and not os.path.isdir(owner_dir):
         # a SHARER built beside a scratch --out (no owner there): validate / preview against the shipped owner's sheet

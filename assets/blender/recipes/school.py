@@ -1167,7 +1167,15 @@ def v1_labels(emblem=EMBLEM_V1):
     tile = ("shapes", {"items": (("square", 0.5, 0.5, 1.0, white), ("square", 0.5, 0.5, 1.0 - 2.0 * TILE_RIM, SCHOOL_RED)),
                        "bg": None})
     field = _disp(FIELD_FACE, tile, ("glyph", {"prims": emblem, "fg": WHITE, "frac": FIELD_FRAC_V1}))
-    rest = tuple(e for e in DISPLAY_LABELS if not e[0].startswith("emblem_schoolflag"))
+    # overnight call 5: the meeting board and the fourth lesson board (LESSON_SHAPES[3]) draw `emblem` too. This is the
+    # legacy --no-signset path; the shipping path paints them on the sign set (cs2_signset.sheet_for), and the host
+    # atlas never holds these faces there (they route to the sign set)
+    old = "glyph:cand_d"
+    rest = tuple(_disp(e[0], *((d[0], dict(d[1], items=tuple(((f"glyph:{emblem}" if it[0] == old else it[0]),) + tuple(it[1:])
+                                                               for it in d[1]["items"])))
+                               if d[0] == "shapes" else d for d in e[2]["draws"]), symmetric=e[2]["symmetric"])
+                 if e[0] in ("sign_meet_face", "sign_lesson3_face") else e
+                 for e in DISPLAY_LABELS if not e[0].startswith("emblem_schoolflag"))
     flags = tuple(_disp(f"emblem_schoolflag{s}_face", ("glyph", {"prims": emblem, "fg": WHITE, "frac": 0.85,
                                                                  "bg": SCHOOL_RED}))
                   for s in "AB")
