@@ -43,6 +43,12 @@ Notes...
 - The Options prices are now the default for every ski area that has no price of its own. Lowering the default pass price after a season's sales started applies from the next season.
 - Old saves keep today's prices and calendar until you change an area's prices. This version adds new save data: do not load its saves in 1.0.3 or older (their prices fall back to the Options values).
 
+**Hub:**
+- Long views turn pages with a footer row: Back on the left, dots in the middle, and a button on the right that names the next page (for example "Income and costs").
+- The view stays on the rows you are looking at while you change a price.
+- The Net row tooltip in History is short: year over year.
+- The build strip arrow is the same size as the Lifts, Runs and Buildings buttons.
+
 **Tourism:**
 - Cold weather no longer keeps tourists away while a ski area is open: the game's cold cut on new tourists now starts at -30 °C instead of -10 °C (new option, on by default).
 
