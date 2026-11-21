@@ -190,18 +190,19 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
-                    "Lift ticket price"
+                    "Default lift ticket price"
                 },
                 // Description (1.0.2): "about 30 % fewer at 100, 80 % fewer at 200" = 1 - PriceFactor. 40 and 200 are SkiDayRules' price edge and SkiMoneyRules.TicketPriceMax
                 // (HubRulesTests H17 holds them). The gate (Welcome Sign working, an open run) and the household with no money are in the hub's
                 // ticket notes, not here. 1.0.3 T258: the outing line is SkiDayRules.PartyPriceFactor (1 up to 100 + tolerance, 0.5 at 200).
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
-                    "What each guest pays on arrival, one price for every ski area. Above ¢40, the ticket tolerance, fewer guests choose a ski " +
+                    "What each guest pays on arrival, at every ski area without a ticket price of its own. An area's Finances view can set one. " +
+                    "Above ¢40, the ticket tolerance, fewer guests choose a ski " +
                     "day: about 30 % fewer at ¢100, 80 % fewer at ¢200. To raise ticket tolerance, build better lodges: ¢60 with a Chalet Lodge, " +
                     "¢80 with a Swanky Summit or Grand Lodge. Season pass holders come at any price. Tourist groups the game sends on outings turn " +
                     "away only above ¢100 plus that tolerance, about half at ¢200. Other visitors the game sends on its own come at any price. Income " +
-                    "shows in the Economy panel under public transportation fees. 0 turns lift tickets off. Default 100."
+                    "shows in the Economy panel under public transportation fees. 0 turns lift tickets off at every area that uses this price. Default 100."
                 },
                 // Lodge spend per guest: "price 0 = nothing charged" is documented in the slider tip. Multipliers: SkiCatalog.LodgeDef.SpendMultiplier.
                 {
@@ -270,12 +271,16 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassPrice)),
-                    "Season pass price"
+                    "Default season pass price"
                 },
+                // T284 (1.0.4): the default early price of every area on the default plan (+15 % from October, on sale August to November on a
+                // December winter). A change applies from the next season once a season's sale started (SkiPassPlanRules season lock).
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SeasonPassPrice)),
-                    "What a season pass costs, locked when it is sold. Above 4 times the lift ticket price, fewer households buy one: " +
-                    "about 50 % fewer at 8 times. To sell more passes, lower the pass price. Needs a lift ticket price above 0. Default 400."
+                    "The early price of a season pass at every ski area without a pass plan of its own. An area's Finances view can set one. " +
+                    "A pass costs the price of its sale. Above 4 times the lift ticket price, fewer households buy one: " +
+                    "about 50 % fewer at 8 times. To sell more passes, lower the pass price. After a season's sale starts, a change applies " +
+                    "from the next season. Needs a lift ticket price above 0. Default 400."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.EnableSnowGating)),

@@ -33,6 +33,15 @@ A buyer pays `SalePassPrice(SeasonPassPrice, ticket now)` if its money covers it
 like tickets (a FeeEvent per pass). Every pool household gets a standing: Bought, or Declined (rolled out and could not pay both store
 Declined).
 
+### Per-area sale (1.0.4, T284)
+
+Each area sells at its own plan: `AreaPrice.SalePrice`, phase and window position (`SkiPassPlanRules`). An area with no sale this hour
+(SalePrice 0) is skipped. `m_SaleApplied[sign]` holds the window position of the last applied run per area, and a NoTarget area
+still sets it. `CopyAllTargets(hour)` caches every area's target lodges once per game hour. A household is pooled only at its NEAREST
+area: the SaleJob skips it when another area's lodge is closer (`if (other < d) continue`). So a household that lives between two
+areas is rolled once, at the nearer one. Each bought pass writes SkiSeasonPassArea: the selling sign, and AreaFlagPool when the area is
+on the default plan. Demand is `SkiPassPlanRules.Demand(price, ticket, value left)`.
+
 ## Ordering
 
 The job writes household money and PlayerMoney like TicketJob. The main thread applies its standings as components at the next tick's
