@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiDQBaseStationF_LOD1_BaseColor.png": "SkiDQBaseStationF_BaseColor.png",
+    "SkiDQBaseStationF_LOD1_ControlMask.png": "SkiDQBaseStationF_ControlMask.png",
+    "SkiDQBaseStationF_LOD1_MaskMap.png": "SkiDQBaseStationF_MaskMap.png",
+    "SkiDQBaseStationF_LOD1_Normal.png": "SkiDQBaseStationF_Normal.png",
+    "SkiDQBaseStationF_LOD2_BaseColor.png": "SkiDQBaseStationF_BaseColor.png",
+    "SkiDQBaseStationF_LOD2_ControlMask.png": "SkiDQBaseStationF_ControlMask.png",
+    "SkiDQBaseStationF_LOD2_MaskMap.png": "SkiDQBaseStationF_MaskMap.png",
+    "SkiDQBaseStationF_LOD2_Normal.png": "SkiDQBaseStationF_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

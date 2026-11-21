@@ -568,6 +568,14 @@ def build_l4(recipe, opts):
     d_ridge = D_EAVE + math.tan(math.radians(D_PITCH)) * 0.5 * (D_Y1 - D_Y0)
     P += K.prism_gable("dfront", "X", D_X0, D_X0 + 0.15, D_Y0, D_Y1, D_EAVE, d_ridge - 0.02,
                        mat="glass_dark")
+    if opts.get("texpass", "off") != "off":
+        # The east gable end (X D_X1) has no wall from W6's top (the eave line) up to the roof south of U's corner (U_Y0).
+        # U's west wall closes it only from U_Y0 north. Low rays under the 1.5 m rake entered that triangle and saw the
+        # inside of the glass box (see-through gate, 4 wedges up to 207 px). The glass box's east gable is glazed like the
+        # west one: one glass_dark triangle in the wall plane, up to the slab's center plane
+        z_u = D_EAVE + math.tan(math.radians(D_PITCH)) * (U_Y0 - D_Y0)
+        P += K._single("wall_dgle", lambda g: g.poly(
+            [(D_X1, D_Y0, D_EAVE), (D_X1, U_Y0, D_EAVE), (D_X1, U_Y0, z_u)], (1.0, 0.0, 0.0)), "glass_dark")
     # gable glazing above 1.5: 6 stepped panes (contract 4.3 "6 trapezoids")
     gw = WallRef("-X", D_X0)
     for j in range(6):
@@ -656,6 +664,12 @@ def build_l4(recipe, opts):
     P += _plinth_wall(SW, "w2", (T_WALL, T_Y1), (T_X1, T_Y1), top_deck, "+Y")
     P += _plinth_wall(SW, "w5", (T_X1, T_Y1), (T_X1, ROUTE_Y0), top_deck, "+X")
     P += _plinth_wall(SW, "w6", (D_X1 + W_T / 2, U_Y0), (D_X1 + W_T / 2, D_Y0), D_EAVE, "+X")
+    if opts.get("texpass", "off") != "off":
+        # W6 stands W_T / 2 proud of the dining room's south glass line, and its inner face is not built: that 0.3 m end
+        # strip at X D_X1 showed the inside of the wall (see-through gate, 300 px). The mason returns the stone round
+        # the wall's end: one stone quad from W4's top to the eave
+        P += K.pane_quad("plinth_w6r", WallRef("-X", D_X1), -D_Y0, -(D_Y0 - W_T / 2), Z_DSLAB, D_EAVE,
+                         d=0.0, mat=STN)
     P += _plinth_wall(SW, "w4", (D_X1, D_Y0), (-9.0, D_Y0), Z_DSLAB, "-Y")
     P += _plinth_wall(SW, "w3", (-9.0, D_Y0), (-9.0, D_Y1), Z_DSLAB, "-X")
     P += _plinth_wall(SW, "w7b", (-9.0, T_Y0), (D_X0, T_Y0), Z_DSLAB, "-Y")
@@ -922,10 +936,13 @@ RECIPE = FineRecipe(
     # lighter than the wall (0.43), the way dressed quoins sit on rubble, and L5's pier-cap key. Flag off keeps
     # stone_rubble (lodge.texpass_rules is {} there). drip_skip: the balcony door ubf1 hangs no sill-drip strip. Under
     # the pass its sill stands on the belt, so the strip took the walnut and ran 0.55 m down onto the stone: a walnut
-    # rectangle under the balcony slab (cs2_tilesheet.audit_strips, r4/tex 2026-11-20; LOD0 13,015 -> 13,013)
+    # rectangle under the balcony slab (cs2_tilesheet.audit_strips, r4/tex 2026-11-20; LOD0 13,015 -> 13,013).
+    # "eave_fade" (T275, r7-tex): the moss band along the terrace eave (roof_eave_m back 1.2 m) ended in a ruler-straight
+    # top edge. Its top now snaps to a slate cell row and the row above fades the same moss out up the slope along a
+    # wandering front (cs2_tilesheet.MOSS_CELL). The valley moss beside and under the dormer windows is unchanged
     texpass={"grade": {"slope": S_DESIGN, "anchor_x": HX}, "eave_h": 0.0,
              "band_skip": ("deck_s", "deck_dslab", "stair_"), "drip_skip": ("sill_ubf1",), "weather_level": 0,
-             "mat": {"trim_uquoins": "concrete"}},
+             "mat": {"trim_uquoins": "concrete"}, "eave_fade": True},
     massing="custom", builder=build_l4,
     rooms="auto", interior="CommercialLow",
     # VariationSet A (contract 6): graphite / red / zinc

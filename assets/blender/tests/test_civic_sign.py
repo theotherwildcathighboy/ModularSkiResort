@@ -136,6 +136,71 @@ def check_tex_flag():
     print("ok sign --tex: default 1024, 2048 accepted, --closeups parses")
 
 
+def _lum(srgb):
+    lin = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in srgb]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def check_texpass_t285():
+    """T285 (r7, the owner's reel review of the 1.0.4 sign): the texture pass's palette and the disc.
+    - defaults: --texpass-emblem mark; the flag-off build reads none of it.
+    - slot math (the game decodes a VariationSet color from sRGB and multiplies in linear): the shipped trim slot shows
+      the reel's (0.111, 0.241, 0.172); the navy slot shows #1B3E6B within 0.5 / 255; both slots are that navy (no
+      lodge green, no royal blue).
+    - the plank stain: darker than the shipped plank, the WE cream (F2E8CF) on it >= 7 : 1 (WCAG luminance ratio).
+    - the disc (the designer's mark without text, owner ruling 2026-11-20): no ink outside the 1.50 m disc, the ring on
+      all four axes, a clipped variant cut at clip_r, the mark not mirrored (the mountain, the larger mass, right of the
+      mark's center as the viewer sees it) and not upside down (the ink centroid below the mark's center, bottom-up
+      rows).
+    - "old" paints exactly the shipped emblem (the cand_c path, array-equal to emblem=None)."""
+    a = WS.parse_args(["--texpass", "v1"])
+    ok(a.texpass_emblem == "mark", f"T285 default emblem {a.texpass_emblem}")
+    trim = WS.tp_game_srgb(WS.SLOTS[1])
+    ok(max(abs(x - y) for x, y in zip(trim, (0.111, 0.241, 0.172))) < 0.002, f"trim in game {trim}")
+    navy = WS.tp_game_srgb(WS.tp_slot_for(WS.TP_NAVY_SRGB))
+    ok(max(abs(x - y) for x, y in zip(navy, WS.TP_NAVY_SRGB)) < 0.5 / 255.0, f"navy in game {navy}")
+    sl = WS.tp_slots()
+    ok(all(v == WS.tp_slot_for(WS.TP_NAVY_SRGB) for v in sl.values()) and sorted(sl) == [1, 2],
+       f"T285 slots are not navy on both: {sl}")
+    cream = (0xF2 / 255.0, 0xE8 / 255.0, 0xCF / 255.0)
+    plank = WS.TP_PLANK_SRGB
+    ok(_lum(plank) < _lum(WS.PLANK_MAT.target_srgb), f"plank {plank} not darker than the shipped one")
+    ratio = (_lum(cream) + 0.05) / (_lum(plank) + 0.05)
+    ok(ratio >= 7.0, f"WE cream on the plank {ratio:.1f} : 1 < 7")
+    A = 2048
+    rects = WS.band_rects(A, px_1024=WS.TP_BAND_PX_1024)
+    sl = cs2_compose._rect_slices(rects["emblem"], A)
+    h, w = sl[0].stop - sl[0].start, sl[1].stop - sl[1].start
+    ppm = w / WS.EMBLEM_D
+    yy, xx = np.meshgrid(np.arange(h) + 0.5, np.arange(w) + 0.5, indexing="ij")
+    rr = np.hypot(xx - w / 2.0, yy - h / 2.0) / ppm
+    for key, spec in WS.TP_EMBLEMS.items():
+        if spec is None:
+            continue
+        cov = WS.emblem_cov_lexa(w, h, ppm, spec)
+        ok(float(cov[rr > WS.EMBLEM_D / 2 + 1.5 / ppm].max(initial=0.0)) == 0.0, f"emblem {key}: ink outside the disc")
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            ray = [cov[int(h / 2 + dy * r * ppm), min(int(w / 2 + dx * r * ppm), w - 1)]
+                   for r in np.arange(0.66, 0.745, 0.5 / ppm)]
+            ok(max(ray) > 0.9, f"emblem {key}: no ring at ({dx}, {dy}) between 0.66 and 0.745 m")
+        bare = WS.emblem_cov_lexa(w, h, ppm, dict(spec, rings=()))
+        if spec["clip_r"] is not None:
+            ok(float(bare[rr > spec["clip_r"] + 1.5 / ppm].max(initial=0.0)) == 0.0, f"emblem {key}: not clipped")
+        cx = float((bare * xx).sum() / bare.sum()) - (w / 2.0 + spec["dx_m"] * ppm)
+        ok(cx > 5.0, f"emblem {key}: ink centroid {cx:+.1f} px from the mark's center (mirrored mark: the mountain, "
+                     f"the larger mass, sits right of it)")
+        cy = float((bare * yy).sum() / bare.sum()) - (h / 2.0 + spec["dy_m"] * ppm)     # bottom-up rows
+        ok(cy < -5.0, f"emblem {key}: ink centroid {cy:+.1f} px from the mark's center (upside-down mark: the "
+                      f"mountain sits below it; lexa_mark's own centroid is 0.70 of its height from the top)")
+    arrs = [[np.zeros((A, A, 4), np.float32) for _ in range(3)] for _ in range(2)]
+    for arr, e in zip(arrs, (None, "old")):
+        WS._paint_emblem(A, rects, arr[0], arr[1], arr[2], {}, {}, emblem=e)
+    ok(all(np.array_equal(x, y) for x, y in zip(*arrs)), "emblem 'old' differs from the shipped emblem")
+    print(f"ok T285 palette + disc: trim {trim}, navy {navy} on slots 1 and 2, plank cream {ratio:.1f} : 1, "
+          f"disc {sorted(k for k, v in WS.TP_EMBLEMS.items() if v)} in the disc, ringed, upright, "
+          f"not mirrored")
+
+
 def check_display_frames():
     right = np.array((0.0, 1.0, 0.0))     # a +X-facing wall (authoring): viewer right = +Y
     up = np.array((0.0, 0.0, 1.0))
@@ -475,6 +540,7 @@ def main():
     check_we_layout()
     check_band_math()
     check_tex_flag()
+    check_texpass_t285()
     check_display_frames()
     tmp = tempfile.mkdtemp(prefix="civic_sign_")
     try:

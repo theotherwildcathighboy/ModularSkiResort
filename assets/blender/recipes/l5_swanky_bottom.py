@@ -1220,11 +1220,22 @@ CT_SHAFT_W, CT_SHAFT_TOP = 4.0, 19.5
 CT_STAGE_W, CT_STAGE_TOP = 4.6, 22.3
 CT_CLOCK_D, CT_CLOCK_Z = 2.5, 20.9
 CT_CAP_OVER, CT_CAP_APEX, CT_FINIAL_TOP = 0.9, 25.0, 25.8
+# T287 (r7-tex, 2026-11-20), clock_tower(detail=...): "belfry" (and "vane" = belfry + a weather vane). The section-5 cap's
+# soffit ring sat at z stage_top - 1.05 (overhang 0.9 at the solved ~48 deg pitch), 0.5 m BELOW the louver heads: the cap
+# swallowed the top of every belfry vent ("the roof may come down too low"). The belfry stage grows CT_BELFRY_ADD (a frieze
+# between the louver heads and the cap), the cap overhang drops to CT_BELFRY_OVER, and apex + finial rise with the stage
+CT_BELFRY_ADD, CT_BELFRY_OVER = 0.7, 0.75
+CT_DETAILS = (None, "belfry", "vane")
+
+
+def clock_tower_finial(rise=0.0, detail=None):
+    """The finial top (absolute z) of clock_tower(rise=..., detail=...)."""
+    return CT_FINIAL_TOP + rise + (CT_BELFRY_ADD if detail else 0.0)
 
 
 def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_stone_tan",
                 boards="lux_vboard_red", trim="trim", roof="lux_slate", door_faces=("+X", "-Y"),
-                rise=0.0, clock_z=None, clock_d=None, dial=None, louvres=False, fine=False):
+                rise=0.0, clock_z=None, clock_d=None, dial=None, louvres=False, fine=False, detail=None):
     """
     The swanky clock tower (contract section 5, Jackson Hole Teton Village proportions):
     - stone base 5.2 x 5.2 from z0 to 7.3 with recessed doors 1.6 x 2.6 on `door_faces`
@@ -1255,6 +1266,18 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
     Fine-detail step 3e (design B.1, opt-in, the default = the geometry above, vertex for vertex): `fine` = the finial spire
     is 12-seg (was 6), same base / tip radii and height.
 
+    T287 `detail` (None = all of the above, vertex for vertex; L5 passes it under --texpass only). For each part, why a
+    builder puts it there:
+    - "belfry": the stage grows CT_BELFRY_ADD and the cap overhang drops to CT_BELFRY_OVER, so the cap's soffit clears the
+      louver heads (a cap eats its vents nowhere on a real belfry: the vents exist to let the bell sound and the air out).
+      `trim_<name>belt`: two belt courses round the shaft, at the clock-room floor under the dial and halfway down (they
+      mark the floors inside and cap the board joints, which is why towers are banded; they also break the 16 m shaft
+      into readable stages). `trim_<name>brk`: three knee brackets per face under the stage's 0.3 m jetty (the wider
+      stage needs visible support; the jettied belfry on brackets is the alpine-lodge tower's signature).
+      `trim_<name>dframe`: a frame round each dial board (the board's edge seal, and the picture frame that makes a
+      clock read as a clock from far).
+    - "vane": "belfry" plus `tower_<name>vane`, a weather vane on the finial (arrow and the four arms): on a ski mountain
+      the wind is news, and the vane is the tower's own crown.
     Returns the parts list. Asserts its own section-5 contract (apex, finial, footprint).
     """
     K = _kit()
@@ -1264,9 +1287,12 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
     hb, hs, hg = CT_BASE_W / 2, CT_SHAFT_W / 2, CT_STAGE_W / 2
     if rise < 0.0:
         raise ValueError("clock_tower: rise must be >= 0")
-    shaft_top, stage_top = CT_SHAFT_TOP + rise, CT_STAGE_TOP + rise
+    if detail not in CT_DETAILS:
+        raise ValueError(f"clock_tower: detail {detail!r} not in {CT_DETAILS}")
+    add = CT_BELFRY_ADD if detail else 0.0
+    shaft_top, stage_top = CT_SHAFT_TOP + rise, CT_STAGE_TOP + rise + add
     clock_z = CT_CLOCK_Z + rise if clock_z is None else float(clock_z)
-    cap_apex, fin_top = CT_CAP_APEX + rise, CT_FINIAL_TOP + rise
+    cap_apex, fin_top = CT_CAP_APEX + rise + add, clock_tower_finial(rise, detail)
     if ground:
         if abs(z0) > 1e-9:
             raise ValueError("clock_tower: a ground base starts at z 0")
@@ -1286,7 +1312,19 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
             corners.append(((x - 0.12, y - 0.12, CT_BASE_TOP + 0.18), (x + 0.12, y + 0.12, shaft_top)))
     P += K.boxes_part(f"trim_{name}corners", corners, trim)
     P += K.box_part(f"tower_{name}stage", (cx - hg, cy - hg, shaft_top),
-                    (cx + hg, cy + hg, stage_top), boards, drop=("+Z",))
+                    (cx + hg, cy + hg, stage_top), boards, drop=("+Z", "-Z") if detail else ("+Z",))
+    if detail:
+        # T287: the 0.3 m jetty underside as its own ring. The stage box's bottom spans the shaft too: every cull sample of
+        # that face lies over the shaft, so cull_hidden dropped it whole and the jetty was see-through from below (l45
+        # probe: tower_ctstage back faces from 14 of 96 cameras). Timber soffit boards, as the eave and rake soffits
+        def jetty(g):
+            inner = [(cx - hs, cy - hs), (cx + hs, cy - hs), (cx + hs, cy + hs), (cx - hs, cy + hs)]
+            outer = [(cx - hg, cy - hg), (cx + hg, cy - hg), (cx + hg, cy + hg), (cx - hg, cy + hg)]
+            for i in range(4):
+                j = (i + 1) % 4
+                g.poly([(outer[i][0], outer[i][1], shaft_top), (inner[i][0], inner[i][1], shaft_top),
+                        (inner[j][0], inner[j][1], shaft_top), (outer[j][0], outer[j][1], shaft_top)], (0, 0, -1))
+        P += K._single(f"soffit_{name}jetty", jetty, "timber_lap")
     cdia = CT_CLOCK_D if clock_d is None else float(clock_d)
     reach = 0.5 * max(cdia, dial or 0.0)
     on_shaft = clock_z + reach < shaft_top - 1e-9
@@ -1314,7 +1352,7 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
         P += ps
         if louvres:                     # belfry vent on the stage face the clock left
             sw = WallRef(side, {"+X": cx + hg, "-X": cx - hg, "+Y": cy + hg, "-Y": cy - hg}[side])
-            zl0, zl1 = shaft_top + 0.45, stage_top - 0.55
+            zl0, zl1 = shaft_top + 0.45, stage_top - add - 0.55   # T287: the louvers stay put
             fit = K.FITTINGS.get("version", 0) >= 1
             ub = 0.72 if fit else 0.75      # T87d: the backing tucks under the frame bars (no coplanar end faces)
             P += K.wall_box(f"trim_{name}louvre{k}", sw, uc - ub, uc + ub, zl0, zl1, 0.0,
@@ -1348,7 +1386,7 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
             P += K.wall_boxes(f"trim_{name}slat{k}", sw, slats,
                               "lux_glulam" if "lux_glulam" in K.BLDG_MATERIALS else trim)
     # Pyramid cap: hip_roof over the stage square. The pitch is solved for the apex.
-    ov = CT_CAP_OVER
+    ov = CT_BELFRY_OVER if detail else CT_CAP_OVER
     thick = 0.22
     hw = hg + ov
     t = (cap_apex - stage_top - 0.5 * thick * 1.5) / (hw - ov)
@@ -1361,8 +1399,14 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
                     overhang=ov, thick=thick, mat=roof)
     P += K.hip_roof(f"{name}cap", spec, fascia=0.30, ridge_cap=(0.20, 0.08))
     apex = K.roof_z(spec, cx, cy)
+    if detail and louvres:              # T287 gate: the cap's soffit ring (hip_roof: the eave band's bottom) clears the louver
+        zsoff = stage_top - t * ov + 0.5 * thick * math.sqrt(1 + t * t) - thick       # frame heads by >= 0.10 m
+        check(zsoff >= stage_top - add - 0.55 + 0.05 + 0.10,
+              f"clock tower {name}: cap soffit z {zsoff:.2f} hides the louver heads ({stage_top - add - 0.50:.2f})")
     P += K._single(f"tower_{name}fin", lambda g: g.cyl((cx, cy, apex - 0.15), (cx, cy, fin_top),
                                                        0.10, 12 if fine else 6, r1=0.03), trim)
+    if detail:
+        P += _belfry_detail(K, name, cx, cy, hs, shaft_top, clock_z, cdia, dial, on_shaft, fin_top, detail, trim)
     for side in door_faces:
         plane = {"+X": cx + hb, "-X": cx - hb, "+Y": cy + hb, "-Y": cy - hb}[side]
         uc = {"+X": cy, "-X": -cy, "+Y": -cx, "-Y": cx}[side]
@@ -1378,6 +1422,67 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
     check(max(abs(lo[0] - cx), abs(hi[0] - cx), abs(lo[1] - cy), abs(hi[1] - cy)) <= half,
           f"clock tower footprint exceeds +-{half:.2f} m: {lo} {hi}")
     check(abs(lo[2] - z0) < 1e-3, f"clock tower bottom {lo[2]:.3f} != {z0}")
+    return P
+
+
+def _belfry_detail(K, name, cx, cy, hs, shaft_top, clock_z, cdia, dial, on_shaft, fin_top, detail, trim):
+    """T287 clock_tower(detail=...) parts (the docstring there says why each is there): belt courses, jetty brackets, dial
+    frames, and for "vane" the weather vane. All in the corner boards' key (`trim`, dark): one trim color on the tower, and
+    the dark lines read on the cedar shaft, where the glulam (the dial boards, the louver frames) is close to its value."""
+    from cs2_bldg import WallRef
+    tb = trim
+    P = []
+    d_lo = clock_z - 0.5 * max(cdia, dial or 0.0) if on_shaft else shaft_top
+    zb2 = d_lo - 0.45                                   # the clock-room floor, under the dial board
+    zb1 = 0.5 * (CT_BASE_TOP + 0.18 + zb2)              # halfway down the shaft
+    e = hs + 0.10                                       # 0.10 proud: outside the corner boards (0.08)
+    belts = []
+    for zb in (zb1, zb2):
+        z0b, z1b = zb - 0.11, zb + 0.11
+        belts += [((cx + hs, cy - e, z0b), (cx + e, cy + e, z1b)), ((cx - e, cy - e, z0b), (cx - hs, cy + e, z1b)),
+                  ((cx - hs, cy + hs, z0b), (cx + hs, cy + e, z1b)), ((cx - hs, cy - e, z0b), (cx + hs, cy - hs, z1b))]
+    P += K.boxes_part(f"trim_{name}belt", belts, tb)
+
+    def brackets(g):                                    # knee brackets under the 0.3 m stage jetty, 3 per face
+        for side in ("+X", "+Y", "-X", "-Y"):
+            nrm, tan = K._SIDES[side]
+            w = WallRef(side, {"+X": cx + hs, "-X": cx - hs, "+Y": cy + hs, "-Y": cy - hs}[side])
+            uc = {"+X": cy, "-X": -cy, "+Y": -cx, "-Y": cx}[side]
+            for du in (-1.2, 0.0, 1.2):
+                vs = []
+                for su in (-0.07, 0.07):
+                    u = uc + du + su
+                    vs.append((g.v(K.wall_point(w, u, shaft_top, 0.0)), g.v(K.wall_point(w, u, shaft_top - 0.7, 0.0)),
+                               g.v(K.wall_point(w, u, shaft_top, 0.30))))
+                (a0, b0, c0), (a1, b1, c1) = vs
+                g.face([a0, b0, c0], -tan)
+                g.face([a1, c1, b1], tan)
+                g.face([b0, b1, c1, c0], nrm - K.Vector((0, 0, 1)))
+                g.face([a0, c0, c1, a1], K.Vector((0, 0, 1)))
+                g.face([a0, a1, b1, b0], -nrm)
+    P += K._single(f"trim_{name}brk", brackets, tb)
+    if dial and on_shaft:                              # a frame round each dial board (0.06 proud): 0.14 wide, 0.12 proud
+        dh = 0.5 * dial
+        for k, side in enumerate(("+X", "+Y", "-X", "-Y")):
+            w = WallRef(side, {"+X": cx + hs, "-X": cx - hs, "+Y": cy + hs, "-Y": cy - hs}[side])
+            uc = {"+X": cy, "-X": -cy, "+Y": -cx, "-Y": cx}[side]
+            z0d, z1d = clock_z - dh, clock_z + dh
+            P += K.wall_boxes(f"trim_{name}dframe{k}", w,
+                              [(uc - dh - 0.10, uc - dh + 0.04, z0d - 0.10, z1d + 0.10, 0.0, 0.12),
+                               (uc + dh - 0.04, uc + dh + 0.10, z0d - 0.10, z1d + 0.10, 0.0, 0.12),
+                               (uc - dh + 0.04, uc + dh - 0.04, z1d - 0.04, z1d + 0.10, 0.0, 0.12),
+                               (uc - dh + 0.04, uc + dh - 0.04, z0d - 0.10, z0d + 0.04, 0.0, 0.12)], tb)
+    if detail == "vane":
+        dk = "ski_black" if "ski_black" in K.BLDG_MATERIALS else trim
+
+        def vane(g):                                    # arrow (pointing +Y) over the four compass arms, ~1.6 m: readable at 45 m
+            za, zc = fin_top - 0.30, fin_top - 0.75
+            g.aabb((cx - 0.03, cy - 0.90, za - 0.03), (cx + 0.03, cy + 0.55, za + 0.03))         # the arrow shaft
+            g.aabb((cx - 0.02, cy - 0.95, za - 0.18), (cx + 0.02, cy - 0.50, za + 0.18))         # the tail fin
+            g.aabb((cx - 0.025, cy + 0.50, za - 0.13), (cx + 0.025, cy + 0.80, za + 0.13))       # the head
+            g.aabb((cx - 0.60, cy - 0.03, zc - 0.03), (cx + 0.60, cy + 0.03, zc + 0.03))         # the compass arms
+            g.aabb((cx - 0.03, cy - 0.60, zc - 0.03), (cx + 0.03, cy + 0.60, zc + 0.03))
+        P += K._single(f"tower_{name}vane", vane, dk)
     return P
 
 
@@ -1461,6 +1566,14 @@ E_X1 = 31.0                                        # forecourt front edge
 
 CT_C = (12.5, 16.5)
 CT_RISE = 4.0                                      # finial 29.8: the landmark over the 22 m ridge
+CT_DETAIL_V1 = "belfry"                            # T287: the tower's clock_tower(detail=...) under --texpass
+# T276 (r7-tex, 2026-11-20): the --texpass palette. 1.0.4 put the porch cedar (sRGB 0.58 0.40 0.27, luminance 0.165) on
+# the F2 band and the hall: three bands over the stone (stone, cedar, walnut), the cedar +38 % lighter and more orange than
+# 1.0.3. The gable fields wore the shared timber_shake (khaki, hue 35 deg), which read olive beside the saturated cedar. One
+# body: F2 and the hall take the F3-F4 walnut (one siding color over the stone base); the gable fields take lux_siding_red,
+# which only they still use, retargeted to a dark chocolate (cs2_tilesheet TEXPASS) so the lighter timber trusses read in
+# front of them, as on the Peak 7 gables. The clock tower and the porch gables keep the cedar: the accents.
+PALETTE_V1 = {"siding_lo": "lux_siding_walnut", "gable": "lux_siding_red"}
 CHIM_TOP = 24.8                                    # M ridge stacks (ridge top 22.21 + 2.6)
 FLUE_TOP = CHIM_TOP + 0.55                         # flue pots: max z with --no-tower
 W_CHIM_TOP = 23.3                                  # wing exterior stacks (wing ridge top 21.21 + 2.1)
@@ -2235,7 +2348,7 @@ def check_gable_braces(parts):
 
 
 def cross_gable(name, side, plane, c, z0, meet, *, wall_mat, glulam, gf_mat=None,
-                floors=UPPER, brackets=False, wall_mat_lo=None):
+                floors=UPPER, brackets=False, wall_mat_lo=None, gable_mat="timber_shake"):
     """
     Peak 7 projecting bay under a cross gable, over a balcony stack. The bay box stands XG_PROJ proud of the host wall
     (side, plane), XG_HALF either side of the along-coordinate c, from z0 to the roof wall line Z_WALL. Its back face is
@@ -2285,7 +2398,7 @@ def cross_gable(name, side, plane, c, z0, meet, *, wall_mat, glulam, gf_mat=None
     P += K.gable_roof(f"xg{name}", spec, walls=False, ridge_cap=(0.40, 0.12))
     g0, g1 = (front - 0.3, front) if sg > 0 else (front, front + 0.3)
     P += K.prism_gable(f"xg{name}f", axn, g0, g1, c - XG_HALF, c + XG_HALF, Z_WALL,
-                       XG_RIDGE - 0.02, mat="timber_shake")
+                       XG_RIDGE - 0.02, mat=gable_mat)
     uc = c if side in ("+X", "-Y") else -c
     wall = WallRef(side, front, uc - XG_HALF, uc + XG_HALF)
     st = _struct()
@@ -2618,7 +2731,7 @@ def deck_rail(name, segs, z, h=DK_RAIL_H, t=0.06, post=0.16, every=2.6):
             (caps.finish(f"trim_{name}cap"), "lux_glulam")]
 
 
-def tower_deck(tower=True):
+def tower_deck(tower=True, v1=False):
     """(c) "on the clock tower side, build an elevated deck and the clock tower is sort of the focal point" (verdict B1'): the
     deck is one story up (top DK_Z = F2 4.5, slab DK_T) between M's road face (x 6), the hall's +Y wall (y 9) and the road
     cross gable r1 (y 21), out to DK_X1 = 21 (3 m past the hall glass). Parts:
@@ -2634,7 +2747,11 @@ def tower_deck(tower=True):
     Revision 3 (verdict B1'' "the STAIRS should be to the RIGHT, so that cars can pull through the valet area"): the 3 m
     stair (`stair_tw*`, kit stair, tube rails) leaves from the right-hand edge (DK_Y1, +Y seen from the road) at x
     DK_STAIR_X and runs on +Y down to the walk at DK_STAIR_FOOT_Y. The front balustrade is closed. The bistro sets and
-    lanterns are vanilla sub-objects (SUB_OBJECT_ROWS). Returns (parts, info)."""
+    lanterns are vanilla sub-objects (SUB_OBJECT_ROWS). Returns (parts, info).
+
+    v1 (--texpass v1, see-through fixes): the posts are cut to the beam's width (0.35, was 0.40: the 25 mm lips beside the
+    beam showed the culled post top), the knee braces sit on the narrower post faces, and the stair has housed stringers
+    (the tread ends were open above the stringer band)."""
     K = _kit()
     from cs2_bldg import WallRef
     STN, GLU = "lux_stone_tan", "lux_glulam"
@@ -2663,16 +2780,17 @@ def tower_deck(tower=True):
     # supports: stone pier 1.0 (to 1.2 + cap 0.15), glulam post 0.40 to the beam bottom
     bw, bh = DK_BEAM
     bz = zb - bh / 2
+    psz, pface = (bw, bw / 2) if v1 else (0.40, 0.2)   # v1: a post is cut to the width of the beam it carries
     for k, (px, py) in enumerate(DK_POSTS):
         P += K.stone_pier(f"tw{k}", px, py, 1.0, 1.0, LIFT, 1.2, cap=True, ground=False, mat=STN)
-        P += K.col(f"tw{k}", px, py, 1.35, zb - bh, size=0.40, mat=GLU)
+        P += K.col(f"tw{k}", px, py, 1.35, zb - bh, size=psz, mat=GLU)
     fx = DK_POSTS[2][0]
     P += K.beam("tw0", (fx, y0 + 0.2, bz), (fx, y1 - 0.2, bz), bw, bh, mat=GLU)        # front
     P += K.beam("tw1", (x0 + 0.05, DK_POSTS[0][1], bz), (fx - bw / 2, DK_POSTS[0][1], bz),
                 bw, bh, mat=GLU)                                                     # side
     for k, (py, sy) in enumerate(((DK_POSTS[2][1], 1.0), (DK_POSTS[3][1], -1.0),
                                   (DK_POSTS[3][1], 1.0), (DK_POSTS[4][1], -1.0))):
-        P += K.bracket(f"tw{k}", (fx, py + sy * 0.2, zb - bh), (0.0, sy, 0.0), span=1.0,
+        P += K.bracket(f"tw{k}", (fx, py + sy * pface, zb - bh), (0.0, sy, 0.0), span=1.0,
                        drop=1.0, t=0.22, curved=True, mat=GLU)
     # balustrade (revision 3): the whole front edge (no stair gap there any more), the r1
     # side with the stair gap, the open stretch past the hall pier
@@ -2686,7 +2804,7 @@ def tower_deck(tower=True):
     # the stair to the walk (kit stair, foot on the walk slab, closed stringer feet), run +Y
     P += K.stair("tw", (DK_STAIR_X, DK_STAIR_FOOT_Y, SLAB_T), (DK_STAIR_X, y1 + 0.02, zt),
                  w=DK_STAIR_W, rise_max=0.18, rail="tube", ground=False, tread_mat="deck",
-                 stringer_mat=GLU)
+                 stringer_mat=GLU, housed=v1)
     if tower:                                   # a door from the deck into the tower base
         P += K.entry("ctdk", WallRef("+X", tx1), CT_C[1], w=1.6, h=2.4, sidelights=0, lamps=0,
                      z=zt + 0.01, surround_mat=GLU, glass=False)
@@ -3177,6 +3295,9 @@ def build_l5(recipe, opts):
     GABLE_WINS.clear()
     STN, GLU = "lux_stone_tan", "lux_glulam"
     SID_LO, SID_HI = "lux_siding_red", "lux_siding_walnut"   # Peak 7 two-tone siding
+    GBL = "timber_shake"                                     # the gable fields (M, wings, cross gables, hall front)
+    if bd:                                                   # T276: the --texpass palette (PALETTE_V1)
+        SID_LO, GBL = PALETTE_V1["siding_lo"], PALETTE_V1["gable"]
     P = []
 
     # ---------------- M main bar ----------------------------------------------------------
@@ -3194,7 +3315,7 @@ def build_l5(recipe, opts):
     mspec = RoofSpec("gable", M_X0, M_X1, M_Y0, M_Y1, Z_WALL, M_PITCH, axis="Y", overhang=M_OVER,
                      rake_over=M_OVER, ridge_at=M_RIDGE_X, thick=ROOF_T, mat="lux_slate",
                      trim="lux_trim")
-    P += K.gable_roof("m", mspec, gutters=True, walls=True, wall_mat="timber_shake")
+    P += K.gable_roof("m", mspec, gutters=True, walls=True, wall_mat=GBL)
     # M gable ends: king-post trusses 0.25 proud (Peak 7's log / timber gables)
     for k, (side, plane) in enumerate((("-Y", M_Y0), ("+Y", M_Y1))):
         u0, u1 = _u(side, M_X0 + 0.3, M_X1 - 0.3)
@@ -3221,7 +3342,7 @@ def build_l5(recipe, opts):
                          trim="lux_trim")
         P += K.gable_roof(f"w{tag}", wspec, gutters=True, walls=False)
         P += K.prism_gable(f"w{tag}end", "X", W_X0, W_X0 + 0.3, y0, y1, Z_WALL, W_RIDGE - 0.02,
-                           mat="timber_shake")
+                           mat=GBL)
         u0, u1 = _u("-X", y0 + 0.3, y1 - 0.3)
         sp = (y1 - y0) - 0.6                     # T57: framing braces beside the gable windows (structure v1)
         P += K.truss_kingpost(f"xgend{tag}", WallRef("-X", W_X0, u0, u1), sp, Z_WALL,
@@ -3270,7 +3391,7 @@ def build_l5(recipe, opts):
     xg_fronts = []
     for k, yc in enumerate(XG_ROAD):
         ps, front = cross_gable(f"r{k}", "+X", M_X1, yc, 0.0, X_MEET_ROAD, wall_mat=SID_HI, wall_mat_lo=SID_LO,
-                                glulam=GLU, gf_mat=STN)
+                                glulam=GLU, gf_mat=STN, gable_mat=GBL)
         P += ps
         xg_fronts.append(("+X", front, "m", "B"))
 
@@ -3288,7 +3409,7 @@ def build_l5(recipe, opts):
         P += window_column(f"mc{j}", "-X", M_X0, d, UPPER, gf=False)
     for k, yc in enumerate(XG_COURT):
         ps, front = cross_gable(f"c{k}", "-X", M_X0, yc, Z_F[1], X_MEET_COURT, wall_mat=SID_HI, wall_mat_lo=SID_LO,
-                                glulam=GLU, brackets=True)
+                                glulam=GLU, brackets=True, gable_mat=GBL)
         P += ps
         xg_fronts.append(("-X", front, "m", "A"))
 
@@ -3313,7 +3434,7 @@ def build_l5(recipe, opts):
             P += window_column(f"wc{tag}{j}", cside, cplane, x, UPPER, gf=False)
         meet = (0.5 * (y0 + y1)) + (W_RIDGE - XG_RIDGE) * (1.0 if y1 < 0 else -1.0)
         ps, front = cross_gable(f"w{tag}", cside, cplane, XG_WING, Z_F[1], meet, wall_mat=SID_HI, wall_mat_lo=SID_LO,
-                                glulam=GLU, brackets=True)
+                                glulam=GLU, brackets=True, gable_mat=GBL)
         P += ps
         xg_fronts.append((cside, front, f"w{tag}", "B" if y1 < 0 else "A"))
         for j, x in enumerate((-27.0, -23.0, -15.0, -11.0)):
@@ -3357,7 +3478,7 @@ def build_l5(recipe, opts):
     for k, (spec, side, u) in enumerate(dorms):
         ps = K.dormer(f"d{k}", spec, u, w=2.4, h=1.7, room=f"dorm{k}",
                       win=WinSpec(1.3, 1.2, 0.25, lights=2), side=side, setback=1.0,
-                      pitch_deg=45.0, wall_mat=SID_HI)
+                      pitch_deg=45.0, wall_mat=SID_HI, valley=bd)   # v1: the dormer ridge dies into the roof
         flip_dormer_cheeks(ps, f"d{k}", side)   # coplanar hygiene (-X / +Y sides)
         P += ps
     for k, y in enumerate((-14.0, 14.0)):       # stack from just under the slab top
@@ -3388,7 +3509,7 @@ def build_l5(recipe, opts):
                      trim="lux_trim")
     P += K.gable_roof("h", hspec, walls=False, gutters=True)
     P += K.prism_gable("hfront", "X", H_X1 - 0.3, H_X1, -H_Y, H_Y, H_EAVE, H_APEX - 0.02,
-                       mat="timber_shake")
+                       mat=GBL)
     hf = WallRef("+X", H_X1)
     P += K.curtain_wall("hlo0", hf, -7.0, -1.55, 1.2, 4.5, grid_u=1.75, transom_at=3.3,
                         room="hlo", per_storey_rooms=False)
@@ -3547,10 +3668,10 @@ def build_l5(recipe, opts):
     if tower:                           # revision 2: the dial moves down onto the shaft
         P += clock_tower("ct", CT_C[0], CT_C[1], 0.0, ground=True, rise=CT_RISE,
                          clock_z=CT_CLOCK_Z_L5, clock_d=CT_CLOCK_D_L5, dial=CT_DIAL_L5,
-                         louvres=True, fine=fine)
+                         louvres=True, fine=fine, detail=CT_DETAIL_V1 if bd else None)
 
     # ---------------- revision 2: the tower deck (asymmetric front) ----------------------------
-    ps, deck = tower_deck(tower)
+    ps, deck = tower_deck(tower, v1=bd)
     P += ps
 
     # ---------------- fittings v1 (2026-10-17, docs/research/art/fittings-2026-10-17.md) ------
@@ -3587,7 +3708,7 @@ def build_l5(recipe, opts):
           f"C1 lot fit (pre-shift): x {lo[0]:.2f}..{hi[0]:.2f}, y {lo[1]:.2f}..{hi[1]:.2f} vs "
           f"x {-HX - X_SHIFT}..{HX - X_SHIFT}, y +-{HY}")
     check(lo[2] >= -1e-4, f"C2 min z {lo[2]:.4f} < 0")
-    top = CT_FINIAL_TOP + CT_RISE if opts.get("tower", True) else FLUE_TOP
+    top = clock_tower_finial(CT_RISE, CT_DETAIL_V1 if bd else None) if opts.get("tower", True) else FLUE_TOP
     check(abs(hi[2] - top) <= 0.05, f"C2 max z {hi[2]:.3f} != {top} (tower finial / flues)")
     for gp in GROUND_PARTS:
         check(any(o.name == gp for o, _m in P), f"C3 ground part {gp} missing")
@@ -3618,7 +3739,7 @@ def build_l5(recipe, opts):
         check(_hi[2] >= ridge + 2.0, f"C6 {cap} top {_hi[2]:.2f} < ridge {ridge:.2f} + 2")
     rf = roof_face_counts(P)
     bad = {nm: n for nm, n in rf.items()
-           if nm.startswith(("roof_m", "roof_h", "roof_xg", "roof_pc", "roof_w")) and n not in (6, 8)}
+           if nm.startswith(("roof_m", "roof_h", "roof_xg", "roof_pc", "roof_w")) and n not in K.slab_face_counts()}
     check(not bad, f"C7 roof slabs must be the builder's closed slabs: {bad}")
     npanes = check_panes(P, 4.6, l5_storey_lines, "L5")
     # F1: every cross-gable bay front stands >= 0.1 m beyond its host's eave stack (roof
@@ -3827,7 +3948,8 @@ RECIPE = FineRecipe(
     # (deleted at LOD1).
     # Revision 3: the cap and target stand (verdict brief). The modeled dressing is vanilla sub-objects now (their tris are
     # vanilla's own, not ours), so LOD0 drops (build report)
-    budget=Budget(26000, 33500, 11000, 480, 800),   # T90 (T92): 33,500 = 31,812 measured x 1.05 (item 16 "up the tri budget by a bit"), was 30,000
+    # r7 (1.0.4): 34,000 (+1.5 %, the small-overage rule). Cull v2 keeps 435 faces that v1 dropped, and the gutter backs add 36
+    budget=Budget(26000, 34000, 11000, 480, 800),   # T90 (T92): 33,500 = 31,812 measured x 1.05 (item 16 "up the tri budget by a bit"), was 30,000
     # Tiled rollout (2026-10-16, texture-parity-rollout-2026-10-16.md section 2): read only on the --tiled path. 20,833 m2
     # of LOD0 cut at 1.5-3 m tiles is ~51,600 tris. 2 x 2 tiles on the members, pavers and the swanky walls, plus flat trims
     # / soffits / trusses, fit the 30,000 cap

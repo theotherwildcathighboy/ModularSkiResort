@@ -1,0 +1,23 @@
+{
+  "sharedAssets": {
+    "SkiTramTopStationC_BaseColor.png": "../SkiTramBaseStationC/SkiTramBaseStationC_BaseColor.png",
+    "SkiTramTopStationC_Normal.png": "../SkiTramBaseStationC/SkiTramBaseStationC_Normal.png",
+    "SkiTramTopStationC_MaskMap.png": "../SkiTramBaseStationC/SkiTramBaseStationC_MaskMap.png",
+    "SkiTramTopStationC_ControlMask.png": "../SkiTramBaseStationC/SkiTramBaseStationC_ControlMask.png",
+    "SkiTramTopStationC_Emissive.png": "../SkiTramBaseStationC/SkiTramBaseStationC_Emissive.png",
+    "SkiTramTopStationC_LOD1_BaseColor.png": "SkiTramTopStationC_LOD1_BaseColor.png",
+    "SkiTramTopStationC_LOD1_Normal.png": "SkiTramTopStationC_LOD1_Normal.png",
+    "SkiTramTopStationC_LOD1_MaskMap.png": "SkiTramTopStationC_LOD1_MaskMap.png",
+    "SkiTramTopStationC_LOD1_ControlMask.png": "SkiTramTopStationC_LOD1_ControlMask.png",
+    "SkiTramTopStationC_LOD2_BaseColor.png": "SkiTramTopStationC_LOD1_BaseColor.png",
+    "SkiTramTopStationC_LOD2_Normal.png": "SkiTramTopStationC_LOD1_Normal.png",
+    "SkiTramTopStationC_LOD2_MaskMap.png": "SkiTramTopStationC_LOD1_MaskMap.png",
+    "SkiTramTopStationC_LOD2_ControlMask.png": "SkiTramTopStationC_LOD1_ControlMask.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

@@ -1,0 +1,47 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiTramBaseStationC_LOD1 Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 0,
+        "$rcontent": [
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:ea346e71e80f435496037889c880a22e",
+    "m_SurfaceAssets": {
+        "$id": 2,
+        "$type": "2|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 3,
+        "$rcontent": [
+            $fstrref:"CID:aa74779714aa9cc19fd827735aa9660e",
+            $fstrref:"CID:5834b3066eb8f310eb5e359309edc088",
+            $fstrref:"CID:13329926341acbaa536a93f00f6a6955"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "3|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "4|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -23.95,
+            "y": -9.536743E-07,
+            "z": -11.9499989
+        },
+        "max": {
+            "$type": 4,
+            "x": 20.3999977,
+            "y": 24.4000015,
+            "z": 12
+        }
+    },
+    "m_SurfaceArea": 8529.127,
+    "m_IndexCount": 19197,
+    "m_VertexCount": 9154,
+    "m_MeshCount": 3,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

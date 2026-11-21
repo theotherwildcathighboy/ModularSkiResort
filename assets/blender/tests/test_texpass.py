@@ -79,6 +79,10 @@ Gates (the pilot's lessons, made mechanical):
       (0.64 m past its end: in the air) are reported with those lengths and RAISE; "report" mode only reports; a
       STRIP_ALLOW line makes a strip "allowed" (flag "off": only with the pass off, the same strip under v1 raises; a
       bad flag fails); lodge.py runs the gate after the weather ladder.
+  P17 rib contrast (r7 T272): every ribbed flat key of v1 with a contact shade (metal_roof_lt; bare-metal ribbed keys read
+      by reflection, their albedo stays near-flat) keeps an albedo contrast across its ribs of at
+      least 0.15 at the mip a 1080p frame samples at 45 m (ceil of log2(sheet px/m / (1,304 / 45))); 1.0.4's shipped
+      L1 roof swatch (0.09 there, the owner's "blurry") fails it.
 Exit 1 on the first failure; one PASS line otherwise.
 """
 
@@ -179,10 +183,13 @@ def check_cut_grid_and_round_trip():
         try:
             on = layout()
             assert on["hash"] != off0["hash"], "the pass must change the sheet hash"
-            # the one cell a pass may RENAME (same rect): the orphaned metal_roof~w taken by the coated light roof
+            # the cells a pass may RENAME (same rect): the orphaned metal_roof~w taken by the coated light roof, and
+            # the unsampled metal_roof_s1~w taken by the T275 moss fade cell
             ren = {}
             if TS.TEXPASS_FLAT.get(v, {}).get("metal_roof_lt", {}).get("light_w"):
                 ren["metal_roof" + TS.W_SUFFIX] = "metal_roof_lt" + TS.W_SUFFIX
+            if v in TS.MOSS_SLOT:               # T275: the eave fade cell takes an unsampled slot (same rect)
+                ren[TS.MOSS_SLOT[v][0]] = TS.MOSS_CELL
             for k, t in off0["tiles"].items():
                 kn = ren.get(k, k)
                 assert on["tiles"][kn]["rect_px"] == t["rect_px"], (k, t["rect_px"], on["tiles"][kn]["rect_px"])
@@ -572,6 +579,58 @@ def check_low_frequency():
        f"; the unflattened deck ({raw:.3f}) fails it")
 
 
+# P17 (r7 T272): a flat ribbed roof's albedo contrast across its ribs at the mip a 1080p frame samples at 45 m (screen
+# px/m 1,304 / d, mip = ceil(log2(sheet px/m / screen px/m)), the coarser of the two levels the GPU blends). 1.0.4's L1
+# roof shipped 0.09 there and read "blurry" in the owner's review; the T272 swatch measures 0.29
+MIP_CONTRAST_D_M = 45.0
+MIP_CONTRAST_MIN = 0.15
+
+
+def rib_mip_contrast(key, lay):
+    """(albedo contrast (max - min) / mean of the luminance profile across the ribs, mip level) of `key`'s sheet swatch
+    as `lay` cuts it, box-filtered to the 45 m mip."""
+    t = lay["tiles"][key]
+    C, r = t["rect_px"][2], t["repeat"]
+    base = TS._swatch_maps(key, C, repeat=r, layout_name="rollout")[0]
+    lum = np.asarray(base, np.float64)[..., :3] @ TS.LUMA
+    ppm = (C // r) / TS.tile_m_of(key)
+    lv = int(math.ceil(math.log2(ppm / (1304.0 / MIP_CONTRAST_D_M))))
+    f = 2 ** lv
+    n = (C // f) * f
+    m = lum[:n, :n].reshape(n // f, f, n // f, f).mean((1, 3))
+    return max(float((p.max() - p.min()) / p.mean()) for p in (m.mean(0), m.mean(1))), lv
+
+
+def check_mip_contrast():
+    TS.register_texpass("v1")
+    rows = []
+    try:
+        lay = layout()
+        keys = sorted(k for k, s in TS.TEXPASS_FLAT["v1"].items() if s.get("ribs") and s.get("ao"))
+        assert keys, "no ribbed flat key with a contact shade (ao) in TEXPASS_FLAT v1"
+        for k in keys:
+            c, lv = rib_mip_contrast(k, lay)
+            assert c >= MIP_CONTRAST_MIN, (f"{k}: albedo contrast across the ribs {c:.3f} at mip {lv} "
+                                           f"({MIP_CONTRAST_D_M:.0f} m on 1080p) < {MIP_CONTRAST_MIN}: "
+                                           f"the roof reads as a blurred plane")
+            rows.append(f"{k} {c:.3f} at mip {lv}")
+        spec = TS.TEXPASS_FLAT["v1"]["metal_roof_lt"]
+        saved = dict(spec)
+        try:                                # mutation: 1.0.4's shipped swatch must fail it
+            for f_ in ("ao_m", "pan", "pan_sm"):
+                spec.pop(f_, None)
+            spec.update(rib_m=(0.007, 0.020, 0.014), ao=0.12)
+            shipped, lv = rib_mip_contrast("metal_roof_lt", lay)
+        finally:
+            spec.clear()
+            spec.update(saved)
+        assert shipped < MIP_CONTRAST_MIN, f"mutation: 1.0.4's shipped metal_roof_lt ({shipped:.3f}) must fail the gate"
+    finally:
+        TS.unregister_texpass()
+    ok(f"P17 rib contrast at the {MIP_CONTRAST_D_M:.0f} m mip (>= {MIP_CONTRAST_MIN}): " + ", ".join(rows) +
+       f"; 1.0.4's shipped metal_roof_lt ({shipped:.3f}) fails it")
+
+
 def check_far_sources():
     """The far bake draws what the sheet swatch draws: texpass_far_specs runs the controls on the prefiltered far
     sources (orange stains and flat relief came through raw before)."""
@@ -719,7 +778,9 @@ def check_level_gate():
 def check_ridge_key():
     named = {key: rc.texpass["ridge_key"] for key, rc in sorted(lodge.R.load_recipes().items())
              if (getattr(rc, "texpass", None) or {}).get("ridge_key")}
-    assert named == {"L1": "metal_roof_lt"}, f"ridge_key is L1's alone (no other building's ridge changes): {named}"
+    # r7 T274: L1's ridge caps left the roof's coil for the trim paint (its texpass "mat" rule), so no recipe names a
+    # ridge_key today; the mechanism stays tested on the probe parts below
+    assert named == {}, f"no recipe names a ridge_key since r7 T274 (L1: mat ridge_ -> trim): {named}"
     rc = lodge.R.load_recipes()["L1"]
     clear()
     parts = K.box_part("roof_tA", (0.0, 0.0, 3.0), (4.0, 8.0, 3.2), "metal_roof_lt")
@@ -957,6 +1018,7 @@ def main():
     check_mat_rule()
     check_far_units()
     check_low_frequency()
+    check_mip_contrast()
     check_far_sources()
     check_strip_gate()
     print(f"PASS test_texpass: {len(CHECKS)} checks")

@@ -243,6 +243,11 @@ MAST_SEGS_FINE = 12
 SIGN_SET = FD.SignSetSpec(prop="SkiSignSetGate", letter="B", host="gate", owner=False,
                           faces=(("sign_gateflakeL_face", "gate.flake"), ("sign_gate_face", "gate.header"),
                                  ("sign_gateflakeR_face", "gate.flake")))
+# T285 (r7, route R-e, 2026-11-21): under the texture pass the gate's set owns its OWN copy of the sign sheet (letter D,
+# the gate.header / gate.flake kinds repainted: Source Sans Pro Bold cream on the navy) instead of sharing the frozen B
+# sheet, so the five B sharers stay untouched (+27.96 MB: one 2048 sheet, 5 maps, BC7 raw with mips). The object prefab
+# SkiSignSetGate keeps its name and CID (read from the B staging: SIGN_SET); only its m_Meshes[0] moves to the D mesh.
+SIGN_SET_T285 = replace(SIGN_SET, letter="D", owner=True)
 WALL_LIGHT = ("WallLightShortRangeRandom01", "cfc12fde01d9da24b86ddedd657eaae1")
 SUB_OBJECT_NOTE = ("ObjectSubObjects on SkiResortGate (the deployed prefab: keep its name / CID; drop the "
                    "ParkSign placeholder row ec48568...); m_GroupIndex 0, m_Probability 100; m_ParentMesh 0 "
@@ -298,11 +303,37 @@ TP_PLANKS = {
 }
 TP_BAND_PX_1024 = {"emblem": (8, 8, 232, 232), "header": BAND_PX_1024["header"]}   # emblem 448 px at 2048
 TP_BAND_TOP = 0.25
+# T285 (r7, the owner's reel review: "the OLD logo"; owner ruling 2026-11-20: the new mark WITHOUT text): the disc
+# carries the designer's mark (lexa_mark: variant 01, lift, run and peak with snowflakes; release/CREDITS.md credits the
+# designer for the logo). Placement in the 1.50 m disc: the mark's ink box centered at (dx, dy) m from the disc center,
+# its height h m (width = h x lexa_mark.ink_aspect()):
+# - "mark" (default): the whole mark inside the shipped ring (no ring text: the badge's "MODULAR SKI RESORT" would name
+#   the mod on every player's resort).
+# - "old": the pre-T285 emblem (ski_launcher_glyph.cand_c, the stock snowflake and mountain the handoff calls clip art).
+# Rings: (center radius, width) m. clip_r: the mark is cut at this radius (None = the mark fits inside the ring, checked).
+TP_EMBLEMS = {
+    "mark": dict(h_m=0.84, dx_m=0.0, dy_m=0.14, rings=((0.71, 0.06),), clip_r=None),
+    "old": None,
+}
+# T285 palette (one architect, one palette; five hues cut to three plus stone): dark timber (the members' heavy timber
+# swatch, unchanged), the designer's navy #1B3E6B (logo variants 05-08) on BOTH slots, cream letters (the WE name, the
+# header, the emblem art), plus the stone. Slot 1 (header beam, top plate, barges, ridge, emblem rim) leaves the lodge
+# green, slot 2 (disc, flags) leaves the royal blue (0.15, 0.375, 0.725). The game decodes a VariationSet color from sRGB
+# and multiplies it into the 0.80 field in linear (the reel: the 1.0.4 trim reads (0.111, 0.241, 0.172) =
+# lin(0.80) x lin(slot 1)), so a slot for an in-game sRGB target t is lin_to_srgb(srgb_to_lin(t) / srgb_to_lin(0.80))
+# (tp_slot_for). The plank leaves the orange-reading (0.45, 0.30, 0.18) for walnut #5B3A24: the WE name's cream reads
+# at 8.3 : 1 instead of 6.1 : 1 (WCAG luminance ratio).
+TP_NAVY_SRGB = (0x1B / 255.0, 0x3E / 255.0, 0x6B / 255.0)
+TP_PLANK_SRGB = (0x5B / 255.0, 0x3A / 255.0, 0x24 / 255.0)
 # Density weights (stone = 1). Longest prefix, then TP_FACE_W by the face's authoring normal. The packer scales all of
 # them by one factor found by bisection (the px/m of a weight-1 face) and clamps an island that is wider than the atlas.
-TP_DENSITY = {"pier_": 1.0, "pierplinth_": 1.0, "piercap_": 0.7, "tpost_": 1.0, "brace_": 0.9, "beamlow_": 0.75,
-              "beamhead_": 0.5, "beamheadfront_": 0.5, "plate_": 0.35, "gable_": 0.55, "plankfront_": 0.65,
-              "plankbody_": 0.45, "plankframe_": 0.5, "strap_": 0.5, "roof_": 1.0, "soffit_": 0.35, "barge_": 0.5,
+# T285 ("blurry pillar textures"): the stone piers and plinths 1.4 (the pier from 223.5 to about 310 px/m, vanilla
+# 340-520), paid by parts that cannot show more: the members' heavy timber is a swatch box-filtered to 166 px/m
+# (TP_HEAVY_LODGE_PPM), so posts / braces / low beam above that buy nothing; the roof top and the gable are seen from
+# 20 m and up. Offline pack on the probe dump (sign/NOTE.md): k 228.0 -> 225.8, pier 228 -> 316 px/m.
+TP_DENSITY = {"pier_": 1.4, "pierplinth_": 1.4, "piercap_": 0.6, "tpost_": 0.8, "brace_": 0.75, "beamlow_": 0.6,
+              "beamhead_": 0.35, "beamheadfront_": 0.35, "plate_": 0.35, "gable_": 0.4, "plankfront_": 0.55,
+              "plankbody_": 0.35, "plankframe_": 0.5, "strap_": 0.5, "roof_": 0.5, "soffit_": 0.35, "barge_": 0.5,
               "ridge_": 0.5, "emblemrim_": 0.5, "mast_": 0.3, "finial_": 0.3, "flag_": 0.35, "footing_": 0.5}
 # (part prefix, axis, sign, weight): faces whose authoring normal has sign * n[axis] > 0.5 (hidden or rarely seen sides)
 TP_FACE_W = (("roof_", 2, -1.0, 0.35), ("roof_", 0, 1.0, 0.1), ("roof_", 0, -1.0, 0.1), ("pierplinth_", 2, 1.0, 0.4), ("piercap_", 2, -1.0, 0.25),
@@ -385,6 +416,9 @@ def parse_args(argv=None):
                     help="the members' heavy timber under the pass: lodge = the family key's swatch at the lodge "
                          "sheet's density (N 128, 166 px/m), key = at 3 x the gate's density like every other key")
     ap.add_argument("--texpass-weather", type=float, default=1.0, help="weathering strength under the pass (0 = none)")
+    ap.add_argument("--texpass-emblem", default="mark", choices=tuple(TP_EMBLEMS),
+                    help="the disc under the pass (T285): mark = the designer's mark without text, old = the pre-T285 "
+                         "snowflake and mountain")
     return ap.parse_args(argv)
 
 
@@ -541,6 +575,10 @@ def build_parts(args, fine=False):
         L, H, ztop, amp = FLAG
         cols = 3
         y0 = my - (MAST_R0 + 0.01)
+        if getattr(args, "texpass", "off") not in (None, "off"):
+            # T285 (see-through audit1 LOD0 h2 / h3): the mast tapers to MAST_R1 at the flag, so the flag that started
+            # 1 cm off the base radius left a 3 cm slit (a 0.5 px line at 20 m); start it inside the thin end instead
+            y0 = my - 0.5 * MAST_R1
 
         def flag(bm, mx=mx, y0=y0):
             for c_ in range(cols):
@@ -705,10 +743,11 @@ def _place(dst, cov_topdown, cx_px, cy_px):
     dst[r0:r0 + s, c0:c0 + s] = np.maximum(dst[r0:r0 + s, c0:c0 + s], src)
 
 
-def paint_band(A, header_text, out_dir, name, keys=RESERVED_KEYS, px_1024=None):
+def paint_band(A, header_text, out_dir, name, keys=RESERVED_KEYS, px_1024=None, emblem=None):
     """Paint the band (contract 4.3 steps 1-6) into A x A arrays (bottom-up, BaseColor display-encoded as the
     importer reads it) and write <name>_band_<Map>.png into `out_dir` (never the asset folder: a stray PNG is a
-    validator ERROR). Returns (paths, arrays, coverage {key: (rect slices, cov)}, report)."""
+    validator ERROR). `emblem` = a TP_EMBLEMS key (texture pass only; None = the shipped emblem). Returns (paths,
+    arrays, coverage {key: (rect slices, cov)}, report)."""
     rects = band_rects(A, px_1024=px_1024)
     base = np.zeros((A, A, 4), np.float32)
     nrm = np.zeros((A, A, 4), np.float32)
@@ -722,7 +761,7 @@ def paint_band(A, header_text, out_dir, name, keys=RESERVED_KEYS, px_1024=None):
     if "header" in keys:
         _paint_header(A, header_text, rects, base, nrm, msk, ctl, cream, cov_out, rep)
     # -- emblem ---------------------------------------------------------------------------
-    _paint_emblem(A, rects, base, msk, ctl, cov_out, rep)
+    _paint_emblem(A, rects, base, msk, ctl, cov_out, rep, emblem=emblem)
     # -- write ------------------------------------------------------------------------------
     os.makedirs(out_dir, exist_ok=True)
     paths = {}
@@ -760,12 +799,54 @@ def _paint_header(A, header_text, rects, base, nrm, msk, ctl, cream, cov_out, re
                          ornament_px=s, coverage_mean=round(float(cov.mean()), 4))
 
 
-def _paint_emblem(A, rects, base, msk, ctl, cov_out, rep):
-    """The band's emblem rect (paint_band's original emblem block, unchanged)."""
+def emblem_cov_lexa(w, h, ppm, spec):
+    """T285: the disc's white coverage (w x h, BOTTOM-UP like the band arrays) for a TP_EMBLEMS entry: the designer's
+    mark (lexa_mark, 4 x 4 supersampled) placed at (dx, dy) m, cut at clip_r, plus the rings. Raises when an unclipped
+    mark would touch the outer ring or a clipped one leaves the rect."""
+    import lexa_mark as LM
+    asp = LM.ink_aspect()
+    mark = LM.coverage(int(round(max(spec["h_m"] * asp, spec["h_m"]) * ppm)), ss=4)    # top-down
+    mh, mw = mark.shape
+    cx, cy = w / 2.0 + spec["dx_m"] * ppm, h / 2.0 - spec["dy_m"] * ppm               # top-down pixels
+    r0, c0 = int(round(cy - mh / 2.0)), int(round(cx - mw / 2.0))
+    cov = np.zeros((h, w), np.float32)
+    ya, xa, yb, xb = max(r0, 0), max(c0, 0), min(r0 + mh, h), min(c0 + mw, w)
+    cov[ya:yb, xa:xb] = mark[ya - r0:yb - r0, xa - c0:xb - c0]
+    ss = 4
+    yy, xx = np.meshgrid((np.arange(h * ss) + 0.5) / ss, (np.arange(w * ss) + 0.5) / ss, indexing="ij")
+    rr = np.hypot(xx - w / 2.0, yy - h / 2.0) / ppm
+
+    def down(m):
+        return m.astype(np.float32).reshape(h, ss, w, ss).mean(axis=(1, 3))
+    if spec["clip_r"] is not None:
+        cov *= down(rr <= spec["clip_r"])
+    else:
+        r_in = min((rm - rw / 2.0 for rm, rw in spec["rings"]), default=EMBLEM_D / 2.0)
+        if float(cov[down(rr >= r_in - 0.03) > 0].max(initial=0.0)) > 0.0:
+            raise ValueError("T285 emblem: the mark comes within 3 cm of the ring (TP_EMBLEMS)")
+    for rm, rw in spec["rings"]:
+        cov = np.maximum(cov, down(np.abs(rr - rm) <= rw / 2.0))
+    return cov[::-1].copy()
+
+
+def _paint_emblem(A, rects, base, msk, ctl, cov_out, rep, emblem=None):
+    """The band's emblem rect (paint_band's original emblem block, unchanged when `emblem` is None or "old"; else the
+    designer's mark per TP_EMBLEMS[emblem], T285)."""
     fld = FIELD_SRGB
     sl = cs2_compose._rect_slices(rects["emblem"], A)
     h, w = sl[0].stop - sl[0].start, sl[1].stop - sl[1].start
     ppm = w / EMBLEM_D
+    if emblem is not None and TP_EMBLEMS[emblem] is not None:
+        spec = TP_EMBLEMS[emblem]
+        covE = emblem_cov_lexa(w, h, ppm, spec)
+        white = 0.92
+        base[sl][..., 0:3] = fld * (1.0 - covE[..., None]) + white * covE[..., None]
+        ctl[sl][..., 1] = np.clip(1.0 - 2.0 * covE, 0.0, 1.0)
+        msk[sl][..., 3] = BAND_SMOOTH
+        cov_out["emblem"] = (sl, covE)
+        rep["emblem"] = dict(px=(w, h), ppm=round(ppm, 2), glyph=f"lexa_mark ({emblem})", spec=dict(spec),
+                             white_frac=round(float(covE.mean()), 4))
+        return
     gs = int(round(EMBLEM_GLYPH_FRAC * EMBLEM_D * ppm))
     covE = np.zeros((h, w), np.float32)
     _place(covE, G.render_alpha(G.cand_c(), gs, ss=8), w / 2.0, h / 2.0)
@@ -1041,6 +1122,34 @@ def make_post(obj, band_paths, A, dspecs, keys=RESERVED_KEYS, px_1024=None, tp=N
 # Texture pass v1 (--texpass v1; nothing below runs with the flag off)
 # ======================================================================================
 
+def _srgb_to_lin1(c):
+    c = float(c)
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def _lin_to_srgb1(c):
+    c = min(max(float(c), 0.0), 1.0)
+    return c * 12.92 if c <= 0.0031308 else 1.055 * c ** (1.0 / 2.4) - 0.055
+
+
+def tp_slot_for(target_srgb, field=FIELD_SRGB):
+    """The VariationSet color that shows `target_srgb` in game on the 0.80 recolor field (T285: the game decodes
+    the slot from sRGB and multiplies in linear)."""
+    f = _srgb_to_lin1(field)
+    return tuple(round(_lin_to_srgb1(_srgb_to_lin1(t) / f), 4) for t in target_srgb)
+
+
+def tp_game_srgb(slot, field=FIELD_SRGB):
+    """What a slot color shows in game on the 0.80 field (the inverse of tp_slot_for)."""
+    f = _srgb_to_lin1(field)
+    return tuple(round(_lin_to_srgb1(_srgb_to_lin1(s) * f), 4) for s in slot)
+
+
+def tp_slots():
+    """{1: slot 1, 2: slot 2} sRGB VariationSet colors under the pass: the designer's navy on both (T285)."""
+    return {i: tp_slot_for(TP_NAVY_SRGB) for i in (1, 2)}
+
+
 def texpass_begin(args):
     """None when the pass is off. Else register the family pass in cs2_tilesheet (plus this build's stand-ins), the family
     trim keys, the gate's plank key and its roof choice, and return the pass context. texpass_end undoes every table
@@ -1053,7 +1162,8 @@ def texpass_begin(args):
     import cs2_tilesheet as TS
     tp = {"TS": TS, "version": version, "undo": [], "standins": {}, "weather": max(0.0, float(args.texpass_weather)),
           "work": tempfile.mkdtemp(prefix="sign_texpass_"), "roof": args.texpass_roof, "plank": args.texpass_plank,
-          "heavy": args.texpass_heavy}
+          "heavy": args.texpass_heavy, "emblem": getattr(args, "texpass_emblem", "mark"),
+          "slots": tp_slots(), "plank_srgb": TP_PLANK_SRGB}
     family = TS.TEXPASS[version]
     merged = dict(family)       # register_texpass skips a family key this build never registers (the lodges' slots v2)
     for k, s in sorted(TEXPASS_PICKS[args.texpass_picks].items()):
@@ -1066,7 +1176,7 @@ def texpass_begin(args):
     try:
         plank = TP_PLANKS[args.texpass_plank]
         tile = plank["boards"] * plank["board_m"]
-        K.BLDG_MATERIALS[TP_PLANK_KEY] = K.BldgMat(plank["set"], (tile, tile), PLANK_MAT.target_srgb,
+        K.BLDG_MATERIALS[TP_PLANK_KEY] = K.BldgMat(plank["set"], (tile, tile), tp["plank_srgb"],
                                                    smooth=PLANK_MAT.smooth)
         tp["undo"].append(lambda: K.BLDG_MATERIALS.pop(TP_PLANK_KEY, None))
         merged[TP_PLANK_KEY] = dict({"set": plank["set"], "tile_m": (tile, tile)}, **plank["controls"])
@@ -1897,19 +2007,21 @@ def _run(args, tp=None):
     signset = None
     if fine:                       # the header faces leave the host for the sign set (cs2_signset)
         import cs2_signset
+        ss = SIGN_SET if tp is None else SIGN_SET_T285
         # an earlier build in this process left its (unlinked) sign-set object: drop it, so this one is named
-        # exactly SIGN_SET.mesh (the FBX model node the importer pairs the textures by)
-        for o in [o for o in bpy.data.objects if o.name == SIGN_SET.mesh or o.name.startswith(SIGN_SET.mesh + ".")]:
+        # exactly ss.mesh (the FBX model node the importer pairs the textures by)
+        for o in [o for o in bpy.data.objects if o.name == ss.mesh or o.name.startswith(ss.mesh + ".")]:
             me = o.data
             bpy.data.objects.remove(o, do_unlink=True)
             if me is not None and me.users == 0:
                 bpy.data.meshes.remove(me)
-        parts, routed = cs2_signset.route(parts, SIGN_SET)
+        parts, routed = cs2_signset.route(parts, ss)
+        # the object prefab's CID: always the B staging's (SkiSignSetGate keeps its CID when its mesh is re-lettered)
         cid = cs2_signset.mint_cid(SIGN_SET) if args.export else (cs2_signset.staged_cid(SIGN_SET)
                                                                    or cs2_signset.PLACEHOLDER_CID)
-        sobj = cs2_signset.build_sign_set(routed, SIGN_SET, yaw_deg=0.0)
-        signset = {"obj": sobj, "cid": cid, "faces": [o.name for o, _k in routed],
-                   "row": FD.sign_set_row(SIGN_SET, cid, bounds=cs2_signset.bounds_game(sobj))}
+        sobj = cs2_signset.build_sign_set(routed, ss, yaw_deg=0.0)
+        signset = {"obj": sobj, "cid": cid, "faces": [o.name for o, _k in routed], "spec": ss,
+                   "row": FD.sign_set_row(ss, cid, bounds=cs2_signset.bounds_game(sobj))}
         for o, _k in routed:
             me = o.data
             bpy.data.objects.remove(o, do_unlink=True)
@@ -1951,7 +2063,8 @@ def _run(args, tp=None):
     # per run (name, A, asset folder): two builds at once never share band PNGs
     band_dir = os.path.join(tempfile.gettempdir(), "welcome_sign",
                             f"{name}_{A}_{zlib.crc32(asset_dir.encode('utf-8')):08x}")
-    band_paths, band_arrays, cov, band_rep = paint_band(A, args.header, band_dir, name, keys=bkeys, px_1024=band_px)
+    band_paths, band_arrays, cov, band_rep = paint_band(A, args.header, band_dir, name, keys=bkeys, px_1024=band_px,
+                                                        emblem=None if tp is None else tp["emblem"])
     band_check = check_band(band_arrays, cov, rects, A, band_top=0.125 if tp is None else TP_BAND_TOP)
     pre = contracts_authoring(obj, table, args)
     # 8 orient, G4 / S6, engine base G1 / G2
@@ -1972,7 +2085,7 @@ def _run(args, tp=None):
     if fine:
         result["fine"] = True
         result["sub_objects"] = sub_objects_block(fine_rows() + ((signset["row"],) if signset else ()))
-        result["sign_set"] = {"cid": signset["cid"], "faces": signset["faces"], "mesh": SIGN_SET.mesh,
+        result["sign_set"] = {"cid": signset["cid"], "faces": signset["faces"], "mesh": signset["spec"].mesh,
                               "obj": signset["obj"]}
     print(f"[sign] {name}: LOD0 {n0} tris, kept {area['kept_m2']} m2, predicted w=1 px/m "
           f"{area['predicted_ppm_w1']}, contracts {sorted(result['contracts'])}")
@@ -2023,7 +2136,10 @@ def _run(args, tp=None):
             "share": {k: v for k, v in share.items() if k in ("pairs", "saved_m2", "parts", "uv_edits")},
             "weather": hook.weather, "key_ppm": {k: round(v, 1) for k, v in sorted(key_ppm.items())},
             "density": tp_density_table(obj, table, A, face_keys),
-            "emblem_px": int(round((rects["emblem"][2] - rects["emblem"][0]) * A))}
+            "emblem_px": int(round((rects["emblem"][2] - rects["emblem"][0]) * A)),
+            "emblem": tp["emblem"], "plank_srgb": [round(c, 4) for c in tp["plank_srgb"]],
+            "slots_game_srgb": {str(k): list(tp_game_srgb(v)) for k, v in tp["slots"].items()}}
+        result["slots"] = dict(tp["slots"])
         hook.density = K.shipped_density(obj, A)        # with the share copies on their originals
     result["bake"] = {k: brep[k] for k in ("A", "margin_px", "uncovered_texels", "seconds", "files", "ao")}
     result["bake"]["band_index"] = band_index
@@ -2058,7 +2174,7 @@ def _run(args, tp=None):
         raise RuntimeError(f"G5: {batches} batches > 16")
     result["batches"] = batches
     # 11 previews / review
-    tint = {"RGB"[k - 1]: tuple(v) for k, v in SLOTS.items()}
+    tint = {"RGB"[k - 1]: tuple(v) for k, v in (result.get("slots") or SLOTS).items()}
     W = K._world_coords(obj)
     size = tuple(float(v) for v in (W.max(0) - W.min(0)))
     if lods:
@@ -2143,7 +2259,7 @@ def _manifest(asset_dir, name, args, result, A, t0):
         "lod_plan": result.get("lod_plan"), "lod_info": result.get("lod_info"),
         "lod_switch_m": result.get("lod_switch_m"), "batches_per_mesh_group": result.get("batches"),
         "extent_game_m": result.get("extent_game_m"), "mesh_hash": result.get("hashes"),
-        "slots_variation_set": {str(k): list(v) for k, v in SLOTS.items()},
+        "slots_variation_set": {str(k): list(v) for k, v in (result.get("slots") or SLOTS).items()},
         "emissive": ({"purpose": "BuildingActive 72", "intensity": 0.6}
                      if not args.no_lanterns and not result.get("fine") else None),
         "constants": {"PORTAL_X": PORTAL_X, "PIER_Y": PIER_Y, "PLANK": [PLANK_W, PLANK_H, PLANK_T],
@@ -2185,7 +2301,8 @@ def sub_objects_block(rows):
 
 
 def _export_sign_set(signset, args, name, result, size, area):
-    """Export SkiSignSetGateB (cs2_signset) once the LOD chain exists: its cull targets the sign's LOD2
+    """Export the gate's sign set (cs2_signset: SkiSignSetGateB, a sharer of the B sheet; under the texture pass
+    SkiSignSetGateD, the owner of its own sheet copy, T285) once the LOD chain exists: its cull targets the sign's LOD2
     switch (design C.4). Returns the numbers merged into result["sign_set"] (+ "texture" for the pack)."""
     import cs2_preview
     import cs2_signset
@@ -2193,15 +2310,17 @@ def _export_sign_set(signset, args, name, result, size, area):
     target = sw.get(2) or sw.get("2") or (max(sw.values()) if sw else None) or \
         cs2_preview.lod_switch_table(size, [result["tris"][0]], area=area["kept_m2"])["cull"]
     letter_dir = os.path.abspath(args.signset_out) if args.signset_out else \
-        cs2_signset.letter_dir_for(SIGN_SET, args.export, args.out)
+        cs2_signset.letter_dir_for(signset["spec"], args.export, args.out)
     host = {"name": name, "recipe": "welcome_sign", "prefab": PREFAB,
             "lot_half_game": [4.0 * LOT[0], 4.0 * LOT[1]], "switch_lod2_m": round(float(target), 2),
             "host_tris": result["tris"]}
-    rep = cs2_signset.export_sign_set(signset["obj"], SIGN_SET, letter_dir, host=host, cid=signset["cid"],
+    rep = cs2_signset.export_sign_set(signset["obj"], signset["spec"], letter_dir, host=host, cid=signset["cid"],
                                       mint=bool(args.export))
     owner_dir = os.path.join(os.path.dirname(letter_dir), cs2_signset.SHEET_LETTER, cs2_signset.SHEET_OWNER)
     if not os.path.isdir(owner_dir):
         owner_dir = cs2_signset.owner_dir_shipped()
+    if rep["owner"]:
+        owner_dir = None                    # T285: its own sheet PNGs are in its folder
     val = cs2_signset.validate_sign_set(rep["asset_dir"], rep["name"], owner_dir)
     print(f"[sign] sign set {rep['name']}: {rep['tris']} tris, cull m_Bias {rep['cull']['m_Bias']} (target "
           f"{rep['cull']['target_m']} m), bounds {rep['bounds_game']}, validate {len(val['errors'])} errors / "

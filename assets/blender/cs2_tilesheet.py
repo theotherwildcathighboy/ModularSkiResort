@@ -236,6 +236,8 @@ def ensure_materials():
 
 
 def base_key(skey):
+    if skey.endswith("~m"):                         # T275 MOSS_CELL (texpass v1 layout only)
+        return skey[:-2]
     return skey[:-len(W_SUFFIX)] if skey.endswith(W_SUFFIX) else skey
 
 
@@ -437,7 +439,9 @@ TEXPASS = {
         # the sky light (blue = green) and matches the structural timber's value, so the posts in front did not separate.
         # Light cedar low, walnut high: the two-tone of the references (One Ski Hill Place, Peak 7). The clock tower
         # wears the same cedar (the Peak 7 tower wears its walls' siding); its TRIM_WOOD corner trim stays dark.
-        "lux_siding_red": {"target_srgb": (0.5838, 0.403, 0.2717)},
+        # T276 (r7-tex): under the pass L5's F2 band and hall take the walnut and only the gable fields keep this key
+        # (l5_swanky_bottom PALETTE_V1): a dark chocolate (luminance 0.046), so the timber trusses (0.11) read in front
+        "lux_siding_red": {"target_srgb": (0.30, 0.22, 0.17)},
         # lux_vboard_red: battens at 0.35 m = every second 17.5 cm board seam, 8 per 2.8 m
         # tile (K.BATTEN's 0.30 m beat against the boards every 2.1 m and broke at every tile edge: 9.33 per tile)
         "lux_vboard_red": {"detail": {"seams_m": 0.35}, "target_srgb": (0.5838, 0.403, 0.2717)},
@@ -546,8 +550,18 @@ TEXPASS_ROOF_KICK_MAX_DEG = {"slate": 11.0}
 # center), 10 per 3.0 m tile, two 3 mm minor ribs per pan, a sheet = 3 pans (36 in coverage).
 # can_mm = the oil-canning bow of a pan; panel = sheet-to-sheet albedo shade; streak / sm_streak = soft down-slope
 # run-off 6-12 cm wide (darker / rougher); rib tops +0.05 smoothness; albedo features >= 5 cm. Same cell, 0 tris, 0 MB.
+# r7 T272 (owner review of 1.0.4: the L1 roof "blurry, we went backwards"): px/m (320), tile (3.0 m) and mip (3.5 at
+# 45 m, 4.1 at 70 m on a 1080p frame) are 1.0.3's; the coated model lost the metal's reflections, and its one feature
+# was a 40 mm rib with an 11 % albedo dip, under 1.2 px at 45 m. Now: the rib 20 mm tall (was 14; real standing seams
+# 25-50 mm), a darker contact line at each seam (ao 0.35, ao_m = its Gaussian sigma 16 mm: about the width of 1.0.4's
+# line, sigma 17.5 mm, at three times its depth; a wider 22 mm band at 0.22 read as a soft smudge in review, the line
+# reads as an edge), and pan-to-pan paint shade (pan = +-2.5 % albedo) and sheen (pan_sm = +-0.06 before SMOOTH_GAIN),
+# one value per pan. Albedo column contrast across the ribs at mip 2 / 3 / 4 (45 m on a 4K / 1440p / 1080p frame):
+# 1.0.4 0.09 at mip 4 -> 0.39 / 0.37 / 0.29; albedo mean -1.9 % (the line), smoothness sd 0.006 -> 0.021, mean 0.40
+# held; same cell, 0 tris, 0 MB
 TEXPASS_FLAT = {
-    "v1": {"metal_roof_lt": {"metal": 0.0, "smooth": 0.40, "ribs": 7, "rib_m": (0.007, 0.020, 0.014), "ao": 0.12,
+    "v1": {"metal_roof_lt": {"metal": 0.0, "smooth": 0.40, "ribs": 7, "rib_m": (0.007, 0.022, 0.020), "ao": 0.35,
+                             "ao_m": 0.016, "pan": 0.025, "pan_sm": 0.06,
                              "smooth_streak": 0.012, "light_w": True, "paint": True},
            "metal_roof_s1": {"panel": {"name": "rib30w", "profile": "rib", "pitch_m": 0.30, "rib_top": 0.028, "rib_base": 0.096,
                                        "rib_h": 0.026, "can_mm": 0.3, "panel": 0.008, "streak": 0.0,
@@ -1106,6 +1120,11 @@ def sheet_layout(A=SHEET_A, layout="rollout", repeats=None, trim=False, slots=Fa
             tiles_spec[b] = tiles_spec.pop(a)
         if texpass_flat("metal_roof_lt").get("light_w"):   # texture pass only: flag off keeps the orphaned key
             tiles_spec["metal_roof_lt" + W_SUFFIX] = tiles_spec.pop("metal_roof" + W_SUFFIX)
+        mslot = MOSS_SLOT.get(_TEXPASS_STATE["version"] or "")
+        if mslot:                                       # T275 (texture pass only): the moss cell takes an unsampled slot
+            if tiles_spec.pop(mslot[0], None) != mslot[1]:
+                raise RuntimeError(f"moss cell: {mslot[0]} is not at {mslot[1]} (the unsampled slot)")
+            tiles_spec[MOSS_CELL] = mslot[1]
     for k, (c, r, span) in tiles_spec.items():
         sw = span * cell
         pad = max(8, sw // 32)
@@ -1238,6 +1257,19 @@ def _rib_height(C, tile_m, n_ribs, rib_m):
     d = np.minimum(ph, pitch - ph)
     t = np.clip((half_base - d) / max(half_base - half_top, 1e-9), 0.0, 1.0)
     return height * (t * t * (3.0 - 2.0 * t)), d
+
+
+def _rib_pan_shade(key, C, n_ribs, reps=1):
+    """r7 T272: one value in -1..1 (mean 0, max |v| 1) per pan between two raised ribs (_rib_height's phase: a rib on the
+    tile edge, pan k spans k..k+1 pitches), as a (C,) profile across the ribs, `reps` identical tile copies (the swatch
+    repeat). Deterministic per key."""
+    n = int(n_ribs)
+    rng = np.random.default_rng(int(hashlib.sha1(f"{key}:pan".encode()).hexdigest()[:8], 16))
+    sh = rng.uniform(-1.0, 1.0, n)
+    sh -= sh.mean()
+    sh /= max(float(np.abs(sh).max()), 1e-9)
+    idx = np.floor((np.arange(C) + 0.5) / C * n * int(reps)).astype(int) % n
+    return sh[idx]
 
 
 def _panel_profile(u, spec):
@@ -1384,11 +1416,19 @@ def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
         det = cs2_compose.height_to_normal(h.astype(np.float32), C / (tile * r))
         nrm = cs2_compose.blend_rnm(nrm.astype(np.float32), det)
         if tpf.get("ao"):
-            line = 1.0 - float(tpf["ao"]) * np.exp(-0.5 * (dist / 0.0175) ** 2)
+            line = 1.0 - float(tpf["ao"]) * np.exp(-0.5 * (dist / float(tpf.get("ao_m", 0.0175))) ** 2)
             base = base * (line[None, :, None] if along_u else line[:, None, None])
+        if tpf.get("pan"):              # r7 T272: pan-to-pan paint shade (albedo) and sheen (smoothness), one value per pan
+            pan_sh = _rib_pan_shade(key, C, tpf["ribs"], r)
+            pf = 1.0 + float(tpf["pan"]) * pan_sh
+            pf = pf / pf.mean()                                     # the swatch mean (target_srgb) holds
+            base = base * (pf[None, :, None] if along_u else pf[:, None, None])
         if tpf.get("smooth_streak"):
             aniso = (1.0, 0.04) if along_u else (0.04, 1.0)
             sm = sm + float(tpf["smooth_streak"]) * _pnoise(C, 0.08 * C / (tile * r), 11, beta=1.6, aniso=aniso)
+        if tpf.get("pan_sm"):           # r7 T272: before SMOOTH_GAIN (the stored spread is pan_sm x SMOOTH_GAIN)
+            pan_sh = _rib_pan_shade(key, C, tpf["ribs"], r)
+            sm = sm + float(tpf["pan_sm"]) * (pan_sh[None, :] if along_u else pan_sh[:, None])
         info["detail"] = f"raised ribs {tile / tpf['ribs']:.4f} m, {'columns' if along_u else 'rows'}"
         info["texpass_flat"] = dict(tpf)
     elif m.detail is not None and getattr(m.detail, "seam_axes", None) == "ribs" and m.detail.seams_m:
@@ -1513,6 +1553,46 @@ def weather_overlay(key, base, nrm, metal, sm, seed, cls=None):
     else:
         raise KeyError(cls)
     return np.clip(b, 0, 1), np.clip(mt, 0, 1), np.clip(s, 0, 1)
+
+
+# ---- T275 (r7-tex, 2026-11-21): the terrace-side eave moss fades out (--texpass v1, recipe opt-in texpass["eave_fade"]) --
+# The roof-eave rule weathers a z-cut band along the back eave: a ruler-straight top edge over the terrace. A face cannot
+# fade (BaseColor alpha < 255 = cutout), so the fade lives in the texture: under rules.eave_fade the band's top snaps to
+# a slate cell row (_WeatherCtx.setup_eave_fade), the rows below stay slate~w (the band) and the row above takes
+# MOSS_CELL: slate~w's own moss (same key, same seed, so the seam with the band is invisible) under a ramp that fades
+# out up the slope along a wandering front (moss_fade). The valley moss beside the dormers keeps its cut pieces (an
+# accepted look). The cell takes metal_roof_s1~w's slot (MOSS_SLOT), which no family building samples (W manifests:
+# 0 m2); no other cell moves, so the other buildings' UVs stay and their pixels change only in that slot.
+MOSS_CELL = "slate~m"
+M_SUFFIX = "~m"
+MOSS_SLOT = {"v1": ("metal_roof_s1~w", (4, 7, 1))}
+MOSS_FADE = (0.35, 0.12, 0.16)       # the front at v = f0 + f1 x wave(u) in cell units (L4 slate: 1 cell = 3.2 m), +- w soft
+MOSS_MIN_BAND = 0.03                 # the snapped band keeps at least this much (cells) of full moss above the eave
+
+
+def moss_fade(C):
+    """(C x C) ramp of MOSS_CELL, rows = v from the bottom: 1 at v = 0 (the band top: full slate~w moss), 0 above a front
+    that wanders along u (three waves, periodic in u, deterministic), smoothstep half-width MOSS_FADE[2]."""
+    f0, f1, w = MOSS_FADE
+    rng = np.random.default_rng(int(hashlib.sha1(MOSS_CELL.encode()).hexdigest()[:8], 16))
+    u = (np.arange(C) + 0.5) / C
+    wave = sum(a * np.sin(2 * math.pi * (k * u + rng.uniform())) for k, a in ((1, 0.55), (2, 0.30), (5, 0.15)))
+    front = (f0 + f1 * wave)[None, :]
+    v = ((np.arange(C) + 0.5) / C)[:, None]
+    return 1.0 - _smooth(v, front - w, front + w)
+
+
+def moss_overlay(base, nrm, metal, sm, C):
+    """(base, metal, sm, pad_lo, pad_hi) of MOSS_CELL: the clean slate swatch blended toward slate~w (weather_overlay
+    with slate~w's own key and seed) by moss_fade. pad_lo / pad_hi = (base, sm) of the full-moss and the clean swatch:
+    the cell's v padding takes its true neighbors (slate~w below the row, clean slate above), not a wrap."""
+    wk = "slate" + W_SUFFIX
+    seed = int(hashlib.sha1(wk.encode()).hexdigest()[:8], 16)
+    bw, mw, sw = weather_overlay(wk, base, nrm, metal, sm, seed)
+    R = moss_fade(C)
+    b = base + (bw - base) * R[..., None]
+    s = sm + (sw - sm) * R
+    return np.clip(b, 0, 1), mw, np.clip(s, 0, 1), (bw, sw), (base, sm)
 
 
 def _blur_u(a, w):
@@ -1723,17 +1803,28 @@ def build_sheet(out_dir, name, A=SHEET_A, swatch=SWATCH, pad=PAD, keys=None, cac
             means[skey] = means["trim_grain"]
             continue
         b, n, metal, sm, slot, info = _swatch_maps(k, C, cache_dir, repeat=t["repeat"], layout_name=layout)
+        pad_b = pad_m = wrap
         mt = np.full((C, C), float(metal))
         if skey.endswith(W_SUFFIX):
             seed = int(hashlib.sha1(skey.encode()).hexdigest()[:8], 16)
             b, mt, sm = weather_overlay(skey, b, n, metal, sm, seed)
             info["weathered"] = _bt(W_CLASS, k)
             info["smooth_mean"] = round(float(sm.mean()), 3)
+        elif skey == MOSS_CELL:                         # T275: the eave fade cell (texpass v1 layout only)
+            b, mt, sm, lo_, hi_ = moss_overlay(b, n, metal, sm, C)
+            info["weathered"] = "moss_fade"
+            info["smooth_mean"] = round(float(sm.mean()), 3)
+            # rows = v from the bottom: below the row lies the band (slate~w), above it clean slate; u wraps
+            vpad = lambda a, a_lo, a_hi: np.pad(np.concatenate([a_lo[-pd:], a, a_hi[:pd]], 0),
+                                                ((0, 0), (pd, pd)) + ((0, 0),) * (a.ndim - 2), mode="wrap")
+            mm_ = lambda s_: np.stack([mt, np.zeros_like(mt), np.zeros_like(mt), s_], -1)
+            pad_b = lambda a: vpad(a, lo_[0], hi_[0])
+            pad_m = lambda a: vpad(a, mm_(lo_[1]), mm_(hi_[1]))
         X, Y = x0 - pd, y0 - pd
-        _put(base[..., :3], X, Y, wrap(b))
+        _put(base[..., :3], X, Y, pad_b(b))
         _put(nrm, X, Y, wrap(n))
         mm = np.zeros((C, C, 4)); mm[..., 0] = mt; mm[..., 3] = sm
-        _put(msk, X, Y, wrap(mm))
+        _put(msk, X, Y, pad_m(mm))
         if slot:
             cc = np.zeros((C, C, 4)); cc[..., slot - 1] = 1.0
             _put(ctl, X, Y, wrap(cc))
@@ -1919,6 +2010,9 @@ class TileWeather:
     # an upper window the 0.7 m strip ends mid-wall and reads as a hard gray rectangle hanging from the sill; under a
     # ground-floor window it reaches the base band or the plinth and reads as run-off
     drip_skip: tuple = ()
+    # T275 (recipe.texpass["eave_fade"]): on slate roofs the roof-eave band ends at a cell row and the row above takes
+    # MOSS_CELL (the moss fades out up the slope). False = the z-cut band (every flag-off build)
+    eave_fade: bool = False
 
 
 def weather_level(level):
@@ -1994,6 +2088,7 @@ class _WeatherCtx:
                                _bt(W_CLASS, base_key(self.wkey[i])) in ("slate", "metal_roof")) for i in range(nt)])
         # roof eave height per part (lowest z of its roof-class faces)
         self.part_eave = {}
+        self.fade_top = {}              # T275: tri -> the cell row its eave fade takes (setup_eave_fade)
         for i in np.flatnonzero(self.roof):
             p = parts_t[i]
             self.part_eave[p] = min(self.part_eave.get(p, 1e9), self.zmin[i])
@@ -2036,15 +2131,15 @@ class _WeatherCtx:
                 out.append((self.zmax[i] - e, "z"))
         elif self.roof[i]:
             d = R.roof_eave_m.get(sd, 0.0)
-            if d > 0:
+            if d > 0 and i not in self.fade_top:       # T275: a faded band ends on a cell line (tile_pieces cuts it)
                 rise = d * math.sqrt(max(0.0, 1.0 - self.n[i, 2] ** 2))
                 out.append((self.part_eave.get(self.parts_t[i], self.zmin[i]) + rise, "z"))
         lo = lambda k: self.zmin[i] if k == "z" else self.hmin[i]
         hi = lambda k: self.zmax[i] if k == "z" else self.hmax[i]
         return [(c, k) for c, k in out if lo(k) + 0.02 < c < hi(k) - 0.02]
 
-    def classify(self, i, cz, cpt):
-        """'base' | 'eave' | 'roof_eave' | 'valley' | None for a piece of tri i (centroid cpt)."""
+    def classify(self, i, cz, cpt, cell=None):
+        """'base' | 'eave' | 'roof_eave' | 'valley' | 'moss' | None for a piece of tri i (centroid cpt, tile cell)."""
         R = self.rules
         if self.wkey[i] is None:
             return None
@@ -2059,6 +2154,14 @@ class _WeatherCtx:
                 return "eave"
             return None
         if self.roof[i]:
+            ft = self.fade_top.get(i)
+            if ft is not None and cell is not None:     # T275: the band is the rows under ft, the fade row is ft
+                cv = int(cell[1])
+                if cv < ft:
+                    return "roof_eave"
+                if R.valleys and self._valley(i, cpt):
+                    return "valley"
+                return "moss" if cv == ft else None
             d = R.roof_eave_m.get(sd, 0.0)
             if d > 0:
                 rise = d * math.sqrt(max(0.0, 1.0 - self.n[i, 2] ** 2))
@@ -2067,6 +2170,43 @@ class _WeatherCtx:
             if R.valleys and self._valley(i, cpt):
                 return "valley"
         return None
+
+    def setup_eave_fade(self, tuv):
+        """T275 (rules.eave_fade): for each slate roof tri with a roof-eave band (roof_eave_m of its side > 0) the cell row
+        its fade takes: v_e = v at the part's eave (the tri's own UV affine, v up the slope); the band top is the first or
+        second row line at least MOSS_MIN_BAND above v_e, whichever brings the moss's mean reach (band + the fade front
+        MOSS_FADE[0]) nearer the rule's roof_eave_m. Per tri, so UV islands of one plane that differ by whole cells agree.
+        Prints one line per (part, side): the full band and the mean reach, in meters."""
+        if not getattr(self.rules, "eave_fade", False):
+            return
+        rep = {}
+        for i in np.flatnonzero(self.roof):
+            if _bt(W_CLASS, base_key(self.wkey[i])) != "slate":
+                continue
+            sd = self.side[i]
+            d = self.rules.roof_eave_m.get(sd, 0.0)
+            if d <= 0:
+                continue
+            P = self.V[list(self.tris[i])]
+            a = _affine_tile(P, np.asarray(tuv[i], np.float64))
+            if a is None:
+                continue
+            p0, u0, A = a
+            n = self.n[i]
+            up = np.array((0.0, 0.0, 1.0)) - n * n[2]
+            up /= max(np.linalg.norm(up), 1e-9)
+            dvds = float(A[1] @ up)                     # cells per meter up the slope
+            if dvds <= 1e-6 or up[2] <= 1e-6:           # v must run up the slope (tests/test_roof_uvv.py)
+                continue
+            ze = self.part_eave.get(self.parts_t[i], self.zmin[i])
+            ve = float(u0[1] + A[1] @ (P[0] - p0)) + (ze - float(P[0, 2])) / float(up[2]) * dvds
+            c0 = math.ceil(ve + MOSS_MIN_BAND)
+            top = min((c0, c0 + 1), key=lambda c: abs(c - ve + MOSS_FADE[0] - d * dvds))
+            self.fade_top[i] = int(top)
+            k = (self.part_name(int(self.parts_t[i])), sd)
+            rep.setdefault(k, set()).add((round(float(top - ve) / dvds, 2), round(float(top - ve + MOSS_FADE[0]) / dvds, 2)))
+        for (nm, sd), v in sorted(rep.items()):
+            print(f"[tile] eave fade {nm} ({sd}): full band, mean reach (m) {sorted(v)}", flush=True)
 
     def _valley(self, i, cpt):
         V = self.Vector
@@ -2577,6 +2717,8 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
         wctx = _WeatherCtx(Vw, tris, [keys[k] for k in fmat], fpart, part_name, layout, weather)
         for i in np.flatnonzero(is_flatp | is_strip):
             wctx.wkey[i] = None
+        if getattr(weather, "eave_fade", False) and MOSS_CELL in tiles:     # T275: the eave band fades out
+            wctx.setup_eave_fade(tuv)
     # height above the design grade of a local point (base bands under weather.grade; else unused)
     hfun = (lambda p: zfun(p) - float(wctx.z_grade(np.asarray(p, np.float64) @ Mw[:3, :3].T + Mw[:3, 3]))) \
         if wctx is not None and wctx.grade is not None else zfun
@@ -2678,10 +2820,10 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
             rect = tiles.get(sk, {}).get("rect_px")
             if cell is not None and wctx is not None and wctx.wkey[ti] is not None:
                 cpt = np.mean([r["p"] for r in pc], 0)
-                rule = wctx.classify(ti, zfun(cpt), cpt @ Mw[:3, :3].T + Mw[:3, 3])
+                rule = wctx.classify(ti, zfun(cpt), cpt @ Mw[:3, :3].T + Mw[:3, 3], cell)
                 if rule is not None:
                     wflag = 1
-                    rect = tiles[wctx.wkey[ti]]["rect_px"]
+                    rect = tiles[MOSS_CELL if rule == "moss" else wctx.wkey[ti]]["rect_px"]
                     wcount[rule] = wcount.get(rule, 0) + 1
             poly = []
             for r in pc:
@@ -3443,7 +3585,7 @@ def check_uv_cells(obj, layout, keys, mat_attr="cs2ts_mat", tol_px=0.51):
         sk = alias.get(key, key)
         q = uv[p.loop_start:p.loop_start + p.loop_total]
         rects = []
-        for kk in (sk, sk + W_SUFFIX):
+        for kk in (sk, sk + W_SUFFIX, sk + M_SUFFIX):  # T275: "~m" = MOSS_CELL (texpass v1 layout only)
             if kk in layout["tiles"]:
                 x0, y0, C = layout["tiles"][kk]["rect_px"]; rects.append((x0, y0, C, C))
         for kk in (key, sk + F_SUFFIX):

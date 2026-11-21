@@ -260,6 +260,11 @@ def parse_args(argv=None):
     # change: build all eight and --finalize with the same flag. off = every build byte-identical.
     ap.add_argument("--texpass", default="off", choices=("off", "v1"),
                     help="v1 = texture pass v1 (scanned swatches + recipe.texpass rules; off = byte-identical)")
+    # cull kit v2 (T273, r7 2026-11-20, docs/PIPELINE.md "No see-through hole"): cull_hidden keeps every face any point of
+    # it shows to a play camera, and gable slabs put their rake undersides into soffit_. v1 = every build byte-identical.
+    ap.add_argument("--cull", default="v1", choices=("v1", "v2"),
+                    help="v2 = conservative cull (whole-face samples vs the play camera ring) + rake soffits "
+                         "(cs2_bldg.CULL_KIT; v1 = byte-identical)")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -484,6 +489,11 @@ def aframe_parts(c, opts):
     DX1, DY, DTOP = c["DECK_X1"], c["DECK_Y"], c["DECK_TOP"]
     SILL, HEAD = c["SILL_Z"], c["HEAD_Z"]
     P = []
+    # r7 T273 (2026-11-20, owner review of 1.0.4: "see-through" on the arrival side): the canopy window, both builds'
+    # geometry, changes under --texpass only (opts["texpass"] is absent with the flag off, so 1.0.3's L1 stays
+    # byte-identical; the pass is the 1.0.4 output). The ledge slot and the rake undersides are the cull's (seethru's
+    # conservative cull and _slab_geo split). Measured in docs/research/round3-2026-11-18/r7-tex/l1/NOTE.md section 1
+    tpg = bool(opts.get("texpass"))
 
     # ---- stone base (ground part, the skirt is gone: the engine draws the base) --------
     P += K.storey("base", BX0, BX1, BY0, BY1, 0.0, S1_Z, "stone_rubble", ground=True,
@@ -503,26 +513,33 @@ def aframe_parts(c, opts):
                            RZ + 0.05, ridge_at=RX)
     P += K.storey("prow", S2X1, PX1 - 0.15, PY0, PY1, S1_Z, S2P_Z, "timber_lap",
                   drop=("-Z", "+Z"), cut_z=(S1_Z + 0.17, DTOP))
-    P += K.prism_gable("prow", "X", PX1 - 0.3, PX1, PY0, PY1, S2P_Z, PRZ - 0.02, ridge_at=PRY)
+    # T273 (texpass): the prow gable sits 0.15 m proud of the timber wall below it (it carries the glass wall's head), and
+    # its underside was open: from below the gable's own back face showed in the slot (seethru gate, 13 px). The jetty's
+    # underside is boarded, as a builder closes any overhang (keeps snow, wind and birds out): the prism's bottom face
+    P += K.prism_gable("prow", "X", PX1 - 0.3, PX1, PY0, PY1, S2P_Z, PRZ - 0.02, ridge_at=PRY, bottom=tpg)
     # ---- roofs (standing seam, slot 3), ridge caps, rakes, fascia, tails ----------------
     # ridge v2 (T95, cad-review-2026-10-19 section 8): the slabs end RIDGE_GAP past the ridge plane (a 6 mm overlap, no 0.35
     # m crossing) under the kit's 12-tri bent flashing. v0 = the old slabs + galv boxes, byte for byte
     v2 = K.RIDGE.get("version", 0) >= 2
     g_ = K.RIDGE_GAP
     ov = g_ if v2 else 0.35
+    # gable_lines (cull kit v2 only, T273): the gable walls' outer planes (mainS / mainN at -+20.85 -+ 0.15, the prow gable
+    # at PX1). The rake undersides past them go to soffit_<name>
     P += K.roof_slab("mainW", "Y", -22.0, 22.0, S2X0 - OVER, EAVE_Z, RX + ov, RZ + ov * MP,
-                     wall_line=S2X0, mat="metal_roof", ridge_x=RX + g_ if v2 else None)
+                     wall_line=S2X0, mat="metal_roof", ridge_x=RX + g_ if v2 else None, gable_lines=(-21.0, 21.0))
     P += K.roof_slab("mainE", "Y", -22.0, 22.0, S2X1 + OVER, EAVE_Z, RX - ov, RZ + ov * MP,
-                     wall_line=S2X1, mat="metal_roof", ridge_x=RX - g_ if v2 else None)
+                     wall_line=S2X1, mat="metal_roof", ridge_x=RX - g_ if v2 else None, gable_lines=(-21.0, 21.0))
     if v2:                                  # ends where the v1 box did: 5 cm short of the north chimney stack
         P += K.ridge_flashing("main", "Y", RX, RZ, MP, MP, 0.24, -22.0, -0.75 + 21.35)
     else:
         P += K.box_part("ridge_main", (RX - 0.225, -0.75 - 21.35, RZ + 0.01),
                         (RX + 0.225, -0.75 + 21.35, RZ + 0.15), "galv")
     P += K.roof_slab("prowS", "X", -4.1, PX1 + 1.1, PY0 - 1.0, EAVE_Z, PRY + ov,
-                     PRZ + ov * PP, wall_line=PY0, mat="metal_roof", ridge_x=PRY + g_ if v2 else None)
+                     PRZ + ov * PP, wall_line=PY0, mat="metal_roof", ridge_x=PRY + g_ if v2 else None,
+                     gable_lines=(-4.1, PX1))
     P += K.roof_slab("prowN", "X", -4.1, PX1 + 1.1, PY1 + 1.0, EAVE_Z, PRY - ov,
-                     PRZ + ov * PP, wall_line=PY1, mat="metal_roof", ridge_x=PRY - g_ if v2 else None)
+                     PRZ + ov * PP, wall_line=PY1, mat="metal_roof", ridge_x=PRY - g_ if v2 else None,
+                     gable_lines=(-4.1, PX1))
     if v2:
         P += K.ridge_flashing("prow", "X", PRY, PRZ, PP, PP, 0.24, 3.63 - 7.55, PX1 + 1.1)
     else:
@@ -609,8 +626,21 @@ def aframe_parts(c, opts):
     # ---- prow glass wall (A-Basin signature) -> `_Win` -----------------------------------
     bay = [-4.3, -1.78, 0.74, 3.26, 5.78, 8.3]
     prow = WallRef("+X", PX1)
-    P += K.window_bay("prow", prow, bay[0], bay[-1],
-                      WinSpec(bay[-1] - bay[0], 2.20, 4.85, lights=5, transom=5.95), room="prow")
+    pws = WinSpec(bay[-1] - bay[0], 2.20, 4.85, lights=5, transom=5.95)
+    P += K.window_bay("prow", prow, bay[0], bay[-1], pws, room="prow")
+    if tpg and K.WINDOW_KIT["version"] == 2:
+        # T273 (texpass): the prow glass wall stands 0.15 m proud of the timber wall (wall_prow at PX1 - 0.15), and no wall
+        # face lies in its plane. Kit v2's casing and reveal assume one: from above and from the sides a camera looked into
+        # the slot behind the frame and saw the back of the reveal (seethru gate: 505 px, the biggest L1 hole). A
+        # curtain wall set in front of a wall gets closures: a head flashing from the frame head back to the wall (sheds
+        # water and snow off the slot) and jamb closures down both sides. One box, top and sides only (front = the
+        # opening, back = the wall, bottom under the sill), flush with the casing's outer faces: 6 tris. `head_` = the
+        # casing's frame paint, LOD2 drops it with the head. Sizes = window_bay_v2's casing (posts from sill - 0.03, the
+        # head casing_w tall); the window fills its bay, so a0 / a1 = bay[0] / bay[-1]
+        kp = K.kit_params()
+        cw = kp["casing_w"]
+        P += K.wall_box("head_prowcl", prow, bay[0] - cw, bay[-1] + cw, pws.sill - 0.03, pws.sill + pws.h + cw,
+                        -0.15, 0.0, kp["casing_key"] or K.WINDOW_KIT["trim"], drop=("front", "back", "bottom"))
     for i, (cy0, cy1, top) in enumerate(((bay[1], bay[2], 10.4 + KH), (bay[2], bay[3], 13.7 + KH),
                                          (bay[3], bay[4], 10.4 + KH))):
         P += K.pane_quad(f"win_cle{i}_prowcl{i}", prow, cy0, cy1, 7.65, top)
@@ -626,6 +656,14 @@ def aframe_parts(c, opts):
     bands_x = (("SlopeS", S2X1, +1, -18.0, -8.0, 5), ("SlopeN", S2X1, +1, 11.0, 19.0, 4),
                ("ParkS", S2X0, -1, -18.0, -10.0, 4), ("ParkC", S2X0, -1, -4.0, 4.0, 4),
                ("ParkN", S2X0, -1, 10.0, 18.0, 4))
+    if tpg:     # T273 canopy gable: the porch roof's ridge flashing (top 5.42) ran 0.17 m into ParkC's
+        #         glazed opening (sill 5.25), and in game a black triangle (the porch profile shifted 0.8 m up, base
+        #         +-1.0 m) sat in the glass above it. No glazing where a roof meets the wall (snow piles there too):
+        #         ParkC becomes two 2-light windows clear of the porch roof (|y| >= 2.0), wall over the porch. One hall
+        #         behind both, so one interior: the south half keeps ParkC's tag (plate seed win_ParkC_ParkC0, lit as the
+        #         8-light band was), the north half's ParkCN draws lit too (_interior_key hashes the seed name)
+        bands_x = tuple(b for t in bands_x for b in (
+            (("ParkC", S2X0, -1, -6.0, -2.0, 2), ("ParkCN", S2X0, -1, 2.0, 6.0, 2)) if t[0] == "ParkC" else (t,)))
     for tag, wx, sgn, y0, y1, lights in bands_x:
         wall = WallRef("+X" if sgn > 0 else "-X", wx)
         u0, u1 = (y0, y1) if sgn > 0 else (-y1, -y0)
@@ -1850,8 +1888,11 @@ def run(recipe, args):
         opts["step_base"] = "v1"
     if getattr(args, "texpass", "off") != "off":       # r4/tex: recipe geometry that rides the pass (L4's ug3 window);
         opts["texpass"] = args.texpass                 # absent with the flag off, so a flag-off build never reads it
+    cull_v = 2 if getattr(args, "cull", "v1") == "v2" else 1      # T273 cull kit (slab rake soffits + the cull below)
+    if cull_v == 2:                         # the cull regression in the build path: raises if a cull change opens the rake
+        K.cull_selfcheck()
     with K.ridge_kit(2 if getattr(args, "ridge", "off") == "v2" else 0), \
-            K.flag_kit(2 if getattr(args, "flags", "v1") == "v2" else 1):
+            K.flag_kit(2 if getattr(args, "flags", "v1") == "v2" else 1), K.cull_kit(cull_v):
         parts = build_parts(recipe, opts)
     if opts.get("extra_rows"):
         recipe = replace(recipe, sub_objects=tuple(recipe.sub_objects) + tuple(opts.pop("extra_rows")))
@@ -1868,11 +1909,13 @@ def run(recipe, args):
     fit = None
     if fk:                                  # fittings v1: recipe-independent parts + vanilla rows
         import cs2_fittings
+        # cull kit v2 (T273): refit_gutters reads CULL_KIT (it closes the gutter backs)
         if sk:                              # structure v1: built with the kit flag on (K.STRUCTURE)
-            with K.structure(**sk):
+            with K.structure(**sk), K.cull_kit(cull_v):
                 fparts, frows, fit = cs2_fittings.build(recipe, parts, opts)
         else:
-            fparts, frows, fit = cs2_fittings.build(recipe, parts, opts)
+            with K.cull_kit(cull_v):
+                fparts, frows, fit = cs2_fittings.build(recipe, parts, opts)
         parts = list(parts) + list(fparts)
         if frows:
             recipe = replace(recipe, sub_objects=tuple(recipe.sub_objects) + tuple(frows))
@@ -1978,11 +2021,12 @@ def run(recipe, args):
     # 12 cull (after the rooms so panes are not occluders). T85: the backing plates sit out of the mesh during the cull (a
     # surface plate 1-3 cm in front of a wall would hide that wall, and LOD2 drops the plates)
     pobj = _lift_plates(obj, table) if glass == "gls" else None
-    cull = K.cull_hidden(obj, protect=tuple(recipe.ground_prefixes) + K.LABEL_PREFIXES
-                         + (K.KIT2_RECESSED if wk else ()) + (door2["protect"] if door2 else ()),
-                         table=table, cull_ok=recipe.cull_ok, wall_rule=recipe.wall_rule,
-                         arrival=(0.0, -1.0), ground_prefixes=recipe.ground_prefixes,
-                         thin_occluders=FITTINGS_THIN if fk else ())
+    with K.cull_kit(cull_v):
+        cull = K.cull_hidden(obj, protect=tuple(recipe.ground_prefixes) + K.LABEL_PREFIXES
+                             + (K.KIT2_RECESSED if wk else ()) + (door2["protect"] if door2 else ()),
+                             table=table, cull_ok=recipe.cull_ok, wall_rule=recipe.wall_rule,
+                             arrival=(0.0, -1.0), ground_prefixes=recipe.ground_prefixes,
+                             thin_occluders=FITTINGS_THIN if fk else ())
     if pobj is not None:
         _rejoin_plates(obj, pobj)
     T["cull"] = time.perf_counter() - t0
@@ -2496,6 +2540,8 @@ def texpass_weather(W, recipe, tp):
         kw["band_skip"] = tuple(tp["band_skip"])
     if tp.get("drip_skip"):
         kw["drip_skip"] = tuple(tp["drip_skip"])
+    if tp.get("eave_fade"):             # T275: the slate roof-eave band fades out (TileWeather.eave_fade, cs2_tilesheet)
+        kw["eave_fade"] = True
     return _rp(W, **kw) if kw else W
 
 
@@ -3032,7 +3078,8 @@ def _export_sign_set(signset, recipe, args, name, obj, lods, result, area):
             "lot_half_game": [4.0 * W_, 4.0 * D_], "switch_lod2_m": round(float(target), 2),
             "host_tris": result["tris"]}
     rep = cs2_signset.export_sign_set(signset["obj"], spec, letter_dir, host=host, cid=signset["cid"],
-                                      mint=bool(args.export))
+                                      mint=bool(args.export),
+                                      kinds=cs2_signset.sheet_for(getattr(args, "texpass", "off")))  # T278 call 5
     owner_dir = os.path.join(os.path.dirname(letter_dir), cs2_signset.SHEET_LETTER, cs2_signset.SHEET_OWNER)
     if not rep["owner"] and not os.path.isdir(owner_dir):
         # a SHARER built beside a scratch --out (no owner there): validate / preview against the shipped owner's sheet

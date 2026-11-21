@@ -654,6 +654,11 @@ def gallery_parts(C, c, gls=False):
         P += C.quads_part("gallery_in", in_q, "trim_white")
     n = int(round(L / step))
     rib = []
+    # cull kit v2 (T273): through the clear tunnel (gls) a camera sees each hoop from inside, where the stile and arc strips
+    # had no face (the see-through gate: 7 FAIL, 480-680 px at 20 m). Each hoop gets its inner faces: the stiles 2 mm
+    # outside the glass, the arc strips 3 mm under their outer face (no cheeks needed). +28 tris per hoop
+    import cs2_bldg
+    inner = gls and cs2_bldg.CULL_KIT.get("version", 1) >= 2
     for k in range(n + 1):
         x = xl - L * k / n
         xa, xb = x + RIB_W / 2.0, x - RIB_W / 2.0
@@ -671,8 +676,14 @@ def gallery_parts(C, c, gls=False):
                 for xx, sx in ((xa, 1.0), (xb, -1.0)):
                     rib.append(([pt(xx, v0, h0), pt(xx, vo, h0), pt(xx, vo, h1), pt(xx, v0, h1)],
                                 (sx, 0.0, 0.0)))
+                if inner:
+                    vi = v0 + sg * 0.002
+                    rib.append(([pt(xa, vi, h0), pt(xa, vi, h1), pt(xb, vi, h1), pt(xb, vi, h0)], (0.0, -sg, 0.0)))
             else:                                   # arc: an offset frame strip
                 rib.append(seg_quad(xa, xb, p, q, off=RIB_OUT))
+                if inner:
+                    ipts, (_x, nv, nh) = seg_quad(xa, xb, p, q, off=RIB_OUT - 0.003)
+                    rib.append((ipts[::-1], (0.0, -nv, -nh)))
     P += C.quads_part(f"galleryrib_{tag}", rib, "galv" if gls else "trim_white")
     return P
 
@@ -1008,6 +1019,8 @@ def build(recipe, opts):
             "ground_prefixes": tuple(recipe.ground_prefixes) + STEP_BASE_GROUND,
             "lod1_extra": tuple(p for p in recipe.lod1_extra if p not in STEP_BASE_GROUND),
             "lod2_extra": tuple(p for p in recipe.lod2_extra if p not in STEP_BASE_GROUND)}
+    if opts.get("texpass", "off") != "off":     # T278: the v1 emblem on the tower field + the flags (v1_labels)
+        opts.setdefault("recipe_replace", {})["labels"] = v1_labels()
     return P
 
 
@@ -1130,6 +1143,43 @@ def _labels():
 
 
 RECIPE = _labels()
+
+# T278 (1.0.4, texture pass v1): the school's emblem. 1.0.3 drew ski_launcher_glyph.cand_d, a launcher-icon candidate (a
+# skier on a solid slope wedge); on the tower it reads as a figure kneeling on a sled at 45 m. Under --texpass v1 the
+# tower field becomes a sign tile (white rim TILE_RIM, SCHOOL_RED inside) with EMBLEM_V1 in white at FIELD_FRAC_V1
+# (school_emblem.py: an original pictogram to the r7 research spec, every stroke >= 3 texels at the mip a 45 m 1080p frame
+# samples); both flag cloths draw EMBLEM_V1 on SCHOOL_RED. Why the field is there: the tower is the school's landmark from
+# the slope, and a pictogram reads where "SKI SCHOOL" text is too small. Why a tile: a painted sign panel is how a school
+# marks its building, and it explains the field's smooth face in the board-and-batten siding. Drop-in (the 1.0.5 school
+# options: a mascot or a sign): one more school_emblem design plus this one name, same faces, same label rects, same
+# painters. The sign set boards keep cand_d: sheet C is frozen (a new emblem there = letter D + an import + the school
+# prefab's sign rows).
+EMBLEM_V1 = "emblem_skier_b"
+FIELD_FRAC_V1 = 0.82            # 2.62 m glyph (figure 2.04 m) in the 2.82 m red of the tile (school_emblem.FIELD_GLYPH_M)
+TILE_RIM = 0.06                 # of the 3.2 m field per side: 0.19 m = 5.4 texels at mip 1
+
+
+def v1_labels(emblem=EMBLEM_V1):
+    """The label table under --texpass v1 (build() hands it back in opts["recipe_replace"]): the tower field is the tile
+    with `emblem`, the flags draw `emblem` on SCHOOL_RED; every other label is DISPLAY_LABELS unchanged. Same prefixes, so
+    the label rects stay."""
+    white = (WHITE, WHITE, WHITE)
+    tile = ("shapes", {"items": (("square", 0.5, 0.5, 1.0, white), ("square", 0.5, 0.5, 1.0 - 2.0 * TILE_RIM, SCHOOL_RED)),
+                       "bg": None})
+    field = _disp(FIELD_FACE, tile, ("glyph", {"prims": emblem, "fg": WHITE, "frac": FIELD_FRAC_V1}))
+    # overnight call 5: the meeting board and the fourth lesson board (LESSON_SHAPES[3]) draw `emblem` too. This is the
+    # legacy --no-signset path; the shipping path paints them on the sign set (cs2_signset.sheet_for), and the host
+    # atlas never holds these faces there (they route to the sign set)
+    old = "glyph:cand_d"
+    rest = tuple(_disp(e[0], *((d[0], dict(d[1], items=tuple(((f"glyph:{emblem}" if it[0] == old else it[0]),) + tuple(it[1:])
+                                                               for it in d[1]["items"])))
+                               if d[0] == "shapes" else d for d in e[2]["draws"]), symmetric=e[2]["symmetric"])
+                 if e[0] in ("sign_meet_face", "sign_lesson3_face") else e
+                 for e in DISPLAY_LABELS if not e[0].startswith("emblem_schoolflag"))
+    flags = tuple(_disp(f"emblem_schoolflag{s}_face", ("glyph", {"prims": emblem, "fg": WHITE, "frac": 0.85,
+                                                                 "bg": SCHOOL_RED}))
+                  for s in "AB")
+    return (field,) + rest + flags
 
 
 # ======================================================================================

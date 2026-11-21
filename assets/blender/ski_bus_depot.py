@@ -14,7 +14,9 @@ Texture pass v1 (`--texpass v1`, default off = every FBX and PNG byte-identical 
 real scans at their real scale for the corten (PHRustCoarse01, 2.2 m), the roof (PHCorrugatedIron, 74 mm corrugation) and
 the cedar (PHWeatheredBrownPlanks, one scan board per plank, the family's deck scan), Concrete034 at its 1.1 m real size,
 a calmer low-frequency weathering paint, and a denser unique pack (plank panels as one island, a skyline packer). Geometry
-does not move: the pass changes pixels and the unique UV layout only. TEXPASS / TEXVAR below hold every number.
+moves in two places only (T273, the see-through gate tests/test_see_through.py): every back-wall board gets its top and
+bottom face (+108 tris; the gaps between boards stay real), and LOD1 keeps the planter's inner faces. Otherwise the pass
+changes pixels and the unique UV layout only. TEXPASS / TEXVAR below hold every number.
 `--texvar key=value,...` picks a look variant of the pass (cedar, corten, roof); the defaults are the recommended look.
 
 Frame: authoring meters, +X = the road, Y along the shelter, Z up, lot center at the origin (orient_for_net sends +X to game
@@ -254,6 +256,12 @@ TEXPASS = {"v1": {
     # mottling; proc keeps the shipped roof value (scan reads 8 % lighter). stain, umber, scan and family stay selectable
     # with --texvar
     "default": {"cedar": "honey", "corten": "rust", "roof": "proc"},
+    # T273 (see-through gate): a board drawn as two faces with open top and bottom let a ray at 22 deg from behind the wall
+    # enter the lower board through its open top and meet the inside of its far face (146 1080p px at 20 m, the floor
+    # showing through). Closed boards: a top and a bottom face each, UV in a 1.5 mm band beside the board's front in its
+    # panel. LOD1 kept the planter walls but dropped their inner faces (27 px into the box from 150 m): LOD1 keeps them
+    "board_edges": True,
+    "lod1_keep": ("planterin_",),
     # density weights (flag-off DENSITY with these replaced). Dry-pack sweep of five sets (r4/tex 2026-11-20): this one
     # lifts the biggest seen surfaces most (pad 63 -> 87 px/m, soffit 97 -> 133, roof 83 -> 115, tower back 87 -> 115) and
     # leaves no part under its flag-off density (wall planks 165 -> 173); atlas fill 0.369 -> 0.563
@@ -296,7 +304,8 @@ def texpass_config(version, texvar=None):
                 wall_boards=boards, wall_skip=tuple(ced.get("skip_boards", ())), wall_tile=wall_tile,
                 ceil_tile=ced["ceil_tile"], ceil_boards=boards,
                 roof_scan=bool(roof["scan"]), roof_tile=ROOF_SCAN_TILE if roof["scan"] else None,
-                roof_detail=roof["mat"].detail, corten_scan=cor["mat"].smooth is None)
+                roof_detail=roof["mat"].detail, corten_scan=cor["mat"].smooth is None,
+                board_edges=bool(tp.get("board_edges")), lod1_keep=tuple(tp.get("lod1_keep", ())))
 
 
 # Back wall rows per bay -> the canonical board that bay 0 owns. The low rows (the splash band) stay on their row. The rest
@@ -369,7 +378,13 @@ def roof_line(x):
 # Parts
 # ======================================================================================
 
-def build_parts():
+# texpass v1 (T273) closed geometry beyond the boards: a root cap per hook prong (2 tris) and a top cap per post (an
+# octagon, 6 tris)
+V1_CAP_TRIS = sum(len(ys_) for _z, ys_ in HOOK_ROWS) * 2 * 2 + 2 * len(YS) * (6 if CHAMFER > 0 else 2)
+BOARD_EDGE_BAND = 0.0015    # m of panel v per board edge (texpass v1, T273): half the smallest board gap (3 mm)
+
+
+def build_parts(board_edges=False):
     P = []
     x0, y0, x1, y1, zt = PAD
     P += K.box_part("pad_main", (x0, y0, 0.0), (x1, y1, zt), "pad_concrete", ground=True)
@@ -377,7 +392,9 @@ def build_parts():
     k = 0
     for tag, x, top in (("r", XR, BEAM_TOP_R - BEAM_D), ("b", XB, BEAM_TOP_B - BEAM_D)):
         for i, y in enumerate(YS):
-            P += bar(f"post_{tag}{i}", (x, y, PZ + PLATE_T - 0.005), (x, y, top + 0.01), POST, POST, "steel_ox", up=(1, 0, 0))
+            # texpass v1 (T273): a top cap. The post is wider than its beam, so the open top showed beside the beam
+            P += bar(f"post_{tag}{i}", (x, y, PZ + PLATE_T - 0.005), (x, y, top + 0.01), POST, POST, "steel_ox",
+                     up=(1, 0, 0), caps=(False, bool(board_edges)))
             s = PLATE / 2
             P += K.box_part(f"plate_{k}", (x - s, y - s, PZ), (x + s, y + s, PZ + PLATE_T), "steel_ox", drop=("-Z",))
             k += 1
@@ -395,7 +412,10 @@ def build_parts():
     # ---- cedar ceiling and roof sheets: one quad per rafter bay, a few variants stacked (share_key) -------
     ys = (-ROOF_Y,) + RAFTER_Y + (ROOF_Y,)
     tb, tr = roof_line(EAVE_B) + ROOF_ABOVE, roof_line(EAVE_R) + ROOF_ABOVE
-    cb, cr = roof_line(EAVE_B) + CEIL_ABOVE - 0.015, roof_line(EAVE_R) + CEIL_ABOVE - 0.015
+    # texpass v1 (T273): the roof edge stops at the ceiling. A one-sided band that hangs 1.5 cm below it showed its
+    # inside from under the roof (depot gate, 17 px at the tower end)
+    drop = 0.0 if board_edges else 0.015
+    cb, cr = roof_line(EAVE_B) + CEIL_ABOVE - drop, roof_line(EAVE_R) + CEIL_ABOVE - drop
     for i, (a, b) in enumerate(zip(ys, ys[1:])):
         pts = [(EAVE_B, a, roof_line(EAVE_B) + CEIL_ABOVE), (EAVE_R, a, roof_line(EAVE_R) + CEIL_ABOVE),
                (EAVE_R, b, roof_line(EAVE_R) + CEIL_ABOVE), (EAVE_B, b, roof_line(EAVE_B) + CEIL_ABOVE)]
@@ -421,10 +441,14 @@ def build_parts():
         for n in range(BOARD_N):
             ya2, yb2 = ya + POST / 2 - 0.005, yb - POST / 2 + 0.005
             # two faces, no edges: the gaps between boards are real and stay light. Ends die into the posts
-            P += C.quads_part(f"plank_b{b}_{n}", [
+            quads = [
                 ([(XB + t, ya2, z), (XB + t, yb2, z), (XB + t, yb2, z + BOARD_H), (XB + t, ya2, z + BOARD_H)], (1, 0, 0)),
-                ([(XB - t, ya2, z), (XB - t, yb2, z), (XB - t, yb2, z + BOARD_H), (XB - t, ya2, z + BOARD_H)], (-1, 0, 0))],
-                "cedar")
+                ([(XB - t, ya2, z), (XB - t, yb2, z), (XB - t, yb2, z + BOARD_H), (XB - t, ya2, z + BOARD_H)], (-1, 0, 0))]
+            if board_edges:     # texpass v1 (T273): a closed board, so no ray meets the inside of its far face
+                zt_ = z + BOARD_H
+                quads += [([(XB - t, ya2, zt_), (XB + t, ya2, zt_), (XB + t, yb2, zt_), (XB - t, yb2, zt_)], (0, 0, 1)),
+                          ([(XB - t, ya2, z), (XB + t, ya2, z), (XB + t, yb2, z), (XB - t, yb2, z)], (0, 0, -1))]
+            P += C.quads_part(f"plank_b{b}_{n}", quads, "cedar")
             z += BOARD_H + (gaps[n] if n < BOARD_N - 1 else 0.0)
         wall_top = z
         zc = wall_top + 0.025
@@ -434,7 +458,7 @@ def build_parts():
     n = 0
     for z, ys_ in HOOK_ROWS:
         for y in ys_:
-            P += hook_parts(n, face_x, y, z)
+            P += hook_parts(n, face_x, y, z, closed=board_edges)
             n += 1
     # ---- clear panels: road side bays 0 and 1, the -Y end wall. Bay 2 and the +Y end stay open
     bays = (("r0", "X", XR + POST / 2, YS[0], YS[1], PANEL_Z), ("r1", "X", XR + POST / 2, YS[1], YS[2], PANEL_Z),
@@ -531,8 +555,11 @@ def bar(name, p0, p1, w, h, mat, up=(0.0, 0.0, 1.0), chamfer=CHAMFER, caps=(Fals
     return parts
 
 
-def hook_parts(n, x, y, z):
-    """One ski hook, proud of the board face (+X): a black half-moon base and two yellow prongs, about 30 cm wide."""
+def hook_parts(n, x, y, z, closed=False):
+    """One ski hook, proud of the board face (+X): a black half-moon base and two yellow prongs, about 30 cm wide.
+    closed (texpass v1, T273): each prong gets a root cap, and the base and each prong are welded before their normals
+    are recalculated. The mirrored prong was inside out (depot gate, 66 px of back faces), and some base side quads
+    faced in (26.7 px)."""
     def base(bm):
         d = 0.028
         ring = [(-0.13, -0.01), (-0.115, -0.055), (-0.07, -0.075), (0.07, -0.075), (0.115, -0.055), (0.13, -0.01),
@@ -543,6 +570,9 @@ def hook_parts(n, x, y, z):
         for a in range(len(ring)):
             b = (a + 1) % len(ring)
             C.face(bm, [back[a], back[b], front[b], front[a]], None)
+        if closed:
+            # weld first, as the prongs: loose side quads kept their own winding, and some faced in (depot gate, 26.7 px)
+            bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-6)
         bm.normal_update()
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     parts = C.new_part(f"hookbase_{n}", base, "hook_black")
@@ -562,6 +592,11 @@ def hook_parts(n, x, y, z):
                 for a, b in ((0, 1), (1, 2), (2, 3), (3, 0)):
                     C.face(bm, [r0_[a], r0_[b], r1_[b], r1_[a]], None)
             C.face(bm, tip, None)
+            if closed:
+                C.face(bm, root, None)
+                # weld first. C.face makes loose quads, so recalc_face_normals saw one-face islands and kept each
+                # winding: the mirrored prong (sign -1) came out inside out
+                bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-6)
             bm.normal_update()
             bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
         return build
@@ -1096,6 +1131,18 @@ def _plank_panels(mesh, uv, start, total, free):
         if not m:
             continue
         poly = mesh.polygons[f]
+        hook = (int(m[1]), int(m[2])) in HOOK_BOARDS
+        if abs(poly.normal.z) > 0.9:
+            # a board edge (T273): u as the front, v a BOARD_EDGE_BAND strip from the front's top (bottom) row into the
+            # gap above (below), so it sits in its front panel, welded to the front, over no other face
+            ys = [mesh.vertices[mesh.loops[li].vertex_index].co.y for li in range(start[f], start[f] + total[f])]
+            y_lo, y_hi = min(ys), max(ys)
+            sgn = 1.0 if poly.normal.z > 0 else -1.0
+            for li in range(start[f], start[f] + total[f]):
+                co = mesh.vertices[mesh.loops[li].vertex_index].co
+                uv[li] = (co.x, co.z + sgn * BOARD_EDGE_BAND * (co.y - y_lo) / max(y_hi - y_lo, 1e-6))
+            groups[f] = f"plank_b{m[1]}_{'hook' if hook else 'wall'}_f"
+            continue
         if abs(poly.normal.y) < 0.9:
             continue
         side = "f" if poly.normal.y < 0 else "b"            # authoring +x (the bench side) is -y here
@@ -1103,7 +1150,6 @@ def _plank_panels(mesh, uv, start, total, free):
         for li in range(start[f], start[f] + total[f]):
             co = mesh.vertices[mesh.loops[li].vertex_index].co
             uv[li] = (sgn * co.x, co.z)
-        hook = (int(m[1]), int(m[2])) in HOOK_BOARDS
         groups[f] = f"plank_b{m[1]}_{'hook' if hook else 'wall'}_{side}"
     return groups
 
@@ -2184,7 +2230,7 @@ def _run(args, tp):
     os.makedirs(asset_dir, exist_ok=True)
     A = int(args.tex)
     welcome_sign.clear_scene()
-    parts = build_parts()
+    parts = build_parts(board_edges=bool(tp and tp["board_edges"]))
     names = [o.name for o, _ in parts]
     if len(set(names)) != len(names) or any("." in n for n in names):
         raise RuntimeError(f"part names not unique: {names}")
@@ -2310,8 +2356,9 @@ def _run(args, tp):
     cs2_submesh.export_submeshes(glass, name, "Gls", asset_dir, lods=(1,))
     # ---- LODs ----------------------------------------------------------------------------------
     recipe_like = types.SimpleNamespace(budget=BUDGET, ground_prefixes=GROUND)
-    (t1, t2), plan = K.plan_lod_targets(obj, table, recipe_like, delete_lists=(DELETE1, DELETE2), protect_prefixes=GROUND)
-    lods, infos = K.lod_chain(obj, name, (t1, t2), (DELETE1, DELETE2), GROUND)
+    d1 = tuple(x for x in DELETE1 if not (tp and x in tp["lod1_keep"]))     # texpass v1 (T273): LOD1 keeps planterin_
+    (t1, t2), plan = K.plan_lod_targets(obj, table, recipe_like, delete_lists=(d1, DELETE2), protect_prefixes=GROUND)
+    lods, infos = K.lod_chain(obj, name, (t1, t2), (d1, DELETE2), GROUND)
     result["lod_plan"] = plan
     for lvl, lod in enumerate(lods, start=1):
         result["base"][lvl] = K.check_base_mode(lod, table, "engine", GROUND)

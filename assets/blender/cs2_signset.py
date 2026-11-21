@@ -309,6 +309,11 @@ SHEET = tuple(replace(k, state="painted", draws=_GRAND_PAINT[k.key][0], note=_GR
 NC_LODGE_FACE = "bookman_bold"
 NC_UTILITY_FACE = "franklin_demi_cond"
 NC_RULE = ("frame", {"width": 0.015, "inset": 0.05, "fg": GATE_CREAM})
+# T285 (r7): the gate's header field as the GAME shows the navy beam: #1B3E6B = lin_to_srgb(srgb_to_lin(0.80) x
+# srgb_to_lin(welcome_sign.tp_slot_for(TP_NAVY_SRGB))). The game decodes a VariationSet color from sRGB and multiplies
+# in linear; GATE_FIELD above used the slot tuple as linear, so the 1.0.4 panel read mint against the (0.111, 0.241,
+# 0.172) beam in the reel.
+GATE_FIELD_GAME = (0x1B / 255.0, 0x3E / 255.0, 0x6B / 255.0)
 L2_TRIM_SRGB = (0.214, 0.472, 0.425)  # the hut's slot-1 trim (0.0625, 0.3125, 0.25) as shown on a 0.80 paint
 #                                       albedo: lin_to_srgb(srgb_to_lin(0.80) x slot), the GATE_FIELD model
 _NC_PAINT = {
@@ -317,10 +322,14 @@ _NC_PAINT = {
                            "flank_gap": 0.45}), NC_RULE),
                 "GRAND LODGE in Bookman Old Style Bold, letter-spaced caps between two lozenges, a thin cream rule "
                 "inside the face; cream on board brown (nitpick C; was Bfont, step 3e)"),
-    "gate.header": ((("type", {"lines": ("SKI AREA",), "face": NC_LODGE_FACE, "fg": GATE_CREAM, "bg": GATE_FIELD,
-                               "cap_frac": 0.70, "fill": 0.95, "tracking": 0.06}),),
-                    "SKI AREA lettering panel of the welcome sign header in Bookman Old Style Bold (the resort-identity "
-                    "face; nitpick C, was Bfont); lit: the resort name board (H2)"),
+    "gate.header": ((("type", {"lines": ("SKI AREA",), "face": "ssp_bold", "fg": GATE_CREAM,
+                               "bg": GATE_FIELD_GAME, "cap_frac": 0.80, "fill": 0.95, "tracking": 0.12}),),
+                    "SKI AREA in Source Sans Pro Bold caps (the Write Everywhere name's family), tracking +8 % of "
+                    "the em (0.12 cap), cream on the navy the beam shows (T285: was Bookman on a mint panel); lit: "
+                    "the resort name board (H2)"),
+    "gate.flake": ((("blank", {"bg": GATE_FIELD_GAME, "rim": None}),),
+                   "plain navy end panels: the header band runs the full beam width (T285: the stock snowflakes "
+                   "went, the disc carries the designer's art); used twice (L / R)"),
     "school.name": ((("type", {"lines": ("SKI SCHOOL",), "face": NC_UTILITY_FACE, "fg": WHITE, "bg": BOARD_BROWN,
                                "tracking": 0.06}),),
                     "SKI SCHOOL in Franklin Gothic Demi Cond, white on board brown (nitpick C, was Bfont)"),
@@ -373,6 +382,33 @@ def layout_hash(kinds=SHEET, n=None):
 
 
 LAYOUT_SHA[len(SHEET)] = layout_hash()
+
+# T278 / overnight call 5 (1.0.4, --texpass v1 only): the school's boards show the same pictogram as its tower. The
+# meeting board (the school's skier in a red square beside the three trail symbols: where a class gathers) and the fourth
+# lesson board (the school's own class, in school red) drew cand_d; under v1 the tower field and the flags draw
+# recipes/school.EMBLEM_V1, so a school whose boards disagree with its landmark reads as two brands. Draws only: the
+# rects, sizes and lit flags stay (layout_hash unchanged), so the sheet owner re-letters (lodge.py --signset-letter) and
+# the B sharers keep their sheet. Flag off returns SHEET itself (byte-identical by construction).
+TEXPASS_EMBLEM = "emblem_skier_b"           # = recipes/school.EMBLEM_V1 (test_school_emblem E6 pins the two together)
+TEXPASS_GLYPH_KEYS = ("school.meet", "school.lesson3")
+
+
+def _swap_glyph(draws, old="glyph:cand_d", new=f"glyph:{TEXPASS_EMBLEM}"):
+    out = []
+    for kind_name, kw in draws:
+        if kind_name == "shapes":
+            kw = dict(kw, items=tuple((new if it[0] == old else it[0],) + tuple(it[1:]) for it in kw["items"]))
+        out.append((kind_name, kw))
+    return tuple(out)
+
+
+def sheet_for(texpass="off"):
+    """The kinds to paint: SHEET with the flag off; under --texpass v1 the TEXPASS_GLYPH_KEYS draw TEXPASS_EMBLEM where
+    they drew cand_d."""
+    if texpass in (None, "off"):
+        return SHEET
+    return tuple(replace(k, draws=_swap_glyph(k.draws), note=(k.note + f" (texpass v1: {TEXPASS_EMBLEM})").strip())
+                 if k.key in TEXPASS_GLYPH_KEYS else k for k in SHEET)
 
 
 def check_layout(kinds=SHEET, A=SHEET_A, gutter_min=6, ppm=SHEET_PPM, ppm_tol=0.02):
@@ -616,6 +652,10 @@ def draw_flake(d=0.36, fg=(0.93, 0.89, 0.78), bg=None):
 # ======================================================================================
 
 FONT_DIR = os.path.join(os.environ.get("SystemRoot") or os.environ.get("WINDIR") or r"C:\Windows", "Fonts")
+# T285 (r7): the game's own UI fonts (Source Sans Pro, SIL OFL 1.1: the family Write Everywhere draws sign names in).
+# Read where the game installs them (CS2_GAME_FONTS overrides), never copied into the repo or the mod.
+GAME_FONT_DIR = os.environ.get("CS2_GAME_FONTS", r"C:\Program Files (x86)\Steam\steamapps\common\Cities Skylines II"
+                               r"\Cities2_Data\Content\Game\UI\Fonts")
 TTF_RES = 16                # FONT curve resolution_u (bezier steps per segment, Bfont path keeps the default)
 TTF_SS = 8                  # samples per texel axis (= cs2_liftdress.TEXT_SS, the Bfont words)
 
@@ -647,6 +687,9 @@ TYPEFACES = {t.key: t for t in (
     Typeface("franklin_demi_cond", "Franklin Gothic Demi Cond", "FRADMCN.TTF", "8f6c5b31ee254ce5", role="utility"),
     Typeface("franklin_med_cond", "Franklin Gothic Medium Cond", "FRAMDCN.TTF", "b7ca37f01d8c8028", role="utility"),
     Typeface("twcen_cond_bold", "Tw Cen MT Condensed Bold", "TCCB____.TTF", "c8f19c15d2d6e750", role="utility"),
+    # T285 (r7): the welcome sign's header in the WE name's family (an absolute path, so FONT_DIR does not apply)
+    Typeface("ssp_bold", "Source Sans Pro Bold", os.path.join(GAME_FONT_DIR, "SourceSansPro-Bold.ttf"),
+             "9e10e37c75e13f89", role="lodge"),
 )}
 
 _TTF = {}
@@ -1298,7 +1341,9 @@ def export_sign_set(obj, spec, letter_dir, *, host, cid, mint=False, kinds=SHEET
             os.remove(p)
     # the sheet owner's set re-lettered (lodge.py --signset-letter, T173) carries its own copy of the FROZEN sheet: the same
     # paint, byte-identical PNGs under its own names, so it imports alone and the B sharers keep the B sheet
-    owner = name == SHEET_OWNER or (spec.owner and spec.prop == SHEET_OWNER_PROP)
+    # T285 (r7, route R-e): any host's set flagged owner carries its own copy (the welcome sign's SkiSignSetGateD: the
+    # repainted header kinds, the B sharers untouched)
+    owner = name == SHEET_OWNER or bool(spec.owner)
     metrics = None
     if owner:
         maps, metrics = paint_sheet(kinds)

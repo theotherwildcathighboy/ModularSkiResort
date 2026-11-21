@@ -1,0 +1,23 @@
+{
+  "sharedAssets": {
+    "SkiLodgeSwankyBottomV_BaseColor.png": "../SkiSchoolV/SkiSchoolV_BaseColor.png",
+    "SkiLodgeSwankyBottomV_Normal.png": "../SkiSchoolV/SkiSchoolV_Normal.png",
+    "SkiLodgeSwankyBottomV_MaskMap.png": "../SkiSchoolV/SkiSchoolV_MaskMap.png",
+    "SkiLodgeSwankyBottomV_ControlMask.png": "../SkiSchoolV/SkiSchoolV_ControlMask.png",
+    "SkiLodgeSwankyBottomV_Emissive.png": "../SkiSchoolV/SkiSchoolV_Emissive.png",
+    "SkiLodgeSwankyBottomV_LOD1_BaseColor.png": "SkiLodgeSwankyBottomV_LOD1_BaseColor.png",
+    "SkiLodgeSwankyBottomV_LOD1_Normal.png": "SkiLodgeSwankyBottomV_LOD1_Normal.png",
+    "SkiLodgeSwankyBottomV_LOD1_MaskMap.png": "SkiLodgeSwankyBottomV_LOD1_MaskMap.png",
+    "SkiLodgeSwankyBottomV_LOD1_ControlMask.png": "SkiLodgeSwankyBottomV_LOD1_ControlMask.png",
+    "SkiLodgeSwankyBottomV_LOD2_BaseColor.png": "SkiLodgeSwankyBottomV_LOD1_BaseColor.png",
+    "SkiLodgeSwankyBottomV_LOD2_Normal.png": "SkiLodgeSwankyBottomV_LOD1_Normal.png",
+    "SkiLodgeSwankyBottomV_LOD2_MaskMap.png": "SkiLodgeSwankyBottomV_LOD1_MaskMap.png",
+    "SkiLodgeSwankyBottomV_LOD2_ControlMask.png": "SkiLodgeSwankyBottomV_LOD1_ControlMask.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

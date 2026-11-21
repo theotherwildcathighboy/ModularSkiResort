@@ -4,14 +4,15 @@
      guessed fields: assets/we/README.md. The owner's in-game WE export
      replaces this file (authoring loop, README); never add <hideMesh>.
      Offset = welcome_sign.py WE_OFFSET (plank centre, game frame, 4 mm standoff toward +Z);
-     MaxWidthMeters = WE_MAX_WIDTH (7.50 plank - 2 x 0.45 margin). -->
+     MaxWidthMeters = WE_MAX_WIDTH (7.50 plank - 2 x 0.45 margin). Scale 0.65 (T285, was 0.5): cap height
+     0.62 m = 0.952 m x scale (assets/we/README.md); a name wider than 6.6 m shrinks (rescaleHeightOnTextOverflow). -->
 <WELayout>
   <children>
     <self itemName="SkiAreaName">
       <transform alignment="Center" arrayAxisOrder="XYZ">
         <offsetPosition x="0" y="2.55" z="-0.456" />
         <offsetRotation x="0" y="0" z="0" />
-        <scale x="0.5" y="0.5" z="1" />
+        <scale x="0.65" y="0.65" z="1" />
         <mustDraw>1</mustDraw>
         <instanceCount>-1</instanceCount>
         <arrayInstances x="1" y="1" z="1" />
