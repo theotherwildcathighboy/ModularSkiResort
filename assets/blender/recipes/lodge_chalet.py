@@ -310,12 +310,13 @@ def _roof_b(K):
     tip_w = (B_X0 - ov, L1_TOP - t * ov)                     # (0.80, 5.99)
     tip_e = (B_X1 + ov, L1_TOP - t * ov)                     # (14.20, 5.99)
     P = []
+    gl = (B_Y0, B_Y1)       # cull kit v2 only (T273): the B0 / B1 gable walls' outer planes, rake undersides -> soffit_
     P += K.roof_slab("BAn", "Y", a_cut, a_hi, tip_w[0], tip_w[1], B_RIDGE_X + ext, r_z,
-                     ROOF_T, wall_line=B_X0, mat="slate")
+                     ROOF_T, wall_line=B_X0, mat="slate", gable_lines=gl)
     P += K.roof_slab("BAs", "Y", a_lo, a_cut, B_X0, L1_TOP, B_RIDGE_X + ext, r_z, ROOF_T,
-                     wall_line=None, mat="slate")
+                     wall_line=None, mat="slate", gable_lines=gl)
     P += K.roof_slab("BB", "Y", a_lo, a_hi, tip_e[0], tip_e[1], B_RIDGE_X - ext, r_z, ROOF_T,
-                     wall_line=B_X1, mat="slate")
+                     wall_line=B_X1, mat="slate", gable_lines=gl)
     for nm, a, (ex, ez) in (("BAs0", a_lo - 0.06, (B_X0, L1_TOP)), ("BAn1", a_hi + 0.06, tip_w),
                             ("BB0", a_lo - 0.06, tip_e), ("BB1", a_hi + 0.06, tip_e)):
         P += K.roof_slab(nm, "Y", a - 0.06, a + 0.06, ex, ez - 0.05, B_RIDGE_X, B_RIDGE_Z - 0.02,

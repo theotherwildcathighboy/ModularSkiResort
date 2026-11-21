@@ -793,12 +793,16 @@ def prism_gable(name, axis, a0, a1, e0, e1, eave_z, ridge_z, ridge_at=None, eave
     return _single(f"gable_{name}", build, mat)
 
 
-def _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line=None, ridge_x=None):
+def _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line=None, ridge_x=None, gable_lines=None):
     """Tilted slab between the eave point and the ridge point (base_lodge.add_roof_slab analytic port). Returns the soffit
     corner loops when `wall_line` splits the underside: (soffit_pts) for a separate part, or None.
 
     ridge_x (ridge v2, T95): the ridge end is cut on the VERTICAL plane across = ridge_x (top and bottom lines end there). So
-    two slabs meet in a clean apex with no overshoot. None = the end perpendicular to the slab (as before)."""
+    two slabs meet in a clean apex with no overshoot. None = the end perpendicular to the slab (as before).
+
+    gable_lines (cull kit v2 only, T273; ignored under CULL_KIT version 1): (g0, g1) along the axis = the gable walls' outer
+    planes. The slab is cut there (_slab_split_v2) and the underside strips outside them (the rake overhangs) are returned
+    as soffit polygons [(pts, outward), ...] with the eave soffit's strips."""
     ax = axis.upper()
     E = Vector((e_edge, e_z))
     R = Vector((r_edge, r_z))
@@ -821,6 +825,9 @@ def _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line=None, 
         if lo + 1e-4 < wall_line < hi - 1e-4:
             s = (wall_line - Eb.x) / (Rb.x - Eb.x)
             split = Eb + (Rb - Eb) * s
+    st = _rake_stations(a0, a1, gable_lines)
+    if st is not None:
+        return _slab_split_v2(g, P, st[0], st[1], Et, Eb, Rt, Rb, split, up3, dd3, aout)
     V = {}
     for tag, p in (("Et", Et), ("Eb", Eb), ("Rt", Rt), ("Rb", Rb)):
         V[tag + "0"] = g.v(P(p, a0))
@@ -843,16 +850,68 @@ def _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line=None, 
     return [P(Eb, a0), P(split, a0), P(split, a1), P(Eb, a1)], -up3
 
 
+def _rake_stations(a0, a1, gable_lines):
+    """Cull kit v2: the cut stations along a slab's axis, [a0, (g0), (g1), a1] with the gable lines strictly inside a0..a1,
+    and the inside interval (g0, g1). None under v1, without gable lines, or when no line falls inside the slab."""
+    if gable_lines is None or CULL_KIT.get("version", 1) < 2:
+        return None
+    g0, g1 = sorted(float(x) for x in gable_lines)
+    lo, hi = min(a0, a1), max(a0, a1)
+    st = [lo] + [x for x in (g0, g1) if lo + 1e-3 < x < hi - 1e-3] + [hi]
+    return (st, (g0, g1)) if len(st) > 2 else None
+
+
+def _slab_split_v2(g, P, st, inside, Et, Eb, Rt, Rb, W, up3, dd3, aout):
+    """Cull kit v2 (T273): the _slab_geo slab cut at the stations `st` along its axis. Every long face (top, eave end, ridge
+    end, underside) is split at every station, so the strips share their edges (no T-junction). The underside strips
+    outside `inside` (the rake overhangs past the gable walls) and the eave soffit strips (W given) are returned as the
+    soffit polygons [(pts, outward), ...]. v1 kept the underside as ONE face over the whole slab, so the cull judged the
+    1.0-1.2 m rake overhang by samples that all lay over the attic and deleted it with the attic (the L1 / L4 / L5 rakes)."""
+    S = W if W is not None else Eb
+    cols = []
+    for a in st:
+        col = {k: g.v(P(p, a)) for k, p in (("Et", Et), ("Eb", Eb), ("Rt", Rt), ("Rb", Rb))}
+        if W is not None:
+            col["W"] = g.v(P(W, a))
+        cols.append(col)
+    sk = "W" if W is not None else "Eb"
+    soff = []
+    for i in range(len(st) - 1):
+        A, B = cols[i], cols[i + 1]
+        g.face([A["Et"], A["Rt"], B["Rt"], B["Et"]], up3)                 # top
+        g.face([A["Et"], A["Eb"], B["Eb"], B["Et"]], -dd3)                # eave end
+        g.face([A["Rt"], A["Rb"], B["Rb"], B["Rt"]], dd3)                 # ridge end
+        mid = 0.5 * (st[i] + st[i + 1])
+        if inside[0] - 1e-6 <= mid <= inside[1] + 1e-6:
+            g.face([A[sk], A["Rb"], B["Rb"], B[sk]], -up3)                # inner underside (attic, culled)
+        else:
+            soff.append(([P(S, st[i]), P(Rb, st[i]), P(Rb, st[i + 1]), P(S, st[i + 1])], -up3))
+        if W is not None:
+            soff.append(([P(Eb, st[i]), P(W, st[i]), P(W, st[i + 1]), P(Eb, st[i + 1])], -up3))
+    for s, col in ((-1, cols[0]), (1, cols[-1])):
+        if W is None:
+            g.face([col["Et"], col["Rt"], col["Rb"], col["Eb"]], aout * s)
+        else:
+            g.face([col["Et"], col["Rt"], col["Rb"], col["W"]], aout * s)
+            g.face([col["Et"], col["W"], col["Eb"]], aout * s)
+    return soff
+
+
 def roof_slab(name, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick=0.24, wall_line=None,
-              mat="slate", prefix="roof_", ridge_x=None):
+              mat="slate", prefix="roof_", ridge_x=None, gable_lines=None):
     """`roof_<name>` slab from the eave line (e_edge, e_z) to the ridge line (r_edge, r_z), spanning a0..a1 along `axis` (the
     ridge direction). `wall_line` splits the underside into `soffit_<name>` (the visible overhang, its own part, w 0.25) and
     the inner underside (attic, culled). `prefix` lets rakes reuse it (`rake_`). `ridge_x`: see _slab_geo (ridge v2 vertical
-    ridge cut, None = unchanged)."""
+    ridge cut, None = unchanged). `gable_lines` (cull kit v2 only): the gable walls' outer planes along the axis; the rake
+    overhang undersides past them join `soffit_<name>` (see _slab_geo)."""
     g = _Geo()
-    res = _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line, ridge_x=ridge_x)
+    res = _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line, ridge_x=ridge_x,
+                    gable_lines=gable_lines)
     parts = [(g.finish(f"{prefix}{name}"), mat)]
-    if res is not None:
+    if isinstance(res, list):                       # cull kit v2: the eave + rake soffit strips
+        if res:
+            parts += _single(f"soffit_{name}", lambda gg: [gg.poly(p, o) for p, o in res], "timber_lap")
+    elif res is not None:
         pts, out = res
         parts += _single(f"soffit_{name}", lambda gg: gg.poly(pts, out), "timber_lap")
     return parts
@@ -1033,6 +1092,201 @@ class flag_kit:
         return False
 
 
+# cull kit (T273, r7 2026-11-20). v1 cull_hidden judged a face by 9 points (center + 15 % insets) against 24 hemisphere rays
+# and a ring of 8. A big face whose visible strip held none of the 9 points went whole: the L1 / L4 / L5 rake undersides
+# (one underside quad per slab, the 1.0-1.2 m rake overhang included, all samples over the attic) and the L1 ledge
+# (plinthcap_base's inner top, ONE 27 x 42 m face under the timber story). CS2 culls back faces, so the ground and sky showed
+# through in the game (1.0.4 reel). v2 keeps every face v1 keeps and also every face that any sample over its WHOLE area
+# (the v1 nine, an edge band every CULL_V2_EDGE_M, an interior grid) sees from a play camera (CULL_V2_* ring: the see-through
+# gate's LOD0 ring, denser). Under v2, roof_slab(gable_lines=) also cuts the slab at the gable walls and puts the rake
+# undersides into the slab's soffit_ part (texpass "mat" moves parts by prefix, so eave and rake soffits share a key).
+# CULL_KIT["version"] 1 = the v1 cull and slab geometry, byte for byte. lodge.py wires it as `--cull v2`.
+CULL_KIT = {"version": 1}
+CULL_V2_BEARINGS = 32                   # the gate rings 16
+CULL_V2_DIST = (20.0, 45.0, 70.0)       # m from the footprint box edge (the gate's LOD0 ring)
+CULL_V2_ELEV = (0.0, 5.0, 8.0, 12.0, 16.0, 22.0, 30.0, 40.0, 55.0, 70.0, 85.0)   # camera height = R tan(elev), >= EYE_MIN
+CULL_V2_EYE_MIN = 1.7                   # m: elev 0 = a camera at eye height (soffits 2-3 m up are seen from below)
+CULL_V2_MIN_COS = 0.02                  # a camera this close to the face plane sees it edge-on (< 1.2 deg): no view
+CULL_V2_EDGE_M = 0.5                    # edge band: one sample per 0.5 m of every edge ...
+CULL_V2_EDGE_IN = 0.005                 # ... 5 mm inside it: a 2 cm strip left open above a deck fascia (L3) held no
+                                        # sample at 3 cm, and the face went with the fascia contact
+CULL_V2_GRID = 256                      # interior grid: spacing max(EDGE_M, sqrt(area / GRID)), about 2 x GRID points max
+CULL_V2_END_M = 0.03                    # one more band point this far from each end of every edge (L2 apex notch)
+
+
+class cull_kit:
+    """Context manager: cull_hidden runs the v2 cull and roof_slab cuts rake soffits while CULL_KIT["version"] >= 2."""
+
+    def __init__(self, version=2):
+        self.cfg = {"version": int(version)}
+        self._saved = None
+
+    def __enter__(self):
+        self._saved = dict(CULL_KIT)
+        CULL_KIT.update(self.cfg)
+        return CULL_KIT
+
+    def __exit__(self, *exc):
+        CULL_KIT.clear()
+        CULL_KIT.update(self._saved)
+        return False
+
+
+def cull_v2_eyes(lo, hi):
+    """The v2 cull's camera positions (M x 3 numpy) around a world bounding box lo / hi: CULL_V2_BEARINGS bearings (0 = -Y,
+    the arrival side) x CULL_V2_DIST from the footprint edge x CULL_V2_ELEV, aimed like the see-through gate's ring."""
+    cx, cy = 0.5 * (lo[0] + hi[0]), 0.5 * (lo[1] + hi[1])
+    hx, hy = 0.5 * (hi[0] - lo[0]), 0.5 * (hi[1] - lo[1])
+    eyes = []
+    for dist in CULL_V2_DIST:
+        for b in range(CULL_V2_BEARINGS):
+            a = 2.0 * math.pi * b / CULL_V2_BEARINGS
+            ux, uy = math.sin(a), -math.cos(a)
+            t_edge = min(hx / abs(ux) if abs(ux) > 1e-9 else 1e9, hy / abs(uy) if abs(uy) > 1e-9 else 1e9)
+            R = t_edge + dist
+            for el in CULL_V2_ELEV:
+                eyes.append((cx + ux * R, cy + uy * R, max(CULL_V2_EYE_MIN, R * math.tan(math.radians(el)))))
+    return np.array(eyes)
+
+
+def _cull_v2_samples(vs, c, n):
+    """Extra v2 sample points over a whole face (vs = its world corners, c = center, n = normal): a corner point inside every
+    vertex, an edge band (one point per CULL_V2_EDGE_M of every edge, CULL_V2_EDGE_IN inside it) and an interior grid over
+    the fan triangles (spacing max(CULL_V2_EDGE_M, sqrt(area / CULL_V2_GRID))). The corner points catch a notch at a
+    vertex that the 0.5 m band misses (a slab end showing between two rake boards at the apex)."""
+    pts = []
+    k = len(vs)
+    for i in range(k):
+        a, e1, e0 = vs[i], vs[(i + 1) % k] - vs[i], vs[i - 1] - vs[i]
+        if e1.length > 1e-6 and e0.length > 1e-6:
+            d = e1.normalized() + e0.normalized()
+            if d.length > 1e-6:
+                pts.append(a + d * min(CULL_V2_EDGE_IN, 0.25 * (c - a).length))
+    for i in range(k):
+        a, b = vs[i], vs[(i + 1) % k]
+        e = b - a
+        L = e.length
+        if L < 1e-6:
+            continue
+        inn = n.cross(e).normalized()
+        m = max(1, int(math.ceil(L / CULL_V2_EDGE_M)))
+        ts = [(j + 0.5) / m for j in range(m)]
+        if L > 4.0 * CULL_V2_END_M:
+            ts += [CULL_V2_END_M / L, 1.0 - CULL_V2_END_M / L]
+        for t in ts:
+            q = a + e * t
+            pts.append(q + inn * min(CULL_V2_EDGE_IN, 0.25 * (c - q).length))
+    tris = [(vs[0], vs[i], vs[i + 1]) for i in range(1, k - 1)]
+    area = sum(0.5 * (B - A).cross(C - A).length for A, B, C in tris)
+    s = max(CULL_V2_EDGE_M, math.sqrt(area / CULL_V2_GRID))
+    for A, B, C in tris:
+        At = 0.5 * (B - A).cross(C - A).length
+        m = int(math.ceil(math.sqrt(2.0 * At) / s)) if At > 1e-8 else 1
+        if m <= 1:
+            continue                    # the v1 center / inset points cover a small triangle
+        for i in range(m):
+            for j in range(m - i):
+                pts.append(A + (B - A) * ((i + 1 / 3) / m) + (C - A) * ((j + 1 / 3) / m))
+                if i + j <= m - 2:
+                    pts.append(A + (B - A) * ((i + 2 / 3) / m) + (C - A) * ((j + 2 / 3) / m))
+    return pts
+
+
+def slab_face_counts():
+    """The face counts of one closed roof_slab part, for recipe contracts (L5 C7): 6, or 8 with an eave soffit split (v1).
+    Cull kit v2 also cuts the slab at one or two gable lines: 9 / 11 or 12 / 14."""
+    return (6, 8) if CULL_KIT.get("version", 1) < 2 else (6, 8, 9, 11, 12, 14)
+
+
+_CULL_SELFCHECK = {}
+
+
+def cull_selfcheck():
+    """The cull regression in the build path (T273, PIPELINE "culling may never open a see-through hole at play angles"): a
+    12 x 8 m story under a gable_roof with a 1.0 m rake overhang, culled by cull_hidden under cull kit v1 and v2. Measured:
+    the underside area of the roof slabs and their soffits (parts roof_ / soffit_, n.z < -0.5) that lies over the rakes,
+    past the gable walls (|x| > 6.05). v1 must lose some (it is the field defect, so the check can still fail), v2 must
+    keep all of it. Other undersides (the ridge cap lies on the slabs) may go by contact. A free deck beside the house adds
+    the second class: the 2 cm strip of the slab's sides left open above its fascia (L3). v2 must keep all of that strip.
+    Pure geometry, about a second, once per process; every
+    `lodge.py --cull v2` build runs it before it builds and raises on a failure, so a cull change that opens the rake again
+    stops the export. The scene is left as it was (the check removes its objects, meshes and new materials)."""
+    if "rep" in _CULL_SELFCHECK:
+        return _CULL_SELFCHECK["rep"]
+    mats0 = set(bpy.data.materials.keys())
+    rep = {}
+    for v in (1, 2):
+        objs0, meshes0 = set(bpy.data.objects.keys()), set(bpy.data.meshes.keys())
+        try:
+            with cull_kit(v):
+                parts = storey("zcullchk_body", -6, 6, -4, 4, 0.0, 3.0, "timber_lap", ground=True, drop=("+Z",))
+                parts += gable_roof("zcullchk_r", RoofSpec("gable", -6, 6, -4, 4, 3.0, 35.0, axis="X", overhang=0.6,
+                                                          rake_over=1.0), tails=None, gutters=False, snow_guard=0)
+                parts += deck("zcullchkd", -3.0, 3.0, 6.0, 8.5, 1.0, support="none", fascia=0.20)
+                table = cs2_asset.tag_parts(parts)
+                bpy.ops.object.select_all(action="DESELECT")
+                for o, _m in parts:
+                    o.select_set(True)
+                bpy.context.view_layer.objects.active = parts[0][0]
+                bpy.ops.object.join()
+                obj = bpy.context.active_object
+                cs2_asset.store_part_table(obj, table)
+
+                def clipped(prefixes, keep_face, halves):
+                    """Area of the faces of `prefixes` (keep_face(normal)) inside every half space f(p) >= 0 of one
+                    entry of `halves` (Sutherland-Hodgman per half space, summed over the entries)."""
+                    me = obj.data
+                    tab = json.loads(me[cs2_asset.PART_TABLE_PROP])
+                    pa = me.attributes["part"].data
+                    area = 0.0
+                    for f in me.polygons:
+                        nm = tab[pa[f.index].value - 1]
+                        if not keep_face(f.normal) or not nm.startswith(prefixes):
+                            continue
+                        poly = [me.vertices[i].co.copy() for i in f.vertices]
+                        for half in halves:
+                            out, k = [], len(poly)
+                            for i in range(k):
+                                a, b = poly[i], poly[(i + 1) % k]
+                                da, db = half(a), half(b)
+                                if da >= 0.0:
+                                    out.append(a)
+                                if (da >= 0.0) != (db >= 0.0):
+                                    out.append(a + (b - a) * (da / (da - db)))
+                            for i in range(1, len(out) - 1):
+                                area += 0.5 * (out[i] - out[0]).cross(out[i + 1] - out[0]).length
+                    return round(area, 4)
+
+                def rake_under():                    # the underside past each gable wall
+                    return clipped(("roof_zcullchk", "soffit_zcullchk"), lambda n: n.z < -0.5,
+                                   (lambda p: p.x - 6.05, lambda p: -p.x - 6.05))
+
+                def strip():                         # the deck slab's sides above its fascia (top 1.0, fascia to 0.98)
+                    return clipped(("deck_zcullchkd",), lambda n: abs(n.z) < 0.5, (lambda p: p.z - 0.981,))
+                n0, s0 = rake_under(), strip()
+                cull_hidden(obj, protect=(), table=table, ground_prefixes=("wall_zcullchk_body",), cull_ok=("",))
+                rep[v] = (n0, rake_under(), s0, strip())
+        finally:
+            for name in set(bpy.data.objects.keys()) - objs0:
+                bpy.data.objects.remove(bpy.data.objects[name], do_unlink=True)
+            for name in set(bpy.data.meshes.keys()) - meshes0:
+                bpy.data.meshes.remove(bpy.data.meshes[name])
+    for name in set(bpy.data.materials.keys()) - mats0:
+        bpy.data.materials.remove(bpy.data.materials[name])
+    (b1, a1, sb1, sa1), (b2, a2, sb2, sa2) = rep[1], rep[2]
+    out = {"v1_rake_underside_m2": [b1, a1], "v2_rake_underside_m2": [b2, a2],
+           "v1_fascia_strip_m2": [sb1, sa1], "v2_fascia_strip_m2": [sb2, sa2]}
+    if not (a1 < b1 - 0.5 and b2 > 1.0 and a2 >= b2 - 1e-3 and sb2 > 0.2 and sa2 >= sb2 - 1e-3):
+        raise RuntimeError(f"cull_selfcheck (T273): v1 must delete rake underside area and v2 keep all of it, and v2 must "
+                           f"keep the deck strip above its fascia: rake v1 {b1} -> {a1} m2, v2 {b2} -> {a2} m2; strip v1 "
+                           f"{sb1} -> {sa1} m2, v2 {sb2} -> {sa2} m2. A cull change opened a see-through hole at play "
+                           f"angles (PIPELINE).")
+    print(f"[cull] selfcheck: rake underside v1 {b1} -> {a1} m2 (the defect), v2 {b2} -> {a2} m2 (kept); deck strip above "
+          f"the fascia v1 {sb1} -> {sa1} m2, v2 {sb2} -> {sa2} m2 (kept)")
+    _CULL_SELFCHECK["rep"] = out
+    return out
+
+
 def _flag_cloth_point(O, run, front, fw, fh, zc0, t, s, off=0.0):
     """A point of the rippled cloth: t along the fly (0 hoist, 1 fly), s up the cloth (0 bottom, 1 top), off = the
     sheet's own offset along `front` (+-0.005 for the two faces of the 1 cm cloth)."""
@@ -1060,6 +1314,15 @@ def _flag_ripple_slab(g, O, run, front, fw, fh, zc0):
                 _flag_cloth_point(O, run, front, fw, fh, zc0, t, 0.0, -0.005),
                 _flag_cloth_point(O, run, front, fw, fh, zc0, t, 1.0, -0.005),
                 _flag_cloth_point(O, run, front, fw, fh, zc0, t, 1.0, 0.005)], out)
+    if CULL_KIT.get("version", 1) >= 2:
+        # cull kit v2 (T273): the see-through gate resolves the open 1 cm rims (L3, 6.7 px at 20 m), so they close again
+        # (+4 n tris)
+        for s, out in ((0.0, Vector((0.0, 0.0, -1.0))), (1.0, Vector((0.0, 0.0, 1.0)))):
+            for a, b in zip(ts, ts[1:]):
+                g.poly([_flag_cloth_point(O, run, front, fw, fh, zc0, a, s, 0.005),
+                        _flag_cloth_point(O, run, front, fw, fh, zc0, b, s, 0.005),
+                        _flag_cloth_point(O, run, front, fw, fh, zc0, b, s, -0.005),
+                        _flag_cloth_point(O, run, front, fw, fh, zc0, a, s, -0.005)], out)
 
 
 def _eave_tip(spec, g, side):
@@ -1090,7 +1353,8 @@ def gable_roof(name, spec, fascia=0.42, rake=0.40, ridge_cap=(0.45, 0.14), tails
         wl = g["e0"] if side == 0 else g["e1"]
         parts += roof_slab(f"{name}{tag}", g["ax"], a_lo, a_hi, et, zt, r_edge, r_z,
                            spec.thick, wall_line=wl, mat=spec.mat,
-                           ridge_x=g["r"] + sgn * RIDGE_GAP if v2 else None)
+                           ridge_x=g["r"] + sgn * RIDGE_GAP if v2 else None,
+                           gable_lines=(g["a0"], g["a1"]))          # cull kit v2 only: the rake soffits
         # rake boards at both gable ends (slot-1 trim), tracking the slab top
         for aend, atag in ((a_lo - 0.06, "0"), (a_hi + 0.06, "1")):
             parts += roof_slab(f"{name}{tag}{atag}", g["ax"], aend - 0.06, aend + 0.06,
@@ -1397,7 +1661,8 @@ def shed_roof(name, spec, low_side="-X", fascia=0.42, brackets=0):
     z_hi_wall = spec.eave_z + t * abs(hi_e - lo_e)
     z_tip_hi = z_hi_wall + t * ov
     parts = roof_slab(name, slab_axis, a0 - ro, a1 + ro, e_tip_lo, z_tip_lo, e_tip_hi,
-                      z_tip_hi, spec.thick, wall_line=lo_e, mat=spec.mat)
+                      z_tip_hi, spec.thick, wall_line=lo_e, mat=spec.mat,
+                      gable_lines=(a0, a1))                         # cull kit v2 only: the rake soffits
     # cheeks: the wall-top band between eave_z at lo and the slab at hi (quadrilateral)
     wall_top = spec.eave_z
     for k, aw in enumerate((a0, a1)):
@@ -2446,7 +2711,7 @@ def door_tris(family, leaves=1, mode="full", sidelights=0, transom=False, glass=
     t += leaves * per
     if hardware == "auto":                   # one pull bar / lever per leaf (door_unit's gate)
         t += (6 if p["handle"] == "pull" else DOOR_LEVER_TRIS) * leaves
-    t += 4 if p["sill"] == "plate" else (8 if full else 4)
+    t += (8 if CULL_KIT.get("version", 1) >= 2 else 4) if p["sill"] == "plate" else (8 if full else 4)
     t += sidelights * 8 + ((4 + (2 if sidelights else 0)) if transom else 0)
     return t
 
@@ -2755,10 +3020,17 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
     g = _Geo()
     if p["sill"] == "plate":
         st = p["sill_t"]
+        # cull kit v2 (T273): the v1 hint (0, 0, 1) is the outward axis, in the top's own plane, and the top came out
+        # facing down: a slit along the door foot from above (the see-through gate, every plate-family door)
+        tv2 = CULL_KIT.get("version", 1) >= 2
         _wpoly(g, wall, [(aL, zf + st, Dl), (aR, zf + st, Dl), (aR, zf + st, Dw + sp),
-                         (aL, zf + st, Dw + sp)], (0, 0, 1))
+                         (aL, zf + st, Dw + sp)], (0, 1, 0) if tv2 else (0, 0, 1))
         _wpoly(g, wall, [(aL, zf, Dw + sp), (aR, zf, Dw + sp), (aR, zf + st, Dw + sp),
                          (aL, zf + st, Dw + sp)], (0, 0, 1))
+        if tv2:                                                 # end caps outside the wall (+4 tris)
+            for ue, sg in ((aL, -1), (aR, 1)):
+                _wpoly(g, wall, [(ue, zf, Dw), (ue, zf, Dw + sp), (ue, zf + st, Dw + sp), (ue, zf + st, Dw)],
+                       (sg, 0, 0))
     else:                                                       # sloped timber wedge
         rise = p["sill_rise"]
         lip = 0.004
@@ -3540,6 +3812,16 @@ def flag_mast(name, x, y, h=8.0, flag=(1.6, 1.0), *, z0=GROUND_LIFT, along="X", 
                c + run * (0.06 + fw) + Vector((0, 0, zc1)), c + run * 0.06 + Vector((0, 0, zc1))]
         parts += _single(f"emblem_{name}flag{tag}_face",
                          lambda g, pts=pts, sg=sg: g.poly(pts, front * sg), "label")
+    if CULL_KIT.get("version", 1) >= 2:
+        # cull kit v2 (T273): the 1 cm edges between the two label quads, `flagpanel_<n>` (accent, 8 tris). Open, they
+        # showed the back of the far quad at play angles (school, 68 px at 20 m)
+        def edges(g):
+            def P(t, z, sg):
+                return O + front * (0.005 * sg) + run * (0.06 + fw * t) + Vector((0, 0, z))
+            for (t0, z0_, t1, z1_, out) in ((0.0, zc1, 1.0, zc1, Vector((0, 0, 1))), (0.0, zc0, 1.0, zc0, Vector((0, 0, -1))),
+                                            (1.0, zc0, 1.0, zc1, run), (0.0, zc0, 0.0, zc1, -run)):
+                g.poly([P(t0, z0_, 1.0), P(t1, z1_, 1.0), P(t1, z1_, -1.0), P(t0, z0_, -1.0)], out)
+        parts += _single(f"flagpanel_{name}", edges, "accent")
     return parts
 
 
@@ -4536,13 +4818,15 @@ def toboggan_rack(name, wall, u0, u1, bars_z, depth=0.12, bar=0.04, *, fine=Fals
     bars_z one bar from u0 to u1, `depth` m out from the wall (bar center), on two brackets
     (at u0 + 0.05 / u1 - 0.05, wall to bar, ends open). `wall` = WallRef or (side, plane).
     28 tris per bar. fine=True (design B.1): the bar is an 8-seg round tube (open ends, the
-    brackets unchanged): 32 tris per bar."""
+    brackets unchanged): 32 tris per bar. Cull kit v2 (T273) caps both tube ends (+12 tris per bar): an open end showed
+    the tube's inside at play angles (P1, the see-through gate)."""
     wall = _as_wall(wall)
     g = _Geo()
+    capped = CULL_KIT.get("version", 1) >= 2
     for z in bars_z:
         if fine:
             g.cyl(wall_point(wall, min(u0, u1), z, depth), wall_point(wall, max(u0, u1), z, depth),
-                  bar / 2, 8, cap0=False, cap1=False, phase=math.pi / 8)
+                  bar / 2, 8, cap0=capped, cap1=capped, phase=math.pi / 8)
         else:
             lo, hi = _wall_aabb(wall, min(u0, u1), max(u0, u1), z - bar / 2, z + bar / 2,
                                 depth - bar / 2, depth + bar / 2)
@@ -5535,6 +5819,52 @@ def cull_hidden(obj, protect=(), rays=24, samples=9, contact_m=0.02, horizon_z=N
     kill = []
     ray_wall_area = 0.0
     eps = 2e-3
+    # cull kit v2 (T273): a face v1 would delete is kept when any point over its whole area sees a play camera (CULL_KIT)
+    v2 = CULL_KIT.get("version", 1) >= 2
+    v2_kept = {}
+    if v2:
+        Wv = np.array([v.co[:] for v in bm.verts]) if len(bm.verts) else np.zeros((1, 3))
+        eyes = cull_v2_eyes(Wv.min(0), Wv.max(0))
+        eyes_v = [Vector(e) for e in eyes]
+
+    def contact_hidden_v2(f, n, p, tbvh, tmap):
+        """The v1 per-sample contact test (touching opposite face, coplanar duplicate, mesh along the normal), with one
+        change: an opposite face hides the sample only when the sample lies straight in front of it (the nearest point is
+        the foot along the normal). v1 also hid a sample within contact_m of such a face's EDGE, so a 2 cm strip left open
+        above a deck fascia went with the fascia contact (L3 / L1 deck fascias, cull_selfcheck's deck strip)."""
+        for (loc, nrm, idx, dist) in tbvh.find_nearest_range(p, contact_m + eps):
+            if idx is not None and tmap is not None:
+                idx = tmap[idx]
+            if idx is None or idx == f.index:
+                continue
+            ng = normals[idx]
+            off = (loc - p).dot(n)
+            if ng.dot(n) < -0.9 and off >= -1e-4 and ((loc - p) - n * off).length < 1e-3:
+                return True
+            if ng.dot(n) > 0.99 and abs(off) < 1e-3 and dist < 1e-3 and idx < f.index:
+                return True
+        hit = tbvh.ray_cast(p + n * 1e-4, n, contact_m)
+        return hit[0] is not None and (hit[2] if tmap is None else tmap[hit[2]]) != f.index
+
+    def seen_v2(f, n, c, vs, pts0, tbvh, tmap, ray_test):
+        d = eyes - np.array(c[:])
+        cos = (d @ np.array(n[:])) / np.maximum(np.linalg.norm(d, axis=1), 1e-9)
+        order = [int(j) for j in np.argsort(-cos) if cos[j] > 0.0]
+        for p in list(pts0) + _cull_v2_samples(vs, c, n):
+            if contact_hidden_v2(f, n, p, tbvh, tmap):
+                continue
+            if not ray_test:
+                return True             # a wall under the contact rule: one uncovered point keeps it
+            o = p + n * eps
+            for j in order:
+                w = eyes_v[j] - o
+                L = w.length
+                w = w / L
+                if w.dot(n) <= CULL_V2_MIN_COS:
+                    continue
+                if tbvh.ray_cast(o + w * 1e-3, w, L)[0] is None:
+                    return True
+        return False
     for f in bm.faces:
         pid = f[layer] if layer is not None else 0
         if pid in prot_ids:
@@ -5609,6 +5939,9 @@ def cull_hidden(obj, protect=(), rays=24, samples=9, contact_m=0.02, horizon_z=N
                     break
             if visible:
                 break
+        if not visible and v2 and seen_v2(f, n, c, vs, pts, tbvh, tmap, ray_test):
+            visible = True
+            v2_kept[pid] = v2_kept.get(pid, 0) + 1
         if not visible:
             kill.append(f)
             if is_wall and not contact_only:
@@ -5656,6 +5989,14 @@ def cull_hidden(obj, protect=(), rays=24, samples=9, contact_m=0.02, horizon_z=N
     print(f"[cull] {obj.name}: {len(kill)}/{nf} faces removed, area {before_area:.0f} -> "
           f"{before_area - kill_area:.0f} m2, walls deleted by rays {ray_wall_area:.1f} m2 "
           f"(rule {wall_rule})")
+    if v2:
+        kept = {}
+        for pid, k in sorted(v2_kept.items()):
+            kept[table[pid - 1] if 0 < pid <= len(table) else f"part{pid}"] = k
+        rep["cull_kit"] = {"version": 2, "cams": len(eyes), "kept_over_v1": sum(kept.values()),
+                           "kept_per_part": kept}
+        print(f"[cull] v2: {sum(kept.values())} faces kept over v1 ({len(eyes)} cameras): "
+              f"{sorted(kept.items(), key=lambda kv: -kv[1])[:12]}")
     return rep
 
 

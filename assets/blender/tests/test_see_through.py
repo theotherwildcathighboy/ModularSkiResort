@@ -3,7 +3,9 @@ test_see_through - no hole in a building's shell from any play camera (T273, the
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_see_through.py --
         (--asset <dir> [--asset <dir> ...] | --root <letter dir>) [--fast] [--lods 0,1] [--out <dir>]
-        [--allow tests/data/see_through_allow.json] [--self-test] [--images worst|all|none]
+        [--allow tests/data/see_through_allow.json] [--self-test] [--no-self-test] [--images worst|all|none]
+        [--shot [Asset=]bearing:dist:elev[:label[:x,y,z]] ...] [--shots-only] [--baseline <out dir> ...]
+    (in this repo: BL_LIGHT=1 bash <stage>/bl.sh <log> --python tests/test_see_through.py -- --root <letter dir>)
 
 What it checks. CS2 draws building meshes single-sided: a face seen from its back is culled, and the pixel shows whatever
 lies behind it (field fact, 1.0.4 reel: the ground showed through the L1 slot between the stone wall cap and the upper
@@ -13,8 +15,9 @@ canopies, deck gaps) do not trip this: through them a ray meets front faces (pos
 
 Method (per LOD, per camera):
   1. Cycles CPU, 1 sample, no bounces: one emission material, green on front faces, red on back faces (Backfacing);
-     the ground plane at grade blue; the world black. The `_Gls` glass mesh is left out (the game draws it
-     transparent); `_Win` window meshes are opaque and drawn. Pixels are point samples (box filter 0.01 px).
+     the ground plane at grade blue; the world black. Glazing (lead rule, T273): the `_Gls` glass mesh is drawn
+     see-through (GLASS_TRANSMIT, so what lies behind it shows darker), `_Win` window meshes are opaque from the front
+     and yellow from the back. Pixels are point samples (box filter 0.01 px).
   2. Red pixels = candidates; 8-connected clusters.
   3. Every cluster is confirmed with exact BVH ray casts (mathutils) through up to 12 of its pixels (center + 4
      sub-pixel offsets each): the first face hit must be a back face, ahead of the ground plane, and no front face may
@@ -25,8 +28,14 @@ Method (per LOD, per camera):
   5. Size in 1080p pixels: cluster pixels x confirmed share x (render px angle / 1080p px angle)^2. CS2's vertical
      field of view is 45 deg (the PIPELINE screen rule 1,304 / d px/m at 1080p), so a 1080p pixel spans 45/1080 deg.
   6. Holes merge across views in 3D (single linkage, 1.5 m, on the first back-face hit point).
-A hole FAILS when its largest view shows >= FAIL_PX 1080p pixels and no allowlist box (data file, per asset name without
-its generation letter, boxes in the asset frame below) holds its gap point. Smaller holes are listed as MINOR.
+THE RULE (one threshold, PIPELINE "No see-through hole"): a hole FAILS when in at least one view it covers >= FAIL_PX = 4
+pixels of a 1080p frame AND is >= FAIL_THICK = 0.75 px across there (a "solid" view), and no allowlist box (data file, per
+asset name without its generation letter, boxes in the asset frame below) holds its gap point. Everything smaller is MINOR:
+listed, never failing (a sub-pixel crack shimmers but reads as a seam; fix the cheap ones anyway, e.g. parts 2 cm apart).
+GLASS (PIPELINE "Glass is see-through by design"): a ray that crosses a glazing face (a `_Gls` mesh, or a `_Win` mesh seen
+from behind) is GLASS, never a hole: from inside an open hall a player sees out through the windows. GLASS clusters (a
+back face seen through `_Gls`, the back of a `_Win` pane) are their own class: listed with images, never failing. The split
+is per pixel, so a real gap next to a pane (frame vs wall) is its own red cluster and still fails.
 
 Cameras (asset frame: meters, Z up, grade z = 0, the export's Y-up cm baked back; arrival face toward -Y, bearing 0 =
 camera on the arrival side, +90 = camera on +X). Distance = from the footprint box edge along the bearing; the camera
@@ -43,7 +52,19 @@ hole in magenta and ringed; right: a 4x crop). Exit code 1 when any asset FAILS 
 
 --self-test (also the first step of every run unless --no-self-test): a scratch house with the L1 defect (a stone wall
 with a cap whose top face is missing behind the cap, under a recessed upper wall) must FAIL with the hole at the slot;
-the same house closed must PASS; an allowlist box over the slot must turn the FAIL into ALLOWED.
+the same house closed must PASS; an allowlist box over the slot must turn the FAIL into ALLOWED. And the cull
+regression (PIPELINE "culling may never open a see-through hole at play angles"): a story with a gable roof whose rake
+overhangs 1.0 m past the gable walls, culled by cs2_bldg.cull_hidden, must FAIL under cull kit v1 (the rake underside
+deleted whole) and PASS under cull kit v2. A future cull change that opens a hole fails this before any asset is built.
+
+--baseline <out dir> (an earlier run's --out, e.g. the same letters before a change): a FAIL whose box of back-face hits
+overlaps (KNOWN_MARGIN) a FAIL / MINOR / KNOWN box of the same asset (name without its letter) and LOD there is KNOWN:
+listed, never failing. The exit code then means "a NEW hole". The overnight acceptance for cull kit v2: 0 FAIL against
+the v1 baseline.
+
+--shot (reel cameras, before / after crops): one extra LOD0 view, every hole in it marked; Asset= limits it to one asset
+(the folder name), x,y,z fixes the crop center in the asset frame (so a before and an after image crop the same spot;
+the image is then written even when no hole is left). --shots-only skips the ring (crops only, no verdict).
 """
 import argparse
 import json
@@ -69,9 +90,12 @@ FOV_1080_DEG = 45.0                                   # CS2 vertical field of vi
 TAN_1080_PX = 2.0 * math.tan(math.radians(FOV_1080_DEG / 2)) / 1080.0
 REF_TAN_PX = TAN_1080_PX / 2.0                        # analysis pixel: the 4K angle
 MAX_PX = 2400                                         # long side cap per render
-FAIL_PX = 2.0                                         # 1080p pixels: a hole a 1080p player can see
+FAIL_PX = 4.0                                         # 1080p pixels in one view: smaller = MINOR (orchestrator, T273)
 FAIL_THICK = 0.75                                     # 1080p pixels across: thinner is a shimmering crack (MINOR)
 COPLANAR_M = 0.003
+GLASS_TRANSMIT = 0.7                                  # `_Gls` render transmission: a back face behind glass shows dark red
+GLASS_IMAGES = 6                                      # marked images for the largest GLASS groups
+KNOWN_MARGIN = 0.3                                    # --baseline: box overlap margin (m)
 MERGE_M = 1.5
 GROUND_EPS = 0.005
 RINGS = {
@@ -128,6 +152,8 @@ def load_lod(asset_dir, name, lod):
         if os.path.exists(p):
             for o in _import_fbx(p):
                 _bake(o, M)
+                if sfx == "Win":
+                    o["st_glazing"] = 1                # its back faces are GLASS, never a hole
                 bucket.append(o)
     return opaque, glass
 
@@ -136,22 +162,26 @@ def load_lod(asset_dir, name, lod):
 class MeshTable:
     """World triangles of the opaque objects: BVH, per-face component id, normal, tile key, component boxes."""
 
-    def __init__(self, objs, glass, sheet=None):
-        verts, faces, uvs = [], [], []
+    def __init__(self, objs, glass, sheet=None, face_keys=None):
+        """face_keys: optional per-face names (in polygon order over objs), e.g. the build's part names, instead of
+        the tile-sheet key of the face's UV."""
+        verts, faces, uvs, glazing = [], [], [], []
         for o in objs:
             me = o.data
             off = len(verts)
             verts.extend(v.co.copy() for v in me.vertices)
             uvl = me.uv_layers[0].data if me.uv_layers else None
+            gz = bool(o.get("st_glazing"))
             for p in me.polygons:
                 faces.append([off + i for i in p.vertices])
+                glazing.append(gz)
                 if uvl is not None:
                     u = sum(uvl[li].uv[0] for li in p.loop_indices) / p.loop_total
                     v = sum(uvl[li].uv[1] for li in p.loop_indices) / p.loop_total
                     uvs.append((u, v))
                 else:
                     uvs.append(None)
-        self.verts, self.faces = verts, faces
+        self.verts, self.faces, self.glazing = verts, faces, glazing
         self.bvh = BVHTree.FromPolygons(verts, faces, all_triangles=False, epsilon=0.0)
         self.normals = []
         for f in faces:
@@ -191,7 +221,7 @@ class MeshTable:
                 for a in range(3):
                     lo[c][a] = min(lo[c][a], verts[i][a])
                     hi[c][a] = max(hi[c][a], verts[i][a])
-            k = sheet_key(sheet, uvs[fi])
+            k = face_keys[fi] if face_keys is not None else sheet_key(sheet, uvs[fi])
             keys[c][k] = keys[c].get(k, 0) + 1
         self.comp_box = [(tuple(round(x, 2) for x in lo[c]), tuple(round(x, 2) for x in hi[c])) for c in range(n)]
         self.comp_key = [max(keys[c].items(), key=lambda kv: kv[1])[0] if keys[c] else "-" for c in range(n)]
@@ -269,6 +299,34 @@ def _flag_material():
     return m
 
 
+def _glazing_material():
+    """`_Win` panes: front green (opaque, as the game draws a window), back yellow (GLASS: the game culls it)."""
+    m = _flag_material()
+    m.name = "st_glazing"
+    nt = m.node_tree
+    for n in nt.nodes:
+        if n.type == "EMISSION" and tuple(n.inputs["Color"].default_value)[:3] == (1.0, 0.0, 0.0):
+            n.inputs["Color"].default_value = (1.0, 1.0, 0.0, 1.0)
+    return m
+
+
+def _glass_material():
+    """`_Gls` glass: see-through from both sides, GLASS_TRANSMIT of what lies behind it (so red behind glass is GLASS)."""
+    m = bpy.data.materials.new("st_glass")
+    try:
+        m.use_nodes = True
+    except (AttributeError, TypeError):
+        pass
+    nt = m.node_tree
+    for n in list(nt.nodes):
+        nt.nodes.remove(n)
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    tr.inputs["Color"].default_value = (GLASS_TRANSMIT, GLASS_TRANSMIT, GLASS_TRANSMIT, 1.0)
+    nt.links.new(tr.outputs[0], out.inputs["Surface"])
+    return m
+
+
 def _plain_material(name, color):
     m = bpy.data.materials.new(name)
     try:
@@ -284,17 +342,25 @@ def _plain_material(name, color):
 
 
 class Rig:
-    def __init__(self, opaque, ground_z=0.0, tmpdir=None):
+    def __init__(self, opaque, ground_z=0.0, tmpdir=None, glass=None):
         sc = bpy.context.scene
         self.scene = sc
         self.tmp = tmpdir or tempfile.mkdtemp(prefix="seethru_")
         flag = _flag_material()
+        glz = _glazing_material() if any(o.get("st_glazing") for o in opaque) else None
         for o in opaque:
             o.data.materials.clear()
-            o.data.materials.append(flag)
+            o.data.materials.append(glz if o.get("st_glazing") else flag)
             for p in o.data.polygons:
                 p.material_index = 0
             o.color = (0.78, 0.74, 0.66, 1.0)
+        gm = _glass_material() if glass else None
+        for o in glass or []:
+            o.data.materials.clear()
+            o.data.materials.append(gm)
+            for p in o.data.polygons:
+                p.material_index = 0
+            o.color = (0.55, 0.70, 0.80, 1.0)
         bpy.ops.mesh.primitive_plane_add(size=4000.0, location=(0.0, 0.0, ground_z - GROUND_EPS))
         g = bpy.context.active_object
         g.name = "st_ground"
@@ -349,6 +415,8 @@ class Rig:
                 setattr(cy, k, v)
             except (AttributeError, TypeError):
                 pass
+        if glass:
+            cy.transparent_max_bounces = 8              # see through `_Gls` (separate from the total bounce limit)
 
     def place(self, eye, target, box_pts):
         """Aim at target; set FOV / resolution so the box fits and a pixel spans <= REF_TAN_PX."""
@@ -492,7 +560,7 @@ def walk(T, o, d, ground_z, max_steps=32):
         if first is None:
             if front:
                 return "front", loc, fi, "front", loc, fi, False
-            glass = T.glass is not None and T.glass.ray_cast(o, d, t_hit)[0] is not None
+            glass = T.glazing[fi] or (T.glass is not None and T.glass.ray_cast(o, d, t_hit)[0] is not None)
             q = _front_coplanar(T, o, d, t_hit, loc)
             if q is not None:
                 return "coplanar", loc, fi, "front", loc, q, glass
@@ -507,14 +575,19 @@ def walk(T, o, d, ground_z, max_steps=32):
 
 
 def analyze_view(rig, T, img, view, max_clusters=60):
-    red = (img[:, :, 0] > 0.5) & (img[:, :, 1] < 0.5) & (img[:, :, 2] < 0.5)
-    green = img[:, :, 1] > 0.5
+    r_, g_, b_ = img[:, :, 0], img[:, :, 1], img[:, :, 2]
+    red = (r_ > 0.95) & (g_ < 0.5) & (b_ < 0.5)       # pure red: a back face with no glazing on the way
+    # GLASS: red seen through `_Gls` (darker), or the back of a `_Win` pane (yellow, also behind `_Gls`)
+    glassy = (((r_ > 0.3) & (r_ <= 0.95) & (g_ < 0.3) & (b_ < 0.3))
+              | ((r_ > 0.3) & (g_ > 0.3) & (b_ < 0.3) & (np.abs(r_ - g_) < 0.15)))
+    green = (g_ > 0.5) & (r_ < 0.5)
     holes = []
     n_red = int(red.sum())
-    if n_red == 0:
+    if n_red == 0 and not glassy.any():
         return holes, 0
     scale = (rig.tan_px / TAN_1080_PX) ** 2
-    for ys, xs in clusters(red)[:max_clusters]:
+    for kind, ys, xs in ([("hole", ys, xs) for ys, xs in clusters(red)[:max_clusters]]
+                         + [("glass", ys, xs) for ys, xs in clusters(glassy)[:max_clusters]]):
         n = len(ys)
         k = min(12, n)
         pick = np.linspace(0, n - 1, k).astype(int)
@@ -535,14 +608,17 @@ def analyze_view(rig, T, img, view, max_clusters=60):
             if got[0] == "coplanar":
                 copl += 1
                 continue
+            if kind == "hole" and got[6]:
+                glass_n += 1                            # the ray crosses glazing: GLASS, never a hole
+                continue
             conf += 1
             firsts.append(got[1])
             comps_in[T.comp[got[2]]] = comps_in.get(T.comp[got[2]], 0) + 1
             sk = got[3] if got[3] != "front" else f"part {T.comp[got[5]]}"
             seen[sk] = seen.get(sk, 0) + 1
-            glass_n += 1 if got[6] else 0
+            glass_n += 1 if got[6] and kind == "glass" else 0
         if conf == 0:
-            if copl:
+            if copl and kind == "hole":
                 holes.append(dict(kind="coplanar", px=n, view=view))
             continue
         # border ring: 2 px around the cluster
@@ -584,8 +660,9 @@ def analyze_view(rig, T, img, view, max_clusters=60):
         lin = rig.tan_px / TAN_1080_PX
         px1080 = n * share * scale
         thick1080 = (n * share / length) * lin
-        holes.append(dict(kind="hole", px=n, px1080=round(px1080, 2), thick1080=round(thick1080, 2),
-                          solid=bool(px1080 >= FAIL_PX and thick1080 >= FAIL_THICK), share=round(share, 2),
+        holes.append(dict(kind=kind, px=n, px1080=round(px1080, 2), thick1080=round(thick1080, 2),
+                          solid=bool(kind == "hole" and px1080 >= FAIL_PX and thick1080 >= FAIL_THICK),
+                          share=round(share, 2),
                           inside=[round(float(x), 3) for x in inside], gap=[round(float(x), 3) for x in gap],
                           pts=[[round(x, 3) for x in p] for p in firsts],
                           border=border, inner=comps_in, seen=seen, glass=glass_n,
@@ -594,9 +671,9 @@ def analyze_view(rig, T, img, view, max_clusters=60):
     return holes, n_red
 
 
-def merge(holes):
-    """Single linkage in 3D over every confirmed back-face point (MERGE_M)."""
-    hs = [h for h in holes if h["kind"] == "hole"]
+def merge(holes, kind="hole"):
+    """Single linkage in 3D over every confirmed back-face point (MERGE_M), one kind ("hole" / "glass") at a time."""
+    hs = [h for h in holes if h["kind"] == kind]
     parent = list(range(len(hs)))
 
     def find(i):
@@ -626,7 +703,8 @@ def merge(holes):
             for dct, src in ((border, h["border"]), (seen, h["seen"]), (inner, h["inner"])):
                 for k, v in src.items():
                     dct[k] = dct.get(k, 0) + v
-        out.append(dict(worst=g[0], views=len(g), solid_views=sum(h["solid"] for h in g), px1080=g[0]["px1080"],
+        out.append(dict(kind=kind, worst=g[0], views=len(g), solid_views=sum(h["solid"] for h in g),
+                        px1080=g[0]["px1080"],
                         thick1080=max(h["thick1080"] for h in g), gap=g[0]["gap"],
                         box=[[round(float(x), 2) for x in pts.min(0)], [round(float(x), 2) for x in pts.max(0)]],
                         border=border, seen=seen, inner=inner, glass=sum(h["glass"] for h in g),
@@ -649,7 +727,72 @@ def load_allow(path):
     return data.get("assets", {})
 
 
-def allowed(allow, name, lod, m):
+def requirement_problem(e, asset_dir, gap):
+    """An entry's "requires" block (a face that another mesh of the prefab draws): the export folder's manifest must name
+    exactly those faces under requires.manifest_key, its bounds_game must lie inside the entry box, and the hole must
+    lie on those bounds (+- gap_tol_m). Returns None when it holds, else the reason. A drift (renamed faces, a moved
+    header, no sign set) then FAILS loudly instead of allowlisting a new hole."""
+    req = e.get("requires")
+    if not req:
+        return None
+    if not asset_dir:
+        return "no export folder to read the manifest from"
+    mp = os.path.join(asset_dir, os.path.basename(os.path.normpath(asset_dir)) + ".manifest.json")
+    try:
+        with open(mp, encoding="utf-8") as fh:
+            node = json.load(fh)
+    except (OSError, ValueError) as ex:
+        return f"{os.path.basename(mp)} unreadable ({ex.__class__.__name__})"
+    for k in req["manifest_key"].split("."):
+        node = node.get(k) if isinstance(node, dict) else None
+    if not isinstance(node, dict):
+        return f"the manifest has no {req['manifest_key']}"
+    if list(node.get("faces") or []) != list(req["faces"]):
+        return f"{req['manifest_key']}.faces is {node.get('faces')}, the entry requires {req['faces']}"
+    bg = node.get("bounds_game")
+    if not bg or len(bg) != 2:
+        return f"{req['manifest_key']} has no bounds_game"
+    # game (gx, gy, gz) -> this test's asset frame (x, y, z) = (-gx, -gz, gy): the game negates FBX x on import
+    pts = [(-q[0], -q[2], q[1]) for q in bg]
+    flo = [min(q[a] for q in pts) for a in range(3)]
+    fhi = [max(q[a] for q in pts) for a in range(3)]
+    lo, hi = e["box"][:3], e["box"][3:]
+    if not all(lo[a] - 1e-6 <= flo[a] and fhi[a] <= hi[a] + 1e-6 for a in range(3)):
+        return f"the {req['manifest_key']} faces ({flo} .. {fhi}) leave the entry box {e['box']}"
+    t = float(req.get("gap_tol_m", 0.25))
+    if not all(flo[a] - t <= gap[a] <= fhi[a] + t for a in range(3)):
+        return f"the hole at {gap} is not on the {req['manifest_key']} faces ({flo} .. {fhi} +- {t} m)"
+    return None
+
+
+def load_baseline(dirs):
+    """{(asset name without its letter, lod): [box, ...]} of every FAIL / MINOR / KNOWN hole in earlier runs' json."""
+    out = {}
+    for d in dirs or []:
+        for f in sorted(os.listdir(d)):
+            mm = re.match(r"(.+)_lod(\d+)\.json$", f)
+            if not mm:
+                continue
+            with open(os.path.join(d, f), encoding="utf-8") as fh:
+                rep = json.load(fh)
+            for h in rep.get("holes", []):
+                if h.get("class") in ("FAIL", "MINOR", "KNOWN"):
+                    out.setdefault((base_name(mm.group(1)), int(mm.group(2))), []).append(h["box"])
+    return out
+
+
+def known(baseline, name, lod, m):
+    """True when the hole's box overlaps a baseline box of the same asset and LOD (KNOWN_MARGIN)."""
+    lo, hi = m["box"]
+    for blo, bhi in (baseline or {}).get((base_name(name), lod), []):
+        if all(lo[a] - KNOWN_MARGIN <= bhi[a] and blo[a] - KNOWN_MARGIN <= hi[a] for a in range(3)):
+            return True
+    return False
+
+
+def allowed(allow, name, lod, m, asset_dir=None):
+    """(why, problem): why = the entry's reason when an entry holds the hole; problem = why a matching entry with a
+    "requires" block does not hold (then the hole FAILS, whatever its size)."""
     for e in allow.get(base_name(name), []):
         if "lods" in e and lod not in e["lods"]:
             continue
@@ -658,8 +801,11 @@ def allowed(allow, name, lod, m):
         if all(lo[a] <= g[a] <= hi[a] for a in range(3)):
             if not e.get("why"):
                 raise RuntimeError(f"allowlist entry for {base_name(name)} has no 'why': {e}")
-            return e["why"]
-    return None
+            bad = requirement_problem(e, asset_dir, g)
+            if bad:
+                return None, f"allowlist entry invalid: {bad}"
+            return e["why"], None
+    return None, None
 
 
 # ------------------------------------------------------------------ cameras
@@ -684,8 +830,9 @@ def cameras(T, ring, bearing0=0.0):
 
 
 # ------------------------------------------------------------------ marked image
-def marked_image(rig, opaque, view_holes, path):
-    """Workbench render of the same camera with back faces culled (the game's look), holes in magenta and ringed."""
+def marked_image(rig, opaque, view_holes, path, center_world=None):
+    """Workbench render of the same camera with back faces culled (the game's look), holes in magenta and ringed
+    (GLASS in cyan)."""
     sc = rig.scene
     keep = sc.render.engine
     sc.render.engine = "BLENDER_WORKBENCH"
@@ -709,7 +856,7 @@ def marked_image(rig, opaque, view_holes, path):
     for h in view_holes:
         x0, y0, x1, y1 = h["extent_px"]
         ys, xs = h["pix"]
-        rgb[ys, xs] = (1.0, 0.0, 1.0)
+        rgb[ys, xs] = (0.0, 1.0, 1.0) if h.get("kind") == "glass" else (1.0, 0.0, 1.0)
         cx, cy = h["center_px"]
         rad = max(18.0, 0.6 * math.hypot(x1 - x0, y1 - y0) + 10)
         th = np.linspace(0, 2 * math.pi, 720)
@@ -717,11 +864,17 @@ def marked_image(rig, opaque, view_holes, path):
             px = np.clip((cx + (rad + dr) * np.cos(th)).astype(int), 0, W - 1)
             py = np.clip((cy + (rad + dr) * np.sin(th)).astype(int), 0, H - 1)
             rgb[py, px] = (1.0, 0.0, 0.0)
-    # left: full view scaled to <= 1200 px wide; right: 4x crop around the worst hole (or 2x when large)
+    # left: full view scaled to <= 1200 px wide; right: 4x crop around the worst hole, or around center_world (a fixed
+    # world point, so a before and an after image crop the same spot)
     step = max(1, int(math.ceil(W / 1200)))
     left = rgb[::step, ::step]
-    h0 = view_holes[0]
-    cx, cy = (int(v) for v in h0["center_px"])
+    if center_world is not None:
+        q = rig.rot.inverted() @ (Vector(center_world) - rig.eye)
+        zq = max(-q.z, 1e-6)
+        cx = int((q.x / zq / rig.tx + 1) * 0.5 * rig.rx)
+        cy = int((q.y / zq / rig.ty + 1) * 0.5 * rig.ry)    # rows run bottom-up, as in Rig.ray
+    else:
+        cx, cy = (int(v) for v in view_holes[0]["center_px"])
     half = 75
     ya, yb = max(0, cy - half), min(H, cy + half)
     xa, xb = max(0, cx - half), min(W, cx + half)
@@ -743,7 +896,7 @@ def marked_image(rig, opaque, view_holes, path):
 
 # ------------------------------------------------------------------ one asset
 def check_asset(asset_dir, name, lod, ring, allow, outdir, images="worst", opaque=None, glass=None, sheet=None,
-                quiet=False, shots=None):
+                quiet=False, shots=None, face_keys=None, shots_only=False, baseline=None):
     t0 = time.time()
     if opaque is None:
         reset()
@@ -751,9 +904,9 @@ def check_asset(asset_dir, name, lod, ring, allow, outdir, images="worst", opaqu
         if opaque is None:
             return None
         sheet = load_sheet(asset_dir)
-    T = MeshTable(opaque, glass, sheet)
-    rig = Rig(opaque, ground_z=0.0)
-    views = cameras(T, ring)
+    T = MeshTable(opaque, glass, sheet, face_keys=face_keys)
+    rig = Rig(opaque, ground_z=0.0, glass=glass)
+    views = [] if shots_only else cameras(T, ring)      # --shots-only: crops only, no ring, no verdict
     holes, red_total, renders = [], 0, 0
     imgs = {}
     for i, (view, eye, tgt, box) in enumerate(views):
@@ -763,29 +916,44 @@ def check_asset(asset_dir, name, lod, ring, allow, outdir, images="worst", opaqu
         renders += 1
         hs, nr = analyze_view(rig, T, img, dict(view, i=i))
         red_total += nr
-        if any(h["kind"] == "hole" for h in hs):
+        if any(h["kind"] in ("hole", "glass") for h in hs):
             imgs[i] = (eye, tgt, box)
         holes.extend(hs)
     merged = merge(holes)
+    merged_glass = merge(holes, "glass")
     copl = [h for h in holes if h["kind"] == "coplanar"]
     rows = []
-    for k, m in enumerate(merged):
-        why = allowed(allow, name, lod, m)
-        cls = "ALLOWED" if why else ("FAIL" if m["solid_views"] > 0 else "MINOR")
-        m["class"], m["allow_why"] = cls, why
+    for k, m in enumerate(merged + merged_glass):
+        if m["kind"] == "glass":
+            why, bad, cls = None, None, "GLASS"         # see-through by design: listed, never failing
+        else:
+            why, bad = allowed(allow, name, lod, m, asset_dir)
+            cls = "ALLOWED" if why else ("FAIL" if m["solid_views"] > 0 or bad else "MINOR")
+            if cls == "FAIL" and not bad and known(baseline, name, lod, m):
+                cls = "KNOWN"                           # --baseline: the same hole was there before
+        m["class"], m["allow_why"], m["allow_problem"] = cls, why, bad
+        if bad:
+            print(f"[see-through] {name} LOD{lod}: {bad} -> FAIL")
         m["border_desc"] = [T.describe(c) for c, _ in sorted(m["border"].items(), key=lambda kv: -kv[1])[:4]]
         m["inner_desc"] = [T.describe(c) for c, _ in sorted(m["inner"].items(), key=lambda kv: -kv[1])[:2]]
         m["seen_desc"] = {(T.describe(int(s.split()[1])) if s.startswith("part ") else s): v
                           for s, v in m["seen"].items()}
         rows.append(m)
     verdict = "FAIL" if any(m["class"] == "FAIL" for m in rows) else "PASS"
+    if shots_only:
+        verdict = "PASS"                              # no ring was run: nothing to judge
     # marked images: each FAIL / MINOR hole's worst view (the first 12)
     if images != "none" and outdir:
+        n_glass = 0
         for k, m in enumerate(rows):
             if m["class"] == "ALLOWED" and images != "all":
                 continue
-            if images == "worst" and k >= 12:
-                break
+            if m["class"] == "GLASS":
+                n_glass += 1
+                if images == "worst" and n_glass > GLASS_IMAGES:
+                    continue
+            elif images == "worst" and k >= 12:
+                continue
             eye, tgt, box = imgs[m["worst"]["view"]["i"]]
             rig.place(eye, tgt, box)
             path = os.path.join(outdir, f"{name}_lod{lod}_h{k + 1}.png")
@@ -793,7 +961,9 @@ def check_asset(asset_dir, name, lod, ring, allow, outdir, images="worst", opaqu
             m["image"] = path
     # named shots (e.g. a reel camera): every confirmed hole of that one view, marked on one image
     shot_rows = []
-    for (bearing, dist, elev, label) in shots or []:
+    for (only, bearing, dist, elev, label, cw) in shots or []:
+        if only and only != name:
+            continue
         (view, eye, tgt, box), = cameras(T, dict(dist=(dist,), bearings=1, elev=(elev,)), bearing0=bearing)
         rig.place(eye, tgt, box)
         img = rig.render(f"s_{label}")
@@ -809,9 +979,9 @@ def check_asset(asset_dir, name, lod, ring, allow, outdir, images="worst", opaqu
                     best, bd = k, dd
             h["matches"] = f"h{best + 1}" if best is not None and bd <= MERGE_M else "-"
         path = None
-        if outdir and hs:
+        if outdir and (hs or cw is not None):
             path = os.path.join(outdir, f"{name}_lod{lod}_shot_{label}.png")
-            marked_image(rig, opaque, sorted(hs, key=lambda h: -h["px1080"]), path)
+            marked_image(rig, opaque, sorted(hs, key=lambda h: -h["px1080"]), path, center_world=cw)
         shot_rows.append(dict(label=label, bearing=bearing, dist=dist, elev=elev, image=path,
                               holes=[dict(matches=h["matches"], px1080=h["px1080"], thick1080=h["thick1080"],
                                           solid=h["solid"], gap=h["gap"]) for h in hs]))
@@ -822,6 +992,7 @@ def check_asset(asset_dir, name, lod, ring, allow, outdir, images="worst", opaqu
                   + (f"  -> {path}" if path else ""))
     rep = dict(asset=name, lod=lod, dir=asset_dir, verdict=verdict, views=len(views), renders=renders,
                tris=len(T.faces), comps=len(T.comp_box), red_px=red_total, coplanar_clusters=len(copl),
+               glass_groups=sum(m["class"] == "GLASS" for m in rows),
                fail_px=FAIL_PX, fail_thick=FAIL_THICK, seconds=round(time.time() - t0, 1), shots=shot_rows,
                holes=[{k: v for k, v in m.items() if k not in ("worst",)} | {"worst_view": m["worst"]["view"],
                                                                                "worst_px": m["worst"]["px"]}
@@ -832,7 +1003,9 @@ def check_asset(asset_dir, name, lod, ring, allow, outdir, images="worst", opaqu
     if not quiet:
         print(f"[see-through] {name} LOD{lod}: {verdict}  views {len(views)}  holes {len(rows)} "
               f"(FAIL {sum(m['class'] == 'FAIL' for m in rows)}, MINOR {sum(m['class'] == 'MINOR' for m in rows)}, "
-              f"ALLOWED {sum(m['class'] == 'ALLOWED' for m in rows)})  coplanar clusters {len(copl)}  "
+              f"ALLOWED {sum(m['class'] == 'ALLOWED' for m in rows)}, GLASS {sum(m['class'] == 'GLASS' for m in rows)}"
+              + (f", KNOWN {sum(m['class'] == 'KNOWN' for m in rows)}" if baseline is not None else "") + ")"
+              f"  coplanar clusters {len(copl)}  "
               f"{rep['seconds']} s")
         for k, m in enumerate(rows):
             wv = m["worst"]["view"]
@@ -879,9 +1052,78 @@ def scratch_house(open_slot):
     return [o]
 
 
+def scratch_rake_house(cull_v):
+    """The cull regression case (T273): a 12 x 8 m box under a kit gable_roof (ridge along X, 1.0 m rake overhang past the
+    gable walls) culled by cs2_bldg.cull_hidden under cull kit v<cull_v>. v1 judges each slab underside, rake overhang
+    included, by 9 points over the attic and deletes it (the L1 / L4 / L5 field defect: the sky shows through the rake from
+    below); v2 must keep every face a play camera sees."""
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    import cs2_asset
+    import cs2_bldg as K
+    reset()
+    with K.cull_kit(cull_v):
+        parts = K.storey("body", -6, 6, -4, 4, 0.0, 3.0, "timber_lap", ground=True, drop=("+Z",))
+        parts += K.gable_roof("r", K.RoofSpec("gable", -6, 6, -4, 4, 3.0, 35.0, axis="X", overhang=0.6,
+                                              rake_over=1.0), tails=None, gutters=False, snow_guard=0)
+        table = cs2_asset.tag_parts(parts)
+        bpy.ops.object.select_all(action="DESELECT")
+        for o, _m in parts:
+            o.select_set(True)
+        bpy.context.view_layer.objects.active = parts[0][0]
+        bpy.ops.object.join()
+        obj = bpy.context.active_object
+        obj.name = obj.data.name = f"SkiScratchRakeV{cull_v}T"
+        cs2_asset.store_part_table(obj, table)
+        rep = K.cull_hidden(obj, protect=(), table=table, ground_prefixes=("wall_body",), cull_ok=("",))
+    return [obj], rep
+
+
+def scratch_panes(objs):
+    """The glass case (lead rule): a free-standing `_Win` pane 4 m in front of the stone wall, facing the house (its back
+    toward the arrival cameras: GLASS; far enough not to merge with the slot), and a `_Gls` sheet at z 3.3 over the whole house except a 1 m notch over the +X slot
+    (x 5..7, y 0..1): the open slot under the sheet is GLASS, the slot in the notch, next to the glass, is a real gap and
+    still fails."""
+    bm = bmesh.new()
+    v = [bm.verts.new(p) for p in ((-2.0, -8.0, 0.5), (-2.0, -8.0, 2.5), (2.0, -8.0, 2.5), (2.0, -8.0, 0.5))]
+    bm.faces.new(v)                                     # normal +Y (toward the house)
+    me = bpy.data.meshes.new("SkiScratchHouseT_Win")
+    bm.to_mesh(me)
+    bm.free()
+    win = bpy.data.objects.new("SkiScratchHouseT_Win", me)
+    win["st_glazing"] = 1
+    bpy.context.scene.collection.objects.link(win)
+    bm = bmesh.new()
+    for (x0, x1, y0, y1) in ((-7.0, 7.0, -5.0, 0.0), (-7.0, 7.0, 1.0, 5.0), (-7.0, 5.0, 0.0, 1.0)):
+        q = [bm.verts.new(p) for p in ((x0, y0, 3.3), (x1, y0, 3.3), (x1, y1, 3.3), (x0, y1, 3.3))]
+        bm.faces.new(q)
+    me = bpy.data.meshes.new("SkiScratchHouseT_Gls")
+    bm.to_mesh(me)
+    bm.free()
+    gls = bpy.data.objects.new("SkiScratchHouseT_Gls", me)
+    bpy.context.scene.collection.objects.link(gls)
+    return objs + [win], [gls]
+
+
 def self_test(outdir):
     ring = dict(dist=(45.0,), bearings=8, elev=(22.0, 40.0))
     ok = True
+    # the cull regression (T273): cull kit v1 opens the rake, v2 must not. Low cameras (8 deg at 20 m) look up at the rakes
+    low = dict(dist=(20.0,), bearings=8, elev=(8.0,))
+    for cv in (1, 2):
+        objs, crep = scratch_rake_house(cv)
+        # v2 must PASS from every LOD0 camera of the full ring too, not only from the low ring
+        rr = check_asset(None, f"SkiScratchRakeV{cv}T", 0, low if cv == 1 else RINGS["full"]["lod0"], {}, outdir, images="worst", opaque=objs,
+                         glass=[], quiet=True)
+        fails = [h for h in rr["holes"] if h["class"] == "FAIL"]
+        at_rake = [h for h in fails if abs(h["gap"][0]) >= 5.9]
+        print(f"[self-test] cull v{cv} rake house: verdict {rr['verdict']}, FAIL holes {len(fails)} "
+              f"(at the rakes {len(at_rake)}), faces removed {crep['faces_removed']}"
+              + (f", kept over v1 {crep['cull_kit']['kept_over_v1']}" if "cull_kit" in crep else ""))
+        if cv == 1:
+            ok &= len(at_rake) >= 1               # the gate sees the v1 defect (if v1 ever stops opening it, revisit)
+        else:
+            ok &= rr["verdict"] == "PASS"         # culling may never open a see-through hole at play angles
     rep = check_asset(None, "SkiScratchHouseT", 0, ring, {}, outdir, images="worst",
                       opaque=scratch_house(True), glass=[], quiet=True)
     fails = [h for h in rep["holes"] if h["class"] == "FAIL"]
@@ -900,6 +1142,40 @@ def self_test(outdir):
     print(f"[self-test] open slot, allowlisted: verdict {rep3['verdict']}, "
           f"classes {sorted({h['class'] for h in rep3['holes']})}")
     ok &= rep3["verdict"] == "PASS" and any(h["class"] == "ALLOWED" for h in rep3["holes"])
+    # --baseline: the same slot against a run that already had it is KNOWN, never failing
+    base = {("SkiScratchHouse", 0): [h["box"] for h in rep["holes"] if h["class"] in ("FAIL", "MINOR")]}
+    rep5 = check_asset(None, "SkiScratchHouseT", 0, ring, {}, outdir, images="none", opaque=scratch_house(True), glass=[],
+                       quiet=True, baseline=base)
+    print(f"[self-test] open slot vs a baseline that has it: verdict {rep5['verdict']}, "
+          f"classes {sorted({h['class'] for h in rep5['holes']})}")
+    ok &= rep5["verdict"] == "PASS" and any(h["class"] == "KNOWN" for h in rep5["holes"])
+    # glass (lead rule): through glazing = GLASS, never a hole; the gap in the notch next to the glass still fails
+    op_, gl_ = scratch_panes(scratch_house(True))
+    rep4 = check_asset(None, "SkiScratchHouseT", 0, ring, {}, outdir, images="worst", opaque=op_, glass=gl_,
+                       quiet=True)
+    fails4 = [h for h in rep4["holes"] if h["class"] == "FAIL"]
+    gl4 = [h for h in rep4["holes"] if h["class"] == "GLASS"]
+    win4 = [h for h in gl4 if h["box"][0][1] <= -7.9]
+    under = [h for h in gl4 if h["box"][1][1] >= -4.1]
+    notch = [h for h in fails4 if h["gap"][0] >= 5.0]        # border on the +X side: the slot under the notch
+    print(f"[self-test] glass: verdict {rep4['verdict']}, FAIL {len(fails4)} (in the notch {len(notch)}), GLASS "
+          f"{len(gl4)} (the _Win back {len(win4)}, under the _Gls sheet {len(under)})")
+    ok &= rep4["verdict"] == "FAIL" and len(notch) >= 1 and len(notch) == len(fails4) and win4 and under
+    # an entry with a "requires" block (the welcome sign's header) holds only while the manifest it names agrees
+    e = {"box": [-2.6, 0.15, 3.75, 2.6, 0.75, 4.55], "why": "self-test",
+         "requires": {"manifest_key": "fine_detail.sign_set", "faces": ["a_face", "b_face"], "gap_tol_m": 0.25}}
+    td = os.path.join(outdir, "SkiReqTestT")
+    os.makedirs(td, exist_ok=True)
+    cases = []
+    for faces, bounds in ((["a_face", "b_face"], [[-2.0, 3.85, -0.35], [2.0, 4.45, -0.35]]),
+                          (["a_face"], [[-2.0, 3.85, -0.35], [2.0, 4.45, -0.35]]),
+                          (["a_face", "b_face"], [[-2.0, 5.85, -0.35], [2.0, 6.45, -0.35]])):
+        with open(os.path.join(td, "SkiReqTestT.manifest.json"), "w", encoding="utf-8") as fh:
+            json.dump({"fine_detail": {"sign_set": {"faces": faces, "bounds_game": bounds}}}, fh)
+        cases.append(requirement_problem(e, td, [-0.13, 0.30, 4.46]))
+    cases.append(requirement_problem(e, None, [-0.13, 0.30, 4.46]))
+    print(f"[self-test] allowlist requires: as built {cases[0] or 'holds'}; drift -> {len([c for c in cases[1:] if c])} of 3 fail")
+    ok &= cases[0] is None and all(cases[1:])
     print(f"[self-test] {'PASS' if ok else 'FAIL'}")
     return ok
 
@@ -927,12 +1203,20 @@ def parse():
     ap.add_argument("--self-test", action="store_true", help="run only the self-test")
     ap.add_argument("--no-self-test", action="store_true")
     ap.add_argument("--shot", action="append", default=[],
-                    help="bearing:dist:elev[:label] - also mark every hole of this one LOD0 view (e.g. a reel camera)")
+                    help="[Asset=]bearing:dist:elev[:label[:x,y,z]] - also mark every hole of this one LOD0 view (e.g. a "
+                         "reel camera); Asset= limits it to that asset; x,y,z = the crop center (world, asset frame), and "
+                         "the image is written even without a hole (before / after pairs)")
+    ap.add_argument("--shots-only", action="store_true", help="only the --shot views, no camera ring (crops)")
+    ap.add_argument("--baseline", action="append", default=[],
+                    help="an earlier run's --out dir: a FAIL that overlaps one of its holes (same asset, same LOD) is KNOWN")
     a = ap.parse_args(argv)
     shots = []
     for s in a.shot:
+        only, _, s = s.rpartition("=")
         p = s.split(":")
-        shots.append((float(p[0]), float(p[1]), float(p[2]), p[3] if len(p) > 3 else f"b{p[0]}_d{p[1]}_e{p[2]}"))
+        cw = tuple(float(v) for v in p[4].split(",")) if len(p) > 4 else None
+        shots.append((only or None, float(p[0]), float(p[1]), float(p[2]),
+                      p[3] if len(p) > 3 else f"b{p[0]}_d{p[1]}_e{p[2]}", cw))
     a.shots = shots
     return a
 
@@ -949,6 +1233,9 @@ def main():
         if a.self_test:
             return 0 if ok else 1
     allow = load_allow(a.allow)
+    baseline = load_baseline(a.baseline) if a.baseline else None
+    if baseline is not None:
+        print(f"[see-through] baseline: {sum(len(v) for v in baseline.values())} holes in {len(baseline)} asset LODs")
     ring = RINGS["fast" if a.fast else "full"]
     assets = [(os.path.abspath(p), os.path.basename(os.path.normpath(p))) for p in a.asset]
     for r in a.root:
@@ -962,7 +1249,7 @@ def main():
         for lod in lods:
             try:
                 rep = check_asset(path, name, lod, ring["lod0" if lod == 0 else "lod1"], allow, outdir, a.images,
-                                  shots=a.shots if lod == 0 else None)
+                                  shots=a.shots if lod == 0 else None, shots_only=a.shots_only, baseline=baseline)
             except Exception:                         # noqa: BLE001 - an asset that cannot be checked fails
                 traceback.print_exc()
                 rep = dict(asset=name, lod=lod, verdict="ERROR", holes=[])

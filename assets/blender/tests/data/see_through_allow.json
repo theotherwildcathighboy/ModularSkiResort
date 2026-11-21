@@ -6,7 +6,35 @@
     "face toward -Y), the hole's gap point must lie inside it; optional lods [0, 1]; why (required: what the",
     "opening is and why an architect left it open). A ray through an intended opening normally meets front faces",
     "(posts, the wall behind, the ground), so an entry here is rare: only a single-sided part seen from its back",
-    "on purpose belongs here."
+    "on purpose, or a face that another mesh of the same prefab draws, belongs here.",
+    "requires (for a face another mesh draws): the export folder's <Name>.manifest.json must list exactly these",
+    "faces under manifest_key, their bounds_game must lie inside the box, and the hole must lie on them (+- gap_tol_m).",
+    "If any of that drifts, the hole FAILS with the reason: an entry never allowlists a new hole silently."
   ],
-  "assets": {}
+  "assets": {
+    "SkiWelcomeSign": [
+      {
+        "box": [-2.6, 0.15, 3.75, 2.6, 0.75, 4.55],
+        "lods": [0, 1],
+        "why": "Not a hole in the game: the header beam's front between y -/+HEADER_Y is the sign set's three faces (welcome_sign.py, fine-detail step 3d: sign_gateflakeL_face / sign_gate_face / sign_gateflakeR_face are routed to the separate sign-set mesh, which the prefab draws there). The main mesh has no face there by design.",
+        "requires": {
+          "manifest_key": "fine_detail.sign_set",
+          "faces": ["sign_gateflakeL_face", "sign_gate_face", "sign_gateflakeR_face"],
+          "gap_tol_m": 0.25
+        }
+      }
+    ],
+    "SkiLodgeSwankyBottom": [
+      {
+        "box": [22.0, 14.0, 17.6, 23.0, 15.0, 18.5],
+        "lods": [0, 1],
+        "why": "The cross-gable ridge miter at the apex of the wing cross gables (ridge_xgwn at +x, ridge_xgws at -x): the ridge cap meets the two rake boards in a miter that leaves a sliver open at the apex (gate: about 4-9 px at 20 m). The owner accepted the L5 miter as built (OWNER-REVIEW-1.0.4: \"L5 wire triangle / miter / slate blotches: fine\", lead ruling 2026-11-21). The box holds only the apex, so any other hole there still fails."
+      },
+      {
+        "box": [-23.0, 14.0, 17.6, -22.0, 15.0, 18.5],
+        "lods": [0, 1],
+        "why": "The cross-gable ridge miter at the apex of the wing cross gables (ridge_xgwn at +x, ridge_xgws at -x): the ridge cap meets the two rake boards in a miter that leaves a sliver open at the apex (gate: about 4-9 px at 20 m). The owner accepted the L5 miter as built (OWNER-REVIEW-1.0.4: \"L5 wire triangle / miter / slate blotches: fine\", lead ruling 2026-11-21). The box holds only the apex, so any other hole there still fails."
+      }
+    ]
+  }
 }

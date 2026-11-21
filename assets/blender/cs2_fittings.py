@@ -611,6 +611,7 @@ FIT_PREFIXES = ("gutter_", "downspout_", "snowguard_", "chim_", "chimcap_", "fit
 # reason). Anything else that crosses is a violation. A listed pair deeper than its cap is one too.
 EMBEDS = (
     ("chim_", ("roof_", "ridge_", "rake_"), None, "a chimney stack passes through its roof"),
+    ("chim_", ("soffit_",), None, "a chimney stack passes through its rake overhang (cull kit v2 soffit_ strips)"),
     ("vent_", ("roof_", "ridge_"), None, "a vent stack passes through its roof"),
     ("stovepipe_", ("roof_", "ridge_"), None, "a stovepipe passes through its roof"),
     ("gutter_", ("fascia_", "rake_", "roof_"), EMBED_M, "the gutter's back rim seats on the fascia"),

@@ -3618,7 +3618,7 @@ def build_l5(recipe, opts):
         check(_hi[2] >= ridge + 2.0, f"C6 {cap} top {_hi[2]:.2f} < ridge {ridge:.2f} + 2")
     rf = roof_face_counts(P)
     bad = {nm: n for nm, n in rf.items()
-           if nm.startswith(("roof_m", "roof_h", "roof_xg", "roof_pc", "roof_w")) and n not in (6, 8)}
+           if nm.startswith(("roof_m", "roof_h", "roof_xg", "roof_pc", "roof_w")) and n not in K.slab_face_counts()}
     check(not bad, f"C7 roof slabs must be the builder's closed slabs: {bad}")
     npanes = check_panes(P, 4.6, l5_storey_lines, "L5")
     # F1: every cross-gable bay front stands >= 0.1 m beyond its host's eave stack (roof
