@@ -508,7 +508,10 @@ def aframe_parts(c, opts):
                            RZ + 0.05, ridge_at=RX)
     P += K.storey("prow", S2X1, PX1 - 0.15, PY0, PY1, S1_Z, S2P_Z, "timber_lap",
                   drop=("-Z", "+Z"), cut_z=(S1_Z + 0.17, DTOP))
-    P += K.prism_gable("prow", "X", PX1 - 0.3, PX1, PY0, PY1, S2P_Z, PRZ - 0.02, ridge_at=PRY)
+    # T273 (texpass): the prow gable sits 0.15 m proud of the timber wall below it (it carries the glass wall's head), and
+    # its underside was open: from below the gable's own back face showed in the slot (seethru gate, 13 px). The jetty's
+    # underside is boarded, as a builder closes any overhang (keeps snow, wind and birds out): the prism's bottom face
+    P += K.prism_gable("prow", "X", PX1 - 0.3, PX1, PY0, PY1, S2P_Z, PRZ - 0.02, ridge_at=PRY, bottom=tpg)
     # ---- roofs (standing seam, slot 3), ridge caps, rakes, fascia, tails ----------------
     # ridge v2 (T95, cad-review-2026-10-19 section 8): the slabs end RIDGE_GAP past the ridge plane (a 6 mm overlap, no 0.35
     # m crossing) under the kit's 12-tri bent flashing. v0 = the old slabs + galv boxes, byte for byte
@@ -614,8 +617,21 @@ def aframe_parts(c, opts):
     # ---- prow glass wall (A-Basin signature) -> `_Win` -----------------------------------
     bay = [-4.3, -1.78, 0.74, 3.26, 5.78, 8.3]
     prow = WallRef("+X", PX1)
-    P += K.window_bay("prow", prow, bay[0], bay[-1],
-                      WinSpec(bay[-1] - bay[0], 2.20, 4.85, lights=5, transom=5.95), room="prow")
+    pws = WinSpec(bay[-1] - bay[0], 2.20, 4.85, lights=5, transom=5.95)
+    P += K.window_bay("prow", prow, bay[0], bay[-1], pws, room="prow")
+    if tpg and K.WINDOW_KIT["version"] == 2:
+        # T273 (texpass): the prow glass wall stands 0.15 m proud of the timber wall (wall_prow at PX1 - 0.15), and no wall
+        # face lies in its plane. Kit v2's casing and reveal assume one: from above and from the sides a camera looked into
+        # the slot behind the frame and saw the back of the reveal (seethru gate: 505 px, the biggest L1 hole). A
+        # curtain wall set in front of a wall gets closures: a head flashing from the frame head back to the wall (sheds
+        # water and snow off the slot) and jamb closures down both sides. One box, top and sides only (front = the
+        # opening, back = the wall, bottom under the sill), flush with the casing's outer faces: 6 tris. `head_` = the
+        # casing's frame paint, LOD2 drops it with the head. Sizes = window_bay_v2's casing (posts from sill - 0.03, the
+        # head casing_w tall); the window fills its bay, so a0 / a1 = bay[0] / bay[-1]
+        kp = K.kit_params()
+        cw = kp["casing_w"]
+        P += K.wall_box("head_prowcl", prow, bay[0] - cw, bay[-1] + cw, pws.sill - 0.03, pws.sill + pws.h + cw,
+                        -0.15, 0.0, kp["casing_key"] or K.WINDOW_KIT["trim"], drop=("front", "back", "bottom"))
     for i, (cy0, cy1, top) in enumerate(((bay[1], bay[2], 10.4 + KH), (bay[2], bay[3], 13.7 + KH),
                                          (bay[3], bay[4], 10.4 + KH))):
         P += K.pane_quad(f"win_cle{i}_prowcl{i}", prow, cy0, cy1, 7.65, top)
