@@ -1829,3 +1829,19 @@ export function mountainFacts(runs: readonly RunRow[] | null | undefined, lifts:
     snowmakingPct: area > 0 ? Math.round((100 * gunArea) / area) : -1,
   };
 }
+
+/** T283 (1.0.4): the pager draws one dot per page up to this many pages, else the "N / COUNT" text. */
+export const PAGER_DOTS_MAX = 6;
+
+/** T283 (1.0.4): the row whose title names the next page on the pager's forward button (fit.tsx). `pageOf[i]` = the page of row i,
+ *  `titled[i]` = row i is a titled row (a section header or a fold row). The next page's first row when it is titled; else the titled row
+ *  that the next page continues (the nearest titled row before its first row); else the first titled row on the next page. -1 when there
+ *  is no next page or no titled row (the button then reads "Next page"). */
+export function nextPageTitleRow(pageOf: readonly number[], titled: readonly boolean[], shown: number): number {
+  const first = pageOf.indexOf(shown + 1);
+  if (first < 0) return -1;
+  if (titled[first]) return first;
+  for (let i = first - 1; i >= 0; i--) if (titled[i]) return i;
+  for (let i = first + 1; i < pageOf.length && pageOf[i] === shown + 1; i++) if (titled[i]) return i;
+  return -1;
+}

@@ -145,7 +145,8 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
   if (foldSeen.current.view !== view) foldSeen.current = { view, fold, seq: foldSeen.current.seq };
   else if (foldSeen.current.fold !== fold) foldSeen.current = { view, fold, seq: foldSeen.current.seq + 1 };
   const viewPager = useViewPager(viewRef, contentRef, hasSign && view !== "runs" && view !== "lifts",
-    `${view}|${fold}|${areaKey}`, styles.foldRow, `${footerShape}|${problemsListOpen ? "p" : ""}`, styles.foldRowOpen, foldSeen.current.seq, styles.pagerKeepTail);
+    `${view}|${fold}|${areaKey}`, styles.foldRow, `${footerShape}|${problemsListOpen ? "p" : ""}`, styles.foldRowOpen, foldSeen.current.seq, styles.pagerKeepTail,
+    [styles.infoHeader, styles.foldRow], [styles.infoLabelText, styles.infoLabel]);
 
   // Plain markup only: an error-boundary fallback must not be able to throw
   const title = t(LOC.title);
@@ -181,7 +182,6 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
             {shownView}
           </ErrorBoundary>
         </div>
-        {viewPager.pages > 1 && <Pager fit={viewPager} />}
       </>
     );
   }
@@ -199,6 +199,8 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
       }
       footer={
         <div ref={footerRef} className={styles.footerSlot}>
+          {/* T283 (1.0.4): the pager at the top of the footer, over the tab row: its corners are where reading a page ends */}
+          {hasSign && viewPager.pages > 1 && <Pager fit={viewPager} />}
           <ErrorBoundary where="panel.build" fallback={failed}>
             <OkFooter />
           </ErrorBoundary>

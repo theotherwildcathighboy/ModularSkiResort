@@ -16,6 +16,7 @@ import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { useT } from "../l10n";
 import { folds$, openFold, toggleFold } from "./hubState";
+import { PAGER_DOTS_MAX, nextPageTitleRow } from "./hubRules";
 import { HUB_FMT, HUB_LOC } from "./hubText";
 import { Glyph, LocText, MarkSlot, Tip, cx, numArg } from "./parts";
 import styles from "./hub.module.scss";
@@ -62,6 +63,10 @@ export interface FitPage {
   page: number;
   pages: number;
   setPage: (p: number) => void;
+  /** T283: the title of the next page ("" = none: the button reads "Next page") */
+  nextTitle: string;
+  /** T283: the pager row (it sits in the footer, outside the body: the paged pass reads whether it is drawn) */
+  rowRef: RefObject<HTMLDivElement>;
 }
 
 /**
@@ -97,38 +102,63 @@ function innerHeight(el: HTMLElement): number {
   return el.clientHeight - pad;
 }
 
-/** The pager row under a list: "‹ 2 / 3 More ›", always drawn (empty on one page) so it never changes the view's height.
- *  T264 (2026-11-20): while a next page exists, its arrow glyph is bright and "More" stands before it. The label slot keeps its width on the
- *  last page (empty) and an empty slot of the same width stands before the page text, so the text stays centered and the row never moves. */
+/** The pager row, T283 (1.0.4, the page-turn corners): HubPanel draws it at the top of the footer, over the build strip's tab row, while
+ *  a view has more than one page. Back at the bottom left (from page 2, "‹ Back"), one dot per page in the middle (the "N / COUNT" text
+ *  above PAGER_DOTS_MAX pages), and at the bottom right a button that names the next page ("This season so far ›": the title of the
+ *  next page's first section, nextPageTitleRow; "Next page" when it has none). On the last page the next arrow is dimmed, as before.
+ *  `data-page` / `data-pages` and `data-pager` carry the position and the two sides for the layout test (harness/layout-check.js). */
 export function Pager({ fit }: { fit: FitPage }): JSX.Element {
   const t = useT();
-  const many = fit.pages > 1;
   const hasNext = fit.page < fit.pages - 1;
+  const dots: JSX.Element[] = [];
+  if (fit.pages <= PAGER_DOTS_MAX) for (let i = 0; i < fit.pages; i++) dots.push(<div key={i} className={cx(styles.pagerDot, i === fit.page && styles.pagerDotOn)} />);
   return (
-    <div className={styles.pagerRow}>
-      {many && (
-        <>
+    <div ref={fit.rowRef} className={styles.pagerRow} data-page={fit.page + 1} data-pages={fit.pages}>
+      <div className={styles.pagerSide} data-pager="prev">
+        {fit.page > 0 && (
           <Tip tip={t(HUB_LOC.pagePrev)}>
-            <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pagerButton, fit.page <= 0 && styles.pagerButtonOff) }}
+            <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pagerButton, styles.pagerButtonText) }}
               onSelect={() => { if (fit.page > 0) fit.setPage(fit.page - 1); }}>
-              <Glyph src="Media/Glyphs/ThickStrokeArrowLeft.svg" className={styles.pagerGlyph} />
+              <Glyph src="Media/Glyphs/ThickStrokeArrowLeft.svg" className={cx(styles.pagerGlyph, styles.pagerGlyphNext, styles.pagerGlyphBefore)} />
+              <div className={styles.pagerLabel}>{t(HUB_LOC.pageBack)}</div>
             </Button>
           </Tip>
-          <div className={styles.pagerMore} />
-          <div className={styles.pagerText}>
-            <LocText entry={HUB_FMT.pagePosition} args={{ N: numArg(fit.page + 1, Unit.Integer), COUNT: numArg(fit.pages, Unit.Integer) }} />
-          </div>
-          <div className={styles.pagerMore}>{hasNext ? t(HUB_LOC.pageMore) : ""}</div>
-          <Tip tip={t(HUB_LOC.pageNext)}>
-            <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pagerButton, !hasNext && styles.pagerButtonOff) }}
-              onSelect={() => { if (hasNext) fit.setPage(fit.page + 1); }}>
-              <Glyph src="Media/Glyphs/ThickStrokeArrowRight.svg" className={cx(styles.pagerGlyph, hasNext && styles.pagerGlyphNext)} />
+        )}
+      </div>
+      {fit.pages <= PAGER_DOTS_MAX
+        ? <div className={styles.pagerDots}>{dots}</div>
+        : <div className={styles.pagerText}>
+          <LocText entry={HUB_FMT.pagePosition} args={{ N: numArg(fit.page + 1, Unit.Integer), COUNT: numArg(fit.pages, Unit.Integer) }} />
+        </div>}
+      <div className={cx(styles.pagerSide, styles.pagerSideEnd)} data-pager="next">
+        <Tip tip={t(HUB_LOC.pageNext)}>
+          {hasNext
+            ? <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pagerButton, styles.pagerButtonText) }}
+              onSelect={() => { if (fit.page < fit.pages - 1) fit.setPage(fit.page + 1); }}>
+              <div className={cx(styles.pagerLabel, styles.pagerLabelNext)}>{fit.nextTitle || t(HUB_LOC.pageNext)}</div>
+              <Glyph src="Media/Glyphs/ThickStrokeArrowRight.svg" className={cx(styles.pagerGlyph, styles.pagerGlyphNext, styles.pagerGlyphAfter)} />
             </Button>
-          </Tip>
-        </>
-      )}
+            : <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pagerButton, styles.pagerButtonOff) }} onSelect={() => undefined}>
+              <Glyph src="Media/Glyphs/ThickStrokeArrowRight.svg" className={styles.pagerGlyph} />
+            </Button>}
+        </Tip>
+      </div>
     </div>
   );
+}
+
+/** T283: a row that can name a page: a section header (InfoLine header) or a fold row. Its title is its label's text, as drawn. */
+function rowTitle(r: HTMLElement, titleClasses: readonly string[], labelClasses: readonly string[]): string | null {
+  const own = r.getAttribute("data-page-title");
+  if (own) return own;
+  if (!titleClasses.some((c) => c && r.className.indexOf(c) >= 0)) return null;
+  for (const c of labelClasses) {
+    if (!c) continue;
+    const el = r.getElementsByClassName(c)[0] as HTMLElement | undefined;
+    const text = el ? (el.textContent || "").trim() : "";
+    if (text) return text;
+  }
+  return null;
 }
 
 
@@ -162,9 +192,13 @@ const FOLD_FOCUS_MS = 1000;
  * and the pager flickered. Also, a fold opened onto a page that was not shown, and the fold vanished until a view switch.
  */
 export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject<HTMLElement>, enabled: boolean, resetKey: string,
-  foldRowClass: string, geometryKey = "", openRowClass = "", foldSeq = 0, keepTailClass = ""): FitPage {
+  foldRowClass: string, geometryKey = "", openRowClass = "", foldSeq = 0, keepTailClass = "",
+  titleClasses: readonly string[] = [], labelClasses: readonly string[] = []): FitPage {
   const [pages, setPages] = useState(1);
   const [page, setPage] = useState(0);
+  // T283: the next page's title (nextPageTitleRow over the rows' titles) and the pager row, drawn in the footer by HubPanel
+  const [nextTitle, setNextTitle] = useState("");
+  const rowRef = useRef<HTMLDivElement>(null);
   const keyRef = useRef(resetKey);
   if (keyRef.current !== resetKey) {
     keyRef.current = resetKey;
@@ -178,6 +212,7 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
     foldSeqRef.current = foldSeq;
     focusUntil.current = Date.now() + FOLD_FOCUS_MS;
   }
+  const nextTitleRef = useRef(nextTitle);
   const state = useRef({ page, pages, enabled });
   state.current = { page, pages, enabled };
   // Row heights from fresh frames where the row was drawn, and the room for the view rows from the last fresh measurement
@@ -243,8 +278,9 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
         } else {
           // Paged: the box may be shrunk to the shown page, so `inner` includes the free panel height. The room changes only while the body
           // is over it, with the pager drawn
-          const pagerRow = body.lastElementChild as HTMLElement | null;
-          const pagerDrawn = pagerOn && pagerRow !== null && pagerRow !== slot && pagerRow.getBoundingClientRect().height > 0;
+          // T283: the pager row sits in the footer, so the box (and `inner`) already lost its height once it is drawn
+          const pagerRow = rowRef.current;
+          const pagerDrawn = pagerOn && pagerRow !== null && pagerRow.getBoundingClientRect().height > 0;
           // scrollHeight and clientHeight are whole pixels, so a body under 1 px too tall reads "fits": compare the body itself too
           const over = bodyH - inner;
           if (pagerDrawn && (over > 0.1 || (inner === innerHeight(box) && box.scrollHeight > box.clientHeight + 0.5))) {
@@ -307,6 +343,10 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
         if (target >= 0 && pageOf[target] !== shown) shown = pageOf[target];
       }
       rows.forEach((r, i) => setDisplay(r, pageOf[i] === shown ? "" : "none"));
+      // T283: name the next page by its first section (a hidden row keeps its text, so the title reads the same before it is shown)
+      const ti = nextPageTitleRow(pageOf, rows.map((r) => rowTitle(r, titleClasses, labelClasses) !== null), shown);
+      const title = ti >= 0 ? rowTitle(rows[ti], titleClasses, labelClasses) || "" : "";
+      if (title !== nextTitleRef.current) { nextTitleRef.current = title; setNextTitle(title); }
       if (n !== state.current.pages) setPages(n);
       if (shown !== state.current.page) setPage(shown);
       finish();
@@ -340,5 +380,5 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
 
   const shown = Math.min(page, pages - 1);
   const pageTo = (p: number): void => { focusUntil.current = 0; setPage(p); };
-  return { start: 0, end: 0, page: shown, pages, setPage: pageTo };
+  return { start: 0, end: 0, page: shown, pages, setPage: pageTo, nextTitle, rowRef };
 }

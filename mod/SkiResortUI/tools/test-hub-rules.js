@@ -612,7 +612,7 @@ function run(srcDir) {
     const fit = read("fit.tsx"), state = read("hubState.ts"), strip = read("BuildStrip.tsx"), tiles = read("ViewTiles.tsx");
     eq("T26.7 never a scrollbar, source facts: folds closed by default + accordion, pager always drawn, folds in Attraction (3 since T226) / Guests / Finances, no pager in Runs / Lifts (T131)",
       [/export const FOLD_DEFAULT: Readonly<Record<string, string>> = \{\};/.test(state), /open \? "" : id/.test(state),
-        /<div className=\{styles\.pagerRow\}>/.test(fit),
+        /<div ref=\{fit\.rowRef\} className=\{styles\.pagerRow\}/.test(fit),
         (read("OverviewView.tsx").match(/<Fold\b/g) || []).length, (read("GuestsView.tsx").match(/<Fold\b/g) || []).length,
         (read("MoneyView.tsx").match(/<Fold\b/g) || []).length, /<Pager fit=\{fit\} \/>/.test(read("RunsView.tsx")), /<Pager fit=\{fit\} \/>/.test(read("LiftsView.tsx"))],
       [true, true, true, 3, 4, 3, false, false]);   // Overview: Mountain, Resort tourism bonus (T226), Merged
@@ -1021,6 +1021,13 @@ function run(srcDir) {
     eq("T40.1 color literals and legacy variables below the token block", [end > 0, scss.includes(":global(.legacy-interface) .tipLines {"), literals, legacy], [true, true, [], []]);
   }
 
+  // T283 (1.0.4) the pager names the next page: its first row when titled, else the titled row it continues, else its first titled row.
+  eq("T283.1 nextPageTitleRow: first row titled / continues a section / title later on the page / last page / no title",
+    [R.nextPageTitleRow([0, 0, 1, 1, 2], [true, false, true, false, false], 0), R.nextPageTitleRow([0, 0, 1, 1, 2], [true, false, true, false, false], 1),
+      R.nextPageTitleRow([0, 0, 1, 1], [false, false, false, true], 0), R.nextPageTitleRow([0, 0, 1, 1, 2], [true, false, true, false, false], 2),
+      R.nextPageTitleRow([0, 1], [false, false], 0)],
+    [2, 2, 3, -1, -1]);
+
   // T46 the control scale (T202, DECISIONS 668, docs/DESIGN-SYSTEM.md section 2.1): every class a hub <Button> carries either declares a
   // height that stands in CONTROL_HEIGHT with exactly that value, or is a modifier / inherits its height (NO_OWN_HEIGHT). A text button is
   // 26 rem x fontScale, whatever its class (the three heights of one role, 22.4 / 26 / 30, were the 2026-11-15 audit's F1). A new Button
@@ -1042,7 +1049,7 @@ function run(srcDir) {
     };
     const NO_OWN_HEIGHT = new Set([
       "areaNameOpen", "buildTileActive", "buildTileLocked", "buttonOn", "fitText", "foldRow", "foldRowOpen", "hiddenKeepSpace", "histSeg",
-      "histSegNext", "infoHeader", "lodgeRow", "mergeAction", "overlayItemOn", "pagerButtonOff", "pickerChipOn", "planRow", "planRowOff",
+      "histSegNext", "infoHeader", "lodgeRow", "mergeAction", "overlayItemOn", "pagerButtonOff", "pagerButtonText", "pickerChipOn", "planRow", "planRowOff",
       "problemClickable", "problemDim", "problemMoreButton", "problemMoreOn", "rowTrashArmed", "segButtonNext", "tabButtonOn", "tileOn",
     ]);
     const hubDir = path.join(srcDir, "hub");

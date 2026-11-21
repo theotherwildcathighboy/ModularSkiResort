@@ -742,7 +742,7 @@
   "SkiResort.Hub.PAGE_POSITION": "{N} / {COUNT}",
   "SkiResort.Hub.PAGE_PREV": "Previous page",
   "SkiResort.Hub.PAGE_NEXT": "Next page",
-  "SkiResort.Hub.PAGE_MORE": "More",
+  "SkiResort.Hub.PAGE_BACK": "Back",
   "SkiResort.Hub.BUILD_GROUP[Lodges]": "Lodges",
   "SkiResort.Hub.BUILD_GROUP[Services]": "Services",
   "SkiResort.Hub.LIFT_TOOL": "Lift tool",

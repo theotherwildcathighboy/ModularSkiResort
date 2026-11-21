@@ -339,8 +339,7 @@ a06-attraction-fold2-1080 | control | tile "History" | h=41.6; pad=0 3 0 3; font
 a06-attraction-fold2-1080 | control | infoLine.foldRow "Runs, lifts and school+28.8" | h=28.2; pad=1 10 1 4; font=14; radius=3; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
 a06-attraction-fold2-1080 | control | infoLine.foldRow.infoHeader "Resort tourism bonus+2.9% (o" | h=28.2; pad=1 10 1 4; font=14; radius=3; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
 a06-attraction-fold2-1080 | control | infoLine.foldRow.infoHeader.foldRowOpen "MountainVertical drop: 610 m" | h=28.2; pad=1 10 1 4; font=14; radius=3; bg=rgba(255, 255, 255, 0.04); color=rgb(240, 251, 255); border=-
-a06-attraction-fold2-1080 | control | pagerButton.pagerButtonOff | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
-a06-attraction-fold2-1080 | control | pagerButton | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a06-attraction-fold2-1080 | control | pagerButton.pagerButtonText "Mountain" | h=20; pad=0 8 0 8; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a06-attraction-fold2-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a06-attraction-fold2-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a06-attraction-fold2-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -360,12 +359,12 @@ a06-attraction-fold2-1080 | control | h-btn.actionButton.mergeAction.fitText "Me
 a06-attraction-fold2-1080 | control | h-floating.h-selected | h=48; pad=1 6 1 6; font=16; radius=8; bg=rgba(42, 55, 83, 0.55); color=rgb(0, 0, 0); border=1 rgba(255, 255, 255, 0.2)
 a06-attraction-fold2-1080 | control | h-btn.h-selected | h=14; pad=6 12 6 12; font=16; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a06-attraction-fold2-1080 | font | 12 | buildStatusLine.buildLineName buildTileLabel mergeTierFee pickerLabel scoreLabel stableValue statusHint.statusHintOn tileCaption
-a06-attraction-fold2-1080 | font | 14 | infoLabel infoValue markSlot pagerMore pagerText problemMoreButton problemText statusText tabLabel
+a06-attraction-fold2-1080 | font | 14 | infoLabel infoValue markSlot pagerLabel.pagerLabelNext problemMoreButton problemText statusText tabLabel
 a06-attraction-fold2-1080 | font | 16 | areaNameText busCardTitle h-btn.actionButton.mergeAction.fitText span tileValue
 a06-attraction-fold2-1080 | font | 22 | h-panel-close
 a06-attraction-fold2-1080 | color | rgb(240, 251, 255) | areaNameText buildTileLabel h-btn.actionButton.mergeAction.fitText h-panel-close infoLabel infoValue mergeTierFee pickerLabel problemText span stableValue statusHint.statusHintOn statusText tabLabel tileValue
-a06-attraction-fold2-1080 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle pagerMore problemMoreButton
-a06-attraction-fold2-1080 | color | rgba(240, 251, 255, 0.7) | infoLabel markSlot mergeTierFee pagerText pickerLabel scoreLabel tabLabel tileCaption
+a06-attraction-fold2-1080 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle pagerLabel.pagerLabelNext problemMoreButton
+a06-attraction-fold2-1080 | color | rgba(240, 251, 255, 0.7) | infoLabel markSlot mergeTierFee pickerLabel scoreLabel tabLabel tileCaption
 a06-attraction-fold2-2160 | control | h-btn.h-iconbtn.headerButton | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a06-attraction-fold2-2160 | control | areaName "Ash Flat" | h=26; pad=0 6 0 6; font=16; radius=4; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
 a06-attraction-fold2-2160 | control | h-btn.h-iconbtn.headerButton #2 | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
@@ -383,8 +382,7 @@ a06-attraction-fold2-2160 | control | tile "History" | h=41.6; pad=0 3 0 3; font
 a06-attraction-fold2-2160 | control | infoLine.foldRow "Runs, lifts and school+28.8" | h=28.2; pad=0.5 10 0.5 4; font=14; radius=3; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
 a06-attraction-fold2-2160 | control | infoLine.foldRow.infoHeader "Resort tourism bonus+2.9% (o" | h=28.2; pad=0.5 10 0.5 4; font=14; radius=3; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
 a06-attraction-fold2-2160 | control | infoLine.foldRow.infoHeader.foldRowOpen "MountainVertical drop: 610 m" | h=28.2; pad=0.5 10 0.5 4; font=14; radius=3; bg=rgba(255, 255, 255, 0.04); color=rgb(240, 251, 255); border=-
-a06-attraction-fold2-2160 | control | pagerButton.pagerButtonOff | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
-a06-attraction-fold2-2160 | control | pagerButton | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a06-attraction-fold2-2160 | control | pagerButton.pagerButtonText "Mountain" | h=20; pad=0 8 0 8; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a06-attraction-fold2-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a06-attraction-fold2-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a06-attraction-fold2-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -404,12 +402,12 @@ a06-attraction-fold2-2160 | control | h-btn.actionButton.mergeAction.fitText "Me
 a06-attraction-fold2-2160 | control | h-floating.h-selected | h=48; pad=0.5 3 0.5 3; font=16; radius=8; bg=rgba(42, 55, 83, 0.55); color=rgb(0, 0, 0); border=0.5 rgba(255, 255, 255, 0.2)
 a06-attraction-fold2-2160 | control | h-btn.h-selected | h=13; pad=6 12 6 12; font=16; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a06-attraction-fold2-2160 | font | 12 | buildStatusLine.buildLineName buildTileLabel mergeTierFee pickerLabel scoreLabel stableValue statusHint.statusHintOn tileCaption
-a06-attraction-fold2-2160 | font | 14 | infoLabel infoValue markSlot pagerMore pagerText problemMoreButton problemText statusText tabLabel
+a06-attraction-fold2-2160 | font | 14 | infoLabel infoValue markSlot pagerLabel.pagerLabelNext problemMoreButton problemText statusText tabLabel
 a06-attraction-fold2-2160 | font | 16 | areaNameText busCardTitle h-btn.actionButton.mergeAction.fitText span tileValue
 a06-attraction-fold2-2160 | font | 22 | h-panel-close
 a06-attraction-fold2-2160 | color | rgb(240, 251, 255) | areaNameText buildTileLabel h-btn.actionButton.mergeAction.fitText h-panel-close infoLabel infoValue mergeTierFee pickerLabel problemText span stableValue statusHint.statusHintOn statusText tabLabel tileValue
-a06-attraction-fold2-2160 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle pagerMore problemMoreButton
-a06-attraction-fold2-2160 | color | rgba(240, 251, 255, 0.7) | infoLabel markSlot mergeTierFee pagerText pickerLabel scoreLabel tabLabel tileCaption
+a06-attraction-fold2-2160 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle pagerLabel.pagerLabelNext problemMoreButton
+a06-attraction-fold2-2160 | color | rgba(240, 251, 255, 0.7) | infoLabel markSlot mergeTierFee pickerLabel scoreLabel tabLabel tileCaption
 a07-runs-1080 | control | h-btn.h-iconbtn.headerButton | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a07-runs-1080 | control | areaName "Ash Flat" | h=26; pad=0 6 0 6; font=16; radius=4; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
 a07-runs-1080 | control | h-btn.h-iconbtn.headerButton #2 | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
@@ -797,8 +795,7 @@ a11-history-1080 | control | h-btn.segButton.histSeg.histSegNext "Whole city" | 
 a11-history-1080 | control | h-btn.h-selected.segButton.histSeg.buttonOn "12 months" | h=26; pad=6 5 6 5; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a11-history-1080 | control | h-btn.segButton.histSeg.histSegNext "This season vs last" | h=26; pad=6 5 6 5; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a11-history-1080 | control | h-btn.segButton.histSeg.histSegNext "By season" | h=26; pad=6 5 6 5; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
-a11-history-1080 | control | pagerButton.pagerButtonOff | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
-a11-history-1080 | control | pagerButton | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a11-history-1080 | control | pagerButton.pagerButtonText "This season so far" | h=20; pad=0 8 0 8; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a11-history-1080 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
 a11-history-1080 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(0, 0, 0, 0)
 a11-history-1080 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=1 rgba(0, 0, 0, 0)
@@ -818,12 +815,12 @@ a11-history-1080 | control | h-btn.actionButton.mergeAction.fitText "Merge" | h=
 a11-history-1080 | control | h-floating.h-selected | h=48; pad=1 6 1 6; font=16; radius=8; bg=rgba(42, 55, 83, 0.55); color=rgb(0, 0, 0); border=1 rgba(255, 255, 255, 0.2)
 a11-history-1080 | control | h-btn.h-selected | h=14; pad=6 12 6 12; font=16; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a11-history-1080 | font | 12 | buildStatusLine.buildLineName buildTileLabel histAxisCell histGutterSize histLegendText histScaleLabel histScaleLabel.histScaleBottom histScaleLabel.histScaleMid histVs mergeTierFee pickerLabel statusHint.statusHintOn tileCaption
-a11-history-1080 | font | 14 | h-btn.h-selected.segButton.histSeg.buttonOn h-btn.segButton.histSeg.histSegNext infoLabel infoValue pagerMore pagerText problemMoreButton problemText stableValue statusText tabLabel
+a11-history-1080 | font | 14 | h-btn.h-selected.segButton.histSeg.buttonOn h-btn.segButton.histSeg.histSegNext infoLabel infoValue pagerLabel.pagerLabelNext problemMoreButton problemText stableValue statusText tabLabel
 a11-history-1080 | font | 16 | areaNameText busCardTitle h-btn.actionButton.mergeAction.fitText span tileValue
 a11-history-1080 | font | 22 | h-panel-close
 a11-history-1080 | color | rgb(240, 251, 255) | areaNameText buildTileLabel h-btn.actionButton.mergeAction.fitText h-btn.h-selected.segButton.histSeg.buttonOn h-btn.segButton.histSeg.histSegNext h-panel-close infoLabel infoValue mergeTierFee pickerLabel problemText span stableValue statusHint.statusHintOn statusText tabLabel tileValue
-a11-history-1080 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle pagerMore problemMoreButton
-a11-history-1080 | color | rgba(240, 251, 255, 0.7) | histAxisCell histGutterSize histLegendText histScaleLabel histScaleLabel.histScaleBottom histScaleLabel.histScaleMid histVs infoLabel mergeTierFee pagerText pickerLabel tabLabel tileCaption
+a11-history-1080 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle pagerLabel.pagerLabelNext problemMoreButton
+a11-history-1080 | color | rgba(240, 251, 255, 0.7) | histAxisCell histGutterSize histLegendText histScaleLabel histScaleLabel.histScaleBottom histScaleLabel.histScaleMid histVs infoLabel mergeTierFee pickerLabel tabLabel tileCaption
 a11-history-2160 | control | h-btn.h-iconbtn.headerButton | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a11-history-2160 | control | areaName "Ash Flat" | h=26; pad=0 6 0 6; font=16; radius=4; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
 a11-history-2160 | control | h-btn.h-iconbtn.headerButton #2 | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
@@ -843,8 +840,7 @@ a11-history-2160 | control | h-btn.segButton.histSeg.histSegNext "Whole city" | 
 a11-history-2160 | control | h-btn.h-selected.segButton.histSeg.buttonOn "12 months" | h=26; pad=6 5 6 5; font=14; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a11-history-2160 | control | h-btn.segButton.histSeg.histSegNext "This season vs last" | h=26; pad=6 5 6 5; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a11-history-2160 | control | h-btn.segButton.histSeg.histSegNext "By season" | h=26; pad=6 5 6 5; font=14; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
-a11-history-2160 | control | pagerButton.pagerButtonOff | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
-a11-history-2160 | control | pagerButton | h=20; pad=0 0 0 0; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
+a11-history-2160 | control | pagerButton.pagerButtonText "This season so far" | h=20; pad=0 8 0 8; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgb(0, 0, 0); border=-
 a11-history-2160 | control | tabButton "Lifts" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
 a11-history-2160 | control | tabButton.tabButtonOn.h-selected "Runs" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(0, 0, 0, 0)
 a11-history-2160 | control | tabButton "Buildings" | h=24; pad=0 6 0 6; font=14; radius=3; bg=rgba(112, 143, 155, 0.2); color=rgba(240, 251, 255, 0.7); border=0.5 rgba(0, 0, 0, 0)
@@ -864,12 +860,12 @@ a11-history-2160 | control | h-btn.actionButton.mergeAction.fitText "Merge" | h=
 a11-history-2160 | control | h-floating.h-selected | h=48; pad=0.5 3 0.5 3; font=16; radius=8; bg=rgba(42, 55, 83, 0.55); color=rgb(0, 0, 0); border=0.5 rgba(255, 255, 255, 0.2)
 a11-history-2160 | control | h-btn.h-selected | h=13; pad=6 12 6 12; font=16; radius=4; bg=rgb(30, 131, 170); color=rgb(240, 251, 255); border=0.5 rgba(255, 255, 255, 0.12)
 a11-history-2160 | font | 12 | buildStatusLine.buildLineName buildTileLabel histAxisCell histGutterSize histLegendText histScaleLabel histScaleLabel.histScaleBottom histScaleLabel.histScaleMid histVs mergeTierFee pickerLabel statusHint.statusHintOn tileCaption
-a11-history-2160 | font | 14 | h-btn.h-selected.segButton.histSeg.buttonOn h-btn.segButton.histSeg.histSegNext infoLabel infoValue pagerMore pagerText problemMoreButton problemText stableValue statusText tabLabel
+a11-history-2160 | font | 14 | h-btn.h-selected.segButton.histSeg.buttonOn h-btn.segButton.histSeg.histSegNext infoLabel infoValue pagerLabel.pagerLabelNext problemMoreButton problemText stableValue statusText tabLabel
 a11-history-2160 | font | 16 | areaNameText busCardTitle h-btn.actionButton.mergeAction.fitText span tileValue
 a11-history-2160 | font | 22 | h-panel-close
 a11-history-2160 | color | rgb(240, 251, 255) | areaNameText buildTileLabel h-btn.actionButton.mergeAction.fitText h-btn.h-selected.segButton.histSeg.buttonOn h-btn.segButton.histSeg.histSegNext h-panel-close infoLabel infoValue mergeTierFee pickerLabel problemText span stableValue statusHint.statusHintOn statusText tabLabel tileValue
-a11-history-2160 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle pagerMore problemMoreButton
-a11-history-2160 | color | rgba(240, 251, 255, 0.7) | histAxisCell histGutterSize histLegendText histScaleLabel histScaleLabel.histScaleBottom histScaleLabel.histScaleMid histVs infoLabel mergeTierFee pagerText pickerLabel tabLabel tileCaption
+a11-history-2160 | color | rgb(75, 195, 241) | buildStatusLine.buildLineName busCardTitle pagerLabel.pagerLabelNext problemMoreButton
+a11-history-2160 | color | rgba(240, 251, 255, 0.7) | histAxisCell histGutterSize histLegendText histScaleLabel histScaleLabel.histScaleBottom histScaleLabel.histScaleMid histVs infoLabel mergeTierFee pickerLabel tabLabel tileCaption
 a12-tab-lifts-1080 | control | h-btn.h-iconbtn.headerButton | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)
 a12-tab-lifts-1080 | control | areaName "Ash Flat" | h=26; pad=0 6 0 6; font=16; radius=4; bg=rgba(0, 0, 0, 0); color=rgb(240, 251, 255); border=-
 a12-tab-lifts-1080 | control | h-btn.h-iconbtn.headerButton #2 | h=24; pad=4 4 4 4; font=16; radius=4; bg=rgba(255, 255, 255, 0.06); color=rgb(240, 251, 255); border=1 rgba(255, 255, 255, 0.12)

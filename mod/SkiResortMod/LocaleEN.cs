@@ -737,7 +737,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PAGE_POSITION", "{N} / {COUNT}" },
                 { "SkiResort.Hub.PAGE_PREV", "Previous page" },
                 { "SkiResort.Hub.PAGE_NEXT", "Next page" },
-                { "SkiResort.Hub.PAGE_MORE", "More" },
+                { "SkiResort.Hub.PAGE_BACK", "Back" },
                 { "SkiResort.Hub.BUILD_GROUP[Lodges]", "Lodges" },
                 { "SkiResort.Hub.BUILD_GROUP[Services]", "Services" },
                 // The lift tool toggle on the Lifts tab.

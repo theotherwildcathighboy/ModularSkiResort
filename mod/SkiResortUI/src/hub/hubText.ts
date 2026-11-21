@@ -175,8 +175,8 @@ export const HUB_LOC = {
   problemTipSchoolNoGreenRun: ["SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while at least one <icon:green> run or cat track is <icon:openpatchy>."],
   pagePrev: ["SkiResort.Hub.PAGE_PREV", "Previous page"],
   pageNext: ["SkiResort.Hub.PAGE_NEXT", "Next page"],
-  /* T264: the hint beside the next arrow while a next page exists */
-  pageMore: ["SkiResort.Hub.PAGE_MORE", "More"],
+  /* T283: the pager's back button (bottom left, from page 2). The forward button names the next page (fit.tsx), "Next page" without a title */
+  pageBack: ["SkiResort.Hub.PAGE_BACK", "Back"],
   liftTool: ["SkiResort.Hub.LIFT_TOOL", "Lift tool"],
   liftToolTip: ["SkiResort.Hub.LIFT_TOOL_TIP", "Plan a lift line between two stations: Ctrl+Shift+L"],
   liftToolUnavailable: ["SkiResort.Hub.LIFT_TOOL_UNAVAILABLE", "Available once a city is loaded."],
