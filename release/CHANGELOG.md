@@ -68,7 +68,6 @@ Notes...
 **Lifts:**
 - Fixed-grip chairlift bullwheels now turn with the rope. They stand still while the lift is stopped or the game is paused.
 - New fixed-grip station art: the rope enters the station with no gap, at the line cable's width, and the base station's nose sheave train tilts with the first span.
-- Fixed-grip stations built before 1.0.4 get the turning bullwheel when a city loads.
 - On the fixed-grip base station, the communication wire from the towers now ends at a junction box instead of in midair.
 - Every lift base station has a low-voltage service pole and an electrical box.
 

@@ -64,7 +64,7 @@ if (curLong === undefined || curShort === undefined) { console.error("PublishCon
 const same = curLong.trim() === long && curShort === short;
 
 // The change log: release/CHANGELOG.md's newest entry, one line per bullet, into <ChangeLog>, without the three technical lines
-// (below). The docs page repeats its "Layout versions" line.
+// (below). The docs page leaves them out too.
 const cl = fs.readFileSync(path.join(ROOT, "release", "CHANGELOG.md"), "utf8").replace(/\r\n/g, "\n");
 // YYYY-MM-DD is the date placeholder of a patch entry until its upload day (RELEASE-CHECKLIST: fill the date at upload).
 const clStart = cl.search(/^## \d+\.\d+\.\d+ \(PDX version -?\d*, (unreleased|YYYY-MM-DD|\d{4}-\d{2}-\d{2})\)$/m);
@@ -75,7 +75,7 @@ const entry = (clEnd < 0 ? clRest : clRest.slice(0, clEnd)).split("\n").slice(1)
   .replace(/\n[ \t]+/g, " ")
   .replace(/ Draft notes \(check against the build at upload\):/, "");
 // Players get no technical header (owner, 2026-11-15): the three technical lines (save compatible, layout versions, do not load in
-// older versions) stay in CHANGELOG.md, GitHub and the docs site. The Paradox box opens with the first improvement group; a plain
+// older versions) stay in CHANGELOG.md and GitHub (not the docs site since 2026-11-22). The Paradox box opens with the first improvement group; a plain
 // "Saves from x load fine." line, when wanted, is an ordinary item in the entry.
 const log = entry.split("\n").filter((l) => !/^- (Save compatible with previous|Layout versions|Do not load in older versions):/.test(l))
   .join("\n").trim();
@@ -86,9 +86,11 @@ const logRe = /<ChangeLog>\n?([\s\S]*?)\n?[ \t]*<\/ChangeLog>/;
 const curLog = (x.match(logRe) || [])[1];
 if (curLog === undefined) { console.error("PublishConfiguration.xml: ChangeLog not found"); process.exit(2); }
 const sameLog = curLog.trim() === log;
-const layoutLine = (entry.match(/^- Layout versions: .*$/m) || [""])[0];
+// The docs page is for players too (2026-11-22): no technical lines there either. They live in CHANGELOG.md and GitHub only.
+if (!/^- Layout versions: /m.test(entry)) problems.push("CHANGELOG.md newest entry has no Layout versions line");
 const mdx = fs.readFileSync(path.join(ROOT, "docs-site", "src", "content", "docs", "changelog.mdx"), "utf8");
-if (!layoutLine || !mdx.includes(layoutLine)) problems.push("docs-site changelog.mdx does not carry the line: " + layoutLine);
+if (/^- (Save compatible with previous|Layout versions|Do not load in older versions):/m.test(mdx))
+  problems.push("docs-site changelog.mdx carries a technical line (save compatible / layout versions / do not load): remove it");
 
 const tokens = (long.match(/\{\{[A-Z_]+\}\}/g) || []).concat(x.match(/\{\{[A-Z_]+\}\}/g) || []);
 const access = (x.match(/<AccessLevel Value="([^"]*)"/) || [])[1];
