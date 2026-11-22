@@ -25,7 +25,7 @@ Template (copy above the newest entry):
 Notes...
 ```
 
-## 1.0.4 (PDX version 5, unreleased)
+## 1.0.4 (PDX version 5, 2026-11-22)
 
 - Save compatible with previous: yes
 - Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1, TrackPack 2, RulesStamp 1, PassPlan 1, PassArea 1
