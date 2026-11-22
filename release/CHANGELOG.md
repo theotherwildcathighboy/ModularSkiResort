@@ -25,7 +25,7 @@ Template (copy above the newest entry):
 Notes...
 ```
 
-## 1.0.4 (unreleased)
+## 1.0.4 (PDX version 5, unreleased)
 
 - Save compatible with previous: yes
 - Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1, TrackPack 2, RulesStamp 1, PassPlan 1, PassArea 1
@@ -50,9 +50,39 @@ Notes...
 - The build strip arrow is the same size as the Lifts, Runs and Buildings buttons.
 - With Snow visuals off in the game's Options, the Runs view says that the runs still work but show no snow.
 - A price slider no longer jumps back to its old value for a moment while the game is paused.
+- A click on the build strip arrow while a build tool is on ends the tool and closes the strip.
+- The pass lines show the early price and the price on sale now with its rise. The Demand word judges the price on sale now.
+- After a load, the Finances demand and tourist share lines wait for the first ski day instead of showing a stale word.
+- "Pass holder visits" counts visits by pass holders. The Passes sold tooltip gives the average price paid: each pass keeps the price of its sale.
 
 **Tourism:**
 - Cold weather no longer keeps tourists away while a ski area is open: the game's cold cut on new tourists now starts at -30 °C instead of -10 °C (new option, on by default).
+
+**Snow and runs:**
+- Runs now open only with snow from top to bottom. A bare run-out keeps a run closed, and the hub names the thin stretch.
+- New option "Runs need snow top to bottom" (on by default). Off brings back the old rule.
+- Snow guns now build a base on bare ground up to about 3 °C (37 °F). Before, that snow melted as fast as the guns made it. Snowmaking runs and cat tracks in mild climates open sooner and stay open longer.
+
+**Slope colors:**
+- New slope colors, off by default: the ground within 300 m of the cursor shows its slope in the run colors. The hub's Runs tab has a Slope colors button, and a key can be bound.
+- The run heat-map while you draw has smooth edges, like the slope colors.
+
+**Lifts:**
+- Fixed-grip chairlift bullwheels now turn with the rope. They stand still while the lift is stopped or the game is paused.
+- New fixed-grip station art: the rope enters the station with no gap, at the line cable's width, and the base station's nose sheave train tilts with the first span.
+- Fixed-grip stations built before 1.0.4 get the turning bullwheel when a city loads. New option "Moving parts for older lift stations" (on by default).
+- On the fixed-grip base station, the communication wire from the towers now ends at a junction box instead of in midair.
+- Every lift base station has a low-voltage service pole and an electrical box, also in older cities.
+
+**Buildings and art:**
+- New textures on the lodges, the Ski School, the patrol buildings, the Ski Bus Depot, the lift stations, the aerial tram and the Welcome Sign, also in older cities.
+- Sharper roofs on the aerial tram, detachable quad and gondola stations and on the A-Frame Day Lodge.
+- See-through gaps in walls and roof edges are closed.
+- The Swanky Grand Lodge has darker walnut walls with chocolate gables, and its clock tower has a belfry.
+- The moss on the Swanky Summit Lodge's terrace side fades in softly.
+- The fixed-grip counterweight is matte concrete instead of shiny paint.
+- The Ski School has a new pictogram: a skier on a sign tile.
+- The Welcome Sign is cleaned up: new header lettering, the new mark and new colors.
 
 ## 1.0.3 (PDX version 4, 2026-11-19)
 

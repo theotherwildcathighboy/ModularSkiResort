@@ -73,7 +73,7 @@ Open the Ski Resort hub (button at the top left). Its Start card lists the four 
 	<!--Link to the forum post where the mod can be discussed. PLACEHOLDER: the FORUM_URL token stands for the Paradox forum bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or empty the value if only Discord is used: the public gate of tools/sync-listing.js fails while any token is left. Whether the publisher accepts a token here at the unlisted upload is UNVERIFIED: if the publish refuses it, fill or empty the value first. VERIFIED 2026-11-12: the publisher refuses the token ("forumLinks: Must be of acceptable format for a Paradox forum url"), so the value stays empty until the flip-->
 	<ForumLink Value="https://forum.paradoxplaza.com/forum/threads/modular-ski-resort.1949673/" />
 	<!--Version of the mod. Semver MAJOR.MINOR.PATCH (RELEASE-CHECKLIST section 0); first public upload = 1.0.0-->
-	<ModVersion Value="1.0.3" />
+	<ModVersion Value="1.0.4" />
 	<!--Recommended version of the base game. A label shown on the mod page, not a gate: the publisher only checks that it is not empty and no game code compares it. Exact patch string, as 13 live CS2 mods use (for example 1.6.4f1); the wildcard form MAJOR.MINOR.* (1.6.* is what the in-game asset publisher writes and what 770 of 1426 cached mods use) is the alternative. Bump after each CS2 patch is checked; a metadata Update fixes it without a new version-->
 	<GameVersion Value="1.6.4f1" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -82,26 +82,58 @@ Open the Ski Resort hub (button at the top left). Its Start card lists the four 
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset. Source: the newest entry of release/CHANGELOG.md (tools/sync-listing.js copies it)-->
 	<ChangeLog>
-**Season passes:**
-- Passes go on sale before the winter and sell for four months. The price rises 15 % halfway through.
-- Sales end in the fifth month of the season. Guests who first arrive after that pay day tickets.
-- Tourists can now ski on a destination pass. They pay a reduced day fee, never skip a ski day over the price, and the fee counts as pass income.
-- The Finances view shows how long passes stay on sale, and the destination fee with the share of tourists on a pass.
-- Pass texts in the Finances and Guests views are reworded ("On a pass", "Season passes sold").
+**Prices per ski area:**
+- Each ski area has its own lift ticket price and its own season pass plan, set in its Finances view.
+- A pass plan has an early price, a rise size (up to +50 %, at most 3 rises) and a 12-month strip of the months on sale and the months a price rise starts.
+- Passes for the next season can go on sale from July. Late in the winter fewer households buy: the less winter is left, the fewer buyers.
+- Once a season's sales start, its prices stay as planned. A change applies from the next season, and the Finances view shows it.
+- A pass is good at the ski area that sold it. Passes of areas that use the default prices are good at every such area.
+- Pass sales count at each household's nearest ski area.
+- The price lines say in plain words how many guests a ticket price turns away and how many buyers a pass price puts off.
+- With a lift ticket price of 0, the pass controls stay in place, dimmed: there are no pass sales while lift tickets are off.
+- The Options prices are now the default for every ski area that has no price of its own. Lowering the default pass price after a season's sales started applies from the next season.
+- Old saves keep today's prices and calendar until you change an area's prices. This version adds new save data: do not load its saves in 1.0.3 or older (their prices fall back to the Options values).
 
-**Lift tickets:**
-- Tourist groups that the game sends on outings now react to the ticket price. Above the default ticket some walk away, about half at the highest ticket.
-- The Guests view counts them as "Turned away by price".
+**Hub:**
+- Long views turn pages with a footer row: Back on the left, dots in the middle, and a button on the right that names the next page (for example "Income and costs").
+- The view stays on the rows you are looking at while you change a price.
+- The Net row tooltip in History is short: year over year.
+- The build strip arrow is the same size as the Lifts, Runs and Buildings buttons.
+- With Snow visuals off in the game's Options, the Runs view says that the runs still work but show no snow.
+- A price slider no longer jumps back to its old value for a moment while the game is paused.
+- A click on the build strip arrow while a build tool is on ends the tool and closes the strip.
+- The pass lines show the early price and the price on sale now with its rise. The Demand word judges the price on sale now.
+- After a load, the Finances demand and tourist share lines wait for the first ski day instead of showing a stale word.
+- "Pass holder visits" counts visits by pass holders. The Passes sold tooltip gives the average price paid: each pass keeps the price of its sale.
 
-**Lodges:**
-- Lodge spending now follows the ticket price, damped: a higher ticket brings more per guest, but less than the ticket rises. At the default ticket nothing changes.
+**Tourism:**
+- Cold weather no longer keeps tourists away while a ski area is open: the game's cold cut on new tourists now starts at -30 °C instead of -10 °C (new option, on by default).
 
-**History:**
-- A revenue chart in the season block: income and costs by part on one scale, the net gap between them, and the pass share of lift income. Each part has a tooltip.
+**Snow and runs:**
+- Runs now open only with snow from top to bottom. A bare run-out keeps a run closed, and the hub names the thin stretch.
+- New option "Runs need snow top to bottom" (on by default). Off brings back the old rule.
+- Snow guns now build a base on bare ground up to about 3 °C (37 °F). Before, that snow melted as fast as the guns made it. Snowmaking runs and cat tracks in mild climates open sooner and stay open longer.
 
-**Behind the scenes:**
-- The mod now carries its real version number (1.0.3) instead of 1.0.0, so Skyve and the game show the right version.
-- Saves from 1.0.0 to 1.0.2 load as before.
+**Slope colors:**
+- New slope colors, off by default: the ground within 300 m of the cursor shows its slope in the run colors. The hub's Runs tab has a Slope colors button, and a key can be bound.
+- The run heat-map while you draw has smooth edges, like the slope colors.
+
+**Lifts:**
+- Fixed-grip chairlift bullwheels now turn with the rope. They stand still while the lift is stopped or the game is paused.
+- New fixed-grip station art: the rope enters the station with no gap, at the line cable's width, and the base station's nose sheave train tilts with the first span.
+- Fixed-grip stations built before 1.0.4 get the turning bullwheel when a city loads. New option "Moving parts for older lift stations" (on by default).
+- On the fixed-grip base station, the communication wire from the towers now ends at a junction box instead of in midair.
+- Every lift base station has a low-voltage service pole and an electrical box, also in older cities.
+
+**Buildings and art:**
+- New textures on the lodges, the Ski School, the patrol buildings, the Ski Bus Depot, the lift stations, the aerial tram and the Welcome Sign, also in older cities.
+- Sharper roofs on the aerial tram, detachable quad and gondola stations and on the A-Frame Day Lodge.
+- See-through gaps in walls and roof edges are closed.
+- The Swanky Grand Lodge has darker walnut walls with chocolate gables, and its clock tower has a belfry.
+- The moss on the Swanky Summit Lodge's terrace side fades in softly.
+- The fixed-grip counterweight is matte concrete instead of shiny paint.
+- The Ski School has a new pictogram: a skier on a sign tile.
+- The Welcome Sign is cleaned up: new header lettering, the new mark and new colors.
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme". PLACEHOLDER: the DISCORD_URL token stands for the Discord bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or delete this line if only the forum thread is used (the same gate and the same UNVERIFIED publisher behavior as ForumLink)-->
 	<ExternalLink Type="discord" Url="https://discord.com/channels/263634513861541888/1570379334672326736" />

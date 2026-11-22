@@ -277,11 +277,12 @@ function Get-NewerPersistedTypes([string]$stem) {
     $changelog = Join-Path $Repo 'release\CHANGELOG.md'
     $typeOf = @{}
     foreach ($m in [regex]::Matches([IO.File]::ReadAllText($layoutsCs), 'new Layout\("(\w+)", "(\w+)"')) { $typeOf[$m.Groups[2].Value] = $m.Groups[1].Value }
-    # Released entries only ("## 1.0.3 (PDX version 4, ...)"): the template and "(unreleased)" have no PDX version.
+    # Released entries only ("## 1.0.3 (PDX version 4, 2026-11-19)"): the template has no PDX version, and a prepared entry
+    # ("## 1.0.4 (PDX version 5, unreleased)", the form sync-listing.js reads) is not released yet.
     $entries = @()
     $current = $null
     foreach ($line in [IO.File]::ReadAllLines($changelog)) {
-        if ($line -match '^## (\d+\.\d+\.\d+) \(PDX version \d+') { $current = @{ version = [version]$Matches[1]; layouts = $null }; $entries += $current; continue }
+        if ($line -match '^## (\d+\.\d+\.\d+) \(PDX version \d+' -and $line -notmatch 'unreleased') { $current = @{ version = [version]$Matches[1]; layouts = $null }; $entries += $current; continue }
         if ($line -match '^## ') { $current = $null; continue }
         if ($current -and $null -eq $current.layouts -and $line -match '^- Layout versions: (.+)$') {
             $current.layouts = @($Matches[1] -split ',\s*' | ForEach-Object { ($_ -split '\s+')[0] })
